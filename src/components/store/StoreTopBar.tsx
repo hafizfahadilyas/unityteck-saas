@@ -42,6 +42,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
   onSignOut,
   onOpenStorefront,
   onOpenProducts,
+  onCustomizeTheme,
 }) => {
   const { activeStore, currentOrders, switchToMaster } = useTenant();
   const { t, locale } = usePrefs();
