@@ -216,9 +216,9 @@ function AdminContent() {
   const [storeTab, setStoreTabState] = useState(() => {
     try {
       const q = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') : null;
-      if (q && q !== 'inventory') return q;
+      if (q && q !== 'inventory' && q !== 'storefront') return q;
       const saved = typeof localStorage !== 'undefined' && localStorage.getItem('unityteck_store_tab');
-      if (saved && saved !== 'inventory') return saved;
+      if (saved && saved !== 'inventory' && saved !== 'storefront') return saved;
       return 'dashboard';
     } catch {
       return 'dashboard';
@@ -238,7 +238,7 @@ function AdminContent() {
   }, []);
 
   const setStoreTab = React.useCallback((tab: string) => {
-    const targetTab = tab === 'inventory' ? 'dashboard' : tab;
+    const targetTab = tab === 'inventory' || tab === 'storefront' ? 'dashboard' : tab;
     setStoreTabState(targetTab);
     try {
       localStorage.setItem('unityteck_store_tab', targetTab);
@@ -251,7 +251,7 @@ function AdminContent() {
   }, []);
 
   useEffect(() => {
-    if (storeTab === 'inventory') {
+    if (storeTab === 'inventory' || storeTab === 'storefront') {
       setStoreTab('dashboard');
     }
   }, [storeTab, setStoreTab]);
@@ -724,7 +724,6 @@ function AdminContent() {
                 onSearchChange={setStoreSearch}
                 canAccessMaster={showMasterChrome}
                 onSignOut={() => void requestLogout()}
-                onOpenStorefront={() => setStoreTab('storefront')}
                 onOpenProducts={() => setStoreTab('products')}
                 onCustomizeTheme={handleOpenCustomizeTheme}
                 searchPlaceholder={
@@ -739,7 +738,6 @@ function AdminContent() {
                       onCustomizeTheme={() => handleOpenCustomizeTheme()}
                     />
                   )}
-                  {storeTab === 'storefront' && <StoreFrontPreview isAdmin={true} />}
                   {storeTab === 'customers' && <StoreCustomers />}
                   {storeTab === 'marketing' && (
                     <StoreMarketingHub onNavigateTab={(tab) => setStoreTab(tab)} />
@@ -760,12 +758,8 @@ function AdminContent() {
                   {storeTab === 'shipping' && <StoreShipping />}
                   {storeTab === 'hosting' && <StoreHostingDomain />}
                   {(storeTab === 'backup' || storeTab === 'restore') && <StoreBackupRestoreCenter />}
-                  {storeTab === 'coupons' && (
-                    <StoreCoupons onViewStorefront={() => setStoreTab('storefront')} />
-                  )}
-                  {storeTab === 'themes' && (
-                    <StoreThemes onOpenStorefront={() => setStoreTab('storefront')} />
-                  )}
+                  {storeTab === 'coupons' && <StoreCoupons />}
+                  {storeTab === 'themes' && <StoreThemes />}
                   {storeTab === 'appstore' && <StoreAppStore />}
                   {storeTab === 'payments' && <StorePayments />}
                   {storeTab === 'settings' && <StoreSettings />}

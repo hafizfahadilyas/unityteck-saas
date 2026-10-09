@@ -43,10 +43,10 @@ import {
 } from './themeTemplates/templateData';
 
 interface StoreThemesProps {
-  onOpenStorefront: () => void;
+  onOpenStorefront?: () => void;
 }
 
-export const StoreThemes: React.FC<StoreThemesProps> = ({ onOpenStorefront }) => {
+export const StoreThemes: React.FC<StoreThemesProps> = () => {
   const {
     activeStore,
     themes,
@@ -277,21 +277,6 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({ onOpenStorefront }) =>
           >
             <Palette className="w-4 h-4" />
             <span>{isAr ? 'محرر التصميم البصري' : 'Visual Design Editor'}</span>
-          </button>
-
-          {/* Storefront Preview in Tab */}
-          <button
-            type="button"
-            onClick={onOpenStorefront}
-            className="px-4 py-2.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-colors cursor-pointer hover:opacity-90"
-            style={{
-              background: 'var(--hover-bg)',
-              borderColor: 'var(--border)',
-              color: 'var(--text)',
-            }}
-          >
-            <Eye className="w-4 h-4" />
-            <span>{isAr ? 'معاينة المتجر المباشر' : 'Preview Live Storefront'}</span>
           </button>
 
           {/* Open in New Tab Button */}

@@ -74,7 +74,6 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({ currentTab, onSelect
   const navItems = useMemo(() => {
     const all = [
       { id: 'dashboard', icon: LayoutDashboard },
-      { id: 'storefront', icon: Globe },
       { id: 'orders', icon: ShoppingCart },
       { id: 'products', icon: Package },
       { id: 'media', icon: ImageIcon },

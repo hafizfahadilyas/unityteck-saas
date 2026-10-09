@@ -219,20 +219,19 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                   <span>{isAr ? 'تخصيص الثيم والمحرر البصري' : 'Customize Theme'}</span>
                 </button>
               ) : null}
-              {onOpenStorefront ? (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setShowQuickActions(false);
-                    onOpenStorefront();
-                  }}
-                  className="w-full px-3 py-2 text-start hover:opacity-80 flex items-center gap-2 cursor-pointer"
-                >
+              <a
+                href={`${typeof window !== 'undefined' ? window.location.origin : ''}/?tab=storefront&fullscreen=1`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setShowQuickActions(false)}
+                className="w-full px-3 py-2 text-start hover:opacity-80 flex items-center justify-between cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
                   <Globe className="w-4 h-4" style={{ color: 'var(--accent)' }} aria-hidden />
-                  <span>{t('navLiveStorefront')}</span>
-                </button>
-              ) : null}
+                  <span>{isAr ? 'عرض المتجر المباشر (نافذة جديدة)' : t('navLiveStorefront')}</span>
+                </div>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+              </a>
               {onOpenProducts ? (
                 <button
                   type="button"
