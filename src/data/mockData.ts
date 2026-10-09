@@ -585,7 +585,7 @@ export const INITIAL_THEMES: ThemeItem[] = [
     tagline:
       'الثيم الحصري المعتمد لمتجر هدايا مكة ومحلات الزهور الفاخرة. يضم ٢٠ قسماً تفاعلياً، سلايدر ثلاثي الأبعاد، ريلز وفيديوهات تفاعلية، طلب واتساب وفواتير إلكترونية معتمدة.',
     previewColor: '#102a1c',
-    thumbnail: 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=800&q=80',
+    thumbnail: '/src/assets/images/hadaya_luxury_master_hero_1791217937117.jpg',
     badge: 'الثيم المعتمد الحصري النشط',
     homepageStyles: [
       'Default Commerce',
@@ -605,7 +605,7 @@ export const INITIAL_THEMES: ThemeItem[] = [
     tagline:
       'تصميم شبكي عصري فائق السرعة يعتمد على أسلوب Bento Grid وبطاقات منتجات ديناميكية وشراء فوري ونوافذ منبثقة سريعة.',
     previewColor: '#0f172a',
-    thumbnail: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80',
+    thumbnail: '/src/assets/images/mecca_gifts_luxury_3d_slider_1791217013014.jpg',
     badge: 'الأكثر سرعة وأداءً',
     homepageStyles: [
       'Bento Grid Home',
@@ -624,7 +624,7 @@ export const INITIAL_THEMES: ThemeItem[] = [
     tagline:
       'طابع ملكي مخصص لمتاجر العطور الفاخرة والعود والبخور والمجوهرات السويسرية بخطوط كلاسيكية وألوان ذهبية داكنة.',
     previewColor: '#1e140a',
-    thumbnail: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80',
+    thumbnail: '/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
     badge: 'طابع راقٍ وفاخر',
     homepageStyles: [
       'Royal Gold Home',
@@ -643,7 +643,7 @@ export const INITIAL_THEMES: ThemeItem[] = [
     tagline:
       'مصمم خصيصاً لمتاجر التمور الفاخرة، القهوة السعودية، الحلويات الحجازية وباقات الضيافة التراثية الأصيلة.',
     previewColor: '#3d2612',
-    thumbnail: 'https://images.unsplash.com/photo-1579618218290-a3304169727d?auto=format&fit=crop&w=800&q=80',
+    thumbnail: '/src/assets/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg',
     badge: 'تراث سعودي أصيل',
     homepageStyles: [
       'Heritage Welcome',

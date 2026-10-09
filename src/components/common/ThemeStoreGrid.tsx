@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef } from 'react';
-import { Check, Download, Lock, Palette, Sparkles, Star, Globe, Upload, FileJson } from 'lucide-react';
+import { Check, Download, Lock, Palette, Sparkles, Star, Globe, Upload, FileJson, Eye, ExternalLink } from 'lucide-react';
 import type { ThemeItem } from '../../types';
 import type { Store } from '../../types';
 import { planHasFullThemes, planInfoForStore } from '../../auth/plans';
@@ -192,7 +192,7 @@ export const ThemeStoreGrid: React.FC<Props> = ({
           return (
             <article
               key={theme.id}
-              className="rounded-2xl border overflow-hidden flex flex-col group transition-all duration-200 hover:shadow-lg"
+              className="rounded-2xl border overflow-hidden flex flex-col group transition-all duration-200 hover:shadow-xl"
               style={{
                 background: 'var(--surface)',
                 borderColor: active ? 'var(--accent)' : 'var(--border)',
@@ -200,66 +200,43 @@ export const ThemeStoreGrid: React.FC<Props> = ({
                 opacity: locked ? 0.92 : 1,
               }}
             >
-              {/* Theme Real Thumbnail Preview with High-Contrast Overlay */}
-              <div className="h-44 w-full relative overflow-hidden bg-slate-900 select-none">
-                {theme.thumbnail ? (
-                  <img
-                    src={theme.thumbnail}
-                    alt={theme.name}
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                ) : null}
-                <div
-                  className="absolute inset-0 -z-0"
-                  style={{
-                    background: `linear-gradient(135deg, ${theme.previewColor || '#064e3b'}, #04222b)`,
-                  }}
-                />
-                {/* Gradient tint guaranteeing white text visibility */}
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background: 'linear-gradient(to top, rgba(2, 26, 33, 0.95) 0%, rgba(2, 26, 33, 0.55) 50%, rgba(0, 0, 0, 0.35) 100%)',
-                  }}
+              {/* Theme Screenshot Preview with Smooth Hover Scroll */}
+              <div className="relative h-52 w-full overflow-hidden bg-slate-950 select-none border-b" style={{ borderColor: 'var(--border)' }}>
+                <img
+                  src={theme.thumbnail || '/src/assets/images/hadaya_luxury_master_hero_1791217937117.jpg'}
+                  alt={theme.name}
+                  className="w-full h-[520px] object-cover object-top transition-transform duration-[3500ms] ease-in-out group-hover:translate-y-[-58%]"
                 />
 
-                <div className="relative z-10 h-full p-3.5 flex flex-col justify-between text-white">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs text-white border border-white/20">
-                      {theme.category}
+                <div className="absolute top-3 start-3 end-3 flex items-center justify-between z-10 pointer-events-none">
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-slate-950/80 text-white backdrop-blur-xs border border-white/20 shadow-md">
+                    {theme.category}
+                  </span>
+                  {locked ? (
+                    <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-black/70 text-white backdrop-blur-xs inline-flex items-center gap-1 border border-white/20">
+                      <Lock className="w-3 h-3" /> Pro
                     </span>
-                    {locked ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/70 text-white backdrop-blur-xs inline-flex items-center gap-1 border border-white/20">
-                        <Lock className="w-3 h-3" /> Pro
-                      </span>
-                    ) : meta.priceSar === 0 ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-xs">
-                        Included
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black shadow-xs">
-                        {money(meta.priceSar)}/mo
-                      </span>
-                    )}
-                  </div>
+                  ) : meta.priceSar === 0 ? (
+                    <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-600 text-white shadow-md">
+                      Included Free
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-amber-400 text-slate-950 shadow-md">
+                      {money(meta.priceSar)}/mo
+                    </span>
+                  )}
+                </div>
 
-                  <div>
-                    <h3 className="text-sm font-bold text-white drop-shadow-md line-clamp-1">
-                      {theme.name}
-                    </h3>
-                    <div className="flex items-center justify-between text-[10px] text-teal-200 mt-1">
-                      <span className="flex items-center gap-1">
-                        <Star className="w-3 h-3 fill-amber-300 text-amber-300" />
-                        <strong className="text-white">{theme.rating}</strong> · {meta.publisher}
-                      </span>
-                      <span className="font-semibold px-1.5 py-0.5 rounded bg-black/40 text-teal-300 border border-white/10">
-                        {theme.tier === 'full' ? 'Multi-page' : 'Single Bento'}
-                      </span>
-                    </div>
-                  </div>
+                {/* Hover Details & Preview Action */}
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-20">
+                  <button
+                    type="button"
+                    onClick={() => install(theme, meta)}
+                    className="px-4 py-2 rounded-xl bg-slate-900/95 hover:bg-slate-900 text-white text-xs font-black shadow-xl flex items-center gap-1.5 transition-all transform hover:scale-105 cursor-pointer border border-white/20"
+                  >
+                    <Eye className="w-4 h-4 text-emerald-400" />
+                    <span>Details & Preview</span>
+                  </button>
                 </div>
               </div>
 
