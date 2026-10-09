@@ -581,11 +581,11 @@ export const INITIAL_THEMES: ThemeItem[] = [
   {
     id: 'theme-flora-luxe',
     name: 'هدايا مكة — ثيم الزهور الفاخرة (Mecca Gifts — Luxury Flowers Theme)',
-    category: 'Luxury',
+    category: 'Luxury Floral',
     tagline:
       'الثيم الحصري المعتمد لمتجر هدايا مكة ومحلات الزهور الفاخرة. يضم ٢٠ قسماً تفاعلياً، سلايدر ثلاثي الأبعاد، ريلز وفيديوهات تفاعلية، طلب واتساب وفواتير إلكترونية معتمدة.',
     previewColor: '#102a1c',
-    thumbnail: '/src/assets/images/hadaya_luxury_master_hero_1791217937117.jpg',
+    thumbnail: 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=800&q=80',
     badge: 'الثيم المعتمد الحصري النشط',
     homepageStyles: [
       'Default Commerce',
@@ -597,6 +597,63 @@ export const INITIAL_THEMES: ThemeItem[] = [
     activeStoresCount: 1,
     isDefault: true,
     rating: 5.0,
+  },
+  {
+    id: 'theme-modern-bento',
+    name: 'ثيم المتجر العصري — شبكة بينتو (Modern Bento Minimal Theme)',
+    category: 'Modern Tech',
+    tagline:
+      'تصميم شبكي عصري فائق السرعة يعتمد على أسلوب Bento Grid وبطاقات منتجات ديناميكية وشراء فوري ونوافذ منبثقة سريعة.',
+    previewColor: '#0f172a',
+    thumbnail: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80',
+    badge: 'الأكثر سرعة وأداءً',
+    homepageStyles: [
+      'Bento Grid Home',
+      'Minimal Showcase',
+      'Flash Sale Focus',
+    ],
+    tier: 'full',
+    activeStoresCount: 3,
+    isDefault: false,
+    rating: 4.9,
+  },
+  {
+    id: 'theme-boutique-luxury',
+    name: 'بوتيك العطور والمجوهرات الملكي (Royal Boutique & Luxury Perfumes)',
+    category: 'Royal Boutique',
+    tagline:
+      'طابع ملكي مخصص لمتاجر العطور الفاخرة والعود والبخور والمجوهرات السويسرية بخطوط كلاسيكية وألوان ذهبية داكنة.',
+    previewColor: '#1e140a',
+    thumbnail: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80',
+    badge: 'طابع راقٍ وفاخر',
+    homepageStyles: [
+      'Royal Gold Home',
+      'Perfume Showcase',
+      'Jewelry VIP',
+    ],
+    tier: 'full',
+    activeStoresCount: 2,
+    isDefault: false,
+    rating: 4.95,
+  },
+  {
+    id: 'theme-heritage-dates',
+    name: 'التمور والضيافة السعودية الأصيلة (Saudi Heritage Dates & Coffee)',
+    category: 'Saudi Heritage',
+    tagline:
+      'مصمم خصيصاً لمتاجر التمور الفاخرة، القهوة السعودية، الحلويات الحجازية وباقات الضيافة التراثية الأصيلة.',
+    previewColor: '#3d2612',
+    thumbnail: 'https://images.unsplash.com/photo-1579618218290-a3304169727d?auto=format&fit=crop&w=800&q=80',
+    badge: 'تراث سعودي أصيل',
+    homepageStyles: [
+      'Heritage Welcome',
+      'Saudi Coffee Bar',
+      'Dates Gift Boxes',
+    ],
+    tier: 'full',
+    activeStoresCount: 2,
+    isDefault: false,
+    rating: 4.88,
   },
 ];
 

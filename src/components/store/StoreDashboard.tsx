@@ -36,6 +36,7 @@ import {
   Check,
   Lock,
   Globe,
+  Palette,
 } from 'lucide-react';
 import { useToast } from '../common/ToastProvider';
 import {
@@ -51,6 +52,7 @@ import {
 
 interface StoreDashboardProps {
   onNavigateTab: (tab: string) => void;
+  onCustomizeTheme?: () => void;
 }
 
 const PAGE_SIZE = 5;
@@ -349,12 +351,13 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab })
           </a>
           <button
             type="button"
-            onClick={() => onNavigateTab('storefront')}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1.5 shadow-xs transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+            onClick={() => (onCustomizeTheme ? onCustomizeTheme() : onNavigateTab('themes'))}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 shadow-xs transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
             style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+            title={isAr ? 'تخصيص الثيم وتصميم صفحات المتجر' : 'Customize Theme & Pages'}
           >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span>{t('storefrontPreview')}</span>
+            <Palette className="w-3.5 h-3.5 text-emerald-600" />
+            <span>{isAr ? 'تخصيص الثيم' : 'Customize Theme'}</span>
           </button>
           <div
             className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer transition-colors shadow-xs"
@@ -1068,12 +1071,19 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab })
               <div className="mt-4 flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
-                  onClick={() => onNavigateTab('storefront')}
+                  onClick={() => (onCustomizeTheme ? onCustomizeTheme() : onNavigateTab('themes'))}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all hover:bg-emerald-50"
                   style={{ background: '#ffffff', color: '#04222b' }}
                 >
-                  <ExternalLink className="w-3.5 h-3.5" style={{ color: '#0d9488' }} />
-                  <span>{t('previewStore')}</span>
+                  <Palette className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{isAr ? 'تخصيص الثيم وتصميم الصفحات' : 'Customize Theme'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab('themes')}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-white/25 hover:bg-white/10 transition-colors cursor-pointer text-white"
+                >
+                  <span>{isAr ? 'إدارة الثيمات' : 'Theme Manager'}</span>
                 </button>
                 <button
                   type="button"

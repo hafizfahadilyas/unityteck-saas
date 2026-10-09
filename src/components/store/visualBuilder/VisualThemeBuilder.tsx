@@ -82,6 +82,8 @@ import {
   FolderHeart,
   AlertTriangle,
   RefreshCw,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 
 import {
@@ -155,11 +157,15 @@ import {
   MAWAJEEB_PRODUCTS,
   LUXURY_SETS,
 } from '../../../themes/meccaGifts/data/mockData';
+import { BuilderAiAssistant } from './ai/BuilderAiAssistant';
+import { BuilderWidgetLibrary, type WidgetDefinition } from './widgets/BuilderWidgetLibrary';
 
-interface VisualThemeBuilderProps {
+export interface VisualThemeBuilderProps {
   isOpen: boolean;
   onClose: () => void;
   onPublishSuccess?: () => void;
+  themeId?: string;
+  initialPage?: PreviewPage;
 }
 
 type DeviceMode = 'desktop' | 'laptop' | 'tablet' | 'mobile';
@@ -608,21 +614,50 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   isOpen,
   onClose,
   onPublishSuccess,
+  themeId,
+  initialPage,
 }) => {
-  const { activeStore, currentProducts, setStoreHomepageStyle, storeActiveHomepage } = useTenant();
+  const {
+    activeStore,
+    currentProducts,
+    setStoreTheme,
+    setStoreHomepageStyle,
+    storeActiveTheme,
+    storeActiveHomepage,
+    themes,
+  } = useTenant();
   const { locale, setLocale, money } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
 
+  const liveStoreThemeId = storeActiveTheme[activeStore.id] || 'theme-flora-luxe';
+  const [currentThemeId, setCurrentThemeId] = useState<string>(() => themeId || liveStoreThemeId);
+  const currentThemeObj = useMemo(
+    () => themes.find((t) => t.id === currentThemeId) || themes[0],
+    [themes, currentThemeId],
+  );
+  const isEditingActiveTheme = currentThemeId === liveStoreThemeId;
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Sync if themeId prop changes
+  useEffect(() => {
+    if (themeId && themeId !== currentThemeId) {
+      setCurrentThemeId(themeId);
+    }
+  }, [themeId]);
+
   // Builder Viewport & Page Navigation
   const [device, setDevice] = useState<DeviceMode>('desktop');
-  const [previewPage, setPreviewPage] = useState<PreviewPage>('home');
+  const [previewPage, setPreviewPage] = useState<PreviewPage>(() => initialPage || 'home');
   const [selectedBlockId, setSelectedBlockId] = useState<string>('sec_natural_flowers');
-  const [activeTab, setActiveTab] = useState<'content' | 'templates' | 'styling' | 'layout' | 'code'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'templates' | 'styling' | 'layout' | 'code' | 'ai'>('content');
   const [canvasDarkMode, setCanvasDarkMode] = useState(false);
+  const [previewModeOnly, setPreviewModeOnly] = useState(false);
+  const [leftTab, setLeftTab] = useState<'widgets' | 'layers'>('widgets');
 
   // Topbar Dropdown Menus State
   const [pageDropdownOpen, setPageDropdownOpen] = useState(false);
+  const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
   const [seasonDropdownOpen, setSeasonDropdownOpen] = useState(false);
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
   const [showAddSectionModal, setShowAddSectionModal] = useState(false);
@@ -1011,6 +1046,35 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     setCustomTemplatesList(list);
   }, [activeStore.id, selectedBlock?.type]);
 
+  // Undo & Redo History
+  const [history, setHistory] = useState<BlockElement[][]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
+
+  useEffect(() => {
+    if (blocks.length > 0 && history.length === 0) {
+      setHistory([blocks]);
+      setHistoryIndex(0);
+    }
+  }, [blocks, history.length]);
+
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      const prev = history[historyIndex - 1];
+      setHistoryIndex((idx) => idx - 1);
+      setBlocks(prev);
+      toast(isAr ? 'تم التراجع خطوة للخلف' : 'Undo step', 'info');
+    }
+  }, [historyIndex, history, isAr, toast]);
+
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const next = history[historyIndex + 1];
+      setHistoryIndex((idx) => idx + 1);
+      setBlocks(next);
+      toast(isAr ? 'تمت إعادة الخطوة' : 'Redo step', 'info');
+    }
+  }, [historyIndex, history, isAr, toast]);
+
   // Optimized Throttled Mouse Dragging Listeners
   useEffect(() => {
     let animFrameId: number | null = null;
@@ -1061,32 +1125,36 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     };
   }, [isDraggingLeft, isDraggingRight, isAr]);
 
-  // Session Persistence & Debounced Auto-Save (Store Isolated)
+  // Session Persistence & Debounced Auto-Save (Store & Theme Isolated)
+  const draftStorageKey = `selia_builder_draft_${activeStore.id}_${currentThemeId}`;
+
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
         setSaveStatus('saving');
         const draftData = {
+          themeId: currentThemeId,
           blocks,
           seasonalTheme,
           typographySettings,
           mobileMenuIcon,
           updatedAt: new Date().toISOString(),
         };
-        localStorage.setItem(`selia_builder_draft_${activeStore.id}`, JSON.stringify(draftData));
+        localStorage.setItem(draftStorageKey, JSON.stringify(draftData));
         setLastSavedTime(new Date().toLocaleTimeString(isAr ? 'ar-SA' : 'en-US'));
         setSaveStatus('saved');
+        setHasUnsavedChanges(false);
       } catch {
         setSaveStatus('error');
       }
     }, 800);
     return () => clearTimeout(timer);
-  }, [blocks, seasonalTheme, typographySettings, mobileMenuIcon, activeStore.id, isAr]);
+  }, [blocks, seasonalTheme, typographySettings, mobileMenuIcon, activeStore.id, currentThemeId, draftStorageKey, isAr]);
 
-  // Initial Restore on mount (Store Isolated with Error Auto-Fix)
+  // Initial Restore on mount or when themeId changes (Store & Theme Isolated)
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(`selia_builder_draft_${activeStore.id}`);
+      const saved = localStorage.getItem(draftStorageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.blocks && Array.isArray(parsed.blocks) && parsed.blocks.length > 0) {
@@ -1112,7 +1180,95 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     } catch {
       // Auto-healed with defaults
     }
-  }, [activeStore.id]);
+  }, [activeStore.id, currentThemeId, draftStorageKey]);
+
+  // Add Widget from Library
+  const handleAddWidget = useCallback((widget: WidgetDefinition) => {
+    const newId = `widget_${widget.type}_${Date.now()}`;
+    const newBlock: BlockElement = {
+      id: newId,
+      type: widget.type,
+      titleAr: widget.titleAr,
+      titleEn: widget.titleEn,
+      visible: true,
+      templateStyle: widget.templateStyle,
+      settings: { ...widget.defaultSettings },
+    };
+    setBlocks((prev) => [...prev, newBlock]);
+    setSelectedBlockId(newId);
+    setHasUnsavedChanges(true);
+    toast(
+      isAr
+        ? `تمت إضافة العنصر: "${widget.titleAr}" إلى الصفحة!`
+        : `Added widget "${widget.titleEn}" to page!`,
+      'success',
+    );
+  }, [isAr, toast]);
+
+  // AI Content Application
+  const handleAiApplyContent = useCallback((content: {
+    titleAr?: string;
+    titleEn?: string;
+    subtitleAr?: string;
+    subtitleEn?: string;
+    contentAr?: string;
+    contentEn?: string;
+    seoTitleAr?: string;
+    seoMetaDescAr?: string;
+  }) => {
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id === selectedBlockId) {
+          return {
+            ...b,
+            titleAr: content.titleAr || b.titleAr,
+            titleEn: content.titleEn || b.titleEn,
+            settings: {
+              ...b.settings,
+              ...(content.titleAr ? { titleAr: content.titleAr, headingAr: content.titleAr, mainTitleAr: content.titleAr } : {}),
+              ...(content.titleEn ? { titleEn: content.titleEn, headingEn: content.titleEn, mainTitleEn: content.titleEn } : {}),
+              ...(content.subtitleAr ? { subtitleAr: content.subtitleAr, subheadingAr: content.subtitleAr } : {}),
+              ...(content.subtitleEn ? { subtitleEn: content.subtitleEn, subheadingEn: content.subtitleEn } : {}),
+              ...(content.contentAr ? { textAr: content.contentAr } : {}),
+              ...(content.contentEn ? { textEn: content.contentEn } : {}),
+            },
+          };
+        }
+        return b;
+      }),
+    );
+    setHasUnsavedChanges(true);
+    toast(
+      isAr ? 'تم تطبيق اقتراح الذكاء الاصطناعي بنجاح!' : 'AI content applied successfully!',
+      'success',
+    );
+  }, [selectedBlockId, isAr, toast]);
+
+  // AI Add Section
+  const handleAiAddSection = useCallback((sec: {
+    type: string;
+    titleAr: string;
+    titleEn: string;
+    templateStyle: string;
+  }) => {
+    const newId = `sec_ai_${sec.type}_${Date.now()}`;
+    const newBlock: BlockElement = {
+      id: newId,
+      type: sec.type,
+      titleAr: sec.titleAr,
+      titleEn: sec.titleEn,
+      visible: true,
+      templateStyle: sec.templateStyle,
+      settings: {},
+    };
+    setBlocks((prev) => [...prev, newBlock]);
+    setSelectedBlockId(newId);
+    setHasUnsavedChanges(true);
+    toast(
+      isAr ? `تمت إضافة القسم المقترح "${sec.titleAr}"` : `Added suggested section "${sec.titleEn}"`,
+      'success',
+    );
+  }, [isAr, toast]);
 
   // Handle Updates to Settings
   const handleUpdateBlockSetting = useCallback((key: string, value: any) => {
@@ -1448,24 +1604,30 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       full.general.customFontUrl = typographySettings.customFontUrl;
       full.general.mobileMenuIcon = mobileMenuIcon;
 
+      // Activate published theme for this store
+      setStoreTheme(activeStore.id, currentThemeId);
+      setStoreHomepageStyle(activeStore.id, seasonalTheme);
+
       // Write to Store Isolated Theme Database
       writeAllThemeSettings(activeStore.id, full);
 
-      // Save draft
+      // Save draft under isolated theme key
       const draftData = {
+        themeId: currentThemeId,
         blocks,
         seasonalTheme,
         typographySettings,
         mobileMenuIcon,
         updatedAt: new Date().toISOString(),
       };
-      localStorage.setItem(`selia_builder_draft_${activeStore.id}`, JSON.stringify(draftData));
+      localStorage.setItem(draftStorageKey, JSON.stringify(draftData));
       setLastSavedTime(new Date().toLocaleTimeString(isAr ? 'ar-SA' : 'en-US'));
+      setHasUnsavedChanges(false);
 
       toast(
         isAr
-          ? 'تم نشر التعديلات بنجاح! متجرك المباشر والواجهات تم تحديثها فوراً وبدون إعادة تحميل.'
-          : 'Theme Builder changes published live! Live storefront updated instantly.',
+          ? 'تم نشر التعديلات وتفعيل الثيم بنجاح على المتجر المباشر!'
+          : 'Theme changes and configuration published live!',
         'success',
       );
       if (onPublishSuccess) onPublishSuccess();
@@ -1480,16 +1642,18 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   const handleSaveDraft = () => {
     try {
       const draftData = {
+        themeId: currentThemeId,
         blocks,
         seasonalTheme,
         typographySettings,
         mobileMenuIcon,
         updatedAt: new Date().toISOString(),
       };
-      localStorage.setItem(`selia_builder_draft_${activeStore.id}`, JSON.stringify(draftData));
+      localStorage.setItem(draftStorageKey, JSON.stringify(draftData));
       setLastSavedTime(new Date().toLocaleTimeString(isAr ? 'ar-SA' : 'en-US'));
+      setHasUnsavedChanges(false);
       toast(
-        isAr ? 'تم حفظ مسودة التصميم بنجاح في الجلسة المحلية' : 'Design draft saved successfully!',
+        isAr ? 'تم حفظ مسودة التصميم بنجاح' : 'Design draft saved successfully!',
         'success',
       );
     } catch {
@@ -1614,6 +1778,78 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                         <span>{isAr ? p.labelAr : p.labelEn}</span>
                       </span>
                       {isActive && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* THEME SELECTOR & ACTIVE STATUS */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setThemeDropdownOpen(!themeDropdownOpen);
+                setPageDropdownOpen(false);
+                setSeasonDropdownOpen(false);
+                setToolsDropdownOpen(false);
+              }}
+              className="px-3 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-950 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+            >
+              <Palette className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span className="truncate max-w-[110px] sm:max-w-[150px]">
+                {currentThemeObj?.name || 'Theme'}
+              </span>
+              {isEditingActiveTheme ? (
+                <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.5 rounded font-bold">
+                  {isAr ? 'النشط' : 'Live'}
+                </span>
+              ) : (
+                <span className="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-bold">
+                  {isAr ? 'مسودة' : 'Draft'}
+                </span>
+              )}
+              <ChevronDown className={`w-3.5 h-3.5 text-indigo-400 transition-transform ${themeDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {themeDropdownOpen && (
+              <div className="absolute top-full mt-1.5 start-0 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 z-50 space-y-1 animate-in fade-in-50 zoom-in-95 duration-150">
+                <div className="px-2.5 py-1 text-[10px] font-bold uppercase text-slate-400 border-b border-slate-100">
+                  {isAr ? 'اختر الثيم للتحرير والمعاينة:' : 'Select Theme to Customize:'}
+                </div>
+                {themes.map((t) => {
+                  const isCurrent = t.id === currentThemeId;
+                  const isLive = t.id === liveStoreThemeId;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        if (hasUnsavedChanges) {
+                          const proceed = window.confirm(
+                            isAr
+                              ? 'لديك تعديلات غير محفوظة في الثيم الحالي، هل تريد الانتقال لثيم آخر؟'
+                              : 'You have unsaved changes. Switch theme anyway?',
+                          );
+                          if (!proceed) return;
+                        }
+                        setCurrentThemeId(t.id);
+                        setThemeDropdownOpen(false);
+                      }}
+                      className={`w-full p-2 rounded-xl text-start flex flex-col gap-0.5 transition-colors cursor-pointer ${
+                        isCurrent ? 'bg-indigo-50 border border-indigo-200' : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-900">
+                        <span className="truncate">{t.name}</span>
+                        {isLive && (
+                          <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
+                            {isAr ? 'النشط بالمتجر' : 'Active Store'}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-400 truncate">{t.tagline}</span>
                     </button>
                   );
                 })}
@@ -1809,6 +2045,43 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             <span className="hidden md:inline">{isAr ? 'الأكواد القصيرة' : 'Shortcodes'}</span>
           </button>
 
+          {/* Undo & Redo History */}
+          <div className="flex items-center gap-0.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={historyIndex <= 0}
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              title={isAr ? 'تراجع (Undo)' : 'Undo'}
+            >
+              <Undo2 className="w-3.5 h-3.5 rtl:-scale-x-100" />
+            </button>
+            <button
+              type="button"
+              onClick={handleRedo}
+              disabled={historyIndex >= history.length - 1}
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              title={isAr ? 'إعادة (Redo)' : 'Redo'}
+            >
+              <Redo2 className="w-3.5 h-3.5 rtl:-scale-x-100" />
+            </button>
+          </div>
+
+          {/* Live Preview Mode Toggle */}
+          <button
+            type="button"
+            onClick={() => setPreviewModeOnly(!previewModeOnly)}
+            className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-2xs ${
+              previewModeOnly
+                ? 'bg-amber-500 text-white border-amber-600 shadow-amber-200'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+            }`}
+            title={isAr ? 'معاينة حية للمتجر كزائر حقيقي' : 'Live Store Preview'}
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">{isAr ? (previewModeOnly ? 'إنهاء المعاينة' : 'معاينة المتجر') : (previewModeOnly ? 'Exit Preview' : 'Preview')}</span>
+          </button>
+
           {/* Save Draft */}
           <button
             type="button"
@@ -1831,6 +2104,23 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         </div>
       </header>
 
+      {/* Live Preview Notification Banner */}
+      {previewModeOnly && (
+        <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold shadow-md z-40 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <Eye className="w-4 h-4" />
+            <span>{isAr ? 'وضع المعاينة الحية المباشرة — تصفح المتجر بكامل ميزاته كما يراه العملاء' : 'Live Store Preview Mode — Experience your store as customers see it'}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPreviewModeOnly(false)}
+            className="px-3 py-1 bg-white text-amber-900 rounded-lg hover:bg-amber-50 cursor-pointer shadow-xs font-extrabold text-xs transition-all hover:scale-105"
+          >
+            {isAr ? 'إنهاء المعاينة والعودة للتعديل' : 'Exit Preview & Return to Editor'}
+          </button>
+        </div>
+      )}
+
       {/* ========================================================
           2. THREE-PANEL ELEMENTOR WORKSPACE WITH MOUSE RESIZING
           ======================================================== */}
@@ -1838,102 +2128,132 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         {/* ========================================================
             LEFT SIDEBAR: BLOCKS & LAYOUT OUTLINE (RESIZABLE)
             ======================================================== */}
-        {leftSidebarVisible ? (
+        {leftSidebarVisible && !previewModeOnly ? (
           <aside
             style={{ width: `${leftSidebarWidth}px` }}
             className="bg-white border-e border-slate-200 flex flex-col shrink-0 relative select-none"
           >
-            {/* Header */}
-            <div className="p-3.5 border-b border-slate-200 flex items-center justify-between text-xs font-bold text-slate-800">
-              <span className="flex items-center gap-1.5">
-                <Layers className="w-4 h-4 text-indigo-600" />
-                <span>{isAr ? 'هيكل وأقسام الصفحة' : 'Page Blocks Structure'}</span>
-              </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
-                {blocks.length} {isAr ? 'أقسام' : 'blocks'}
-              </span>
-            </div>
-
-            {/* Blocks List */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-              {blocks.map((b, idx) => {
-                const isSelected = selectedBlockId === b.id;
-                const BIcon = getBlockIcon(b.type);
-                return (
-                  <div
-                    key={b.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, idx)}
-                    onDragOver={(e) => handleDragOver(e, idx)}
-                    onDrop={(e) => handleDrop(e, idx)}
-                    onClick={() => handleSelectBlock(b.id)}
-                    className={`group p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 ${
-                      isSelected
-                        ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 shadow-xs font-bold'
-                        : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
-                    } ${!b.visible ? 'opacity-50' : ''}`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <GripVertical className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 cursor-grab shrink-0" />
-                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                        <BIcon className="w-3.5 h-3.5" />
-                      </div>
-                      <span className="text-xs truncate font-medium">
-                        {isAr ? b.titleAr : b.titleEn}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleBlockVisibility(b.id);
-                        }}
-                        className="p-1 hover:bg-slate-200 rounded text-slate-500 cursor-pointer"
-                        title={b.visible ? (isAr ? 'إخفاء' : 'Hide') : (isAr ? 'إظهار' : 'Show')}
-                      >
-                        {b.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 text-rose-500" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDuplicateBlock(b.id);
-                        }}
-                        className="p-1 hover:bg-slate-200 rounded text-slate-500 cursor-pointer"
-                        title={isAr ? 'تكرار القسم' : 'Duplicate'}
-                      >
-                        <Copy className="w-3 h-3" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteBlock(b.id);
-                        }}
-                        className="p-1 hover:bg-rose-100 hover:text-rose-600 rounded text-slate-400 cursor-pointer"
-                        title={isAr ? 'حذف' : 'Delete'}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Add Section Button */}
-            <div className="p-3 border-t border-slate-200 bg-slate-50">
+            {/* Header Tabs: Widgets Library vs Layers Outline */}
+            <div className="p-2 border-b border-slate-200 bg-slate-50 flex items-center gap-1 shrink-0">
               <button
                 type="button"
-                onClick={() => setShowAddSectionModal(true)}
-                className="w-full py-2 px-3 rounded-xl border-2 border-dashed border-indigo-300 hover:border-indigo-600 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                onClick={() => setLeftTab('layers')}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  leftTab === 'layers'
+                    ? 'bg-white text-indigo-700 shadow-2xs font-black'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
               >
-                <Plus className="w-4 h-4" />
-                <span>{isAr ? 'إضافة قسم جديد (Elementor Grid)' : 'Add New Section'}</span>
+                <Layers className="w-3.5 h-3.5" />
+                <span>{isAr ? 'الطبقات' : 'Layers'}</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
+                  {blocks.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLeftTab('widgets')}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  leftTab === 'widgets'
+                    ? 'bg-white text-indigo-700 shadow-2xs font-black'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>{isAr ? 'العناصر' : 'Widgets'}</span>
               </button>
             </div>
+
+            {/* TAB CONTENT */}
+            {leftTab === 'widgets' ? (
+              <div className="flex-1 overflow-y-auto">
+                <BuilderWidgetLibrary onAddWidget={handleAddWidget} isAr={isAr} />
+              </div>
+            ) : (
+              <>
+                {/* Blocks List */}
+                <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+                  {blocks.map((b, idx) => {
+                    const isSelected = selectedBlockId === b.id;
+                    const BIcon = getBlockIcon(b.type);
+                    return (
+                      <div
+                        key={b.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, idx)}
+                        onDragOver={(e) => handleDragOver(e, idx)}
+                        onDrop={(e) => handleDrop(e, idx)}
+                        onClick={() => handleSelectBlock(b.id)}
+                        className={`group p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                          isSelected
+                            ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 shadow-xs font-bold'
+                            : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                        } ${!b.visible ? 'opacity-50' : ''}`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <GripVertical className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 cursor-grab shrink-0" />
+                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                            <BIcon className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs truncate font-medium">
+                            {isAr ? b.titleAr : b.titleEn}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleBlockVisibility(b.id);
+                            }}
+                            className="p-1 hover:bg-slate-200 rounded text-slate-500 cursor-pointer"
+                            title={b.visible ? (isAr ? 'إخفاء' : 'Hide') : (isAr ? 'إظهار' : 'Show')}
+                          >
+                            {b.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 text-rose-500" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDuplicateBlock(b.id);
+                            }}
+                            className="p-1 hover:bg-slate-200 rounded text-slate-500 cursor-pointer"
+                            title={isAr ? 'تكرار القسم' : 'Duplicate'}
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteBlock(b.id);
+                            }}
+                            className="p-1 hover:bg-rose-100 hover:text-rose-600 rounded text-slate-400 cursor-pointer"
+                            title={isAr ? 'حذف' : 'Delete'}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Add Section Button */}
+                <div className="p-3 border-t border-slate-200 bg-slate-50 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddSectionModal(true)}
+                    className="w-full py-2 px-3 rounded-xl border-2 border-dashed border-indigo-300 hover:border-indigo-600 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{isAr ? 'إضافة قسم جديد (Elementor Grid)' : 'Add New Section'}</span>
+                  </button>
+                </div>
+              </>
+            )}
 
             {/* Left Resize Handle */}
             <div
@@ -1941,7 +2261,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               className="absolute top-0 bottom-0 end-0 w-1.5 cursor-col-resize hover:bg-indigo-500 transition-colors z-30"
             />
           </aside>
-        ) : (
+        ) : !previewModeOnly ? (
           <button
             type="button"
             onClick={() => setLeftSidebarVisible(true)}
@@ -1951,7 +2271,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             <Layers className="w-4 h-4 text-indigo-600" />
             <span className="hidden sm:inline">{isAr ? 'الأقسام' : 'Blocks'}</span>
           </button>
-        )}
+        ) : null}
 
         {/* ========================================================
             CENTER CANVAS: LIVE INTERACTIVE PREVIEW
@@ -2080,7 +2400,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         {/* ========================================================
             RIGHT SIDEBAR: ELEMENTOR INSPECTOR (RESIZABLE)
             ======================================================== */}
-        {rightSidebarVisible ? (
+        {rightSidebarVisible && !previewModeOnly ? (
           <aside
             style={{ width: `${rightSidebarWidth}px` }}
             className="bg-white border-s border-slate-200 flex flex-col shrink-0 relative select-none"
@@ -2131,7 +2451,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               </div>
             </div>
 
-            {/* Inspector Tabs (5 Elementor Tabs) */}
+            {/* Inspector Tabs (5 Elementor Tabs + AI Assistant) */}
             <div className="flex border-b border-slate-200 bg-slate-50/70 text-xs font-bold">
               {[
                 { id: 'content' as const, labelAr: 'المحتوى', labelEn: 'Content', icon: Type },
@@ -2139,6 +2459,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 { id: 'styling' as const, labelAr: 'التنسيق', labelEn: 'Style', icon: Palette },
                 { id: 'layout' as const, labelAr: 'المحاذاة', labelEn: 'Layout', icon: Sliders },
                 { id: 'code' as const, labelAr: 'الأكواد', labelEn: 'Code', icon: Code },
+                { id: 'ai' as const, labelAr: 'الذكاء', labelEn: 'AI', icon: Sparkles },
               ].map((tab) => {
                 const TIcon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -2165,6 +2486,27 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               {/* TAB 1: CONTENT */}
               {activeTab === 'content' && (
                 <div className="space-y-4">
+                  {/* AI Quick Assistant Banner */}
+                  <div className="p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 flex items-center justify-between shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-indigo-600 animate-pulse" />
+                      <div>
+                        <span className="text-xs font-bold text-indigo-950 block">
+                          {isAr ? 'مساعد الذكاء الاصطناعي لكتابة النصوص' : 'AI Copywriting Assistant'}
+                        </span>
+                        <span className="text-[10px] text-indigo-600 block">
+                          {isAr ? 'توليد نصوص ترويجية سعودية عالية التحويل' : 'Generate Saudi Arabic copy'}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('ai')}
+                      className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] cursor-pointer shadow-xs transition-all hover:scale-105"
+                    >
+                      {isAr ? 'فتح' : 'Open'}
+                    </button>
+                  </div>
                   {/* Dynamic Product Row Controls */}
                   {(selectedBlock.type === 'dynamic_product_row' || selectedBlock.type === 'shortcode_widget' || selectedBlock.type.startsWith('product_section_')) && (
                     <div className="border border-emerald-300 rounded-2xl p-4 bg-emerald-50/40 space-y-3.5 shadow-2xs">
@@ -2737,10 +3079,24 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* TAB 6: AI ASSISTANT */}
+              {activeTab === 'ai' && (
+                <div className="space-y-4">
+                  <BuilderAiAssistant
+                    isAr={isAr}
+                    storeName={activeStore.name}
+                    selectedBlockId={selectedBlock.type}
+                    selectedBlockTitle={isAr ? selectedBlock.titleAr : selectedBlock.titleEn}
+                    onApplyContent={handleAiApplyContent}
+                    onAddNewSection={handleAiAddSection}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Inspector Footer Publish Action */}
-            <div className="p-3.5 border-t border-slate-200 bg-white flex items-center gap-2">
+            <div className="p-3.5 border-t border-slate-200 bg-white flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handlePublishLive}
@@ -2751,7 +3107,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               </button>
             </div>
           </aside>
-        ) : (
+        ) : !previewModeOnly ? (
           <button
             type="button"
             onClick={() => setRightSidebarVisible(true)}
@@ -2761,7 +3117,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             <Sliders className="w-4 h-4 text-indigo-600" />
             <span className="hidden sm:inline">{isAr ? 'المفتش' : 'Inspector'}</span>
           </button>
-        )}
+        ) : null}
       </div>
 
       {/* ========================================================

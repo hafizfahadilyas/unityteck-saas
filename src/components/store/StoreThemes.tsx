@@ -127,12 +127,11 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({ onOpenStorefront }) =>
 
   const currentThemeId = storeActiveTheme[activeStore.id] || DEFAULT_COMMERCE_THEME_ID;
   const currentStyle = storeActiveHomepage[activeStore.id] || pack.homepage_style;
+  const [builderThemeId, setBuilderThemeId] = useState<string>(() => currentThemeId);
 
   const visibleThemes = useMemo(() => {
-    // Keep strictly the current active store theme (Mecca Gifts / Flora Luxe)
-    const active = themes.find((t) => t.id === currentThemeId) || themes[0];
-    return active ? [active] : themes.slice(0, 1);
-  }, [themes, currentThemeId]);
+    return themes;
+  }, [themes]);
 
   const handlePurgeCache = () => {
     try {
@@ -852,31 +851,60 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({ onOpenStorefront }) =>
                   </div>
 
                   <div
-                    className="p-3 border-t flex items-center justify-between"
+                    className="p-3 border-t flex flex-wrap items-center justify-between gap-2"
                     style={{ borderColor: 'var(--border)', background: 'var(--hover-bg)' }}
                   >
-                    <span className="text-xs" style={{ color: 'var(--muted)' }}>
-                      {isActive ? `Active (${currentStyle})` : 'Inactive'}
-                    </span>
-                    {!isActive ? (
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => activateThemeAndStyle(theme.id, styles[0])}
-                        className="px-3 py-1 rounded-lg text-xs font-semibold border cursor-pointer hover:opacity-90"
-                        style={{
-                          background: 'var(--surface)',
-                          borderColor: 'var(--border)',
-                          color: 'var(--text)',
+                        onClick={() => {
+                          setBuilderThemeId(theme.id);
+                          setIsVisualBuilderOpen(true);
                         }}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold text-white shadow-xs flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] transition-all"
+                        style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}
+                        title={isAr ? `تخصيص ${theme.name} في المحرر البصري` : `Customize ${theme.name}`}
                       >
-                        Activate Theme
+                        <Palette className="w-3.5 h-3.5 text-white" />
+                        <span>{isAr ? 'تخصيص' : 'Customize'}</span>
                       </button>
-                    ) : (
-                      <span className="text-xs font-bold flex items-center gap-1" style={{ color: 'var(--accent)' }}>
-                        <Check className="w-3.5 h-3.5" />
-                        In Use
-                      </span>
-                    )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBuilderThemeId(theme.id);
+                          setIsVisualBuilderOpen(true);
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1 cursor-pointer transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                        style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                        title={isAr ? 'معاينة الثيم' : 'Preview Theme'}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>{isAr ? 'معاينة' : 'Preview'}</span>
+                      </button>
+                    </div>
+
+                    <div>
+                      {!isActive ? (
+                        <button
+                          type="button"
+                          onClick={() => activateThemeAndStyle(theme.id, styles[0])}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold border cursor-pointer hover:opacity-90 shadow-2xs"
+                          style={{
+                            background: 'var(--surface)',
+                            borderColor: 'var(--border)',
+                            color: 'var(--text)',
+                          }}
+                        >
+                          {isAr ? 'تفعيل الثيم' : 'Activate Theme'}
+                        </button>
+                      ) : (
+                        <span className="text-xs font-bold flex items-center gap-1 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-xl border border-emerald-300 dark:border-emerald-800">
+                          <Check className="w-3.5 h-3.5" />
+                          <span>{isAr ? 'الثيم النشط' : 'Active'}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -892,6 +920,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({ onOpenStorefront }) =>
         <React.Suspense fallback={null}>
           <VisualThemeBuilder
             isOpen={isVisualBuilderOpen}
+            themeId={builderThemeId}
             onClose={() => setIsVisualBuilderOpen(false)}
             onPublishSuccess={() => {
               setIsVisualBuilderOpen(false);

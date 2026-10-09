@@ -142,6 +142,11 @@ const StoreBackupRestoreCenter = lazy(() =>
     default: m.StoreBackupRestoreCenter,
   })),
 );
+const VisualThemeBuilder = lazy(() =>
+  import('./components/store/visualBuilder/VisualThemeBuilder').then((m) => ({
+    default: m.VisualThemeBuilder,
+  })),
+);
 
 import { DashboardLoader } from './components/common/DashboardLoader';
 import { readAllThemeSettings } from './themes/settings/themeSettingsStore';
@@ -168,9 +173,21 @@ function AdminContent() {
     switchToMaster,
     canAccessMaster,
     stores,
+    storeActiveTheme,
   } = useTenant();
   const { t, theme, dir, locale } = usePrefs();
   const { toast, confirm } = useToast();
+  const [isVisualBuilderOpen, setIsVisualBuilderOpen] = useState(false);
+  const [visualBuilderThemeId, setVisualBuilderThemeId] = useState<string | undefined>(undefined);
+
+  const handleOpenCustomizeTheme = useCallback((targetThemeId?: string) => {
+    const selectedThemeId =
+      targetThemeId ||
+      (activeStore ? storeActiveTheme[activeStore.id] : undefined) ||
+      'theme-flora-luxe';
+    setVisualBuilderThemeId(selectedThemeId);
+    setIsVisualBuilderOpen(true);
+  }, [activeStore, storeActiveTheme]);
   const [path, navigate] = useSoftPath();
   const [session, setSession] = useState<AuthSession | null>(() => readAuthSession());
   const { canTab, firstAllowedTab } = usePermissions();
@@ -709,6 +726,7 @@ function AdminContent() {
                 onSignOut={() => void requestLogout()}
                 onOpenStorefront={() => setStoreTab('storefront')}
                 onOpenProducts={() => setStoreTab('products')}
+                onCustomizeTheme={handleOpenCustomizeTheme}
                 searchPlaceholder={
                   storeTab === 'customers' ? t('searchCustomers') : t('searchStore')
                 }
@@ -716,7 +734,10 @@ function AdminContent() {
               <main className="flex-1 pb-16">
                 <Suspense fallback={<TabFallback />}>
                   {storeTab === 'dashboard' && (
-                    <StoreDashboard onNavigateTab={(tab) => setStoreTab(tab)} />
+                    <StoreDashboard
+                      onNavigateTab={(tab) => setStoreTab(tab)}
+                      onCustomizeTheme={() => handleOpenCustomizeTheme()}
+                    />
                   )}
                   {storeTab === 'storefront' && <StoreFrontPreview isAdmin={true} />}
                   {storeTab === 'customers' && <StoreCustomers />}
@@ -756,6 +777,26 @@ function AdminContent() {
       </div>
 
       <ArchitectureBanner />
+
+      {/* Unified Fullscreen Theme Page Builder */}
+      {isVisualBuilderOpen && (
+        <Suspense fallback={null}>
+          <VisualThemeBuilder
+            isOpen={isVisualBuilderOpen}
+            themeId={visualBuilderThemeId}
+            onClose={() => setIsVisualBuilderOpen(false)}
+            onPublishSuccess={() => {
+              setIsVisualBuilderOpen(false);
+              toast(
+                locale === 'ar'
+                  ? 'تم تطبيق ونشر التعديلات بنجاح على المتجر المباشر!'
+                  : 'Changes published successfully to live storefront!',
+                'success',
+              );
+            }}
+          />
+        </Suspense>
+      )}
     </div>
     </StatusErrorBoundary>
   );

@@ -11,6 +11,7 @@ import {
   Globe,
   Package,
   RefreshCw,
+  Palette,
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { PrefsSwitcher } from '../common/PrefsSwitcher';
@@ -25,6 +26,7 @@ interface StoreTopBarProps {
   onSignOut: () => void;
   onOpenStorefront?: () => void;
   onOpenProducts?: () => void;
+  onCustomizeTheme?: () => void;
 }
 
 /**
@@ -157,20 +159,18 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
           </button>
         ) : null}
 
-        {onOpenStorefront ? (
+        {onCustomizeTheme ? (
           <button
             type="button"
-            onClick={onOpenStorefront}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:opacity-90 cursor-pointer border"
+            onClick={onCustomizeTheme}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all hover:opacity-95 hover:scale-[1.02] cursor-pointer shadow-xs text-white"
             style={{
-              background: 'color-mix(in srgb, var(--accent) 12%, var(--surface))',
-              borderColor: 'color-mix(in srgb, var(--accent) 32%, var(--border))',
-              color: 'var(--accent)',
+              background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
             }}
+            title={isAr ? 'تخصيص الثيم ومحرر الصفحات البصري' : 'Customize Theme & Visual Page Builder'}
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <Globe className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{t('navLiveStorefront') || 'Live Store'}</span>
+            <Palette className="w-3.5 h-3.5 text-white" />
+            <span className="inline">{isAr ? 'تخصيص الثيم' : 'Customize Theme'}</span>
           </button>
         ) : null}
 
@@ -203,6 +203,21 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                 boxShadow: 'var(--card-shadow)',
               }}
             >
+              {onCustomizeTheme ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowQuickActions(false);
+                    onCustomizeTheme();
+                  }}
+                  className="w-full px-3 py-2 text-start hover:opacity-80 flex items-center gap-2 cursor-pointer font-bold"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  <Palette className="w-4 h-4 text-emerald-600" aria-hidden />
+                  <span>{isAr ? 'تخصيص الثيم والمحرر البصري' : 'Customize Theme'}</span>
+                </button>
+              ) : null}
               {onOpenStorefront ? (
                 <button
                   type="button"
