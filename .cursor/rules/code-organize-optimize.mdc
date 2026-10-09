@@ -1,0 +1,30 @@
+---
+description: Inspect-reuse-extend; short modular code; tenant isolation; no rebuild
+alwaysApply: true
+---
+
+# Code Organize · Optimize (LOCKED)
+
+## Development order
+**Inspect → Understand → Reuse → Extend → Optimize → Test.**  
+Do **not** rebuild Master Admin, Store Dashboard, storefront, or working features.
+
+## Code quality
+- Short, modular, reusable. Prefer extend existing components/hooks over new duplicates.
+- No dead code, unused imports, duplicate functions, or unnecessary libraries.
+- No unnecessary API calls, queries, or realtime subscriptions.
+- One concern per module. Shared UI (tables, toasts, filters) lives once and is reused.
+- Keep diffs focused — no drive-by refactors unrelated to the task.
+
+## Multi-tenant (always)
+- Every store-scoped row/query uses `store_id` (server + client).
+- Frontend hide ≠ security. Permissions, plan limits, and tenant scope enforced on the API.
+- Architecture ready for future dedicated DB/hosting — do not hard-block migration paths.
+
+## Stack direction (do not fight) — NO VPS
+- Admin: Vite SPA → Hostinger static (preserve `src/` UI; move to `apps/admin` only when relocating, not rewriting).
+- API: Laravel 11 → Hostinger PHP + MySQL (`store_id`). Queues via cron — not a VPS worker box.
+- Public storefront SEO: Next.js 15 → Vercel (ISR zero-stale). Keep preview until Phase 4 extract.
+- Media: Cloudflare R2 + CDN, versioned URLs. Full list: `docs/02-tech-stack-no-vps.md`.
+---
+

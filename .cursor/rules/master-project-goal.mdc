@@ -1,0 +1,17 @@
+---
+description: Master goal — never rebuild AI Studio UI; inspect then connect SaaS
+alwaysApply: true
+---
+
+# Master Project Goal (LOCKED)
+
+Full text: `docs/00-master-project-goal.md`
+
+## Non-negotiable
+- Google AI Studio Master Admin / Store Dashboard / Storefront UI = **preserve**. Do not rebuild or replace.
+- Goal = inspect → connect DB, APIs, permissions, SEO, domains, hosting, plans, e-commerce.
+- One central MySQL + `store_id` isolation (server-side). Shared hosting now; future dedicated DB/host OK.
+- Onboarding link → unique `store_id`. Plans Free/Paid/Pro/Custom with API-enforced features.
+- Public storefront SEO mandatory per store. No-refresh updates via invalidation/`updated_at` — no listener spam.
+- Extend existing code; no duplicate systems. Short modular code only.
+---

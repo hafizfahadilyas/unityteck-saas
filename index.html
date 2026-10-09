@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      (function() {
+        try {
+          var _origFetch = typeof window !== 'undefined' ? window.fetch : null;
+          var _currentFetch = _origFetch;
+          
+          // Make window.fetch writable with getter and setter
+          try {
+            Object.defineProperty(window, 'fetch', {
+              get: function() {
+                return _currentFetch;
+              },
+              set: function(val) {
+                _currentFetch = val;
+              },
+              configurable: true,
+              enumerable: true
+            });
+          } catch (e1) {}
+
+          // Also patch Window.prototype if applicable
+          try {
+            if (typeof Window !== 'undefined' && Window.prototype) {
+              Object.defineProperty(Window.prototype, 'fetch', {
+                get: function() {
+                  return _currentFetch;
+                },
+                set: function(val) {
+                  _currentFetch = val;
+                },
+                configurable: true,
+                enumerable: true
+              });
+            }
+          } catch (e2) {}
+
+          // Also patch globalThis if distinct
+          try {
+            if (typeof globalThis !== 'undefined' && globalThis !== window) {
+              Object.defineProperty(globalThis, 'fetch', {
+                get: function() {
+                  return _currentFetch;
+                },
+                set: function(val) {
+                  _currentFetch = val;
+                },
+                configurable: true,
+                enumerable: true
+              });
+            }
+          } catch (e3) {}
+        } catch (err) {}
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem('unityteck_prefs');
+          if (!raw) return;
+          var p = JSON.parse(raw);
+          var root = document.documentElement;
+          if (p.locale === 'ar' || p.locale === 'ur') {
+            root.setAttribute('dir', 'rtl');
+            root.setAttribute('lang', p.locale);
+          } else {
+            root.setAttribute('dir', 'ltr');
+            root.setAttribute('lang', 'en');
+          }
+          if (p.theme === 'dark' || p.theme === 'light') {
+            root.setAttribute('data-theme', p.theme);
+          }
+          if (p.brand && p.brand.font) {
+            root.setAttribute('data-font', p.brand.font);
+          }
+          if (p.brand && p.brand.palette) {
+            root.setAttribute('data-brand', p.brand.palette);
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <title>Unityteck | Multi-Store E-Commerce SaaS</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="description" content="Multi-tenant e-commerce SaaS with unified Master Admin and isolated Store Admin workspaces, channel analytics, customer management, and store data isolation." />
+    <meta property="og:title" content="Unityteck | Multi-Store E-Commerce SaaS" />
+    <meta property="og:description" content="Multi-tenant e-commerce SaaS with unified Master Admin and isolated Store Admin workspaces, channel analytics, customer management, and store data isolation." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://images.unsplash.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&family=Outfit:wght@400;600;700&display=swap" media="print" onload="this.media='all'" />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&family=Outfit:wght@400;600;700&display=swap" />
+    </noscript>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

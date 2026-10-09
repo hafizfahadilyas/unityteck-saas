@@ -1,0 +1,26 @@
+---
+description: Same-to-same designs — invent zero UI; Holst tokens; preserve existing correct UI
+alwaysApply: true
+---
+
+# Design Pixel Golden (LOCKED)
+
+## Source of truth
+| Surface | Pack |
+|---------|------|
+| Master login + Holst chrome | `designs/Login_UIUX/` |
+| Master dashboard screens | `designs/Master_Admin_UIUX/` |
+| Store Theme Settings (18) | `designs/Theme_Settings_UIUX/` |
+
+## Rules
+- **Same-to-same.** Do not invent layouts, menus, cards, or color systems.
+- If existing UI already matches the pack → **do not change it**.
+- Change only: missing, broken, or clearly different from the pack.
+- Master + Store admin chrome = **same Holst** tokens (`designs/Login_UIUX/00_palettes/portal-tokens.css`). Only role/data/brand label differ.
+- Brand = **Unityteck** (never ship ConfoStudy / AI Studio watermarks in UI).
+- Dark + Light supported via CSS variables — no hard-coded one-off brand colors in components when tokens exist.
+
+## Menu lean (until unlocked)
+Prefer design-locked lean Master menu over inventing extra nav. Extra modules land only when that design folder + prompt unlocks them.
+---
+

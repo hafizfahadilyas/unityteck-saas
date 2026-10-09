@@ -1,0 +1,27 @@
+---
+description: Multi-store media 600+, backup ZIP, migration/restore, Master plans Free/Paid/Pro
+alwaysApply: true
+---
+
+# Multi-Store Media · Backup · Plans (LOCKED)
+
+Full detail: `docs/03-multistore-media-backup-plans.md`
+
+## Scale
+- Expect **600+ images per store**. Media paths `stores/{store_id}/`. Paginate; CDN; versioned URLs (no stale images).
+- Plan storage quotas enforced on API.
+
+## Master control plane
+- All stores, plans, features, hosting mode, backups, restores, migrations — manageable from **Master Dashboard**.
+- Store admin sees only own tenant data.
+
+## Backup / restore / migration
+- Per-store **all-in-one ZIP**: filtered SQL (`store_id`) + media files + config/manifest.
+- Support: scheduled + manual backup, history, restore, migration export/import.
+- Future dedicated/client hosting: same ZIP pipeline; `hosting_mode` / `db_isolation` fields ready. NO assumption that every store stays on shared forever.
+
+## Plans
+- Free / Paid / Pro / Custom (+ Master grants): each store gets **its** features, limits, backup retention, and gated updates.
+- Server-side enforce — hiding UI is not enough.
+---
+

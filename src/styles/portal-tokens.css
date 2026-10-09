@@ -1,0 +1,1261 @@
+/* Unityteck Holst BLUE — Master + Store SAME chrome (no green shell).
+ * Branding overrides via CSS vars from Prefs (color / font / icons).
+ * Source: designs/Login_UIUX/00_palettes/portal-tokens.css
+ *
+ * CONTRAST LOCK:
+ *  light surface → dark text/icons
+ *  dark surface  → light text/icons
+ *  CTA / teal fill → white text/icons
+ */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root {
+  --portal-950: #04222b;
+  --portal-900: #0a3d4a;
+  --portal-800: #10606f;
+  --portal-600: #1d8b94;
+  --portal-400: #4fb8b4;
+  --portal-200: #98d8d0;
+  --portal-50: #e2f4f0;
+  --portal-cta: linear-gradient(90deg, #1d8b94, #4fb8b4);
+  --font-ui: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --radius-ctrl: 16px;
+  --icon-radius: 16px;
+  --active-bg: #1d8b94;
+  --active-fg: #ffffff;
+  --active-ring: #4fb8b4;
+  /* default = light until data-theme applied */
+  --bg: #F8FAFC;
+  --surface: #ffffff;
+  --text: #0F172A;
+  --muted: #64748B;
+  --border: #E2E8F0;
+  --accent: #1d8b94;
+  --icon-on-light: #0a3d4a;
+  --icon-on-dark: #e2f4f0;
+  --icon-box-bg: color-mix(in srgb, #1d8b94 12%, #ffffff);
+  --icon-box-fg: #10606f;
+  --input-bg: #ffffff;
+  --input-fg: #04222b;
+  --input-ph: #64748b;
+  --table-head: #0a3d4a;
+  --card-fg: #04222b;
+  --tone-success: #059669;
+  --tone-info: #0284c7;
+  --tone-warn: #d97706;
+  --tone-danger: #e11d48;
+  --tone-violet: #7c3aed;
+  --hover-bg: color-mix(in srgb, #1d8b94 8%, #ffffff);
+  --card-shadow: 0 1px 2px color-mix(in srgb, #04222b 6%, transparent),
+    0 8px 24px color-mix(in srgb, #1d8b94 8%, transparent);
+  --card-shadow-hover: 0 4px 12px color-mix(in srgb, #1d8b94 18%, transparent);
+}
+
+[data-portal="master"],
+[data-portal="store"] {
+  /* branding may override inline */
+}
+
+/* LIGHT — high contrast readable text */
+[data-theme="light"][data-portal="master"],
+[data-theme="light"][data-portal="store"],
+[data-theme="light"] {
+  --bg: #F8FAFC;
+  --surface: #ffffff;
+  --text: #0F172A;
+  --muted: #64748B;
+  --border: #E2E8F0;
+  --accent: var(--portal-600);
+  --active-bg: var(--portal-600);
+  --active-fg: #ffffff;
+  --icon-on-light: #0a3d4a;
+  --icon-on-dark: #e2f4f0;
+  --icon-box-bg: color-mix(in srgb, var(--portal-600) 12%, #ffffff);
+  --icon-box-fg: var(--portal-800);
+  --input-bg: #ffffff;
+  --input-fg: #04222b;
+  --input-ph: #64748b;
+  --table-head: #0a3d4a;
+  --card-fg: #04222b;
+  --tone-success: #059669;
+  --tone-info: #0284c7;
+  --tone-warn: #d97706;
+  --tone-danger: #e11d48;
+  --tone-violet: #7c3aed;
+  --hover-bg: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  --card-shadow: 0 1px 2px color-mix(in srgb, var(--portal-950) 6%, transparent),
+    0 8px 24px color-mix(in srgb, var(--portal-600) 8%, transparent);
+  --card-shadow-hover: 0 4px 12px color-mix(in srgb, var(--portal-600) 18%, transparent);
+}
+
+/* DARK — readable light text on deep Holst */
+[data-theme="dark"][data-portal="master"],
+[data-theme="dark"][data-portal="store"],
+[data-theme="dark"] {
+  --bg: #020d12;
+  --surface: #051d26;
+  --text: #ffffff;
+  --muted: #cbd5e1;
+  --border: rgba(45, 212, 191, 0.25);
+  --accent: var(--portal-400);
+  --active-bg: var(--portal-600);
+  --active-fg: #ffffff;
+  --icon-on-light: #0a3d4a;
+  --icon-on-dark: #e2f4f0;
+  --icon-box-bg: color-mix(in srgb, var(--portal-400) 18%, var(--portal-900));
+  --icon-box-fg: var(--portal-200);
+  --input-bg: color-mix(in srgb, var(--portal-950) 70%, var(--portal-900));
+  --input-fg: #f2fbf8;
+  --input-ph: #98d8d0;
+  --table-head: #e2f4f0;
+  --card-fg: #f2fbf8;
+  --tone-success: #34d399;
+  --tone-info: #38bdf8;
+  --tone-warn: #fbbf24;
+  --tone-danger: #fb7185;
+  --tone-violet: #a78bfa;
+  --hover-bg: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --card-shadow: 0 1px 2px color-mix(in srgb, #000 35%, transparent),
+    0 10px 28px color-mix(in srgb, #000 28%, transparent);
+  --card-shadow-hover: 0 8px 28px color-mix(in srgb, var(--portal-600) 35%, transparent);
+}
+
+html,
+body,
+.unity-shell,
+.u-page,
+.u-panel,
+.u-card,
+.unity-card,
+[data-portal="master"],
+[data-portal="store"],
+.storefront-root {
+  font-family: var(--font-ui);
+}
+
+input,
+button,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* ─── Shared controls: card / table / form / search / filter ─── */
+.u-card,
+.unity-card {
+  background: var(--surface);
+  color: var(--card-fg);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+}
+
+.u-input,
+.unity-input,
+.unity-shell input:not([type='checkbox']):not([type='radio']),
+.unity-shell select,
+.unity-shell textarea {
+  background: var(--input-bg) !important;
+  color: var(--input-fg) !important;
+  border-color: var(--border) !important;
+}
+
+.unity-shell input::placeholder,
+.unity-shell textarea::placeholder {
+  color: var(--input-ph) !important;
+  opacity: 1;
+}
+
+.u-icon,
+.unity-icon-soft {
+  background: var(--icon-box-bg);
+  color: var(--icon-box-fg);
+  border-radius: var(--icon-radius);
+}
+
+.u-icon-cta,
+.unity-icon-box {
+  border-radius: var(--icon-radius);
+  background: var(--portal-cta);
+  color: #fff;
+}
+
+/* ── Sidebar: always dark chrome ── */
+.unity-aside {
+  --sidebar-bg: var(--portal-950);
+  --sidebar-border: var(--portal-800);
+  --sidebar-text: var(--portal-200);
+  --sidebar-idle-icon: var(--portal-400);
+  --sidebar-idle-hover-bg: color-mix(in srgb, var(--portal-800) 55%, transparent);
+  --sidebar-idle-hover-text: #ffffff;
+  --sidebar-nav-font-size: 0.8125rem;
+  --sidebar-nav-font-weight: 600;
+  --sidebar-nav-active-weight: 700;
+  --sidebar-nav-icon-size: 1.125rem;
+  --sidebar-nav-py: 0.625rem;
+  --sidebar-nav-px: 0.75rem;
+  --sidebar-nav-line-height: 1.5;
+  --sidebar-nav-gap: 0.625rem;
+  background: var(--sidebar-bg) !important;
+  border-color: var(--sidebar-border) !important;
+  color: var(--sidebar-text);
+}
+
+/* DARK mode — deep dark sidebar, white text & icons */
+[data-theme="dark"] .unity-aside {
+  --sidebar-bg: var(--portal-950);
+  --sidebar-border: var(--portal-800);
+  --sidebar-text: #ffffff;
+  --sidebar-idle-icon: #e2f4f0;
+  --sidebar-idle-hover-bg: color-mix(in srgb, var(--portal-700, #176573) 55%, transparent);
+  --sidebar-idle-hover-text: #ffffff;
+}
+
+/* LIGHT mode — slightly lighter sidebar, bright readable text & icons */
+[data-theme="light"] .unity-aside {
+  --sidebar-bg: var(--portal-900);
+  --sidebar-border: var(--portal-800);
+  --sidebar-text: #f0faf8;
+  --sidebar-idle-icon: #c8ece7;
+  --sidebar-idle-hover-bg: color-mix(in srgb, var(--portal-600) 50%, transparent);
+  --sidebar-idle-hover-text: #ffffff;
+}
+
+[data-theme="light"] .unity-aside {
+  background: var(--sidebar-bg) !important;
+  color: var(--sidebar-text) !important;
+}
+
+/* ── Sidebar nav items: bold, readable, generous padding, line-height ── */
+.unity-nav-active {
+  background: var(--portal-cta) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--portal-600) 45%, transparent);
+  font-weight: var(--sidebar-nav-active-weight, 700) !important;
+  font-size: var(--sidebar-nav-font-size, 0.8125rem) !important;
+  line-height: var(--sidebar-nav-line-height, 1.5) !important;
+  padding-top: var(--sidebar-nav-py, 0.625rem) !important;
+  padding-bottom: var(--sidebar-nav-py, 0.625rem) !important;
+  padding-inline-start: var(--sidebar-nav-px, 0.75rem) !important;
+  padding-inline-end: var(--sidebar-nav-px, 0.75rem) !important;
+}
+.unity-nav-idle {
+  color: var(--sidebar-text, var(--portal-200));
+  font-weight: var(--sidebar-nav-font-weight, 600);
+  font-size: var(--sidebar-nav-font-size, 0.8125rem);
+  line-height: var(--sidebar-nav-line-height, 1.5);
+  padding-top: var(--sidebar-nav-py, 0.625rem);
+  padding-bottom: var(--sidebar-nav-py, 0.625rem);
+  padding-inline-start: var(--sidebar-nav-px, 0.75rem);
+  padding-inline-end: var(--sidebar-nav-px, 0.75rem);
+}
+.unity-nav-idle:hover {
+  color: var(--sidebar-idle-hover-text, #fff);
+  background: var(--sidebar-idle-hover-bg, color-mix(in srgb, var(--portal-800) 55%, transparent));
+}
+.unity-btn-primary {
+  background: var(--portal-cta) !important;
+  color: #fff !important;
+  border-radius: var(--radius-ctrl);
+}
+
+/* ── Sidebar icon sizing — all nav icons same size ── */
+.unity-aside nav button svg,
+.unity-aside nav a svg {
+  width: var(--sidebar-nav-icon-size, 1.125rem) !important;
+  height: var(--sidebar-nav-icon-size, 1.125rem) !important;
+  flex-shrink: 0;
+}
+
+/* ── Sidebar hide/show toggle button ── */
+.unity-sidebar-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--portal-800) 60%, transparent);
+  color: var(--portal-200);
+  border: 1px solid color-mix(in srgb, var(--portal-600) 40%, transparent);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+.unity-sidebar-toggle:hover {
+  background: color-mix(in srgb, var(--portal-600) 55%, transparent);
+  color: #ffffff;
+}
+[data-theme="light"] .unity-sidebar-toggle {
+  background: color-mix(in srgb, var(--portal-700) 50%, transparent);
+  color: var(--portal-50);
+  border-color: color-mix(in srgb, var(--portal-400) 40%, transparent);
+}
+[data-theme="light"] .unity-sidebar-toggle:hover {
+  background: color-mix(in srgb, var(--portal-500, #2a9ea0) 70%, transparent);
+  color: #ffffff;
+}
+
+/* ─── LIGHT: sidebar stays dark — preserve white headings ─── */
+[data-theme="light"] .unity-shell .unity-aside h1,
+[data-theme="light"] .unity-shell .unity-aside h2 {
+  color: var(--portal-50) !important;
+}
+[data-theme="light"] .unity-shell .unity-aside .text-white {
+  color: var(--portal-50) !important;
+}
+
+/* ─── LIGHT: never pale/white text on white cards ─── */
+[data-theme="light"] .unity-shell .bg-white,
+[data-theme="light"] .unity-shell .bg-slate-50,
+[data-theme="light"] .unity-shell .bg-slate-100 {
+  color: var(--text);
+}
+/* Ensure intentional white text on dark cards/gradients is always bright and crisp */
+.unity-shell [class*="bg-gradient-"] .text-white,
+.unity-shell [style*="background"] .text-white,
+.unity-shell [class*="from-"] .text-white,
+.unity-shell [class*="bg-teal-9"] .text-white,
+.unity-shell [class*="bg-emerald-9"] .text-white,
+.unity-shell [class*="bg-slate-9"] .text-white,
+.unity-shell [class*="bg-[#"] .text-white {
+  color: #ffffff !important;
+}
+[data-theme="light"] .unity-shell table,
+[data-theme="light"] .unity-shell thead,
+[data-theme="light"] .unity-shell tbody,
+[data-theme="light"] .unity-shell th,
+[data-theme="light"] .unity-shell td {
+  color: inherit;
+}
+[data-theme="light"] .unity-shell thead,
+[data-theme="light"] .unity-shell th {
+  color: var(--table-head);
+}
+[data-theme="light"] .unity-shell .text-slate-900,
+[data-theme="light"] .unity-shell .text-slate-800,
+[data-theme="light"] .unity-shell .text-slate-700 {
+  color: var(--text) !important;
+}
+[data-theme="light"] .unity-shell .text-slate-600,
+[data-theme="light"] .unity-shell .text-slate-500,
+[data-theme="light"] .unity-shell .text-slate-400 {
+  color: var(--muted) !important;
+}
+
+/* Light icon wells: dark icon on soft teal tint */
+[data-theme="light"] .unity-shell .bg-slate-100 > svg,
+[data-theme="light"] .unity-shell .bg-slate-50 > svg,
+[data-theme="light"] .unity-shell .bg-teal-50 > svg,
+[data-theme="light"] .unity-shell .bg-emerald-50 > svg,
+[data-theme="light"] .unity-shell .bg-blue-50 > svg {
+  color: var(--icon-box-fg);
+}
+[data-theme="light"] .unity-shell .bg-teal-600,
+[data-theme="light"] .unity-shell .bg-teal-700,
+[data-theme="light"] .unity-shell .bg-teal-800,
+[data-theme="light"] .unity-shell .bg-emerald-600,
+[data-theme="light"] .unity-shell .bg-blue-600,
+[data-theme="light"] .unity-shell .bg-rose-600 {
+  color: #fff;
+}
+[data-theme="light"] .unity-shell .bg-teal-600 svg,
+[data-theme="light"] .unity-shell .bg-teal-700 svg,
+[data-theme="light"] .unity-shell .bg-teal-800 svg,
+[data-theme="light"] .unity-shell .bg-emerald-600 svg,
+[data-theme="light"] .unity-shell .bg-blue-600 svg {
+  color: #fff;
+}
+
+/* ─── DARK: remap legacy slate/white pages ─── */
+[data-theme="dark"] .unity-shell {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+/* Sidebar stays portal-950 dark — white text/icons in dark mode */
+[data-theme="dark"] .unity-shell .unity-aside,
+[data-theme="dark"] .unity-shell aside.unity-aside {
+  background: var(--portal-950) !important;
+  border-color: var(--portal-800) !important;
+  color: var(--sidebar-text, #ffffff) !important;
+}
+[data-theme="dark"] .unity-shell .unity-aside .text-white,
+[data-theme="dark"] .unity-shell .unity-aside h1,
+[data-theme="dark"] .unity-shell .unity-aside h2 {
+  color: #fff !important;
+}
+[data-theme="dark"] .unity-shell header:not(.unity-aside header),
+[data-theme="dark"] .unity-shell .bg-white,
+[data-theme="dark"] .unity-shell main [class*="bg-white"] {
+  background-color: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+[data-theme="dark"] .unity-shell .text-slate-900,
+[data-theme="dark"] .unity-shell .text-slate-800,
+[data-theme="dark"] .unity-shell .text-slate-700,
+[data-theme="dark"] .unity-shell .text-slate-600 {
+  color: var(--text) !important;
+}
+[data-theme="dark"] .unity-shell .text-slate-500,
+[data-theme="dark"] .unity-shell .text-slate-400,
+[data-theme="dark"] .unity-shell .text-slate-300 {
+  color: var(--muted) !important;
+}
+[data-theme="dark"] .unity-shell .bg-slate-50,
+[data-theme="dark"] .unity-shell .bg-slate-100,
+[data-theme="dark"] .unity-shell .bg-slate-200\/70,
+[data-theme="dark"] .unity-shell .bg-slate-100\/70 {
+  background-color: color-mix(in srgb, var(--surface) 75%, var(--portal-800)) !important;
+  color: var(--text) !important;
+}
+[data-theme="dark"] .unity-shell .border-slate-100,
+[data-theme="dark"] .unity-shell .border-slate-200,
+[data-theme="dark"] .unity-shell .border-slate-300 {
+  border-color: var(--border) !important;
+}
+[data-theme="dark"] .unity-shell table,
+[data-theme="dark"] .unity-shell th,
+[data-theme="dark"] .unity-shell td {
+  color: var(--text);
+  border-color: var(--border);
+}
+[data-theme="dark"] .unity-shell thead,
+[data-theme="dark"] .unity-shell th {
+  color: var(--table-head) !important;
+  background-color: color-mix(in srgb, var(--surface) 88%, var(--portal-800));
+}
+[data-theme="dark"] .unity-shell .bg-teal-50,
+[data-theme="dark"] .unity-shell .bg-emerald-50,
+[data-theme="dark"] .unity-shell .bg-blue-50,
+[data-theme="dark"] .unity-shell .bg-amber-50,
+[data-theme="dark"] .unity-shell .bg-rose-50 {
+  background-color: color-mix(in srgb, var(--portal-800) 45%, var(--surface)) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+[data-theme="dark"] .unity-shell .text-teal-800,
+[data-theme="dark"] .unity-shell .text-teal-700,
+[data-theme="dark"] .unity-shell .text-emerald-700,
+[data-theme="dark"] .unity-shell .text-blue-800,
+[data-theme="dark"] .unity-shell .text-blue-700 {
+  color: var(--portal-200) !important;
+}
+[data-theme="dark"] .unity-shell .bg-slate-100 > svg,
+[data-theme="dark"] .unity-shell .bg-slate-50 > svg,
+[data-theme="dark"] .unity-shell .bg-teal-50 > svg {
+  color: var(--icon-box-fg) !important;
+}
+
+/* Dark: solid teal/blue buttons stay white text */
+[data-theme="dark"] .unity-shell .bg-teal-600,
+[data-theme="dark"] .unity-shell .bg-teal-700,
+[data-theme="dark"] .unity-shell .bg-teal-800,
+[data-theme="dark"] .unity-shell .bg-blue-600,
+[data-theme="dark"] .unity-shell .bg-emerald-600 {
+  color: #fff !important;
+}
+
+/* Auth / status pages outside shell */
+[data-theme="light"] input:not([type='checkbox']):not([type='radio']),
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  color: var(--input-fg);
+  background: var(--input-bg);
+}
+[data-theme="dark"] input:not([type='checkbox']):not([type='radio']),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  color: var(--input-fg);
+  background: var(--input-bg);
+  border-color: var(--border);
+}
+
+[dir="rtl"] .unity-shell input.pl-9 {
+  padding-left: 0.75rem;
+  padding-right: 2.25rem;
+}
+[dir="rtl"] .unity-shell .absolute.left-3\.5,
+[dir="rtl"] .unity-shell .absolute.left-3 {
+  left: auto;
+  right: 0.875rem;
+}
+
+/* RTL — admin shell + auth pages (logical borders & layout) */
+[dir="rtl"] .unity-aside {
+  border-right: none !important;
+  border-left: 1px solid var(--portal-800);
+}
+[dir="ltr"] .unity-aside {
+  border-left: none;
+  border-right: 1px solid var(--portal-800);
+}
+
+/* Sidebar sits on the inline-start edge (right in RTL, left in LTR) via dir alone */
+.unity-shell > .flex.flex-1 {
+  flex-direction: row;
+}
+[dir="rtl"] .unity-shell .unity-aside {
+  order: 0;
+}
+
+.holst-chrome {
+  min-height: 2.75rem;
+  isolation: isolate;
+}
+.holst-chrome button {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+@media (max-width: 640px) {
+  .holst-chrome {
+    row-gap: 0.5rem;
+  }
+  .u-prefs-chrome {
+    max-width: 100%;
+  }
+}
+.portal-auth-split {
+  flex-direction: column;
+}
+@media (min-width: 1024px) {
+  [dir="rtl"] .portal-auth-split {
+    flex-direction: row-reverse;
+  }
+  [dir="ltr"] .portal-auth-split {
+    flex-direction: row;
+  }
+}
+[dir="rtl"] .portal-auth-hero {
+  border-inline-end: none;
+  border-inline-start: 1px solid color-mix(in srgb, var(--portal-200) 20%, transparent);
+}
+[dir="ltr"] .portal-auth-hero {
+  border-inline-start: none;
+  border-inline-end: 1px solid color-mix(in srgb, var(--portal-200) 20%, transparent);
+}
+[dir="rtl"] input[type='email'],
+[dir="rtl"] input[type='password'],
+[dir="rtl"] input[type='text'],
+[dir="rtl"] select,
+[dir="rtl"] textarea {
+  text-align: start;
+}
+
+/* ─── Overview KPI cards (Master + Store dashboards) ─── */
+.u-overview-card {
+  --card-tone: var(--accent);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 1.05rem 1.1rem 1rem;
+  min-height: 8.75rem;
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--card-tone) 14%, var(--surface)) 0%,
+      var(--surface) 55%
+    );
+  border: 1px solid color-mix(in srgb, var(--card-tone) 28%, var(--border));
+  color: var(--text);
+  box-shadow: var(--card-shadow);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+  overflow: hidden;
+  min-width: 0;
+}
+.u-overview-card::before {
+  content: '';
+  position: absolute;
+  inset-block: 14%;
+  inset-inline-start: 0;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(
+    180deg,
+    var(--card-tone),
+    color-mix(in srgb, var(--card-tone) 40%, transparent)
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+[dir="rtl"] .u-overview-card::before {
+  border-radius: 4px 0 0 4px;
+}
+.u-overview-card::after {
+  content: '';
+  position: absolute;
+  inset-inline-end: -18%;
+  top: -28%;
+  width: 58%;
+  height: 72%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--card-tone) 22%, transparent),
+    transparent 68%
+  );
+  pointer-events: none;
+}
+.u-overview-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow-hover);
+  border-color: color-mix(in srgb, var(--card-tone) 50%, var(--border));
+}
+.u-overview-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+  position: relative;
+  z-index: 1;
+}
+.u-overview-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--card-tone) 18%, var(--surface));
+  color: var(--card-tone);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--card-tone) 28%, transparent);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.u-overview-card__icon--lg {
+  width: 2.65rem;
+  height: 2.65rem;
+  border-radius: 0.95rem;
+}
+.u-overview-card:hover .u-overview-card__icon {
+  background: color-mix(in srgb, var(--card-tone) 30%, var(--surface));
+  transform: scale(1.04);
+}
+.u-overview-card__spark {
+  opacity: 0.95;
+  flex-shrink: 0;
+}
+.u-overview-card__label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  position: relative;
+  z-index: 1;
+}
+.u-overview-card__value {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  position: relative;
+  z-index: 1;
+  word-break: break-word;
+}
+.u-overview-card__value--sm {
+  font-size: 1.2rem;
+}
+.u-overview-card__meta {
+  margin-top: auto;
+  padding-top: 0.45rem;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.u-overview-card__delta {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+.u-overview-card__delta.is-up {
+  color: var(--tone-success);
+}
+.u-overview-card__delta.is-down {
+  color: var(--tone-danger);
+}
+.u-overview-card__delta-muted {
+  color: var(--muted);
+  font-weight: 400;
+  margin-inline-start: 0.15rem;
+}
+.u-overview-card__footer {
+  margin: 0;
+  font-size: 0.625rem;
+  color: var(--muted);
+}
+
+/* Prefs on dark Holst chrome bar */
+.u-prefs-chrome {
+  background: color-mix(in srgb, var(--portal-800) 55%, transparent) !important;
+  border-color: color-mix(in srgb, var(--portal-400) 35%, transparent) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent) !important;
+}
+.u-prefs-chrome [role='group'] [aria-pressed='true'] {
+  background: var(--portal-cta) !important;
+  color: #fff !important;
+}
+.u-prefs-chrome [role='group'] [aria-pressed='false'] {
+  color: var(--portal-200) !important;
+}
+
+.u-overview-wide {
+  --card-tone: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+  border-radius: 1.15rem;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--card-tone) 20%, var(--border));
+  box-shadow: var(--card-shadow);
+  color: var(--text);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.u-overview-wide:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--card-shadow-hover);
+  border-color: color-mix(in srgb, var(--card-tone) 40%, var(--border));
+}
+.u-overview-wide__main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.u-chart-panel {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 1.15rem;
+  padding: 1.1rem 1.15rem;
+  box-shadow: var(--card-shadow);
+  min-width: 0;
+}
+.u-chart-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  flex-wrap: wrap;
+}
+.u-chart-panel__title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.u-chart-panel__sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.u-chart-panel__body {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+.u-chart-panel__body > * {
+  max-width: 100%;
+}
+
+/* ─── Admin page shell (Master + Store) ─── */
+.u-page {
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+.u-panel {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: var(--card-shadow);
+}
+.u-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: var(--card-shadow);
+}
+.u-filter-pill {
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  background: var(--hover-bg);
+  color: var(--text);
+}
+.u-filter-pill.is-active {
+  background: var(--portal-950);
+  color: #fff;
+  border-color: var(--portal-800);
+}
+[data-theme='dark'] .u-filter-pill.is-active {
+  background: var(--portal-cta);
+  border-color: transparent;
+}
+.u-filter-pill.is-wa {
+  background: color-mix(in srgb, var(--tone-success) 14%, var(--surface));
+  color: var(--tone-success);
+  border-color: color-mix(in srgb, var(--tone-success) 30%, var(--border));
+}
+.u-filter-pill.is-ig {
+  background: color-mix(in srgb, #db2777 12%, var(--surface));
+  color: #db2777;
+  border-color: color-mix(in srgb, #db2777 28%, var(--border));
+}
+.u-filter-pill.is-gads {
+  background: color-mix(in srgb, var(--tone-info) 12%, var(--surface));
+  color: var(--tone-info);
+  border-color: color-mix(in srgb, var(--tone-info) 28%, var(--border));
+}
+.u-badge-soft {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  padding: 0.25rem 0.65rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--tone-success) 30%, var(--border));
+  background: color-mix(in srgb, var(--tone-success) 12%, var(--surface));
+  color: var(--tone-success);
+}
+
+/* Interactive: nav / buttons / links — active + hover tokens */
+.unity-shell button:not(:disabled):hover .u-overview-card__icon,
+.unity-shell a:hover .u-icon {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  color: var(--accent);
+}
+.unity-shell .rounded-2xl.border:hover {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+}
+
+@media (max-width: 640px) {
+  .u-overview-card {
+    padding: 0.9rem;
+    min-height: 7.75rem;
+  }
+  .u-overview-card__value {
+    font-size: 1.35rem;
+  }
+  .u-chart-panel {
+    padding: 0.9rem;
+  }
+}
+
+/* ─── Table Hover & Active States (Light + Dark) ─── */
+.unity-shell table tbody tr {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+[data-theme="light"] .unity-shell table tbody tr:hover {
+  background-color: color-mix(in srgb, var(--accent) 6%, #f8fafc) !important;
+}
+[data-theme="dark"] .unity-shell table tbody tr:hover {
+  background-color: color-mix(in srgb, var(--accent) 15%, var(--surface)) !important;
+}
+.unity-shell table tbody tr.is-active,
+.unity-shell table tbody tr[aria-selected="true"] {
+  background-color: color-mix(in srgb, var(--accent) 12%, var(--surface)) !important;
+}
+
+/* ─── Light Mode Pure White Forms & High Contrast Dropdowns ─── */
+[data-theme="light"] select:not([class*="dark-control"]),
+[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]):not([class*="dark-control"]),
+[data-theme="light"] textarea:not([class*="dark-control"]) {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+/* Inputs inside dark banners / headers retain high contrast dark background */
+[data-theme="light"] .unity-shell [class*="from-"] select,
+[data-theme="light"] .unity-shell [class*="from-"] input,
+[data-theme="light"] .unity-shell [class*="bg-teal-9"] select,
+[data-theme="light"] .unity-shell [class*="bg-teal-9"] input,
+[data-theme="light"] .unity-shell [class*="bg-slate-9"] select,
+[data-theme="light"] .unity-shell [class*="bg-slate-9"] input {
+  background-color: rgba(2, 34, 43, 0.85) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+[data-theme="light"] select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* ─── Dark Mode High Readability, Deeper Active Boxes ─── */
+[data-theme="dark"] {
+  letter-spacing: 0.012em;
+}
+[data-theme="dark"] select,
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="dark"] textarea {
+  background-color: color-mix(in srgb, var(--portal-950) 80%, var(--portal-900)) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+[data-theme="dark"] select option {
+  background-color: #04222b !important;
+  color: #ffffff !important;
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* ─── Button & Control Transitions ─── */
+button,
+.unity-btn {
+  transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT: filter/search icons → dark; pagination/buttons → dark text;
+   hover → teal tint; KPI cards → very dark text; icon wells → dark glyph
+   ═══════════════════════════════════════════════════════════════ */
+[data-theme="light"] .unity-shell .relative > svg,
+[data-theme="light"] .unity-shell .absolute > svg {
+  color: var(--icon-box-fg, #10606f);
+  opacity: 0.85;
+}
+[data-theme="light"] .unity-shell button.bg-white:not(:disabled),
+[data-theme="light"] .unity-shell button.bg-slate-50:not(:disabled),
+[data-theme="light"] .unity-shell button.bg-slate-100:not(:disabled) {
+  background-color: #ffffff !important;
+  color: var(--text) !important;
+  border-color: #cbd5e1 !important;
+}
+[data-theme="light"] .unity-shell button.bg-white:hover:not(:disabled),
+[data-theme="light"] .unity-shell button.bg-slate-50:hover:not(:disabled),
+[data-theme="light"] .unity-shell button.bg-slate-100:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--accent) 9%, #ffffff) !important;
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border)) !important;
+  color: var(--text) !important;
+}
+[data-theme="light"] .unity-shell .u-overview-card {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--card-tone) 16%, #ffffff) 0%,
+    color-mix(in srgb, var(--card-tone) 8%, #ffffff) 100%
+  ) !important;
+  border: 1.5px solid color-mix(in srgb, var(--card-tone) 35%, #cbd5e1) !important;
+  box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+  color: #0f172a !important;
+}
+[data-theme="light"] .unity-shell .u-overview-card__label {
+  color: #1e293b !important;
+  font-weight: 800 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+[data-theme="light"] .unity-shell .u-overview-card__value {
+  color: #0f172a !important;
+  font-weight: 900 !important;
+}
+[data-theme="light"] .unity-shell .u-overview-card__icon {
+  background: color-mix(in srgb, var(--card-tone) 22%, #ffffff) !important;
+  border: 1px solid color-mix(in srgb, var(--card-tone) 40%, #cbd5e1) !important;
+  color: color-mix(in srgb, var(--card-tone) 90%, #0f172a) !important;
+}
+[data-theme="light"] .unity-shell .u-icon,
+[data-theme="light"] .unity-shell .unity-icon-soft {
+  background: color-mix(in srgb, var(--portal-600) 12%, #ffffff);
+  color: var(--portal-800);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DARK: filter/search icons → bright; pagination/buttons → white text;
+   hover → bright teal; KPI cards → near-white text; icon wells → light glyph
+   ═══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .unity-shell .relative > svg,
+[data-theme="dark"] .unity-shell .absolute > svg {
+  color: var(--portal-200);
+  opacity: 0.9;
+}
+[data-theme="dark"] .unity-shell button.bg-white:not(:disabled),
+[data-theme="dark"] .unity-shell button.bg-slate-50:not(:disabled),
+[data-theme="dark"] .unity-shell button.bg-slate-100:not(:disabled) {
+  background-color: var(--surface) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+[data-theme="dark"] .unity-shell button.bg-white:hover:not(:disabled),
+[data-theme="dark"] .unity-shell button.bg-slate-50:hover:not(:disabled),
+[data-theme="dark"] .unity-shell button.bg-slate-100:hover:not(:disabled) {
+  background-color: var(--hover-bg) !important;
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border)) !important;
+  color: #ffffff !important;
+}
+[data-theme="dark"] .unity-shell .u-overview-card {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--card-tone) 24%, #020e14) 0%,
+    color-mix(in srgb, var(--card-tone) 12%, #03141c) 100%
+  ) !important;
+  border: 1.5px solid color-mix(in srgb, var(--card-tone) 45%, rgba(255, 255, 255, 0.2)) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.7) !important;
+}
+[data-theme="dark"] .unity-shell .u-overview-card:hover {
+  border-color: color-mix(in srgb, var(--card-tone) 65%, #2dd4bf) !important;
+  box-shadow: 0 8px 24px -4px color-mix(in srgb, var(--card-tone) 40%, rgba(0, 0, 0, 0.85)) !important;
+}
+[data-theme="dark"] .unity-shell .u-overview-card__label {
+  color: #f1f5f9 !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+[data-theme="dark"] .unity-shell .u-overview-card__value {
+  color: #ffffff !important;
+  font-weight: 900 !important;
+}
+[data-theme="dark"] .unity-shell .u-overview-card__icon {
+  background: color-mix(in srgb, var(--card-tone) 28%, #03141c) !important;
+  border: 1px solid color-mix(in srgb, var(--card-tone) 50%, rgba(255, 255, 255, 0.25)) !important;
+  color: color-mix(in srgb, var(--card-tone) 90%, #ffffff) !important;
+}
+[data-theme="dark"] .unity-shell .u-icon,
+[data-theme="dark"] .unity-shell .unity-icon-soft {
+  background: color-mix(in srgb, var(--portal-400) 18%, var(--portal-900));
+  color: var(--portal-200);
+}
+
+/* ── Universal Dark Theme Adaptation for Pastel Box Cards (Customers, Products, Inventory, Shipping, etc.) ── */
+[data-theme="dark"] .unity-shell [class*="bg-blue-50"] {
+  background-color: color-mix(in srgb, #0284c7 15%, var(--surface, #071E26)) !important;
+  border-color: color-mix(in srgb, #0284c7 35%, var(--border)) !important;
+  color: #f1f5f9 !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-emerald-50"] {
+  background-color: color-mix(in srgb, #059669 15%, var(--surface, #071E26)) !important;
+  border-color: color-mix(in srgb, #059669 35%, var(--border)) !important;
+  color: #f1f5f9 !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-amber-50"] {
+  background-color: color-mix(in srgb, #d97706 15%, var(--surface, #071E26)) !important;
+  border-color: color-mix(in srgb, #d97706 35%, var(--border)) !important;
+  color: #f1f5f9 !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-purple-50"] {
+  background-color: color-mix(in srgb, #7c3aed 15%, var(--surface, #071E26)) !important;
+  border-color: color-mix(in srgb, #7c3aed 35%, var(--border)) !important;
+  color: #f1f5f9 !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-rose-50"] {
+  background-color: color-mix(in srgb, #e11d48 15%, var(--surface, #071E26)) !important;
+  border-color: color-mix(in srgb, #e11d48 35%, var(--border)) !important;
+  color: #f1f5f9 !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-sky-50"] {
+  background-color: color-mix(in srgb, #0284c7 15%, var(--surface, #071E26)) !important;
+  border-color: color-mix(in srgb, #0284c7 35%, var(--border)) !important;
+  color: #f1f5f9 !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-indigo-50"] {
+  background-color: color-mix(in srgb, #4f46e5 15%, var(--surface, #071E26)) !important;
+  border-color: color-mix(in srgb, #4f46e5 35%, var(--border)) !important;
+  color: #f1f5f9 !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-teal-50"] {
+  background-color: color-mix(in srgb, #0d9488 15%, var(--surface, #071E26)) !important;
+  border-color: color-mix(in srgb, #0d9488 35%, var(--border)) !important;
+  color: #f1f5f9 !important;
+}
+
+/* Text inside pastel box cards in dark mode */
+[data-theme="dark"] .unity-shell [class*="bg-"][class*="-50"] .text-slate-700,
+[data-theme="dark"] .unity-shell [class*="bg-"][class*="-50"] .text-slate-600 {
+  color: #94a3b8 !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-"][class*="-50"] .text-slate-900,
+[data-theme="dark"] .unity-shell [class*="bg-"][class*="-50"] .text-slate-800 {
+  color: #ffffff !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-emerald-50"] .text-emerald-900 {
+  color: #6ee7b7 !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-blue-50"] .text-blue-900 {
+  color: #7dd3fc !important;
+}
+
+/* Icon holders in dark mode */
+[data-theme="dark"] .unity-shell [class*="bg-blue-50"] .bg-blue-100 {
+  background-color: rgba(2, 132, 199, 0.25) !important;
+  color: #38bdf8 !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-emerald-50"] .bg-emerald-100 {
+  background-color: rgba(5, 150, 105, 0.25) !important;
+  color: #34d399 !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-amber-50"] .bg-amber-100 {
+  background-color: rgba(217, 119, 6, 0.25) !important;
+  color: #fbbf24 !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-purple-50"] .bg-purple-100 {
+  background-color: rgba(124, 58, 237, 0.25) !important;
+  color: #a78bfa !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-rose-50"] .bg-rose-100 {
+  background-color: rgba(225, 29, 72, 0.25) !important;
+  color: #fb7185 !important;
+}
+
+/* Action buttons inside cards (Export / Import customers) */
+[data-theme="dark"] .unity-shell [class*="bg-emerald-50"] button.bg-white,
+[data-theme="dark"] .unity-shell [class*="bg-blue-50"] button.bg-white {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-emerald-50"] button.bg-white:hover,
+[data-theme="dark"] .unity-shell [class*="bg-blue-50"] button.bg-white:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+
+/* Hover highlights in dark mode */
+[data-theme="dark"] .unity-shell [class*="bg-blue-50"]:hover {
+  background-color: color-mix(in srgb, #0284c7 22%, var(--surface, #071E26)) !important;
+  border-color: color-mix(in srgb, #0284c7 50%, var(--border)) !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-emerald-50"]:hover {
+  background-color: color-mix(in srgb, #059669 22%, var(--surface, #071E26)) !important;
+  border-color: color-mix(in srgb, #059669 50%, var(--border)) !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-amber-50"]:hover {
+  background-color: color-mix(in srgb, #d97706 22%, var(--surface, #071E26)) !important;
+  border-color: color-mix(in srgb, #d97706 50%, var(--border)) !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-purple-50"]:hover {
+  background-color: color-mix(in srgb, #7c3aed 22%, var(--surface, #071E26)) !important;
+  border-color: color-mix(in srgb, #7c3aed 50%, var(--border)) !important;
+}
+[data-theme="dark"] .unity-shell [class*="bg-rose-50"]:hover {
+  background-color: color-mix(in srgb, #e11d48 22%, var(--surface, #071E26)) !important;
+  border-color: color-mix(in srgb, #e11d48 50%, var(--border)) !important;
+}
+
+/* ─── Universal Status Badges Contrast in Dark Mode ─── */
+[data-theme="dark"] .unity-shell .bg-emerald-100 {
+  background-color: rgba(16, 185, 129, 0.22) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+}
+[data-theme="dark"] .unity-shell .bg-blue-100 {
+  background-color: rgba(59, 130, 246, 0.22) !important;
+  color: #60a5fa !important;
+  border: 1px solid rgba(59, 130, 246, 0.4) !important;
+}
+[data-theme="dark"] .unity-shell .bg-amber-100 {
+  background-color: rgba(245, 158, 11, 0.22) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+}
+[data-theme="dark"] .unity-shell .bg-purple-100 {
+  background-color: rgba(139, 92, 246, 0.22) !important;
+  color: #a78bfa !important;
+  border: 1px solid rgba(139, 92, 246, 0.4) !important;
+}
+[data-theme="dark"] .unity-shell .bg-rose-100 {
+  background-color: rgba(244, 63, 94, 0.22) !important;
+  color: #fb7185 !important;
+  border: 1px solid rgba(244, 63, 94, 0.4) !important;
+}
+[data-theme="dark"] .unity-shell .bg-teal-100 {
+  background-color: rgba(20, 184, 166, 0.22) !important;
+  color: #2dd4bf !important;
+  border: 1px solid rgba(20, 184, 166, 0.4) !important;
+}
+[data-theme="dark"] .unity-shell .bg-slate-100 {
+  background-color: rgba(148, 163, 184, 0.18) !important;
+  color: #cbd5e1 !important;
+  border: 1px solid rgba(148, 163, 184, 0.3) !important;
+}
+
+/* ─── Universal Status Badges in Light Mode ─── */
+[data-theme="light"] .unity-shell .bg-emerald-100 {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+}
+[data-theme="light"] .unity-shell .bg-blue-100 {
+  background-color: #dbeafe !important;
+  color: #1e40af !important;
+}
+[data-theme="light"] .unity-shell .bg-amber-100 {
+  background-color: #fef3c7 !important;
+  color: #92400e !important;
+}
+[data-theme="light"] .unity-shell .bg-purple-100 {
+  background-color: #f3e8ff !important;
+  color: #6b21a8 !important;
+}
+[data-theme="light"] .unity-shell .bg-rose-100 {
+  background-color: #ffe4e6 !important;
+  color: #9f1239 !important;
+}
+
+/* ─── Table Text and Header High Contrast ─── */
+[data-theme="dark"] .unity-shell table tbody tr td {
+  color: #f1f5f9;
+}
+[data-theme="dark"] .unity-shell table thead th {
+  color: #94a3b8 !important;
+  font-weight: 750 !important;
+}
+[data-theme="light"] .unity-shell table tbody tr td {
+  color: #0f172a;
+}
+[data-theme="light"] .unity-shell table thead th {
+  color: #334155 !important;
+  font-weight: 750 !important;
+}
+
+/* ─── Pagination Active Buttons Contrast ─── */
+.unity-shell button[class*="bg-teal-6"],
+.unity-shell button[class*="bg-blue-6"] {
+  color: #ffffff !important;
+}
+

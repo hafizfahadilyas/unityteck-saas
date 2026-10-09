@@ -1,0 +1,35 @@
+---
+description: Ultra-fast updates, zero unnecessary refresh, full public SEO — every phase
+alwaysApply: true
+---
+
+# Lean · Speed · SEO (LOCKED)
+
+Apply in **every** phase. No exceptions.
+
+## Stack reminder (NO VPS)
+- Admin Vite → Hostinger · API Laravel → Hostinger MySQL · Storefront Next → Vercel · Media R2/CDN.
+- Details: `docs/02-tech-stack-no-vps.md`. No VPS dependency in this phase.
+
+## Ultra-fast / no full refresh / ZERO stale cache
+- Mutations → optimistic UI + query invalidation / cache bust — not `location.reload()` or hard remount of the whole app.
+- Prefer TanStack Query invalidate by tag scoped to `store_id`: products, orders, categories, theme, SEO, media.
+- Next.js ISR: `revalidateTag` / `revalidatePath` after publish — never leave old HTML/products/prices.
+- Images: hashed URL or `?v={updated_at}` — overwritten same URL without bust = forbidden. No old cached image anywhere.
+- CDN/cache keys always store-scoped. DB is source of truth; on conflict DB wins.
+- Realtime only where needed (orders, stock, theme publish). No blanket listeners on every page.
+- Toasts for success/error (~3–4s). Button `aria-busy` on submit. Never freeze the whole page.
+- Nav = soft SPA transitions. No native `alert()` / `confirm()`.
+
+## Public web SEO (mandatory)
+- Storefront SEO is **full** and **per-store**: title, description, slug, canonical, OG, Twitter, JSON-LD, sitemap, robots, hreflang, alt text.
+- Prefer SSR/prerender for public pages (Next storefront). Client-only meta is not enough for production SEO.
+- Keyword stuffing / fake backlinks / ranking guarantees = forbidden.
+- Unknown traffic sources must not be mis-attributed.
+
+## Lean product
+- One prompt/slice at a time. Ship only unlocked screens.
+- Real data paths over fake charts once persistence exists.
+- Master feature grants + plan limits enforced **server-side**, not only hidden buttons.
+---
+

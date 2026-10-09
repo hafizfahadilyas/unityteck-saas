@@ -1,0 +1,216 @@
+@import "tailwindcss";
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *, .dark, .dark *));
+@import "./styles/portal-tokens.css";
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    font-family: var(--font-ui, 'Plus Jakarta Sans', system-ui, sans-serif);
+    color: var(--text, #0F172A);
+    background-color: var(--bg, #F8FAFC);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: inherit;
+    font-weight: var(--font-weight-body, 400);
+    color: inherit;
+    background-color: inherit;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-heading {
+    font-weight: var(--font-weight-heading, 700);
+  }
+
+  /* Form controls inherit font */
+  input,
+  button,
+  select,
+  textarea,
+  optgroup {
+    font-family: inherit;
+  }
+
+  /* Language-driven font-family hierarchy across entire app */
+  html[lang="ar"],
+  html[lang="ar"] body,
+  html[lang="ar"] input,
+  html[lang="ar"] button,
+  html[lang="ar"] select,
+  html[lang="ar"] textarea {
+    font-family: var(--font-ui-ar, 'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Cairo', system-ui, sans-serif);
+  }
+
+  /* Arabic cursive letter-spacing normalization (prevents disconnects in dark mode / tracking tokens) */
+  html[lang="ar"],
+  html[lang="ar"] *,
+  [dir="rtl"],
+  [dir="rtl"] * {
+    letter-spacing: normal !important;
+  }
+
+  html[lang="en"],
+  html[lang="en"] body,
+  html[lang="en"] input,
+  html[lang="en"] button,
+  html[lang="en"] select,
+  html[lang="en"] textarea {
+    font-family: var(--font-ui-en, var(--font-ui, 'Plus Jakarta Sans', system-ui, sans-serif));
+  }
+
+  /* Universal shell & layout inheritance across Master, Store, Themes */
+  .unity-shell,
+  .u-page,
+  .u-panel,
+  .u-card,
+  .unity-card,
+  [data-portal="master"],
+  [data-portal="store"],
+  .storefront-root {
+    font-family: inherit;
+  }
+
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Search / filter icons sit on light wells → dark glyph; on CTA → white */
+  .unity-shell .absolute.start-3\.5,
+  .unity-shell .absolute.start-3,
+  .unity-shell .absolute.left-3\.5,
+  .unity-shell .absolute.left-3 {
+    color: var(--icon-box-fg, #0a3d4a);
+    opacity: 0.75;
+  }
+}
+
+/* ── Scrollbar: auto-hide, subtle; only visible on hover ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+*:hover {
+  scrollbar-color: color-mix(in srgb, var(--muted, #64748b) 30%, transparent) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+}
+*:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted, #64748b) 30%, transparent);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--muted, #64748b) 60%, transparent);
+}
+
+/* Helper: completely hide scrollbar on flex-wrap tab strips */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Luxury Animations & Effects (Mecca Gifts Flagship Theme) */
+@keyframes kenburnsZoom {
+  0% { transform: scale(1.0) translate(0, 0); }
+  50% { transform: scale(1.08) translate(-1%, -1%); }
+  100% { transform: scale(1.14) translate(1%, 0.5%); }
+}
+
+.animate-kenburns {
+  animation: kenburnsZoom 14s cubic-bezier(0.25, 1, 0.5, 1) infinite alternate;
+  will-change: transform;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 35s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+@keyframes shimmerSweep {
+  0% { transform: translateX(-150%) skewX(-20deg); }
+  100% { transform: translateX(250%) skewX(-20deg); }
+}
+
+.hover-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.hover-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 100%
+  );
+  transform: translateX(-150%) skewX(-20deg);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.hover-shimmer:hover::after {
+  opacity: 1;
+  animation: shimmerSweep 1.2s ease-in-out;
+}
+
+@keyframes sectionFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-reveal {
+  animation: sectionFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.card-hover-luxury {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
+}
+
+.card-hover-luxury:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 35px -10px rgba(16, 42, 28, 0.15), 0 10px 15px -8px rgba(212, 175, 55, 0.12);
+  border-color: rgba(212, 175, 55, 0.65);
+}
+

@@ -1,0 +1,45 @@
+﻿/* Unityteck admin Holst BLUE — designs/Login_UIUX + Master_Admin_UIUX
+ * LOCK: Master + Store admin chrome = SAME Holst blue.
+ * Runtime branding overrides via CSS vars (Prefs → BrandingPanel).
+ */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root,
+[data-portal="master"],
+[data-portal="store"] {
+  --portal-950: #04222b;
+  --portal-900: #0a3d4a;
+  --portal-800: #10606f;
+  --portal-600: #1d8b94;
+  --portal-400: #4fb8b4;
+  --portal-200: #98d8d0;
+  --portal-50: #e2f4f0;
+  --portal-cta: linear-gradient(90deg, #1d8b94, #4fb8b4);
+}
+
+[data-theme="light"][data-portal="master"],
+[data-theme="light"][data-portal="store"] {
+  --bg: var(--portal-50);
+  --surface: #ffffff;
+  --text: #04222b;
+  --muted: #0a3d4a;
+  --border: var(--portal-200);
+  --accent: var(--portal-600);
+}
+
+[data-theme="dark"][data-portal="master"],
+[data-theme="dark"][data-portal="store"] {
+  --bg: var(--portal-950);
+  --surface: var(--portal-900);
+  --text: #f2fbf8;
+  --muted: #b8e4dc;
+  --border: var(--portal-800);
+  --accent: var(--portal-400);
+}

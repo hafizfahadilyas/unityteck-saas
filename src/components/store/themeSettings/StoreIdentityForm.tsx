@@ -1,0 +1,219 @@
+import React, { useEffect, useState } from 'react';
+import { Building2, Check, Image, Mail, MapPin, Phone, Save } from 'lucide-react';
+import { useTenant } from '../../../context/TenantContext';
+import { usePrefs } from '../../../i18n/PrefsContext';
+import { useToast } from '../../common/ToastProvider';
+import {
+  defaultStoreIdentity,
+  readStoreIdentity,
+  writeStoreIdentity,
+  type StoreIdentitySettings,
+} from '../../../themes/settings/storeIdentity';
+import { MediaUploadField } from '../../common/MediaUploadField';
+
+/**
+ * Theme Settings · 01 Store Identity — Holst form, same-to-same Phase 5.1 start.
+ * designs/Theme_Settings_UIUX/01_Store_Identity
+ */
+export const StoreIdentityForm: React.FC = () => {
+  const { activeStore } = useTenant();
+  const { locale } = usePrefs();
+  const { toast } = useToast();
+  const [form, setForm] = useState<StoreIdentitySettings>(() =>
+    readStoreIdentity(activeStore.id, activeStore),
+  );
+  const [saving, setSaving] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
+
+  useEffect(() => {
+    setForm(readStoreIdentity(activeStore.id, activeStore));
+  }, [activeStore.id, activeStore.name, activeStore.logo, activeStore.ownerEmail]);
+
+  const patch = <K extends keyof StoreIdentitySettings>(key: K, value: StoreIdentitySettings[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const onSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    writeStoreIdentity(activeStore.id, form);
+    setTimeout(() => {
+      setSaving(false);
+      setSavedFlash(true);
+      toast(locale === 'ar' ? 'تم حفظ هوية المتجر' : 'Store identity saved', 'success');
+      setTimeout(() => setSavedFlash(false), 2500);
+    }, 350);
+  };
+
+  const onReset = () => {
+    const d = defaultStoreIdentity(activeStore);
+    setForm(d);
+    writeStoreIdentity(activeStore.id, d);
+    toast(locale === 'ar' ? 'تمت إعادة الضبط' : 'Reset to defaults', 'info');
+  };
+
+  const field = (
+    label: string,
+    key: keyof StoreIdentitySettings,
+    opts?: { dir?: 'ltr' | 'rtl'; type?: string; placeholder?: string },
+  ) => (
+    <label className="block space-y-1.5 min-w-0">
+      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
+        {label}
+      </span>
+      <input
+        type={opts?.type || 'text'}
+        value={String(form[key] ?? '')}
+        onChange={(e) => patch(key, e.target.value as StoreIdentitySettings[typeof key])}
+        dir={opts?.dir}
+        placeholder={opts?.placeholder}
+        className="w-full px-3 py-2.5 rounded-xl text-xs border focus:outline-none"
+        style={{
+          background: 'var(--input-bg)',
+          color: 'var(--input-fg)',
+          borderColor: 'var(--border)',
+          borderRadius: 'var(--radius-ctrl)',
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent)';
+          e.currentTarget.style.borderColor = 'var(--accent)';
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.boxShadow = 'none';
+          e.currentTarget.style.borderColor = 'var(--border)';
+        }}
+      />
+    </label>
+  );
+
+  return (
+    <form
+      onSubmit={onSave}
+      className="rounded-2xl border p-5 sm:p-6 space-y-5"
+      style={{
+        background: 'var(--surface)',
+        borderColor: 'var(--border)',
+        boxShadow: 'var(--card-shadow)',
+        color: 'var(--text)',
+        fontFamily: 'var(--font-ui)',
+      }}
+    >
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <span
+            className="w-10 h-10 rounded-2xl text-white flex items-center justify-center shrink-0 unity-icon-box"
+          >
+            <Building2 className="w-5 h-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent)' }}>
+              Theme Settings · 01
+            </p>
+            <h2 className="text-base sm:text-lg font-extrabold tracking-tight">
+              {locale === 'ar' ? 'هوية المتجر والمعلومات' : 'Store Identity & Information'}
+            </h2>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
+              {locale === 'ar'
+                ? 'الاسم · الشعار · التواصل · السجل التجاري — لكل متجر (store_id)'
+                : 'Name · logo · contact · CR — scoped per store_id'}
+            </p>
+          </div>
+        </div>
+        <span
+          className="text-[10px] font-mono px-2 py-1 rounded-lg border shrink-0"
+          style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+        >
+          {activeStore.id}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {field(locale === 'ar' ? 'اسم المتجر' : 'Store name', 'storeName')}
+        {field('Tagline (EN)', 'taglineEn', { dir: 'ltr' })}
+        <div className="md:col-span-2">
+          {field('الشعار (عربي)', 'taglineAr', { dir: 'rtl' })}
+        </div>
+        <div className="md:col-span-2">
+          <MediaUploadField
+            label={locale === 'ar' ? 'شعار المتجر (Store Logo)' : 'Store Logo'}
+            value={form.logoUrl}
+            onChange={(url) => setForm((prev) => ({ ...prev, logoUrl: url }))}
+            recommendedSize="200 × 200 px"
+            aspectRatio="square"
+            initialFolder="branding"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-1 space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
+            <Phone className="w-3 h-3" /> {locale === 'ar' ? 'هاتف' : 'Phone'}
+          </span>
+          {field('', 'phone', { dir: 'ltr' })}
+        </div>
+        <div className="md:col-span-1 space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
+            WhatsApp
+          </span>
+          {field('', 'whatsapp', { dir: 'ltr' })}
+        </div>
+        <div className="md:col-span-1 space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
+            <Mail className="w-3 h-3" /> Email
+          </span>
+          {field('', 'email', { type: 'email', dir: 'ltr' })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
+            <MapPin className="w-3 h-3" /> Address EN
+          </span>
+          {field('', 'addressEn', { dir: 'ltr' })}
+        </div>
+        <div className="space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
+            العنوان عربي
+          </span>
+          {field('', 'addressAr', { dir: 'rtl' })}
+        </div>
+        {field(locale === 'ar' ? 'المدينة' : 'City', 'city')}
+        {field('Instagram', 'instagram', { dir: 'ltr', placeholder: '@handle' })}
+        {field(locale === 'ar' ? 'السجل التجاري' : 'Commercial registration', 'commercialReg', { dir: 'ltr' })}
+        {field(locale === 'ar' ? 'الرقم الضريبي' : 'VAT number', 'vatNumber', { dir: 'ltr' })}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+        <button
+          type="button"
+          onClick={onReset}
+          className="px-3 py-2 rounded-xl text-xs font-semibold border cursor-pointer"
+          style={{ borderColor: 'var(--border)', color: 'var(--muted)', background: 'var(--bg)' }}
+        >
+          {locale === 'ar' ? 'إعادة ضبط' : 'Reset defaults'}
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          aria-busy={saving}
+          className="px-5 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-60 unity-btn-primary"
+        >
+          {savedFlash ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+          {saving
+            ? locale === 'ar'
+              ? 'جارٍ الحفظ…'
+              : 'Saving…'
+            : savedFlash
+              ? locale === 'ar'
+                ? 'تم الحفظ'
+                : 'Saved'
+              : locale === 'ar'
+                ? 'حفظ الهوية'
+                : 'Save identity'}
+        </button>
+      </div>
+    </form>
+  );
+};

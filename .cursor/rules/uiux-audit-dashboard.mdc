@@ -1,0 +1,30 @@
+---
+description: UI/UX audit — preserve correct UI; advanced tables; remove demo branding
+alwaysApply: true
+---
+
+# UI/UX · Audit · Dashboard (LOCKED)
+
+Full text: `docs/04-uiux-audit-dashboard-rules.md`
+
+## Before changes
+Inspect existing code/UI first. Audit AI Studio code for bugs, dupes, unused imports, security, tenant leaks, stale cache. Fix mistakes — do not rewrite working features.
+
+## Branding
+Remove unnecessary AI Studio / Gemini / demo / placeholder branding. Keep verified legal attributions. Product brand = Unityteck SaaS.
+
+## UI
+`designs/` (+ Drive) = primary reference. If UI already matches → **do not touch**. Fix only missing / broken / clearly different screens.
+
+## Data pages
+Reusable advanced tables: search, pagination, page size, sort, filters (date/status/…), bulk where needed, loading/empty/error, responsive.
+
+## Analytics
+Date ranges: today / yesterday / week / month / custom. Keep **order source** ≠ **traffic source**. No fake attribution — use Unknown/Direct when unsure.
+
+## Settings
+Modular sections (branding, payments, SEO, Google, team, domain, hosting, …) — not one dump page.
+
+## Updates
+No unnecessary full refresh; invalidate cache so old data/images never show.
+---

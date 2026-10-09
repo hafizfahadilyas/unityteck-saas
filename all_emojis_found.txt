@@ -1,0 +1,4 @@
+src/components/common/ClientAuthModal.tsx:349: char ✓ (code 0x2713)
+  line: ✓ Store registered! Launching your custom dashboard...
+src/components/store/StorePayments.tsx:113: char  (code 0xf8ff)
+  line:  Pay
