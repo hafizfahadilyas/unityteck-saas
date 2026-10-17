@@ -1,314 +1,439 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import {
-  ShoppingBag,
-  MessageCircle,
-  ChevronLeft,
-  ChevronRight,
-  Sparkles
-} from 'lucide-react';
-import { MECCA_WHATSAPP } from '../data/mockData';
-import { Product } from '../types';
+import { useTenant } from '../../../context/TenantContext';
+import { ChevronLeft, ChevronRight, ArrowRight, ArrowLeft, Edit3, Image as ImageIcon } from 'lucide-react';
+import { readAllThemeSettings } from '../../settings/themeSettingsStore';
 
-export const MotionHeroSlider: React.FC = () => {
-  const { language, addToCart } = useApp();
+export interface HeroSlideItem {
+  id: string;
+  title: string;
+  titleAr: string;
+  subtitle: string;
+  subtitleAr: string;
+  primaryBtn: string;
+  primaryBtnAr: string;
+  primaryLink?: string;
+  secondaryBtn?: string;
+  secondaryBtnAr?: string;
+  secondaryLink?: string;
+  image: string;
+  category?: string;
+}
+
+export const DEFAULT_FLOWER_SLIDES: HeroSlideItem[] = [
+  {
+    id: 'slide-1',
+    title: 'Make Every Moment More Special',
+    titleAr: 'اجعل كل لحظة أكثر تميزاً',
+    subtitle: 'Fresh flowers & premium gifts for your loved ones',
+    subtitleAr: 'زهور طبيعية وهدايا فاخرة لمن تحب',
+    primaryBtn: 'Shop Now',
+    primaryBtnAr: 'تسوق الآن',
+    primaryLink: '#catalog',
+    image: '/src/assets/images/hadaya_hero_penthouse_1791216115794.jpg',
+    category: 'باقات الورود الطبيعية',
+  },
+  {
+    id: 'slide-2',
+    title: 'Your Special Moments Our Beautiful Creations',
+    titleAr: 'لحظاتكم الخاصة وإبداعاتنا الجميلة',
+    subtitle: 'Fresh flowers & premium gifts for every occasion',
+    subtitleAr: 'زهور طبيعية وهدايا راقية لكل مناسبة',
+    primaryBtn: 'Shop Now',
+    primaryBtnAr: 'تسوق الآن',
+    primaryLink: '#catalog',
+    secondaryBtn: 'Learn More',
+    secondaryBtnAr: 'اعرف المزيد',
+    secondaryLink: '#about',
+    image: '/src/assets/images/hadaya_luxury_master_hero_1791217937117.jpg',
+    category: 'ورد وشوكولاتة بلجيكية فاخرة',
+  },
+  {
+    id: 'slide-3',
+    title: 'Unforgettable Memories with Fine Floristry',
+    titleAr: 'ذكريات لا تُنسى بأرقى تنسيقات الزهور',
+    subtitle: 'Imported long-stem Dutch roses delivered chilled to your doorstep',
+    subtitleAr: 'جوري هولندي فاخر وتوصيل مبرد عاجل حتى باب منزلك',
+    primaryBtn: 'Shop Now',
+    primaryBtnAr: 'تسوق الآن',
+    primaryLink: '#catalog',
+    image: '/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
+    category: 'باقات فاخرة',
+  },
+];
+
+export const DEFAULT_COFFEE_SLIDES: HeroSlideItem[] = [
+  {
+    id: 'slide-cof-1',
+    title: 'Artisan Roasting & Specialty Coffee Experience',
+    titleAr: 'فن التحميص وتجربة القهوة المختصة الفاخرة',
+    subtitle: 'Single-origin beans roasted to perfection for true coffee connoisseurs',
+    subtitleAr: 'محاصيل بن مختارة من مزارع عالمية ومحمصة بطرق حرفية لخبراء التذوق',
+    primaryBtn: 'Shop Beans',
+    primaryBtnAr: 'تسوق المحاصيل',
+    primaryLink: '#catalog',
+    image: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=1600&q=80',
+    category: 'حبوب القهوة المختصة',
+  },
+  {
+    id: 'slide-cof-2',
+    title: 'Precision Pour-Over Tools & Espresso Gear',
+    titleAr: 'أدوات ومعدات التقطير الاحترافية V60 والإسبريسو',
+    subtitle: 'Everything you need to craft the perfect barista-grade cup at home',
+    subtitleAr: 'كل ما يحتاجه الباريستا المنزلي لتحضير الكوب المثالي كل صباح',
+    primaryBtn: 'Explore Tools',
+    primaryBtnAr: 'استكشف الأدوات',
+    primaryLink: '#catalog',
+    secondaryBtn: 'Learn More',
+    secondaryBtnAr: 'اعرف المزيد',
+    secondaryLink: '#about',
+    image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1600&q=80',
+    category: 'أدوات التحضير المقطرة',
+  },
+  {
+    id: 'slide-cof-3',
+    title: 'Rare Colombian & Ethiopian Micro-Lots',
+    titleAr: 'محاصيل كولومبيا وإثيوبيا بإيحاءات زهرية وفاكهية',
+    subtitle: 'Exquisite aromatic profiles and sensory tasting journeys in every sip',
+    subtitleAr: 'نوتات عطرية فريدة وتجربة حسية تأسر الحواس مع كل رشفة',
+    primaryBtn: 'Order Now',
+    primaryBtnAr: 'اطلب الآن',
+    primaryLink: '#catalog',
+    image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=1600&q=80',
+    category: 'حبوب القهوة المختصة',
+  },
+];
+
+export interface MotionHeroSliderProps {
+  isBuilderMode?: boolean;
+  slides?: HeroSlideItem[];
+  activeSlideIndex?: number;
+  selectedSubElement?: 'slide' | 'title' | 'subtitle' | 'btn1' | 'btn2' | 'image' | null;
+  onSelectSubElement?: (subKey: 'slide' | 'title' | 'subtitle' | 'btn1' | 'btn2' | 'image', slideIdx: number) => void;
+  onSlideChange?: (idx: number) => void;
+}
+
+export const MotionHeroSlider: React.FC<MotionHeroSliderProps> = ({
+  isBuilderMode = false,
+  slides: customSlides,
+  activeSlideIndex,
+  selectedSubElement,
+  onSelectSubElement,
+  onSlideChange,
+}) => {
+  const { language, setCurrentPage, setSelectedCategory } = useApp();
+  const { activeStore } = useTenant();
   const isAr = language === 'ar';
+  const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
 
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [localSlide, setLocalSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchDelta, setTouchDelta] = useState(0);
+  const [tick, setTick] = useState(0);
 
-  // 4 High-Resolution Royal Luxury Floral Masterpieces (Clean, concise, image-focused)
-  const slides = [
-    {
-      id: 'slide-1',
-      productId: 'nat-1',
-      title: 'باقة الجوري المخملي الملكية',
-      titleEn: 'Royal Velvet Crimson Roses',
-      subtitle: '50 وردة جوري إكوادوري مخملية مع تغليف ملكي فاخر',
-      subtitleEn: '50 premium long-stem Ecuadorian red roses in bespoke noir wrap',
-      badge: 'الأكثر طلباً',
-      badgeEn: 'Best Seller',
-      price: 499,
-      image: '/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
-      category: 'باقات الورود الطبيعية',
-      categoryEn: 'Natural Flower Bouquets'
-    },
-    {
-      id: 'slide-2',
-      productId: 'nat-2',
-      title: 'باقة الإهداء الفاخرة الخاصة',
-      titleEn: 'Saudi Bespoke Signature Bouquet',
-      subtitle: 'تنسيق يدوي فخم من الجوري والبيبي روز بتغليف مذهب',
-      subtitleEn: 'Hand-crafted crimson blooms wrapped in metallic gold paper',
-      badge: 'تنسيق حصري',
-      badgeEn: 'Exclusive Edition',
-      price: 380,
-      image: '/src/assets/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg',
-      category: 'باقات فاخرة',
-      categoryEn: 'Luxury Bouquets'
-    },
-    {
-      id: 'slide-3',
-      productId: 'nat-3',
-      title: 'سحر النقاء العاجي والأوركيد',
-      titleEn: 'Pure Ivory Roses & Orchids',
-      subtitle: 'ورود جورى بيضاء نقية مع أزهار الأوركيد والليليانثوس',
-      subtitleEn: 'Pure white garden roses with cascading Dutch orchids',
-      badge: 'نقاء ملكي',
-      badgeEn: 'Pure White Luxury',
-      price: 340,
-      image: '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
-      category: 'ورد أبيض',
-      categoryEn: 'White Roses'
-    },
-    {
-      id: 'slide-4',
-      productId: 'choc-1',
-      title: 'صندوق ورد وشوكولاتة باتشي',
-      titleEn: 'Patchi Chocolates & Roses Chest',
-      subtitle: 'صندوق جلدي مذهب يجمع بين الجوري وشوكولاتة باتشي',
-      subtitleEn: 'Opulent keepsake chest with fresh roses and Patchi treats',
-      badge: 'شوكولاتة باتشي',
-      badgeEn: 'Patchi Chocolate',
-      price: 450,
-      image: '/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg',
-      category: 'ورد وشوكولاتة بلجيكية فاخرة',
-      categoryEn: 'Roses & Belgian Chocolate'
-    }
-  ];
+  useEffect(() => {
+    const handleSync = () => setTick((t) => t + 1);
+    window.addEventListener('unityteck-theme-settings', handleSync);
+    window.addEventListener('unityteck-data', handleSync);
+    return () => {
+      window.removeEventListener('unityteck-theme-settings', handleSync);
+      window.removeEventListener('unityteck-data', handleSync);
+    };
+  }, []);
 
+  const dynamicThemeSlides: HeroSlideItem[] | null = useMemo(() => {
+    try {
+      const cfg: any = readAllThemeSettings(activeStore.id, activeStore);
+      const sliderAny = cfg?.slider;
+      if (sliderAny && (sliderAny.enabled ?? true) && sliderAny.slides && sliderAny.slides.length > 0) {
+        return (sliderAny.slides as any[]).map((s: any, idx: number): HeroSlideItem => ({
+          id: s.id || `custom-slide-${idx}`,
+          title: s.title || '',
+          titleAr: s.title || '',
+          subtitle: s.subtitle || '',
+          subtitleAr: s.subtitle || '',
+          primaryBtn: s.buttonText || (isAr ? 'تسوق الآن' : 'Shop Now'),
+          primaryBtnAr: s.buttonText || 'تسوق الآن',
+          primaryLink: s.link || s.buttonLink || '#catalog',
+          secondaryBtn: s.secondaryBtn,
+          secondaryBtnAr: s.secondaryBtnAr,
+          secondaryLink: s.secondaryLink,
+          image: s.image,
+          category: isCoffee ? 'حبوب القهوة المختصة' : 'باقات الورود الطبيعية',
+        }));
+      }
+    } catch {}
+    return null;
+  }, [activeStore.id, activeStore, tick, isAr, isCoffee]);
+
+  const defaultSlides = useMemo(() => (isCoffee ? DEFAULT_COFFEE_SLIDES : DEFAULT_FLOWER_SLIDES), [isCoffee]);
+  const slides = customSlides && customSlides.length > 0 
+    ? customSlides 
+    : (dynamicThemeSlides && dynamicThemeSlides.length > 0 ? dynamicThemeSlides : defaultSlides);
+
+  const currentSlide = activeSlideIndex !== undefined && activeSlideIndex !== null ? activeSlideIndex : localSlide;
   const totalSlides = slides.length;
-  const activeSlide = slides[currentSlide];
+  const activeSlide: any = slides[currentSlide] || slides[0];
 
-  // Slide navigation
+  const handleSetSlide = (idx: number) => {
+    setLocalSlide(idx);
+    onSlideChange?.(idx);
+  };
+
   const nextSlide = useCallback(() => {
-    setCurrentSlide((prev) => (prev + 1) % totalSlides);
-  }, [totalSlides]);
+    const n = (currentSlide + 1) % totalSlides;
+    handleSetSlide(n);
+  }, [currentSlide, totalSlides]);
 
   const prevSlide = useCallback(() => {
-    setCurrentSlide((prev) => (prev === 0 ? totalSlides - 1 : prev - 1));
-  }, [totalSlides]);
+    const p = currentSlide === 0 ? totalSlides - 1 : currentSlide - 1;
+    handleSetSlide(p);
+  }, [currentSlide, totalSlides]);
 
-  // Smooth auto-play with 7-second intervals
   useEffect(() => {
-    if (isPaused) return;
-    const timer = setInterval(() => {
-      nextSlide();
-    }, 7000);
+    if (isBuilderMode || isPaused) return;
+    const timer = setInterval(nextSlide, 7000);
     return () => clearInterval(timer);
-  }, [isPaused, nextSlide]);
+  }, [isBuilderMode, isPaused, nextSlide]);
 
-  // Touch Swipe Handlers for mobile
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStart(e.targetTouches[0].clientX);
-    setTouchDelta(0);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStart === null) return;
-    setTouchDelta(e.targetTouches[0].clientX - touchStart);
-  };
-
-  const handleTouchEnd = () => {
-    if (touchStart === null) return;
-    if (touchDelta > 50) {
-      isAr ? nextSlide() : prevSlide();
-    } else if (touchDelta < -50) {
-      isAr ? prevSlide() : nextSlide();
+  const handleAction = (categoryName?: string) => {
+    if (isBuilderMode) return;
+    if (categoryName) {
+      setSelectedCategory(categoryName);
     }
-    setTouchStart(null);
-    setTouchDelta(0);
-  };
-
-  // Add active slide product to cart
-  const handleAddToCart = () => {
-    const productItem: Product = {
-      id: activeSlide.productId,
-      name: activeSlide.title,
-      nameEn: activeSlide.titleEn,
-      price: activeSlide.price,
-      rating: 5.0,
-      reviewsCount: 140,
-      image: activeSlide.image,
-      category: activeSlide.category,
-      categoryEn: activeSlide.categoryEn,
-      badge: activeSlide.badge,
-      badgeEn: activeSlide.badgeEn,
-      description: activeSlide.subtitle,
-      descriptionEn: activeSlide.subtitleEn,
-      flowerTypes: [activeSlide.category],
-      inStock: true
-    };
-    addToCart(productItem, 1);
-  };
-
-  // WhatsApp order
-  const handleWhatsApp = () => {
-    const title = isAr ? activeSlide.title : activeSlide.titleEn;
-    const text = isAr
-      ? `مرحباً متجر هدايا مكة، أود طلب: *${title}* بسعر ${activeSlide.price} ر.س. يرجى تأكيد التوصيل المبرد في مكة المكرمة.`
-      : `Hello Hadaya Mecca, I would like to order: *${title}* for ${activeSlide.price} SAR. Please confirm delivery.`;
-    window.open(`https://wa.me/${MECCA_WHATSAPP.replace('+', '')}?text=${encodeURIComponent(text)}`, '_blank');
+    setCurrentPage('catalog');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
     <section
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onMouseEnter={() => !isBuilderMode && setIsPaused(true)}
+      onMouseLeave={() => !isBuilderMode && setIsPaused(false)}
       aria-label="Hero Luxury Floral Slider"
-      className="relative w-full h-[480px] sm:h-[540px] md:h-[620px] lg:h-[680px] overflow-hidden bg-[#07130a] text-white select-none"
+      className="relative w-full h-[460px] sm:h-[520px] md:h-[600px] lg:h-[640px] overflow-hidden bg-[#0d2117] text-white select-none group/slider"
     >
-      {/* 1. Cinematic Fullscreen Background Slides (FULL VISUAL HIGHLIGHT ON FLOWERS) */}
+      {/* Background Slides */}
       {slides.map((slide, index) => {
         const isActive = index === currentSlide;
         return (
           <div
-            key={slide.id}
+            key={slide.id || `slide-${index}`}
             aria-hidden={!isActive}
-            className={`absolute inset-0 transform-gpu transition-opacity duration-1000 ease-out will-change-transform ${
+            onClick={(e) => {
+              if (isBuilderMode) {
+                e.stopPropagation();
+                onSelectSubElement?.('image', currentSlide);
+              }
+            }}
+            className={`absolute inset-0 transition-opacity duration-700 ease-out ${
               isActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
-            }`}
+            } ${isBuilderMode ? 'cursor-pointer' : ''}`}
           >
-            {/* Background Image: High Brightness & Vivid Clarity (Focus is 100% on the Flowers) */}
-            <div
-              className={`w-full h-full transform-gpu transition-transform duration-1000 ease-out ${
-                isActive ? 'scale-105' : 'scale-100'
-              }`}
-            >
+            <div className={`w-full h-full transform transition-transform duration-1000 ${isActive ? 'scale-105' : 'scale-100'}`}>
               <img
                 src={slide.image}
-                alt={isAr ? slide.title : slide.titleEn}
-                className="w-full h-full object-cover object-center filter brightness-[0.92] contrast-[1.03]"
+                alt={isAr ? slide.titleAr : slide.title}
+                className="w-full h-full object-cover object-center filter brightness-[0.88] contrast-[1.02]"
                 loading={index === 0 ? 'eager' : 'lazy'}
-                decoding="async"
-                fetchPriority={index === 0 ? 'high' : 'auto'}
               />
             </div>
+            {/* Subtle Gradient Scrim for text readability */}
+            <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent rtl:bg-gradient-to-l rtl:from-black/75 rtl:via-black/35 rtl:to-transparent" />
 
-            {/* Minimal Soft Gradient at bottom only (Keeps whole center clear) */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            {/* Builder Mode Image Edit Badge */}
+            {isBuilderMode && isActive && (
+              <div className="absolute top-4 start-4 z-30 opacity-0 group-hover/slider:opacity-100 transition-opacity pointer-events-none">
+                <span className="px-2.5 py-1 rounded-lg bg-slate-900/90 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg border border-white/20">
+                  <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{isAr ? `خلفية الشريحة (${currentSlide + 1}) - انقر للتغيير` : `Slide (${currentSlide + 1}) Photo - Click to change`}</span>
+                </span>
+              </div>
+            )}
           </div>
         );
       })}
 
-      {/* 2. Vertically Centered Left and Right Navigation Arrows */}
-      <button
-        onClick={prevSlide}
-        aria-label="Previous Slide"
-        className="absolute top-1/2 -translate-y-1/2 left-2 sm:left-5 md:left-7 z-30 w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-full bg-black/40 hover:bg-[#d4af37] text-white hover:text-[#102a1c] border border-white/25 hover:border-[#d4af37] shadow-2xl backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer group"
-      >
-        <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2] group-hover:-translate-x-0.5 transition-transform" />
-      </button>
-
-      <button
-        onClick={nextSlide}
-        aria-label="Next Slide"
-        className="absolute top-1/2 -translate-y-1/2 right-2 sm:right-5 md:right-7 z-30 w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-full bg-black/40 hover:bg-[#d4af37] text-white hover:text-[#102a1c] border border-white/25 hover:border-[#d4af37] shadow-2xl backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer group"
-      >
-        <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2] group-hover:translate-x-0.5 transition-transform" />
-      </button>
-
-      {/* 3. Small, Elegant Lateral Glass Card on the SIDE (Leaves center 100% unobstructed) */}
-      <div className="absolute bottom-16 sm:bottom-20 right-4 sm:right-10 md:right-14 rtl:right-4 rtl:sm:right-10 rtl:md:right-14 rtl:left-auto ltr:left-4 ltr:sm:left-10 ltr:md:left-14 ltr:right-auto z-25 max-w-[280px] sm:max-w-sm md:max-w-md">
-        <div
-          key={currentSlide}
-          className="bg-[#0a180f]/85 backdrop-blur-md p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl border border-[#d4af37]/40 shadow-2xl space-y-2 sm:space-y-3 text-start animate-in fade-in slide-in-from-bottom-4 duration-500"
-        >
-          {/* Badge */}
-          <div className="inline-flex items-center gap-1.5 bg-[#d4af37]/25 border border-[#d4af37]/50 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold text-[#f3e5ab]">
-            <Sparkles className="w-3 h-3 text-[#d4af37] shrink-0" />
-            <span>{isAr ? activeSlide.badge : activeSlide.badgeEn}</span>
-          </div>
-
-          {/* Compact Heading */}
-          <h1 className="text-base sm:text-xl md:text-2xl font-bold font-serif leading-tight text-white drop-shadow-sm">
-            {isAr ? activeSlide.title : activeSlide.titleEn}
-          </h1>
-
-          {/* Short 1-line Subtitle */}
-          <p className="text-[11px] sm:text-xs md:text-sm text-[#e0d9cc] font-light leading-snug line-clamp-1">
-            {isAr ? activeSlide.subtitle : activeSlide.subtitleEn}
-          </p>
-
-          {/* Minimal Button Row with Integrated Price */}
-          <div className="pt-1 flex items-center gap-2">
-            {/* Primary Action Button */}
-            <button
-              onClick={handleAddToCart}
-              className="flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#e6ca98] text-[#102a1c] font-bold text-[11px] sm:text-xs shadow-md hover:scale-102 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
-            >
-              <ShoppingBag className="w-3.5 h-3.5 text-[#102a1c] shrink-0" />
-              <span>{isAr ? `أضف (${activeSlide.price} ر.س)` : `Add (${activeSlide.price} SAR)`}</span>
-            </button>
-
-            {/* Direct WhatsApp Icon */}
-            <button
-              onClick={handleWhatsApp}
-              title={isAr ? 'طلب عبر واتساب' : 'WhatsApp'}
-              className="p-2 sm:p-2.5 rounded-xl bg-[#25D366]/20 hover:bg-[#25D366] text-[#25D366] hover:text-white border border-[#25D366]/40 transition-all active:scale-95 cursor-pointer shrink-0"
-            >
-              <MessageCircle className="w-4 h-4 fill-current" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Bottom Sleek Thumbnail Dock & Slide Counter */}
-      <div className="absolute bottom-3 sm:bottom-4 inset-x-0 z-25 max-w-4xl mx-auto px-4 flex items-center justify-between">
-        {/* Left Side: Active Counter */}
-        <div className="font-mono text-[11px] sm:text-xs text-[#f5ebd7] bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/15">
-          <span className="font-bold text-[#d4af37]">0{currentSlide + 1}</span>
-          <span className="text-white/40 mx-1">/</span>
-          <span>0{totalSlides}</span>
-        </div>
-
-        {/* Center: 4 Docked Floral Thumbnails */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 bg-black/50 backdrop-blur-md p-1 rounded-xl border border-white/15">
-          {slides.map((s, idx) => {
-            const isSelected = idx === currentSlide;
-            return (
-              <button
-                key={s.id}
-                onClick={() => setCurrentSlide(idx)}
-                className={`relative w-10 h-7 sm:w-13 sm:h-8 rounded-lg overflow-hidden transition-all duration-300 cursor-pointer ${
-                  isSelected
-                    ? 'ring-2 ring-[#d4af37] scale-105 opacity-100 shadow-md border border-white'
-                    : 'opacity-40 hover:opacity-90 border border-white/15'
+      {/* Hero Content (With Granular Click-to-Edit for Title, Subtitle, and Buttons) */}
+      <div className="relative z-20 max-w-7xl mx-auto h-full px-6 sm:px-10 lg:px-14 flex items-center">
+        <div className="max-w-xl space-y-4 sm:space-y-5 text-start">
+          
+          {/* 1. Main Heading (Title) */}
+          <div
+            onClick={(e) => {
+              if (isBuilderMode) {
+                e.stopPropagation();
+                onSelectSubElement?.('title', currentSlide);
+              }
+            }}
+            className={`relative group/elem-title rounded-xl transition-all ${
+              isBuilderMode ? 'cursor-pointer hover:ring-2 hover:ring-indigo-400 p-1.5 -m-1.5' : ''
+            } ${isBuilderMode && selectedSubElement === 'title' ? 'ring-2 ring-indigo-400 bg-black/40 p-1.5 -m-1.5 shadow-lg' : ''}`}
+          >
+            {isBuilderMode && (
+              <div
+                className={`absolute -top-3 start-0 z-30 px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1 shadow-sm transition-all pointer-events-none ${
+                  selectedSubElement === 'title'
+                    ? 'bg-indigo-600 text-white opacity-100 ring-1 ring-white'
+                    : 'bg-slate-900/90 text-white opacity-0 group-hover/elem-title:opacity-100'
                 }`}
-                title={isAr ? s.title : s.titleEn}
               >
-                <img src={s.image} alt="thumbnail" className="w-full h-full object-cover" loading="lazy" decoding="async" />
-              </button>
-            );
-          })}
-        </div>
+                <Edit3 className="w-3 h-3 text-amber-400" />
+                <span>{isAr ? 'العنوان الرئيسي' : 'Heading'}</span>
+              </div>
+            )}
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold font-serif text-white leading-tight drop-shadow-md">
+              {isAr ? activeSlide.titleAr : activeSlide.title}
+            </h1>
+          </div>
 
-        {/* Right Side: Dot Indicators */}
-        <div className="flex items-center gap-1">
-          {slides.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrentSlide(i)}
-              className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                i === currentSlide ? 'w-5 bg-[#d4af37]' : 'w-1.5 bg-white/30 hover:bg-white/60'
-              }`}
-              aria-label={`Slide ${i + 1}`}
-            />
-          ))}
+          {/* 2. Subtitle / Description */}
+          <div
+            onClick={(e) => {
+              if (isBuilderMode) {
+                e.stopPropagation();
+                onSelectSubElement?.('subtitle', currentSlide);
+              }
+            }}
+            className={`relative group/elem-sub rounded-xl transition-all ${
+              isBuilderMode ? 'cursor-pointer hover:ring-2 hover:ring-indigo-400 p-1.5 -m-1.5' : ''
+            } ${isBuilderMode && selectedSubElement === 'subtitle' ? 'ring-2 ring-indigo-400 bg-black/40 p-1.5 -m-1.5 shadow-lg' : ''}`}
+          >
+            {isBuilderMode && (
+              <div
+                className={`absolute -top-3 start-0 z-30 px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1 shadow-sm transition-all pointer-events-none ${
+                  selectedSubElement === 'subtitle'
+                    ? 'bg-indigo-600 text-white opacity-100 ring-1 ring-white'
+                    : 'bg-slate-900/90 text-white opacity-0 group-hover/elem-sub:opacity-100'
+                }`}
+              >
+                <Edit3 className="w-3 h-3 text-amber-400" />
+                <span>{isAr ? 'الوصف التوضيحی' : 'Subtitle'}</span>
+              </div>
+            )}
+            <p className="text-sm sm:text-base md:text-lg text-[#ded8cb] font-light max-w-md drop-shadow">
+              {isAr ? activeSlide.subtitleAr : activeSlide.subtitle}
+            </p>
+          </div>
+
+          {/* 3. Action Buttons */}
+          <div className="flex items-center gap-3 pt-2">
+            {/* Primary Button */}
+            <div
+              onClick={(e) => {
+                if (isBuilderMode) {
+                  e.stopPropagation();
+                  onSelectSubElement?.('btn1', currentSlide);
+                }
+              }}
+              className={`relative group/elem-btn1 rounded-full transition-all ${
+                isBuilderMode ? 'cursor-pointer hover:ring-2 hover:ring-amber-400' : ''
+              } ${isBuilderMode && selectedSubElement === 'btn1' ? 'ring-3 ring-amber-400 ring-offset-2 ring-offset-black/40' : ''}`}
+            >
+              {isBuilderMode && (
+                <div
+                  className={`absolute -top-3 start-1/2 -translate-x-1/2 z-30 px-2 py-0.2 rounded text-[9px] font-black flex items-center gap-1 shadow-sm transition-all pointer-events-none ${
+                    selectedSubElement === 'btn1'
+                      ? 'bg-amber-400 text-slate-950 opacity-100 ring-1 ring-white font-extrabold'
+                      : 'bg-slate-900/90 text-white opacity-0 group-hover/elem-btn1:opacity-100'
+                  }`}
+                >
+                  <Edit3 className="w-2.5 h-2.5 text-amber-400" />
+                  <span>{isAr ? 'الزر الأول' : 'Btn 1'}</span>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => handleAction(activeSlide.category)}
+                className="px-6 sm:px-8 py-3 rounded-full bg-[#f3e5c8] hover:bg-[#d4af37] text-[#102a1c] font-bold text-xs sm:text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 inline-flex items-center gap-2 cursor-pointer"
+              >
+                <span>{isAr ? activeSlide.primaryBtnAr : activeSlide.primaryBtn}</span>
+                {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+              </button>
+            </div>
+
+            {/* Secondary Button */}
+            {activeSlide.secondaryBtn && (
+              <div
+                onClick={(e) => {
+                  if (isBuilderMode) {
+                    e.stopPropagation();
+                    onSelectSubElement?.('btn2', currentSlide);
+                  }
+                }}
+                className={`relative group/elem-btn2 rounded-full transition-all ${
+                  isBuilderMode ? 'cursor-pointer hover:ring-2 hover:ring-indigo-400' : ''
+                } ${isBuilderMode && selectedSubElement === 'btn2' ? 'ring-3 ring-indigo-400 ring-offset-2 ring-offset-black/40' : ''}`}
+              >
+                {isBuilderMode && (
+                  <div
+                    className={`absolute -top-3 start-1/2 -translate-x-1/2 z-30 px-2 py-0.2 rounded text-[9px] font-black flex items-center gap-1 shadow-sm transition-all pointer-events-none ${
+                      selectedSubElement === 'btn2'
+                        ? 'bg-indigo-600 text-white opacity-100 ring-1 ring-white font-extrabold'
+                        : 'bg-slate-900/90 text-white opacity-0 group-hover/elem-btn2:opacity-100'
+                    }`}
+                  >
+                    <Edit3 className="w-2.5 h-2.5 text-amber-400" />
+                    <span>{isAr ? 'الزر الثاني' : 'Btn 2'}</span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleAction()}
+                  className="px-6 sm:px-8 py-3 rounded-full bg-black/40 hover:bg-black/60 text-white font-bold text-xs sm:text-sm border border-white/30 backdrop-blur-md transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+                >
+                  <span>{isAr ? activeSlide.secondaryBtnAr : activeSlide.secondaryBtn}</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* 5. 2px Bottom Smooth Progress Bar */}
-      <div className="absolute bottom-0 inset-x-0 h-[2px] bg-white/15 z-30">
-        <div
-          className="h-full bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#d4af37] transition-all duration-300 ease-linear"
-          style={{ width: `${((currentSlide + 1) / totalSlides) * 100}%` }}
-        />
+      {/* Prev / Next Navigation Arrows */}
+      <button
+        type="button"
+        onClick={(e) => {
+          if (isBuilderMode) e.stopPropagation();
+          prevSlide();
+          if (isBuilderMode) onSelectSubElement?.('slide', currentSlide === 0 ? totalSlides - 1 : currentSlide - 1);
+        }}
+        aria-label="Previous slide"
+        className="absolute top-1/2 -translate-y-1/2 left-3 sm:left-6 z-30 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-black/35 hover:bg-[#d4af37] text-white hover:text-[#102a1c] border border-white/20 hover:border-[#d4af37] shadow-lg backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer"
+      >
+        <ChevronLeft className="w-5 h-5 stroke-[2.2]" />
+      </button>
+
+      <button
+        type="button"
+        onClick={(e) => {
+          if (isBuilderMode) e.stopPropagation();
+          nextSlide();
+          if (isBuilderMode) onSelectSubElement?.('slide', (currentSlide + 1) % totalSlides);
+        }}
+        aria-label="Next slide"
+        className="absolute top-1/2 -translate-y-1/2 right-3 sm:right-6 z-30 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-black/35 hover:bg-[#d4af37] text-white hover:text-[#102a1c] border border-white/20 hover:border-[#d4af37] shadow-lg backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer"
+      >
+        <ChevronRight className="w-5 h-5 stroke-[2.2]" />
+      </button>
+
+      {/* Slider Dots / Slide Selector */}
+      <div className="absolute bottom-6 inset-x-0 z-30 flex items-center justify-center gap-2">
+        {slides.map((_, idx) => (
+          <button
+            key={idx}
+            type="button"
+            onClick={(e) => {
+              if (isBuilderMode) e.stopPropagation();
+              handleSetSlide(idx);
+              if (isBuilderMode) onSelectSubElement?.('slide', idx);
+            }}
+            aria-label={`Slide ${idx + 1}`}
+            className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+              idx === currentSlide
+                ? 'w-8 bg-[#f3e5c8] shadow-md ring-2 ring-white/50'
+                : 'w-2.5 bg-white/40 hover:bg-white/70'
+            }`}
+          />
+        ))}
       </div>
     </section>
   );

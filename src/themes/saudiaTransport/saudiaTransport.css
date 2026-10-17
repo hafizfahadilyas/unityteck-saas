@@ -1,0 +1,357 @@
+/* =========================================================================
+   Al-Saeedi VIP Automotive Store Theme (متجر السعيدي — تنجيد مكة الفاخر)
+   Style: Modern Luxury Automotive VIP Aesthetic
+   - Royal Midnight Purple: #16032e / #240646 / #3e0f77 / #0d011c
+   - Radiant Champagne Gold: #d5a027 / #f6c344 / #e8b948 / #ffd700
+   - Crisp Background: #f8f7fc / #ffffff
+   - Pure White & Glass Cards with Metallic Gold Accents
+   - Typography: Tajawal (Arabic) / Inter (English)
+   ========================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  --color-brand: #3e0f77;
+  --color-brand-deep: #16032e;
+  --color-brand-darker: #0d011c;
+  --color-brand-mid: #25074d;
+  --color-gold: #d5a027;
+  --color-gold-light: #f6c344;
+  --color-gold-champagne: #f4d068;
+  --color-gold-dark: #b07e16;
+  --color-bg-page: #f8f7fc;
+  --color-bg-card: #ffffff;
+  --color-border: #ede8f5;
+  --color-text-main: #0f172a;
+  --color-text-muted: #64748b;
+}
+
+.alsaeedi-theme-container {
+  min-height: 100vh;
+  background-color: var(--color-bg-page);
+  color: var(--color-text-main);
+  position: relative;
+  overflow-x: hidden;
+}
+
+.alsaeedi-theme-container[dir="rtl"] {
+  font-family: 'Tajawal', system-ui, -apple-system, sans-serif;
+}
+
+.alsaeedi-theme-container[dir="ltr"] {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* 1. Slim Announcement Micro-Bar */
+.alsaeedi-top-announce {
+  background: #120224;
+  color: #f8fafc;
+  padding: 6px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(213, 160, 39, 0.3);
+  position: relative;
+  z-index: 40;
+}
+
+/* 2. Floating WhatsApp Action Button */
+.alsaeedi-whatsapp-floating {
+  position: fixed;
+  bottom: 84px; /* offset for mobile bottom nav bar */
+  z-index: 49;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 12px;
+  box-shadow: 0 10px 25px -4px rgba(37, 211, 102, 0.45);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+}
+
+@media (min-width: 1024px) {
+  .alsaeedi-whatsapp-floating {
+    bottom: 24px;
+    padding: 12px 20px;
+    font-size: 13px;
+  }
+}
+
+.alsaeedi-theme-container[dir="rtl"] .alsaeedi-whatsapp-floating {
+  left: 20px;
+}
+
+.alsaeedi-theme-container[dir="ltr"] .alsaeedi-whatsapp-floating {
+  right: 20px;
+}
+
+.alsaeedi-whatsapp-floating:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 14px 28px -4px rgba(37, 211, 102, 0.6);
+}
+
+.alsaeedi-pulse-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 2px solid #25d366;
+  opacity: 0.75;
+  animation: pulseAnimation 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulseAnimation {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 0.2; }
+  100% { transform: scale(1.25); opacity: 0; }
+}
+
+/* 3. Luxury Buttons */
+.btn-bashayer-gold {
+  background: linear-gradient(135deg, #d5a027 0%, #f6c344 50%, #e5a93b 100%);
+  color: #120224;
+  font-weight: 900;
+  border-radius: 9999px;
+  box-shadow: 0 4px 16px rgba(213, 160, 39, 0.38);
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-bashayer-gold:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(213, 160, 39, 0.55);
+  filter: brightness(1.06);
+}
+
+.btn-bashayer-purple {
+  background: linear-gradient(135deg, #3e0f77 0%, #240646 100%);
+  color: #ffffff;
+  font-weight: 800;
+  border-radius: 9999px;
+  border: 1px solid rgba(213, 160, 39, 0.4);
+  box-shadow: 0 4px 16px rgba(62, 15, 119, 0.35);
+  transition: all 0.25s ease;
+}
+
+.btn-bashayer-purple:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(62, 15, 119, 0.5);
+  border-color: rgba(246, 195, 68, 0.7);
+  filter: brightness(1.08);
+}
+
+/* 4. Luxury Product Cards */
+.alsaeedi-product-card {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid #ede8f5;
+  box-shadow: 0 4px 14px -3px rgba(62, 15, 119, 0.05);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.alsaeedi-product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px -6px rgba(62, 15, 119, 0.16);
+  border-color: rgba(213, 160, 39, 0.6);
+}
+
+.alsaeedi-product-card .img-zoom {
+  transition: transform 0.5s ease;
+}
+
+.alsaeedi-product-card:hover .img-zoom {
+  transform: scale(1.05);
+}
+
+/* 5. Luxury Vehicle Matcher Filter Cockpit Widget */
+.alsaeedi-vehicle-filter {
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 24px;
+  padding: 20px;
+  border: 1px solid rgba(213, 160, 39, 0.4);
+  box-shadow: 0 24px 50px -12px rgba(18, 2, 36, 0.35), 0 0 0 1px rgba(213, 160, 39, 0.15);
+  position: relative;
+  z-index: 20;
+}
+
+@media (min-width: 640px) {
+  .alsaeedi-vehicle-filter {
+    padding: 24px;
+  }
+}
+
+/* 6. Brand Logo Cards & Luxury Circular Emblem */
+.alsaeedi-brand-card {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1.5px solid #ede8f5;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px -3px rgba(62, 15, 119, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.alsaeedi-brand-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(213, 160, 39, 0.12) 0%, rgba(62, 15, 119, 0.03) 60%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.alsaeedi-brand-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(213, 160, 39, 0.85);
+  box-shadow: 0 14px 28px -4px rgba(62, 15, 119, 0.14), 0 0 16px rgba(213, 160, 39, 0.22);
+}
+
+.alsaeedi-brand-card:hover::before {
+  opacity: 1;
+}
+
+.alsaeedi-brand-card.active {
+  border-color: #d5a027;
+  background: linear-gradient(180deg, #fdfaff 0%, #ffffff 100%);
+  box-shadow: 0 0 0 2px #d5a027, 0 12px 26px -4px rgba(62, 15, 119, 0.18);
+  transform: translateY(-2px);
+}
+
+/* Luxury Circular Emblem Podium */
+.alsaeedi-brand-emblem {
+  width: 58px;
+  height: 58px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #faf8fd 60%, #f1ebf9 100%);
+  border: 1.5px solid #ede8f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.95), 0 4px 10px rgba(62, 15, 119, 0.05);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.alsaeedi-brand-card:hover .alsaeedi-brand-emblem {
+  border-color: #d5a027;
+  transform: scale(1.08);
+  box-shadow: 0 0 18px rgba(213, 160, 39, 0.32), inset 0 1px 3px rgba(255, 255, 255, 1);
+}
+
+.alsaeedi-brand-card.active .alsaeedi-brand-emblem {
+  border-color: #d5a027;
+  box-shadow: 0 0 0 3px rgba(213, 160, 39, 0.25), 0 6px 14px rgba(62, 15, 119, 0.15);
+  background: #ffffff;
+}
+
+/* 7. Color Swatch Dots */
+.color-swatch-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(0, 0, 0, 0.18);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.color-swatch-dot:hover {
+  transform: scale(1.25);
+}
+
+.color-swatch-dot.active {
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #d5a027;
+  transform: scale(1.15);
+}
+
+/* 8. Hero & Luxury Ambient Styles */
+.alsaeedi-hero-gradient,
+.alsaeedi-hero-gradient.alsaeedi-glow-radial {
+  background-color: #16032e !important;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(213, 160, 39, 0.26) 0%, rgba(213, 160, 39, 0.05) 45%, transparent 70%),
+    radial-gradient(120% 120% at 50% 0%, #2d0755 0%, #180333 55%, #0e011f 100%) !important;
+}
+
+.alsaeedi-glow-radial {
+  background-image: radial-gradient(circle at 50% 0%, rgba(213, 160, 39, 0.2) 0%, rgba(213, 160, 39, 0.03) 45%, transparent 70%);
+}
+
+/* 9. Mobile Sticky Bottom Navigation */
+.alsaeedi-mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: rgba(18, 2, 36, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(213, 160, 39, 0.35);
+  padding-bottom: max(6px, env(safe-area-inset-bottom));
+  box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* 10. Drawer Slide-in Animations */
+@keyframes slideDrawerInRTL {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideDrawerInLTR {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-drawer-rtl {
+  animation: slideDrawerInRTL 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-drawer-ltr {
+  animation: slideDrawerInLTR 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Hardware-Accelerated Toast Progress */
+@keyframes toastCountdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* Ultra-Fast 60fps Performance Optimizations (Skip offscreen layout/paint) */
+#faq-section,
+#blog-section,
+#reviews-section {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 600px;
+}
+
+.alsaeedi-theme-container img {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}

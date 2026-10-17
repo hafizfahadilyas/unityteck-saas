@@ -92,6 +92,11 @@ export const StoreAppStore: React.FC = () => {
           {plugins.map((plug) => {
             const isInstalled = installed.includes(plug.id);
             const locked = plug.isProOnly && !canProPlugin;
+            const plugName = isAr ? (plug.nameAr || plug.name) : (plug.nameEn || plug.name);
+            const plugDesc = isAr ? (plug.descriptionAr || plug.description) : (plug.descriptionEn || plug.description);
+            const plugCategory = isAr ? (plug.categoryAr || CATEGORY_AR[plug.category] || plug.category) : (plug.categoryEn || plug.category);
+            const plugProvider = isAr ? (plug.providerAr || plug.provider) : (plug.providerEn || plug.provider);
+
             return (
               <div
                 key={plug.id}
@@ -105,10 +110,10 @@ export const StoreAppStore: React.FC = () => {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h3 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-                      {plug.name}
+                      {plugName}
                     </h3>
                     <span className="text-[10px] font-semibold" style={{ color: 'var(--accent)' }}>
-                      {isAr ? CATEGORY_AR[plug.category] || plug.category : plug.category}
+                      {plugCategory}
                     </span>
                   </div>
                   {plug.isProOnly ? (
@@ -121,10 +126,10 @@ export const StoreAppStore: React.FC = () => {
                   ) : null}
                 </div>
                 <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
-                  {plug.description}
+                  {plugDesc}
                 </p>
                 <div className="flex items-center justify-between text-[11px]" style={{ color: 'var(--muted)' }}>
-                  <span>{plug.provider}</span>
+                  <span>{plugProvider}</span>
                   <span className="inline-flex items-center gap-0.5 font-bold text-amber-600 dark:text-amber-400">
                     <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                     {plug.rating}

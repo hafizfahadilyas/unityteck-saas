@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { Product } from '../types';
 import { Heart, Star, ShoppingBag, MessageCircle, Sparkles } from 'lucide-react';
 import { MECCA_WHATSAPP } from '../data/mockData';
+import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../../utils/imageFallback';
 
 interface ProductCardProps {
   product: Product;
@@ -19,9 +20,9 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product }) 
 
   const isAr = language === 'ar';
   const wishlisted = isWishlisted(product.id);
-  const productName = isAr ? product.name : product.nameEn;
-  const categoryName = isAr ? product.category : product.categoryEn;
-  const badgeText = product.badge ? (isAr ? product.badge : product.badgeEn) : null;
+  const productName = isAr ? (product.nameAr || product.name) : (product.nameEn || product.name);
+  const categoryName = isAr ? (product.categoryAr || product.category) : (product.categoryEn || product.category);
+  const badgeText = product.badge ? (isAr ? product.badge : product.badgeEn || product.badge) : null;
 
   const handleCardClick = () => {
     navigateToProduct(product);
@@ -56,9 +57,10 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product }) 
       {/* ── 1. Full Height Background Image with Zoom In/Out Animation ────── */}
       <div className="absolute inset-0 w-full h-full overflow-hidden bg-[#0d2217]">
         <img
-          src={product.image}
+          src={product.image || FALLBACK_PRODUCT_IMAGE}
           alt={productName}
           itemProp="image"
+          onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
           className="w-full h-full object-cover object-center transform scale-100 group-hover:scale-112 transition-transform duration-700 ease-out will-change-transform"
           loading="lazy"
           decoding="async"
@@ -75,9 +77,9 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product }) 
       <div className="relative z-10 flex items-center justify-between w-full">
         {/* Badge with Slide-in / Scale Animation */}
         {badgeText ? (
-          <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full bg-[#102a1c]/90 text-[#e6ca98] text-[10px] sm:text-[11px] font-bold border border-[#d4af37]/40 shadow-lg backdrop-blur-md transform transition-all duration-300 group-hover:scale-105 group-hover:border-[#d4af37]">
-            <Sparkles className="w-2.5 h-2.5 text-[#d4af37]" />
-            <span>{badgeText}</span>
+          <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full bg-[#102a1c]/90 text-[#e6ca98] text-[10px] sm:text-[11px] font-bold border border-[#d4af37]/40 shadow-lg backdrop-blur-md transform transition-all duration-300 group-hover:scale-105 group-hover:border-[#d4af37] max-w-[70%] truncate">
+            <Sparkles className="w-2.5 h-2.5 text-[#d4af37] shrink-0" />
+            <span className="truncate">{badgeText}</span>
           </span>
         ) : (
           <span />

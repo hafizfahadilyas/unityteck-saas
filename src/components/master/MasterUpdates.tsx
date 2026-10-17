@@ -16,8 +16,17 @@ import {
   Info
 } from 'lucide-react';
 
+import { usePrefs } from '../../i18n/PrefsContext';
+import {
+  getStoreDisplayName,
+  getStoreDisplayOwner,
+  getStoreDisplayCategory,
+} from '../../utils/storeLocalization';
+
 export const MasterUpdates: React.FC = () => {
   const { updates, stores, toggleStoreUpdate, approveUpdate, rollbackUpdate } = useTenant();
+  const { locale } = usePrefs();
+  const isAr = locale === 'ar';
 
   const [activeUpdateId, setActiveUpdateId] = useState<string>(updates[0]?.id || '');
   const [filterType, setFilterType] = useState<string>('All');
@@ -190,11 +199,11 @@ export const MasterUpdates: React.FC = () => {
                           </span>
                           <div>
                             <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-xs text-slate-900">{store.name}</span>
+                              <span className="font-bold text-xs text-slate-900">{getStoreDisplayName(store, locale)}</span>
                               <span className="text-[10px] font-mono text-slate-400">({store.slug})</span>
                             </div>
                             <span className="text-[11px] text-slate-500">
-                              Merchant: {store.owner} · Category: {store.category}
+                              {isAr ? 'التاجر' : 'Merchant'}: {getStoreDisplayOwner(store, locale)} · {isAr ? 'التصنيف' : 'Category'}: {getStoreDisplayCategory(store, locale)}
                             </span>
                           </div>
                         </div>

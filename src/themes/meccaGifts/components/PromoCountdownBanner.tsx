@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { PROMO_BANNER_IMAGE } from '../data/mockData';
-import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
+import { useTenant } from '../../../context/TenantContext';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 
 export const PromoCountdownBanner: React.FC = () => {
   const { language, setCurrentPage, setSelectedCategory } = useApp();
+  const { activeStore } = useTenant();
   const isAr = language === 'ar';
+  const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
 
-  // Live countdown state
+  // Live countdown matching [02 Days 14 Hours 36 Minutes]
   const [timeLeft, setTimeLeft] = useState({
     days: 2,
     hours: 14,
     minutes: 36,
-    seconds: 48
+    seconds: 48,
   });
 
   useEffect(() => {
@@ -34,106 +36,103 @@ export const PromoCountdownBanner: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
+  const handleShopCollection = () => {
+    setSelectedCategory(isCoffee ? 'حبوب القهوة المختصة' : 'باقات الورود الطبيعية');
+    setCurrentPage('catalog');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const bannerImage = isCoffee
+    ? 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=1200&q=80'
+    : '/src/assets/images/hadaya_promo_banner_1791216140411.jpg';
+
+  const title = isCoffee
+    ? (isAr ? 'محاصيل بن مختارة لخبراء التذوق' : 'Specialty Coffee Roasts for Connoisseurs')
+    : (isAr ? 'زهور طبيعية لكل مناسبة' : 'Fresh Flowers for Every Occasion');
+
+  const subtitle = isCoffee
+    ? (isAr ? 'احصل على خصم 20% على مجموعات التحميص ومحاصيل المزارع النادرة' : 'Get 20% off on rare single-origin beans and roasting bundles')
+    : (isAr ? 'احصل على خصم 20% على باقات مختارة' : 'Get 20% off on selected bouquets');
+
   return (
-    <section className="py-8 md:py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      <div className="relative rounded-3xl overflow-hidden bg-[#241a16] shadow-xl text-white">
+    <section className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      {/* Banner Container matching Image 2 Center */}
+      <div className={`relative rounded-3xl overflow-hidden text-white shadow-xl min-h-[300px] sm:min-h-[340px] flex items-center ${isCoffee ? 'bg-[#1e120c]' : 'bg-[#261715]'}`}>
         
-        {/* Background Image matching Image 6 */}
+        {/* Photography split background */}
         <div className="absolute inset-0">
           <img
-            src="/src/assets/images/mecca_offer_countdown_banner_1791219782790.jpg"
-            alt="Exclusive Hadaya Promotion"
-            className="w-full h-full object-cover object-center filter brightness-[0.72] contrast-[1.08]"
-            referrerPolicy="no-referrer"
+            src={bannerImage}
+            alt={title}
+            className="w-full h-full object-cover object-left filter brightness-[0.88]"
             loading="lazy"
-            decoding="async"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-black/30 rtl:bg-gradient-to-l rtl:from-black/85 rtl:via-black/55 rtl:to-black/30" />
+          {/* Subtle gradient overlay to enhance text readability on right */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/55 to-black/85 rtl:bg-gradient-to-l rtl:from-black/20 rtl:via-black/55 rtl:to-black/85" />
         </div>
 
-        {/* Content Container */}
-        <div className="relative z-10 py-12 md:py-16 px-6 sm:px-10 lg:px-16 flex flex-col md:flex-row items-center justify-between gap-8">
-          
-          {/* Text & Action */}
-          <div className="space-y-4 max-w-xl text-center md:text-start">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FAF9F5]/15 backdrop-blur-md text-[#e6ca98] text-xs font-semibold">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{isAr ? 'عرض حصري محدود' : 'Limited Time Offer'}</span>
-            </div>
-
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight font-serif text-[#FAF9F5]">
-              {isAr ? 'لحظتك تستحق أكثر' : 'Your Moment Deserves More'}
+        {/* Content Container (Right-aligned in LTR, Left-aligned in RTL) */}
+        <div className="relative z-10 w-full p-6 sm:p-10 lg:p-14 flex flex-col items-center md:items-end text-center md:text-end space-y-4 sm:space-y-5">
+          <div className="max-w-md space-y-2">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold font-serif text-white tracking-tight">
+              {title}
             </h2>
 
-            <p className="text-base sm:text-lg text-[#ded7c8] font-light">
-              {isAr
-                ? 'خصم 20% على مجموعة مختارة من أندر باقات الورد والهدايا الملكية'
-                : 'Enjoy 20% off on a curated selection of royal rose arrangements and signature gift boxes.'}
+            <p className="text-sm sm:text-base text-[#e5ded4] font-light">
+              {subtitle}
             </p>
+          </div>
 
-            <div className="pt-2">
-              <button
-                onClick={() => {
-                  setSelectedCategory('باقات فاخرة');
-                  setCurrentPage('catalog');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="px-7 py-3 rounded-full bg-[#f4ece1] text-[#1c1815] font-bold text-sm hover:bg-[#e6ca98] transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 inline-flex items-center gap-2"
-              >
-                <span>{isAr ? 'اكتشف العرض' : 'Explore Offer'}</span>
-                {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
-              </button>
+          {/* Countdown timer blocks [ 02 Days ] [ 14 Hours ] [ 36 Minutes ] */}
+          <div className="flex items-center gap-2.5 sm:gap-4 pt-1">
+            {/* Days */}
+            <div className="flex flex-col items-center">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white bg-white/15 backdrop-blur-md rounded-xl px-3 py-2 min-w-[50px] border border-white/20">
+                {String(timeLeft.days).padStart(2, '0')}
+              </span>
+              <span className="text-[10px] sm:text-xs text-[#d6cdbe] mt-1 font-medium">
+                {isAr ? 'يوم' : 'Days'}
+              </span>
+            </div>
+
+            <span className="text-lg font-bold text-white/60 pb-4">:</span>
+
+            {/* Hours */}
+            <div className="flex flex-col items-center">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white bg-white/15 backdrop-blur-md rounded-xl px-3 py-2 min-w-[50px] border border-white/20">
+                {String(timeLeft.hours).padStart(2, '0')}
+              </span>
+              <span className="text-[10px] sm:text-xs text-[#d6cdbe] mt-1 font-medium">
+                {isAr ? 'ساعة' : 'Hours'}
+              </span>
+            </div>
+
+            <span className="text-lg font-bold text-white/60 pb-4">:</span>
+
+            {/* Minutes */}
+            <div className="flex flex-col items-center">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white bg-white/15 backdrop-blur-md rounded-xl px-3 py-2 min-w-[50px] border border-white/20">
+                {String(timeLeft.minutes).padStart(2, '0')}
+              </span>
+              <span className="text-[10px] sm:text-xs text-[#d6cdbe] mt-1 font-medium">
+                {isAr ? 'دقيقة' : 'Minutes'}
+              </span>
             </div>
           </div>
 
-          {/* Live Countdown Display */}
-          <div className="bg-black/40 backdrop-blur-md border border-white/15 rounded-2xl p-5 sm:p-6 shadow-2xl">
-            <p className="text-xs uppercase tracking-widest text-center text-[#e6ca98] font-semibold mb-3">
-              {isAr ? 'ينتهي العرض خلال' : 'Offer Ends In'}
-            </p>
-
-            <div className="flex items-center gap-3 sm:gap-4 text-center">
-              {/* Days */}
-              <div className="flex flex-col items-center">
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-white bg-white/10 rounded-xl px-3 py-2 min-w-[54px] border border-white/10">
-                  {String(timeLeft.days).padStart(2, '0')}
-                </span>
-                <span className="text-[11px] text-[#ded7c8] mt-1 font-medium">{isAr ? 'يوم' : 'Days'}</span>
-              </div>
-
-              <span className="text-xl font-bold text-[#e6ca98] pb-4">:</span>
-
-              {/* Hours */}
-              <div className="flex flex-col items-center">
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-white bg-white/10 rounded-xl px-3 py-2 min-w-[54px] border border-white/10">
-                  {String(timeLeft.hours).padStart(2, '0')}
-                </span>
-                <span className="text-[11px] text-[#ded7c8] mt-1 font-medium">{isAr ? 'ساعة' : 'Hours'}</span>
-              </div>
-
-              <span className="text-xl font-bold text-[#e6ca98] pb-4">:</span>
-
-              {/* Minutes */}
-              <div className="flex flex-col items-center">
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-white bg-white/10 rounded-xl px-3 py-2 min-w-[54px] border border-white/10">
-                  {String(timeLeft.minutes).padStart(2, '0')}
-                </span>
-                <span className="text-[11px] text-[#ded7c8] mt-1 font-medium">{isAr ? 'دقيقة' : 'Mins'}</span>
-              </div>
-
-              <span className="text-xl font-bold text-[#e6ca98] pb-4">:</span>
-
-              {/* Seconds */}
-              <div className="flex flex-col items-center">
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-[#e6ca98] bg-white/10 rounded-xl px-3 py-2 min-w-[54px] border border-[#e6ca98]/30">
-                  {String(timeLeft.seconds).padStart(2, '0')}
-                </span>
-                <span className="text-[11px] text-[#ded7c8] mt-1 font-medium">{isAr ? 'ثانية' : 'Secs'}</span>
-              </div>
-            </div>
+          {/* Shop Collection CTA Button */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={handleShopCollection}
+              className="px-6 sm:px-8 py-2.5 sm:py-3 rounded-full border border-white/40 bg-white/15 hover:bg-white text-white hover:text-[#102a1c] font-bold text-xs sm:text-sm backdrop-blur-md transition-all duration-300 shadow-md hover:scale-105 active:scale-95 inline-flex items-center gap-2 cursor-pointer"
+            >
+              <span>{isAr ? 'تسوق التشكيلة' : 'Shop Collection'}</span>
+              {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+            </button>
           </div>
-
         </div>
+
       </div>
     </section>
   );

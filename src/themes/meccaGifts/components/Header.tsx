@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
+import { useTenant } from '../../../context/TenantContext';
 import {
   Search,
   User,
   ShoppingBag,
+  ShoppingCart,
+  ShoppingBasket,
   Menu,
   X,
   Sparkles,
@@ -18,11 +21,64 @@ import {
   Crown,
   ChevronRight,
   ChevronLeft,
-  Phone
+  Phone,
+  Heart,
+  Star,
+  Flame,
+  Tag,
+  ShieldCheck,
+  Bell,
+  Megaphone,
+  Globe,
 } from 'lucide-react';
 import { PRODUCTS, EIGHT_FEATURED_CATEGORIES, MECCA_WHATSAPP } from '../data/mockData';
+import {
+  HeaderCustomSettings,
+  HeaderSubElementKey,
+  DEFAULT_HEADER_SETTINGS,
+  COFFEE_HEADER_SETTINGS,
+  AUTO_HEADER_SETTINGS,
+  getDefaultHeaderSettings,
+} from '../../settings/headerCustomSettings';
 
-export const Header: React.FC = () => {
+export interface HeaderProps {
+  customSettings?: HeaderCustomSettings;
+  isBuilderMode?: boolean;
+  selectedSubElement?: HeaderSubElementKey;
+  onSelectSubElement?: (elementId: HeaderSubElementKey) => void;
+}
+
+const getHeaderIcon = (iconName?: string) => {
+  switch (iconName) {
+    case 'Clock': return Clock;
+    case 'Truck': return Truck;
+    case 'CreditCard': return CreditCard;
+    case 'Sparkles': return Sparkles;
+    case 'Gift': return Gift;
+    case 'Percent': return Percent;
+    case 'BookOpen': return BookOpen;
+    case 'Crown': return Crown;
+    case 'ShoppingBag': return ShoppingBag;
+    case 'ShoppingCart': return ShoppingCart;
+    case 'ShoppingBasket': return ShoppingBasket;
+    case 'Heart': return Heart;
+    case 'Star': return Star;
+    case 'Flame': return Flame;
+    case 'Tag': return Tag;
+    case 'ShieldCheck': return ShieldCheck;
+    case 'Bell': return Bell;
+    case 'Megaphone': return Megaphone;
+    case 'Phone': return Phone;
+    default: return Sparkles;
+  }
+};
+
+export const Header: React.FC<HeaderProps> = ({
+  customSettings,
+  isBuilderMode,
+  selectedSubElement,
+  onSelectSubElement,
+}) => {
   const {
     products,
     language,
@@ -35,8 +91,27 @@ export const Header: React.FC = () => {
     setIsCartOpen,
     navigateToCategory,
     user,
-    setIsAuthModalOpen
+    setIsAuthModalOpen,
+    builderDevice,
   } = useApp();
+  const { activeStore } = useTenant();
+
+  const isCoffee =
+    activeStore?.id === 'store-coffee' ||
+    activeStore?.slug === 'coffee-store' ||
+    activeStore?.slug?.includes('coffee') ||
+    (activeStore?.category && activeStore.category.includes('قهوة')) ||
+    (activeStore?.domain && activeStore.domain.includes('coffee'));
+
+  const isCar =
+    activeStore?.id === 'store-bleco' ||
+    activeStore?.slug === 'bleco-sa' ||
+    activeStore?.slug?.includes('car') ||
+    activeStore?.slug?.includes('transport') ||
+    (activeStore?.category && (activeStore.category.includes('سيارات') || activeStore.category.includes('تنجيد')));
+
+  const fallbackSettings = getDefaultHeaderSettings(activeStore);
+  const isMobileHeader = builderDevice === 'mobile' || builderDevice === 'tablet';
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -45,6 +120,63 @@ export const Header: React.FC = () => {
 
   const isAr = language === 'ar';
   const headerProducts = products && products.length > 0 ? products : PRODUCTS;
+
+  // Active settings with fallback to store-isolated default
+  const cur = customSettings || fallbackSettings;
+  const ann = cur.announcement || fallbackSettings.announcement;
+  const logo = cur.logo || fallbackSettings.logo;
+  const nav = cur.navigation || fallbackSettings.navigation;
+  const act = cur.actions || fallbackSettings.actions;
+  const lang = cur.language || fallbackSettings.language;
+  const gen = cur.general || fallbackSettings.general;
+
+  // Dynamic store-isolated display values (prevents Hadaya Makkah flowers leaking into Coffee / Car / Other stores)
+  const isNotHadayaStore = isCoffee || isCar || (activeStore?.id && activeStore.id !== 'store-1');
+
+  const displayTitleAr =
+    isCoffee && (logo.titleAr === 'هدايا مكة' || !logo.titleAr)
+      ? (activeStore?.nameAr || 'محمصة القهوة المختصة')
+      : isCar && (logo.titleAr === 'هدايا مكة' || !logo.titleAr)
+      ? (activeStore?.nameAr || 'مؤسسة بلاكو للتجارة')
+      : isNotHadayaStore && logo.titleAr === 'هدايا مكة'
+      ? (activeStore?.nameAr || activeStore?.name || logo.titleAr)
+      : logo.titleAr;
+
+  const displayTitleEn =
+    isCoffee && (logo.titleEn === 'Hadaya Makkah' || !logo.titleEn)
+      ? (activeStore?.nameEn || 'Specialty Coffee Roasters')
+      : isCar && (logo.titleEn === 'Hadaya Makkah' || !logo.titleEn)
+      ? (activeStore?.nameEn || 'Blacko Car Styling')
+      : isNotHadayaStore && logo.titleEn === 'Hadaya Makkah'
+      ? (activeStore?.nameEn || activeStore?.name || logo.titleEn)
+      : logo.titleEn;
+
+  const displaySubtitleAr =
+    isCoffee && (logo.subtitleAr === 'GIFTS AND FLOWERS' || !logo.subtitleAr)
+      ? 'ARTISAN ROASTERY & BREW'
+      : isCar && (logo.subtitleAr === 'GIFTS AND FLOWERS' || !logo.subtitleAr)
+      ? 'تنجيد ودعاسات السيارات الفاخرة'
+      : isNotHadayaStore && logo.subtitleAr === 'GIFTS AND FLOWERS'
+      ? (activeStore?.categoryAr || activeStore?.category || 'أحدث المنتجات والعروض')
+      : logo.subtitleAr;
+
+  const displaySubtitleEn =
+    isCoffee && (logo.subtitleEn === 'GIFTS AND FLOWERS' || !logo.subtitleEn)
+      ? 'ARTISAN ROASTERY & BREW'
+      : isCar && (logo.subtitleEn === 'GIFTS AND FLOWERS' || !logo.subtitleEn)
+      ? 'LUXURY CAR UPHOLSTERY & 7D MATS'
+      : isNotHadayaStore && logo.subtitleEn === 'GIFTS AND FLOWERS'
+      ? (activeStore?.categoryEn || activeStore?.category || 'Specialty Boutique')
+      : logo.subtitleEn;
+
+  const displayLogoUrl =
+    isCoffee && (logo.imageUrl?.includes('NKOjvD') || !logo.imageUrl)
+      ? (activeStore?.logo && activeStore.logo.startsWith('http') ? activeStore.logo : 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=400&q=80')
+      : isCar && (logo.imageUrl?.includes('NKOjvD') || !logo.imageUrl)
+      ? (activeStore?.logo && activeStore.logo.startsWith('http') ? activeStore.logo : 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=300&q=80')
+      : isNotHadayaStore && logo.imageUrl?.includes('NKOjvD')
+      ? (activeStore?.logo || '')
+      : (logo.imageUrl || activeStore?.logo);
 
   const searchResults = searchQuery.trim()
     ? headerProducts.filter((p) =>
@@ -55,89 +187,205 @@ export const Header: React.FC = () => {
       )
     : [];
 
-  // Marquee Announcement Messages
-  const marqueeItems = [
-    {
-      icon: Clock,
-      text: isAr ? 'توصيل عاجل مبرد خلال 60 دقيقة في مكة المكرمة' : '60-Min Chilled Express Delivery in Mecca'
-    },
-    {
-      icon: Truck,
-      text: isAr ? 'شحن مجاني لكافة الطلبات فوق 299 ريال' : 'Free Shipping on Orders Above 299 SAR'
-    },
-    {
-      icon: CreditCard,
-      text: isAr ? 'قسّط مشترياتك على 4 دفعات بدون أي فوائد مع تابي وتمارا' : 'Split into 4 interest-free payments with Tabby & Tamara'
-    },
-    {
-      icon: Sparkles,
-      text: isAr ? 'أفخم باقات الورد الطبيعي المستورد يومياً من هولندا والإكوادور' : '100% Fresh Natural Flowers Imported Daily from Holland & Ecuador'
-    }
-  ];
-
-  // 4 Primary Links with Icons
-  const primaryNavLinks = [
-    {
-      id: 'natural',
-      label: isAr ? 'باقات الورد الطبيعي' : 'Natural Flowers',
-      icon: Sparkles,
-      cat: 'باقات الورود الطبيعية'
-    },
-    {
-      id: 'occasions',
-      label: isAr ? 'المناسبات والهدايا' : 'Occasions & Gifts',
-      icon: Gift,
-      cat: 'تصنيفات حسب المناسبة'
-    },
-    {
-      id: 'offers',
-      label: isAr ? 'العروض والتخفيضات' : 'Exclusive Offers',
-      icon: Percent,
-      cat: 'باقات ورود طبيعية مخفضة'
-    },
-    {
-      id: 'magazine',
-      label: isAr ? 'مجلة هدايا مكة' : 'Hadaya Magazine',
-      icon: BookOpen,
-      action: () => {
-        setCurrentPage('home');
-        setTimeout(() => {
-          const el = document.getElementById('magazine-section');
-          if (el) el.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-      }
-    }
-  ];
-
   const toggleLanguage = () => {
     setLanguage(isAr ? 'en' : 'ar');
   };
 
+  const hasFlowerMessages = ann.messages?.some(m =>
+    m.textEn?.includes('Holland') ||
+    m.textEn?.includes('Mecca') ||
+    m.textEn?.includes('Flowers') ||
+    m.textAr?.includes('هولندا') ||
+    m.textAr?.includes('مكة المكرمة')
+  );
+
+  const activeMessages = (ann.messages && ann.messages.length > 0 && !(isNotHadayaStore && hasFlowerMessages))
+    ? ann.messages.filter((m) => m.active)
+    : fallbackSettings.announcement.messages.filter((m) => m.active);
+
+  const hasFlowerNav = nav.links?.some(l =>
+    l.labelEn?.includes('Flower') ||
+    l.labelAr?.includes('ورد') ||
+    l.labelEn?.includes('Bouquet') ||
+    l.labelAr?.includes('باقات الورد')
+  );
+
+  const activeNavLinks = (nav.links && nav.links.length > 0 && !(isNotHadayaStore && hasFlowerNav))
+    ? nav.links.filter((l) => l.active)
+    : fallbackSettings.navigation.links.filter((l) => l.active);
+
+  const allCollectionsLabel = isAr
+    ? (isCoffee ? 'كافة المحاصيل والمعدات' : isCar ? 'كافة خدمات السيارات' : (nav.allCollectionsLabelAr || 'كافة المجموعات'))
+    : (isCoffee ? 'All Roasts & Gear' : isCar ? 'All Auto Services' : (nav.allCollectionsLabelEn || 'All Collections'));
+
+  const vipPortalLabel = isAr
+    ? (isCoffee ? 'نادي الباريستا VIP' : isCar ? 'أسطول VIP' : (nav.vipPortalLabelAr || 'بوابة VIP'))
+    : (isCoffee ? 'Barista Club VIP' : isCar ? 'VIP Fleet Portal' : (nav.vipPortalLabelEn || 'VIP Portal'));
+
+  const searchPlaceholder = isAr
+    ? (isCoffee ? 'ابحث عن محاصيل قهوة، أدوات V60، مكائن إسبريسو...' : isCar ? 'ابحث عن نوع سيارتك، خامات التنجيد، دعاسات 7D...' : (act.search?.placeholderAr || 'ابحث في المتجر...'))
+    : (isCoffee ? 'Search specialty beans, V60 gear, espresso machines...' : isCar ? 'Search car model, upholstery, 7D mats...' : (act.search?.placeholderEn || 'Search products...'));
+
+  const flowerNavLinks = [
+    {
+      id: 'bouquets',
+      label: isAr ? 'باقات الورود الفاخرة' : 'Luxury Flower Bouquets',
+      cat: 'natural-bouquets',
+      icon: Sparkles,
+    },
+    {
+      id: 'chocolates',
+      label: isAr ? 'شوكولاتة بلجيكية وسويسرية' : 'Belgian & Swiss Chocolates',
+      cat: 'chocolates',
+      icon: Gift,
+    },
+    {
+      id: 'offers',
+      label: isAr ? 'عروض وتخفيضات حصرية' : 'Exclusive Deals & Offers',
+      cat: 'offers',
+      icon: Percent,
+    },
+    {
+      id: 'catalog',
+      label: isAr ? 'تصفح كافة الأقسام والمنتجات' : 'Browse All Catalog',
+      action: () => setCurrentPage('catalog'),
+      icon: BookOpen,
+    },
+  ];
+
+  const coffeeNavLinks = [
+    {
+      id: 'beans',
+      label: isAr ? 'حبوب القهوة المختصة' : 'Specialty Coffee Beans',
+      cat: 'حبوب القهوة المختصة',
+      icon: Sparkles,
+    },
+    {
+      id: 'pourover',
+      label: isAr ? 'أدوات التحضير V60' : 'Manual Pour-Over Tools',
+      cat: 'أدوات التحضير المقطرة',
+      icon: Gift,
+    },
+    {
+      id: 'espresso',
+      label: isAr ? 'مكائن وإكسسوارات الإسبريسو' : 'Espresso Equipment',
+      cat: 'معدات الإسبريسو',
+      icon: Percent,
+    },
+    {
+      id: 'catalog',
+      label: isAr ? 'تصفح كافة الأقسام والمحاصيل' : 'Browse All Roasts & Gear',
+      action: () => setCurrentPage('catalog'),
+      icon: BookOpen,
+    },
+  ];
+
+  const primaryNavLinks = isCoffee ? coffeeNavLinks : flowerNavLinks;
+
+  const CartIconComp = getHeaderIcon(act.cart?.icon || 'ShoppingBag');
+
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-gradient-to-r from-[#fbf9f4] via-[#FAF9F5] to-[#f6f2e9] backdrop-blur-md border-b border-[#e6ca98]/40 shadow-xs transition-colors duration-300">
+      <header
+        onClick={() => {
+          if (isBuilderMode) onSelectSubElement?.('general');
+        }}
+        style={{
+          backgroundColor: gen.bgColor,
+          borderColor: gen.borderColor,
+          boxShadow:
+            gen.shadow === 'sm'
+              ? '0 1px 3px rgba(0,0,0,0.05)'
+              : gen.shadow === 'md'
+              ? '0 4px 6px -1px rgba(0,0,0,0.1)'
+              : gen.shadow === 'lg'
+              ? '0 10px 15px -3px rgba(0,0,0,0.1)'
+              : 'none',
+        }}
+        className={`${!isBuilderMode && gen.sticky ? 'sticky top-0 z-40' : isBuilderMode ? 'relative z-10' : 'relative z-40'} w-full ${
+          gen.backdropBlur ? 'backdrop-blur-md' : ''
+        } border-b transition-colors duration-300`}
+      >
         
-        {/* 1. TOP BAR: Dark Luxury Gradient with Full White Crisp Text as requested */}
-        <div className="bg-gradient-to-r from-[#05140b] via-[#0d2719] to-[#05140b] text-white text-[11px] sm:text-xs py-2.5 px-3 border-b border-[#d4af37]/35 overflow-hidden select-none shadow-inner">
-          <div className="animate-marquee flex items-center gap-10 whitespace-nowrap">
-            {[...marqueeItems, ...marqueeItems, ...marqueeItems].map((item, idx) => {
-              const Icon = item.icon;
-              return (
-                <div key={idx} className="flex items-center gap-2 shrink-0">
-                  <Icon className="w-3.5 h-3.5 text-[#f3e5ab]" />
-                  <span className="font-semibold tracking-wide text-white drop-shadow-xs">{item.text}</span>
-                  <span className="text-[#f3e5ab]/60 mx-2">✦</span>
-                </div>
-              );
-            })}
+        {/* 1. TOP BAR: Announcement Bar */}
+        {ann.enabled && (
+          <div
+            onClick={(e) => {
+              if (isBuilderMode) {
+                e.stopPropagation();
+                onSelectSubElement?.('announcement');
+              }
+            }}
+            className={`relative group/elem-ann transition-all ${
+              isBuilderMode
+                ? selectedSubElement === 'announcement'
+                  ? 'ring-2 ring-indigo-500 ring-inset z-20 shadow-xs'
+                  : 'hover:ring-1 hover:ring-indigo-400 hover:ring-inset cursor-pointer'
+                : ''
+            }`}
+          >
+            {isBuilderMode && (
+              <div
+                className={`absolute top-1 start-2 z-30 px-2 py-0.5 rounded-md text-[9px] font-extrabold flex items-center gap-1 shadow-sm pointer-events-none transition-all ${
+                  selectedSubElement === 'announcement'
+                    ? 'bg-indigo-600 text-white opacity-100 ring-1 ring-white'
+                    : 'bg-slate-900/90 text-white opacity-0 group-hover/elem-ann:opacity-100'
+                }`}
+              >
+                <Megaphone className="w-2.5 h-2.5 text-amber-300" />
+                <span>
+                  {selectedSubElement === 'announcement'
+                    ? (isAr ? '✓ شريط الإعلانات' : '✓ Top Bar')
+                    : (isAr ? 'شريط الإعلانات' : 'Top Bar')}
+                </span>
+              </div>
+            )}
+            <div
+              style={{
+                backgroundColor: ann.bgColor,
+                color: ann.textColor,
+                borderColor: ann.borderColor,
+                fontSize: `${ann.fontSize}px`,
+                fontFamily: ann.fontFamily,
+              }}
+              className="text-[11px] sm:text-xs py-2.5 px-3 border-b overflow-hidden select-none shadow-inner"
+            >
+              <div
+                className={`animate-marquee flex items-center gap-10 whitespace-nowrap ${
+                  ann.pauseOnHover ? 'hover:[animation-play-state:paused]' : ''
+                }`}
+                style={{
+                  animationDuration: `${ann.speed}s`,
+                }}
+              >
+                {[...activeMessages, ...activeMessages, ...activeMessages].map((item, idx) => {
+                  const Icon = getHeaderIcon(item.icon);
+                  return (
+                    <div key={`${item.id}-${idx}`} className="flex items-center gap-2 shrink-0">
+                      <Icon className="w-3.5 h-3.5" style={{ color: ann.iconColor }} />
+                      <span className="font-semibold tracking-wide drop-shadow-xs" style={{ color: ann.textColor }}>
+                        {isAr ? item.textAr : item.textEn}
+                      </span>
+                      <span className="mx-2 opacity-60" style={{ color: ann.iconColor }}>✦</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 2. Main Header Row - Fully Responsive & Aligned */}
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5">
+        <div
+          style={{
+            paddingTop: `${gen.paddingY}px`,
+            paddingBottom: `${gen.paddingY}px`,
+          }}
+          className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8"
+        >
           
-          {/* MOBILE VIEW (< lg): Perfectly Spaced 3 Zones, No Overlapping */}
-          <div className="flex lg:hidden items-center justify-between gap-2 w-full">
+          {/* MOBILE VIEW (< lg or isMobileHeader): Perfectly Spaced 3 Zones */}
+          <div className={`${isMobileHeader ? 'flex' : 'flex lg:hidden'} items-center justify-between gap-2 w-full`}>
             
             {/* Mobile Left: Menu Toggle + Search */}
             <div className="flex items-center gap-1 shrink-0">
@@ -150,251 +398,501 @@ export const Header: React.FC = () => {
                 <Menu className="w-6 h-6 stroke-[2.2]" />
               </button>
 
-              <button
-                type="button"
-                onClick={() => setSearchOpen(true)}
-                className="p-2 text-[#343a40] hover:text-[#102a1c] hover:bg-[#ede9df] rounded-full transition-colors cursor-pointer"
-                aria-label="Search"
-              >
-                <Search className="w-5 h-5 stroke-[1.8]" />
-              </button>
+              {act.search?.enabled && (
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(true)}
+                  style={{ color: act.search.iconColor }}
+                  className="p-2 hover:bg-[#ede9df] rounded-full transition-colors cursor-pointer"
+                  aria-label="Search"
+                >
+                  <Search className="w-5 h-5 stroke-[1.8]" />
+                </button>
+              )}
             </div>
 
             {/* Mobile Center: Centered Logo & Title */}
             <div
-              onClick={() => {
-                setCurrentPage('home');
-                setSelectedCategory(null);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+              onClick={(e) => {
+                if (isBuilderMode) {
+                  e.stopPropagation();
+                  onSelectSubElement?.('logo');
+                } else {
+                  setCurrentPage('home');
+                  setSelectedCategory(null);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
               }}
               className="flex items-center gap-2 cursor-pointer select-none mx-auto text-center"
             >
-              <img
-                src="https://cdn.salla.sa/cdn-cgi/image/fit=scale-down,width=400,height=400,onerror=redirect,format=auto/NKOjvD/2Cnfzx8q23nZJ0tRXo8cUjOa6GP3vTWdrOePAhRl.png"
-                alt="هدايا مكة"
-                className="h-8 w-auto object-contain"
-                referrerPolicy="no-referrer"
-              />
-              <div className="flex flex-col text-start rtl:text-right ltr:text-left">
-                <span className="text-base sm:text-lg font-extrabold tracking-tight text-[#102a1c] font-serif leading-none">
-                  هدايا مكة
-                </span>
-                <span className="text-[8px] uppercase tracking-widest text-[#8c8275] font-sans font-medium mt-0.5">
-                  GIFTS & FLOWERS
-                </span>
-              </div>
+              {logo.mode !== 'text_only' && displayLogoUrl && (
+                <img
+                  src={displayLogoUrl}
+                  alt={isAr ? displayTitleAr : displayTitleEn}
+                  className="h-8 w-auto object-contain"
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              {logo.mode !== 'image_only' && (
+                <div className="flex flex-col text-start rtl:text-right ltr:text-left">
+                  <span
+                    style={{
+                      color: logo.titleColor,
+                      fontFamily: logo.fontFamily,
+                    }}
+                    className="text-base sm:text-lg font-extrabold tracking-tight leading-none"
+                  >
+                    {isAr ? displayTitleAr : displayTitleEn}
+                  </span>
+                  <span
+                    style={{ color: logo.subtitleColor }}
+                    className="text-[8px] uppercase tracking-widest font-sans font-medium mt-0.5"
+                  >
+                    {isAr ? displaySubtitleAr : displaySubtitleEn}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Mobile Right: Cart + Compact Language Button */}
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               {/* User Icon on Mobile */}
-              <button
-                onClick={() => setIsAuthModalOpen(true)}
-                className="p-1.5 text-[#343a40] hover:text-[#102a1c] cursor-pointer"
-                aria-label="Account"
-              >
-                {user.isLoggedIn ? (
-                  <div className="w-6 h-6 rounded-full overflow-hidden border border-[#102a1c]">
-                    <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-                  </div>
-                ) : (
-                  <User className="w-5 h-5" />
-                )}
-              </button>
+              {act.account?.enabled && (
+                <button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  style={{ color: act.account.iconColor }}
+                  className="p-1.5 cursor-pointer"
+                  aria-label="Account"
+                >
+                  {user.isLoggedIn ? (
+                    <div className="w-6 h-6 rounded-full overflow-hidden border border-[#102a1c]">
+                      <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <User className="w-5 h-5" />
+                  )}
+                </button>
+              )}
 
               {/* Shopping Bag */}
-              <button
-                onClick={() => setIsCartOpen(true)}
-                className="p-2 text-[#102a1c] relative hover:bg-[#ede9df] rounded-full transition-colors cursor-pointer"
-                aria-label="Cart"
-              >
-                <ShoppingBag className="w-5 h-5 stroke-[1.8]" />
-                {cartCount > 0 && (
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-[#8b263e] text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
+              {act.cart?.enabled && (
+                <button
+                  onClick={() => setIsCartOpen(true)}
+                  style={{ color: act.cart.iconColor }}
+                  className="p-2 relative hover:bg-[#ede9df] rounded-full transition-colors cursor-pointer"
+                  aria-label="Cart"
+                >
+                  <CartIconComp className="w-5 h-5 stroke-[1.8]" />
+                  {cartCount > 0 && (
+                    <span
+                      style={{
+                        backgroundColor: act.cart.badgeBg,
+                        color: act.cart.badgeText,
+                      }}
+                      className="absolute top-1 right-1 w-4 h-4 text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs"
+                    >
+                      {cartCount}
+                    </span>
+                  )}
+                </button>
+              )}
 
               {/* Compact Mobile Language Button */}
-              <button
-                onClick={toggleLanguage}
-                className="px-2.5 py-1 rounded-full text-xs font-bold border border-[#d6cfc0] bg-white text-[#102a1c] hover:bg-[#102a1c] hover:text-white transition-all shadow-2xs cursor-pointer"
-                aria-label="Toggle language"
-              >
-                {isAr ? 'EN' : 'عربي'}
-              </button>
+              {lang.enabled && (
+                <button
+                  onClick={toggleLanguage}
+                  style={{
+                    backgroundColor: lang.bgColor,
+                    borderColor: lang.borderColor,
+                    color: lang.activeColor,
+                  }}
+                  className="px-2.5 py-1 rounded-full text-xs font-bold border transition-all shadow-2xs cursor-pointer"
+                  aria-label="Toggle language"
+                >
+                  {isAr ? 'EN' : 'عربي'}
+                </button>
+              )}
             </div>
 
           </div>
 
-          {/* DESKTOP VIEW (lg:flex) */}
-          <div className="hidden lg:flex items-center justify-between gap-6">
+          {/* DESKTOP VIEW (lg:flex, hidden if isMobileHeader) */}
+          <div className={`${isMobileHeader ? 'hidden' : 'hidden lg:flex'} items-center justify-between gap-6`}>
             
             {/* Action Icons (Left side) */}
-            <div className="flex items-center gap-2.5">
+            <div
+              onClick={(e) => {
+                if (isBuilderMode) {
+                  e.stopPropagation();
+                  onSelectSubElement?.('actions');
+                }
+              }}
+              className={`relative group/elem-actions transition-all flex items-center gap-2.5 ${
+                isBuilderMode
+                  ? selectedSubElement === 'actions'
+                    ? 'ring-2 ring-indigo-500 rounded-xl p-1 bg-indigo-50/30 z-20 shadow-xs'
+                    : 'hover:ring-1 hover:ring-indigo-400 rounded-xl p-1 cursor-pointer'
+                  : ''
+              }`}
+            >
+              {isBuilderMode && (
+                <div
+                  className={`absolute top-0.5 start-1 z-30 px-1.5 py-0.2 rounded text-[8px] font-black flex items-center gap-0.5 shadow-sm pointer-events-none transition-all ${
+                    selectedSubElement === 'actions'
+                      ? 'bg-indigo-600 text-white opacity-100 ring-1 ring-white'
+                      : 'bg-slate-900/90 text-white opacity-0 group-hover/elem-actions:opacity-100'
+                  }`}
+                >
+                  <ShoppingBag className="w-2 h-2 text-amber-300" />
+                  <span>{isAr ? 'الأيقونات' : 'Actions'}</span>
+                </div>
+              )}
+
               {/* Search */}
-              <button
-                onClick={() => setSearchOpen(!searchOpen)}
-                className="p-2 text-[#343a40] hover:text-[#102a1c] hover:bg-[#ede9df] rounded-full transition-colors cursor-pointer"
-                aria-label="Search"
-              >
-                <Search className="w-5 h-5 stroke-[1.8]" />
-              </button>
+              {act.search?.enabled && (
+                <button
+                  onClick={() => setSearchOpen(!searchOpen)}
+                  style={{ color: act.search.iconColor }}
+                  className="p-2 hover:bg-[#ede9df] rounded-full transition-colors cursor-pointer"
+                  aria-label="Search"
+                >
+                  <Search className="w-5 h-5 stroke-[1.8]" />
+                </button>
+              )}
 
               {/* User Account / Google Sign-in */}
-              <button
-                onClick={() => setIsAuthModalOpen(true)}
-                className="flex items-center gap-2 py-1.5 px-3 rounded-full hover:bg-[#ede9df] text-[#343a40] hover:text-[#102a1c] transition-all cursor-pointer border border-transparent hover:border-[#d6cfc0]"
-                aria-label="Account"
-              >
-                {user.isLoggedIn ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full overflow-hidden border border-[#102a1c]">
-                      <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+              {act.account?.enabled && (
+                <button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  style={{ color: act.account.textColor }}
+                  className="flex items-center gap-2 py-1.5 px-3 rounded-full hover:bg-[#ede9df] transition-all cursor-pointer border border-transparent hover:border-[#d6cfc0]"
+                  aria-label="Account"
+                >
+                  {user.isLoggedIn ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full overflow-hidden border border-[#102a1c]">
+                        <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                      </div>
+                      <span className="text-xs font-bold max-w-[100px] truncate">
+                        {user.name.split(' ')[0]}
+                      </span>
+                      {act.account.showVipCrown && <Crown className="w-3.5 h-3.5 text-[#d4af37]" />}
                     </div>
-                    <span className="text-xs font-bold max-w-[100px] truncate text-[#102a1c]">
-                      {user.name.split(' ')[0]}
-                    </span>
-                    <Crown className="w-3.5 h-3.5 text-[#d4af37]" />
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <User className="w-5 h-5 stroke-[1.8]" />
-                    <span className="text-xs font-bold">
-                      {isAr ? 'دخول / Google' : 'Sign In'}
-                    </span>
-                  </div>
-                )}
-              </button>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <User className="w-5 h-5 stroke-[1.8]" style={{ color: act.account.iconColor }} />
+                      {act.account.showText && (
+                        <span className="text-xs font-bold">
+                          {isAr ? act.account.labelAr : act.account.labelEn}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </button>
+              )}
 
               {/* Shopping Bag with Subtotal */}
-              <button
-                onClick={() => setIsCartOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 text-[#343a40] hover:text-[#102a1c] bg-[#102a1c]/5 hover:bg-[#102a1c]/10 rounded-full transition-colors relative cursor-pointer"
-                aria-label="Cart"
-              >
-                <div className="relative">
-                  <ShoppingBag className="w-5 h-5 stroke-[1.8] text-[#102a1c]" />
-                  {cartCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#8b263e] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                      {cartCount}
+              {act.cart?.enabled && (
+                <button
+                  onClick={() => setIsCartOpen(true)}
+                  style={{ backgroundColor: act.cart.pillBg }}
+                  className="flex items-center gap-2 px-3 py-1.5 hover:opacity-90 rounded-full transition-colors relative cursor-pointer"
+                  aria-label="Cart"
+                >
+                  <div className="relative">
+                    <CartIconComp className="w-5 h-5 stroke-[1.8]" style={{ color: act.cart.iconColor }} />
+                    {cartCount > 0 && (
+                      <span
+                        style={{
+                          backgroundColor: act.cart.badgeBg,
+                          color: act.cart.badgeText,
+                        }}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs"
+                      >
+                        {cartCount}
+                      </span>
+                    )}
+                  </div>
+                  {act.cart.showSubtotal && (
+                    <span
+                      style={{ color: act.cart.priceColor }}
+                      className="text-xs font-bold font-mono"
+                    >
+                      {cartSubtotal} {isAr ? 'ر.س' : 'SAR'}
                     </span>
                   )}
-                </div>
-                <span className="text-xs font-bold font-mono text-[#102a1c]">
-                  {cartSubtotal} {isAr ? 'ر.س' : 'SAR'}
-                </span>
-              </button>
+                </button>
+              )}
             </div>
 
             {/* Desktop Center: Brand Identity */}
             <div
-              onClick={() => {
-                setCurrentPage('home');
-                setSelectedCategory(null);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+              onClick={(e) => {
+                if (isBuilderMode) {
+                  e.stopPropagation();
+                  onSelectSubElement?.('logo');
+                } else {
+                  setCurrentPage('home');
+                  setSelectedCategory(null);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
               }}
-              className="flex items-center gap-3 cursor-pointer select-none group text-center"
+              className={`relative group/elem-logo transition-all cursor-pointer select-none group text-center flex items-center gap-3 ${
+                isBuilderMode
+                  ? selectedSubElement === 'logo'
+                    ? 'ring-2 ring-indigo-500 rounded-xl p-1 bg-indigo-50/30 z-20 shadow-xs'
+                    : 'hover:ring-1 hover:ring-indigo-400 rounded-xl p-1'
+                  : ''
+              }`}
             >
-              <img
-                src="https://cdn.salla.sa/cdn-cgi/image/fit=scale-down,width=400,height=400,onerror=redirect,format=auto/NKOjvD/2Cnfzx8q23nZJ0tRXo8cUjOa6GP3vTWdrOePAhRl.png"
-                alt="هدايا مكة"
-                className="h-11 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
-                referrerPolicy="no-referrer"
-              />
-              <div className="flex flex-col text-start rtl:text-right ltr:text-left">
-                <span className="text-2xl font-extrabold tracking-tight text-[#102a1c] font-serif group-hover:text-[#8b263e] transition-colors leading-tight">
-                  هدايا مكة
-                </span>
-                <span className="text-[10px] uppercase tracking-[0.25em] text-[#8c8275] font-sans font-medium">
-                  GIFTS AND FLOWERS
-                </span>
-              </div>
+              {isBuilderMode && (
+                <div
+                  className={`absolute top-0.5 start-1 z-30 px-1.5 py-0.2 rounded text-[8px] font-black flex items-center gap-0.5 shadow-sm pointer-events-none transition-all ${
+                    selectedSubElement === 'logo'
+                      ? 'bg-indigo-600 text-white opacity-100 ring-1 ring-white'
+                      : 'bg-slate-900/90 text-white opacity-0 group-hover/elem-logo:opacity-100'
+                  }`}
+                >
+                  <Crown className="w-2 h-2 text-amber-300" />
+                  <span>{isAr ? 'الشعار' : 'Logo'}</span>
+                </div>
+              )}
+              {logo.mode !== 'text_only' && displayLogoUrl && (
+                <img
+                  src={displayLogoUrl}
+                  alt={isAr ? displayTitleAr : displayTitleEn}
+                  style={{ height: `${logo.logoHeight}px` }}
+                  className={`w-auto object-contain transition-transform duration-300 ${
+                    logo.hoverEffect === 'scale' ? 'group-hover:scale-105' : ''
+                  }`}
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              {logo.mode !== 'image_only' && (
+                <div className="flex flex-col text-start rtl:text-right ltr:text-left">
+                  <span
+                    style={{
+                      color: logo.titleColor,
+                      fontSize: `${logo.fontSize}px`,
+                      fontFamily: logo.fontFamily,
+                      fontWeight: logo.fontWeight,
+                    }}
+                    className={`tracking-tight leading-tight transition-colors ${
+                      logo.hoverEffect === 'glow'
+                        ? 'group-hover:drop-shadow-[0_0_8px_rgba(212,175,55,0.6)]'
+                        : ''
+                    }`}
+                  >
+                    {isAr ? displayTitleAr : displayTitleEn}
+                  </span>
+                  <span
+                    style={{
+                      color: logo.subtitleColor,
+                      letterSpacing: logo.letterSpacing,
+                    }}
+                    className="text-[10px] uppercase font-sans font-medium"
+                  >
+                    {isAr ? displaySubtitleAr : displaySubtitleEn}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Desktop Right: Language Toggle Pill */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center text-xs font-semibold text-[#495057] border border-[#d8d2c4] rounded-full px-3 py-1.5 bg-white shadow-2xs">
-                <button
-                  onClick={() => setLanguage('ar')}
-                  className={`transition-colors cursor-pointer ${isAr ? 'text-[#102a1c] font-bold' : 'text-[#868e96] hover:text-[#102a1c]'}`}
+            {lang.enabled && (
+              <div
+                onClick={(e) => {
+                  if (isBuilderMode) {
+                    e.stopPropagation();
+                    onSelectSubElement?.('language');
+                  }
+                }}
+                className={`relative group/elem-lang transition-all flex items-center gap-3 ${
+                  isBuilderMode
+                    ? selectedSubElement === 'language'
+                      ? 'ring-2 ring-indigo-500 rounded-full p-1 bg-indigo-50/30 z-20 shadow-xs'
+                      : 'hover:ring-1 hover:ring-indigo-400 rounded-full p-1 cursor-pointer'
+                    : ''
+                }`}
+              >
+                {isBuilderMode && (
+                  <div
+                    className={`absolute top-0.5 end-1 z-30 px-1.5 py-0.2 rounded text-[8px] font-black flex items-center gap-0.5 shadow-sm pointer-events-none transition-all ${
+                      selectedSubElement === 'language'
+                        ? 'bg-indigo-600 text-white opacity-100 ring-1 ring-white'
+                        : 'bg-slate-900/90 text-white opacity-0 group-hover/elem-lang:opacity-100'
+                    }`}
+                  >
+                    <Globe className="w-2 h-2 text-amber-300" />
+                    <span>{isAr ? 'اللغة' : 'Lang'}</span>
+                  </div>
+                )}
+                <div
+                  style={{
+                    backgroundColor: lang.bgColor,
+                    borderColor: lang.borderColor,
+                  }}
+                  className="flex items-center text-xs font-semibold border rounded-full px-3 py-1.5 shadow-2xs"
                 >
-                  العربية
-                </button>
-                <span className="mx-2 text-[#ced4da]">|</span>
-                <button
-                  onClick={() => setLanguage('en')}
-                  className={`transition-colors cursor-pointer ${!isAr ? 'text-[#102a1c] font-bold' : 'text-[#868e96] hover:text-[#102a1c]'}`}
-                >
-                  English
-                </button>
+                  <button
+                    onClick={() => {
+                      if (!isBuilderMode) setLanguage('ar');
+                    }}
+                    style={{
+                      color: isAr ? lang.activeColor : lang.textColor,
+                    }}
+                    className={`transition-colors cursor-pointer ${isAr ? 'font-bold' : 'hover:opacity-80'}`}
+                  >
+                    العربية
+                  </button>
+                  <span className="mx-2 text-[#ced4da]">|</span>
+                  <button
+                    onClick={() => {
+                      if (!isBuilderMode) setLanguage('en');
+                    }}
+                    style={{
+                      color: !isAr ? lang.activeColor : lang.textColor,
+                    }}
+                    className={`transition-colors cursor-pointer ${!isAr ? 'font-bold' : 'hover:opacity-80'}`}
+                  >
+                    English
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
           </div>
 
         </div>
 
-        {/* 3. Primary Navigation Row (Desktop) with subtle gradient */}
-        <nav className="hidden lg:block border-t border-[#eeebe3] bg-gradient-to-r from-white via-[#faf8f4] to-white relative shadow-2xs">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <ul className="flex items-center justify-center gap-3 py-1.5 text-[14.5px] font-semibold text-[#2c332d]">
-              
-              {/* 1. All Collections with Mega Menu Trigger */}
-              <li className="relative">
-                <button
-                  onClick={() => setMegaMenuOpen(!megaMenuOpen)}
-                  className={`flex items-center gap-2 py-2 px-4 rounded-xl transition-all cursor-pointer ${
-                    megaMenuOpen
-                      ? 'bg-[#102a1c] text-[#e6ca98] shadow-sm'
-                      : 'hover:bg-[#102a1c]/5 hover:text-[#102a1c]'
-                  }`}
-                >
-                  <Menu className="w-4 h-4" />
-                  <span>{isAr ? 'كافة المجموعات' : 'All Collections'}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${megaMenuOpen ? 'rotate-180' : ''}`} />
-                </button>
-              </li>
-
-              {/* 2. Exactly 4 Clean Primary Links with Icons */}
-              {primaryNavLinks.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <li key={item.id}>
+        {/* 3. Primary Navigation Row (Desktop) */}
+        {nav.enabled && (
+          <nav
+            onClick={(e) => {
+              if (isBuilderMode) {
+                e.stopPropagation();
+                onSelectSubElement?.('navigation');
+              }
+            }}
+            style={{
+              backgroundColor: nav.bgColor,
+            }}
+            className={`${isMobileHeader ? 'hidden' : 'hidden lg:block'} border-t border-[#eeebe3] relative shadow-2xs transition-all ${
+              isBuilderMode
+                ? selectedSubElement === 'navigation'
+                  ? 'ring-2 ring-indigo-500 ring-inset z-20 shadow-xs'
+                  : 'hover:ring-1 hover:ring-indigo-400 hover:ring-inset cursor-pointer'
+                : ''
+            }`}
+          >
+            {isBuilderMode && (
+              <div
+                className={`absolute top-0.5 start-2 z-30 px-2 py-0.5 rounded-md text-[9px] font-extrabold flex items-center gap-1 shadow-sm pointer-events-none transition-all ${
+                  selectedSubElement === 'navigation'
+                    ? 'bg-indigo-600 text-white opacity-100 ring-1 ring-white'
+                    : 'bg-slate-900/90 text-white opacity-0 group-hover/elem-nav:opacity-100'
+                }`}
+              >
+                <Menu className="w-2.5 h-2.5 text-amber-300" />
+                <span>
+                  {selectedSubElement === 'navigation'
+                    ? (isAr ? '✓ القائمة' : '✓ Navigation')
+                    : (isAr ? 'القائمة' : 'Navigation')}
+                </span>
+              </div>
+            )}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <ul
+                style={{
+                  fontSize: `${nav.fontSize}px`,
+                  fontFamily: nav.fontFamily,
+                  fontWeight: nav.fontWeight,
+                  justifyContent:
+                    nav.alignment === 'start'
+                      ? 'flex-start'
+                      : nav.alignment === 'space-between'
+                      ? 'space-between'
+                      : 'center',
+                }}
+                className="flex items-center gap-3 py-1.5"
+              >
+                {/* 1. All Collections with Mega Menu Trigger */}
+                {nav.showAllCollections && (
+                  <li className="relative">
                     <button
-                      onClick={() => {
-                        setMegaMenuOpen(false);
-                        if (item.action) {
-                          item.action();
-                        } else if (item.cat) {
-                          navigateToCategory(item.cat);
-                        }
+                      onClick={() => !isBuilderMode && setMegaMenuOpen(!megaMenuOpen)}
+                      style={{
+                        backgroundColor: megaMenuOpen
+                          ? nav.allCollectionsBg || '#102a1c'
+                          : undefined,
+                        color: megaMenuOpen
+                          ? nav.allCollectionsTextColor || '#e6ca98'
+                          : nav.textColor,
                       }}
-                      className="flex items-center gap-2 py-2 px-4 rounded-xl transition-all hover:bg-[#102a1c]/5 hover:text-[#102a1c] text-[#333a35] hover:scale-102 cursor-pointer active:scale-98"
+                      className={`flex items-center gap-2 py-2 px-4 rounded-xl transition-all cursor-pointer ${
+                        megaMenuOpen ? 'shadow-sm' : 'hover:opacity-80'
+                      }`}
                     >
-                      <Icon className="w-4 h-4 text-[#102a1c]/70 group-hover:text-[#102a1c]" />
-                      <span>{item.label}</span>
+                      <Menu className="w-4 h-4" />
+                      <span>{allCollectionsLabel}</span>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                          megaMenuOpen ? 'rotate-180' : ''
+                        }`}
+                      />
                     </button>
                   </li>
-                );
-              })}
+                )}
 
-              {/* 3. VIP Portal Link */}
-              <li>
-                <button
-                  onClick={() => {
-                    setMegaMenuOpen(false);
-                    setCurrentPage('crm');
-                  }}
-                  className="flex items-center gap-1.5 py-2 px-3.5 rounded-xl transition-all text-[#8b263e] hover:bg-[#8b263e]/10 font-bold cursor-pointer"
-                >
-                  <Crown className="w-4 h-4 text-[#d4af37]" />
-                  <span>{isAr ? 'بوابة VIP' : 'VIP Portal'}</span>
-                </button>
-              </li>
-            </ul>
-          </div>
+                {/* Primary Nav Links */}
+                {activeNavLinks.map((item) => {
+                    const Icon = getHeaderIcon(item.icon);
+                    return (
+                      <li key={item.id}>
+                        <button
+                          onClick={() => {
+                            if (isBuilderMode) return;
+                            setMegaMenuOpen(false);
+                            if (item.url?.startsWith('#')) {
+                              const el = document.getElementById(item.url.slice(1));
+                              if (el) el.scrollIntoView({ behavior: 'smooth' });
+                            } else if (item.cat) {
+                              navigateToCategory(item.cat);
+                            }
+                          }}
+                          style={{
+                            color: nav.textColor,
+                          }}
+                          className="flex items-center gap-2 py-2 px-4 rounded-xl transition-all hover:opacity-80 cursor-pointer active:scale-98"
+                        >
+                          <Icon className="w-4 h-4 opacity-75" />
+                          <span>{isAr ? item.labelAr : item.labelEn}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+
+                {/* VIP Portal Link */}
+                {nav.showVipPortal && (
+                  <li>
+                    <button
+                      onClick={() => {
+                        if (isBuilderMode) return;
+                        setMegaMenuOpen(false);
+                        setCurrentPage('crm');
+                      }}
+                      style={{
+                        color: nav.vipPortalColor,
+                      }}
+                      className="flex items-center gap-1.5 py-2 px-3.5 rounded-xl transition-all font-bold cursor-pointer hover:opacity-80"
+                    >
+                      <Crown className="w-4 h-4 text-[#d4af37]" />
+                      <span>{vipPortalLabel}</span>
+                    </button>
+                  </li>
+                )}
+              </ul>
+            </div>
 
           {/* MEGA MENU DROPDOWN */}
           {megaMenuOpen && (
@@ -402,112 +900,220 @@ export const Header: React.FC = () => {
               onMouseLeave={() => setMegaMenuOpen(false)}
               className="absolute top-full inset-x-0 bg-white border-b border-[#e8e4dc] shadow-2xl z-50 p-6 md:p-8 animate-in fade-in slide-in-from-top-2 duration-200"
             >
-              <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
-                
-                {/* Col 1: Visual Highlights */}
-                <div className="space-y-3">
-                  <span className="text-xs font-bold text-[#8c8275] uppercase tracking-wider block">
-                    {isAr ? 'أحدث الباقات والتنسيقات' : 'Featured Floral Edits'}
-                  </span>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {EIGHT_FEATURED_CATEGORIES.slice(0, 4).map((cat) => (
-                      <div
-                        key={cat.id}
-                        onClick={() => {
-                          navigateToCategory(cat.name);
-                          setMegaMenuOpen(false);
-                        }}
-                        className="group/item cursor-pointer rounded-2xl overflow-hidden bg-[#f0ece4] aspect-square relative shadow-xs"
-                      >
-                        <img
-                          src={cat.image}
-                          alt={cat.name}
-                          className="w-full h-full object-cover group-hover/item:scale-108 transition-transform duration-300"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2">
-                          <span className="text-white text-[11px] font-bold leading-tight">
-                            {isAr ? cat.name : cat.nameEn}
-                          </span>
+              {isCoffee ? (
+                <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
+                  {/* Col 1: Coffee Visual Highlights */}
+                  <div className="space-y-3">
+                    <span className="text-xs font-bold text-[#8c8275] uppercase tracking-wider block">
+                      {isAr ? 'أحدث المحاصيل والتحميص الحرفي' : 'Featured Coffee Roasts'}
+                    </span>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {[
+                        { id: 'm-cof-1', name: 'إثيوبيا يرقاتشيفي', nameEn: 'Ethiopian Yirgacheffe', image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=400&q=80' },
+                        { id: 'm-cof-2', name: 'كولومبيا غيشا ريزيرف', nameEn: 'Colombian Geisha', image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=400&q=80' },
+                        { id: 'm-cof-3', name: 'أدوات V60 مقطرة', nameEn: 'V60 Pour-Over', image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=400&q=80' },
+                        { id: 'm-cof-4', name: 'أكواب سيراميك باريستا', nameEn: 'Ceramic Cups', image: 'https://images.unsplash.com/photo-1517256064527-09c73fc73e38?auto=format&fit=crop&w=400&q=80' },
+                      ].map((cat) => (
+                        <div
+                          key={cat.id}
+                          onClick={() => {
+                            navigateToCategory('حبوب القهوة المختصة');
+                            setMegaMenuOpen(false);
+                          }}
+                          className="group/item cursor-pointer rounded-2xl overflow-hidden bg-[#2b1810] aspect-square relative shadow-xs"
+                        >
+                          <img
+                            src={cat.image}
+                            alt={cat.name}
+                            className="w-full h-full object-cover group-hover/item:scale-108 transition-transform duration-300 filter brightness-90"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2">
+                            <span className="text-white text-[11px] font-bold leading-tight">
+                              {isAr ? cat.name : cat.nameEn}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Col 2: Specialty Beans */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-[#102a1c] uppercase tracking-wider pb-1 border-b border-[#f0ede6] flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5 text-[#c88a58]" />
+                      <span>{isAr ? 'حبوب القهوة المختصة' : 'Specialty Beans'}</span>
+                    </h4>
+                    <ul className="space-y-2 text-xs text-[#555]">
+                      {['حبوب القهوة المختصة', 'محاصيل سنجل أوريجن', 'محاصيل المعالجة المجففة', 'محاصيل المعالجة المغسولة', 'اشتراكات القهوة الدورية'].map((name) => (
+                        <li key={name}>
+                          <button
+                            onClick={() => {
+                              navigateToCategory('حبوب القهوة المختصة');
+                              setMegaMenuOpen(false);
+                            }}
+                            className="hover:text-[#c88a58] hover:font-bold transition-all text-start cursor-pointer"
+                          >
+                            {name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Col 3: Pour-Over & Espresso Gear */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-[#102a1c] uppercase tracking-wider pb-1 border-b border-[#f0ede6] flex items-center gap-2">
+                      <Gift className="w-3.5 h-3.5 text-[#c88a58]" />
+                      <span>{isAr ? 'أدوات التحضير والمعدات' : 'Brewing & Espresso Gear'}</span>
+                    </h4>
+                    <ul className="space-y-2 text-xs text-[#555]">
+                      {['أدوات التحضير المقطرة', 'فلاتر وأباريق ترشيح V60', 'معدات وإكسسوارات الإسبريسو', 'مطاحن القهوة الاحترافية', 'موازين ومؤقتات رقمية'].map((name) => (
+                        <li key={name}>
+                          <button
+                            onClick={() => {
+                              navigateToCategory('أدوات التحضير المقطرة');
+                              setMegaMenuOpen(false);
+                            }}
+                            className="hover:text-[#c88a58] hover:font-bold transition-all text-start cursor-pointer"
+                          >
+                            {name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Col 4: Cold Brew & Lifestyle */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-[#102a1c] uppercase tracking-wider pb-1 border-b border-[#f0ede6] flex items-center gap-2">
+                      <Crown className="w-3.5 h-3.5 text-[#c88a58]" />
+                      <span>{isAr ? 'القهوة الباردة واللايف ستايل' : 'Cold Brew & Lifestyle'}</span>
+                    </h4>
+                    <ul className="space-y-2 text-xs text-[#555]">
+                      {['القهوة الباردة (كولد برو)', 'أكواب سيراميك وباريستا', 'أكواب حافظة للحرارة', 'بوكسات إهداء المحامص', 'حلويات وكيك مكمل'].map((name) => (
+                        <li key={name}>
+                          <button
+                            onClick={() => {
+                              navigateToCategory('القهوة الباردة');
+                              setMegaMenuOpen(false);
+                            }}
+                            className="hover:text-[#c88a58] hover:font-bold transition-all text-start cursor-pointer"
+                          >
+                            {name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
-
-                {/* Col 2: Fresh Flowers */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-[#102a1c] uppercase tracking-wider pb-1 border-b border-[#f0ede6] flex items-center gap-2">
-                    <Sparkles className="w-3.5 h-3.5 text-[#d4af37]" />
-                    <span>{isAr ? 'الزهور والورود الطبيعية' : 'Fresh Flowers'}</span>
-                  </h4>
-                  <ul className="space-y-2 text-xs text-[#555]">
-                    {['باقات الورود الطبيعية', 'ورد أحمر', 'ورد أبيض', 'باقات ورود طبيعية مخفضة', 'فازات ورود طبيعية'].map((name) => (
-                      <li key={name}>
-                        <button
+              ) : (
+                <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
+                  {/* Col 1: Visual Highlights */}
+                  <div className="space-y-3">
+                    <span className="text-xs font-bold text-[#8c8275] uppercase tracking-wider block">
+                      {isAr ? 'أحدث الباقات والتنسيقات' : 'Featured Floral Edits'}
+                    </span>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {EIGHT_FEATURED_CATEGORIES.slice(0, 4).map((cat) => (
+                        <div
+                          key={cat.id}
                           onClick={() => {
-                            navigateToCategory(name);
+                            navigateToCategory(cat.name);
                             setMegaMenuOpen(false);
                           }}
-                          className="hover:text-[#102a1c] hover:font-bold transition-all text-start cursor-pointer"
+                          className="group/item cursor-pointer rounded-2xl overflow-hidden bg-[#f0ece4] aspect-square relative shadow-xs"
                         >
-                          {name}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                          <img
+                            src={cat.image}
+                            alt={cat.name}
+                            className="w-full h-full object-cover group-hover/item:scale-108 transition-transform duration-300"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2">
+                            <span className="text-white text-[11px] font-bold leading-tight">
+                              {isAr ? cat.name : cat.nameEn}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
-                {/* Col 3: Cakes, Sweets & Gifts */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-[#102a1c] uppercase tracking-wider pb-1 border-b border-[#f0ede6] flex items-center gap-2">
-                    <Gift className="w-3.5 h-3.5 text-[#8b263e]" />
-                    <span>{isAr ? 'الحلا والشوكولاتة والضيافة' : 'Sweets & Chocolates'}</span>
-                  </h4>
-                  <ul className="space-y-2 text-xs text-[#555]">
-                    {['ورد وشوكولاتة بلجيكية فاخرة', 'ورد و كيك', 'ورد و قهوة و حلا', 'ورود مع أسماك وعصافير'].map((name) => (
-                      <li key={name}>
-                        <button
-                          onClick={() => {
-                            navigateToCategory(name);
-                            setMegaMenuOpen(false);
-                          }}
-                          className="hover:text-[#102a1c] hover:font-bold transition-all text-start cursor-pointer"
-                        >
-                          {name}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                  {/* Col 2: Fresh Flowers */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-[#102a1c] uppercase tracking-wider pb-1 border-b border-[#f0ede6] flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5 text-[#d4af37]" />
+                      <span>{isAr ? 'الزهور والورود الطبيعية' : 'Fresh Flowers'}</span>
+                    </h4>
+                    <ul className="space-y-2 text-xs text-[#555]">
+                      {['باقات الورود الطبيعية', 'ورد أحمر', 'ورد أبيض', 'باقات ورود طبيعية مخفضة', 'فازات ورود طبيعية'].map((name) => (
+                        <li key={name}>
+                          <button
+                            onClick={() => {
+                              navigateToCategory(name);
+                              setMegaMenuOpen(false);
+                            }}
+                            className="hover:text-[#102a1c] hover:font-bold transition-all text-start cursor-pointer"
+                          >
+                            {name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
-                {/* Col 4: Occasions */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-[#102a1c] uppercase tracking-wider pb-1 border-b border-[#f0ede6] flex items-center gap-2">
-                    <Crown className="w-3.5 h-3.5 text-[#d4af37]" />
-                    <span>{isAr ? 'المناسبات والاحتفالات' : 'Special Occasions'}</span>
-                  </h4>
-                  <ul className="space-y-2 text-xs text-[#555]">
-                    {['هدايا عيد ميلاد', 'هدايا الزواج', 'ذكرى زواج وحب', 'هدايا المواليد', 'هدايا التخرج', 'لوحات مواجيب'].map((name) => (
-                      <li key={name}>
-                        <button
-                          onClick={() => {
-                            navigateToCategory(name);
-                            setMegaMenuOpen(false);
-                          }}
-                          className="hover:text-[#102a1c] hover:font-bold transition-all text-start cursor-pointer"
-                        >
-                          {name}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                  {/* Col 3: Cakes, Sweets & Gifts */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-[#102a1c] uppercase tracking-wider pb-1 border-b border-[#f0ede6] flex items-center gap-2">
+                      <Gift className="w-3.5 h-3.5 text-[#8b263e]" />
+                      <span>{isAr ? 'الحلا والشوكولاتة والضيافة' : 'Sweets & Chocolates'}</span>
+                    </h4>
+                    <ul className="space-y-2 text-xs text-[#555]">
+                      {['ورد وشوكولاتة بلجيكية فاخرة', 'ورد و كيك', 'ورد و قهوة و حلا', 'ورود مع أسماك وعصافير'].map((name) => (
+                        <li key={name}>
+                          <button
+                            onClick={() => {
+                              navigateToCategory(name);
+                              setMegaMenuOpen(false);
+                            }}
+                            className="hover:text-[#102a1c] hover:font-bold transition-all text-start cursor-pointer"
+                          >
+                            {name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
-              </div>
+                  {/* Col 4: Occasions */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-[#102a1c] uppercase tracking-wider pb-1 border-b border-[#f0ede6] flex items-center gap-2">
+                      <Crown className="w-3.5 h-3.5 text-[#d4af37]" />
+                      <span>{isAr ? 'المناسبات والاحتفالات' : 'Special Occasions'}</span>
+                    </h4>
+                    <ul className="space-y-2 text-xs text-[#555]">
+                      {['هدايا عيد ميلاد', 'هدايا الزواج', 'ذكرى زواج وحب', 'هدايا المواليد', 'هدايا التخرج', 'لوحات مواجيب'].map((name) => (
+                        <li key={name}>
+                          <button
+                            onClick={() => {
+                              navigateToCategory(name);
+                              setMegaMenuOpen(false);
+                            }}
+                            className="hover:text-[#102a1c] hover:font-bold transition-all text-start cursor-pointer"
+                          >
+                            {name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </nav>
+      )}
 
         {/* 4. Instant Search Drawer Modal */}
         {searchOpen && (
@@ -517,7 +1123,7 @@ export const Header: React.FC = () => {
                 <input
                   type="text"
                   autoFocus
-                  placeholder={isAr ? 'ابحث عن باقات ورد، شوكولاتة باتشي، كيك كوري، هدايا...' : 'Search for flowers, Patchi chocolates, cakes, gifts...'}
+                  placeholder={searchPlaceholder}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full py-3.5 px-12 rounded-2xl bg-[#FAF9F5] border border-[#d6cfc0] focus:border-[#102a1c] focus:outline-none text-sm text-[#102a1c] shadow-inner"
@@ -589,14 +1195,20 @@ export const Header: React.FC = () => {
                   {/* Header Bar inside Drawer */}
                   <div className="flex items-center justify-between pb-3.5 border-b border-[#ded7c4]">
                     <div className="flex items-center gap-2.5">
-                      <img
-                        src="https://cdn.salla.sa/cdn-cgi/image/fit=scale-down,width=400,height=400,onerror=redirect,format=auto/NKOjvD/2Cnfzx8q23nZJ0tRXo8cUjOa6GP3vTWdrOePAhRl.png"
-                        alt="هدايا مكة"
-                        className="h-8 w-auto object-contain"
-                      />
+                      {displayLogoUrl && (
+                        <img
+                          src={displayLogoUrl}
+                          alt={isAr ? displayTitleAr : displayTitleEn}
+                          className="h-8 w-auto object-contain rounded-lg"
+                        />
+                      )}
                       <div className="flex flex-col text-start">
-                        <span className="font-serif font-extrabold text-lg text-[#102a1c] leading-none">هدايا مكة</span>
-                        <span className="text-[9px] uppercase tracking-wider text-[#8c8275] font-sans mt-0.5">GIFTS & FLOWERS</span>
+                        <span className="font-serif font-extrabold text-lg text-[#102a1c] leading-none">
+                          {isAr ? displayTitleAr : displayTitleEn}
+                        </span>
+                        <span className="text-[9px] uppercase tracking-wider text-[#8c8275] font-sans mt-0.5">
+                          {isAr ? displaySubtitleAr : displaySubtitleEn}
+                        </span>
                       </div>
                     </div>
                     

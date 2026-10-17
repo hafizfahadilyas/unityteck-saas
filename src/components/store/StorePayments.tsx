@@ -46,6 +46,8 @@ type PaymentProviderKey =
   | 'stc'
   | 'cod'
   | 'bnpl'
+  | 'tabby'
+  | 'tamara'
   | 'moyasar'
   | 'tap'
   | 'hyperpay'
@@ -61,7 +63,7 @@ interface PaymentMethodCardConfig {
   badge: string;
   badgeCls: string;
   defaultAccount: string;
-  gatewayType: 'moyasar' | 'tap' | 'hyperpay' | 'stripe' | 'paypal' | 'cod';
+  gatewayType: 'moyasar' | 'tap' | 'hyperpay' | 'stripe' | 'paypal' | 'tabby' | 'tamara' | 'cod';
 }
 
 export const StorePayments: React.FC = () => {

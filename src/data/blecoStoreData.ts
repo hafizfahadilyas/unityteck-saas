@@ -1,0 +1,3331 @@
+import { Product, CategoryItem } from '../types';
+export type { Product, CategoryItem };
+
+/**
+ * Al-Saeedi Car Services Store Data (متجر السعيدي لخدمات السيارات — تنجيد مكة)
+ * References:
+ * - Data & Catalog: https://tanjeedmakkah.com/
+ * - Theme: Modern Luxury Automotive (Deep Obsidian Slate #0B1120, Royal Blue #127BFE, Gold #D4AF37)
+ * - CR: 7005616136
+ * - SBC: 0000180462
+ * - WhatsApp: +966597757086
+ */
+
+export interface CarBrandItem {
+  id: string;
+  name: string;
+  nameAr: string;
+  nameEn: string;
+  logo: string;
+  productCount: number;
+}
+
+export interface SeatColorOption {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  hex: string;
+  image: string;
+  stitchHex?: string;
+  borderClass?: string;
+}
+
+export interface ProductPatternOption {
+  id: 'laser' | 'diamond' | 'luxury' | 'triangles';
+  nameAr: string;
+  nameEn: string;
+  badgeAr?: string;
+}
+
+export const PRODUCT_PATTERNS: ProductPatternOption[] = [
+  { id: 'triangles', nameAr: 'المثلثات', nameEn: '5D Triangles', badgeAr: 'الأكثر طلباً' },
+  { id: 'diamond', nameAr: 'الدايموند', nameEn: 'VIP Diamond', badgeAr: 'فخامة ملكية' },
+  { id: 'laser', nameAr: 'الليزر', nameEn: 'Laser Tech', badgeAr: 'قص دقيق' },
+  { id: 'luxury', nameAr: 'الفاخر', nameEn: 'Luxury Striped', badgeAr: 'تصميم أوروبي' },
+];
+
+export const BLECO_BUNDLE_ADDON = {
+  id: 'bleco-cleaner-polish',
+  nameAr: 'منظف وملمع بلاكو',
+  nameEn: 'Bleco Leather Cleaner & Polish',
+  price: 19.50,
+  originalPrice: 26.00,
+  discountPercent: 25,
+  savingAr: 'وفر 6.50 ر.س',
+  image: '/images/categories/car-care-bleco.jpg',
+  descriptionAr: 'منظف ومعالج فاخر مخصص للجلد والأرضيات يحافظ على بريق التلبيسة ومقاومة البقع'
+};
+
+export interface FloorMatColorOption {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  baseHex: string;
+  stitchHex: string;
+  image?: string;
+}
+
+export interface CarModelDef {
+  modelAr: string;
+  modelEn: string;
+  years: string[];
+}
+
+export interface BlecoFaqItem {
+  number: string;
+  question?: string;
+  questionEn?: string;
+  answer?: string;
+  answerEn?: string;
+  qAr?: string;
+  qEn?: string;
+  aAr?: string;
+  aEn?: string;
+}
+
+export interface BlecoBlogAuthor {
+  nameAr: string;
+  nameEn: string;
+  roleAr: string;
+  roleEn: string;
+  avatar: string;
+  verified?: boolean;
+}
+
+export interface BlecoBlogSection {
+  id: string;
+  headingAr: string;
+  headingEn: string;
+  paragraphsAr: string[];
+  paragraphsEn: string[];
+  tipAr?: string;
+  tipEn?: string;
+  warningAr?: string;
+  warningEn?: string;
+  bulletsAr?: string[];
+  bulletsEn?: string[];
+  specTable?: { labelAr: string; labelEn: string; valueAr: string; valueEn: string }[];
+}
+
+export interface BlecoBlogPost {
+  id: string;
+  slug: string;
+  titleAr: string;
+  titleEn: string;
+  subtitleAr: string;
+  subtitleEn: string;
+  categoryAr: string;
+  categoryEn: string;
+  categoryKey: 'all' | 'seat-covers' | 'floor-mats' | 'care-detailing' | 'safety-climate';
+  date: string;
+  readTimeAr: string;
+  readTimeEn: string;
+  summaryAr: string;
+  summaryEn: string;
+  contentAr: string[];
+  contentEn: string[];
+  image: string;
+  author: BlecoBlogAuthor;
+  featured?: boolean;
+  views: number;
+  likes: number;
+  tagsAr: string[];
+  tagsEn: string[];
+  keyTakeawaysAr: string[];
+  keyTakeawaysEn: string[];
+  sections: BlecoBlogSection[];
+  relatedProductIds?: string[];
+  faq?: { qAr: string; qEn: string; aAr: string; aEn: string }[];
+  // Compatibility fields
+  title?: string;
+  dateEn?: string;
+  summary?: string;
+  content?: string[];
+}
+
+export const SEAT_COLORS: SeatColorOption[] = [
+  {
+    id: 'maroon-maroon',
+    nameAr: 'عنابي مطرز عنابي',
+    nameEn: 'Maroon with Maroon Stitch',
+    hex: '#5c1422',
+    stitchHex: '#8b1d36',
+    image: '/images/seat-covers/camry-camel.jpg',
+  },
+  {
+    id: 'grey-grey',
+    nameAr: 'رصاصي مطرز رصاصي',
+    nameEn: 'Grey with Grey Stitch',
+    hex: '#6b7280',
+    stitchHex: '#9ca3af',
+    image: '/images/seat-covers/accord-grey.jpg',
+  },
+  {
+    id: 'camel-camel',
+    nameAr: 'جملي مطرز جملي',
+    nameEn: 'Camel with Camel Stitch',
+    hex: '#b87b44',
+    stitchHex: '#d99757',
+    image: '/images/seat-covers/camry-camel.jpg',
+  },
+  {
+    id: 'beige-beige',
+    nameAr: 'بيج مطرز بيج',
+    nameEn: 'Beige with Beige Stitch',
+    hex: '#d8c8b4',
+    stitchHex: '#ece3d6',
+    image: '/images/seat-covers/camry-beige.jpg',
+  },
+  {
+    id: 'brown-brown',
+    nameAr: 'بني مطرز بني',
+    nameEn: 'Brown with Brown Stitch',
+    hex: '#4a2e21',
+    stitchHex: '#784d39',
+    image: '/images/seat-covers/camry-black.jpg',
+  },
+  {
+    id: 'black-red',
+    nameAr: 'أسود مطرز أحمر',
+    nameEn: 'Black with Red Stitch',
+    hex: '#1a1a1d',
+    stitchHex: '#dc2626',
+    image: '/images/seat-covers/camry-black.jpg',
+  },
+  {
+    id: 'black-beige',
+    nameAr: 'أسود مطرز بيج',
+    nameEn: 'Black with Beige Stitch',
+    hex: '#1a1a1d',
+    stitchHex: '#d8c8b4',
+    image: '/images/seat-covers/camry-black.jpg',
+  },
+  {
+    id: 'black-camel',
+    nameAr: 'أسود مطرز جملي',
+    nameEn: 'Black with Camel Stitch',
+    hex: '#1a1a1d',
+    stitchHex: '#b87b44',
+    image: '/images/seat-covers/camry-black.jpg',
+  },
+  {
+    id: 'black-black',
+    nameAr: 'أسود مطرز أسود',
+    nameEn: 'Black with Black Stitch',
+    hex: '#121315',
+    stitchHex: '#262626',
+    image: '/images/seat-covers/camry-black.jpg',
+  },
+];
+
+/**
+ * Dynamic Product Seat Colors Resolver:
+ * Resolves strictly 3 authentic real seat colors for any product.
+ * If the product has custom colors set via Admin attributes/colors, the first 3 are used.
+ * By default, each product has exactly 3 authentic OEM colors tailored to its vehicle model.
+ */
+export function getProductColors(product?: Product | null): SeatColorOption[] {
+  if (!product) {
+    return [
+      { id: 'beige', nameAr: 'بيج وكالة OEM', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/camry-beige.jpg' },
+      { id: 'camel', nameAr: 'جملي رويال ملكي', nameEn: 'Royal Camel', hex: '#b87b44', image: '/images/seat-covers/camry-camel.jpg' },
+      { id: 'black', nameAr: 'أسود ملكي فاخر', nameEn: 'Royal Black', hex: '#1e2124', image: '/images/seat-covers/camry-black.jpg' },
+    ];
+  }
+
+  if (product.colors && Array.isArray(product.colors) && product.colors.length > 0) {
+    return product.colors.slice(0, 3);
+  }
+  
+  const name = (product.nameAr || product.name || '').toLowerCase();
+  const brand = (product.brand || '').toLowerCase();
+  
+  // GMC Yukon
+  if (brand.includes('gmc') || name.includes('جمس') || name.includes('يوكن') || name.includes('yukon')) {
+    return [
+      { id: 'grey', nameAr: 'رمادي ألماني', nameEn: 'German Grey', hex: '#7e848d', image: '/images/seat-covers/yukon-grey.jpg' },
+      { id: 'beige', nameAr: 'بيج وكالة', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/yukon-beige.jpg' },
+      { id: 'camel', nameAr: 'جملي رويال', nameEn: 'Royal Camel', hex: '#b87b44', image: '/images/seat-covers/yukon-camel.jpg' },
+    ];
+  }
+
+  // Honda Accord
+  if (brand.includes('honda') || name.includes('هوندا') || name.includes('اكورد') || name.includes('accord')) {
+    return [
+      { id: 'beige', nameAr: 'بيج وكالة', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/accord-beige.jpg' },
+      { id: 'camel', nameAr: 'جملي رويال', nameEn: 'Royal Camel', hex: '#b87b44', image: '/images/seat-covers/accord-camel.jpg' },
+      { id: 'grey', nameAr: 'رمادي ألماني', nameEn: 'German Grey', hex: '#7e848d', image: '/images/seat-covers/accord-grey.jpg' },
+    ];
+  }
+
+  // Grey seat cover
+  if (name.includes('رمادي') || name.includes('grey') || name.includes('gray')) {
+    return [
+      { id: 'grey', nameAr: 'رمادي ألماني', nameEn: 'German Grey', hex: '#7e848d', image: '/images/seat-covers/accord-grey.jpg' },
+      { id: 'black', nameAr: 'أسود ملكي', nameEn: 'Royal Black', hex: '#1e2124', image: '/images/seat-covers/camry-black.jpg' },
+      { id: 'beige', nameAr: 'بيج وكالة', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/camry-beige.jpg' },
+    ];
+  }
+  
+  // Camel seat cover
+  if (name.includes('جملي') || name.includes('camel')) {
+    return [
+      { id: 'camel', nameAr: 'جملي رويال', nameEn: 'Royal Camel', hex: '#b87b44', image: '/images/seat-covers/camry-camel.jpg' },
+      { id: 'beige', nameAr: 'بيج وكالة', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/camry-beige.jpg' },
+      { id: 'black', nameAr: 'أسود ملكي', nameEn: 'Royal Black', hex: '#1e2124', image: '/images/seat-covers/camry-black.jpg' },
+    ];
+  }
+  
+  // Black seat cover
+  if (name.includes('أسود') || name.includes('اسود') || name.includes('black')) {
+    return [
+      { id: 'black', nameAr: 'أسود ملكي', nameEn: 'Royal Black', hex: '#1e2124', image: '/images/seat-covers/camry-black.jpg' },
+      { id: 'beige', nameAr: 'بيج وكالة', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/camry-beige.jpg' },
+      { id: 'camel', nameAr: 'جملي رويال', nameEn: 'Royal Camel', hex: '#b87b44', image: '/images/seat-covers/camry-camel.jpg' },
+    ];
+  }
+
+  // Default Toyota / Generic Bespoke (Camry standard OEM 3 colors)
+  return [
+    { id: 'beige', nameAr: 'بيج وكالة', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/camry-beige.jpg' },
+    { id: 'camel', nameAr: 'جملي رويال', nameEn: 'Royal Camel', hex: '#b87b44', image: '/images/seat-covers/camry-camel.jpg' },
+    { id: 'black', nameAr: 'أسود ملكي', nameEn: 'Royal Black', hex: '#1e2124', image: '/images/seat-covers/camry-black.jpg' },
+  ];
+}
+
+// 12 AUTHENTIC FLOOR MAT EMBROIDERY COMBINATIONS (ألوان أرضيات السيارات المتوفرة بالتطريز)
+export const FLOOR_MAT_COLORS: FloorMatColorOption[] = [
+  {
+    id: 'grey-beige',
+    nameAr: 'رصاصي مطرز بنسيج بيج',
+    nameEn: 'Grey with beige stitch',
+    baseHex: '#5e636b',
+    stitchHex: '#d8c8b4',
+  },
+  {
+    id: 'brown-brown',
+    nameAr: 'بني مطرز بنسيج بني',
+    nameEn: 'Brown with brown stitch',
+    baseHex: '#4a2e21',
+    stitchHex: '#784d39',
+  },
+  {
+    id: 'camel-camel',
+    nameAr: 'جملي مطرز بنسيج جملي',
+    nameEn: 'Camel with camel stitch',
+    baseHex: '#b87b44',
+    stitchHex: '#d99757',
+  },
+  {
+    id: 'brown-camel',
+    nameAr: 'بني مطرز بنسيج جملي',
+    nameEn: 'Brown with camel stitch',
+    baseHex: '#4a2e21',
+    stitchHex: '#b87b44',
+  },
+  {
+    id: 'maroon-maroon',
+    nameAr: 'عنابي مطرز بنسيج عنابي',
+    nameEn: 'Maroon with maroon stitch',
+    baseHex: '#5c1422',
+    stitchHex: '#841f33',
+  },
+  {
+    id: 'beige-beige',
+    nameAr: 'بيج مطرز بنسيج بيج',
+    nameEn: 'Beige with beige stitch',
+    baseHex: '#d8c8b4',
+    stitchHex: '#ece3d6',
+  },
+  {
+    id: 'brown-beige',
+    nameAr: 'بني مطرز بنسيج بيج',
+    nameEn: 'Brown with beige stitch',
+    baseHex: '#4a2e21',
+    stitchHex: '#d8c8b4',
+  },
+  {
+    id: 'black-camel',
+    nameAr: 'أسود مطرز بنسيج جملي',
+    nameEn: 'Black with camel stitch',
+    baseHex: '#1b1c1e',
+    stitchHex: '#b87b44',
+  },
+  {
+    id: 'black-orange',
+    nameAr: 'أسود مطرز بنسيج برتقالي',
+    nameEn: 'Black with orange stitch',
+    baseHex: '#1b1c1e',
+    stitchHex: '#ea580c',
+  },
+  {
+    id: 'black-beige',
+    nameAr: 'أسود مطرز بنسيج بيج',
+    nameEn: 'Black with beige stitch',
+    baseHex: '#1b1c1e',
+    stitchHex: '#d8c8b4',
+  },
+  {
+    id: 'black-black',
+    nameAr: 'أسود مطرز بنسيج أسود',
+    nameEn: 'Black with black stitch',
+    baseHex: '#141517',
+    stitchHex: '#2b2c30',
+  },
+  {
+    id: 'black-fuchsia',
+    nameAr: 'أسود مطرز بنسيج فوشي',
+    nameEn: 'Black with fuchsia stitch',
+    baseHex: '#1b1c1e',
+    stitchHex: '#d91b70',
+  },
+];
+
+
+// ============================================================================
+// COLOR OPTIONS WITH REAL VERIFIED SALLA CDN IMAGES
+// ============================================================================
+
+
+// ============================================================================
+// MAIN CATEGORIES
+// ============================================================================
+export const BLECO_CATEGORIES: CategoryItem[] = [
+  {
+    id: 'cat-clothing',
+    name: 'تلابيس',
+    nameAr: 'تلابيس مقاعد السيارة',
+    nameEn: 'Car Seat Covers',
+    description: 'تلابيس وتنجيد مقاعد مفصلة وجاهزة لجميع الماركات',
+    icon: 'Layers',
+    image: '/images/categories/vip-luxury-seat-covers.jpg',
+    productCount: 108,
+  },
+  {
+    id: 'cat-floors',
+    name: 'أرضيات',
+    nameAr: 'أرضيات السيارة الدايموند',
+    nameEn: 'Diamond Car Mats',
+    description: 'أرضيات دايموند 5D ليزرية مقاومة للماء والأتربة',
+    icon: 'Shield',
+    image: '/images/categories/vip-5d-laser-mats.jpg',
+    productCount: 24,
+  },
+  {
+    id: 'cat-perfumes',
+    name: 'معطرات فواحة',
+    nameAr: 'معطرات وفواحات السيارة',
+    nameEn: 'Car Air Fresheners',
+    description: 'فواحات إلكترونية وزيوت عطرية فرنسية تدوم طويلاً',
+    icon: 'Wind',
+    image: 'https://cdn.salla.sa/form-builder/IVTOvvJou4NZ9Q3cEmXACGOBbO8BoyoEsFVAOCcF.png',
+    productCount: 16,
+  },
+  {
+    id: 'cat-care',
+    name: 'عناية وتلميع',
+    nameAr: 'منتجات العناية والتلميع',
+    nameEn: 'Car Care & Detailing',
+    description: 'شامبوهات نانو وملمعات جلد وطبلون وكفرات احترافية',
+    icon: 'Sparkles',
+    image: 'https://cdn.salla.sa/form-builder/0xGu1lj6oQ9nIXWfxRFbittuB7rSuKTCmXoE6Z7q.png',
+    productCount: 18,
+  },
+  {
+    id: 'cat-accessories',
+    name: 'زينة واكسسوارات',
+    nameAr: 'زينة واكسسوارات السيارات',
+    nameEn: 'Accessories & Styling',
+    description: 'ستائر تظليل ليزر، شماسات، قواعد جوال، ومبردات متنقلة',
+    icon: 'Compass',
+    image: 'https://cdn.salla.sa/form-builder/372cyi5v5BTgsLSjPKuqdfKVNWAXPPyz8ewDjjL1.png',
+    productCount: 22,
+  },
+  {
+    id: 'cat-tools',
+    name: 'أدوات تنجيد',
+    nameAr: 'أدوات ومستلزمات التنجيد',
+    nameEn: 'Upholstery Supplies',
+    description: 'مبارم وكلبسات ومشدات تثبيت مراتب أصلية',
+    icon: 'Wrench',
+    image: 'https://cdn.salla.sa/form-builder/mNJjSTAsIGTtdLFZPSFU11iZvndiKha2mxuG9HJp.png',
+    productCount: 12,
+  },
+];
+
+// ============================================================================
+// 10 PRIMARY CAR COMPANIES + SPECIALIZED BRANDS
+// ============================================================================
+export const CAR_BRANDS: CarBrandItem[] = [
+  {
+    id: 'toyota',
+    name: 'تويوتا',
+    nameAr: 'تويوتا',
+    nameEn: 'Toyota',
+    logo: '/images/car-brands/toyota.svg',
+    productCount: 10,
+  },
+  {
+    id: 'hyundai',
+    name: 'هيونداي',
+    nameAr: 'هيونداي',
+    nameEn: 'Hyundai',
+    logo: '/images/car-brands/hyundai.svg',
+    productCount: 8,
+  },
+  {
+    id: 'ford',
+    name: 'فورد',
+    nameAr: 'فورد',
+    nameEn: 'Ford',
+    logo: '/images/car-brands/ford.png',
+    productCount: 4,
+  },
+  {
+    id: 'nissan',
+    name: 'نيسان',
+    nameAr: 'نيسان',
+    nameEn: 'Nissan',
+    logo: '/images/car-brands/nissan.svg',
+    productCount: 4,
+  },
+  {
+    id: 'kia',
+    name: 'كيا',
+    nameAr: 'كيا',
+    nameEn: 'Kia',
+    logo: '/images/car-brands/kia.svg',
+    productCount: 4,
+  },
+  {
+    id: 'gmc',
+    name: 'جمس',
+    nameAr: 'جمس (GMC)',
+    nameEn: 'GMC',
+    logo: '/images/car-brands/gmc.png',
+    productCount: 3,
+  },
+  {
+    id: 'chevrolet',
+    name: 'شيفروليه',
+    nameAr: 'شيفروليه',
+    nameEn: 'Chevrolet',
+    logo: '/images/car-brands/chevrolet.png',
+    productCount: 3,
+  },
+  {
+    id: 'honda',
+    name: 'هوندا',
+    nameAr: 'هوندا',
+    nameEn: 'Honda',
+    logo: '/images/car-brands/honda.png',
+    productCount: 2,
+  },
+  {
+    id: 'mazda',
+    name: 'مازدا',
+    nameAr: 'مازدا',
+    nameEn: 'Mazda',
+    logo: '/images/car-brands/mazda.svg',
+    productCount: 2,
+  },
+  {
+    id: 'lexus',
+    name: 'لكزس',
+    nameAr: 'لكزس',
+    nameEn: 'Lexus',
+    logo: '/images/car-brands/lexus.png',
+    productCount: 2,
+  },
+  {
+    id: 'mitsubishi',
+    name: 'ميتسوبيشي',
+    nameAr: 'ميتسوبيشي',
+    nameEn: 'Mitsubishi',
+    logo: '/images/car-brands/mitsubishi.svg',
+    productCount: 2,
+  },
+  {
+    id: 'isuzu',
+    name: 'إيسوزو',
+    nameAr: 'إيسوزو',
+    nameEn: 'Isuzu',
+    logo: '/images/car-brands/isuzu.svg',
+    productCount: 2,
+  },
+  {
+    id: 'mg',
+    name: 'إم جي',
+    nameAr: 'إم جي (MG)',
+    nameEn: 'MG',
+    logo: '/images/car-brands/mg.png',
+    productCount: 2,
+  },
+  {
+    id: 'dodge',
+    name: 'دودج',
+    nameAr: 'دودج (Dodge)',
+    nameEn: 'Dodge',
+    logo: '/images/car-brands/dodge.png',
+    productCount: 2,
+  },
+];
+
+// ============================================================================
+// CAR MODELS MAP (45 UNIQUE MODELS ACROSS THE 10 MAJOR COMPANIES)
+// ============================================================================
+export const CAR_MODELS_MAP: Record<string, CarModelDef[]> = {
+  toyota: [
+    { modelAr: 'كامري', modelEn: 'Camry', years: ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2006', '2005', '2004', '2003'] },
+    { modelAr: 'كورولا', modelEn: 'Corolla', years: ['2025', '2024', '2023', '2022', '2021', '2020', '2019'] },
+    { modelAr: 'راف فور', modelEn: 'RAV4', years: ['2025', '2024', '2023', '2022', '2021', '2020', '2019'] },
+    { modelAr: 'برادو', modelEn: 'Prado', years: ['2025', '2024', '2023', '2022', '2021', '2020', '2018', '2009', '2006', '2003'] },
+    { modelAr: 'لاندكروزر', modelEn: 'Land Cruiser', years: ['2025', '2024', '2023', '2022', '2021', '2020', '2015'] },
+    { modelAr: 'هايلكس', modelEn: 'Hilux', years: ['2025', '2024', '2023', '2022', '2021', '2020'] },
+    { modelAr: 'افالون', modelEn: 'Avalon', years: ['2022', '2021', '2020', '2019', '2018'] },
+    { modelAr: 'انوفا', modelEn: 'Innova', years: ['2024', '2023', '2022', '2021', '2020'] },
+    { modelAr: 'يارس', modelEn: 'Yaris', years: ['2024', '2023', '2022', '2021', '2020'] },
+    { modelAr: 'فورتشنر', modelEn: 'Fortuner', years: ['2024', '2023', '2022', '2021', '2020'] },
+    { modelAr: 'راش', modelEn: 'Rush', years: ['2024', '2023', '2022', '2021'] },
+    { modelAr: 'هايلاندر', modelEn: 'Highlander', years: ['2024', '2023', '2022', '2021'] },
+    { modelAr: 'اف جي', modelEn: 'FJ Cruiser', years: ['2023', '2022', '2021', '2020'] },
+    { modelAr: 'كورولا كروس', modelEn: 'Corolla Cross', years: ['2024', '2023', '2022', '2021'] },
+  ],
+  hyundai: [
+    { modelAr: 'النترا', modelEn: 'Elantra', years: ['2025', '2024', '2023', '2022', '2021', '2020', '2019'] },
+    { modelAr: 'سوناتا', modelEn: 'Sonata', years: ['2025', '2024', '2023', '2022', '2021', '2020'] },
+    { modelAr: 'توسان', modelEn: 'Tucson', years: ['2025', '2024', '2023', '2022', '2021', '2020'] },
+    { modelAr: 'اكسنت', modelEn: 'Accent', years: ['2025', '2024', '2023', '2022', '2021', '2020'] },
+    { modelAr: 'سنتافي', modelEn: 'Santa Fe', years: ['2024', '2023', '2022', '2021', '2020'] },
+    { modelAr: 'ازيرا', modelEn: 'Azera', years: ['2024', '2023', '2022', '2021'] },
+    { modelAr: 'كريتا', modelEn: 'Creta', years: ['2024', '2023', '2022', '2021'] },
+    { modelAr: 'باليسايد', modelEn: 'Palisade', years: ['2024', '2023', '2022', '2021'] },
+  ],
+  ford: [
+    { modelAr: 'اكسبديشن', modelEn: 'Expedition', years: ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018'] },
+    { modelAr: 'اكسبلورر', modelEn: 'Explorer', years: ['2024', '2023', '2022', '2021', '2020', '2017', '2016', '2011'] },
+    { modelAr: 'تورس', modelEn: 'Taurus', years: ['2024', '2023', '2022', '2021', '2020'] },
+    { modelAr: 'ايفرست', modelEn: 'Everest', years: ['2024', '2023', '2022'] },
+  ],
+  honda: [
+    { modelAr: 'اكورد', modelEn: 'Accord', years: ['2024', '2023', '2022', '2021', '2020', '2019', '2018'] },
+    { modelAr: 'سيفيك', modelEn: 'Civic', years: ['2024', '2023', '2022', '2021', '2020'] },
+  ],
+  kia: [
+    { modelAr: 'سيراتو', modelEn: 'Cerato', years: ['2024', '2023', '2022', '2021', '2020', '2019', '2018'] },
+    { modelAr: 'سبورتاج', modelEn: 'Sportage', years: ['2024', '2023', '2022', '2021', '2020'] },
+    { modelAr: 'كارنيفال', modelEn: 'Carnival', years: ['2024', '2023', '2022', '2021'] },
+    { modelAr: 'اوبتيما / K5', modelEn: 'Optima / K5', years: ['2024', '2023', '2022', '2021', '2020'] },
+    { modelAr: 'كادينزا', modelEn: 'Cadenza', years: ['2022', '2021', '2020', '2019'] },
+  ],
+  nissan: [
+    { modelAr: 'التيما', modelEn: 'Altima', years: ['2024', '2023', '2022', '2021', '2020', '2019'] },
+    { modelAr: 'اكس تريل', modelEn: 'X-Trail', years: ['2024', '2023', '2022', '2021', '2020'] },
+    { modelAr: 'اكستيرا', modelEn: 'Xterra', years: ['2024', '2023', '2022', '2021'] },
+    { modelAr: 'باترول', modelEn: 'Patrol', years: ['2024', '2023', '2022', '2021', '2020'] },
+  ],
+  gmc: [
+    { modelAr: 'يوكن', modelEn: 'Yukon', years: ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2016', '2015', '2014', '2007', '2006', '2003'] },
+    { modelAr: 'سييرا', modelEn: 'Sierra', years: ['2024', '2023', '2022', '2021', '2020'] },
+  ],
+  mazda: [
+    { modelAr: 'مازدا 6', modelEn: 'Mazda 6', years: ['2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2015'] },
+    { modelAr: 'مازدا CX-9', modelEn: 'Mazda CX-9', years: ['2024', '2023', '2022', '2021', '2020'] },
+  ],
+  chevrolet: [
+    { modelAr: 'ترافيرس', modelEn: 'Traverse', years: ['2024', '2023', '2022', '2021', '2020'] },
+    { modelAr: 'كابتيفا', modelEn: 'Captiva', years: ['2024', '2023', '2022', '2021', '2020'] },
+  ],
+  lexus: [
+    { modelAr: 'جيب لكزس LX', modelEn: 'Lexus LX', years: ['2024', '2023', '2022', '2021', '2018', '2012', '2007'] },
+    { modelAr: 'لكزس ES', modelEn: 'Lexus ES', years: ['2024', '2023', '2022', '2021', '2020', '2018'] },
+  ],
+  mitsubishi: [
+    { modelAr: 'باجيرو', modelEn: 'Pajero', years: ['2022', '2021', '2020', '2019'] },
+    { modelAr: 'اوتلاندر', modelEn: 'Outlander', years: ['2024', '2023', '2022', '2021'] },
+  ],
+  isuzu: [
+    { modelAr: 'ديماكس', modelEn: 'D-Max', years: ['2024', '2023', '2022', '2021', '2020'] },
+  ],
+  mg: [
+    { modelAr: 'إم جي 5', modelEn: 'MG 5', years: ['2024', '2023', '2022', '2021'] },
+  ],
+  dodge: [
+    { modelAr: 'تشارجر', modelEn: 'Charger', years: ['2023', '2022', '2021', '2020'] },
+    { modelAr: 'دورانجو', modelEn: 'Durango', years: ['2024', '2023', '2022', '2021'] },
+  ],
+};
+
+// ============================================================================
+// 1. CAR FLOOR MATS (AUTHENTIC 4 DESIGNS WITH EXACT HIGH-RES CROPS)
+// ============================================================================
+export const FEATURED_FLOOR_MATS: Product[] = [
+  {
+    id: 'prod-mat-triangle',
+    storeId: 'store-bleco',
+    name: 'أرضيات المثلثات (Triangle floors)',
+    nameAr: 'أرضيات المثلثات (Triangle floors)',
+    nameEn: 'Triangle floors',
+    sku: 'MAT-TRIANGLE-ECO',
+    category: 'أرضيات',
+    categoryAr: 'أرضيات السيارة',
+    categoryEn: 'Floors & Mats',
+    price: 340,
+    originalPrice: 399,
+    discountedPrice: 340,
+    stock: 30,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/floor-mats/triangle-floors.jpg',
+    galleryUrls: ['/images/floor-mats/triangle-floors.jpg'],
+    images: ['/images/floor-mats/triangle-floors.jpg'],
+    description: 'أرضيات بنقشة المثلثات الهندسية الرياضية خفيفة الوزن وسهلة الفك والغسيل. مصنوعة من جلد صناعي صديق للبيئة (Eco-friendly synthetic leather) مع قاعدة محكمة مانعة للانزلاق.',
+    descriptionAr: 'أرضيات بنقشة المثلثات الهندسية الرياضية خفيفة الوزن وسهلة الفك والغسيل. مصنوعة من جلد صناعي صديق للبيئة (Eco-friendly synthetic leather) مع قاعدة محكمة مانعة للانزلاق.',
+    descriptionEn: 'Geometric triangle sport patterned floor mats made with Eco-friendly synthetic leather, non-slip backing and quick wash surface.',
+    subtitle: 'Eco-friendly synthetic leather',
+    brand: 'جميع الماركات',
+    rating: 4.8,
+    reviewsCount: 88,
+    type: 'floor-mat',
+    productType: 'Floor Mat',
+    tags: ['أرضيات المثلثات', 'Triangle floors', 'Triangle Mats', 'Eco-friendly synthetic leather', 'جميع الماركات'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 164,
+  },
+  {
+    id: 'prod-mat-luxury',
+    storeId: 'store-bleco',
+    name: 'أرضيات الفاخر (Luxury flooring)',
+    nameAr: 'أرضيات الفاخر (Luxury flooring)',
+    nameEn: 'Luxury flooring',
+    sku: 'MAT-LUXURY-ECO',
+    category: 'أرضيات',
+    categoryAr: 'أرضيات السيارة',
+    categoryEn: 'Floors & Mats',
+    price: 490,
+    originalPrice: 580,
+    discountedPrice: 490,
+    stock: 25,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/floor-mats/luxury-flooring.jpg',
+    galleryUrls: ['/images/floor-mats/luxury-flooring.jpg'],
+    images: ['/images/floor-mats/luxury-flooring.jpg'],
+    description: 'أرضيات الفاخر المضلعة بتنجيد ملكي وسماكة مضاعفة لسيارات كبار الشخصيات. جلد صناعي صديق للبيئة (Eco-friendly synthetic leather) مع عزل صوتي وحراري متكامل.',
+    descriptionAr: 'أرضيات الفاخر المضلعة بتنجيد ملكي وسماكة مضاعفة لسيارات كبار الشخصيات. جلد صناعي صديق للبيئة (Eco-friendly synthetic leather) مع عزل صوتي وحراري متكامل.',
+    descriptionEn: 'High-density ribbed luxury leather floor mats made with Eco-friendly synthetic leather for VIP vehicles with double acoustic insulation.',
+    subtitle: 'Eco-friendly synthetic leather',
+    brand: 'جميع الماركات',
+    rating: 5.0,
+    reviewsCount: 96,
+    type: 'floor-mat',
+    productType: 'Floor Mat',
+    tags: ['أرضيات الفاخر', 'Luxury flooring', 'Luxury Mats', 'Eco-friendly synthetic leather', 'جميع الماركات'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 198,
+  },
+  {
+    id: 'prod-mat-diamond',
+    storeId: 'store-bleco',
+    name: 'أرضيات الدايموند (Diamond floors)',
+    nameAr: 'أرضيات الدايموند (Diamond floors)',
+    nameEn: 'Diamond floors',
+    sku: 'MAT-DIAMOND-ECO',
+    category: 'أرضيات',
+    categoryAr: 'أرضيات السيارة',
+    categoryEn: 'Floors & Mats',
+    price: 380,
+    originalPrice: 450,
+    discountedPrice: 380,
+    stock: 45,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/floor-mats/diamond-floors.jpg',
+    galleryUrls: ['/images/floor-mats/diamond-floors.jpg'],
+    images: ['/images/floor-mats/diamond-floors.jpg'],
+    description: 'أرضيات الدايموند الماسية خماسية الطبقات 5D المقاومة للماء والأتربة بنسبة 100%. خامة جلد صناعي صديق للبيئة (Eco-friendly synthetic leather) تضمن المتانة والجمال.',
+    descriptionAr: 'أرضيات الدايموند الماسية خماسية الطبقات 5D المقاومة للماء والأتربة بنسبة 100%. خامة جلد صناعي صديق للبيئة (Eco-friendly synthetic leather) تضمن المتانة والجمال.',
+    descriptionEn: '5D Diamond quilted waterproof car floor mats crafted from Eco-friendly synthetic leather with superior spill protection.',
+    subtitle: 'Eco-friendly synthetic leather',
+    brand: 'جميع الماركات',
+    rating: 5.0,
+    reviewsCount: 168,
+    type: 'floor-mat',
+    productType: 'Floor Mat',
+    tags: ['أرضيات الدايموند', 'Diamond floors', 'Diamond Mats', '5D', 'Eco-friendly synthetic leather', 'جميع الماركات'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 342,
+  },
+  {
+    id: 'prod-mat-laser',
+    storeId: 'store-bleco',
+    name: 'أرضيات الليزر (Laser flooring)',
+    nameAr: 'أرضيات الليزر (Laser flooring)',
+    nameEn: 'Laser flooring',
+    sku: 'MAT-LASER-ECO',
+    category: 'أرضيات',
+    categoryAr: 'أرضيات السيارة',
+    categoryEn: 'Floors & Mats',
+    price: 420,
+    originalPrice: 490,
+    discountedPrice: 420,
+    stock: 35,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/floor-mats/laser-flooring.jpg',
+    galleryUrls: ['/images/floor-mats/laser-flooring.jpg'],
+    images: ['/images/floor-mats/laser-flooring.jpg'],
+    description: 'أرضيات الليزر ثلاثية الأبعاد المطابقة لأبعاد أرضية الوكالة بالملي مع حواف مرتفعة تحمي سجاد السيارة من الأوساخ. مصنوعة من جلد صناعي صديق للبيئة (Eco-friendly synthetic leather).',
+    descriptionAr: 'أرضيات الليزر ثلاثية الأبعاد المطابقة لأبعاد أرضية الوكالة بالملي مع حواف مرتفعة تحمي سجاد السيارة من الأوساخ. مصنوعة من جلد صناعي صديق للبيئة (Eco-friendly synthetic leather).',
+    descriptionEn: 'Laser precision 3D floor mats tailored to exact OEM floor pans with raised barrier edges in Eco-friendly synthetic leather.',
+    subtitle: 'Eco-friendly synthetic leather',
+    brand: 'جميع الماركات',
+    rating: 4.9,
+    reviewsCount: 142,
+    type: 'floor-mat',
+    productType: 'Floor Mat',
+    tags: ['أرضيات الليزر', 'Laser flooring', 'Laser Mats', 'Eco-friendly synthetic leather', 'جميع الماركات'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 285,
+  },
+];
+
+// ============================================================================
+// 2. CAR SEAT COVERS (100% UNIQUE MODELS & 100% UNIQUE IMAGES — ZERO DUPLICATES)
+// ============================================================================
+export const FEATURED_HOME_SEATS: Product[] = [
+  {
+    id: 'prod-seat-camry-2025-leather',
+    storeId: 'store-bleco',
+    name: 'طقم تلابيس جلد ألماني فاخر تفصيل وكالة — تويوتا كامري 2025',
+    nameAr: 'طقم تلابيس جلد ألماني فاخر تفصيل وكالة — تويوتا كامري 2025',
+    nameEn: 'Car seat covers made of (leather) compatible with Toyota Camry 2025',
+    sku: 'SEAT-CAMRY-2025-BEI',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 509,
+    originalPrice: 580,
+    discountedPrice: 509,
+    stock: 25,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-beige.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-beige.jpg',
+    ],
+    description: 'تلبيسة مقاعد جلد وكالة فاخرة مصممة خصيصاً لتويوتا كامري 2025 مع قفل ليزري محكم وحماية تامة للوسائد الهوائية.',
+    descriptionAr: 'تلبيسة مقاعد جلد وكالة فاخرة مصممة خصيصاً لتويوتا كامري 2025 مع قفل ليزري محكم وحماية تامة للوسائد الهوائية.',
+    descriptionEn: 'Factory-grade luxury leather seat covers designed exclusively for Toyota Camry 2025. Precision fit and 100% airbag safe.',
+    subtitle: 'جلد ألماني نخب أول · تفصيل ليزري متوافق 100% · آمن مع الإيرباق',
+    brand: 'Toyota',
+    rating: 5,
+    reviewsCount: 178,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Toyota', 'تويوتا', 'كامري', 'Camry', '2025', 'جلد بيج', 'جلد', 'best seller'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 230,
+    colors: [
+      { id: 'beige', nameAr: 'بيج وكالة OEM', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/camry-beige.jpg' },
+      { id: 'camel', nameAr: 'جملي رويال ملكي', nameEn: 'Royal Camel', hex: '#b87b44', image: '/images/seat-covers/camry-camel.jpg' },
+      { id: 'black', nameAr: 'أسود ملكي فاخر', nameEn: 'Royal Black', hex: '#1e2124', image: '/images/seat-covers/camry-black.jpg' },
+    ],
+  },
+  {
+    id: 'prod-seat-accord-2018-leather',
+    storeId: 'store-bleco',
+    name: 'طقم تلابيس مقاعد جلد ألماني ملكي — هوندا أكورد 2018-2024',
+    nameAr: 'طقم تلابيس مقاعد جلد ألماني ملكي — هوندا أكورد 2018-2024',
+    nameEn: 'Car seat covers made of (leather) compatible with Honda Accord 2018-2024',
+    sku: 'SEAT-ACCORD-18-24-BEI',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 495,
+    originalPrice: 575,
+    discountedPrice: 495,
+    stock: 22,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/accord-beige.jpg',
+    galleryUrls: [
+      '/images/seat-covers/accord-beige.jpg',
+      '/images/seat-covers/accord-camel.jpg',
+      '/images/seat-covers/accord-grey.jpg',
+    ],
+    images: [
+      '/images/seat-covers/accord-beige.jpg',
+    ],
+    description: 'تلبيسة جلد وكالة مفصلة بالليزر لمقاعد هوندا أكورد 2018-2024 مع دعم كامل لفتحات التكييف والوسائد الهوائية.',
+    descriptionAr: 'تلبيسة جلد وكالة مفصلة بالليزر لمقاعد هوندا أكورد 2018-2024 مع دعم كامل لفتحات التكييف والوسائد الهوائية.',
+    descriptionEn: 'Precision laser-tailored leather seat covers for Honda Accord 2018-2024 with full heat insulation.',
+    subtitle: 'جلد ناعم مقاوم للحرارة · تفصيل وكالة ليزري · متوافق مع أكورد',
+    brand: 'Honda',
+    rating: 4.9,
+    reviewsCount: 145,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Honda', 'هوندا', 'اكورد', 'أكورد', 'Accord', '2018', '2020', '2022', '2024', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 195,
+    colors: [
+      { id: 'beige', nameAr: 'بيج وكالة OEM', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/accord-beige.jpg' },
+      { id: 'camel', nameAr: 'جملي رويال ملكي', nameEn: 'Royal Camel', hex: '#b87b44', image: '/images/seat-covers/accord-camel.jpg' },
+      { id: 'grey', nameAr: 'رمادي تيتانيوم', nameEn: 'Titanium Grey', hex: '#7e848d', image: '/images/seat-covers/accord-grey.jpg' },
+    ],
+  },
+  {
+    id: 'prod-seat-landcruiser-2022',
+    storeId: 'store-bleco',
+    name: 'طقم تلابيس مقاعد ملكية ليزرية جلد نابا — تويوتا لاندكروزر LC300 2022-2025',
+    nameAr: 'طقم تلابيس مقاعد ملكية ليزرية جلد نابا — تويوتا لاندكروزر LC300 2022-2025',
+    nameEn: 'Luxury Nappa Leather Seat Covers compatible with Toyota Land Cruiser LC300 2022-2025',
+    sku: 'SEAT-TOY-LC300-VIP',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 650,
+    originalPrice: 750,
+    discountedPrice: 650,
+    stock: 18,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/landcruiser-camel.jpg',
+    galleryUrls: [
+      '/images/seat-covers/landcruiser-camel.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    images: [
+      '/images/seat-covers/landcruiser-camel.jpg',
+    ],
+    description: 'مفصلة خصيصاً لمفخرة الأرض تويوتا لاندكروزر LC300 من جلد النابا الألماني الفاخر المقاوم لأقسى درجات حرارة الصيف مع خياطة دايموند ليزرية.',
+    descriptionAr: 'مفصلة خصيصاً لمفخرة الأرض تويوتا لاندكروزر LC300 من جلد النابا الألماني الفاخر المقاوم لأقسى درجات حرارة الصيف مع خياطة دايموند ليزرية.',
+    descriptionEn: 'Flagship luxury Nappa leather seat covers for Toyota Land Cruiser LC300 with heat insulation, diamond stitch, and OEM finish.',
+    subtitle: 'مفخرة الأرض · جلد نابا جملي زعفراني · متوافق مع لاندكروزر 2022-2025',
+    brand: 'Toyota',
+    rating: 5,
+    reviewsCount: 215,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Toyota', 'تويوتا', 'لاندكروزر', 'لاند كروزر', 'Land Cruiser', 'LC300', '2022', '2023', '2024', '2025', 'جلد', 'best seller'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 290,
+    colors: [
+      { id: 'camel', nameAr: 'جملي زعفراني رويال', nameEn: 'Royal Camel', hex: '#b87b44', image: '/images/seat-covers/landcruiser-camel.jpg' },
+      { id: 'beige', nameAr: 'بيج لاندكروزر وكالة', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/camry-beige.jpg' },
+      { id: 'black', nameAr: 'أسود ملكي فاخر', nameEn: 'Royal Black', hex: '#1e2124', image: '/images/seat-covers/camry-black.jpg' },
+    ],
+  },
+  {
+    id: 'prod-seat-yukon-2015-gray',
+    storeId: 'store-bleco',
+    name: 'طقم تلابيس مقاعد جلد ألماني VIP — جمس يوكن وشفروليه تاهو 2015-2020',
+    nameAr: 'طقم تلابيس مقاعد جلد ألماني VIP — جمس يوكن وشفروليه تاهو 2015-2020',
+    nameEn: 'Car seat covers made of (leather) compatible with GMC Yukon & Tahoe 2015-2020',
+    sku: 'SEAT-YUKON-15-20-GRY',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 616,
+    originalPrice: 700,
+    discountedPrice: 616,
+    stock: 19,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/yukon-grey.jpg',
+    galleryUrls: [
+      '/images/seat-covers/yukon-grey.jpg',
+      '/images/seat-covers/yukon-beige.jpg',
+      '/images/seat-covers/yukon-camel.jpg',
+    ],
+    images: [
+      '/images/seat-covers/yukon-grey.jpg',
+    ],
+    description: 'تنجيد كامل مطابق لمقاعد جمس يوكن وتاهو 2015-2020 مع خياطة مزدوجة وقفل ليزري محكم، مريحة وعازلة للحرارة.',
+    descriptionAr: 'تنجيد كامل مطابق لمقاعد جمس يوكن وتاهو 2015-2020 مع خياطة مزدوجة وقفل ليزري محكم، مريحة وعازلة للحرارة.',
+    descriptionEn: 'Full luxury leather seat covers for GMC Yukon & Tahoe 2015-2020 with laser precision fit and heat protection.',
+    subtitle: 'جلد ألماني رمادي تيتانيوم فاخر · حماية ثلاثية الصفوف · ضمان سنتين',
+    brand: 'GMC',
+    rating: 5,
+    reviewsCount: 160,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['GMC', 'جمس', 'يوكن', 'تاهو', 'Tahoe', 'Yukon', '2015', '2016', '2018', '2020', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 210,
+    colors: [
+      { id: 'grey', nameAr: 'رمادي تيتانيوم ألماني', nameEn: 'Titanium Grey', hex: '#7e848d', image: '/images/seat-covers/yukon-grey.jpg' },
+      { id: 'beige', nameAr: 'بيج وكالة OEM', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/yukon-beige.jpg' },
+      { id: 'camel', nameAr: 'جملي رويال VIP', nameEn: 'Royal Camel', hex: '#b87b44', image: '/images/seat-covers/yukon-camel.jpg' },
+    ],
+  },
+  {
+    id: 'prod-seat-nissan-patrol',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة VIP بطل الدروب متوافق مع نيسان باترول 2020-2025',
+    nameAr: 'تلبيسة مقاعد السيارة VIP بطل الدروب متوافق مع نيسان باترول 2020-2025',
+    nameEn: 'Hero of All Terrain VIP Leather Seat Covers compatible with Nissan Patrol 2020-2025',
+    sku: 'SEAT-NIS-PATROL-2025',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 650,
+    originalPrice: 750,
+    discountedPrice: 650,
+    stock: 16,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-black.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-black.jpg',
+      '/images/seat-covers/landcruiser-camel.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    description: 'مخصصة لبطل الدروب نيسان باترول بلاتينيوم ونيسمو من جلد أسود دايموند فاخر مع تطريز ليزري ملكي وضمان سنتين.',
+    descriptionAr: 'مخصصة لبطل الدروب نيسان باترول بلاتينيوم ونيسمو من جلد أسود دايموند فاخر مع تطريز ليزري ملكي وضمان سنتين.',
+    descriptionEn: 'Flagship luxury diamond quilted Black Edition leather seat covers for Nissan Patrol Platinum / Nismo 2020-2025.',
+    subtitle: 'بطل الدروب · متوافق مع نيسان باترول · جلد أسود دايموند VIP',
+    brand: 'Nissan',
+    rating: 5,
+    reviewsCount: 188,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Nissan', 'نيسان', 'باترول', 'Patrol', '2020', '2021', '2022', '2023', '2024', '2025', 'جلد', 'بطل الدروب', 'best seller'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 235,
+    colors: [
+      { id: 'black', nameAr: 'أسود دايموند VIP', nameEn: 'Royal Black', hex: '#1e2124', image: '/images/seat-covers/camry-black.jpg' },
+      { id: 'camel', nameAr: 'جملي زعفراني ملكي', nameEn: 'Royal Camel', hex: '#b87b44', image: '/images/seat-covers/landcruiser-camel.jpg' },
+      { id: 'beige', nameAr: 'بيج وكالة OEM', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/camry-beige.jpg' },
+    ],
+  },
+  {
+    id: 'prod-seat-lexus-es',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد جاهزة من جلد نابا تنفيذي متوافق مع لكزس ES 350 2019-2024',
+    nameAr: 'تلبيسة مقاعد جاهزة من جلد نابا تنفيذي متوافق مع لكزس ES 350 2019-2024',
+    nameEn: 'Executive Nappa Leather Seat Covers compatible with Lexus ES 350 2019-2024',
+    sku: 'SEAT-LEXUS-ES-1924',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 560,
+    originalPrice: 650,
+    discountedPrice: 560,
+    stock: 15,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/accord-camel.jpg',
+    galleryUrls: [
+      '/images/seat-covers/accord-camel.jpg',
+      '/images/seat-covers/accord-beige.jpg',
+      '/images/seat-covers/accord-grey.jpg',
+    ],
+    images: [
+      '/images/seat-covers/accord-camel.jpg',
+    ],
+    description: 'تفصيل دقيق لمقاعد لكزس ES 350 التنفيذية مع المحافظة التامة على راحة ونعومة المقاعد الأصلية وتبريد المقاعد.',
+    descriptionAr: 'تفصيل دقيق لمقاعد لكزس ES 350 التنفيذية مع المحافظة التامة على راحة ونعومة المقاعد الأصلية وتبريد المقاعد.',
+    descriptionEn: 'Executive tailored seat covers for Lexus ES 350 with royal camel finish and seat-cooling breathability.',
+    subtitle: 'جلد تنفيذي فاخر · متوافق مع لكزس ES 350 · راحة مطلقة',
+    brand: 'Lexus',
+    rating: 5,
+    reviewsCount: 140,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Lexus', 'لكزس', 'ES', 'ES350', '2019', '2020', '2021', '2022', '2023', '2024', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 172,
+    colors: [
+      { id: 'camel', nameAr: 'جملي تنفيذي فاخر', nameEn: 'Royal Camel', hex: '#b87b44', image: '/images/seat-covers/accord-camel.jpg' },
+      { id: 'beige', nameAr: 'بيج وكالة ناعم', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/accord-beige.jpg' },
+      { id: 'grey', nameAr: 'رمادي تيتانيوم أنيق', nameEn: 'Titanium Grey', hex: '#7e848d', image: '/images/seat-covers/accord-grey.jpg' },
+    ],
+  },
+  {
+    id: 'prod-seat-yukon-denali',
+    storeId: 'store-bleco',
+    name: 'طقم تلابيس مقاعد كابتن VIP جلد ألماني — جمس يوكن دينالي وتاهو 2021-2025',
+    nameAr: 'طقم تلابيس مقاعد كابتن VIP جلد ألماني — جمس يوكن دينالي وتاهو 2021-2025',
+    nameEn: 'Captain Chair VIP Leather Seat Covers for GMC Yukon Denali & Tahoe 2021-2025',
+    sku: 'SEAT-YUKON-DENALI-2125',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 680,
+    originalPrice: 780,
+    discountedPrice: 680,
+    stock: 14,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/yukon-beige.jpg',
+    galleryUrls: [
+      '/images/seat-covers/yukon-beige.jpg',
+      '/images/seat-covers/yukon-camel.jpg',
+      '/images/seat-covers/yukon-grey.jpg',
+    ],
+    images: [
+      '/images/seat-covers/yukon-beige.jpg',
+    ],
+    description: 'تفصيل كابتن شير ملكي لمقاعد جمس يوكن دينالي وشفروليه تاهو 2021-2025 مع مساند الأذرع وتطريز ليزري فائق الفخامة.',
+    descriptionAr: 'تفصيل كابتن شير ملكي لمقاعد جمس يوكن دينالي وشفروليه تاهو 2021-2025 مع مساند الأذرع وتطريز ليزري فائق الفخامة.',
+    descriptionEn: 'Captain Chair bespoke leather seat covers with armrest integration for GMC Yukon Denali & Tahoe 2021-2025.',
+    subtitle: 'مقاعد كابتن VIP · يوكن دينالي وتاهو الحديث · عزل حراري استثنائي',
+    brand: 'GMC',
+    rating: 5,
+    reviewsCount: 154,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['GMC', 'جمس', 'يوكن', 'دينالي', 'تاهو', 'Tahoe', 'Yukon', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 180,
+    colors: [
+      { id: 'beige', nameAr: 'بيج دينالي وكالة', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/yukon-beige.jpg' },
+      { id: 'camel', nameAr: 'جملي رويال VIP', nameEn: 'Royal Camel', hex: '#b87b44', image: '/images/seat-covers/yukon-camel.jpg' },
+      { id: 'grey', nameAr: 'رمادي ألماني فاخر', nameEn: 'German Grey', hex: '#7e848d', image: '/images/seat-covers/yukon-grey.jpg' },
+    ],
+  },
+  {
+    id: 'prod-seat-ford-taurus',
+    storeId: 'store-bleco',
+    name: 'طقم تلابيس مقاعد جلد ألماني ليزري — فورد تورس وإكسبلورر 2020-2024',
+    nameAr: 'طقم تلابيس مقاعد جلد ألماني ليزري — فورد تورس وإكسبلورر 2020-2024',
+    nameEn: 'Laser-Tailored German Leather Seat Covers for Ford Taurus & Explorer 2020-2024',
+    sku: 'SEAT-FORD-TAU-2024',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 490,
+    originalPrice: 560,
+    discountedPrice: 490,
+    stock: 20,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/accord-grey.jpg',
+    galleryUrls: [
+      '/images/seat-covers/accord-grey.jpg',
+      '/images/seat-covers/camry-black.jpg',
+      '/images/seat-covers/accord-beige.jpg',
+    ],
+    images: [
+      '/images/seat-covers/accord-grey.jpg',
+    ],
+    description: 'تفصيل ليزري مخصص لمقاعد فورد تورس وإكسبلورر 2020-2024 من جلد نابا رمادي تيتانيوم مقاوم لأشعة الشمس والحرارة.',
+    descriptionAr: 'تفصيل ليزري مخصص لمقاعد فورد تورس وإكسبلورر 2020-2024 من جلد نابا رمادي تيتانيوم مقاوم لأشعة الشمس والحرارة.',
+    descriptionEn: 'Custom precision laser leather seat covers for Ford Taurus & Explorer 2020-2024 with heat insulation and airbag safety.',
+    subtitle: 'جلد نابا تيتانيوم · متوافق مع فورد تورس وإكسبلورر · مقاوم للحرارة',
+    brand: 'Ford',
+    rating: 4.9,
+    reviewsCount: 128,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Ford', 'فورد', 'تورس', 'Taurus', 'اكسبلورر', 'Explorer', '2020', '2022', '2024', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 160,
+    colors: [
+      { id: 'grey', nameAr: 'رمادي تيتانيوم فورد', nameEn: 'Titanium Grey', hex: '#7e848d', image: '/images/seat-covers/accord-grey.jpg' },
+      { id: 'black', nameAr: 'أسود ملكي فاخر', nameEn: 'Royal Black', hex: '#1e2124', image: '/images/seat-covers/camry-black.jpg' },
+      { id: 'beige', nameAr: 'بيج وكالة أنيق', nameEn: 'OEM Beige', hex: '#d8c8b4', image: '/images/seat-covers/accord-beige.jpg' },
+    ],
+  }
+];
+
+export const TOP_10_SEAT_COVERS: Product[] = FEATURED_HOME_SEATS;
+
+// ============================================================================
+// 3. FULL CATALOG (4 FLOOR MATS + SEAT COVERS)
+// ============================================================================
+export const BLECO_STORE_PRODUCTS: Product[] = [...FEATURED_FLOOR_MATS, ...FEATURED_HOME_SEATS];
+
+// ============================================================================
+// EXACT CURATED 8 SEAT COVER PRODUCTS FOR THE HOME PAGE
+// ============================================================================
+export const HOME_PAGE_PRODUCTS: Product[] = FEATURED_HOME_SEATS.slice(0, 8);
+
+// ============================================================================
+// VERIFIED CUSTOMER REVIEWS (FROM TANJEEDMAKKAH.COM)
+// ============================================================================
+export const BLECO_TESTIMONIALS = [
+  {
+    name: 'صالح العنزي',
+    nameEn: 'Saleh Al-Anazi',
+    city: 'الرياض',
+    cityEn: 'Riyadh',
+    car: 'جمس يوكن 2023',
+    carEn: 'GMC Yukon 2023',
+    rating: 5,
+    date: 'منذ يومين',
+    dateEn: '2 days ago',
+    comment: 'انصحكم فيهم بصراحة متميزين بأسعار وجودة',
+    commentEn: 'Highly recommend them! Exceptional quality and fair pricing.',
+    verified: true,
+    avatar: 'https://cdn.salla.sa/form-builder/VXonXLJdI41LoGP0YAGILMRSOuw2fK6UhXLpP5lr.png',
+  },
+  {
+    name: 'ثامر الحليفي',
+    nameEn: 'Thamer Al-Hulaifi',
+    city: 'مكة المكرمة',
+    cityEn: 'Makkah',
+    car: 'تويوتا كامري 2024',
+    carEn: 'Toyota Camry 2024',
+    rating: 5,
+    date: 'منذ 5 أيام',
+    dateEn: '5 days ago',
+    comment: 'منتجاتهم جودتها عالية',
+    commentEn: 'Their products are truly top quality and precision stitched.',
+    verified: true,
+    avatar: 'https://cdn.salla.sa/form-builder/s1lqawwEYZAbv7IYbpEeFR1YazWUbOQ9nD6g7XvD.png',
+  },
+  {
+    name: 'معتز السالم',
+    nameEn: 'Moataz Al-Salem',
+    city: 'جدة',
+    cityEn: 'Jeddah',
+    car: 'فورد تورس 2023',
+    carEn: 'Ford Taurus 2023',
+    rating: 5,
+    date: 'منذ أسبوع',
+    dateEn: '1 week ago',
+    comment: 'توصيل سريع وجودة',
+    commentEn: 'Super fast delivery and flawless stitching.',
+    verified: true,
+    avatar: 'https://cdn.salla.sa/form-builder/xJ0mdCrdUrb1M5lIJdKydv4h597r6uyrRxz5qMAc.png',
+  },
+  {
+    name: 'خالد العنزي',
+    nameEn: 'Khaled Al-Anazi',
+    city: 'الدمام',
+    cityEn: 'Dammam',
+    car: 'نيسان باترول 2022',
+    carEn: 'Nissan Patrol 2022',
+    rating: 5,
+    date: 'منذ أسبوعين',
+    dateEn: '2 weeks ago',
+    comment: 'المنتج 5/5 روعة وما توقعت تطابق الوكالة بهذا الشكل',
+    commentEn: 'Product is 5/5, totally exceeded expectations.',
+    verified: true,
+    avatar: 'https://cdn.salla.sa/form-builder/HQm2nIeA8zBQqUXEhYN94gTXn2O7NKe7sGfx8e3k.png',
+  },
+  {
+    name: 'جابر الهذلي',
+    nameEn: 'Jaber Al-Hathali',
+    city: 'مكة المكرمة',
+    cityEn: 'Makkah',
+    car: 'هيونداي النترا 2024',
+    carEn: 'Hyundai Elantra 2024',
+    rating: 5,
+    date: 'منذ أسبوعين',
+    dateEn: '2 weeks ago',
+    comment: 'شكراً لكم يا أجمل متجر محترمين وتوصيل أسرع من البرق',
+    commentEn: 'Thank you for the respectful service and lightning fast delivery.',
+    verified: true,
+    avatar: 'https://cdn.salla.sa/form-builder/SZtgqPvNeIujOgtIiUve2hv11t1FEWFDOlgdnho6.png',
+  },
+  {
+    name: 'مجدي القرني',
+    nameEn: 'Majdi Al-Qarni',
+    city: 'الطائف',
+    cityEn: 'Taif',
+    car: 'لكزس ES 350',
+    carEn: 'Lexus ES 350',
+    rating: 5,
+    date: 'منذ شهر',
+    dateEn: '1 month ago',
+    comment: 'منتجات رايعة وجوده حلوه ومقاسات دقيقة جداً',
+    commentEn: 'Wonderful products, high craftsmanship and exact measurements.',
+    verified: true,
+    avatar: 'https://cdn.salla.sa/form-builder/5XmUX3VnXCBPomD83FntFcpkOjbgrAlizMTlGyr6.png',
+  },
+  {
+    id: 'prod-seat-everest-2023-beige',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد جاهزة من جلد متوافق مع فورد ايفرست 2023-2025',
+    nameAr: 'تلبيسة مقاعد جاهزة من جلد متوافق مع فورد ايفرست 2023-2025',
+    nameEn: 'Car seat covers made of (leather) compatible with Ford Everest 2023-2025',
+    sku: 'SEAT-EVEREST-23-BEI',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 560,
+    originalPrice: 630,
+    discountedPrice: 560,
+    stock: 16,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-beige.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-beige.jpg',
+    ],
+    description: 'تفصيل خاص لسيارة فورد إيفرست الدفع الرباعي الجديدة مع خامة جلد فاخرة وضمان سنتين.',
+    descriptionAr: 'تفصيل خاص لسيارة فورد إيفرست الدفع الرباعي الجديدة مع خامة جلد فاخرة وضمان سنتين.',
+    descriptionEn: 'Custom tailored leather seat covers for all-new Ford Everest 2023-2025 4x4.',
+    subtitle: 'جلد فاخر · متوافق مع فورد ايفرست · ضمان سنتين',
+    brand: 'Ford',
+    rating: 4.8,
+    reviewsCount: 65,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Ford', 'فورد', 'ايفرست', 'Everest', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 82,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-hyundai-elantra',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع هيونداي النترا 2021-2025',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع هيونداي النترا 2021-2025',
+    nameEn: 'Car seat covers made of (leather) compatible with Hyundai Elantra 2021-2025',
+    sku: 'SEAT-HYU-ELANTRA-2125',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 460,
+    originalPrice: 530,
+    discountedPrice: 460,
+    stock: 24,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: 'https://cdn.salla.sa/wYYVD/kJ4R3LLpMSl71C1fscqXCaeykEYyx5pHdX4B0l64.png',
+    galleryUrls: [
+      'https://cdn.salla.sa/wYYVD/kJ4R3LLpMSl71C1fscqXCaeykEYyx5pHdX4B0l64.png',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    images: [
+      'https://cdn.salla.sa/wYYVD/kJ4R3LLpMSl71C1fscqXCaeykEYyx5pHdX4B0l64.png',
+    ],
+    description: 'تلبيسة مقاعد جلد فاخر مطابقة لمقاس وكالة هيونداي إلنترا 2021-2025 مع قفل ليزري محكم، عازل لحرارة شمس السعودية، وضمان سنتين.',
+    descriptionAr: 'تلبيسة مقاعد جلد فاخر مطابقة لمقاس وكالة هيونداي إلنترا 2021-2025 مع قفل ليزري محكم، عازل لحرارة شمس السعودية، وضمان سنتين.',
+    descriptionEn: 'Luxury leather seat covers tailored for Hyundai Elantra 2021-2025. 100% factory fit with Saudi heat resistance guarantee.',
+    subtitle: 'جلد ألماني بارد · مطابق لمواصفات الوكالة · ضمان سنتين',
+    brand: 'Hyundai',
+    rating: 5,
+    reviewsCount: 164,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Hyundai', 'هيونداي', 'النترا', 'إلنترا', 'Elantra', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 215,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-hyundai-sonata',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع هيونداي سوناتا 2020-2025 بلون جملي',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع هيونداي سوناتا 2020-2025 بلون جملي',
+    nameEn: 'Car seat covers made of (leather) compatible with Hyundai Sonata 2020-2025',
+    sku: 'SEAT-HYU-SONATA-2025',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 490,
+    originalPrice: 560,
+    discountedPrice: 490,
+    stock: 18,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-camel.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-camel.jpg',
+      'https://cdn.salla.sa/wYYVD/kJ4R3LLpMSl71C1fscqXCaeykEYyx5pHdX4B0l64.png',
+      '/images/seat-covers/camry-beige.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    description: 'تنجيد مقاعد جلد ملكي جملي مطابقة تماماً لمقاعد هيونداي سوناتا 2020-2025 مع مراعاة كاملة للوسائد الهوائية وحساسات المقاعد.',
+    descriptionAr: 'تنجيد مقاعد جلد ملكي جملي مطابقة تماماً لمقاعد هيونداي سوناتا 2020-2025 مع مراعاة كاملة للوسائد الهوائية وحساسات المقاعد.',
+    descriptionEn: 'Royal Camel leather seat covers for Hyundai Sonata 2020-2025 with perfect airbag deployment safety and cooling comfort.',
+    subtitle: 'جلد جملي رويال · متوافق مع هيونداي سوناتا · راحة فائقة',
+    brand: 'Hyundai',
+    rating: 4.9,
+    reviewsCount: 142,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Hyundai', 'هيونداي', 'سوناتا', 'Sonata', '2020', '2021', '2022', '2023', '2024', '2025', 'جلد', 'جملي'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 188,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-hyundai-accent',
+    storeId: 'store-bleco',
+    name: 'تنجيد مقاعد السيارة جاهزة من جلد متوافق مع هيونداي اكسنت 2021-2025 بلون رمادي',
+    nameAr: 'تنجيد مقاعد السيارة جاهزة من جلد متوافق مع هيونداي اكسنت 2021-2025 بلون رمادي',
+    nameEn: 'Car seat covers made of (leather) compatible with Hyundai Accent 2021-2025',
+    sku: 'SEAT-HYU-ACCENT-2125',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 450,
+    originalPrice: 510,
+    discountedPrice: 450,
+    stock: 28,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: 'https://cdn.salla.sa/wYYVD/88a2e867-dcef-4cd3-ba0d-42abaf9f770c-749.77085242896x1000-xfLhrFjnHOjpi2m8lA7RHz7AbjLtkJUdju2AfdQq.png',
+    galleryUrls: [
+      'https://cdn.salla.sa/wYYVD/88a2e867-dcef-4cd3-ba0d-42abaf9f770c-749.77085242896x1000-xfLhrFjnHOjpi2m8lA7RHz7AbjLtkJUdju2AfdQq.png',
+      'https://cdn.salla.sa/wYYVD/kJ4R3LLpMSl71C1fscqXCaeykEYyx5pHdX4B0l64.png',
+      '/images/seat-covers/camry-beige.jpg',
+    ],
+    images: [
+      'https://cdn.salla.sa/wYYVD/88a2e867-dcef-4cd3-ba0d-42abaf9f770c-749.77085242896x1000-xfLhrFjnHOjpi2m8lA7RHz7AbjLtkJUdju2AfdQq.png',
+    ],
+    description: 'تلبيسة جلد ألماني ناعم ومقاوم للحرارة مصممة خصيصاً لمقاعد هيونداي أكسنت 2021-2025 بتثبيت محكم بدون تعديل وسهولة فائقة في التنظيف.',
+    descriptionAr: 'تلبيسة جلد ألماني ناعم ومقاوم للحرارة مصممة خصيصاً لمقاعد هيونداي أكسنت 2021-2025 بتثبيت محكم بدون تعديل وسهولة فائقة في التنظيف.',
+    descriptionEn: 'Custom tailored German leather seat covers for Hyundai Accent 2021-2025 with heat-resistant treatment.',
+    subtitle: 'جلد فاخر معالج حرارياً · متوافق مع هيونداي أكسنت · تثبيت وكالة',
+    brand: 'Hyundai',
+    rating: 4.9,
+    reviewsCount: 198,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Hyundai', 'هيونداي', 'اكسنت', 'أكسنت', 'Accent', '2021', '2022', '2023', '2024', '2025', 'جلد', 'رمادي'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 245,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-corolla-2019-duo',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد جاهزة من جلد متوافق مع تويوتا كورولا 2020-2025',
+    nameAr: 'تلبيسة مقاعد جاهزة من جلد متوافق مع تويوتا كورولا 2020-2025',
+    nameEn: 'OEM Leather Seat Covers compatible with Toyota Corolla 2020-2025',
+    sku: 'SEAT-COROLLA-20-25',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 440,
+    originalPrice: 510,
+    discountedPrice: 440,
+    stock: 26,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-beige.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-beige.jpg',
+    ],
+    description: 'تنجيد مقاعد أنيق وعملي متوافق 100% مع أبعاد تويوتا كورولا 2020-2025 مع قفل ليزري وخياطة مزدوجة.',
+    descriptionAr: 'تنجيد مقاعد أنيق وعملي متوافق 100% مع أبعاد تويوتا كورولا 2020-2025 مع قفل ليزري وخياطة مزدوجة.',
+    descriptionEn: 'Precision-tailored seat covers for Toyota Corolla 2020-2025 with dual contrast stitching.',
+    subtitle: 'جلد وكالة · متوافق مع كورولا 2020-2025 · تركيب محكم',
+    brand: 'Toyota',
+    rating: 4.9,
+    reviewsCount: 156,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Toyota', 'تويوتا', 'كورولا', 'Corolla', '2020', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 210,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-rav4-2019-beige',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد جاهزة من جلد متوافق مع تويوتا راف فور 2019-2025',
+    nameAr: 'تلبيسة مقاعد جاهزة من جلد متوافق مع تويوتا راف فور 2019-2025',
+    nameEn: 'Luxury Leather Seat Covers compatible with Toyota RAV4 2019-2025',
+    sku: 'SEAT-RAV4-19-25',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 495,
+    originalPrice: 570,
+    discountedPrice: 495,
+    stock: 20,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-camel.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-camel.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    description: 'تلبيسة جلد ناعم ومقاوم لحرارة المقصورة صممت خصيصاً لمقاعد تويوتا RAV4 الهايبرد والبنزين.',
+    descriptionAr: 'تلبيسة جلد ناعم ومقاوم لحرارة المقصورة صممت خصيصاً لمقاعد تويوتا RAV4 الهايبرد والبنزين.',
+    descriptionEn: 'Custom-fit leather seat covers for Toyota RAV4 (Gas/Hybrid) with complete airbag compatibility.',
+    subtitle: 'جلد فاخر · متوافق مع راف فور 2019-2025 · هايبرد وبنزين',
+    brand: 'Toyota',
+    rating: 4.9,
+    reviewsCount: 110,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Toyota', 'تويوتا', 'راف فور', 'RAV4', '2019', '2021', '2023', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 145,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-prado-2021',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع تويوتا برادو 2021-2025',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع تويوتا برادو 2021-2025',
+    nameEn: 'Car seat covers made of (leather) compatible with Toyota Prado 2021-2025',
+    sku: 'SEAT-TOY-PRADO-2125',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 589,
+    originalPrice: 670,
+    discountedPrice: 589,
+    stock: 16,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: 'https://cdn.salla.sa/wYYVD/533e5580-b807-4d5d-8cdc-c88113841be2-750x1000-cusHPAMBUcXmtMSKkL7sqO6fPXmDqp4Vw5NtTOAy.jpg',
+    galleryUrls: [
+      'https://cdn.salla.sa/wYYVD/533e5580-b807-4d5d-8cdc-c88113841be2-750x1000-cusHPAMBUcXmtMSKkL7sqO6fPXmDqp4Vw5NtTOAy.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    images: [
+      'https://cdn.salla.sa/wYYVD/533e5580-b807-4d5d-8cdc-c88113841be2-750x1000-cusHPAMBUcXmtMSKkL7sqO6fPXmDqp4Vw5NtTOAy.jpg',
+    ],
+    description: 'تلبيسة جلد وكالة لسيارة تويوتا برادو مع قص ليزري متقن وحماية شاملة من الغبار والرمال مع ضمان سنتين.',
+    descriptionAr: 'تلبيسة جلد وكالة لسيارة تويوتا برادو مع قص ليزري متقن وحماية شاملة من الغبار والرمال مع ضمان سنتين.',
+    descriptionEn: 'Heavy duty luxury seat covers for Toyota Prado 2021-2025 with complete dust and sand protection.',
+    subtitle: 'جلد أصلي متين · متوافق مع برادو 2021-2025 · مقاوم للرمال',
+    brand: 'Toyota',
+    rating: 4.9,
+    reviewsCount: 167,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Toyota', 'تويوتا', 'برادو', 'Prado', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 198,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-hilux-2020',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد جاهزة من جلد مدعم متوافق مع تويوتا هايلكس 2020-2025',
+    nameAr: 'تلبيسة مقاعد جاهزة من جلد مدعم متوافق مع تويوتا هايلكس 2020-2025',
+    nameEn: 'Heavy-Duty Reinforced Leather Seat Covers compatible with Toyota Hilux 2020-2025',
+    sku: 'SEAT-TOY-HILUX-2025',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 470,
+    originalPrice: 540,
+    discountedPrice: 470,
+    stock: 22,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-black.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-black.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    description: 'تلبيسة مخصصة للأعمال الشاقة والرحلات لسيارة هايلكس غمارتين أو غمارة، مصنوعة من جلد مقوى سهل المسح والغسيل.',
+    descriptionAr: 'تلبيسة مخصصة للأعمال الشاقة والرحلات لسيارة هايلكس غمارتين أو غمارة، مصنوعة من جلد مقوى سهل المسح والغسيل.',
+    descriptionEn: 'Rugged reinforced seat covers for Toyota Hilux 2020-2025. Built for desert expeditions and heavy duty.',
+    subtitle: 'تحمل شاق · متوافق مع تويوتا هايلكس · مقاوم للماء والتمزق',
+    brand: 'Toyota',
+    rating: 4.9,
+    reviewsCount: 184,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Toyota', 'تويوتا', 'هايلكس', 'هايلوكس', 'Hilux', '2020', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 225,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-gmc-sierra',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة غمارتين جاهزة من جلد متوافق مع جمس سييرا 2020-2025',
+    nameAr: 'تلبيسة مقاعد السيارة غمارتين جاهزة من جلد متوافق مع جمس سييرا 2020-2025',
+    nameEn: 'Crew Cab Heavy-Duty Leather Seat Covers compatible with GMC Sierra 2020-2025',
+    sku: 'SEAT-GMC-SIERRA-2025',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 580,
+    originalPrice: 660,
+    discountedPrice: 580,
+    stock: 15,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/yukon-camel.jpg',
+    galleryUrls: [
+      '/images/seat-covers/yukon-camel.jpg',
+      'undefined',
+      '/images/seat-covers/yukon-grey.jpg',
+    ],
+    images: [
+      '/images/seat-covers/yukon-camel.jpg',
+    ],
+    description: 'طقم متين ومقوى لشاحنة جمس سييرا غمارتين ومقاعد الكونسول الوسطي، يتحمل الاستخدام المكثف والغبار.',
+    descriptionAr: 'طقم متين ومقوى لشاحنة جمس سييرا غمارتين ومقاعد الكونسول الوسطي، يتحمل الاستخدام المكثف والغبار.',
+    descriptionEn: 'Heavy duty leather seat covers for GMC Sierra Crew Cab 2020-2025.',
+    subtitle: 'شاحنات سييرا · متوافق مع جمس سييرا غمارتين · قوة وتحمل',
+    brand: 'GMC',
+    rating: 4.9,
+    reviewsCount: 134,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['GMC', 'جمس', 'سييرا', 'Sierra', '2020', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 168,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-chevy-tahoe',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة VIP متوافق مع شيفروليه تاهو 2021-2025',
+    nameAr: 'تلبيسة مقاعد السيارة VIP متوافق مع شيفروليه تاهو 2021-2025',
+    nameEn: 'Premier VIP Leather Seat Covers compatible with Chevrolet Tahoe 2021-2025',
+    sku: 'SEAT-CHEV-TAHOE-2125',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 616,
+    originalPrice: 720,
+    discountedPrice: 616,
+    stock: 16,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/yukon-camel.jpg',
+    galleryUrls: [
+      '/images/seat-covers/yukon-camel.jpg',
+      '/images/seat-covers/yukon-grey.jpg',
+      '/images/seat-covers/yukon-beige.jpg',
+    ],
+    images: [
+      '/images/seat-covers/yukon-camel.jpg',
+    ],
+    description: 'تنجيد ملكي لشيفروليه تاهو بريمير و Z71 يغطي جميع الصفوف مع حماية كاملة لحساسات المقاعد والإيرباق.',
+    descriptionAr: 'تنجيد ملكي لشيفروليه تاهو بريمير و Z71 يغطي جميع الصفوف مع حماية كاملة لحساسات المقاعد والإيرباق.',
+    descriptionEn: 'Full 3-row premier leather seat covers for Chevrolet Tahoe 2021-2025.',
+    subtitle: 'فخامة التاهو الملكية · متوافق مع شيفروليه تاهو · عازل للحرارة',
+    brand: 'Chevrolet',
+    rating: 5,
+    reviewsCount: 172,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Chevrolet', 'شيفروليه', 'شفروليه', 'تاهو', 'Tahoe', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 215,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-ford-expedition',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع فورد اكسبديشن 2018-2025',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع فورد اكسبديشن 2018-2025',
+    nameEn: 'Car seat covers made of (leather) compatible with Ford Expedition 2018-2025',
+    sku: 'SEAT-FORD-EXPED-1825',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 616,
+    originalPrice: 700,
+    discountedPrice: 616,
+    stock: 14,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: 'https://cdn.salla.sa/wYYVD/f3ac6e46-fadc-4820-bbb1-452b9bd7ec7c-750x1000-KBPa9KiHuENSKdtbanH5omO4BKnerAxUgerSPiV0.jpg',
+    galleryUrls: [
+      'https://cdn.salla.sa/wYYVD/f3ac6e46-fadc-4820-bbb1-452b9bd7ec7c-750x1000-KBPa9KiHuENSKdtbanH5omO4BKnerAxUgerSPiV0.jpg',
+      '/images/seat-covers/accord-grey.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+    ],
+    images: [
+      'https://cdn.salla.sa/wYYVD/f3ac6e46-fadc-4820-bbb1-452b9bd7ec7c-750x1000-KBPa9KiHuENSKdtbanH5omO4BKnerAxUgerSPiV0.jpg',
+    ],
+    description: 'تلبيسة فخمة للسيارة العائلية الكبيرة فورد إكسبيديشن مع تفصيل دقيق لكل صف ومقاعد الكابتن وضمان سنتين.',
+    descriptionAr: 'تلبيسة فخمة للسيارة العائلية الكبيرة فورد إكسبيديشن مع تفصيل دقيق لكل صف ومقاعد الكابتن وضمان سنتين.',
+    descriptionEn: 'Full luxury leather seat covers for Ford Expedition 2018-2025 with captain seat options.',
+    subtitle: 'جلد أمريكي فاخر · متوافق مع فورد اكسبديشن · مقاس ليزري',
+    brand: 'Ford',
+    rating: 4.9,
+    reviewsCount: 112,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Ford', 'فورد', 'اكسبديشن', 'إكسبيديشن', 'Expedition', '2018', '2020', '2022', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 135,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-ford-explorer',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد 3 صفوف جاهزة من جلد متوافق مع فورد اكسبلورر 2020-2024',
+    nameAr: 'تلبيسة مقاعد 3 صفوف جاهزة من جلد متوافق مع فورد اكسبلورر 2020-2024',
+    nameEn: '3-Row Leather Seat Covers compatible with Ford Explorer 2020-2024',
+    sku: 'SEAT-FORD-EXPLOR-2024',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 580,
+    originalPrice: 660,
+    discountedPrice: 580,
+    stock: 15,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/accord-grey.jpg',
+    galleryUrls: [
+      '/images/seat-covers/accord-grey.jpg',
+      'https://cdn.salla.sa/wYYVD/f3ac6e46-fadc-4820-bbb1-452b9bd7ec7c-750x1000-KBPa9KiHuENSKdtbanH5omO4BKnerAxUgerSPiV0.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+    ],
+    images: [
+      '/images/seat-covers/accord-grey.jpg',
+    ],
+    description: 'طقم 3 صفوف كامل لفورد إكسبلورر مع حماية فائقة للمقاعد وسهولة في طي المقاعد الخلفية دون إعاقة.',
+    descriptionAr: 'طقم 3 صفوف كامل لفورد إكسبلورر مع حماية فائقة للمقاعد وسهولة في طي المقاعد الخلفية دون إعاقة.',
+    descriptionEn: '3-row full seat covers for Ford Explorer 2020-2024 maintaining seamless folding mechanics.',
+    subtitle: 'طقم 3 صفوف · متوافق مع فورد اكسبلورر · سهولة الطي',
+    brand: 'Ford',
+    rating: 4.9,
+    reviewsCount: 96,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Ford', 'فورد', 'اكسبلورر', 'إكسبلورر', 'Explorer', '2020', '2021', '2022', '2023', '2024', 'جلد', '3 صفوف'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 120,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-ford-taurus',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة تيتانيوم VIP متوافق مع فورد تورس 2020-2025',
+    nameAr: 'تلبيسة مقاعد السيارة تيتانيوم VIP متوافق مع فورد تورس 2020-2025',
+    nameEn: 'Titanium VIP Leather Seat Covers compatible with Ford Taurus 2020-2025',
+    sku: 'SEAT-FORD-TAURUS-2025',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 490,
+    originalPrice: 570,
+    discountedPrice: 490,
+    stock: 20,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-camel.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-camel.jpg',
+      '/images/seat-covers/camry-black.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    description: 'تلبيسة حصرية لفورد تورس الأكثر طلباً بالمملكة، بتطريز أنيق وعزل حراري فائق ومظهر مطابق لوكالة فورد.',
+    descriptionAr: 'تلبيسة حصرية لفورد تورس الأكثر طلباً بالمملكة، بتطريز أنيق وعزل حراري فائق ومظهر مطابق لوكالة فورد.',
+    descriptionEn: 'Bespoke leather seat covers for Ford Taurus 2020-2025 with thermal insulation and OEM fit.',
+    subtitle: 'الأكثر طلباً بالمملكة · متوافق مع فورد تورس · فخامة التيتانيوم',
+    brand: 'Ford',
+    rating: 5,
+    reviewsCount: 175,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Ford', 'فورد', 'تورس', 'Taurus', '2020', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 220,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-nissan-altima',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع نيسان التيما 2019-2025',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع نيسان التيما 2019-2025',
+    nameEn: 'OEM Leather Seat Covers compatible with Nissan Altima 2019-2025',
+    sku: 'SEAT-NIS-ALTIMA-1925',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 470,
+    originalPrice: 540,
+    discountedPrice: 470,
+    stock: 22,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-beige.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-beige.jpg',
+    ],
+    description: 'تنجيد جلد ناعم ومريح مطابق لمقاعد نيسان ألتيما انعدام الجاذبية (Zero Gravity) مع قفل محكم وعزل حراري.',
+    descriptionAr: 'تنجيد جلد ناعم ومريح مطابق لمقاعد نيسان ألتيما انعدام الجاذبية (Zero Gravity) مع قفل محكم وعزل حراري.',
+    descriptionEn: 'Ergonomic seat covers tailored for Nissan Altima Zero Gravity seats 2019-2025.',
+    subtitle: 'مقاعد انعدام الجاذبية · متوافق مع نيسان التيما · جلد ناعم',
+    brand: 'Nissan',
+    rating: 4.9,
+    reviewsCount: 130,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Nissan', 'نيسان', 'التيما', 'ألتيما', 'Altima', '2019', '2021', '2023', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 160,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-nissan-sunny',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع نيسان صني 2020-2025',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع نيسان صني 2020-2025',
+    nameEn: 'Practical Leather Seat Covers compatible with Nissan Sunny 2020-2025',
+    sku: 'SEAT-NIS-SUNNY-2025',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 410,
+    originalPrice: 470,
+    discountedPrice: 410,
+    stock: 28,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-black.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-black.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    description: 'تلبيسة مريحة واقتصادية وعالية التحمل لنيسان صني مع سهولة التركيب الذاتي وحماية شاملة من التمزق.',
+    descriptionAr: 'تلبيسة مريحة واقتصادية وعالية التحمل لنيسان صني مع سهولة التركيب الذاتي وحماية شاملة من التمزق.',
+    descriptionEn: 'Economical high-resilience leather seat covers for Nissan Sunny 2020-2025.',
+    subtitle: 'عملية واقتصادية · متوافقة مع نيسان صني · تركيب سهل',
+    brand: 'Nissan',
+    rating: 4.8,
+    reviewsCount: 162,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Nissan', 'نيسان', 'صني', 'Sunny', '2020', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 205,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-honda-civic',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد رياضي متوافق مع هوندا سيفيك 2020-2025',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد رياضي متوافق مع هوندا سيفيك 2020-2025',
+    nameEn: 'Sport Edition Leather Seat Covers compatible with Honda Civic 2020-2025',
+    sku: 'SEAT-HONDA-CIVIC-2025',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 460,
+    originalPrice: 530,
+    discountedPrice: 460,
+    stock: 18,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-black.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-black.jpg',
+      '/images/seat-covers/accord-beige.jpg',
+      '/images/seat-covers/accord-grey.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    description: 'تصميم رياضي شبابي متوافق مع هوندا سيفيك مع تطريز ليزري أحمر أنيق وخامة جلد لا تمتص حرارة الشمس.',
+    descriptionAr: 'تصميم رياضي شبابي متوافق مع هوندا سيفيك مع تطريز ليزري أحمر أنيق وخامة جلد لا تمتص حرارة الشمس.',
+    descriptionEn: 'Sport edition leather seat covers for Honda Civic 2020-2025 with contrast sport stitching.',
+    subtitle: 'إصدار رياضي · متوافق مع هوندا سيفيك · عزل حراري فائق',
+    brand: 'Honda',
+    rating: 4.8,
+    reviewsCount: 92,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Honda', 'هوندا', 'سيفيك', 'Civic', '2020', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 115,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-kia-cerato',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع كيا سيراتو 2018-2024 بلون رمادي',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع كيا سيراتو 2018-2024 بلون رمادي',
+    nameEn: 'Car seat covers made of (leather) compatible with Kia Cerato 2018-2024',
+    sku: 'SEAT-KIA-CERATO-1824',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 482,
+    originalPrice: 550,
+    discountedPrice: 482,
+    stock: 20,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: 'https://cdn.salla.sa/wYYVD/bc859832-a116-4c47-b6ad-a931a1a2ae52-886.52482269504x1000-re3CZ64qebIsjBVS2zEErigAfGS1pnOfOHL9cVNU.png',
+    galleryUrls: [
+      'https://cdn.salla.sa/wYYVD/bc859832-a116-4c47-b6ad-a931a1a2ae52-886.52482269504x1000-re3CZ64qebIsjBVS2zEErigAfGS1pnOfOHL9cVNU.png',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    images: [
+      'https://cdn.salla.sa/wYYVD/bc859832-a116-4c47-b6ad-a931a1a2ae52-886.52482269504x1000-re3CZ64qebIsjBVS2zEErigAfGS1pnOfOHL9cVNU.png',
+    ],
+    description: 'تلبيسة مقاعد جلد ألماني ناعم ومقاوم للحرارة متوافقة تماماً مع كيا سيراتو مع ضمان سنتين.',
+    descriptionAr: 'تلبيسة مقاعد جلد ألماني ناعم ومقاوم للحرارة متوافقة تماماً مع كيا سيراتو مع ضمان سنتين.',
+    descriptionEn: 'Tailored leather seat covers for Kia Cerato 2018-2024 with heat-resistant properties.',
+    subtitle: 'جلد ألماني · متوافق مع كيا سيراتو · مقاس وكالة 100%',
+    brand: 'Kia',
+    rating: 4.9,
+    reviewsCount: 124,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Kia', 'كيا', 'سيراتو', 'Cerato', '2018', '2020', '2022', '2024', 'جلد', 'رمادي'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 154,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-kia-sportage',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد فاخر متوافق مع كيا سبورتاج 2021-2025',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد فاخر متوافق مع كيا سبورتاج 2021-2025',
+    nameEn: 'Luxury Leather Seat Covers compatible with Kia Sportage 2021-2025',
+    sku: 'SEAT-KIA-SPORTAGE-2125',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 490,
+    originalPrice: 570,
+    discountedPrice: 490,
+    stock: 18,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-camel.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-camel.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    description: 'تفصيل محكم للجيل الحديث من كيا سبورتاج كروس أوفر مع خامة جلد مريحة لا تسخن في الشمس.',
+    descriptionAr: 'تفصيل محكم للجيل الحديث من كيا سبورتاج كروس أوفر مع خامة جلد مريحة لا تسخن في الشمس.',
+    descriptionEn: 'Custom fit luxury seat covers for all-new Kia Sportage 2021-2025.',
+    subtitle: 'كروس أوفر فاخر · متوافق مع كيا سبورتاج · مريح وبارد',
+    brand: 'Kia',
+    rating: 4.9,
+    reviewsCount: 108,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Kia', 'كيا', 'سبورتاج', 'Sportage', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 138,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-kia-k5',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد عصري متوافق مع كيا K5 / اوبتيما 2021-2025',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد عصري متوافق مع كيا K5 / اوبتيما 2021-2025',
+    nameEn: 'Sleek Leather Seat Covers compatible with Kia K5 / Optima 2021-2025',
+    sku: 'SEAT-KIA-K5-2125',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 480,
+    originalPrice: 550,
+    discountedPrice: 480,
+    stock: 20,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-black.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-black.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    description: 'تنجيد رياضي أنيق مطابق لمقاعد كيا K5 مع قص ليزري وخياطة فخمة تعطي مقصورتك فخامة لا تضاهى.',
+    descriptionAr: 'تنجيد رياضي أنيق مطابق لمقاعد كيا K5 مع قص ليزري وخياطة فخمة تعطي مقصورتك فخامة لا تضاهى.',
+    descriptionEn: 'Sport-luxury seat covers tailored for Kia K5 2021-2025 with contrast trim.',
+    subtitle: 'جلد عصري · متوافق مع كيا K5 / اوبتيما · مظهر رياضي',
+    brand: 'Kia',
+    rating: 4.9,
+    reviewsCount: 115,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Kia', 'كيا', 'K5', 'اوبتيما', 'أوبتيما', 'Optima', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 140,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-mazda-6',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع مازدا 6 2017-2024 بلون بيج',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع مازدا 6 2017-2024 بلون بيج',
+    nameEn: 'Car seat covers made of (leather) compatible with Mazda 6 2017-2024',
+    sku: 'SEAT-MAZDA6-1724-BEI',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 589,
+    originalPrice: 670,
+    discountedPrice: 589,
+    stock: 18,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: 'https://cdn.salla.sa/wYYVD/88a2e867-dcef-4cd3-ba0d-42abaf9f770c-749.77085242896x1000-xfLhrFjnHOjpi2m8lA7RHz7AbjLtkJUdju2AfdQq.png',
+    galleryUrls: [
+      'https://cdn.salla.sa/wYYVD/88a2e867-dcef-4cd3-ba0d-42abaf9f770c-749.77085242896x1000-xfLhrFjnHOjpi2m8lA7RHz7AbjLtkJUdju2AfdQq.png',
+      '/images/seat-covers/camry-black.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    images: [
+      'https://cdn.salla.sa/wYYVD/88a2e867-dcef-4cd3-ba0d-42abaf9f770c-749.77085242896x1000-xfLhrFjnHOjpi2m8lA7RHz7AbjLtkJUdju2AfdQq.png',
+    ],
+    description: 'تلبيسة جلد ألماني فاخر متطابقة مع تفاصيل مقصورة مازدا 6 اليابانية الشهيرة بروعتها وأناقتها.',
+    descriptionAr: 'تلبيسة جلد ألماني فاخر متطابقة مع تفاصيل مقصورة مازدا 6 اليابانية الشهيرة بروعتها وأناقتها.',
+    descriptionEn: 'Custom Japanese aesthetics luxury leather seat covers for Mazda 6 2017-2024.',
+    subtitle: 'جلد فاخر وكالة · متوافق مع مازدا 6 2017-2024 · أناقة يابانية',
+    brand: 'Mazda',
+    rating: 4.9,
+    reviewsCount: 135,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Mazda', 'مازدا', 'مازدا 6', 'Mazda 6', '2017', '2019', '2021', '2023', '2024', 'جلد', 'بيج'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 170,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-mazda-cx9',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة 3 صفوف متوافق مع مازدا CX-9 2018-2024',
+    nameAr: 'تلبيسة مقاعد السيارة 3 صفوف متوافق مع مازدا CX-9 2018-2024',
+    nameEn: '3-Row Luxury Leather Seat Covers compatible with Mazda CX-9 2018-2024',
+    sku: 'SEAT-MAZDA-CX9-3R',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 620,
+    originalPrice: 710,
+    discountedPrice: 620,
+    stock: 14,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/accord-camel.jpg',
+    galleryUrls: [
+      '/images/seat-covers/accord-camel.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    images: [
+      '/images/seat-covers/accord-camel.jpg',
+    ],
+    description: 'طقم متكامل لسيارة مازدا CX-9 العائلية الـ SUV يمنح المقاعد راحة وفخامة قصوى وعزلاً حرارياً متقناً.',
+    descriptionAr: 'طقم متكامل لسيارة مازدا CX-9 العائلية الـ SUV يمنح المقاعد راحة وفخامة قصوى وعزلاً حرارياً متقناً.',
+    descriptionEn: 'Executive 3-row leather seat covers for Mazda CX-9 2018-2024 with heat barrier technology.',
+    subtitle: 'طقم 3 صفوف فاخر · متوافق مع مازدا CX-9 · جلد أصلي',
+    brand: 'Mazda',
+    rating: 5,
+    reviewsCount: 88,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Mazda', 'مازدا', 'مازدا CX-9', 'Mazda CX-9', 'CX9', '2018', '2020', '2022', '2024', 'جلد', '3 صفوف'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 110,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-lexus-lx',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة VIP جلد نابا متوافق مع جيب لكزس LX 2016-2024',
+    nameAr: 'تلبيسة مقاعد السيارة VIP جلد نابا متوافق مع جيب لكزس LX 2016-2024',
+    nameEn: 'Car seat covers made of (leather) compatible with Lexus LX 2016-2024',
+    sku: 'SEAT-LEXUS-LX-VIP',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 690,
+    originalPrice: 800,
+    discountedPrice: 690,
+    stock: 12,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: 'https://cdn.salla.sa/wYYVD/f9f35631-1abe-44d2-8092-cafcf8064dc3-886.52482269504x1000-b7jn7rEtzd2oA8aUxvNv0TNfSSbvaVUNAhzsn4un.png',
+    galleryUrls: [
+      'https://cdn.salla.sa/wYYVD/f9f35631-1abe-44d2-8092-cafcf8064dc3-886.52482269504x1000-b7jn7rEtzd2oA8aUxvNv0TNfSSbvaVUNAhzsn4un.png',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    images: [
+      'https://cdn.salla.sa/wYYVD/f9f35631-1abe-44d2-8092-cafcf8064dc3-886.52482269504x1000-b7jn7rEtzd2oA8aUxvNv0TNfSSbvaVUNAhzsn4un.png',
+    ],
+    description: 'قمة الفخامة والأناقة لجيب لكزس LX570 / LX600 مع خياطة فاخرة وجلد نابا ناعم لا يتأثر بأشعة الشمس.',
+    descriptionAr: 'قمة الفخامة والأناقة لجيب لكزس LX570 / LX600 مع خياطة فاخرة وجلد نابا ناعم لا يتأثر بأشعة الشمس.',
+    descriptionEn: 'Flagship Ultra-Luxury Nappa leather seat covers for Lexus LX 570 / 600.',
+    subtitle: 'قمة الفخامة والريادة · متوافق مع جيب لكزس LX · جلد نابا ملكي',
+    brand: 'Lexus',
+    rating: 5,
+    reviewsCount: 165,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Lexus', 'لكزس', 'جيب لكزس', 'LX', 'LX570', 'LX600', '2016', '2018', '2020', '2022', '2024', 'جلد', 'VIP'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 198,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-hyundai-tucson',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع هيونداي توسان 2021-2025',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع هيونداي توسان 2021-2025',
+    nameEn: 'Car seat covers made of (leather) compatible with Hyundai Tucson 2021-2025',
+    sku: 'SEAT-HYU-TUCSON-2125',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 520,
+    originalPrice: 590,
+    discountedPrice: 520,
+    stock: 15,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-beige.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-beige.jpg',
+    ],
+    description: 'طقم تلابيس جلد فاخر لهيونداي توسان كروس أوفر 2021-2025 مع دعم خاص للظهر والأكتاف وحماية كاملة لأرضية المقعد.',
+    descriptionAr: 'طقم تلابيس جلد فاخر لهيونداي توسان كروس أوفر 2021-2025 مع دعم خاص للظهر والأكتاف وحماية كاملة لأرضية المقعد.',
+    descriptionEn: 'Premium leather seat covers for Hyundai Tucson 2021-2025 with lumbar ergonomic support and high-durability finish.',
+    subtitle: 'جلد فاخر · متوافق مع هيونداي توسان · دعم مريح للظهر',
+    brand: 'Hyundai',
+    rating: 4.9,
+    reviewsCount: 118,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Hyundai', 'هيونداي', 'توسان', 'Tucson', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 156,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-hyundai-santafe',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة 3 صفوف جاهزة من جلد متوافق مع هيونداي سنتافي 2021-2024',
+    nameAr: 'تلبيسة مقاعد السيارة 3 صفوف جاهزة من جلد متوافق مع هيونداي سنتافي 2021-2024',
+    nameEn: 'Car seat covers (3 Rows) compatible with Hyundai Santa Fe 2021-2024',
+    sku: 'SEAT-HYU-SANTAFE-3R',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 580,
+    originalPrice: 650,
+    discountedPrice: 580,
+    stock: 12,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/accord-camel.jpg',
+    galleryUrls: [
+      '/images/seat-covers/accord-camel.jpg',
+      '/images/seat-covers/accord-beige.jpg',
+      '/images/seat-covers/accord-grey.jpg',
+    ],
+    images: [
+      '/images/seat-covers/accord-camel.jpg',
+    ],
+    description: 'طقم عائلي متكامل 3 صفوف لسيارة هيونداي سنتافي 2021-2024 مصنوع من الجلد الألماني المقاوم للخدوش والحرارة.',
+    descriptionAr: 'طقم عائلي متكامل 3 صفوف لسيارة هيونداي سنتافي 2021-2024 مصنوع من الجلد الألماني المقاوم للخدوش والحرارة.',
+    descriptionEn: 'Full 3-row family leather seat cover set for Hyundai Santa Fe 2021-2024 with scratch & heat resistance.',
+    subtitle: 'طقم 3 صفوف عائلي · متوافق مع هيونداي سنتافي · جلد أصلي',
+    brand: 'Hyundai',
+    rating: 5,
+    reviewsCount: 89,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Hyundai', 'هيونداي', 'سنتافي', 'Santa Fe', '2021', '2022', '2023', '2024', 'جلد', '3 صفوف'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 104,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-hyundai-azera',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة VIP جلد نابا فاخر متوافق مع هيونداي ازيرا 2021-2024',
+    nameAr: 'تلبيسة مقاعد السيارة VIP جلد نابا فاخر متوافق مع هيونداي ازيرا 2021-2024',
+    nameEn: 'VIP Luxury Nappa Leather Seat Covers compatible with Hyundai Azera 2021-2024',
+    sku: 'SEAT-HYU-AZERA-VIP',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 540,
+    originalPrice: 620,
+    discountedPrice: 540,
+    stock: 14,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-black.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-black.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    description: 'أعلى درجات الفخامة لسيارة هيونداي أزيرا مع ملمس جلد النابا فائق النعومة، تطريز ماسي دقيق، ومقاومة تامة للتصبغات.',
+    descriptionAr: 'أعلى درجات الفخامة لسيارة هيونداي أزيرا مع ملمس جلد النابا فائق النعومة، تطريز ماسي دقيق، ومقاومة تامة للتصبغات.',
+    descriptionEn: 'VIP Nappa leather seat covers for Hyundai Azera 2021-2024 with diamond stitching and heat insulation.',
+    subtitle: 'جلد نابا ملكي VIP · متوافق مع هيونداي أزيرا · تطريز ماسي',
+    brand: 'Hyundai',
+    rating: 5,
+    reviewsCount: 76,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Hyundai', 'هيونداي', 'ازيرا', 'أزيرا', 'Azera', '2021', '2022', '2023', '2024', 'جلد', 'VIP'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 92,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-hyundai-creta',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد عصري متوافق مع هيونداي كريتا 2022-2025',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد عصري متوافق مع هيونداي كريتا 2022-2025',
+    nameEn: 'Modern Leather Seat Covers compatible with Hyundai Creta 2022-2025',
+    sku: 'SEAT-HYU-CRETA-2225',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 450,
+    originalPrice: 510,
+    discountedPrice: 450,
+    stock: 20,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: 'https://cdn.salla.sa/wYYVD/kJ4R3LLpMSl71C1fscqXCaeykEYyx5pHdX4B0l64.png',
+    galleryUrls: [
+      'https://cdn.salla.sa/wYYVD/kJ4R3LLpMSl71C1fscqXCaeykEYyx5pHdX4B0l64.png',
+      '/images/seat-covers/camry-camel.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+    ],
+    images: [
+      'https://cdn.salla.sa/wYYVD/kJ4R3LLpMSl71C1fscqXCaeykEYyx5pHdX4B0l64.png',
+    ],
+    description: 'تلبيسة بتصميم شبابي أنيق لهيونداي كريتا، توفر حماية فائقة للمقاعد الأصلية ضد السوائل والشمس مع سهولة تركيب ذاتي.',
+    descriptionAr: 'تلبيسة بتصميم شبابي أنيق لهيونداي كريتا، توفر حماية فائقة للمقاعد الأصلية ضد السوائل والشمس مع سهولة تركيب ذاتي.',
+    descriptionEn: 'Sleek modern leather seat covers for Hyundai Creta 2022-2025 with liquid-repellent technology.',
+    subtitle: 'جلد عصري أنيق · متوافق مع هيونداي كريتا · حماية ممتازة',
+    brand: 'Hyundai',
+    rating: 4.8,
+    reviewsCount: 54,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Hyundai', 'هيونداي', 'كريتا', 'Creta', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 68,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-hyundai-palisade',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة الفاخرة 3 صفوف متوافقة مع هيونداي باليسايد 2022-2025',
+    nameAr: 'تلبيسة مقاعد السيارة الفاخرة 3 صفوف متوافقة مع هيونداي باليسايد 2022-2025',
+    nameEn: 'Executive 3-Row Leather Seat Covers compatible with Hyundai Palisade 2022-2025',
+    sku: 'SEAT-HYU-PALISADE-3R',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 620,
+    originalPrice: 700,
+    discountedPrice: 620,
+    stock: 10,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/yukon-camel.jpg',
+    galleryUrls: [
+      '/images/seat-covers/yukon-camel.jpg',
+      '/images/seat-covers/yukon-beige.jpg',
+      '/images/seat-covers/yukon-grey.jpg',
+    ],
+    images: [
+      '/images/seat-covers/yukon-camel.jpg',
+    ],
+    description: 'طقم متكامل لسيارة الدفع الرباعي الكبيرة هيونداي باليسايد مع تفصيل ليزري فائق لكل مقعد وفتحات تكييف المقاعد.',
+    descriptionAr: 'طقم متكامل لسيارة الدفع الرباعي الكبيرة هيونداي باليسايد مع تفصيل ليزري فائق لكل مقعد وفتحات تكييف المقاعد.',
+    descriptionEn: 'Executive full 3-row leather seat covers for Hyundai Palisade 2022-2025 with seat-ventilation mesh.',
+    subtitle: 'طقم 3 صفوف VIP · متوافق مع هيونداي باليسايد · متوافق مع التبريد',
+    brand: 'Hyundai',
+    rating: 5,
+    reviewsCount: 48,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Hyundai', 'هيونداي', 'باليسايد', 'Palisade', '2022', '2023', '2024', '2025', 'جلد', '3 صفوف'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 57,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-fortuner-2020',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة 3 صفوف متوافق مع تويوتا فورتشنر 2020-2025',
+    nameAr: 'تلبيسة مقاعد السيارة 3 صفوف متوافق مع تويوتا فورتشنر 2020-2025',
+    nameEn: '3-Row Leather Seat Covers compatible with Toyota Fortuner 2020-2025',
+    sku: 'SEAT-TOY-FORTUNER-3R',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 560,
+    originalPrice: 640,
+    discountedPrice: 560,
+    stock: 14,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/accord-camel.jpg',
+    galleryUrls: [
+      '/images/seat-covers/accord-camel.jpg',
+      '/images/seat-covers/accord-beige.jpg',
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    images: [
+      '/images/seat-covers/accord-camel.jpg',
+    ],
+    description: 'طقم متكامل 3 صفوف لسيارة تويوتا فورتشنر العائلية مع خامة جلد رويال تدوم لسنوات ولا تتأثر بالحرارة.',
+    descriptionAr: 'طقم متكامل 3 صفوف لسيارة تويوتا فورتشنر العائلية مع خامة جلد رويال تدوم لسنوات ولا تتأثر بالحرارة.',
+    descriptionEn: 'Complete 3-row family set for Toyota Fortuner 2020-2025 with long-lasting thermal stability.',
+    subtitle: 'طقم 3 صفوف عائلي · متوافق مع فورتشنر · جلد فاخر',
+    brand: 'Toyota',
+    rating: 4.8,
+    reviewsCount: 94,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Toyota', 'تويوتا', 'فورتشنر', 'Fortuner', '2020', '2021', '2022', '2023', '2024', '2025', 'جلد', '3 صفوف'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 118,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-avalon-2019',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة VIP جلد متوافق مع تويوتا افالون 2019-2022',
+    nameAr: 'تلبيسة مقاعد السيارة VIP جلد متوافق مع تويوتا افالون 2019-2022',
+    nameEn: 'VIP Luxury Leather Seat Covers compatible with Toyota Avalon 2019-2022',
+    sku: 'SEAT-TOY-AVALON-1922',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 520,
+    originalPrice: 600,
+    discountedPrice: 520,
+    stock: 12,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-beige.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-beige.jpg',
+    ],
+    description: 'فخامة مطلقة لسيارة تويوتا أفالون مع جلد ألماني ناعم الملمس وتطريز ليزري فائق الدقة.',
+    descriptionAr: 'فخامة مطلقة لسيارة تويوتا أفالون مع جلد ألماني ناعم الملمس وتطريز ليزري فائق الدقة.',
+    descriptionEn: 'Executive leather seat covers for Toyota Avalon 2019-2022 with premium tactile feel.',
+    subtitle: 'جلد فاخر VIP · متوافق مع افالون 2019-2022 · مظهر وكالة',
+    brand: 'Toyota',
+    rating: 5,
+    reviewsCount: 88,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Toyota', 'تويوتا', 'افالون', 'أفالون', 'Avalon', '2019', '2020', '2021', '2022', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 102,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-yaris-2021',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع تويوتا يارس 2021-2025',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع تويوتا يارس 2021-2025',
+    nameEn: 'Practical Leather Seat Covers compatible with Toyota Yaris 2021-2025',
+    sku: 'SEAT-TOY-YARIS-2125',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 420,
+    originalPrice: 480,
+    discountedPrice: 420,
+    stock: 25,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-black.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-black.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    description: 'تلبيسة عملية وأنيقة لتويوتا يارس بمقاس محكم ومقاومة عالية للبقع وسهولة في التنظيف والتركيب.',
+    descriptionAr: 'تلبيسة عملية وأنيقة لتويوتا يارس بمقاس محكم ومقاومة عالية للبقع وسهولة في التنظيف والتركيب.',
+    descriptionEn: 'Durable easy-clean leather seat covers for Toyota Yaris 2021-2025.',
+    subtitle: 'تصميم عملي وأنيق · متوافق مع يارس · سهل التنظيف',
+    brand: 'Toyota',
+    rating: 4.8,
+    reviewsCount: 140,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Toyota', 'تويوتا', 'يارس', 'Yaris', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 175,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-yukon-2021',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع جمس يوكن 2021-2025 بلون رمادي',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع جمس يوكن 2021-2025 بلون رمادي',
+    nameEn: 'Car seat covers made of (leather) compatible with GMC Yukon 2021-2025 (Grey)',
+    sku: 'SEAT-GMC-YUKON-2125',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 616,
+    originalPrice: 720,
+    discountedPrice: 616,
+    stock: 18,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/yukon-grey.jpg',
+    galleryUrls: [
+      '/images/seat-covers/yukon-grey.jpg',
+      '/images/seat-covers/yukon-beige.jpg',
+      '/images/seat-covers/yukon-camel.jpg',
+    ],
+    images: [
+      '/images/seat-covers/yukon-grey.jpg',
+    ],
+    description: 'تلبيسة مقاعد السيارة الفاخرة لجمس يوكن دينالي و SLT مع تصميم أنيق وعصري يضفي لمسة فخامة على داخلية السيارة.',
+    descriptionAr: 'تلبيسة مقاعد السيارة الفاخرة لجمس يوكن دينالي و SLT مع تصميم أنيق وعصري يضفي لمسة فخامة على داخلية السيارة.',
+    descriptionEn: 'Executive leather seat covers for GMC Yukon / Yukon XL 2021-2025 (Denali & SLT).',
+    subtitle: 'دينالي و SLT · متوافق مع جمس يوكن 2021-2025 · فخامة ملكية',
+    brand: 'GMC',
+    rating: 5,
+    reviewsCount: 195,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['GMC', 'جمس', 'يوكن', 'Yukon', '2021', '2022', '2023', '2024', '2025', 'جلد', 'رمادي'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 240,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-nissan-xtrail',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة عائلية متوافقة مع نيسان اكس تريل 2021-2025',
+    nameAr: 'تلبيسة مقاعد السيارة عائلية متوافقة مع نيسان اكس تريل 2021-2025',
+    nameEn: 'Family Leather Seat Covers compatible with Nissan X-Trail 2021-2025',
+    sku: 'SEAT-NIS-XTRAIL-2125',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 510,
+    originalPrice: 580,
+    discountedPrice: 510,
+    stock: 18,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/accord-grey.jpg',
+    galleryUrls: [
+      '/images/seat-covers/accord-grey.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    images: [
+      '/images/seat-covers/accord-grey.jpg',
+    ],
+    description: 'طقم مقاعد جلد عائلي لسيارة نيسان إكس تريل يجمع بين المتانة وسهولة التنظيف والمظهر العصري الأنيق.',
+    descriptionAr: 'طقم مقاعد جلد عائلي لسيارة نيسان إكس تريل يجمع بين المتانة وسهولة التنظيف والمظهر العصري الأنيق.',
+    descriptionEn: 'Family-proof durable leather seat covers for Nissan X-Trail 2021-2025.',
+    subtitle: 'طقم عائلي متين · متوافق مع نيسان اكس تريل · عازل للحرارة',
+    brand: 'Nissan',
+    rating: 4.8,
+    reviewsCount: 82,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Nissan', 'نيسان', 'اكس تريل', 'X-Trail', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 104,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-kia-carnival',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة 7/8 مقاعد عائلي متوافق مع كيا كارنيفال 2021-2025',
+    nameAr: 'تلبيسة مقاعد السيارة 7/8 مقاعد عائلي متوافق مع كيا كارنيفال 2021-2025',
+    nameEn: 'VIP 7/8-Seater Luxury Leather Seat Covers compatible with Kia Carnival 2021-2025',
+    sku: 'SEAT-KIA-CARNIVAL-VIP',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 640,
+    originalPrice: 740,
+    discountedPrice: 640,
+    stock: 12,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/accord-beige.jpg',
+    galleryUrls: [
+      '/images/seat-covers/accord-beige.jpg',
+      '/images/seat-covers/accord-camel.jpg',
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    images: [
+      '/images/seat-covers/accord-beige.jpg',
+    ],
+    description: 'طقم VIP فخم وشامل لجميع مقاعد الفان العائلي كيا كارنيفال مع الحفاظ على مرونة تحريك المقاعد.',
+    descriptionAr: 'طقم VIP فخم وشامل لجميع مقاعد الفان العائلي كيا كارنيفال مع الحفاظ على مرونة تحريك المقاعد.',
+    descriptionEn: 'Full executive 7/8-seat set for Kia Carnival 2021-2025 preserving seating track flexibility.',
+    subtitle: 'طقم عائلي VIP · متوافق مع كيا كارنيفال · مرونة تامة للمقاعد',
+    brand: 'Kia',
+    rating: 5,
+    reviewsCount: 74,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Kia', 'كيا', 'كارنيفال', 'Carnival', '2021', '2022', '2023', '2024', '2025', 'جلد', 'عائلي'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 88,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-chevy-traverse',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة 3 صفوف متوافق مع شيفروليه ترافيرس 2020-2024',
+    nameAr: 'تلبيسة مقاعد السيارة 3 صفوف متوافق مع شيفروليه ترافيرس 2020-2024',
+    nameEn: '3-Row Leather Seat Covers compatible with Chevrolet Traverse 2020-2024',
+    sku: 'SEAT-CHEV-TRAV-2024',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 580,
+    originalPrice: 660,
+    discountedPrice: 580,
+    stock: 14,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/accord-grey.jpg',
+    galleryUrls: [
+      '/images/seat-covers/accord-grey.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    images: [
+      '/images/seat-covers/accord-grey.jpg',
+    ],
+    description: 'طقم 3 صفوف متقن لسيارة شيفروليه ترافيرس العائلية، سهل التركيب ومصنوع من خامات وكالة عالية الجودة.',
+    descriptionAr: 'طقم 3 صفوف متقن لسيارة شيفروليه ترافيرس العائلية، سهل التركيب ومصنوع من خامات وكالة عالية الجودة.',
+    descriptionEn: 'Tailored 3-row leather seat covers for Chevrolet Traverse 2020-2024.',
+    subtitle: 'طقم عائلي 3 صفوف · متوافق مع شيفروليه ترافيرس · ضمان سنتين',
+    brand: 'Chevrolet',
+    rating: 4.8,
+    reviewsCount: 78,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Chevrolet', 'شيفروليه', 'ترافيرس', 'ترافرس', 'Traverse', '2020', '2021', '2022', '2023', '2024', 'جلد', '3 صفوف'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 94,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+  {
+    id: 'prod-seat-chevy-captiva',
+    storeId: 'store-bleco',
+    name: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع شيفروليه كابتيفا 2021-2025',
+    nameAr: 'تلبيسة مقاعد السيارة جاهزة من جلد متوافق مع شيفروليه كابتيفا 2021-2025',
+    nameEn: 'Modern Leather Seat Covers compatible with Chevrolet Captiva 2021-2025',
+    sku: 'SEAT-CHEV-CAPTIVA-2125',
+    category: 'تلابيس',
+    categoryAr: 'تلابيس مقاعد السيارة',
+    categoryEn: 'Clothing & Seat Covers',
+    price: 450,
+    originalPrice: 520,
+    discountedPrice: 450,
+    stock: 22,
+    status: 'published',
+    isActive: true,
+    isStale: false,
+    publishedAt: '2026-01-01T00:00:00Z',
+    image: '/images/seat-covers/camry-black.jpg',
+    galleryUrls: [
+      '/images/seat-covers/camry-black.jpg',
+      '/images/seat-covers/camry-beige.jpg',
+      '/images/seat-covers/camry-camel.jpg',
+    ],
+    images: [
+      '/images/seat-covers/camry-black.jpg',
+    ],
+    description: 'تلبيسة أنيقة وعملية لسيارة شيفروليه كابتيفا تمنح داخلية السيارة حماية قصوى ومظهراً حديثاً.',
+    descriptionAr: 'تلبيسة أنيقة وعملية لسيارة شيفروليه كابتيفا تمنح داخلية السيارة حماية قصوى ومظهراً حديثاً.',
+    descriptionEn: 'Stylish durable leather seat covers for Chevrolet Captiva 2021-2025.',
+    subtitle: 'تصميم أنيق وعملي · متوافق مع كابتيفا · خامات وكالة',
+    brand: 'Chevrolet',
+    rating: 4.8,
+    reviewsCount: 95,
+    type: 'seat-cover',
+    productType: 'Seat Cover',
+    tags: ['Chevrolet', 'شيفروليه', 'كابتيفا', 'Captiva', '2021', '2022', '2023', '2024', '2025', 'جلد'],
+    requiresShipping: true,
+    trackInventory: true,
+    salesCount: 118,
+    colors: [
+      SEAT_COLORS[0], // OEM Beige
+      SEAT_COLORS[1], // Royal Camel
+      SEAT_COLORS[2], // German Grey
+    ],
+  },
+
+];
+
+// ============================================================================
+// STORE FAQ (AUTHENTIC 9 QUESTIONS FROM TANJEEDMAKKAH.COM)
+// ============================================================================
+export const BLECO_FAQ: BlecoFaqItem[] = [
+  {
+    number: '01',
+    qAr: 'هل متجر السعيدي آمن للدفع عبر الإنترنت؟',
+    qEn: 'Is Al-Saeedi Store safe for online payments?',
+    aAr: 'يضمن لك متجر السعيدي تجربة تسوق آمنة 100%. الربط مع البنوك والمصارف السعودية مباشرة عبر بوابات مشفرة ومعتمدة بأعلى معايير الأمان SSL.',
+    aEn: 'Al-Saeedi Store guarantees 100% secure shopping. We connect directly with Saudi banks using enterprise-grade SSL encryption.',
+    question: 'هل متجر السعيدي آمن للدفع عبر الإنترنت؟',
+    questionEn: 'Is Al-Saeedi Store safe for online payments?',
+    answer: 'يضمن لك متجر السعيدي تجربة تسوق آمنة 100%. الربط مع البنوك والمصارف السعودية مباشرة عبر بوابات مشفرة ومعتمدة بأعلى معايير الأمان SSL.',
+    answerEn: 'Al-Saeedi Store guarantees 100% secure shopping. We connect directly with Saudi banks using enterprise-grade SSL encryption.',
+  },
+  {
+    number: '02',
+    qAr: 'كيف نضمن حقك؟',
+    qEn: 'How do you guarantee customer rights?',
+    aAr: 'متجر السعيدي مؤسسة سعودية رسمية مسجلة في المركز السعودي للأعمال برقم توثيق 0000180462 وسجل تجاري رقم 7005616136 وتخضع لجميع أنظمة وزارة التجارة.',
+    aEn: 'Officially verified on Saudi Business Center (SBC #0000180462) and Ministry of Commerce CR #7005616136.',
+    question: 'كيف نضمن حقك؟',
+    questionEn: 'How do you guarantee customer rights?',
+    answer: 'متجر السعيدي مؤسسة سعودية رسمية مسجلة في المركز السعودي للأعمال برقم توثيق 0000180462 وسجل تجاري رقم 7005616136 وتخضع لجميع أنظمة وزارة التجارة.',
+    answerEn: 'Officially verified on Saudi Business Center (SBC #0000180462) and Ministry of Commerce CR #7005616136.',
+  },
+  {
+    number: '03',
+    qAr: 'كم مدة الشحن والتوصيل؟',
+    qEn: 'What is the shipping and delivery timeframe?',
+    aAr: 'يستغرق التوصيل خلال 24-72 ساعة داخل مدينة مكة المكرمة، ومن 3-5 أيام عمل لباقي مناطق المملكة عبر شركات الشحن السريع المعتمدة (سمسا، أرامكس).',
+    aEn: '24-72 hours within Makkah, and 3-5 business days across all regions of Saudi Arabia.',
+    question: 'كم مدة الشحن والتوصيل؟',
+    questionEn: 'What is the shipping and delivery timeframe?',
+    answer: 'يستغرق التوصيل خلال 24-72 ساعة داخل مدينة مكة المكرمة، ومن 3-5 أيام عمل لباقي مناطق المملكة عبر شركات الشحن السريع المعتمدة (سمسا، أرامكس).',
+    answerEn: '24-72 hours within Makkah, and 3-5 business days across all regions of Saudi Arabia.',
+  },
+  {
+    number: '04',
+    qAr: 'هل يمكن إلغاء أو تعديل الطلب؟',
+    qEn: 'Can I cancel or modify my order?',
+    aAr: 'نعم، من حق العميل تعديل أو إلغاء الطلب مجاناً في أي وقت قبل تسليم الشحنة لشركة الشحن من خلال التواصل المباشر مع خدمة العملاء.',
+    aEn: 'Yes, customers can cancel or modify orders free of charge before dispatching to the courier.',
+    question: 'هل يمكن إلغاء أو تعديل الطلب؟',
+    questionEn: 'Can I cancel or modify my order?',
+    answer: 'نعم، من حق العميل تعديل أو إلغاء الطلب مجاناً في أي وقت قبل تسليم الشحنة لشركة الشحن من خلال التواصل المباشر مع خدمة العملاء.',
+    answerEn: 'Yes, customers can cancel or modify orders free of charge before dispatching to the courier.',
+  },
+  {
+    number: '05',
+    qAr: 'ما هي طرق الدفع المتاحة؟',
+    qEn: 'What payment methods are supported?',
+    aAr: 'نوفر جميع طرق الدفع الحديثة: مدى، أبل باي (Apple Pay)، فيزا، ماستركارد، وخدمات التقسيط المريح على 4 دفعات بدون فوائد عبر تمارا وتابي.',
+    aEn: 'Mada, Apple Pay, Visa, MasterCard, and 4 interest-free installments via Tamara & Tabby.',
+    question: 'ما هي طرق الدفع المتاحة؟',
+    questionEn: 'What payment methods are supported?',
+    answer: 'نوفر جميع طرق الدفع الحديثة: مدى، أبل باي (Apple Pay)، فيزا، ماستركارد، وخدمات التقسيط المريح على 4 دفعات بدون فوائد عبر تمارا وتابي.',
+    answerEn: 'Mada, Apple Pay, Visa, MasterCard, and 4 interest-free installments via Tamara & Tabby.',
+  },
+  {
+    number: '06',
+    qAr: 'ما هي طريقة الشكاوى ومدة المعالجة؟',
+    qEn: 'What is the complaints process and resolution SLA?',
+    aAr: 'يتم الرد على جميع الشكاوى والاستفسارات خلال 24 ساعة كحد أقصى، ومعالجة المشكلة تتم خلال 1-5 أيام عمل مع متابعة فورية.',
+    aEn: 'Support responses within 24 hours, and complete issue resolution in 1-5 business days.',
+    question: 'ما هي طريقة الشكاوى ومدة المعالجة؟',
+    questionEn: 'What is the complaints process and resolution SLA?',
+    answer: 'يتم الرد على جميع الشكاوى والاستفسارات خلال 24 ساعة كحد أقصى، ومعالجة المشكلة تتم خلال 1-5 أيام عمل مع متابعة فورية.',
+    answerEn: 'Support responses within 24 hours, and complete issue resolution in 1-5 business days.',
+  },
+  {
+    number: '07',
+    qAr: 'كيف يتم استرداد الأموال في حال الإرجاع؟',
+    qEn: 'How are refunds handled upon return?',
+    aAr: 'تتم إعادة الأموال إلى نفس وسيلة الدفع الأصلية وتستغرق المعاملة البنكية من 4 إلى 14 يوم عمل حسب نظام البنك الخاص بك.',
+    aEn: 'Refunds are reversed to the original payment method within 4-14 business days.',
+    question: 'كيف يتم استرداد الأموال في حال الإرجاع؟',
+    questionEn: 'How are refunds handled upon return?',
+    answer: 'تتم إعادة الأموال إلى نفس وسيلة الدفع الأصلية وتستغرق المعاملة البنكية من 4 إلى 14 يوم عمل حسب نظام البنك الخاص بك.',
+    answerEn: 'Refunds are reversed to the original payment method within 4-14 business days.',
+  },
+  {
+    number: '08',
+    qAr: 'ما هو رقم الطلب وكيف أستفيد منه؟',
+    qEn: 'What is the Order Number and how do I track it?',
+    aAr: 'رقم الطلب يتم إرساله تلقائياً عبر الرسائل النصية والواتساب فور إتمام الطلب، ويستخدم لتتبع مسار الشحنة مع خدمة العملاء.',
+    aEn: 'An order ID is sent instantly via SMS and WhatsApp to track your parcel live.',
+    question: 'ما هو رقم الطلب وكيف أستفيد منه؟',
+    questionEn: 'What is the Order Number and how do I track it?',
+    answer: 'رقم الطلب يتم إرساله تلقائياً عبر الرسائل النصية والواتساب فور إتمام الطلب، ويستخدم لتتبع مسار الشحنة مع خدمة العملاء.',
+    answerEn: 'An order ID is sent instantly via SMS and WhatsApp to track your parcel live.',
+  },
+  {
+    number: '09',
+    qAr: 'هل خدماتكم إلكترونية فقط أم لديكم فرع رسمي؟',
+    qEn: 'Is your service online only, or do you have a physical branch?',
+    aAr: 'خدماتنا متوفرة في فرعنا الرسمي بمكة المكرمة (حي بطحاء قريش - شارع عتاب بن أسيد، جوار فرع وزارة العدل) وكذلك عبر متجرنا الإلكتروني.',
+    aEn: 'We serve you at our physical branch in Makkah (Batha Quraish, Itab Ibn Asid St.) and online 24/7.',
+    question: 'هل خدماتكم إلكترونية فقط أم لديكم فرع رسمي؟',
+    questionEn: 'Is your service online only, or do you have a physical branch?',
+    answer: 'خدماتنا متوفرة في فرعنا الرسمي بمكة المكرمة (حي بطحاء قريش - شارع عتاب بن أسيد، جوار فرع وزارة العدل) وكذلك عبر متجرنا الإلكتروني.',
+    answerEn: 'We serve you at our physical branch in Makkah (Batha Quraish, Itab Ibn Asid St.) and online 24/7.',
+  },
+];
+
+// ============================================================================
+// STORE BLOG POSTS (OFFICIAL ARTICLES FROM TANJEEDMAKKAH.COM)
+// ============================================================================
+export const BLECO_BLOG_POSTS: BlecoBlogPost[] = [
+  {
+    id: 'blog-seat-cover-guide',
+    slug: 'saudi-car-seat-cover-ultimate-guide',
+    featured: true,
+    views: 4820,
+    likes: 342,
+    categoryKey: 'seat-covers',
+    titleAr: 'دليل اختيار تلابيس مقاعد السيارات لتحمل صيف الخليج وحرارة 50°: مقارنة الجلد الألماني والقماش البارد',
+    titleEn: 'How to Choose the Best Car Seat Cover: Complete Guide for Saudi Climate',
+    subtitleAr: 'دراسة فنية شاملة للخامات المقاومة للأشعة فوق البنفسجية واشتراطات فتحات الوسائد الهوائية (Airbags)',
+    subtitleEn: 'Comprehensive engineering comparison of UV-treated German leather and Japanese cooling fabrics for extreme GCC heat',
+    categoryAr: 'أدلة وتلابيس المقاعد',
+    categoryEn: 'Seat Covers & Upholstery',
+    date: '14 أكتوبر 2026',
+    readTimeAr: '6 دقائق قراءة',
+    readTimeEn: '6 min read',
+    image: '/images/blog/seat-cover-guide.jpg',
+    author: {
+      nameAr: 'م. محمد السعيدي',
+      nameEn: 'Eng. Mohammed Al-Saeedi',
+      roleAr: 'كبير فنّيي هندسة التنجيد بمتجر السعيدي',
+      roleEn: 'Master Automotive Upholstery Engineer',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      verified: true,
+    },
+    tagsAr: ['تنجيد سيارات', 'صيف السعودية', 'الجلد الألماني', 'تويوتا كامري', 'فتحات الإيرباق'],
+    tagsEn: ['Car Upholstery', 'Saudi Summer', 'German Leather', 'Toyota Camry', 'Airbag Seams'],
+    keyTakeawaysAr: [
+      'الجلد الألماني المعالج حرارياً يقلل احتباس الحرارة السطحية بنسبة تصل إلى 42% مقارنة بالجلد التجاري العادي.',
+      'القماش الياباني البارد يوفر تهوية مستمرة ويمنع التعرق التام للسائقين في المشاوير الطويلة وتطبيقات التوصيل.',
+      'خياطة الأكياس الهوائية الليزرية (Breakaway Stitch) شرط جوهري للسلامة واجتياز الفحص الدوري السعودي.',
+      'التلابيس المجهزة برغوة الذاكرة (Memory Foam) تخفف ضغط الفقرات القطنية وتزيد متعة القيادة لمسافات تتجاوز 400 كم.',
+    ],
+    keyTakeawaysEn: [
+      'UV-treated German leather reduces seat surface heat accumulation by up to 42% compared to generic synthetic leather.',
+      'Japanese cooling cloth provides continuous ventilation, eliminating perspiration on extended daily commutes.',
+      'Certified laser breakaway seams are non-negotiable for airbag deployment and Saudi periodic inspection compliance.',
+      'Integrated high-density memory foam relieves lower back pressure during long-distance highway travel across Saudi Arabia.',
+    ],
+    summaryAr: 'تعرف على الفروق الهندسية بين الجلد الألماني المعالج حرارياً والقماش الياباني البارد، وكيفية حماية مراتب الوكالة من الجفاف والتشقق تحت شمس مكة والرياض الحارقة دون المساس بسلامة الوسائد الهوائية.',
+    summaryEn: 'An authoritative engineering guide on thermal-treated leather versus breathable fabrics, ensuring zero airbag obstruction and maximum OEM preservation under 50°C GCC heat.',
+    contentAr: [
+      'تعتبر مقاعد السيارة من أكثر الأجزاء تعرضاً للتآكل والبهتان بفعل أشعة الشمس الحارقة ودرجات الحرارة المرتفعة في المملكة العربية السعودية.',
+      'أولاً: الجلد الألماني المعالج حرارياً — يتميز بمسام تهوية دقيقة ومقاومة عالية لامتصاص الحرارة، مما يجعله مثالياً لمن يبحث عن الفخامة وسهولة المسح دون الإحساس بالحرارة الزائدة.',
+      'ثانياً: القماش الياباني البارد — الخيار المفضل للسائقين الذين يقضون ساعات طويلة داخل السيارة؛ فهو يسمح بمرور الهواء ويمنع التعرق ويحافظ على برودة المقعد طوال اليوم.',
+      'ثالثاً: تطريز الدايموند خماسي الطبقات — يمنح راحة إضافية للظهر والعمود الفقري بفضل طبقة الإسفنج الكثيف (Memory Foam)، ويحمي المقاعد الأصلية من سوائل الأطفال والأتربة.',
+      'نصيحة خبراء متجر السعيدي: اختر دائماً تلابيس مقاعد مفصلة بدقة ليزرية ومصممة بنظام فتحات الأكياس الهوائية (Airbags) لضمان أعلى معايير السلامة والأمان لك ولعائلتك.',
+    ],
+    contentEn: [
+      'Car seats endure continuous wear and UV exposure under extreme Saudi Arabian summer temperatures reaching above 50°C.',
+      '1. Heat-Treated German Leather: Engineered with micro-perforations and low thermal mass for effortless wipe cleaning and executive luxury without hot spots.',
+      '2. Japanese Cooling Cloth: Best suited for long daily commutes, maximizing airflow and preventing heat retention.',
+      '3. 5-Layer Diamond Padding: Adds spinal ergonomic comfort through high-density memory foam while forming an impermeable barrier against spills.',
+      'Al-Saeedi Expert Tip: Always ensure your chosen covers feature laser-cut seams that are 100% certified airbag deployment safe.',
+    ],
+    sections: [
+      {
+        id: 'climate-impact',
+        headingAr: '1. أثر المناخ الصحراوي على مقاعد الوكالة الأصلية',
+        headingEn: '1. The Impact of Desert Heat on Factory Upholstery',
+        paragraphsAr: [
+          'تسجل مقصورات السيارات المتوقفة تحت أشعة الشمس المباشرة في مدن مثل الرياض ومكة وجدة والدمام درجات حرارة تتجاوز 75 درجة مئوية على أسطح المقاعد. هذا الإشعاع الحراري المتواصل يمتص الزيوت الطبيعية من الجلود مسبباً الجفاف وتفتت الألياف وتشققات عميقة يستحيل علاجها.',
+          'حماية فرش الوكالة بتلبيسة متخصصة ليست مجرد لمسة جمالية، بل هي درع هندسي واقٍ يحافظ على قيمة سيارتك الاستثمارية ويبقيها بحالة الوكالة مهما طالت سنوات الاستخدام.',
+        ],
+        paragraphsEn: [
+          'Vehicles parked under direct sunlight in Saudi cities experience cabin temperatures soaring past 75°C on seat surfaces. This severe UV exposure evaporates conditioning oils, causing irreversible drying, cracking, and brittleness.',
+          'Fitting a dedicated protective seat cover is not merely aesthetic—it is a vital protective shield that preserves your vehicle\'s asset value and maintains its factory luster over years of harsh exposure.',
+        ],
+        tipAr: 'نصيحة ذهبية: ضع دائماً عازلاً حرارياً أو شماسة على الزجاج الأمامي بالتزامن مع استخدام التلابيس المعالجة حرارياً لخفض حرارة المقصورة الداخلية بمقدار 18 درجة مئوية.',
+        tipEn: 'Pro Tip: Always combine custom UV-resistant seat covers with a front windshield sunshade to drop interior cabin temperatures by up to 18°C.',
+      },
+      {
+        id: 'material-comparison',
+        headingAr: '2. مقارنة علمية: الجلد الألماني المعالج ضد القماش الياباني البارد',
+        headingEn: '2. Technical Evaluation: Thermal Leather vs Japanese Cooling Cloth',
+        paragraphsAr: [
+          'الجلد الألماني المعالج بتقنية النانو كوتنج (Nano-Coated German Leather): يمتاز بكثافة ميكروبوروسية (Micro-porous) تسمح بانبعاث الحرارة ومقاومة امتصاص السوائل والقهوة بنسبة 100%. كما يسهل مسحه بقطعة قماش مبللة فقط دون الحاجة لمنظفات باهظة.',
+          'القماش الياباني ذو النسيج الهوائي (Breathable 3D Mesh Fabric): الحل الأذكى لمن يعانون من تعرق الظهر؛ حيث يعمل هيكله الشبكي ثلاثي الأبعاد كقناة تهوية طبيعية تسمح بتدوير هواء المكيف خلف الظهر أثناء القيادة.',
+        ],
+        paragraphsEn: [
+          'German Nano-Coated Leather: Features micro-porous venting that rapidly dissipates accumulated heat while presenting an absolute 100% barrier against coffee and liquid spills. Wipes immaculately clean with a damp cloth.',
+          'Japanese 3D Air Mesh Cloth: The premier choice for drivers seeking zero back perspiration. The 3-dimensional honeycomb matrix channels conditioned cabin air directly behind the lumbar area.',
+        ],
+        specTable: [
+          { labelAr: 'مقاومة أشعة الشمس والحرارة', labelEn: 'UV & Heat Resistance', valueAr: 'عالية جداً (طبقة عاكسة للأشعة)', valueEn: 'Superior (UV-reflective)' },
+          { labelAr: 'مقاومة السوائل والقهوة', labelEn: 'Liquid & Spill Resistance', valueAr: '100% عزل تام', valueEn: '100% Impermeable' },
+          { labelAr: 'سهولة المسح والتنظيف', labelEn: 'Cleaning Convenience', valueAr: 'مسح سريع بالمايكروفايبر', valueEn: 'Instant microfiber wipe' },
+          { labelAr: 'العمر الافتراضي بالخليج', labelEn: 'Expected Lifespan in GCC', valueAr: '5 إلى 7 سنوات مع الضمان', valueEn: '5-7 Years with Warranty' },
+        ],
+      },
+      {
+        id: 'airbag-safety',
+        headingAr: '3. معايير أمان خياطة الأكياس الهوائية (Airbags)',
+        headingEn: '3. Certified Breakaway Seam Safety for Seat Airbags',
+        paragraphsAr: [
+          'تحتوي أغلب السيارات الحديثة (مثل تويوتا كامري، لكزس، تاهو، باترول) على وسائد هوائية جانبية مدمجة داخل هيكل المقعد ومصممة للانفجار خلال 30 جزءاً من الألف من الثانية لحماية الركاب في حالات الحوادث.',
+          'التلابيس التجارية الرديئة تستخدم خيوطاً بوليسترية صلبة تقيد الوسادة الهوائية وتمنع انفتاحها. في المقابل، نعتمد في متجر السعيدي خياطة الليزر الموجهة (Computerized Laser Seam Breakaway) التي تسمح بالانفتاح الفوري للأكياس الهوائية بنفس توقيت الوكالة تماماً.',
+        ],
+        paragraphsEn: [
+          'Modern vehicles (Camry, Yukon, Patrol, Lexus) house seat-mounted side thorax airbags calibrated to deploy within 30 milliseconds in a collision.',
+          'Generic market covers with reinforced double-seams obstruct airbags, posing extreme danger. Al-Saeedi custom covers utilize calibrated laser breakaway stitching that ruptures instantly upon airbag trigger, exactly matching OEM factory specs.',
+        ],
+        warningAr: 'تحذير هام: لا تشترِ أبداً أي تلبيسة مقاعد بدون معاينة خياطة الأكياس الهوائية والتأكد من مطابقتها لاشتراطات الفحص الدوري السعودي.',
+        warningEn: 'Crucial Warning: Never install universal generic seat covers without certified airbag breakaway seams compliant with Saudi Periodic Inspection standards.',
+      },
+    ],
+    relatedProductIds: ['prod-seat-camry-2025-leather', 'prod-mat-diamond'],
+    faq: [
+      {
+        qAr: 'هل يحتاج تركيب التلبيسة إلى فك مقاعد السيارة من الوكالة؟',
+        qEn: 'Does installation require removing the original car seats?',
+        aAr: 'لا على الإطلاق! جميع تلابيس متجر السعيدي مفصلة بنظام الكلبسات المخفية والشد الذاتي السريع (Snap-Lock Clips)، ويتم تركيبها باحترافية كاملة خلال 30 دقيقة بدون فك أي برغي أو الإخلال بضمان الوكالة.',
+        aEn: 'Not at all! All Al-Saeedi covers feature precision snap-lock hardware allowing full installation within 30 minutes without unscrewing a single factory bolt.',
+      },
+      {
+        qAr: 'ما هي مدة الضمان على خياطة التلابيس وثبات الألوان؟',
+        qEn: 'What is the warranty coverage for stitching and colors?',
+        aAr: 'نقدم ضماناً ذهبياً شاملاً لمدة سنتين كاملتين يشمل ثبات الألوان ضد شمس المملكة، عدم تفكك الخياطة، ومقاومة التشقق والتقشر.',
+        aEn: 'We provide an unconditional 2-year warranty covering UV color fastness, seam integrity, and material peeling.',
+      },
+    ],
+  },
+  {
+    id: 'blog-floor-mats-comparison',
+    slug: 'laser-3d-vs-diamond-5d-car-floor-mats-comparison',
+    featured: false,
+    views: 3910,
+    likes: 285,
+    categoryKey: 'floor-mats',
+    titleAr: 'مقارنة هندسية شاملة: ما الفرق بين أرضيات الليزر ثلاثية الأبعاد 3D وأرضيات الدايموند 5D؟',
+    titleEn: 'Laser Precision vs Diamond 5D Floor Mats: In-Depth Comparison',
+    subtitleAr: 'تقييم العزل المائي وحجز الرمال والعزل الصوتي لضجيج الإطارات في الطرق السريعة',
+    subtitleEn: 'In-depth engineering comparison of water retention, sand containment, and acoustic noise reduction on Saudi highways',
+    categoryAr: 'مقارنات الأرضيات',
+    categoryEn: 'Floor Mats & Protection',
+    date: '10 أكتوبر 2026',
+    readTimeAr: '5 دقائق قراءة',
+    readTimeEn: '5 min read',
+    image: '/images/blog/floor-mats-comparison.jpg',
+    author: {
+      nameAr: 'تركي باجعفر',
+      nameEn: 'Turki Ba-Jaafar',
+      roleAr: 'استشاري تجهيزات وحماية مقصورات السيارات',
+      roleEn: 'Automotive Cabin Protection Consultant',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+      verified: true,
+    },
+    tagsAr: ['أرضيات ليزر', 'أرضيات دايموند 5D', 'عزل مائي', 'حماية موكيت الوكالة', 'مكة المكرمة'],
+    tagsEn: ['Laser Floor Mats', '5D Diamond Mats', 'Waterproofing', 'OEM Carpet Protection', 'Makkah'],
+    keyTakeawaysAr: [
+      'أرضيات الليزر 3D مصممة بحواف مرتفعة 4 سم تحبس سوائل المطر وحبات الرمال بدقة وتُغسل بالماء في 3 دقائق.',
+      'أرضيات الدايموند 5D تضم طبقة رغوة الذاكرة الماصة للصوت مما يخفض ضجيج الطريق بنحو 3 ديسيبل داخل المقصورة.',
+      'كلا النوعين مصنع من جلد صناعي ومطاط TPE صديق للبيئة عديم الرائحة ولا يتأثر بالحرارة حتى 80 درجة مئوية.',
+      'اختيار النوع يعتمد على طبيعة الاستخدام: الليزر للمناطق الصحراوية والبر، والدايموند للفخامة والهدوء في سيارات السيدان والـSUV.',
+    ],
+    keyTakeawaysEn: [
+      'Laser 3D mats feature 4cm raised perimeter trays containing muddy water and desert sand, washing clean in 3 minutes.',
+      '5D Diamond mats feature dense acoustic memory foam layers dampening road vibrations and tire hum by ~3dB.',
+      'Both configurations employ odorless Eco-TPE synthetic materials that maintain rigidity up to 80°C.',
+      'Choose Laser for rugged desert expeditions and family utility; choose Diamond for executive luxury and sound suppression.',
+    ],
+    summaryAr: 'مقارنة تفصيلية بين أرضيات الليزر خفيفة الوزن سهلة الغسيل وأرضيات الدايموند خماسية الطبقات الفاخرة، لتحديد الخيار الأنسب لمركبتك وطبيعة استخدامك في شوارع وطرقات المملكة.',
+    summaryEn: 'A rigorous performance breakdown between ultra-lightweight Laser 3D trays and plush 5D Diamond quilted carpeting, guiding you to the optimal choice for your Saudi driving habits.',
+    contentAr: [
+      'تحتاج أرضية السيارة إلى حماية فعالة تمنع وصول الرمال والرطوبة إلى موكيت الوكالة الأصلي، وهنا يبرز الخياران الأكثر شعبية في متجر السعيدي:',
+      'أرضيات الليزر 3D: تمتاز بحواف مرتفعة تلائم منحنيات أرضية السيارة بدقة متناهية، مصنعة من مواد صديقة للبيئة مقاومة للماء بنسبة 100%، وتتميز بسهولة الفك والغسيل بماء بسيط خلال دقائق.',
+      'أرضيات الدايموند 5D: خيار عشاق الفخامة والأناقة، حيث تتكون من 5 طبقات متتالية تشمل الجلد الصناعي الفاخر، طبقة عزل صوتي، وطبقة مطاطية سفلية تمنع الانزلاق وتوفر عزلاً صوتياً ممتازاً لضجيج الطريق.',
+      'أيّهما تختار؟ إذا كان استخدامك يومياً أو في مناطق برية ورمال، فالليزر هو الأنسب. أما إذا كنت ترغب في فخامة استثنائية لمقصورة قيادتك مع عزل صوتي مريح، فالدايموند هو الخيار الأمثل.',
+    ],
+    contentEn: [
+      'Automotive carpets require robust protection against sand, dust, and beverage spills under harsh desert environments.',
+      'Laser 3D Mats: Feature raised perimeter lips molded to the car floor pan using digital laser measurement. Extremely lightweight and washable in seconds.',
+      'Diamond 5D Mats: The crown jewel of interior luxury, incorporating 5 distinct layers including wear-resistant leather, sound deadening foam, and a spiked anti-skid base.',
+      'Which should you choose? For frequent off-road outings and desert sand, choose Laser. For executive refinement and road noise suppression, choose Diamond.',
+    ],
+    sections: [
+      {
+        id: 'sand-challenge',
+        headingAr: '1. التحدي البيئي: رمال الصحراء والرطوبة الشتوية',
+        headingEn: '1. The Environmental Challenge: Sand Grains and Winter Flash Floods',
+        paragraphsAr: [
+          'تعد ذرات الرمل الناعمة في صحاري المملكة (النفود والدهناء وعروق الشيبة) بمثابة مبرد طبيعي يمزق أنسجة موكيت الوكالة عند الاحتكاك بالأحذية. كما أن هطول الأمطار الموسمية المصحوبة بالطين يسبب روائح عفونة مستديمة يصعب التخلص منها في حال تسربها إلى أرضية السيارة الأصلية.',
+          'تأتي أرضيات الحماية المتطورة لتشكل عازلاً محكماً بنسبة 100% يمنع ملامسة أي حبة رمل أو قطرة ماء لموكيت السيارة الأساسي.',
+        ],
+        paragraphsEn: [
+          'Micro-fine sand particles act like sandpaper beneath shoe friction, shredding delicate OEM carpeting fibers. Seasonal flash rain also carries mud into floor cavities, producing stubborn mildew smells if absorbed.',
+          'Custom molded floor liners create an impenetrable 100% sealed perimeter, ensuring that not a single speck of sand or liquid reaches your factory car carpet.',
+        ],
+      },
+      {
+        id: 'spec-comparison',
+        headingAr: '2. جدول المقارنة الفنية الشاملة بين الليزر والدايموند',
+        headingEn: '2. Technical Specification Comparison Table',
+        paragraphsAr: [
+          'يوضح الجدول التالي أهم الفروق التشغيلية والهندسية بين نوعي الأرضيات لمساعدتك في اتخاذ القرار الأمثل وفقاً لنمط قيادتك:',
+        ],
+        paragraphsEn: [
+          'The following table summarizes key engineering and operational differences to assist in selecting the best fit for your vehicle:',
+        ],
+        specTable: [
+          { labelAr: 'مادة التصنيع الأساسية', labelEn: 'Core Material', valueAr: 'ليزر: بوليمر TPE حراري | دايموند: 5 طبقات جلد صناعي وميموري فوم', valueEn: 'Laser: Thermoplastic TPE | Diamond: 5-Layer Eco-Leather & EVA' },
+          { labelAr: 'العزل المائي وسوائل القهوة', labelEn: 'Waterproofing', valueAr: '100% لكلا النوعين بحواف حوضية مرتفعة', valueEn: '100% Impermeable with raised perimeter lips' },
+          { labelAr: 'عزل الصوت وضجيج الطريق (NVH)', labelEn: 'Acoustic Sound Insulation', valueAr: 'الليزر: عزل قياسي | الدايموند: عزل فائق (-3dB)', valueEn: 'Laser: Standard | Diamond: Superior (-3dB road noise reduction)' },
+          { labelAr: 'سرعة التنظيف والفك', labelEn: 'Washing Time', valueAr: 'الليزر: 3 دقائق شطف مباشر | الدايموند: مسح بمنشفة رطبة', valueEn: 'Laser: 3-min water rinse | Diamond: Quick microfiber wipe' },
+        ],
+        tipAr: 'توصية الخبراء: إذا كنت تقود تويوتا برادو أو لاندكروزر أو هايلوكس وتكثر من الطلعات البرية، اختر أرضيات الليزر 3D. أما إذا كنت تقود لكزس أو كامري أو كابرس أو يوكون وتبحث عن الفخامة والهدوء، فالدايموند 5D هي الاختيار المثالي بلا منازع.',
+        tipEn: 'Expert Recommendation: For 4x4 off-road rigs (Land Cruiser, Patrol, Prado), choose Laser 3D. For executive sedans and family SUVs (Lexus, Camry, Yukon), 5D Diamond is the undisputed champion.',
+      },
+    ],
+    relatedProductIds: ['prod-mat-laser', 'prod-mat-diamond', 'prod-mat-triangle'],
+    faq: [
+      {
+        qAr: 'هل تعيق أرضيات الليزر أو الدايموند حركة دعسات البنزين والفرامل؟',
+        qEn: 'Do these mats interfere with accelerator and brake pedals?',
+        aAr: 'مستحيل! جميع أرضيات متجر السعيدي مصممة بمسح ليزري رقمي 3D يترك مسافة أمان مدروسة حول دواسة الفرامل والبنزين مع كلبسات تثبيت مانعة للانزلاق بنسبة 100%.',
+        aEn: 'Never! All liners are engineered via 3D digital chassis scans with dedicated pedal clearance and non-skid anchor grommets guaranteeing zero interference.',
+      },
+    ],
+  },
+  {
+    id: 'blog-leather-maintenance-tips',
+    slug: 'professional-synthetic-leather-car-seat-maintenance-tips',
+    featured: false,
+    views: 2740,
+    likes: 198,
+    categoryKey: 'care-detailing',
+    titleAr: 'دليل المحترفين: أسرار تنظيف وحماية مقاعد وأرضيات الجلد الصناعي من التشقق والبهتان',
+    titleEn: 'Pro Care Tips: Maintaining Eco-Friendly Synthetic Leather Seats & Floor Mats',
+    subtitleAr: 'خطوات عملية سهلة للحفاظ على نعومة الجلد ومقاومة روائح التدخين بدون استخدام مواد كيميائية حارقة',
+    subtitleEn: 'Practical detailing steps to preserve leather suppleness and neutralize odors without corrosive chemicals',
+    categoryAr: 'عناية وتلميع',
+    categoryEn: 'Care & Detailing',
+    date: '5 أكتوبر 2026',
+    readTimeAr: '5 دقائق قراءة',
+    readTimeEn: '5 min read',
+    image: '/images/blog/leather-care-detailing.jpg',
+    author: {
+      nameAr: 'عبدالعزيز الشريف',
+      nameEn: 'Abdulaziz Al-Sharif',
+      roleAr: 'أخصائي ديتيلينغ وعناية داخلية بالسيارات',
+      roleEn: 'Automotive Interior Detailing Specialist',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+      verified: true,
+    },
+    tagsAr: ['تلميع سيارات', 'عناية بالجلد', 'تنظيف مقاعد', 'مايكروفايبر', 'مكة المكرمة'],
+    tagsEn: ['Car Detailing', 'Leather Care', 'Interior Cleaning', 'Microfiber Towels', 'Makkah'],
+    keyTakeawaysAr: [
+      'استخدام قطعة قماش مايكروفايبر مبللة بقليل من الماء الدافئ يزيل 95% من الأتربة السطحية دون خدش الجلد.',
+      'تجنب المنظفات المنزلية ومواد الكلورين والديتول؛ لأنها تسحب طبقة الحماية وتسبب تشقق الخيوط خلال أشهر قليلة.',
+      'معالجة بقع القهوة والمشروبات فوراً بالضغط بقطعة قطنية جافة يمنع تسرب السائل إلى مسام الخياطة الداخلية.',
+      'استخدام واقيات الشمس الأمامية يرفع عمر الجلد الداخلي لأكثر من 5 سنوات ويمنع جفافه.',
+    ],
+    keyTakeawaysEn: [
+      'A damp 400 GSM microfiber towel with lukewarm water lifts 95% of airborne desert dust without scratching top-coat grains.',
+      'Never apply household bleach, degreasers, or chlorine wipes—they strip the UV protective barrier, accelerating seam degradation.',
+      'Blot coffee and soda spills immediately with dry cotton without scrubbing to prevent seepage into stitching holes.',
+      'Deploying reflective windshield shades extends synthetic leather suppleness well beyond 5 years of intense sun exposure.',
+    ],
+    summaryAr: 'طرق بسيطة وفعالة للعناية بالفرش الداخلي والحفاظ على نعومة ولمعان الجلد بدون استخدام مواد كيميائية ضارة قد تتلف خياطة التنجيد أو تسحب طبقة العزل الحراري.',
+    summaryEn: 'Proven and straightforward detailing routines to maintain interior luster and prevent premature wear without harsh abrasive chemicals.',
+    contentAr: [
+      'يتميز الجلد الصناعي صديق البيئة (Eco-friendly synthetic leather) المستخدم في متجر السعيدي بمتانة استثنائية وسهولة فائقة في التنظيف.',
+      '1. التنظيف الأسبوعي بالمايكروفايبر: استخدم قطعة قماش مايكروفايبر مبللة بقليل من الماء الدافئ لمسح الغبار السطحي والأتربة.',
+      '2. إزالة البقع فور حدوثها: في حال انسكاب قهوة أو عصائر، امسح السائل فوراً بقطعة قماش قطنية جافة دون فرك عنيف.',
+      '3. تجنب المنظفات الكاوية أو الكلور: المنظفات الكيميائية القوية تؤدي إلى جفاف الجلد وتلف الخيوط. استخدم دائماً ملمعات مخصصة للسيارات ذات تركيبة مائية.',
+      '4. استخدام شماسات الزجاج: وضع عازل حراري أو شماسة على الزجاج الأمامي عند إيقاف السيارة في الشمس يحافظ على مرونة الجلد لأكثر من 5 سنوات.',
+    ],
+    contentEn: [
+      'The Eco-friendly synthetic leather featured in Al-Saeedi products is engineered for maximum longevity and minimal maintenance.',
+      '1. Weekly Microfiber Wiping: Use a damp microfiber towel with lukewarm water to remove surface dust.',
+      '2. Immediate Spill Response: Blot liquid spills immediately with dry cotton without scrubbing to protect the grain.',
+      '3. Avoid Harsh Solvents: Never use bleach or household cleaners; stick to water-based automotive interior detailers.',
+      '4. Windshield Sunshades: Deploying a reflective shade when parked in direct sunlight extends upholstery flexibility well beyond 5 years.',
+    ],
+    sections: [
+      {
+        id: 'cleaning-protocol',
+        headingAr: '1. بروتوكول التنظيف الأسبوعي المعتمد',
+        headingEn: '1. Certified Weekly Detailing Protocol',
+        paragraphsAr: [
+          'الخطوة الأولى والأهم في الحفاظ على الجلد الصناعي هي التخلص من ذرات الغبار الصحراوية الناعمة قبل أن تتحول إلى عامل احتكاك كاشط مع حركة الركاب.',
+          'كل ما تحتاجه هو منشفة مايكروفايبر ناعمة مبللة بماء فاتر ومعصورة جيداً، وقم بالمسح بحركات دائرية خفيفة على المقاعد والأرضيات مرة واحدة أسبوعياً.',
+        ],
+        paragraphsEn: [
+          'The first and most critical rule of automotive leather maintenance is eliminating microscopic dust particles before they act as abrasive sandpaper under passenger movement.',
+          'All you need is a soft 400 GSM microfiber towel dampened with lukewarm water. Gently wipe the seat bolsters and floor mat surfaces in circular motions once weekly.',
+        ],
+        tipAr: 'نصيحة محترف: لا ترش أي سائل تنظيف مباشرة على المقعد؛ بل رشه دائماً على المنشفة أولاً لتوزيع متساوٍ ولتجنب تجمع السوائل في فتحات الخياطة.',
+        tipEn: 'Pro Tip: Never spray cleaners directly onto the seat; always spray onto your microfiber cloth first to prevent liquid pooling in seam crevices.',
+      },
+    ],
+    relatedProductIds: ['prod-mat-luxury', 'prod-seat-camry-2025-leather'],
+  },
+];
+
+// ============================================================================
+// STORE INFO & BRAND IDENTITY
+// ============================================================================
+export const BLECO_STORE_INFO = {
+  name: 'متجر السعيدي لخدمات السيارات',
+  nameAr: 'متجر السعيدي لخدمات السيارات',
+  nameEn: 'Al-Saeedi Car Services Store',
+  tagline: 'وجهتك الأولى لتنجيد وتلبيس مقاعد السيارات وأرضيات الدايموند بمواصفات الوكالة',
+  taglineAr: 'وجهتك الأولى لتنجيد وتلبيس مقاعد السيارات وأرضيات الدايموند بمواصفات الوكالة',
+  taglineEn: 'Your premier destination for factory-fit seat covers and 5D diamond floor mats',
+  logo: 'https://cdn.salla.sa/cdn-cgi/image/fit=scale-down,width=400,height=400,onerror=redirect,format=auto/wYYVD/OZbzrkkW0icMZlcDNOiZnU4PSjwq6WxXgCkwT0PQ.png',
+  whiteLogo: 'https://cdn.salla.sa/form-builder/IibYRFolYmoAjTQ5Wrlkh3x4xO5daFS8Q8UBy1bH.png',
+  favicon: 'https://cdn.salla.sa/wYYVD/hDQA2Sdhq57Pu48SLcQHt8CGC8jfeqgm4wf6ZWZK.png',
+  phone: '+966597757086',
+  whatsapp: '+966597757086',
+  whatsappUrl: 'https://wa.me/966597757086?text=%D8%A3%D9%87%D9%84%D8%A7%D9%8B%20%D8%A8%D9%83%D8%8C%20%D8%A3%D8%B1%D9%8A%D8%AF%20%D8%A7%D9%84%D8%A7%D8%B3%D8%AA%D9%81%D8%B3%D8%A7%D8%B1%20%D8%B9%D9%86%20%D8%AA%D9%84%D8%A8%D9%8A%D8%B3%D8%A7%D8%AA%20%D9%85%D9%82%D8%A7%D8%B9%D8%AF%20%D8%A7%D9%84%D8%B3%D9%8A%D8%A7%D8%B1%D8%A7%D8%AA',
+  address: 'مكة المكرمة - بطحاء قريش - شارع عتاب بن أسيد، جوار فرع وزارة العدل بطحاء قريش - مقابل مطعم جود الوليمة',
+  addressAr: 'مكة المكرمة - بطحاء قريش - شارع عتاب بن أسيد، جوار فرع وزارة العدل بطحاء قريش - مقابل مطعم جود الوليمة',
+  addressEn: 'Makkah, Batha Quraish, Itab Ibn Asid St., next to Ministry of Justice branch',
+  mapUrl: 'https://maps.app.goo.gl/6raS2hbm13FDzJKn9',
+  crNumber: '7005616136',
+  sbcNumber: '0000180462',
+  businessCenterId: '0000180462',
+  sbcUrl: 'https://eauthenticate.saudibusiness.gov.sa/certificate-details/0000180462',
+  social: {
+    instagram: 'https://www.instagram.com/makkah8cars',
+    snapchat: 'https://www.snapchat.com/add/makkah8cars',
+    tiktok: 'https://www.tiktok.com/@makkah8cars',
+  },
+};

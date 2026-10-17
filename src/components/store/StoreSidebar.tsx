@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { labelForNav, STORE_NAV_KEYS } from '../../i18n/nav';
-import { StoreSwitcher } from '../common/StoreSwitcher';
 import { SaudiSidebarFooter } from '../common/SaudiSidebarFooter';
 import { usePermissions } from '../../hooks/usePermissions';
 import { planAllowsStoreTab } from '../../auth/plans';
@@ -37,7 +36,11 @@ import {
   MessageCircle,
   Image as ImageIcon,
   Archive,
+  Bell,
+  ReceiptText,
+  Files,
 } from 'lucide-react';
+import { useNotifications } from '../../notification-system';
 
 interface StoreSidebarProps {
   currentTab: string;
@@ -54,6 +57,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({ currentTab, onSelect
   const { t, locale } = usePrefs();
   const isAr = locale === 'ar';
   const { canTab } = usePermissions();
+  const { unreadCounts } = useNotifications();
   const [collapsed, setCollapsed] = useState(false);
 
   /** Deep-link into a StoreSEO internal section (page is lazy, so also persist via sessionStorage). */
@@ -76,28 +80,31 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({ currentTab, onSelect
       { id: 'dashboard', icon: LayoutDashboard },
       { id: 'orders', icon: ShoppingCart },
       { id: 'products', icon: Package },
-      { id: 'media', icon: ImageIcon },
       { id: 'categories', icon: FolderTree },
       { id: 'brands', icon: Award },
+      { id: 'media', icon: ImageIcon },
+      { id: 'themes', icon: Palette },
+      { id: 'pages', icon: Files },
       { id: 'customers', icon: Users },
       { id: 'marketing', icon: Megaphone },
+      { id: 'coupons', icon: Tag },
       { id: 'analytics', icon: BarChart3 },
       { id: 'reports', icon: FileText },
-      { id: 'whatsapp', icon: MessageCircle },
-      { id: 'seo', icon: Search },
-      { id: 'coupons', icon: Tag },
+      { id: 'invoices', icon: ReceiptText },
+      { id: 'payments', icon: CreditCard },
       { id: 'shipping', icon: Truck },
+      { id: 'seo', icon: Search },
+      { id: 'whatsapp', icon: MessageCircle },
+      { id: 'notifications', icon: Bell, badge: unreadCounts.total },
       { id: 'hosting', icon: Server },
       { id: 'backup', icon: Archive },
-      { id: 'themes', icon: Palette },
       { id: 'appstore', icon: ShoppingBag },
-      { id: 'payments', icon: CreditCard },
       { id: 'settings', icon: Settings },
     ];
     return all.filter(
       (item) => canTab(item.id, 'store') && planAllowsStoreTab(activeStore, item.id),
     );
-  }, [canTab, activeStore]);
+  }, [canTab, activeStore, unreadCounts.total]);
 
   const sub = resolveSubscription(activeStore.id);
 
@@ -198,8 +205,8 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({ currentTab, onSelect
         </button>
       </div>
 
-      {!collapsed && canAccessMaster ? (
-        <div className="px-2.5 pt-2 space-y-1.5 shrink-0">
+      {!collapsed && canAccessMaster && (
+        <div className="px-2.5 pt-2 shrink-0">
           <button
             type="button"
             onClick={switchToMaster}
@@ -214,12 +221,8 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({ currentTab, onSelect
             <ArrowLeft className="w-4 h-4 shrink-0 rtl:rotate-180" />
             <span className="truncate">{t('returnToMaster')}</span>
           </button>
-          <StoreSwitcher
-            variant="compact"
-            className="w-full [&>button]:w-full [&>button]:max-w-none"
-          />
         </div>
-      ) : null}
+      )}
 
       <nav
         className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5 custom-sidebar-scroll"
@@ -272,19 +275,26 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({ currentTab, onSelect
                   )}
                 </div>
                 {!collapsed && (
-                  hasSubmenu ? (
-                    <ChevronDown
-                      className={`w-3.5 h-3.5 shrink-0 transition-transform ${
-                        productsOpen && isActive ? 'rotate-180 opacity-90' : 'opacity-40'
-                      }`}
-                      aria-hidden
-                    />
-                  ) : (
-                    <ChevronRight
-                      className={`w-3.5 h-3.5 shrink-0 opacity-35 rtl:rotate-180 ${isActive ? 'opacity-80' : ''}`}
-                      aria-hidden
-                    />
-                  )
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {Boolean(item.badge && item.badge > 0) && (
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white leading-tight">
+                        {item.badge! > 9 ? '9+' : item.badge}
+                      </span>
+                    )}
+                    {hasSubmenu ? (
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 shrink-0 transition-transform ${
+                          productsOpen && isActive ? 'rotate-180 opacity-90' : 'opacity-40'
+                        }`}
+                        aria-hidden
+                      />
+                    ) : (
+                      <ChevronRight
+                        className={`w-3.5 h-3.5 shrink-0 opacity-35 rtl:rotate-180 ${isActive ? 'opacity-80' : ''}`}
+                        aria-hidden
+                      />
+                    )}
+                  </div>
                 )}
               </button>
 

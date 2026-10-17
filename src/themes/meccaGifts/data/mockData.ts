@@ -67,8 +67,8 @@ export const HERO_SLIDES: HeroSlide[] = [
 export const EIGHT_FEATURED_CATEGORIES = [
   {
     id: 'cat-card-1',
-    name: 'باقات فاخرة',
-    nameEn: 'Luxury Bouquets',
+    name: 'باقات مختارة',
+    nameEn: 'Selected Bouquets',
     image: 'https://cdn.salla.sa/form-builder/tWCbNfZyZC271qgyhdROpC6ZdS6rCXbqmtvPD8hx.png',
     count: 24
   },

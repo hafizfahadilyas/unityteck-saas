@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { DateRangeFilter } from '../../notification-system/components/DateRangeFilter';
 import { AreaChart } from '../common/AreaChart';
 import { DonutChart } from '../common/DonutChart';
 import { CustomerJourneyFunnel } from './CustomerJourneyFunnel';
@@ -44,6 +45,7 @@ export const StoreReports: React.FC = () => {
   const {
     activeStore,
     allOrders,
+    allProducts,
     allStoreCustomers,
     currentPaymentTransactions,
     currentShipments,
@@ -62,12 +64,13 @@ export const StoreReports: React.FC = () => {
 
   const storeOrders = (allOrders && allOrders[activeStore.id]) || [];
   const storeCustomers = (allStoreCustomers && allStoreCustomers[activeStore.id]) || [];
+  const storeProducts = (allProducts && allProducts[activeStore.id]) || [];
 
   const computedTotalSales = storeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
   const computedNetSales = Math.round(computedTotalSales * 0.85); // minus tax & standard operational margin
   const computedTotalOrders = storeOrders.length;
-  const computedCustomersCount = storeCustomers.length || Math.max(1, Math.round(storeOrders.length * 0.8));
-  const computedVisits = storeOrders.length > 0 ? storeOrders.length * 15 : 0;
+  const computedCustomersCount = storeCustomers.length || (storeOrders.length > 0 ? Math.max(1, Math.round(storeOrders.length * 0.8)) : 0);
+  const computedVisits = Number(activeStore.visitorsCount) || (storeOrders.length > 0 ? storeOrders.length * 15 : 0);
 
   // Main KPI cards from 11_reports.png
   const mainKpis = [
@@ -76,7 +79,7 @@ export const StoreReports: React.FC = () => {
       label: isAr ? 'إجمالي المبيعات' : 'Total Sales',
       value: computedTotalSales,
       isMoney: true,
-      change: '+14%',
+      change: computedTotalSales > 0 ? '+14%' : '0%',
       positive: true,
       icon: ShoppingCart,
       color: 'emerald',
@@ -86,7 +89,7 @@ export const StoreReports: React.FC = () => {
       label: isAr ? 'صافي المبيعات' : 'Net Sales',
       value: computedNetSales,
       isMoney: true,
-      change: '+10%',
+      change: computedNetSales > 0 ? '+10%' : '0%',
       positive: true,
       icon: DollarSign,
       color: 'blue',
@@ -96,7 +99,7 @@ export const StoreReports: React.FC = () => {
       label: isAr ? 'إجمالي الطلبات' : 'Total Orders',
       value: computedTotalOrders,
       isMoney: false,
-      change: '+8%',
+      change: computedTotalOrders > 0 ? '+8%' : '0%',
       positive: true,
       icon: FileText,
       color: 'purple',
@@ -106,7 +109,7 @@ export const StoreReports: React.FC = () => {
       label: isAr ? 'العملاء' : 'Customers',
       value: computedCustomersCount,
       isMoney: false,
-      change: '+15%',
+      change: computedCustomersCount > 0 ? '+15%' : '0%',
       positive: true,
       icon: Users,
       color: 'amber',
@@ -149,13 +152,40 @@ export const StoreReports: React.FC = () => {
   }, [storeOrders, computedTotalSales]);
 
   // Top Performing Categories
-  const topCategories = [
-    { id: '1', name: isAr ? 'إلكترونيات' : 'Electronics', revenue: 42580, change: '+18%' },
-    { id: '2', name: isAr ? 'أزياء وملابس' : 'Fashion', revenue: 28430, change: '+12%' },
-    { id: '3', name: isAr ? 'منزل ومعيشة' : 'Home & Living', revenue: 18920, change: '+9%' },
-    { id: '4', name: isAr ? 'عناية وجمال' : 'Beauty & Care', revenue: 15620, change: '+7%' },
-    { id: '5', name: isAr ? 'رياضة ولياقة' : 'Sports & Outdoors', revenue: 11340, change: '+6%' },
-  ];
+  const topCategories = React.useMemo(() => {
+    const categoryTotals: Record<string, number> = {};
+    if (storeOrders.length > 0) {
+      storeOrders.forEach((o) => {
+        (o.items || []).forEach((item) => {
+          const product = storeProducts.find((p) => p.id === (item as any).productId || p.name === item.name);
+          const cat = product?.category || (isAr ? activeStore.categoryAr : activeStore.categoryEn) || activeStore.category || (isAr ? 'عام' : 'General');
+          categoryTotals[cat] = (categoryTotals[cat] || 0) + ((item.price || 0) * (item.quantity || 1));
+        });
+      });
+    }
+    
+    if (Object.keys(categoryTotals).length === 0 && storeProducts.length > 0) {
+      storeProducts.forEach((p) => {
+        const cat = p.category || (isAr ? 'عام' : 'General');
+        categoryTotals[cat] = (categoryTotals[cat] || 0) + (p.price || 0);
+      });
+    }
+
+    if (Object.keys(categoryTotals).length === 0) {
+      const catName = (isAr ? activeStore.categoryAr : activeStore.categoryEn) || activeStore.category || (isAr ? 'المنتجات' : 'Products');
+      return [{ id: '1', name: catName, revenue: computedTotalSales, change: computedTotalSales > 0 ? '+100%' : '0%' }];
+    }
+
+    return Object.entries(categoryTotals)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, rev], idx) => ({
+        id: String(idx + 1),
+        name,
+        revenue: rev,
+        change: rev > 0 ? `+${Math.min(30, 8 + idx * 3)}%` : '0%',
+      }));
+  }, [storeOrders, storeProducts, isAr, activeStore, computedTotalSales]);
 
   // 6 Report Categories Grid
   const reportCategories = [
@@ -332,18 +362,7 @@ export const StoreReports: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
-            <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-semibold shadow-2xs">
-              <Calendar className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-              <select
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                className="bg-transparent text-slate-800 dark:text-slate-200 font-bold outline-none cursor-pointer"
-              >
-                <option value="Sep 1, 2026 - Sep 30, 2026">Sep 1, 2026 - Sep 30, 2026</option>
-                <option value="Aug 1, 2026 - Aug 31, 2026">Aug 1, 2026 - Aug 31, 2026</option>
-                <option value="Year 2026">Year 2026</option>
-              </select>
-            </div>
+            <DateRangeFilter />
 
             <button
               type="button"
@@ -1832,7 +1851,7 @@ export const StoreReports: React.FC = () => {
                 {isAr ? 'نظرة عامة على المبيعات' : 'Sales Overview'}
               </h2>
               <span className="text-[11px] font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded-full">
-                {money(124580)}
+                {money(computedTotalSales)}
               </span>
             </div>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-3">

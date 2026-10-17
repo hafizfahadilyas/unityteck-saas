@@ -24,6 +24,9 @@ import {
   ToggleRight,
   Sparkles,
   RefreshCw,
+  SlidersHorizontal,
+  HardDrive,
+  Copy,
 } from 'lucide-react';
 import { BrandingPanel } from '../common/BrandingPanel';
 import { DbSyncSettingsCard } from '../common/DbSyncSettingsCard';
@@ -31,10 +34,13 @@ import { bumpStore, bumpCacheTag, platformTag } from '../../api/cacheTags';
 import { useToast } from '../common/ToastProvider';
 import { CURRENCIES, type DisplayCurrency } from '../../i18n/prefs';
 import { MediaUploadField } from '../common/MediaUploadField';
+import { ThresholdSettings } from '../../notification-system/components/ThresholdSettings';
+import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
+import { COFFEE_STORE_WORKSPACE_PATH } from '../../data/coffeeStoreData';
 
 import { readAllThemeSettings, writeAllThemeSettings } from '../../themes/settings/themeSettingsStore';
 
-type SettingsTab = 'general' | 'localization' | 'appearance' | 'maintenance' | 'social' | 'subscription';
+type SettingsTab = 'general' | 'localization' | 'appearance' | 'maintenance' | 'social' | 'subscription' | 'thresholds';
 
 export const StoreSettings: React.FC = () => {
   const { activeStore, updateStorePlan, softRefreshTenantData } = useTenant();
@@ -51,20 +57,47 @@ export const StoreSettings: React.FC = () => {
   }, [activeStore.id, activeStore]);
 
   // Maintenance Mode State
+  const isBleco = activeStore.id === 'store-bleco' || /سيارات|بلاكو|تنجيد|cars|saeedi/i.test(activeStore.name);
+  const isCoffee = activeStore.id === 'store-coffee' || /قهوة|coffee/i.test(activeStore.name);
+
+  const defaultMaintenanceTitleAr = isBleco
+    ? 'نجهز لكم أرقى تجربة تنجيد ودعاسات ليزرية لسيارتكم'
+    : isCoffee
+    ? 'نجهز لكم أرقى تجربة قهوة مختصة ومحاصيل محمصة طازجة'
+    : 'نجهز لكم تجربة إهداء ملكية تليق بأطهر بقاع الأرض';
+
+  const defaultMaintenanceTitleEn = isBleco
+    ? 'Crafting the Ultimate Automotive Styling & Precision Tailored Upholstery'
+    : isCoffee
+    ? 'Brewing the Finest Artisan Specialty Coffee Roasting Experience'
+    : 'Crafting a Royal Floral Gifting Experience in Holy Makkah';
+
+  const defaultMaintenanceSubtitleAr = isBleco
+    ? 'نعمل بكل دقة على تفصيل وتنجيد أحدث أطقم المراتب الجلدية، أرضيات 5D و 7D الليزرية المقاومة للحرارة، واكسسوارات السيارات المعتمدة بأعلى معايير الجودة والضمان.'
+    : isCoffee
+    ? 'نعمل على تحميص أندر محاصيل البن المختص الإثيوبي والكولومبي، وتجهيز مكائن الإسبريسو ومطاحن التروس ومعدات التقطير بأعلى معايير الباريستا.'
+    : 'نعمل بكل حب على تجهيز تشكيلات الزهور الطبيعية الهولندية، شوكولاتة باتشي وبستاني الملكية، وكيك المناسبات لخدمتكم بأعلى معايير الفخامة في فنادق وأحياء مكة المكرمة.';
+
+  const defaultMaintenanceSubtitleEn = isBleco
+    ? 'We are tailoring luxury precision-fit leather seat covers, 5D/7D diamond floor mats, and heat-resistant automotive accessories with comprehensive warranty.'
+    : isCoffee
+    ? 'We are freshly roasting rare specialty coffee beans and curating professional barista espresso and drip gear across Saudi Arabia.'
+    : 'We are arranging the finest natural Dutch blooms, Patchi & Bostani luxury chocolates, and celebratory cakes with 2-hour express delivery to Haram hotels.';
+
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(
     Boolean(initialThemeSettings.maintenance?.enabled)
   );
   const [maintenanceTitleAr, setMaintenanceTitleAr] = useState(
-    initialThemeSettings.maintenance?.titleAr || 'نجهز لكم تجربة إهداء ملكية تليق بأطهر بقاع الأرض'
+    initialThemeSettings.maintenance?.titleAr || defaultMaintenanceTitleAr
   );
   const [maintenanceTitleEn, setMaintenanceTitleEn] = useState(
-    initialThemeSettings.maintenance?.titleEn || 'Crafting a Royal Floral Gifting Experience in Holy Makkah'
+    initialThemeSettings.maintenance?.titleEn || defaultMaintenanceTitleEn
   );
   const [maintenanceSubtitleAr, setMaintenanceSubtitleAr] = useState(
-    initialThemeSettings.maintenance?.subtitleAr || 'نعمل بكل حب على تجهيز تشكيلات الزهور الطبيعية الهولندية، شوكولاتة باتشي وبستاني الملكية، وكيك المناسبات لخدمتكم بأعلى معايير الفخامة في فنادق وأحياء مكة المكرمة.'
+    initialThemeSettings.maintenance?.subtitleAr || defaultMaintenanceSubtitleAr
   );
   const [maintenanceSubtitleEn, setMaintenanceSubtitleEn] = useState(
-    initialThemeSettings.maintenance?.subtitleEn || 'We are arranging the finest natural Dutch blooms, Patchi & Bostani luxury chocolates, and celebratory cakes with 2-hour express delivery to Haram hotels.'
+    initialThemeSettings.maintenance?.subtitleEn || defaultMaintenanceSubtitleEn
   );
   const [launchDate, setLaunchDate] = useState(
     initialThemeSettings.maintenance?.launchDate || '2026-10-25T00:00'
@@ -96,6 +129,9 @@ export const StoreSettings: React.FC = () => {
   );
   const [faviconUrl, setFaviconUrl] = useState('/favicon.svg');
   const [customDomain, setCustomDomain] = useState(`${activeStore.slug}.saudi-stores.com`);
+  const [workspacePath, setWorkspacePath] = useState(
+    activeStore.workspacePath || (isCoffee ? COFFEE_STORE_WORKSPACE_PATH : '')
+  );
 
   // Regional Settings State
   const [timezone, setTimezone] = useState('Asia/Riyadh');
@@ -183,6 +219,11 @@ export const StoreSettings: React.FC = () => {
       label: isAr ? 'الخطة والبيانات' : 'Plan & Isolation',
       icon: ShieldCheck,
     },
+    {
+      id: 'thresholds',
+      label: isAr ? 'عتبات التنبيهات والربط' : 'Alert Thresholds & Integrations',
+      icon: SlidersHorizontal,
+    },
   ];
 
   return (
@@ -225,6 +266,9 @@ export const StoreSettings: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* ── Connected Local Workspace Banner ── */}
+      <ConnectedWorkspaceBanner page="settings" />
 
       {/* ── Sub-Tabs Navigation Strip ── */}
       <div
@@ -401,6 +445,61 @@ export const StoreSettings: React.FC = () => {
                       <span>SSL Active</span>
                     </span>
                   </div>
+                </div>
+
+                {/* Connected Local Workspace Path Setting */}
+                <div className="sm:col-span-2 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold flex items-center gap-1.5" style={{ color: 'var(--text)' }}>
+                      <HardDrive className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+                      <span>{isAr ? 'مسار مجلد المشروع المحلي المرتبط (Local Workspace Path)' : 'Connected Local Workspace Path'}</span>
+                    </label>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                      {isAr ? 'متصل ونشط' : 'Connected & Active'}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={workspacePath}
+                        onChange={(e) => setWorkspacePath(e.target.value)}
+                        placeholder="E:\GOGLE\hibrew-ksa-_-official-coffee-store-متجر-مكائن-ومستلزمات-القهوة"
+                        className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border focus:outline-none"
+                        style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try {
+                          navigator.clipboard.writeText(workspacePath);
+                          toast(isAr ? 'تم نسخ مسار المشروع بنجاح!' : 'Workspace path copied to clipboard!', 'success');
+                        } catch {
+                          toast(isAr ? 'تعذر النسخ' : 'Copy failed', 'error');
+                        }
+                      }}
+                      className="px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800"
+                      style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{isAr ? 'نسخ' : 'Copy'}</span>
+                    </button>
+                    <a
+                      href={`file:///${workspacePath.replace(/\\/g, '/')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-800 hover:bg-amber-900 text-white flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>{isAr ? 'فتح' : 'Open'}</span>
+                    </a>
+                  </div>
+                  <p className="text-[11px] mt-1 text-slate-500 dark:text-slate-400">
+                    {isAr
+                      ? 'مجلد المتجر المحلي الذي يتم ربط ومزامنة المنتجات، الوسائط، الأقسام، ومنشئ الصفحات معه: E:\\GOGLE\\hibrew-ksa-_-official-coffee-store-متجر-مكائن-ومستلزمات-القهوة'
+                      : 'Connected local folder holding live products, media assets, categories and builder data: E:\\GOGLE\\hibrew-ksa-_-official-coffee-store-متجر-مكائن-ومستلزمات-القهوة'}
+                  </p>
                 </div>
               </div>
 
@@ -1008,6 +1107,9 @@ export const StoreSettings: React.FC = () => {
           </div>
         </form>
       )}
+
+      {/* ── TAB: Notification Thresholds & Integrations ── */}
+      {activeTab === 'thresholds' && <ThresholdSettings />}
     </div>
   );
 };

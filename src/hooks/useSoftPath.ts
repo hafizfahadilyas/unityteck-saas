@@ -5,8 +5,12 @@ function pathOnly(urlPath: string): string {
   return q >= 0 ? urlPath.slice(0, q) : urlPath;
 }
 
-/** Soft SPA path (pushState) — no full page reload. Supports `?query` in navigate(). */
-export function useSoftPath(): [string, (path: string) => void] {
+export interface NavigateOptions {
+  replace?: boolean;
+}
+
+/** Soft SPA path (pushState/replaceState) — no full page reload. Supports `?query` in navigate(). */
+export function useSoftPath(): [string, (path: string, options?: NavigateOptions) => void] {
   const [path, setPath] = useState(() =>
     typeof window !== 'undefined' ? window.location.pathname : '/',
   );
@@ -17,7 +21,7 @@ export function useSoftPath(): [string, (path: string) => void] {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  const navigate = useCallback((next: string) => {
+  const navigate = useCallback((next: string, options?: NavigateOptions) => {
     const withSlash = next.startsWith('/') ? next : `/${next}`;
     const pathname = pathOnly(withSlash);
     const full =
@@ -31,7 +35,11 @@ export function useSoftPath(): [string, (path: string) => void] {
       setPath(pathname);
       return;
     }
-    window.history.pushState({}, '', full);
+    if (options?.replace) {
+      window.history.replaceState({}, '', full);
+    } else {
+      window.history.pushState({}, '', full);
+    }
     setPath(pathname);
   }, []);
 

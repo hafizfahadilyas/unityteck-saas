@@ -3,19 +3,21 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Product } from './index';
 import { Header } from './components/Header';
 import { MotionHeroSlider } from './components/MotionHeroSlider';
-import { DiscountedBouquets3DGallery } from './components/DiscountedBouquets3DGallery';
-import { MarqueeBanner } from './components/MarqueeBanner';
+import { StoreFeaturesBar } from './components/StoreFeaturesBar';
 import { TopCircularCategories } from './components/TopCircularCategories';
+import { BestSellersSection } from './components/BestSellersSection';
+import { PromoCountdownBanner } from './components/PromoCountdownBanner';
+import { DiscountedBouquets3DGallery } from './components/DiscountedBouquets3DGallery';
+import { ShopByCategorySection } from './components/ShopByCategorySection';
+import { FeaturedCollectionsSection } from './components/FeaturedCollectionsSection';
+import { OccasionAndWhyUsSection } from './components/OccasionAndWhyUsSection';
+import { CustomGiftBanner } from './components/CustomGiftBanner';
+import { TrendingThisWeekSection } from './components/TrendingThisWeekSection';
+import { TestimonialsSection } from './components/TestimonialsSection';
 import { ProductSectionSlider } from './components/ProductSectionSlider';
 import { PromoBannersPair } from './components/PromoBannersPair';
-import { PromoCountdownBanner } from './components/PromoCountdownBanner';
-import { SocialReelsSection } from './components/SocialReelsSection';
-import { VideoSection } from './components/VideoSection';
-import { StoreFeaturesBar } from './components/StoreFeaturesBar';
-import { MetricsSection } from './components/MetricsSection';
-import { TestimonialsSection } from './components/TestimonialsSection';
 import { FaqSection } from './components/FaqSection';
-import { NewsletterSection } from './components/NewsletterSection';
+import { OfferVideoBanner } from './components/OfferVideoBanner';
 import { MagazineSection } from './components/MagazineSection';
 import { Footer } from './components/Footer';
 import { CartDrawer } from './components/CartDrawer';
@@ -47,6 +49,7 @@ import { ThemePreloader } from '../../components/common/ThemePreloader';
 import { UnderConstructionPage } from '../../components/storefront/UnderConstructionPage';
 import { readAllThemeSettings } from '../settings/themeSettingsStore';
 import { MECCA_LOGO } from '../../data/hadayaMeccaData';
+import { getLiveOrStoredBlocks, ThemeBlockElement } from '../../services/liveThemeSyncService';
 
 interface MeccaGiftsThemeViewProps {
   initialPage?: string;
@@ -57,8 +60,28 @@ interface MeccaGiftsThemeViewProps {
 const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAdmin = false }) => {
   const { currentPage, setCurrentPage, toastMessage, isAuthModalOpen, setIsAuthModalOpen, setLanguage, products } = useApp();
   const { locale } = usePrefs();
-  const { activeStore, addToCart: tenantAddToCart } = useTenant();
+  const { activeStore } = useTenant();
   const [isAdminBypass, setIsAdminBypass] = useState(false);
+  const [blocksTick, setBlocksTick] = useState(0);
+
+  // Live reactivity: listen to page builder publishes and storage sync
+  useEffect(() => {
+    const handleSync = () => setBlocksTick((t) => t + 1);
+    window.addEventListener('unityteck-theme-builder-published', handleSync);
+    window.addEventListener('unityteck-data', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('unityteck-theme-builder-published', handleSync);
+      window.removeEventListener('unityteck-data', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
+
+  const activeBlocks = useMemo(() => {
+    return getLiveOrStoredBlocks(activeStore.id, 'theme-flora-luxe', activeStore).filter(
+      (b) => b.visible !== false && b.type !== 'header' && b.type !== 'footer'
+    );
+  }, [activeStore.id, activeStore, blocksTick]);
 
   const themeSettings = useMemo(() => {
     return readAllThemeSettings(activeStore.id, activeStore);
@@ -82,6 +105,7 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
     };
 
     return {
+      discounted: filterByKeywords(['مخفض', 'عرض', 'خصم', 'promo', 'discount'], DISCOUNTED_BOUQUETS, 6),
       natural: filterByKeywords(['طبيعي', 'باقة', 'rose', 'bouquet', 'peony', 'valent'], NATURAL_BOUQUETS, 6),
       luxury: filterByKeywords(['ملكي', 'سلة', 'طقم', 'vip', 'hamper', 'luxury', 'men', 'نساء'], LUXURY_SETS, 6),
       chocolate: filterByKeywords(['شوكول', 'باتشي', 'بستاني', 'choc'], CHOCOLATE_ROSES, 6),
@@ -117,6 +141,95 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
     );
   }
 
+  const renderSectionBlock = (b: ThemeBlockElement) => {
+    switch (b.type) {
+      case 'hero_slider':
+      case 'hero':
+        return <MotionHeroSlider key={b.id} />;
+      case 'store_features_bar':
+      case 'features':
+        return <StoreFeaturesBar key={b.id} />;
+      case 'circle_categories':
+        return <TopCircularCategories key={b.id} />;
+      case 'best_sellers':
+        return <BestSellersSection key={b.id} />;
+      case 'promo_countdown_banner':
+      case 'special_offer':
+        return <PromoCountdownBanner key={b.id} />;
+      case 'discounted_bouquets_3d':
+        return <DiscountedBouquets3DGallery key={b.id} products={sectionProducts.discounted} />;
+      case 'sec_natural_flowers':
+      case 'product_section_natural':
+        return (
+          <ProductSectionSlider
+            key={b.id}
+            title={locale === 'ar' ? (b.settings?.titleAr || 'باقات الورود الطبيعية') : (b.settings?.titleEn || 'Natural Fresh Flower Bouquets')}
+            titleEn={b.settings?.titleEn || 'Natural Fresh Flower Bouquets'}
+            subtitle={locale === 'ar' ? (b.settings?.subtitleAr || 'أجود أنواع الجوري الهولندي والإكوادوري المنسق بأيدي أمهر الخبراء') : (b.settings?.subtitleEn || 'Finest Dutch and Ecuadorian long-stem roses tailored by master florists')}
+            subtitleEn={b.settings?.subtitleEn || 'Finest Dutch and Ecuadorian long-stem roses tailored by master florists'}
+            products={sectionProducts.natural}
+            categoryFilter="باقات الورود الطبيعية"
+            limit={b.settings?.limit || 6}
+            layout={b.settings?.layout || 'slider'}
+          />
+        );
+      case 'sec_chocolate_roses':
+      case 'product_section_chocolate':
+        return (
+          <ProductSectionSlider
+            key={b.id}
+            title={locale === 'ar' ? (b.settings?.titleAr || 'ورد وشوكولاتة بلجيكية فاخرة') : (b.settings?.titleEn || 'Roses & Luxury Belgian Chocolates')}
+            titleEn={b.settings?.titleEn || 'Roses & Luxury Belgian Chocolates'}
+            subtitle={locale === 'ar' ? (b.settings?.subtitleAr || 'أفخم تشكيلات باتشي وبستاني المنسقة مع باقات الجوري الساحرة') : (b.settings?.subtitleEn || 'Signature Patchi and Bostani chocolate boxes paired with fresh roses')}
+            subtitleEn={b.settings?.subtitleEn || 'Signature Patchi and Bostani chocolate boxes paired with fresh roses'}
+            products={sectionProducts.chocolate}
+            categoryFilter="ورد وشوكولاتة بلجيكية فاخرة"
+            limit={b.settings?.limit || 6}
+            layout={b.settings?.layout || 'slider'}
+          />
+        );
+      case 'sec_luxury_gifts':
+      case 'product_section_luxury':
+        return (
+          <ProductSectionSlider
+            key={b.id}
+            title={locale === 'ar' ? (b.settings?.titleAr || 'هدايا ملكية فاخرة (رجالية ونسائية)') : (b.settings?.titleEn || 'Royal Luxury Gift Sets (Men & Women)')}
+            titleEn={b.settings?.titleEn || 'Royal Luxury Gift Sets (Men & Women)'}
+            subtitle={locale === 'ar' ? (b.settings?.subtitleAr || 'أطقم هدايا استثنائية تضم عطوراً فاخرة، ساعات، أطقم مجوهرات وباقات زهور نضرة') : (b.settings?.subtitleEn || 'Signature executive and feminine luxury gift sets with blooms and fine accessories')}
+            subtitleEn={b.settings?.subtitleEn || 'Signature executive and feminine luxury gift sets with blooms and fine accessories'}
+            products={sectionProducts.luxury}
+            categoryFilter="هدايا رجالية"
+            limit={b.settings?.limit || 6}
+            layout={b.settings?.layout || 'slider'}
+          />
+        );
+      case 'trending_this_week':
+        return <TrendingThisWeekSection key={b.id} />;
+      case 'occasion_why_us':
+        return <OccasionAndWhyUsSection key={b.id} />;
+      case 'custom_gift_banner':
+        return <CustomGiftBanner key={b.id} />;
+      case 'promo_banners_pair':
+        return <PromoBannersPair key={b.id} />;
+      case 'featured_collections':
+      case 'metrics_section':
+        return <FeaturedCollectionsSection key={b.id} />;
+      case 'reviews':
+      case 'testimonials':
+        return <TestimonialsSection key={b.id} />;
+      case 'faq':
+        return <FaqSection key={b.id} />;
+      case 'offer_video_banner':
+        return <OfferVideoBanner key={b.id} />;
+      case 'magazine_section':
+        return <MagazineSection key={b.id} />;
+      case 'shop_by_category':
+        return <ShopByCategorySection key={b.id} />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF9F5] text-[#202521] font-sans relative selection:bg-[#102a1c]/20 overflow-x-hidden w-full max-w-[100vw]">
       {/* Branded Luxury Storefront Preloader */}
@@ -138,7 +251,7 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
       )}
 
       {/* Main Header with Logo, Search, User, Bag, Language & Mega Menu */}
-      <Header />
+      <Header customSettings={themeSettings.customHeader} />
 
       {/* Slide-out Cart Drawer with WhatsApp Order */}
       <CartDrawer />
@@ -156,131 +269,7 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
       <main className="flex-1">
         {(currentPage === 'home' || !['catalog', 'product', 'cart', 'checkout', 'thankyou', 'crm'].includes(currentPage)) && (
           <>
-            {/* 1. 3D Motion Hero Slider with Parallax and New Luxury Visuals */}
-            <MotionHeroSlider />
-
-            {/* 2. Running Marquee Announcement Bar */}
-            <MarqueeBanner />
-
-            {/* 3. Non-Duplicate 3 Dedicated Circular Collections (Store, Occasions, Offers) with Top 6 in each */}
-            <TopCircularCategories />
-
-            {/* 4. Section: باقات ورود طبيعية مخفضة (Discounted Natural Flower Bouquets) - 3D Card Stack Gallery */}
-            <DiscountedBouquets3DGallery />
-
-            {/* 5. Section: باقات الورود الطبيعية (6 Products) */}
-            <ProductSectionSlider
-              title="باقات الورود الطبيعية"
-              titleEn="Natural Fresh Flower Bouquets"
-              subtitle="أجود أنواع الجوري الهولندي والإكوادوري المنسق بأيدي أمهر الخبراء"
-              subtitleEn="Finest Dutch and Ecuadorian long-stem roses tailored by master florists"
-              products={sectionProducts.natural}
-              categoryFilter="باقات الورود الطبيعية"
-              limit={6}
-              layout="slider"
-            />
-
-            {/* 6. Dual Promotional Banners Pair from Mecca Gifts */}
-            <PromoBannersPair />
-
-            {/* 7. Special Countdown Offer Banner (Matching Image 6) */}
-            <PromoCountdownBanner />
-
-            {/* 8. Section: هدايا ملكية فاخرة (رجالية ونسائية) (Matching Image 4 & 5) */}
-            <ProductSectionSlider
-              title="هدايا ملكية فاخرة (رجالية ونسائية)"
-              titleEn="Royal Luxury Gift Sets (Men & Women)"
-              subtitle="أطقم هدايا استثنائية تضم عطوراً فاخرة، ساعات، أطقم مجوهرات وباقات زهور نضرة"
-              subtitleEn="Signature executive and feminine luxury gift sets with blooms and fine accessories"
-              products={sectionProducts.luxury}
-              categoryFilter="هدايا رجالية"
-              limit={6}
-              layout="slider"
-            />
-
-            {/* 9. Section: ورد وشوكولاتة بلجيكية فاخرة (6 Products) */}
-            <ProductSectionSlider
-              title="ورد وشوكولاتة بلجيكية فاخرة"
-              titleEn="Roses & Luxury Belgian Chocolates"
-              subtitle="أفخم تشكيلات باتشي وبستاني المنسقة مع باقات الجوري الساحرة"
-              subtitleEn="Signature Patchi and Bostani chocolate boxes paired with fresh roses"
-              products={sectionProducts.chocolate}
-              categoryFilter="ورد وشوكولاتة بلجيكية فاخرة"
-              limit={6}
-              layout="slider"
-            />
-
-            {/* 10. Section: ورد و كيك (6 Products) */}
-            <ProductSectionSlider
-              title="ورد و كيك"
-              titleEn="Roses & Gourmet Celebration Cakes"
-              subtitle="كيك كوري خاص وكعكات الريد فيلفيت الطازجة لمناسبات أعياد الميلاد والتخرج"
-              subtitleEn="Korean lunchbox cakes and artisan bakery paired with celebratory bouquets"
-              products={sectionProducts.cake}
-              categoryFilter="ورد و كيك"
-              limit={6}
-              layout="slider"
-            />
-
-            {/* 11. Section: ورد و قهوة و حلا (6 Products) */}
-            <ProductSectionSlider
-              title="ورد و قهوة و حلا"
-              titleEn="Roses, Arabic Coffee & Sweets"
-              subtitle="أصالة الضيافة الحجازية مع القهوة العربية والتمور المحشوة والحلويات"
-              subtitleEn="Authentic Hijazi hospitality blending Arabic cardamom coffee with blooms"
-              products={sectionProducts.coffee}
-              categoryFilter="ورد و قهوة و حلا"
-              limit={6}
-              layout="slider"
-            />
-
-            {/* 12. Section: فازات ورود طبيعية (6 Products) */}
-            <ProductSectionSlider
-              title="فازات ورود طبيعية"
-              titleEn="Natural Flower Vases"
-              subtitle="فازات كريستالية وسيراميك راقية تدوم طويلاً لتزيين المجالس والمكاتب"
-              subtitleEn="Hand-cut crystal and fluted ceramic vases elevating homes and offices"
-              products={sectionProducts.vases}
-              categoryFilter="فازات ورود طبيعية"
-              limit={6}
-              layout="slider"
-            />
-
-            {/* 13. Section: لوحات مواجيب وتراث حجازي */}
-            <ProductSectionSlider
-              title="لوحات مواجيب وتراث حجازي"
-              titleEn="Mawajeeb Wooden Plaques & Heritage"
-              subtitle="لوحات تذكارية وتراث حجازي عريق مع ورد وبخور مروكي فاخر"
-              subtitleEn="Hand-carved wooden heritage plaques with authentic Maroki oud and fresh roses"
-              products={sectionProducts.mawajeeb}
-              categoryFilter="لوحات مواجيب"
-              limit={4}
-              layout="grid"
-            />
-
-            {/* 13. Top 4 TikTok & Snapchat Social Media Video Reels */}
-            <SocialReelsSection />
-
-            {/* 14. Real Video Section: هدايا فريدة بروح الحجاز */}
-            <VideoSection />
-
-            {/* 15. Store Features with Animated Icons */}
-            <StoreFeaturesBar />
-
-            {/* 16. Metrics & Social Proof */}
-            <MetricsSection />
-
-            {/* 17. Real Mecca Gifts Testimonials */}
-            <TestimonialsSection />
-
-            {/* 18. FAQ Section */}
-            <FaqSection />
-
-            {/* 19. Sculptural Mecca Gifts Articles & Journal */}
-            <MagazineSection />
-
-            {/* 20. VIP Newsletter Subscription */}
-            <NewsletterSection />
+            {activeBlocks.map((b) => renderSectionBlock(b))}
           </>
         )}
 
@@ -292,13 +281,13 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
         {currentPage === 'crm' && <UserCrmPage />}
       </main>
 
-      {/* Luxury Emerald Footer with Tax ID & Platform Verification */}
+      {/* Luxury Emerald Footer matching Image 2 */}
       <Footer />
 
       {/* Mobile-First Sticky Bottom Nav */}
       <MobileBottomNav />
 
-      {/* Floating WhatsApp Concierge Button — Public storefront only, never in Admin Dashboard */}
+      {/* Floating WhatsApp Concierge Button */}
       {!isAdmin && <WhatsAppFloatingButton isAdmin={isAdmin} />}
     </div>
   );

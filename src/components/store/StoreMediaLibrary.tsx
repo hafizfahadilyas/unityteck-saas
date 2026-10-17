@@ -45,6 +45,9 @@ import {
   parseGoogleDriveUrl,
   getCacheBustedUrl
 } from '../../utils/mediaOptimizer';
+import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
+import { isApiEnabled } from '../../api/client';
+import { uploadMediaFile, replaceMediaWithFile } from '../../api/tenantApi';
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'newest' | 'oldest' | 'largest' | 'smallest' | 'most_used' | 'name';
@@ -58,10 +61,12 @@ export const StoreMediaLibrary: React.FC = () => {
     deleteMediaAsset,
     replaceMediaAsset,
     getMediaUsages,
+    syncProductImagesToMedia,
   } = useTenant();
   const { locale, t } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Layout & Filtering State
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -229,6 +234,22 @@ export const StoreMediaLibrary: React.FC = () => {
       const qId = newQueueItems[i].id;
       const type = detectMediaType(file.type, file.name);
 
+      // Check video size limit (max 35MB for web streaming speed)
+      if (type === 'video' && file.size > 35 * 1024 * 1024) {
+        toast(
+          isAr
+            ? `حجم الفيديو "${file.name}" كبير جداً (${formatBytes(file.size)}). الحد الأقصى المسموح 35 ميجابايت لضمان سرعة تحميل المتجر.`
+            : `Video "${file.name}" exceeds 35MB limit (${formatBytes(file.size)}). Please compress video or use web format to keep store fast.`,
+          'error',
+        );
+        setUploadQueue((prev) =>
+          prev.map((item) =>
+            item.id === qId ? { ...item, status: 'failed', progress: 100 } : item,
+          ),
+        );
+        continue;
+      }
+
       try {
         if (type === 'image' || type === 'gif' || type === 'svg') {
           let optimizedResult;
@@ -241,6 +262,7 @@ export const StoreMediaLibrary: React.FC = () => {
               reader.readAsDataURL(file);
             });
             optimizedResult = {
+              file,
               dataUrl,
               webpUrl: dataUrl,
               thumbnailDataUrl: dataUrl,
@@ -250,6 +272,18 @@ export const StoreMediaLibrary: React.FC = () => {
               compressedSize: file.size,
               savingsPct: 0,
             };
+          }
+
+          let serverAsset: MediaAsset | null = null;
+          const uploadTargetFile = optimizedResult.file || file;
+          if (isApiEnabled() && activeStore) {
+            try {
+              serverAsset = await uploadMediaFile(activeStore.id, uploadTargetFile, {
+                folder: selectedFolder !== 'all' ? selectedFolder : 'general',
+              });
+            } catch (apiErr) {
+              console.warn('API multipart upload failed, using local asset:', apiErr);
+            }
           }
 
           setUploadQueue((prev) =>
@@ -263,7 +297,7 @@ export const StoreMediaLibrary: React.FC = () => {
                       optimizedResult.savingsPct > 0
                         ? `-${optimizedResult.savingsPct}% WebP`
                         : 'WebP',
-                    thumb: optimizedResult.thumbnailDataUrl,
+                    thumb: serverAsset?.thumbnailUrl || optimizedResult.thumbnailDataUrl,
                   }
                 : item,
             ),
@@ -274,13 +308,13 @@ export const StoreMediaLibrary: React.FC = () => {
             title: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
             fileType: type,
             mimeType: file.type || 'image/jpeg',
-            fileSize: optimizedResult.compressedSize,
-            width: optimizedResult.width,
-            height: optimizedResult.height,
-            originalUrl: optimizedResult.dataUrl,
-            optimizedUrl: optimizedResult.webpUrl,
-            webpUrl: optimizedResult.webpUrl,
-            thumbnailUrl: optimizedResult.thumbnailDataUrl,
+            fileSize: serverAsset?.fileSize || optimizedResult.compressedSize,
+            width: serverAsset?.width || optimizedResult.width,
+            height: serverAsset?.height || optimizedResult.height,
+            originalUrl: serverAsset?.originalUrl || optimizedResult.dataUrl,
+            optimizedUrl: serverAsset?.optimizedUrl || optimizedResult.webpUrl,
+            webpUrl: serverAsset?.webpUrl || optimizedResult.webpUrl,
+            thumbnailUrl: serverAsset?.thumbnailUrl || optimizedResult.thumbnailDataUrl,
             folder: selectedFolder !== 'all' ? selectedFolder : 'general',
             tags: [type, activeStore.category?.toLowerCase() || 'general'],
             processingStatus: 'ready',
@@ -295,11 +329,22 @@ export const StoreMediaLibrary: React.FC = () => {
           setSelectedAsset(newAsset);
         } else if (type === 'video') {
           const videoMeta = await extractVideoMetadata(file);
-          const dataUrl = await new Promise<string>((res) => {
+          let serverAsset: MediaAsset | null = null;
+          if (isApiEnabled() && activeStore) {
+            try {
+              serverAsset = await uploadMediaFile(activeStore.id, file, {
+                folder: selectedFolder !== 'all' ? selectedFolder : 'marketing',
+              });
+            } catch (apiErr) {
+              console.warn('API multipart upload failed for video, using local asset:', apiErr);
+            }
+          }
+
+          const dataUrl = serverAsset?.originalUrl || (await new Promise<string>((res) => {
             const reader = new FileReader();
             reader.onload = (e) => res(e.target?.result as string);
             reader.readAsDataURL(file);
-          });
+          }));
 
           setUploadQueue((prev) =>
             prev.map((item) =>
@@ -309,7 +354,7 @@ export const StoreMediaLibrary: React.FC = () => {
                     progress: 100,
                     status: 'ready',
                     savings: 'Web Streaming',
-                    thumb: videoMeta.posterUrl,
+                    thumb: serverAsset?.thumbnailUrl || videoMeta.posterUrl,
                   }
                 : item,
             ),
@@ -320,14 +365,14 @@ export const StoreMediaLibrary: React.FC = () => {
             title: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
             fileType: 'video',
             mimeType: file.type || 'video/mp4',
-            fileSize: file.size,
-            width: videoMeta.width,
-            height: videoMeta.height,
+            fileSize: serverAsset?.fileSize || file.size,
+            width: serverAsset?.width || videoMeta.width,
+            height: serverAsset?.height || videoMeta.height,
             duration: videoMeta.duration,
-            originalUrl: dataUrl,
-            optimizedUrl: dataUrl,
-            posterUrl: videoMeta.posterUrl,
-            thumbnailUrl: videoMeta.posterUrl,
+            originalUrl: serverAsset?.originalUrl || dataUrl,
+            optimizedUrl: serverAsset?.optimizedUrl || dataUrl,
+            posterUrl: serverAsset?.posterUrl || videoMeta.posterUrl,
+            thumbnailUrl: serverAsset?.thumbnailUrl || videoMeta.posterUrl,
             folder: selectedFolder !== 'all' ? selectedFolder : 'marketing',
             tags: ['video', 'marketing'],
             processingStatus: 'ready',
@@ -406,6 +451,20 @@ export const StoreMediaLibrary: React.FC = () => {
     }, 500);
   };
 
+  const handleSyncProductImages = () => {
+    setIsSyncing(true);
+    const added = syncProductImagesToMedia();
+    setTimeout(() => {
+      setIsSyncing(false);
+      toast(
+        isAr
+          ? `تم فحص ومزامنة صور المنتجات بنجاح (${added > 0 ? `تم إضافة ${added} صورة جديدة للمكتبة` : 'جميع صور منتجات المتجر محدثة وموجودة بالمكتبة'})`
+          : `Catalog images synchronized successfully (${added > 0 ? `${added} new images indexed` : 'All product images are already in library'})`,
+        'success',
+      );
+    }, 350);
+  };
+
   // Replace Asset Flow
   const handleTriggerReplace = (asset: MediaAsset) => {
     setReplaceTargetAsset(asset);
@@ -418,18 +477,55 @@ export const StoreMediaLibrary: React.FC = () => {
 
     const type = detectMediaType(file.type, file.name);
 
+    let optResult: any = null;
+    let targetUploadFile = file;
+
     if (type === 'image') {
-      const opt = await optimizeImageFile(file);
+      optResult = await optimizeImageFile(file);
+      targetUploadFile = optResult.file;
+    }
+
+    if (isApiEnabled() && activeStore) {
+      try {
+        const replaceRes = await replaceMediaWithFile(activeStore.id, replaceTargetAsset.id, targetUploadFile);
+        if (replaceRes?.url) {
+          replaceMediaAsset(replaceTargetAsset.id, {
+            url: replaceRes.url,
+            optimizedUrl: replaceRes.url,
+            webpUrl: replaceRes.url,
+            thumbnailUrl: replaceRes.url,
+            fileName: targetUploadFile.name,
+            fileSize: optResult?.compressedSize || file.size,
+            fileType: type,
+            mimeType: targetUploadFile.type || 'image/webp',
+          });
+
+          toast(
+            isAr
+              ? 'تم استبدال الملف وتحديث جميع مواضع الاستخدام مع تفريغ الكاش القديم فورا!'
+              : 'Media replaced successfully! All product/banner references updated with 0ms cache refresh.',
+            'success',
+          );
+          setReplaceTargetAsset(null);
+          return;
+        }
+      } catch (err) {
+        console.warn('API replaceMediaWithFile failed, falling back to local replace:', err);
+      }
+    }
+
+    if (type === 'image') {
+      const opt = optResult || (await optimizeImageFile(file));
       replaceMediaAsset(replaceTargetAsset.id, {
         url: opt.dataUrl,
         optimizedUrl: opt.webpUrl,
         webpUrl: opt.webpUrl,
         thumbnailUrl: opt.thumbnailDataUrl,
-        fileName: file.name,
+        fileName: opt.file.name,
         fileSize: opt.compressedSize,
         width: opt.width,
         height: opt.height,
-        mimeType: file.type || 'image/jpeg',
+        mimeType: 'image/webp',
         fileType: 'image',
       });
     } else {
@@ -536,6 +632,22 @@ export const StoreMediaLibrary: React.FC = () => {
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
+            onClick={handleSyncProductImages}
+            disabled={isSyncing}
+            className="px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+            style={{
+              borderColor: 'var(--border)',
+              background: 'var(--surface)',
+              color: 'var(--text)',
+            }}
+            title={isAr ? 'فحص ومزامنة صور كتالوج المنتجات' : 'Sync catalog product images'}
+          >
+            <RefreshCw className={`w-4 h-4 text-blue-500 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isAr ? 'مزامنة صور المنتجات' : 'Sync Product Images'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsGdriveModalOpen(true)}
             className="px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             style={{
@@ -558,6 +670,9 @@ export const StoreMediaLibrary: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* ── Connected Local Project Workspace Banner ── */}
+      <ConnectedWorkspaceBanner page="media" />
 
       {/* ── Storage & Insights Metric Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
@@ -661,13 +776,16 @@ export const StoreMediaLibrary: React.FC = () => {
             <UploadCloud className="w-6 h-6" />
           </div>
           <div className="text-center sm:text-start">
-            <div className="font-extrabold text-sm" style={{ color: 'var(--text)' }}>
-              {isAr ? 'اسحب الصور والفيديوهات هنا للرفع الفوري والتحسين التلقائي' : 'Drag & drop images, GIFs or videos here to upload and optimize'}
+            <div className="font-extrabold text-sm flex items-center justify-center sm:justify-start gap-2" style={{ color: 'var(--text)' }}>
+              <span>{isAr ? 'اسحب الصور والفيديوهات هنا للرفع الفوري والتحسين التلقائي' : 'Drag & drop images, GIFs or videos here to upload and optimize'}</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400">
+                {isAr ? 'مضغوط تلقائياً بالكيلوبايت KB' : 'Auto AI KB Optimized'}
+              </span>
             </div>
             <p className="text-[11px] text-muted mt-0.5">
               {isAr
-                ? 'تحويل فوري إلى WebP عالي الكفاءة، تقليل الحجم حتى 60% بدون فقدان الجودة، واستخراج صور الغلاف للفيديو.'
-                : 'Auto WebP generation, loss-free compression, video thumbnail extraction, and instant CDN caching.'}
+                ? 'تحويل ذكي للصور إلى WebP بحجم خفيف (كيلوبايت فقط مع الحفاظ التام على جودة العرض)، وتقييد الفيديوهات حتى 35 ميجابايت لأقصى سرعة للمتجر.'
+                : 'Smart WebP conversion strictly in KB (no MB bloat) with high-definition clarity. Videos capped at 35MB for ultra-fast storefront speed.'}
             </p>
           </div>
           <button

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { AreaChart } from '../common/AreaChart';
@@ -11,6 +11,7 @@ import {
   Crown,
   Calendar,
   ChevronDown,
+  Check,
   Store as StoreIcon,
   Package,
   ShoppingCart,
@@ -41,6 +42,13 @@ import {
   sparkFromSeries,
   rangeBounds,
 } from '../../utils/liveSeries';
+import {
+  getStoreDisplayName,
+  getStoreDisplayCategory,
+  getStoreDisplayOwner,
+  getProductDisplayName,
+  getProductDisplayCategory,
+} from '../../utils/storeLocalization';
 
 interface MasterDashboardProps {
   onOpenCreateStore: () => void;
@@ -75,6 +83,79 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
   const isAr = locale === 'ar';
 
   const [dateRange, setDateRange] = useState<DateRangeKey>('month');
+  const [showDateDropdown, setShowDateDropdown] = useState(false);
+  const dateDropdownRef = useRef<HTMLDivElement>(null);
+  const [liveClock, setLiveClock] = useState<Date>(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveClock(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!showDateDropdown) return;
+    const handleClick = (e: MouseEvent) => {
+      if (dateDropdownRef.current && !dateDropdownRef.current.contains(e.target as Node)) {
+        setShowDateDropdown(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowDateDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showDateDropdown]);
+
+  const DATE_PRESETS = useMemo(() => {
+    const isArabic = locale === 'ar';
+    return [
+      {
+        key: 'today' as const,
+        label: isArabic ? 'اليوم' : 'Today',
+        badge: isArabic ? 'مباشر' : 'Live',
+        desc: isArabic ? 'بيانات اليوم الحالي' : "Today's metrics & orders",
+      },
+      {
+        key: 'yesterday' as const,
+        label: isArabic ? 'أمس' : 'Yesterday',
+        badge: isArabic ? 'يوم سابق' : 'Past 24h',
+        desc: isArabic ? 'بيانات يوم أمس' : "Yesterday's completed data",
+      },
+      {
+        key: 'week' as const,
+        label: isArabic ? 'آخر 7 أيام (أسبوعي)' : 'Weekly (Last 7 Days)',
+        badge: isArabic ? '7 أيام' : '7 Days',
+        desc: isArabic ? 'نظرة عامة على الأسبوع' : 'Past 7 days performance',
+      },
+      {
+        key: 'month' as const,
+        label: isArabic ? 'آخر 30 يوماً (شهري)' : 'Monthly (Last 30 Days)',
+        badge: isArabic ? '30 يوماً' : '30 Days',
+        desc: isArabic ? 'نشاط الشهر الحالي' : 'Past 30 days summary',
+      },
+      {
+        key: 'year' as const,
+        label: isArabic ? 'آخر 12 شهراً (سنوي)' : 'Yearly (Last 12 Months)',
+        badge: isArabic ? '12 شهراً' : '12 Mo',
+        desc: isArabic ? 'الأداء السنوي المتراكم' : 'Full year performance',
+      },
+      {
+        key: 'all' as const,
+        label: isArabic ? 'جميع الفترات (شامل)' : 'All Time (Full Data)',
+        badge: isArabic ? 'الكل' : 'All',
+        desc: isArabic ? 'كامل سجل المنصة التاريخي' : 'Complete lifetime platform data',
+      },
+    ];
+  }, [locale]);
+
   const [storeTableSearch, setStoreTableSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [sortField, setSortField] = useState<'revenue' | 'orders' | 'products'>('revenue');
@@ -94,20 +175,31 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
   );
 
   const categories = useMemo(() => {
-    const set = new Set(stores.map((s) => s.category).filter(Boolean));
+    const set = new Set(stores.map((s) => getStoreDisplayCategory(s, locale)).filter(Boolean));
     return ['All', ...Array.from(set).sort()];
-  }, [stores]);
+  }, [stores, locale]);
 
   const filteredStores = useMemo(() => {
     const q = storeTableSearch.trim().toLowerCase();
     return stores
       .filter((s) => {
+        const displayName = getStoreDisplayName(s, locale).toLowerCase();
+        const displayCategory = getStoreDisplayCategory(s, locale).toLowerCase();
+        const displayOwner = getStoreDisplayOwner(s, locale).toLowerCase();
         const matchesSearch =
           !q ||
           s.name.toLowerCase().includes(q) ||
+          (s.nameEn && s.nameEn.toLowerCase().includes(q)) ||
+          (s.nameAr && s.nameAr.toLowerCase().includes(q)) ||
+          displayName.includes(q) ||
+          displayOwner.includes(q) ||
+          displayCategory.includes(q) ||
           s.owner.toLowerCase().includes(q) ||
           s.category.toLowerCase().includes(q);
-        const matchesCategory = selectedCategory === 'All' || s.category === selectedCategory;
+        const matchesCategory =
+          selectedCategory === 'All' ||
+          getStoreDisplayCategory(s, locale) === selectedCategory ||
+          s.category === selectedCategory;
         return matchesSearch && matchesCategory;
       })
       .sort((a, b) => {
@@ -115,7 +207,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
         if (sortField === 'orders') return b.ordersCount - a.ordersCount;
         return b.productsCount - a.productsCount;
       });
-  }, [stores, storeTableSearch, selectedCategory, sortField]);
+  }, [stores, storeTableSearch, selectedCategory, sortField, locale]);
 
   const pageCount = Math.max(1, Math.ceil(filteredStores.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -186,11 +278,11 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
   // Product performance matching categories breakdown
   const productPerformanceSegments = useMemo(() => {
     if (!flatProducts.length) {
-      return [{ label: 'No Products', value: 1, color: '#94a3b8' }];
+      return [{ label: isAr ? 'لا توجد منتجات' : 'No Products', value: 1, color: '#94a3b8' }];
     }
     const counts: Record<string, number> = {};
     flatProducts.forEach((p) => {
-      const cat = p.category || 'General';
+      const cat = getProductDisplayCategory(p, locale) || (isAr ? 'عام' : 'General');
       counts[cat] = (counts[cat] || 0) + 1;
     });
     const colors = ['#004d5a', '#00b4d8', '#48cae4', '#ff758f', '#7b2cbf', '#f59e0b', '#10b981', '#94a3b8'];
@@ -202,7 +294,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
         value,
         color: colors[idx % colors.length],
       }));
-  }, [flatProducts]);
+  }, [flatProducts, locale, isAr]);
 
   // Store performance 3D cylinder bars from live stores revenue
   const cylinderStoreItems = useMemo(() => {
@@ -211,7 +303,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
     const colors = ['#004d5a', '#00838f', '#00acc1', '#64748b'];
     if (totalRev === 0) {
       return stores.slice(0, 4).map((s, idx) => ({
-        label: s.name,
+        label: getStoreDisplayName(s, locale),
         percentage: Math.round(100 / Math.min(stores.length, 4)),
         color: colors[idx % colors.length],
       }));
@@ -222,7 +314,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
     const restRevenue = rest.reduce((sum, s) => sum + (s.revenue || 0), 0);
 
     const items = top3.map((s, idx) => ({
-      label: s.name,
+      label: getStoreDisplayName(s, locale),
       percentage: Math.max(1, Math.round(((s.revenue || 0) / totalRev) * 100)),
       color: colors[idx % colors.length],
     }));
@@ -234,7 +326,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
       });
     }
     return items;
-  }, [stores, t]);
+  }, [stores, t, locale, isAr]);
 
   const dateLabel = useMemo(() => {
     const bounds = rangeBounds(dateRange);
@@ -244,10 +336,35 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
         day: 'numeric',
         year: 'numeric',
       });
-    if (!bounds) return 'Apr 26, 2025 – May 26, 2025';
-    if (dateRange === 'today' || dateRange === 'yesterday') return fmt(bounds.start);
+    if (!bounds || dateRange === 'all') {
+      return locale === 'ar' ? 'جميع الفترات (شامل)' : 'All Time (Full Data)';
+    }
+    if (dateRange === 'today') {
+      return locale === 'ar' ? `اليوم · ${fmt(bounds.start)}` : `Today · ${fmt(bounds.start)}`;
+    }
+    if (dateRange === 'yesterday') {
+      return locale === 'ar' ? `أمس · ${fmt(bounds.start)}` : `Yesterday · ${fmt(bounds.start)}`;
+    }
     return `${fmt(bounds.start)} – ${fmt(bounds.end)}`;
   }, [dateRange, locale]);
+
+  const formattedLiveTime = useMemo(() => {
+    return liveClock.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+  }, [liveClock, locale]);
+
+  const formattedLiveDate = useMemo(() => {
+    return liveClock.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }, [liveClock, locale]);
 
   const loc = locale === 'ar' ? 'ar-SA' : 'en-US';
   const vsLastMonth = t('vsLastMonth') || 'vs last month';
@@ -274,106 +391,262 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
     if (recentActivities && recentActivities.length >= 6) {
       return recentActivities.slice(0, 8);
     }
+    const firstStoreName = getStoreDisplayName(stores[0], locale) || (isAr ? 'متجر هدايا مكة' : 'Makkah Flowers');
+    const firstProdName = getProductDisplayName(flatProducts[0], locale) || (isAr ? 'عقد ذهب عيار 18' : 'Gold Necklace 18K');
     return [
       {
         id: 'act-1',
-        title: 'New store created',
-        subtitle: stores[0]?.name || 'Fahad Jewelry Store',
-        timeAgo: '2 minutes ago',
+        title: isAr ? 'تم إنشاء متجر جديد' : 'New store created',
+        subtitle: firstStoreName,
+        timeAgo: isAr ? 'منذ دقيقتين' : '2 minutes ago',
         icon: StoreIcon,
       },
       {
         id: 'act-2',
-        title: 'New order received',
-        subtitle: flatOrders[0]?.orderNumber ? `${flatOrders[0].orderNumber} · ${money(flatOrders[0].total)}` : 'Order #ORD-4587',
-        timeAgo: '5 minutes ago',
+        title: isAr ? 'تم استلام طلب جديد' : 'New order received',
+        subtitle: flatOrders[0]?.orderNumber ? `${flatOrders[0].orderNumber} · ${money(flatOrders[0].total)}` : (isAr ? 'طلب #ORD-4587' : 'Order #ORD-4587'),
+        timeAgo: isAr ? 'منذ 5 دقائق' : '5 minutes ago',
         icon: ShoppingCart,
       },
       {
         id: 'act-3',
-        title: 'New product added',
-        subtitle: flatProducts[0]?.name || 'Gold Necklace 18K',
-        timeAgo: '12 minutes ago',
+        title: isAr ? 'تمت إضافة منتج جديد' : 'New product added',
+        subtitle: firstProdName,
+        timeAgo: isAr ? 'منذ 12 دقيقة' : '12 minutes ago',
         icon: Package,
       },
       {
         id: 'act-4',
-        title: 'New customer registered',
-        subtitle: flatCustomers[0]?.name || 'Ahmed Al Qahtani',
-        timeAgo: '18 minutes ago',
+        title: isAr ? 'تسجيل عميل جديد' : 'New customer registered',
+        subtitle: flatCustomers[0]?.name || (isAr ? 'أحمد القحطاني' : 'Ahmed Al Qahtani'),
+        timeAgo: isAr ? 'منذ 18 دقيقة' : '18 minutes ago',
         icon: Users,
       },
       {
         id: 'act-5',
-        title: 'Payment received',
+        title: isAr ? 'تم استلام دفعة مالية' : 'Payment received',
         subtitle: money(flatOrders[0]?.total || 2450),
-        timeAgo: '25 minutes ago',
+        timeAgo: isAr ? 'منذ 25 دقيقة' : '25 minutes ago',
         icon: Coins,
       },
       {
         id: 'act-6',
-        title: 'Promotion active',
-        subtitle: flatCoupons[0]?.code || 'Ramadan Special Offer',
-        timeAgo: '32 minutes ago',
+        title: isAr ? 'عرض ترويجي نشط' : 'Promotion active',
+        subtitle: flatCoupons[0]?.code || (isAr ? 'عرض رمضان الخاص' : 'Ramadan Special Offer'),
+        timeAgo: isAr ? 'منذ 32 دقيقة' : '32 minutes ago',
         icon: Tag,
       },
       {
         id: 'act-7',
-        title: 'Theme updated',
-        subtitle: 'Modern Theme v2.1',
-        timeAgo: '45 minutes ago',
+        title: isAr ? 'تحديث قالب المتجر' : 'Theme updated',
+        subtitle: isAr ? 'القالب الحديث v2.1' : 'Modern Theme v2.1',
+        timeAgo: isAr ? 'منذ 45 دقيقة' : '45 minutes ago',
         icon: Palette,
       },
       {
         id: 'act-8',
-        title: 'Platform active',
-        subtitle: `${stores.length} active stores running`,
-        timeAgo: '1 hour ago',
+        title: isAr ? 'حالة المنصة نشطة' : 'Platform active',
+        subtitle: isAr ? `${stores.length} متاجر نشطة قيد التشغيل` : `${stores.length} active stores running`,
+        timeAgo: isAr ? 'منذ ساعة' : '1 hour ago',
         icon: BookOpen,
       },
     ];
-  }, [recentActivities, stores, flatOrders, flatProducts, flatCustomers, flatCoupons, money]);
+  }, [recentActivities, stores, flatOrders, flatProducts, flatCustomers, flatCoupons, money, locale, isAr]);
 
   return (
     <AdminPageShell className="pb-12">
-      {/* ─── Top Title & Date Bar ─── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
-        <div className="flex items-center gap-3">
+      {/* ─── Top Title & Responsive Date/Time Header ─── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 pb-1">
+        {/* Left: Brand Crown Icon + Title & Subtitle */}
+        <div className="flex items-center gap-3 min-w-0">
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+            className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shrink-0 shadow-2xs"
             style={{
               background: 'color-mix(in srgb, var(--accent) 15%, var(--surface))',
               color: 'var(--accent)',
             }}
           >
-            <Crown className="w-5 h-5" strokeWidth={2.2} />
+            <Crown className="w-5 h-5 sm:w-5.5 sm:h-5.5" strokeWidth={2.2} />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1
-              className="text-xl sm:text-2xl font-black tracking-tight"
+              className="text-xl sm:text-2xl font-black tracking-tight truncate"
               style={{ color: 'var(--text)' }}
             >
               {t('masterDashTitle') || 'Master Admin Dashboard'}
             </h1>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
+            <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--muted)' }}>
               {t('masterDashManage') || 'Manage your multi-store e-commerce platform'}
             </p>
           </div>
         </div>
 
-        {/* Date Filter Dropdown */}
-        <div className="flex items-center gap-2">
+        {/* Right: Real-time Live Clock Badge + Interactive Date Range Filter Dropdown */}
+        <div className="flex items-center flex-wrap sm:flex-nowrap gap-2 sm:gap-2.5 w-full md:w-auto justify-between sm:justify-end shrink-0">
+          {/* Live Real-time Clock Badge */}
           <div
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer transition-colors shadow-xs"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border shadow-2xs select-none shrink-0"
             style={{
               background: 'var(--surface)',
               borderColor: 'var(--border)',
               color: 'var(--text)',
             }}
+            title={`${formattedLiveDate} · ${formattedLiveTime}`}
           >
-            <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--muted)' }} />
-            <span>{dateLabel}</span>
-            <ChevronDown className="w-3.5 h-3.5 ms-1" style={{ color: 'var(--muted)' }} />
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden />
+            <span className="font-mono text-[11px] sm:text-xs font-bold tracking-tight">
+              {formattedLiveTime}
+            </span>
+            <span
+              className="text-[10px] font-bold px-1.5 py-0.5 rounded-md hidden xs:inline"
+              style={{
+                background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                color: 'var(--accent)',
+              }}
+            >
+              {isAr ? 'مباشر' : 'Live'}
+            </span>
+          </div>
+
+          {/* Interactive Date Range Filter Dropdown */}
+          <div className="relative shrink-0" ref={dateDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setShowDateDropdown((prev) => !prev)}
+              aria-expanded={showDateDropdown}
+              aria-haspopup="menu"
+              className="flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer transition-all shadow-xs hover:border-[var(--accent)] active:scale-[0.98]"
+              style={{
+                background: 'var(--surface)',
+                borderColor: showDateDropdown ? 'var(--accent)' : 'var(--border)',
+                color: 'var(--text)',
+              }}
+              title={isAr ? 'تغيير نطاق التاريخ' : 'Change Date Range'}
+            >
+              <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent)' }} aria-hidden />
+              <span className="font-medium truncate max-w-[200px] sm:max-w-none">{dateLabel}</span>
+              <ChevronDown
+                className="w-3.5 h-3.5 ms-1 shrink-0 opacity-70 transition-transform duration-200"
+                style={{
+                  color: 'var(--muted)',
+                  transform: showDateDropdown ? 'rotate(180deg)' : undefined,
+                }}
+                aria-hidden
+              />
+            </button>
+
+            {/* Dropdown Menu Popover */}
+            {showDateDropdown && (
+              <div
+                role="menu"
+                className="absolute end-0 mt-2 w-72 sm:w-80 rounded-2xl border p-2 z-50 text-xs shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-150"
+                style={{
+                  background: 'var(--surface)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text)',
+                  boxShadow: 'var(--card-shadow, 0 20px 25px -5px rgba(0, 0, 0, 0.15))',
+                }}
+              >
+                {/* Popover Header with live date banner */}
+                <div
+                  className="px-3 py-2 border-b mb-1.5 flex items-center justify-between"
+                  style={{ borderColor: 'var(--border)' }}
+                >
+                  <div className="flex items-center gap-1.5 font-bold text-xs">
+                    <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                    <span>{isAr ? 'تصفية بيانات المنصة حسب التاريخ' : 'Filter Platform Date Range'}</span>
+                  </div>
+                  <span className="text-[10px] font-mono opacity-70">
+                    {liveClock.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+
+                {/* Preset Options */}
+                <div className="space-y-0.5">
+                  {DATE_PRESETS.map((preset) => {
+                    const isSelected = dateRange === preset.key;
+                    const bounds = rangeBounds(preset.key);
+                    const rangePreview = bounds
+                      ? `${bounds.start.toLocaleDateString(loc, { month: 'short', day: 'numeric' })} – ${bounds.end.toLocaleDateString(loc, { month: 'short', day: 'numeric', year: 'numeric' })}`
+                      : (isAr ? 'كامل سجل المنصة التاريخي' : 'All lifetime records');
+
+                    return (
+                      <button
+                        key={preset.key}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setDateRange(preset.key);
+                          setShowDateDropdown(false);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl text-start flex items-center justify-between cursor-pointer transition-colors group"
+                        style={{
+                          background: isSelected
+                            ? 'color-mix(in srgb, var(--accent) 12%, transparent)'
+                            : 'transparent',
+                          color: isSelected ? 'var(--accent)' : 'var(--text)',
+                        }}
+                      >
+                        <div className="min-w-0 pe-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs truncate">{preset.label}</span>
+                            <span
+                              className="text-[9px] px-1.5 py-0.5 rounded-md font-semibold shrink-0"
+                              style={{
+                                background: isSelected
+                                  ? 'var(--accent)'
+                                  : 'color-mix(in srgb, var(--border) 50%, transparent)',
+                                color: isSelected ? '#ffffff' : 'var(--muted)',
+                              }}
+                            >
+                              {preset.badge}
+                            </span>
+                          </div>
+                          <p className="text-[10px] mt-0.5 opacity-70 truncate font-mono">
+                            {rangePreview}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <div
+                            className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                            style={{ background: 'var(--accent)', color: '#ffffff' }}
+                          >
+                            <Check className="w-3 h-3 stroke-[2.5]" aria-hidden />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Footer with quick action reset */}
+                <div
+                  className="mt-2 pt-2 border-t px-2 flex items-center justify-between text-[11px]"
+                  style={{ borderColor: 'var(--border)' }}
+                >
+                  <span className="text-[10px] opacity-70" style={{ color: 'var(--muted)' }}>
+                    {isAr ? 'يتم تحديث الرسوم والبطاقات فوراً' : 'Metrics & charts update live'}
+                  </span>
+                  {dateRange !== 'month' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDateRange('month');
+                        setShowDateDropdown(false);
+                      }}
+                      className="font-bold hover:underline cursor-pointer"
+                      style={{ color: 'var(--accent)' }}
+                    >
+                      {isAr ? 'إعادة تعيين (شهري)' : 'Reset (Monthly)'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -868,10 +1141,10 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
                           </span>
                           <div className="min-w-0">
                             <span className="font-bold block truncate" style={{ color: 'var(--text)' }}>
-                              {s.name}
+                              {getStoreDisplayName(s, locale)}
                             </span>
                             <span className="text-[10px] uppercase font-mono" style={{ color: 'var(--muted)' }}>
-                              {s.plan}
+                              {s.plan === 'pro' ? 'Pro' : isAr ? 'مجانية' : s.plan}
                             </span>
                           </div>
                         </div>
@@ -884,11 +1157,11 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
                             color: 'var(--text)',
                           }}
                         >
-                          {s.category || (isAr ? 'تجارة عامة' : 'Retail')}
+                          {getStoreDisplayCategory(s, locale)}
                         </span>
                       </td>
                       <td className="py-3 px-2 whitespace-nowrap font-medium" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
-                        {s.owner}
+                        {getStoreDisplayOwner(s, locale)}
                       </td>
                       <td className="py-3 px-2 text-end tabular-nums font-medium" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
                         {s.productsCount.toLocaleString(loc)}

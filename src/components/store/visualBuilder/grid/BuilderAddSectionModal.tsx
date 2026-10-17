@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   X,
   Layout,
@@ -17,9 +17,10 @@ import {
   Plus,
   Flame,
 } from 'lucide-react';
+import type { ThemeSectionDefinition } from '../../../../themes/types';
 
 export interface NewSectionPayload {
-  layoutColumns: '1' | '2' | '3' | '4' | '5' | '8' | '2-asym-left' | '2-asym-right' | 'bento';
+  layoutColumns: '1' | '2' | '3' | '4' | '5' | '8' | '2-asym-left' | '2-asym-right' | 'bento' | '25-25-50' | '50-25-25' | '25-50-25' | '16-66-16';
   blockType: string;
   titleEn: string;
   titleAr: string;
@@ -31,6 +32,9 @@ interface BuilderAddSectionModalProps {
   onClose: () => void;
   onAddSection: (section: NewSectionPayload) => void;
   isAr: boolean;
+  supportedSections?: ThemeSectionDefinition[];
+  storeCategory?: string;
+  themeName?: string;
 }
 
 export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
@@ -38,6 +42,9 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
   onClose,
   onAddSection,
   isAr,
+  supportedSections,
+  storeCategory,
+  themeName,
 }) => {
   const [selectedColumns, setSelectedColumns] = useState<NewSectionPayload['layoutColumns']>('1');
   const [selectedType, setSelectedType] = useState<string>('hero_slider');
@@ -64,13 +71,61 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
     },
     {
       id: '3' as const,
-      labelAr: '٣ أعمدة متساوية',
+      labelAr: '٣ أعمدة متساوية (٣٣٪ / ٣٣٪ / ٣٣٪)',
       labelEn: '3 Columns (33% each)',
       preview: (
         <div className="flex gap-1 h-6 w-full">
           <div className="h-full flex-1 rounded bg-indigo-500/20 border border-indigo-500/40" />
           <div className="h-full flex-1 rounded bg-indigo-500/20 border border-indigo-500/40" />
           <div className="h-full flex-1 rounded bg-indigo-500/20 border border-indigo-500/40" />
+        </div>
+      ),
+    },
+    {
+      id: '25-25-50' as const,
+      labelAr: '٣ أعمدة (٢٥٪ / ٢٥٪ / ٥٠٪) - Elementor Featured',
+      labelEn: '3 Columns (25%, 25%, 50%)',
+      preview: (
+        <div className="flex gap-1 h-6 w-full">
+          <div className="h-full w-1/4 rounded bg-indigo-500/20 border border-indigo-500/40" />
+          <div className="h-full w-1/4 rounded bg-indigo-500/20 border border-indigo-500/40" />
+          <div className="h-full w-1/2 rounded bg-indigo-500/20 border border-indigo-500/40" />
+        </div>
+      ),
+    },
+    {
+      id: '50-25-25' as const,
+      labelAr: '٣ أعمدة (٥٠٪ / ٢٥٪ / ٢٥٪)',
+      labelEn: '3 Columns (50%, 25%, 25%)',
+      preview: (
+        <div className="flex gap-1 h-6 w-full">
+          <div className="h-full w-1/2 rounded bg-indigo-500/20 border border-indigo-500/40" />
+          <div className="h-full w-1/4 rounded bg-indigo-500/20 border border-indigo-500/40" />
+          <div className="h-full w-1/4 rounded bg-indigo-500/20 border border-indigo-500/40" />
+        </div>
+      ),
+    },
+    {
+      id: '25-50-25' as const,
+      labelAr: '٣ أعمدة (٢٥٪ / ٥٠٪ / ٢٥٪)',
+      labelEn: '3 Columns (25%, 50%, 25%)',
+      preview: (
+        <div className="flex gap-1 h-6 w-full">
+          <div className="h-full w-1/4 rounded bg-indigo-500/20 border border-indigo-500/40" />
+          <div className="h-full w-1/2 rounded bg-indigo-500/20 border border-indigo-500/40" />
+          <div className="h-full w-1/4 rounded bg-indigo-500/20 border border-indigo-500/40" />
+        </div>
+      ),
+    },
+    {
+      id: '16-66-16' as const,
+      labelAr: '٣ أعمدة (١٦٪ / ٦٦٪ / ١٦٪)',
+      labelEn: '3 Columns (16%, 66%, 16%)',
+      preview: (
+        <div className="flex gap-1 h-6 w-full">
+          <div className="h-full w-[16%] rounded bg-indigo-500/20 border border-indigo-500/40" />
+          <div className="h-full w-[68%] rounded bg-indigo-500/20 border border-indigo-500/40" />
+          <div className="h-full w-[16%] rounded bg-indigo-500/20 border border-indigo-500/40" />
         </div>
       ),
     },
@@ -148,7 +203,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
     },
   ];
 
-  const widgetTemplates = [
+  const defaultFlowerWidgets = [
     {
       id: 'hero_slider',
       titleAr: 'سلايدر بانر الواجهة التفاعلي (3D Motion Hero)',
@@ -186,24 +241,6 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
       defaultStyle: '3d_gallery',
     },
     {
-      id: 'dynamic_product_row',
-      titleAr: 'صف منتجات مخصص (Dynamic Product Row / Category)',
-      titleEn: 'Dynamic Product Row & Category Filter',
-      icon: ShoppingBag,
-      descAr: 'تحكم مستقل بصف المنتجات: اختر التصنيف (كيك، باقات، شوكولاتة)، البراند، عدد المنتجات (4، 6، 8) وتخطيط العرض',
-      descEn: 'Elementor-style row: filter by category, brand, set custom limit (4, 6, 8, etc.) and grid/slider layout',
-      defaultStyle: 'slider',
-    },
-    {
-      id: 'shortcode_widget',
-      titleAr: 'عنصر الكود القصير (Shortcode Widget)',
-      titleEn: 'Custom Shortcode Block',
-      icon: Layers,
-      descAr: 'الصق أي كود قصير [products category="..." limit="6"] لعرض المنتجات في أي مكان تلقائياً',
-      descEn: 'Embed any dynamic shortcode to fetch and render products anywhere on page',
-      defaultStyle: 'shortcode',
-    },
-    {
       id: 'product_tabs',
       titleAr: 'سلايدر أقسام وباقات الورود (Product Sliders)',
       titleEn: 'Product Section Sliders',
@@ -220,15 +257,6 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
       descAr: 'زوج بنرات متناسقة لهدايا الحرم وعروض المواسم مع تأثيرات زووم تفاعلية',
       descEn: 'Pair of luxury promotional banners highlighting Haram gifts and seasonal offers',
       defaultStyle: 'pair_banners',
-    },
-    {
-      id: 'promo_countdown_banner',
-      titleAr: 'بنر العرض الحصري مع العداد التنازلي الحي',
-      titleEn: 'Flash Offer Live Countdown Banner',
-      icon: Clock,
-      descAr: 'بنر ترويجي عريض مع عداد تنازلي للساعات والدقائق وزر خصم مباشر',
-      descEn: 'Full-width countdown promotional banner driving urgency and quick conversion',
-      defaultStyle: 'modern_countdown',
     },
     {
       id: 'social_reels',
@@ -249,42 +277,6 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
       defaultStyle: 'cinematic_video',
     },
     {
-      id: 'features',
-      titleAr: 'شارات الثقة ومزايا المتجر الفاخرة',
-      titleEn: 'Store Features & Trust Badges',
-      icon: ShieldCheck,
-      descAr: 'توصيل مبرد خلال ساعتين، ورد هولندي طبيعي، ودفع آمن عبر مدى وآبل باي',
-      descEn: 'Luxury trust badges highlighting refrigerated delivery, fresh imports & secure pay',
-      defaultStyle: 'modern_cards',
-    },
-    {
-      id: 'statistics',
-      titleAr: 'إحصائيات وأرقام المتجر الموثقة',
-      titleEn: 'Store Milestones & Counters',
-      icon: BarChart2,
-      descAr: '١٥,٠٠٠+ باقة منسقة، ٥٠+ فندق، و٤.٩ تقييم ضيوف الحرم',
-      descEn: 'Animated counters highlighting verified deliveries, partner hotels and ratings',
-      defaultStyle: 'counter_cards',
-    },
-    {
-      id: 'reviews',
-      titleAr: 'تقييمات وآراء ضيوف الحرم ونزلاء الفنادق',
-      titleEn: 'Verified Guest Reviews & Testimonials',
-      icon: Star,
-      descAr: 'تجارب حقيقية موثقة من نزلاء أبراج الساعة وفنادق الحرم المكي الشريف',
-      descEn: 'Verified customer testimonials with star ratings and hotel delivery tags',
-      defaultStyle: 'star_cards',
-    },
-    {
-      id: 'faq',
-      titleAr: 'الأسئلة الشائعة حول التوصيل والدفع في مكة',
-      titleEn: 'Makkah Delivery & Payment FAQ',
-      icon: HelpCircle,
-      descAr: 'أكورديون تفاعلي يوضح آلية التوصيل لفنادق الحرم، التغليف، وطرق الدفع',
-      descEn: 'Expandable accordion answering delivery to Haram hotels, packaging and payment',
-      defaultStyle: 'accordion',
-    },
-    {
       id: 'magazine_section',
       titleAr: 'مجلة ومقالات هدايا مكة (Magazine & Journal)',
       titleEn: 'Mecca Gifts Magazine & Articles',
@@ -303,6 +295,115 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
       defaultStyle: 'vip_newsletter',
     },
   ];
+
+  const universalWidgets = [
+    {
+      id: 'dynamic_product_row',
+      titleAr: 'صف منتجات مخصص (Dynamic Product Row / Category)',
+      titleEn: 'Dynamic Product Row & Category Filter',
+      icon: ShoppingBag,
+      descAr: 'تحكم مستقل بصف المنتجات: اختر التصنيف، البراند، عدد المنتجات (4، 6، 8) وتخطيط العرض',
+      descEn: 'Elementor-style row: filter by category, brand, set custom limit (4, 6, 8, etc.) and grid/slider layout',
+      defaultStyle: 'slider',
+    },
+    {
+      id: 'shortcode_widget',
+      titleAr: 'عنصر الكود القصير (Shortcode Widget)',
+      titleEn: 'Custom Shortcode Block',
+      icon: Layers,
+      descAr: 'الصق أي كود قصير [products category="..." limit="6"] لعرض المنتجات في أي مكان تلقائياً',
+      descEn: 'Embed any dynamic shortcode to fetch and render products anywhere on page',
+      defaultStyle: 'shortcode',
+    },
+    {
+      id: 'columns_container',
+      titleAr: 'حاوية أعمدة شبكية / قسم داخلي (Inner Section)',
+      titleEn: 'Inner Section / Multi-Column Grid',
+      icon: Layout,
+      descAr: 'قسم مرن متعدد الأعمدة مثل Elementor Pro (تقسيم 25/25/50، تباعد عريض، وإدراج عناصر داخل كل عمود)',
+      descEn: 'Elementor Pro inner section with column structures (25, 25, 50), wide gaps, and per-column widgets',
+      defaultStyle: 'inner-cols-25-25-50',
+    },
+    {
+      id: 'promo_countdown_banner',
+      titleAr: 'بنر العرض الحصري مع العداد التنازلي الحي',
+      titleEn: 'Flash Offer Live Countdown Banner',
+      icon: Clock,
+      descAr: 'بنر ترويجي عريض مع عداد تنازلي للساعات والدقائق وزر خصم مباشر',
+      descEn: 'Full-width countdown promotional banner driving urgency and quick conversion',
+      defaultStyle: 'modern_countdown',
+    },
+    {
+      id: 'features',
+      titleAr: 'شارات الثقة ومزايا المتجر الفاخرة',
+      titleEn: 'Store Features & Trust Badges',
+      icon: ShieldCheck,
+      descAr: 'توصيل مبرد سريع، منتجات أصلية مضمونة، ودفع آمن عبر مدى وآبل باي',
+      descEn: 'Luxury trust badges highlighting fast delivery, genuine products & secure pay',
+      defaultStyle: 'modern_cards',
+    },
+    {
+      id: 'statistics',
+      titleAr: 'إحصائيات وأرقام المتجر الموثقة',
+      titleEn: 'Store Milestones & Counters',
+      icon: BarChart2,
+      descAr: 'أرقام وإحصائيات موثقة عن المبيعات والعملاء الراضين وتقييمات المتجر',
+      descEn: 'Animated counters highlighting verified sales, happy customers and ratings',
+      defaultStyle: 'counter_cards',
+    },
+    {
+      id: 'reviews',
+      titleAr: 'تقييمات وآراء العملاء الموثقة',
+      titleEn: 'Verified Customer Reviews & Testimonials',
+      icon: Star,
+      descAr: 'تجارب حقيقية موثقة من العملاء ونزلاء الفنادق مع تقييم النجوم',
+      descEn: 'Verified customer testimonials with star ratings',
+      defaultStyle: 'star_cards',
+    },
+    {
+      id: 'faq',
+      titleAr: 'الأسئلة الشائعة حول التوصيل والدفع',
+      titleEn: 'Delivery & Payment FAQ',
+      icon: HelpCircle,
+      descAr: 'أكورديون تفاعلي يوضح آلية التوصيل وطرق الدفع والضمان',
+      descEn: 'Expandable accordion answering delivery, packaging, warranty, and payment',
+      defaultStyle: 'accordion',
+    },
+  ];
+
+  const widgetTemplates = useMemo(() => {
+    if (supportedSections && supportedSections.length > 0) {
+      const themeSpecificWidgets = supportedSections.map((sec) => {
+        let icon = Layout;
+        if (sec.category === 'hero') icon = Sparkles;
+        else if (sec.category === 'header') icon = Layout;
+        else if (sec.category === 'categories') icon = Grid;
+        else if (sec.category === 'products') icon = ShoppingBag;
+        else if (sec.category === 'promotions') icon = ImageIcon;
+        else if (sec.category === 'features') icon = ShieldCheck;
+        else if (sec.category === 'media') icon = Video;
+        else if (sec.category === 'reviews') icon = Star;
+        else if (sec.category === 'faq') icon = HelpCircle;
+        else if (sec.category === 'footer') icon = Layout;
+
+        return {
+          id: sec.id,
+          titleAr: sec.nameAr,
+          titleEn: sec.name,
+          icon,
+          descAr: sec.descriptionAr || `قسم ${sec.nameAr} المخصص لهذا القالب`,
+          descEn: sec.description || `Specialized ${sec.name} section for this theme`,
+          defaultStyle: `${sec.id}_modern`,
+        };
+      });
+
+      const existingIds = new Set(themeSpecificWidgets.map((w) => w.id));
+      const filteredUniversal = universalWidgets.filter((w) => !existingIds.has(w.id));
+      return [...themeSpecificWidgets, ...filteredUniversal];
+    }
+
+    return [...defaultFlowerWidgets, ...universalWidgets];
+  }, [supportedSections]);
 
   const handleConfirm = () => {
     const selectedWidget = widgetTemplates.find((w) => w.id === selectedType);
@@ -331,13 +432,20 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
               <Plus className="w-5 h-5" />
             </span>
             <div>
-              <h3 className="font-black text-sm text-slate-900">
-                {isAr ? 'إضافة قسم جديد وتخطيط الشبكة (Row & Grid System)' : 'Add New Section & Grid Layout'}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-sm text-slate-900">
+                  {isAr ? 'إضافة قسم جديد وتخطيط الشبكة (Row & Grid System)' : 'Add New Section & Grid Layout'}
+                </h3>
+                {themeName && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                    {themeName}
+                  </span>
+                )}
+              </div>
               <p className="text-[11px] text-slate-500">
                 {isAr
-                  ? 'اختر بنية الأعمدة ثم حدد العنصر البرمجي الذي ترغب في إدراجه'
-                  : 'Select column layout structure then pick the widget to insert'}
+                  ? 'اختر بنية الأعمدة ثم حدد العنصر المخصص لقالب متجرك'
+                  : 'Select column layout structure then pick the widget tailored to your active theme'}
               </p>
             </div>
           </div>

@@ -25,6 +25,8 @@ import {
   Clock,
   Phone,
   Flower2,
+  Car,
+  Coffee,
   Lock,
   Gift,
   Truck,
@@ -113,8 +115,10 @@ import { BlogPageView } from '../../themes/flowersPremium/BlogPageView';
 import { MobileBottomNav } from '../../themes/flowersPremium/MobileBottomNav';
 import { MobileMenuDrawer } from '../../themes/flowersPremium/MobileMenuDrawer';
 import { AVAILABLE_ICONS } from '../store/visualBuilder/icons/IconLibraryModal';
-import { MeccaGiftsThemeView } from '../../themes/meccaGifts/MeccaGiftsThemeView';
+import { DynamicThemeRenderer } from './DynamicThemeRenderer';
+import { OfferVideoBanner } from '../../themes/meccaGifts/components/OfferVideoBanner';
 import { getStoreDisplayName } from '../../utils/storeLocalization';
+import { getStorePageBySlug } from '../../services/storePagesService';
 
 export interface StoreFrontPreviewProps {
   isAdmin?: boolean;
@@ -210,7 +214,56 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
   const themeId = storeActiveTheme[activeStore.id] || FLOWERS_THEME_ID;
   const currentTheme = themes.find(t => t.id === themeId) || themes[0];
   const homepageStyle = resolveFlowersHomepage(storeActiveHomepage[activeStore.id]);
-  const isFlowersPremium = true; // All stores and brands share the unified flagship theme
+
+  // Direct inspection of URL search parameters and path for instant bulletproof theme routing
+  const urlSearch = typeof window !== 'undefined' ? window.location.search.toLowerCase() : '';
+  const urlPath = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
+
+  const isExplicitCar =
+    urlSearch.includes('store=car') ||
+    urlSearch.includes('store=cars') ||
+    urlSearch.includes('store=bleco') ||
+    urlSearch.includes('store=alsaeedi') ||
+    urlSearch.includes('demo=car') ||
+    urlPath.startsWith('/car') ||
+    urlPath.startsWith('/cars') ||
+    urlPath.startsWith('/bleco');
+
+  const isExplicitCoffee =
+    urlSearch.includes('store=coffee') ||
+    urlSearch.includes('store=roasters') ||
+    urlSearch.includes('demo=coffee') ||
+    urlPath.startsWith('/coffee');
+
+  const isExplicitFlowers =
+    urlSearch.includes('store=flowers') ||
+    urlSearch.includes('store=hadaya') ||
+    urlSearch.includes('store=makkah') ||
+    urlPath.startsWith('/flowers') ||
+    urlPath.startsWith('/hadaya');
+
+  // Firmly anchor store identity to activeStore.id (Strict Multi-Tenant Isolation)
+  const isCoffeeStore =
+    isExplicitCoffee ||
+    (!isExplicitCar && !isExplicitFlowers && (
+      activeStore.id === 'store-coffee' ||
+      activeStore.slug === 'coffee-store' ||
+      (activeStore.id !== 'store-bleco' && activeStore.id !== 'store-1' &&
+       (activeStore.slug?.includes('coffee') || activeStore.category?.includes('قهوة') || themeId?.includes('coffee')))
+    ));
+
+  const isCarStore =
+    isExplicitCar ||
+    (!isExplicitCoffee && !isExplicitFlowers && (
+      activeStore.id === 'store-bleco' ||
+      activeStore.slug === 'bleco-sa' ||
+      activeStore.slug === 'alsaeedi-cars' ||
+      (activeStore.id !== 'store-1' &&
+       (activeStore.slug?.includes('car') || activeStore.slug?.includes('transport') || themeId === 'theme-saudia-transport'))
+    ));
+
+  const isFlowersStore = !isCarStore && !isCoffeeStore;
+  const isFlowersPremium = isFlowersStore;
   const storeIdentity = useMemo(
     () => readStoreIdentity(activeStore.id, activeStore),
     [activeStore.id, activeStore.name, activeStore.logo, activeStore.ownerEmail, storeIdentityTick],
@@ -577,17 +630,19 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
   const sfMuted = isDark ? '#98d8d0' : '#475569';
   const sfBorder = isDark ? '#10606f' : '#cbd5e1';
 
-  const isFlowersStore =
-    !activeStore.id ||
-    activeStore.id === 'store-1' ||
-    String(activeStore.id) === '1' ||
-    activeStore.slug?.includes('flower') ||
-    activeStore.slug?.includes('makkah') ||
-    activeStore.slug?.includes('hadaya') ||
-    (activeStore.id !== 'store-coffee' && activeStore.slug !== 'coffee-store');
-
-  if (isFlowersStore && !isAdmin) {
-    return <MeccaGiftsThemeView initialPage={sfPage === 'shop' ? 'catalog' : sfPage} isAdmin={false} />;
+  if (!isAdmin) {
+    const effectiveTheme = isCoffeeStore ? 'theme-coffee-artisan' : isCarStore ? 'theme-saudia-transport' : themeId;
+    const effectiveId = isCoffeeStore ? 'store-coffee' : isCarStore ? 'store-bleco' : activeStore.id;
+    const effectiveCat = isCoffeeStore ? 'مكائن ومستلزمات القهوة' : isCarStore ? 'خدمات سيارات' : activeStore.category;
+    return (
+      <DynamicThemeRenderer
+        storeId={effectiveId}
+        themeId={effectiveTheme}
+        category={effectiveCat}
+        initialPage={sfPage}
+        isAdmin={false}
+      />
+    );
   }
 
   return (
@@ -605,20 +660,32 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
       {isAdmin && (
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-900/20">
-              <Flower2 className="w-5 h-5" />
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-md ${
+              isCarStore ? 'bg-[#127bfe] text-white shadow-blue-500/30' :
+              isCoffeeStore ? 'bg-amber-900 text-amber-200' :
+              'bg-emerald-600 text-white shadow-emerald-900/20'
+            }`}>
+              {isCarStore ? <Car className="w-5 h-5" /> : isCoffeeStore ? <Coffee className="w-5 h-5" /> : <Flower2 className="w-5 h-5" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-extrabold text-slate-900 dark:text-white text-base">
                   {getStoreDisplayName(activeStore, lang)} {lang === 'ar' ? '— الواجهة المباشرة' : 'Storefront'}
                 </h2>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800">
-                  Live Next.js 15 SSR
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${
+                  isCarStore ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800' :
+                  isCoffeeStore ? 'bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800' :
+                  'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                }`}>
+                  Live Storefront
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Makkah Al-Mukarramah flagship floral boutique · Real photography &amp; dynamic store-wise SEO
+                {isCarStore
+                  ? (lang === 'ar' ? 'متجر السعيدي لخدمات السيارات · تلابيس مقاعد وأرضيات ليزر ودايموند واكسسوارات سيارات' : 'Al-Saeedi Car Services · Precision Floor Mats & Luxury Seat Covers')
+                  : isCoffeeStore
+                  ? (lang === 'ar' ? 'متجر القهوة المختصة وأدوات الباريستا' : 'Specialty Coffee Roasters & Barista Tools')
+                  : (lang === 'ar' ? 'متجر هدايا مكة للزهور الطبيعية والهدايا الفاخرة' : 'Makkah Al-Mukarramah flagship floral boutique')}
               </p>
             </div>
           </div>
@@ -627,10 +694,12 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Open in New Tab Button (User Request) */}
             <a
-              href={`${typeof window !== 'undefined' ? window.location.origin : ''}/?tab=storefront&fullscreen=1`}
+              href={`${typeof window !== 'undefined' ? window.location.origin : ''}/?${isCarStore ? 'store=car&' : isCoffeeStore ? 'store=coffee&' : ''}fullscreen=1`}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all hover:scale-105 cursor-pointer"
+              className={`px-3.5 py-1.5 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all hover:scale-105 cursor-pointer ${
+                isCarStore ? 'bg-[#127bfe] hover:bg-[#0d62cc]' : isCoffeeStore ? 'bg-amber-900 hover:bg-amber-800' : 'bg-emerald-600 hover:bg-emerald-700'
+              }`}
               title={lang === 'ar' ? 'عرض المتجر المباشر في نافذة جديدة مستقلة' : 'Open live storefront in clean new browser tab'}
             >
               <ExternalLink className="w-3.5 h-3.5" />
@@ -694,7 +763,28 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
               </div>
             ) : null}
 
-            {/* Device Toggle */}
+            {/* Theme Page Switcher Dropdown (Home, Catalog, Product Detail, Cart, Checkout, Policies) */}
+            <div className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 p-1 rounded-2xl text-xs">
+              <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 ml-1.5" />
+              <select
+                value={sfPage}
+                onChange={(e) => setSfPage(e.target.value as FlowersSfPage)}
+                className="bg-transparent text-xs font-bold text-indigo-900 dark:text-indigo-200 focus:outline-none cursor-pointer pr-2"
+                title={lang === 'ar' ? 'مبدل صفحات الثيم المباشر' : 'Theme Page Switcher'}
+              >
+                <option value="home">{lang === 'ar' ? 'الرئيسية (Home)' : 'Home (Homepage)'}</option>
+                <option value="shop">{lang === 'ar' ? 'المتجر والمنتجات (Catalog / 100 Products)' : 'Catalog / Shop (All Products)'}</option>
+                <option value="product">{lang === 'ar' ? 'صفحة تفاصيل المنتج (Single Product)' : 'Product Detail (Single Page)'}</option>
+                <option value="cart">{lang === 'ar' ? 'سلة المشتريات (Cart Drawer / Page)' : 'Cart (Shopping Basket)'}</option>
+                <option value="checkout">{lang === 'ar' ? 'إتمام الطلب والدفع (Checkout)' : 'Checkout (Payment Screen)'}</option>
+                <option value="thankyou">{lang === 'ar' ? 'تم استلام الطلب (Thank You)' : 'Thank You Page'}</option>
+                <option value="about">{lang === 'ar' ? 'صفحة من نحن (About Us)' : 'About Us'}</option>
+                <option value="contact">{lang === 'ar' ? 'صفحة اتصل بنا (Contact Us)' : 'Contact Us'}</option>
+                <option value="privacy">{lang === 'ar' ? 'سياسة الخصوصية (Privacy Policy)' : 'Privacy Policy'}</option>
+                <option value="terms">{lang === 'ar' ? 'الشروط والأحكام (Terms & Conditions)' : 'Terms & Conditions'}</option>
+              </select>
+            </div>
+
             <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl text-xs">
               <button
                 onClick={() => setViewMode('desktop')}
@@ -765,8 +855,14 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
           color: 'var(--sf-text)',
         }}
       >
-        {isFlowersStore ? (
-          <MeccaGiftsThemeView initialPage={sfPage === 'shop' ? 'catalog' : sfPage} isAdmin={isAdmin} />
+        {true ? (
+          <DynamicThemeRenderer
+            storeId={isCoffeeStore ? 'store-coffee' : isCarStore ? 'store-bleco' : activeStore.id}
+            themeId={isCoffeeStore ? 'theme-coffee-artisan' : isCarStore ? 'theme-saudia-transport' : themeId}
+            category={isCoffeeStore ? 'مكائن ومستلزمات القهوة' : isCarStore ? 'خدمات سيارات' : activeStore.category}
+            initialPage={sfPage}
+            isAdmin={isAdmin}
+          />
         ) : (
           <>
             {/* 1. STOREFRONT TOP ANNOUNCEMENT BAR */}
@@ -1100,7 +1196,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
 
         {sfPage === 'product' && quickViewProduct ? (
           <SingleProductView
-            product={quickViewProduct}
+            product={quickViewProduct!}
             products={currentProducts}
             lang={lang}
             money={money}
@@ -1120,8 +1216,8 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
             }}
             onSelectProduct={(p) => setQuickViewProduct(p)}
             onOpenLightbox={(p) => openLightboxForProduct(p)}
-            inWishlist={wishlist.includes(quickViewProduct.id)}
-            onToggleWishlist={() => toggleWishlist(quickViewProduct.id)}
+            inWishlist={quickViewProduct ? wishlist.includes(quickViewProduct!.id) : false}
+            onToggleWishlist={() => quickViewProduct && toggleWishlist(quickViewProduct!.id)}
             shippingRates={currentShipping}
             selectedDistrict={selectedMakkahDistrict}
             onSelectDistrict={(d) => setSelectedMakkahDistrict(d)}
@@ -1159,15 +1255,48 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
               {customPageContent?.body || (lang === 'ar' ? 'أهلاً بكم في متجرنا بمكة المكرمة.' : 'Welcome to our specialized boutique page.')}
             </div>
           </div>
-        ) : isStaticFlowersPage(sfPage) ? (
-          <FlowersStaticPage page={sfPage} lang={lang} onBack={() => setSfPage('home')} />
+        ) : getStorePageBySlug(activeStore.id, sfPage, activeStore) ? (() => {
+          const storePage = getStorePageBySlug(activeStore.id, sfPage, activeStore)!;
+          return (
+            <div className="p-6 sm:p-12 max-w-4xl mx-auto space-y-6 min-h-[420px]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+              <button
+                type="button"
+                onClick={() => setSfPage('home')}
+                className="text-xs font-bold text-emerald-700 hover:text-emerald-900 inline-flex items-center gap-1.5 cursor-pointer bg-emerald-50 px-3.5 py-1.5 rounded-xl border border-emerald-200 transition-colors shadow-2xs"
+              >
+                <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+                <span>{lang === 'ar' ? 'العودة للمتجر الرئيسي' : 'Back to Storefront'}</span>
+              </button>
+              <div className="border-b border-slate-200/80 pb-4">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 inline-block mb-2">
+                  {storePage.category === 'legal'
+                    ? (lang === 'ar' ? 'وثيقة نظامية رسمية' : 'Official Legal Document')
+                    : (lang === 'ar' ? 'صفحة المتجر' : 'Store Page')}
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900" style={{ color: 'var(--sf-text)' }}>
+                  {lang === 'ar' ? storePage.titleAr : storePage.titleEn}
+                </h1>
+                <p className="text-xs text-slate-400 mt-1 font-mono">
+                  {storeIdentity.storeName || activeStore.name} · {storePage.updatedAt}
+                </p>
+              </div>
+              <div
+                className="prose max-w-none text-sm leading-relaxed whitespace-pre-line text-slate-700"
+                style={{ color: 'var(--sf-text)' }}
+              >
+                {lang === 'ar' ? storePage.contentAr : storePage.contentEn}
+              </div>
+            </div>
+          );
+        })() : isStaticFlowersPage(sfPage) ? (
+          <FlowersStaticPage page={sfPage as any} lang={lang} onBack={() => setSfPage('home')} />
         ) : sfPage === 'thankyou' ? (
           <ThankYouPage
             lang={lang}
             storeName={storeIdentity.storeName || activeStore.name}
             orderRef={lastThankYou?.ref}
             district={lastThankYou?.district}
-            moneyTotal={lastThankYou ? money(lastThankYou.total) : undefined}
+            moneyTotal={lastThankYou ? money(lastThankYou!.total) : undefined}
             onContinueShopping={() => setSfPage('shop')}
             onOpenProfile={() => {
               if (!sfCustomer) {
@@ -1181,7 +1310,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
           sfCustomer ? (
             <CustomerProfile
               lang={lang}
-              session={sfCustomer}
+              session={sfCustomer!}
               orders={currentOrders}
               money={money}
               onLogout={() => {
@@ -1613,7 +1742,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
                 ? mobileGridCols === '1-column'
                   ? 'grid grid-cols-1 gap-4'
                   : 'grid grid-cols-2 gap-3'
-                : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5'
+                : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-5'
             }>
               {filteredProducts.map((prod) => {
                 const inWishlist = wishlist.includes(prod.id);
@@ -1682,6 +1811,11 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
             lang={lang}
             isMobile={isMobileMode}
           />
+        )}
+
+        {/* 15.5. SPECIAL OFFER VIDEO BANNER (BEFORE BLOGS) */}
+        {sfPage === 'home' && (
+          <OfferVideoBanner />
         )}
 
         {/* 16. BLOG SECTION (SECTION 12) */}

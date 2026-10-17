@@ -15,6 +15,7 @@ import {
   Tag,
   Sparkles
 } from 'lucide-react';
+import { PaymentGatewaySelector, type PaymentMethodId } from '../../../components/storefront/checkout/PaymentGatewaySelector';
 
 export const CheckoutPage: React.FC = () => {
   const {
@@ -54,7 +55,7 @@ export const CheckoutPage: React.FC = () => {
   const [deliveryDate, setDeliveryDate] = useState('اليوم (توصيل فوري)');
   const [deliveryTimeSlot, setDeliveryTimeSlot] = useState('توصيل عاجل خلال 60 دقيقة');
   const [cardMessage, setCardMessage] = useState('ألف مبروك الترقية المباركة ومنها للأعلى دائماً يا غالية');
-  const [paymentMethod, setPaymentMethod] = useState('mada');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('mada');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const shipping = freeShippingRemaining === 0 ? 0 : 35;
@@ -73,7 +74,18 @@ export const CheckoutPage: React.FC = () => {
         deliveryDate,
         deliveryTimeSlot,
         isAnonymousSender,
-        paymentMethod: paymentMethod === 'mada' ? 'مدى (Mada)' : paymentMethod === 'applepay' ? 'Apple Pay' : paymentMethod === 'tabby' ? 'تابي (Tabby)' : 'الدفع عند الاستلام',
+        paymentMethod:
+          paymentMethod === 'mada'
+            ? 'مدى (Mada)'
+            : paymentMethod === 'apple_pay'
+            ? 'Apple Pay'
+            : paymentMethod === 'tabby'
+            ? 'تابي (Tabby)'
+            : paymentMethod === 'tamara'
+            ? 'تمارا (Tamara)'
+            : paymentMethod === 'card'
+            ? 'فيزا / ماستركارد'
+            : 'الدفع عند الاستلام',
         cardMessage,
         discount: appliedDiscount
       });
@@ -307,52 +319,17 @@ export const CheckoutPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Section 3: Payment Method */}
-          <div className="bg-[#FAF9F5] border border-[#e8e4dc] rounded-3xl p-6 sm:p-7 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-[#f0ede6]">
-              <CreditCard className="w-5 h-5 text-[#102a1c]" />
-              <h3 className="text-base font-bold text-[#102a1c]">
-                {isAr ? '3. وسيلة الدفع الآمنة' : '3. Secure Payment Method'}
-              </h3>
-            </div>
-
-            <div className="space-y-2.5">
-              {[
-                { id: 'mada', name: isAr ? 'بطاقة مدى البنكية (Mada)' : 'Mada Debit Card', badge: isAr ? 'الأكثر استخداماً' : 'Most Popular' },
-                { id: 'applepay', name: 'Apple Pay', badge: isAr ? 'دفع فوري سريع' : 'Instant' },
-                { id: 'tabby', name: isAr ? 'تابي - قسّم فاتورتك على 4 دفعات (0% فوائد)' : 'Tabby - Split in 4 (0% interest)', badge: '0% Interest' },
-                { id: 'cod', name: isAr ? 'الدفع عند الاستلام (داخل مكة فقط)' : 'Cash on Delivery (Mecca only)', badge: isAr ? 'نقدي' : 'Cash' },
-              ].map((method) => (
-                <label
-                  key={method.id}
-                  className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                    paymentMethod === method.id
-                      ? 'border-[#102a1c] bg-[#102a1c]/5 font-semibold ring-1 ring-[#102a1c]'
-                      : 'border-[#d6cfc0] bg-white hover:border-[#102a1c]/40'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value={method.id}
-                      checked={paymentMethod === method.id}
-                      onChange={() => setPaymentMethod(method.id)}
-                      className="w-4 h-4 accent-[#102a1c]"
-                    />
-                    <span className="text-xs font-bold text-[#1a1f1b]">{method.name}</span>
-                  </div>
-                  <span className="text-[10px] bg-[#f0ede6] text-[#102a1c] font-bold px-2 py-0.5 rounded-full">
-                    {method.badge}
-                  </span>
-                </label>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2 text-[11px] text-[#7a7164] pt-2">
-              <Lock className="w-3.5 h-3.5 text-[#102a1c]" />
-              <span>{isAr ? 'جميع المعاملات مشفرة ومحمية بنظام أمان 256-bit SSL' : 'All transactions are 256-bit SSL encrypted.'}</span>
-            </div>
+          {/* Section 3: Saudi Authorized Payment Gateways */}
+          <div className="bg-[#FAF9F5] border border-[#e8e4dc] rounded-3xl p-6 sm:p-7 shadow-sm">
+            <PaymentGatewaySelector
+              storeId="store-1"
+              totalAmount={total}
+              selectedMethod={paymentMethod}
+              onMethodChange={(m) => setPaymentMethod(m)}
+              language={isAr ? 'ar' : 'en'}
+              customerName={recipientName}
+              customerPhone={recipientPhone}
+            />
           </div>
 
         </div>

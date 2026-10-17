@@ -2,9 +2,12 @@ import React, { createContext, useContext, useState, useMemo, useEffect, useCall
 import { 
   Store, 
   Customer, 
+  CustomerSource,
   ChannelPerformance, 
   Product, 
   Order, 
+  CodStatus,
+  OrderReturn,
   ActivityItem, 
   PlatformMetrics, 
   PlanType,
@@ -26,8 +29,14 @@ import {
   ShipmentItem,
   PaymentGatewayItem,
   PaymentGatewayProvider,
-  PaymentTransactionItem
+  PaymentTransactionItem,
+  DomainResolutionResult
 } from '../types';
+import {
+  resolveDomainLocal,
+  resolveDomainDynamic,
+  normalizeHostname,
+} from '../services/domainRoutingService';
 import { 
   INITIAL_STORES, 
   INITIAL_CUSTOMERS, 
@@ -39,6 +48,8 @@ import {
   INITIAL_AUDIT_LOGS,
   INITIAL_UPDATES,
   INITIAL_THEMES,
+  INITIAL_STORE_THEMES,
+  createDefaultStoreThemes,
   INITIAL_PLUGINS,
   INITIAL_COUPONS,
   INITIAL_SHIPPING,
@@ -51,6 +62,7 @@ import {
   INITIAL_SEO_CONFIGS,
   INITIAL_MEDIA
 } from '../data/mockData';
+import { syncCatalogImagesToMediaAssets } from '../utils/mediaOptimizer';
 import { isApiEnabled } from '../api/client';
 import {
   bumpCacheTag,
@@ -66,11 +78,13 @@ import {
   type StoreResource,
 } from '../api/cacheTags';
 import * as tenantApi from '../api/tenantApi';
-import { readAuthSession, hasLiveApiAuth, clearAuthSession } from '../auth/session';
+import { readAuthSession, writeAuthSession, hasLiveApiAuth, clearAuthSession } from '../auth/session';
 import { DEFAULT_COMMERCE_THEME_ID, defaultThemeSettings } from '../auth/defaultTheme';
 import { effectivePlanCode } from '../auth/plans';
+import { canDeleteEntities } from '../auth/roles';
 
 const API_MODE = isApiEnabled();
+const isLiveApiActive = () => API_MODE && hasLiveApiAuth();
 
 /** Safe shell until Laravel stores load — never shown as fake commerce metrics. */
 const PLACEHOLDER_STORE: Store = {
@@ -135,8 +149,10 @@ interface TenantContextType {
   recentActivities: ActivityItem[];
   addActivity: (item: Omit<ActivityItem, 'id' | 'timeAgo'>) => void;
 
-  // Domains & Hosting (Shared Hosting Only)
+  // Domains & Hosting (Shared Hosting & Multi-Domain Dynamic Routing - Phase 6.1)
   domains: DomainRecord[];
+  resolvedDomain: DomainResolutionResult | null;
+  simulateDomain: (domain: string) => Promise<DomainResolutionResult>;
   activateDomain: (domainId: string) => void;
   toggleDomainSsl: (domainId: string) => void;
   addDomainRequest: (storeId: string, domainName: string, tier?: DomainRecord['hostingTier']) => void;
@@ -156,12 +172,17 @@ interface TenantContextType {
   approveUpdate: (updateId: string) => void;
   rollbackUpdate: (updateId: string) => void;
 
-  // Multi-Theme System
-  themes: ThemeItem[];
+  // Multi-Theme System (Isolated Strictly Per-Store)
+  themes: ThemeItem[]; // Current active store's isolated themes only
+  allStoreThemes: Record<string, ThemeItem[]>;
   storeActiveTheme: Record<string, string>; // storeId -> themeId
   storeActiveHomepage: Record<string, string>; // storeId -> styleName
   setStoreTheme: (storeId: string, themeId: string) => void;
   setStoreHomepageStyle: (storeId: string, style: string) => void;
+  createStoreTheme: (storeId: string, theme: Omit<ThemeItem, 'id' | 'storeId'> & { id?: string }) => ThemeItem;
+  updateStoreTheme: (storeId: string, themeId: string, updates: Partial<ThemeItem>) => void;
+  deleteStoreTheme: (storeId: string, themeId: string) => void;
+  duplicateStoreTheme: (storeId: string, themeId: string) => ThemeItem;
 
   // Marketplace & Plugins
   plugins: PluginItem[];
@@ -190,7 +211,28 @@ interface TenantContextType {
   addOrder: (order: Omit<Order, 'id' | 'storeId' | 'orderNumber' | 'date'>, targetStoreId?: string) => void;
   updateOrderStatus: (orderId: string, status: Order['status'], targetStoreId?: string) => void;
   updateOrder: (orderId: string, patch: Partial<Order>, targetStoreId?: string) => void;
+  processOrderReturn: (
+    orderId: string,
+    returnData: {
+      reason: string;
+      reasonDetails?: string;
+      refundAmount?: number;
+      restockInventory?: boolean;
+      adminNotes?: string;
+      status?: 'requested' | 'approved' | 'rejected' | 'completed';
+    },
+    targetStoreId?: string
+  ) => Promise<void>;
+  updateOrderCodStatus: (
+    orderId: string,
+    codStatus: CodStatus,
+    notes?: string,
+    targetStoreId?: string
+  ) => Promise<void>;
   deleteOrder: (orderId: string, targetStoreId?: string) => void;
+  archiveOrder: (orderId: string, targetStoreId?: string) => void;
+  restoreOrder: (orderId: string, targetStoreId?: string) => void;
+  permanentDeleteOrder: (orderId: string, targetStoreId?: string) => void;
 
   // Coupons
   currentCoupons: CouponItem[];
@@ -336,6 +378,7 @@ interface TenantContextType {
     targetStoreId?: string,
   ) => void;
   getMediaUsages: (mediaIdOrUrl: string, targetStoreId?: string) => MediaUsage[];
+  syncProductImagesToMedia: (targetStoreId?: string) => number;
 
   // Global UI State
   showArchDrawer: boolean;
@@ -345,54 +388,596 @@ interface TenantContextType {
   notificationCount: number;
 }
 
+export function createFallbackTenantContext(): TenantContextType {
+  const store = INITIAL_STORES[0];
+  return {
+    dataSource: 'mock',
+    apiReady: true,
+    apiError: null,
+    cacheEpoch: 1,
+    softRefreshTenantData: async () => {},
+    revalidateResource: async () => {},
+    mode: 'store',
+    setMode: () => {},
+    canAccessMaster: false,
+    activeStoreId: store?.id || 'store-1',
+    activeStore: store,
+    setActiveStoreId: () => {},
+    switchToStore: () => {},
+    switchToMaster: () => {},
+    stores: INITIAL_STORES,
+    createNewStore: () => {},
+    toggleMasterGrant: () => {},
+    toggleStoreStatus: () => {},
+    updateStorePlan: () => {},
+    updateStoreLanguages: () => {},
+    deleteStore: () => {},
+    platformMetrics: {
+      totalRevenue: 28450,
+      totalOrders: 14,
+      totalStores: 3,
+      activeStores: 3,
+      mrr: 12000,
+      arr: 144000,
+      activeSubscriptions: 3,
+      databaseHealth: 'healthy',
+      totalCustomers: 12,
+      activePromotions: 3,
+      avgOrderValue: 2030,
+      ordersGrowth: 15,
+      revenueGrowth: 22,
+    },
+    recentActivities: [],
+    addActivity: () => {},
+    domains: [],
+    resolvedDomain: null,
+    simulateDomain: async () => ({ resolved: false, domain: '' }),
+    activateDomain: () => {},
+    toggleDomainSsl: () => {},
+    addDomainRequest: () => {},
+    connectHostingerToStore: () => {},
+    verifyDomainDns: () => {},
+    deployStoreLive: () => {},
+    setStoreDomainMode: () => {},
+    requestCustomDomainHosting: () => {},
+    auditLogs: [],
+    addAuditLog: () => {},
+    updates: [],
+    toggleStoreUpdate: () => {},
+    approveUpdate: () => {},
+    rollbackUpdate: () => {},
+    themes: [],
+    allStoreThemes: {},
+    storeActiveTheme: {},
+    storeActiveHomepage: {},
+    setStoreTheme: () => {},
+    setStoreHomepageStyle: () => {},
+    createStoreTheme: () => ({} as any),
+    updateStoreTheme: () => {},
+    deleteStoreTheme: () => {},
+    duplicateStoreTheme: () => ({} as any),
+    plugins: [],
+    storeInstalledPlugins: {},
+    toggleStorePlugin: () => {},
+    currentCustomers: (INITIAL_CUSTOMERS && store && INITIAL_CUSTOMERS[store.id]) || [],
+    allStoreCustomers: INITIAL_CUSTOMERS || {},
+    addCustomer: () => {},
+    updateCustomer: () => {},
+    deleteCustomer: () => {},
+    bulkDeleteCustomers: () => {},
+    bulkSetCustomerStatus: () => {},
+    currentChannels: (INITIAL_CHANNELS && store && INITIAL_CHANNELS[store.id]) || [],
+    currentProducts: (INITIAL_PRODUCTS && store && INITIAL_PRODUCTS[store.id]) || [],
+    allProducts: INITIAL_PRODUCTS || {},
+    addProduct: () => {},
+    updateProduct: () => {},
+    deleteProduct: () => {},
+    togglePublishProduct: () => {},
+    currentOrders: (INITIAL_ORDERS && store && INITIAL_ORDERS[store.id]) || [],
+    allOrders: INITIAL_ORDERS || {},
+    addOrder: () => {},
+    updateOrderStatus: () => {},
+    updateOrder: () => {},
+    processOrderReturn: async () => {},
+    updateOrderCodStatus: async () => {},
+    deleteOrder: () => {},
+    currentCoupons: (INITIAL_COUPONS && store && INITIAL_COUPONS[store.id]) || [],
+    addCoupon: () => {},
+    toggleCouponStatus: () => {},
+    deleteCoupon: () => {},
+    currentShipping: (INITIAL_SHIPPING && store && INITIAL_SHIPPING[store.id]) || [],
+    updateShippingZonePrice: () => {},
+    toggleShippingZoneStatus: () => {},
+    currentShippingMethods: (INITIAL_SHIPPING_METHODS && store && INITIAL_SHIPPING_METHODS[store.id]) || [],
+    toggleShippingMethod: () => {},
+    currentCouriers: (INITIAL_COURIERS && store && INITIAL_COURIERS[store.id]) || [],
+    connectCourier: () => {},
+    toggleCourier: () => {},
+    currentShipments: (INITIAL_SHIPMENTS && store && INITIAL_SHIPMENTS[store.id]) || [],
+    createShipment: () => {},
+    updateShipmentStatus: () => {},
+    currentPaymentGateways: (INITIAL_PAYMENT_GATEWAYS && store && INITIAL_PAYMENT_GATEWAYS[store.id]) || [],
+    updatePaymentGatewayConfig: () => {},
+    togglePaymentGateway: () => {},
+    currentPaymentTransactions: (INITIAL_PAYMENT_TRANSACTIONS && store && INITIAL_PAYMENT_TRANSACTIONS[store.id]) || [],
+    currentCart: { items: [], total: 0, subtotal: 0, tax: 0, shipping: 0, itemCount: 0 },
+    addToCart: () => {},
+    removeFromCart: () => {},
+    updateCartItemQuantity: () => {},
+    clearCart: () => {},
+    applyCartCoupon: () => {},
+    removeCartCoupon: () => {},
+    blogs: [],
+    currentSEOConfig: (INITIAL_SEO_CONFIGS && store && INITIAL_SEO_CONFIGS[store.id]) || {
+      storeId: store?.id || 'store-1',
+      googleConnected: false,
+      googleAccountEmail: null,
+      connectedAt: null,
+      ga4MeasurementId: '',
+      gtmContainerId: '',
+      searchConsoleConnected: false,
+      searchConsoleVerificationTag: '',
+      indexingApiEnabled: false,
+      metaTitle: `${store?.name || 'المتجر'} | متجر رسمي`,
+      metaDescription: `تسوق من ${store?.name || 'المتجر'}`,
+      keywords: [],
+      sitemapUrl: '',
+      indexedUrlsCount: 0,
+      totalSearchClicks: 0,
+      totalSearchImpressions: 0,
+      avgCtr: 0,
+      avgPosition: 0,
+      lastIndexingPing: 'Never',
+      submittedUrls: [],
+      topQueries: [],
+    },
+    updateStoreSEOConfig: () => {},
+    connectGoogleAccount: () => {},
+    disconnectGoogleAccount: () => {},
+    submitUrlToGoogleIndexing: () => {},
+    currentMedia: (INITIAL_MEDIA && store && INITIAL_MEDIA[store.id]) || [],
+    allStoreMedia: INITIAL_MEDIA || {},
+    addMediaAsset: () => ({} as any),
+    updateMediaAsset: () => {},
+    deleteMediaAsset: () => true,
+    replaceMediaAsset: () => {},
+    getMediaUsages: () => [],
+    syncProductImagesToMedia: () => 0,
+    showArchDrawer: false,
+    setShowArchDrawer: () => {},
+    searchQuery: '',
+    setSearchQuery: () => {},
+    notificationCount: 0,
+  } as unknown as TenantContextType;
+}
+
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [mode, setMode] = useState<'master' | 'store'>('master');
+  const [mode, setMode] = useState<'master' | 'store'>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const q = new URLSearchParams(window.location.search);
+        if (q.get('store') || q.get('storeId') || q.get('tenant') || q.get('fullscreen') === '1') {
+          return 'store';
+        }
+        const session = readAuthSession();
+        if (session && session.portal === 'store') {
+          return 'store';
+        }
+      }
+    } catch {}
+    return 'master';
+  });
   const [authTick, setAuthTick] = useState(0);
-  // API mode: start empty — never paint INITIAL mock as "live" DB data
-  const [stores, setStores] = useState<Store[]>(() => (API_MODE ? [] : INITIAL_STORES));
-  const [activeStoreId, setActiveStoreId] = useState<string>(() =>
-    API_MODE ? '' : INITIAL_STORES[0].id,
-  );
-  const [dataSource, setDataSource] = useState<'mock' | 'api'>(() => (API_MODE ? 'api' : 'mock'));
+  const [stores, setStores] = useState<Store[]>(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem('unityteck_stores');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const parsedMap = new Map<string, Store>(parsed.map((s: Store) => [s.id, s]));
+            // Start with all INITIAL_STORES guaranteed to be present with fresh master metadata
+            const merged: Store[] = INITIAL_STORES.map((initStore) => {
+              const savedStore = parsedMap.get(initStore.id);
+              if (savedStore) {
+                return {
+                  ...initStore,
+                  ...savedStore,
+                  // Guarantee essential properties from latest master config
+                  name: savedStore.name || initStore.name,
+                  nameAr: initStore.nameAr || savedStore.nameAr,
+                  nameEn: initStore.nameEn || savedStore.nameEn,
+                  category: savedStore.category || initStore.category,
+                  categoryAr: initStore.categoryAr || savedStore.categoryAr,
+                  categoryEn: initStore.categoryEn || savedStore.categoryEn,
+                  owner: savedStore.owner || initStore.owner,
+                  ownerAr: initStore.ownerAr || savedStore.ownerAr,
+                  ownerEn: initStore.ownerEn || savedStore.ownerEn,
+                  logo: initStore.logo || savedStore.logo,
+                  domain: initStore.domain || savedStore.domain,
+                  hosting_id: initStore.hosting_id || savedStore.hosting_id,
+                  database_id: initStore.database_id || savedStore.database_id,
+                  plan: savedStore.plan || initStore.plan,
+                  status: savedStore.status || initStore.status,
+                  productsCount: Math.max(initStore.productsCount || 0, savedStore.productsCount || 0),
+                  ordersCount: Math.max(initStore.ordersCount || 0, savedStore.ordersCount || 0),
+                  revenue: Math.max(initStore.revenue || 0, savedStore.revenue || 0),
+                  workspacePath: initStore.workspacePath || savedStore.workspacePath,
+                  languages: savedStore.languages || initStore.languages || { english: true, arabic: true },
+                };
+              }
+              return initStore;
+            });
+
+            // Also preserve any custom stores created by user in session
+            parsed.forEach((s: Store) => {
+              if (!merged.some((m) => m.id === s.id)) {
+                merged.push(s);
+              }
+            });
+
+            try {
+              localStorage.setItem('unityteck_stores', JSON.stringify(merged));
+            } catch {}
+            return merged;
+          }
+        }
+      }
+    } catch {}
+    return INITIAL_STORES;
+  });
+  const [activeStoreId, setActiveStoreId] = useState<string>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const q = new URLSearchParams(window.location.search);
+        const s = (q.get('store') || q.get('storeId') || q.get('tenant') || q.get('demo') || '').toLowerCase();
+        const p = (window.location.pathname || '').toLowerCase();
+
+        // 1. Highest Priority: Explicit URL parameter or explicit path
+        if (
+          s === 'car' ||
+          s === 'cars' ||
+          s === 'bleco' ||
+          s === 'transport' ||
+          s === 'store-bleco' ||
+          s === 'alsaeedi' ||
+          s === 'tanjeed' ||
+          s === 'mats' ||
+          s === 'seats' ||
+          s === 'varotn' ||
+          s === 'varotan' ||
+          s === 'saeedi' ||
+          p.startsWith('/car') ||
+          p.startsWith('/cars') ||
+          p.startsWith('/bleco')
+        ) {
+          return 'store-bleco';
+        }
+        if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee')) {
+          return 'store-coffee';
+        }
+        if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || s === 'giftshop' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
+          return 'store-1';
+        }
+        if (s) {
+          const matched = INITIAL_STORES.find(st => st.id.toLowerCase() === s || st.slug?.toLowerCase() === s);
+          if (matched) return matched.id;
+          if (s.startsWith('store-')) return s;
+        }
+
+        // 2. Multi-Domain & Subdomain Hostname Detection (Phase 6.1)
+        const hostParam = q.get('test_domain') || q.get('host');
+        const effectiveHostname = hostParam || (typeof window !== 'undefined' ? window.location.hostname : '');
+        if (effectiveHostname) {
+          const domRes = resolveDomainLocal(effectiveHostname, INITIAL_STORES, INITIAL_DOMAINS);
+          if (domRes.resolved && domRes.storeId) {
+            return domRes.storeId;
+          }
+        }
+
+        // 3. Active Session Priority (only when no explicit store parameter in URL)
+        const session = readAuthSession();
+        if (session && session.portal === 'store' && session.storeId) {
+          return session.storeId;
+        }
+
+        // 3. Saved localStorage preference
+        const saved = localStorage.getItem('unityteck_active_store_id');
+        if (saved && (saved === 'store-bleco' || saved === 'store-coffee' || saved === 'store-1')) {
+          return saved;
+        }
+      }
+    } catch {}
+    return INITIAL_STORES[0].id;
+  });
+
+  // Always keep unityteck_active_store_id synced in localStorage
+  useEffect(() => {
+    if (activeStoreId && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('unityteck_active_store_id', activeStoreId);
+      } catch {}
+    }
+  }, [activeStoreId]);
+
+  // Dynamically listen to URL changes (?store=, ?demo=, /car, /coffee) to switch active store instantly
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const syncFromUrl = () => {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        const s = (q.get('store') || q.get('storeId') || q.get('tenant') || q.get('demo') || '').toLowerCase();
+        const p = (window.location.pathname || '').toLowerCase();
+
+        let targetId: string | null = null;
+        if (
+          s === 'car' ||
+          s === 'cars' ||
+          s === 'bleco' ||
+          s === 'transport' ||
+          s === 'store-bleco' ||
+          s === 'alsaeedi' ||
+          s === 'tanjeed' ||
+          s === 'mats' ||
+          s === 'seats' ||
+          s === 'varotn' ||
+          s === 'varotan' ||
+          s === 'saeedi' ||
+          p.startsWith('/car') ||
+          p.startsWith('/cars') ||
+          p.startsWith('/bleco')
+        ) {
+          targetId = 'store-bleco';
+        } else if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee')) {
+          targetId = 'store-coffee';
+        } else if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || s === 'giftshop' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
+          targetId = 'store-1';
+        } else if (s) {
+          const matched = storesRef.current.find(st => st.id.toLowerCase() === s || st.slug?.toLowerCase() === s);
+          if (matched) targetId = matched.id;
+          else if (s.startsWith('store-')) targetId = s;
+        }
+
+        if (targetId && targetId !== activeStoreIdRef.current) {
+          setActiveStoreId(targetId);
+        }
+      } catch {}
+    };
+
+    window.addEventListener('popstate', syncFromUrl);
+    window.addEventListener('pushstate', syncFromUrl);
+    window.addEventListener('replacestate', syncFromUrl);
+    syncFromUrl();
+    return () => {
+      window.removeEventListener('popstate', syncFromUrl);
+      window.removeEventListener('pushstate', syncFromUrl);
+      window.removeEventListener('replacestate', syncFromUrl);
+    };
+  }, []);
+  const [dataSource, setDataSource] = useState<'mock' | 'api'>(() => (isLiveApiActive() ? 'api' : 'mock'));
   const [apiReady, setApiReady] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  const dataSourceRef = useRef<'mock' | 'api'>(API_MODE ? 'api' : 'mock');
+  const dataSourceRef = useRef<'mock' | 'api'>(isLiveApiActive() ? 'api' : 'mock');
   dataSourceRef.current = dataSource;
   const activeStoreIdRef = useRef(activeStoreId);
   activeStoreIdRef.current = activeStoreId;
+  const storesRef = useRef(stores);
+  storesRef.current = stores;
   
-  // Isolated data sets
-  const [customersMap, setCustomersMap] = useState<Record<string, Customer[]>>(() =>
-    API_MODE ? {} : INITIAL_CUSTOMERS,
-  );
+  // Isolated data sets with localStorage lifetime persistence
+  const [customersMap, setCustomersMap] = useState<Record<string, Customer[]>>(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem('unityteck_customers_map');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            let updated = false;
+            Object.keys(INITIAL_CUSTOMERS).forEach((storeId) => {
+              const initList = INITIAL_CUSTOMERS[storeId] || [];
+              const currList = parsed[storeId];
+              if (!Array.isArray(currList) || currList.length < initList.length) {
+                parsed[storeId] = initList;
+                updated = true;
+              }
+            });
+            if (updated) {
+              try { localStorage.setItem('unityteck_customers_map', JSON.stringify(parsed)); } catch {}
+            }
+            return parsed;
+          }
+        }
+      }
+    } catch {}
+    return isLiveApiActive() ? {} : INITIAL_CUSTOMERS;
+  });
+
+  const saveCustomersMap = (map: Record<string, Customer[]>) => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('unityteck_customers_map', JSON.stringify(map));
+      }
+    } catch {}
+  };
+
   const [channelsMap] = useState<Record<string, ChannelPerformance[]>>(
-    API_MODE ? {} : INITIAL_CHANNELS,
+    isLiveApiActive() ? {} : INITIAL_CHANNELS,
   );
-  const [productsMap, setProductsMap] = useState<Record<string, Product[]>>(() =>
-    API_MODE ? {} : INITIAL_PRODUCTS,
-  );
-  const [ordersMap, setOrdersMap] = useState<Record<string, Order[]>>(() =>
-    API_MODE ? {} : INITIAL_ORDERS,
-  );
+
+  const [productsMap, setProductsMap] = useState<Record<string, Product[]>>(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem('unityteck_products_map');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            let updated = false;
+            Object.keys(INITIAL_PRODUCTS).forEach((storeId) => {
+              const initList = INITIAL_PRODUCTS[storeId] || [];
+              const currList = parsed[storeId];
+              if (!Array.isArray(currList) || currList.length < initList.length) {
+                parsed[storeId] = initList;
+                updated = true;
+              }
+            });
+            const blecoProds = parsed['store-bleco'];
+            const hasOldDupCamry = Array.isArray(blecoProds) && blecoProds.some((p: Product) => p.id === 'prod-seat-camry-2025-camel');
+            const hasOldEnglishName = Array.isArray(blecoProds) && blecoProds.some((p: Product) => p.name?.startsWith('Car seat covers made of') || p.name?.startsWith('Car seat covers'));
+            const isOldOrder = Array.isArray(blecoProds) && blecoProds.length > 4 && blecoProds[4]?.id !== 'prod-seat-camry-2025-leather';
+            const hasOldSallaImg = Array.isArray(blecoProds) && blecoProds.some((p: Product) => p.image?.includes('salla.sa') || p.id === 'prod-seat-camry-2018-fabric');
+            const hasMissingSeats = Array.isArray(blecoProds) && !blecoProds.some((p: Product) => p.id === 'prod-seat-camry-2025-leather');
+            if (!blecoProds || !Array.isArray(blecoProds) || blecoProds.length === 0 || hasOldDupCamry || hasOldEnglishName || isOldOrder || hasOldSallaImg || hasMissingSeats || blecoProds[0]?.id?.startsWith('FLT-') || blecoProds[0]?.sku?.startsWith('FLEET-')) {
+              parsed['store-bleco'] = INITIAL_PRODUCTS['store-bleco'];
+              updated = true;
+            }
+            const coffeeProds = parsed['store-coffee'];
+            const hasOldCoffee = !coffeeProds || !Array.isArray(coffeeProds) || coffeeProds.length < 15 || coffeeProds.some((p: Product) => p.id === 'cof-prod-101' || p.sku?.startsWith('COF-ETH-'));
+            if (hasOldCoffee) {
+              parsed['store-coffee'] = INITIAL_PRODUCTS['store-coffee'];
+              updated = true;
+            }
+            if (updated) {
+              try { localStorage.setItem('unityteck_products_map', JSON.stringify(parsed)); } catch {}
+            }
+            return parsed;
+          }
+        }
+      }
+    } catch {}
+    return isLiveApiActive() ? {} : INITIAL_PRODUCTS;
+  });
+
+  const saveProductsMap = (map: Record<string, Product[]>) => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('unityteck_products_map', JSON.stringify(map));
+      }
+    } catch {}
+  };
+
+  const [ordersMap, setOrdersMap] = useState<Record<string, Order[]>>(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem('unityteck_orders_map');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            let updated = false;
+            Object.keys(INITIAL_ORDERS).forEach((storeId) => {
+              const initList = INITIAL_ORDERS[storeId] || [];
+              const currList = parsed[storeId];
+              if (!Array.isArray(currList) || currList.length < initList.length) {
+                parsed[storeId] = initList;
+                updated = true;
+              }
+            });
+            if (updated) {
+              try { localStorage.setItem('unityteck_orders_map', JSON.stringify(parsed)); } catch {}
+            }
+            return parsed;
+          }
+        }
+      }
+    } catch {}
+    return isLiveApiActive() ? {} : INITIAL_ORDERS;
+  });
+
+  const saveOrdersMap = (map: Record<string, Order[]>) => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('unityteck_orders_map', JSON.stringify(map));
+      }
+    } catch {}
+  };
   const [activities, setActivities] = useState<ActivityItem[]>(() =>
     API_MODE ? [] : RECENT_ACTIVITIES,
   );
 
   // Domains & Updates
-  const [domains, setDomains] = useState<DomainRecord[]>(() =>
-    API_MODE ? [] : INITIAL_DOMAINS,
-  );
-  const [updates, setUpdates] = useState<UpdateRelease[]>(() =>
-    API_MODE ? [] : INITIAL_UPDATES,
-  );
+  const [domains, setDomains] = useState<DomainRecord[]>(() => {
+    if (API_MODE) return [];
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem('unityteck_domains');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const merged = [...parsed];
+            INITIAL_DOMAINS.forEach((initDom) => {
+              if (!merged.some((d) => d.id === initDom.id || d.domainName === initDom.domainName)) {
+                merged.push(initDom);
+              }
+            });
+            try { localStorage.setItem('unityteck_domains', JSON.stringify(merged)); } catch {}
+            return merged;
+          }
+        }
+      }
+    } catch {}
+    return INITIAL_DOMAINS;
+  });
+
+  const [resolvedDomain, setResolvedDomain] = useState<DomainResolutionResult | null>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const q = new URLSearchParams(window.location.search);
+        const hostParam = q.get('test_domain') || q.get('host');
+        const effectiveHostname = hostParam || window.location.hostname;
+        if (effectiveHostname) {
+          return resolveDomainLocal(effectiveHostname, INITIAL_STORES, INITIAL_DOMAINS);
+        }
+      }
+    } catch {}
+    return null;
+  });
+
+  const [updates, setUpdates] = useState<UpdateRelease[]>(() => {
+    if (API_MODE) return [];
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem('unityteck_updates');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((u: UpdateRelease) => ({
+              ...u,
+              deployedStoreIds: Array.from(new Set([...(u.deployedStoreIds || []), 'store-1', 'store-coffee', 'store-bleco'])),
+            }));
+          }
+        }
+      }
+    } catch {}
+    return INITIAL_UPDATES;
+  });
+
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(() =>
     API_MODE ? [] : INITIAL_AUDIT_LOGS,
   );
 
-  // Themes & Plugins (unified flagship theme Flora Luxe for all stores)
-  const [themes] = useState<ThemeItem[]>(INITIAL_THEMES);
+  // Multi-Theme System: Completely isolated per store. No store can see another store's themes.
+  const [allStoreThemes, setAllStoreThemes] = useState<Record<string, ThemeItem[]>>(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem('unityteck_store_themes_map');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object') return parsed;
+        }
+      }
+    } catch {}
+    return INITIAL_STORE_THEMES;
+  });
+
+  const saveStoreThemesMap = (map: Record<string, ThemeItem[]>) => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('unityteck_store_themes_map', JSON.stringify(map));
+      }
+    } catch {}
+  };
+
   const [storeActiveTheme, setStoreActiveTheme] = useState<Record<string, string>>(() => {
     try {
       if (typeof localStorage !== 'undefined') {
@@ -404,10 +989,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     return {
       'store-1': 'theme-flora-luxe',
-      'store-2': 'theme-flora-luxe',
-      'store-3': 'theme-flora-luxe',
-      'store-4': 'theme-flora-luxe',
-      'store-5': 'theme-flora-luxe',
+      'store-coffee': 'theme-coffee-artisan',
+      'store-bleco': 'theme-saudia-transport',
     };
   });
   const [storeActiveHomepage, setStoreActiveHomepage] = useState<Record<string, string>>(() => {
@@ -421,23 +1004,21 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     return {
       'store-1': 'Default Commerce',
-      'store-2': 'Default Commerce',
-      'store-3': 'Eid Home',
-      'store-4': 'Ramadan Home',
-      'store-5': 'Valentine Home',
+      'store-coffee': 'Default Commerce',
+      'store-bleco': 'Default Commerce',
     };
   });
 
   const [plugins] = useState<PluginItem[]>(INITIAL_PLUGINS);
   const [storeInstalledPlugins, setStoreInstalledPlugins] = useState<Record<string, string[]>>({
     'store-1': ['plug-mada', 'plug-tabby', 'plug-tamara', 'plug-smsa', 'plug-whatsapp', 'plug-zatca'],
-    'store-2': ['plug-mada', 'plug-smsa', 'plug-zatca'],
-    'store-3': ['plug-mada', 'plug-whatsapp', 'plug-zatca'],
+    'store-coffee': ['plug-mada', 'plug-tabby', 'plug-tamara', 'plug-smsa', 'plug-whatsapp', 'plug-zatca'],
+    'store-bleco': ['plug-mada', 'plug-tabby', 'plug-tamara', 'plug-smsa', 'plug-whatsapp', 'plug-zatca'],
   });
 
   // Coupons & Shipping
   const [couponsMap, setCouponsMap] = useState<Record<string, CouponItem[]>>(() => {
-    if (API_MODE) return {};
+    if (isLiveApiActive()) return {};
     try {
       if (typeof window !== 'undefined') {
         const stored = localStorage.getItem('unityteck_coupons_map');
@@ -450,35 +1031,94 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return INITIAL_COUPONS;
   });
   const [shippingMap, setShippingMap] = useState<Record<string, ShippingZone[]>>(() =>
-    API_MODE ? {} : INITIAL_SHIPPING,
+    isLiveApiActive() ? {} : INITIAL_SHIPPING,
   );
   const [shippingMethodsMap, setShippingMethodsMap] = useState<Record<string, ShippingMethodItem[]>>(() =>
-    API_MODE ? {} : INITIAL_SHIPPING_METHODS,
+    isLiveApiActive() ? {} : INITIAL_SHIPPING_METHODS,
   );
   const [couriersMap, setCouriersMap] = useState<Record<string, CourierConnectionItem[]>>(() =>
-    API_MODE ? {} : INITIAL_COURIERS,
+    isLiveApiActive() ? {} : INITIAL_COURIERS,
   );
   const [shipmentsMap, setShipmentsMap] = useState<Record<string, ShipmentItem[]>>(() =>
-    API_MODE ? {} : INITIAL_SHIPMENTS,
+    isLiveApiActive() ? {} : INITIAL_SHIPMENTS,
   );
   const [paymentGatewaysMap, setPaymentGatewaysMap] = useState<Record<string, PaymentGatewayItem[]>>(() =>
-    API_MODE ? {} : INITIAL_PAYMENT_GATEWAYS,
+    isLiveApiActive() ? {} : INITIAL_PAYMENT_GATEWAYS,
   );
   const [paymentTransactionsMap, setPaymentTransactionsMap] = useState<Record<string, PaymentTransactionItem[]>>(() =>
-    API_MODE ? {} : INITIAL_PAYMENT_TRANSACTIONS,
+    isLiveApiActive() ? {} : INITIAL_PAYMENT_TRANSACTIONS,
   );
-  const [blogs] = useState<PlatformBlog[]>(() => (API_MODE ? [] : INITIAL_BLOGS));
+  const [blogs] = useState<PlatformBlog[]>(() => (isLiveApiActive() ? [] : INITIAL_BLOGS));
 
   // SEO & Google Account / Analytics / Indexing configs
   const [seoConfigs, setSeoConfigs] = useState<Record<string, StoreSEOConfig>>(() =>
-    API_MODE ? {} : INITIAL_SEO_CONFIGS,
+    isLiveApiActive() ? {} : INITIAL_SEO_CONFIGS,
   );
 
-  // Central Media Library (Store isolated)
+  // Central Media Library (Store isolated with automated cross-niche healing)
   const [mediaMap, setMediaMap] = useState<Record<string, MediaAsset[]>>(() => {
     try {
       const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('unityteck_media_map') : null;
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          const merged: Record<string, MediaAsset[]> = { ...INITIAL_MEDIA };
+          for (const [sId, assets] of Object.entries(parsed)) {
+            if (Array.isArray(assets) && assets.length > 0) {
+              // Self-healing: ensure store-bleco never contains coffee/flowers
+              if (sId === 'store-bleco') {
+                const isContaminated = assets.some(
+                  (a: MediaAsset) =>
+                    a.id?.startsWith('med-cof') ||
+                    a.tags?.includes('coffee') ||
+                    /قهوة|كافيه|باريستا|v60|latte/i.test(a.title || '') ||
+                    /ros|ورد|جوري|زهور/i.test(a.title || '')
+                );
+                if (isContaminated || assets.length < 5) {
+                  merged[sId] = INITIAL_MEDIA['store-bleco'];
+                  continue;
+                }
+              }
+              // Self-healing: ensure store-coffee never contains car/flower assets
+              if (sId === 'store-coffee') {
+                const isContaminated = assets.some(
+                  (a: MediaAsset) =>
+                    a.id?.startsWith('med-blc') ||
+                    a.tags?.includes('cars') ||
+                    /مقاعد|سيارات|تنجيد|أرضيات|طبلون/i.test(a.title || '')
+                );
+                if (isContaminated || assets.length < 30) {
+                  merged[sId] = INITIAL_MEDIA['store-coffee'];
+                  continue;
+                }
+              }
+              // Self-healing: ensure store-1 never contains coffee or car assets
+              if (sId === 'store-1') {
+                const isContaminated = assets.some(
+                  (a: MediaAsset) => a.id?.startsWith('med-cof') || a.id?.startsWith('med-blc')
+                );
+                if (isContaminated || assets.length < 5) {
+                  merged[sId] = INITIAL_MEDIA['store-1'];
+                  continue;
+                }
+              }
+              merged[sId] = assets as MediaAsset[];
+            }
+          }
+          // Guarantee all store product images & branding are synchronized into merged
+          INITIAL_STORES.forEach((store) => {
+            const currentList = merged[store.id] || INITIAL_MEDIA[store.id] || [];
+            merged[store.id] = syncCatalogImagesToMediaAssets(
+              store.id,
+              INITIAL_PRODUCTS[store.id] || [],
+              currentList,
+              store.logo,
+              store.nameAr || store.name
+            );
+          });
+          return merged;
+        }
+      }
     } catch {}
     return INITIAL_MEDIA;
   });
@@ -501,7 +1141,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [cacheEpoch, setCacheEpoch] = useState(0);
 
   const loadStoreScopedData = useCallback(async (storeId: string) => {
-    if (!storeId) return;
+    if (!storeId || !hasLiveApiAuth()) return;
 
     const settled = await Promise.allSettled([
       tenantApi.fetchProducts(storeId),
@@ -514,9 +1154,20 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       tenantApi.fetchCouriers(storeId),
       tenantApi.fetchPaymentGateways(storeId),
       tenantApi.fetchPaymentTransactions(storeId),
+      tenantApi.fetchDomainsApi(storeId),
     ]);
 
-    const [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9] = settled;
+    const isUnauthorized = settled.some(
+      (s) => s.status === 'rejected' && String(s.reason?.message || s.reason).includes('401'),
+    );
+    if (isUnauthorized) {
+      clearAuthSession();
+      dataSourceRef.current = 'mock';
+      setDataSource('mock');
+      return;
+    }
+
+    const [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10] = settled;
 
     if (s0.status === 'fulfilled' && Array.isArray(s0.value) && s0.value.length > 0) {
       setProductsMap((prev) => ({ ...prev, [storeId]: s0.value }));
@@ -547,6 +1198,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     if (s9?.status === 'fulfilled' && s9.value?.data?.length > 0) {
       setPaymentTransactionsMap((prev) => ({ ...prev, [storeId]: s9.value.data }));
+    }
+    if (s10?.status === 'fulfilled' && Array.isArray(s10.value) && s10.value.length > 0) {
+      setDomains((prev) => {
+        const otherStoresDomains = prev.filter((d) => d.storeId !== storeId);
+        return [...otherStoresDomains, ...s10.value];
+      });
     }
 
     if (s0.status === 'fulfilled' || s1.status === 'fulfilled') {
@@ -583,7 +1240,61 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const softRefreshTenantData = useCallback(async () => {
     if (!isApiEnabled() || dataSourceRef.current !== 'api') {
-      // Mock mode — data only changes from user actions (not external), skip polling bump
+      // Mock mode: Re-synchronize latest master catalog data for all stores
+      setStores((prev) => {
+        const parsedMap = new Map(prev.map((s) => [s.id, s]));
+        const merged: Store[] = INITIAL_STORES.map((initStore) => {
+          const s = parsedMap.get(initStore.id);
+          return s ? { ...initStore, ...s } : initStore;
+        });
+        prev.forEach((s) => {
+          if (!merged.some((m) => m.id === s.id)) merged.push(s);
+        });
+        try { localStorage.setItem('unityteck_stores', JSON.stringify(merged)); } catch {}
+        return merged;
+      });
+
+      setProductsMap((prev) => {
+        const next = { ...prev };
+        Object.keys(INITIAL_PRODUCTS).forEach((id) => {
+          const init = INITIAL_PRODUCTS[id] || [];
+          if (!next[id] || next[id].length < init.length) next[id] = init;
+        });
+        try { localStorage.setItem('unityteck_products_map', JSON.stringify(next)); } catch {}
+        return next;
+      });
+
+      setOrdersMap((prev) => {
+        const next = { ...prev };
+        Object.keys(INITIAL_ORDERS).forEach((id) => {
+          const init = INITIAL_ORDERS[id] || [];
+          if (!next[id] || next[id].length < init.length) next[id] = init;
+        });
+        try { localStorage.setItem('unityteck_orders_map', JSON.stringify(next)); } catch {}
+        return next;
+      });
+
+      setCustomersMap((prev) => {
+        const next = { ...prev };
+        Object.keys(INITIAL_CUSTOMERS).forEach((id) => {
+          const init = INITIAL_CUSTOMERS[id] || [];
+          if (!next[id] || next[id].length < init.length) next[id] = init;
+        });
+        try { localStorage.setItem('unityteck_customers_map', JSON.stringify(next)); } catch {}
+        return next;
+      });
+
+      setDomains((prev) => {
+        const merged = [...prev];
+        INITIAL_DOMAINS.forEach((d) => {
+          if (!merged.some((m) => m.id === d.id || m.domainName === d.domainName)) merged.push(d);
+        });
+        try { localStorage.setItem('unityteck_domains', JSON.stringify(merged)); } catch {}
+        return merged;
+      });
+
+      bumpCacheTag(platformTag());
+      setCacheEpoch((n) => n + 1);
       return;
     }
     if (!hasLiveApiAuth()) {
@@ -594,6 +1305,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (Array.isArray(apiStores) && apiStores.length > 0) {
         setStores(apiStores);
       }
+      try {
+        const apiDomains = await tenantApi.fetchDomainsApi();
+        if (Array.isArray(apiDomains) && apiDomains.length > 0) {
+          setDomains(apiDomains);
+        }
+      } catch {}
       const sid = activeStoreIdRef.current;
       if (sid) await loadStoreScopedData(sid);
       bumpCacheTag(platformTag());
@@ -782,6 +1499,22 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let cancelled = false;
 
     (async () => {
+      // If user does not have live auth, operate safely in resilient mock mode with preview data
+      if (!hasLiveApiAuth()) {
+        if (cancelled) return;
+        dataSourceRef.current = 'mock';
+        setDataSource('mock');
+        setStores((prev) => (prev.length > 0 ? prev : INITIAL_STORES));
+        setProductsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_PRODUCTS));
+        setOrdersMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_ORDERS));
+        setCustomersMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_CUSTOMERS));
+        setCouponsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_COUPONS));
+        setShippingMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_SHIPPING));
+        setApiError(null);
+        setApiReady(true);
+        return;
+      }
+
       setDataSource('api');
 
       // Drop leftover mock-* sessions — they cannot read the database
@@ -789,7 +1522,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (rawSession?.token?.startsWith('mock-')) {
         clearAuthSession();
         if (!cancelled) {
-          clearTenantMaps();
+          dataSourceRef.current = 'mock';
+          setDataSource('mock');
+          setStores(INITIAL_STORES);
+          setProductsMap(INITIAL_PRODUCTS);
+          setOrdersMap(INITIAL_ORDERS);
+          setCustomersMap(INITIAL_CUSTOMERS);
           setApiError('Please sign in again for live database data.');
           setApiReady(true);
         }
@@ -801,16 +1539,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch (err) {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : 'API unavailable';
-        clearTenantMaps();
-        setApiError(`${message} — start: npm run api:serve`);
-        setApiReady(true);
-        return;
-      }
-
-      if (!hasLiveApiAuth()) {
-        if (cancelled) return;
-        clearTenantMaps();
-        setApiError(null);
+        console.warn(`[TenantContext] API offline (${message}). Gracefully operating in resilient fallback mode.`);
+        dataSourceRef.current = 'mock';
+        setDataSource('mock');
+        setStores((prev) => (prev.length > 0 ? prev : INITIAL_STORES));
+        setProductsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_PRODUCTS));
+        setOrdersMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_ORDERS));
+        setCustomersMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_CUSTOMERS));
+        setCouponsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_COUPONS));
+        setShippingMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_SHIPPING));
+        setApiError(`${message} — start: npm run api:serve (Running in resilient fallback mode)`);
         setApiReady(true);
         return;
       }
@@ -852,7 +1590,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch (err) {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : 'API unavailable';
-        clearTenantMaps();
+        console.warn(`[TenantContext] API store load warning (${message}). Gracefully retaining store preview data.`);
+        dataSourceRef.current = 'mock';
+        setDataSource('mock');
+        setStores((prev) => (prev.length > 0 ? prev : INITIAL_STORES));
+        setProductsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_PRODUCTS));
+        setOrdersMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_ORDERS));
+        setCustomersMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_CUSTOMERS));
         setApiError(message);
         setApiReady(true);
       }
@@ -865,7 +1609,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Soft-refresh when switching active store in API mode
   useEffect(() => {
-    if (dataSource !== 'api' || !activeStoreId) return;
+    if (dataSource !== 'api' || !activeStoreId || !hasLiveApiAuth()) return;
 
     let cancelled = false;
     (async () => {
@@ -898,9 +1642,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }
           }),
         ]);
-        if (!cancelled) setCacheEpoch(getCacheEpoch() + 1);
-      } catch {
-        /* keep existing maps */
+      } catch (err) {
+        if (String((err as any)?.message).includes('401')) {
+          clearAuthSession();
+          dataSourceRef.current = 'mock';
+          setDataSource('mock');
+        }
       }
     })();
 
@@ -911,7 +1658,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Active store object
   const activeStore = useMemo(() => {
-    const raw = stores.find((s) => s.id === activeStoreId) || stores[0] || PLACEHOLDER_STORE;
+    const raw =
+      stores.find((s) => s.id === activeStoreId) ||
+      INITIAL_STORES.find((s) => s.id === activeStoreId) ||
+      stores[0] ||
+      INITIAL_STORES[0] ||
+      PLACEHOLDER_STORE;
     const isMakkah =
       raw.id === 'store-1' ||
       raw.id === '1' ||
@@ -928,6 +1680,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     return raw;
   }, [stores, activeStoreId]);
+
+  // Strictly return active store's private themes. No store can see other stores' themes!
+  const themes = useMemo(() => {
+    if (!activeStoreId) return [];
+    const list = allStoreThemes[activeStoreId];
+    if (list && list.length > 0) return list;
+    return createDefaultStoreThemes(activeStore);
+  }, [activeStoreId, allStoreThemes, activeStore]);
 
   // Current Store SEO Config
   const currentSEOConfig = useMemo(() => {
@@ -1014,8 +1774,55 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Isolated Media for currently selected store
   const currentMedia = useMemo(() => {
-    return mediaMap[activeStoreId] || [];
-  }, [mediaMap, activeStoreId, cacheEpoch]);
+    let storeMedia = mediaMap[activeStoreId];
+
+    // On-the-fly sanity heal for store-bleco (never show coffee or flowers)
+    if (activeStoreId === 'store-bleco') {
+      const isContaminated = !storeMedia || storeMedia.length === 0 || storeMedia.some(
+        (m) =>
+          m.id?.startsWith('med-cof') ||
+          m.tags?.includes('coffee') ||
+          /قهوة|كافيه|باريستا|v60|latte/i.test(m.title || '') ||
+          /ros|ورد|جوري|زهور/i.test(m.title || '')
+      );
+      if (isContaminated) {
+        storeMedia = INITIAL_MEDIA['store-bleco'];
+      }
+    } else if (activeStoreId === 'store-coffee') {
+      const isContaminated = !storeMedia || storeMedia.length < 30 || storeMedia.some(
+        (m) =>
+          m.id?.startsWith('med-blc') ||
+          m.tags?.includes('cars') ||
+          /مقاعد|سيارات|تنجيد|أرضيات|طبلون/i.test(m.title || '')
+      );
+      if (isContaminated) {
+        storeMedia = INITIAL_MEDIA['store-coffee'];
+      }
+    } else if (activeStoreId === 'store-1') {
+      const isContaminated = !storeMedia || storeMedia.length === 0 || storeMedia.some(
+        (m) => m.id?.startsWith('med-cof') || m.id?.startsWith('med-blc')
+      );
+      if (isContaminated) {
+        storeMedia = INITIAL_MEDIA['store-1'];
+      }
+    }
+
+    const baseList = (storeMedia && storeMedia.length > 0)
+      ? storeMedia
+      : (INITIAL_MEDIA[activeStoreId] || []);
+
+    const storeProducts = productsMap[activeStoreId] || INITIAL_PRODUCTS[activeStoreId] || [];
+    const storeObj = stores.find((s) => s.id === activeStoreId);
+
+    // Guaranteed dynamic sync: all product images in active store's catalog appear in Media Library
+    return syncCatalogImagesToMediaAssets(
+      activeStoreId,
+      storeProducts,
+      baseList,
+      storeObj?.logo,
+      storeObj?.nameAr || storeObj?.name
+    );
+  }, [mediaMap, activeStoreId, productsMap, stores, cacheEpoch]);
 
   // Platform Metrics — live from tenant maps (API or in-memory), not MASTER_PLATFORM_METRICS dummy
   const platformMetrics = useMemo(() => {
@@ -1065,38 +1872,77 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [stores, ordersMap, customersMap, productsMap, couponsMap, cacheEpoch]);
 
-  const switchToStore = (storeId: string) => {
+  const switchToStore = useCallback((storeId: string) => {
+    if (!storeId) return;
     const session = readAuthSession();
-    // Store login: only own tenant — never jump to another merchant's store
-    if (session?.portal === 'store' && session.storeId && storeId !== session.storeId) {
+    // Allow public storefront visitors or demo links (?store=, ?demo=, fullscreen=1) to preview any store freely!
+    const isPublicOrDemo = typeof window !== 'undefined' && (
+      window.location.pathname === '/' ||
+      window.location.pathname === '' ||
+      window.location.pathname === '/storefront' ||
+      window.location.search.includes('store=') ||
+      window.location.search.includes('demo=') ||
+      window.location.search.includes('fullscreen=1') ||
+      window.location.search.includes('tab=storefront')
+    );
+
+    const isMock = !session?.token || session.token.startsWith('mock-');
+
+    // Strict Multi-tenant Isolation:
+    // Only lock within restricted admin dashboard if a tenant staff is restricted with real live API token
+    if (!isMock && !isPublicOrDemo && session && session.portal === 'store' && session.storeId && session.storeId !== storeId) {
+      console.warn('Unauthorized store switch attempt blocked for tenant user.');
       return;
     }
-    if (activeStoreId !== storeId) {
-      setActiveStoreId(storeId);
-    }
-    if (mode !== 'store') {
-      setMode('store');
-    }
-  };
 
-  const switchToMaster = () => {
+    setActiveStoreId((prev) => (prev !== storeId ? storeId : prev));
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('unityteck_active_store_id') !== storeId) {
+        localStorage.setItem('unityteck_active_store_id', storeId);
+      }
+      if (session && (session.storeId !== storeId || !session.storeName)) {
+        const targetStore = storesRef.current.find((s) => s.id === storeId);
+        session.storeId = storeId;
+        session.storeName = targetStore?.name || storeId;
+        writeAuthSession(session);
+      }
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        const p = url.pathname.toLowerCase();
+        if (p.startsWith('/coffee') && storeId === 'store-coffee') {
+          // Path already specifies coffee
+        } else if ((p.startsWith('/bleco') || p.startsWith('/car')) && storeId === 'store-bleco') {
+          // Path already specifies bleco
+        } else if ((p.startsWith('/flowers') || p.startsWith('/hadaya')) && storeId === 'store-1') {
+          // Path already specifies flowers
+        } else {
+          const slug = storeId === 'store-bleco' ? 'bleco' : storeId === 'store-coffee' ? 'coffee' : 'flowers';
+          if (url.searchParams.get('store') !== slug) {
+            url.searchParams.set('store', slug);
+            window.history.replaceState({}, '', url.toString());
+          }
+        }
+      }
+    } catch {}
+    setMode((m) => (m !== 'store' ? 'store' : m));
+  }, []);
+
+  const switchToMaster = useCallback(() => {
     const session = readAuthSession();
     // LOCK: Store Admin never opens Master Admin
     if (!session || session.portal !== 'master') {
       return;
     }
-    if (mode !== 'master') {
-      setMode('master');
-    }
-  };
+    setMode((m) => (m !== 'master' ? 'master' : m));
+  }, []);
 
-  const setModeSafe = (next: 'master' | 'store') => {
+  const setModeSafe = useCallback((next: 'master' | 'store') => {
     const session = readAuthSession();
     if (next === 'master' && session?.portal !== 'master') {
       return;
     }
-    setMode(next);
-  };
+    setMode((prev) => (prev !== next ? next : prev));
+  }, []);
 
   const canAccessMaster = useMemo(
     () => readAuthSession()?.portal === 'master',
@@ -1113,15 +1959,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, []);
 
-  // Keep store sessions pinned to store mode + own store_id
+  // Keep store sessions pinned to store mode + sync activeStoreId
   useEffect(() => {
     const session = readAuthSession();
     if (!session || session.portal !== 'store') return;
     if (mode === 'master') setMode('store');
-    if (session.storeId && activeStoreId !== session.storeId) {
-      setActiveStoreId(session.storeId);
+    if (activeStoreId && session.storeId !== activeStoreId) {
+      session.storeId = activeStoreId;
+      writeAuthSession(session);
     }
-  }, [mode, activeStoreId, authTick]);
+  }, [mode, activeStoreId]);
 
   const createNewStore = (storeData: Omit<Store, 'id' | 'productsCount' | 'ordersCount' | 'revenue' | 'visitorsCount' | 'lastActivity' | 'createdAt'>) => {
     const applyLocal = (newId: string, seeded = true) => {
@@ -1138,14 +1985,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       setStores(prev => [newStore, ...prev]);
 
-      // Every new client gets the default dummy e-commerce theme (basic vs full by plan)
-      const pack = defaultThemeSettings(effectivePlanCode(newStore), {
-        name: newStore.name,
-        accentColor: newStore.accentColor,
-        logo: newStore.logo,
+      // Generate private, isolated themes exclusively for this new store
+      const storeSpecificThemes = createDefaultStoreThemes(newStore);
+      setAllStoreThemes((prev) => {
+        const next = { ...prev, [newId]: storeSpecificThemes };
+        saveStoreThemesMap(next);
+        return next;
       });
-      setStoreActiveTheme((prev) => ({ ...prev, [newId]: DEFAULT_COMMERCE_THEME_ID }));
-      setStoreActiveHomepage((prev) => ({ ...prev, [newId]: pack.homepage_style }));
+      const primaryThemeId = storeSpecificThemes[0]?.id || `theme-${newId}-official`;
+      setStoreActiveTheme((prev) => ({ ...prev, [newId]: primaryThemeId }));
+      setStoreActiveHomepage((prev) => ({ ...prev, [newId]: 'Default Commerce' }));
 
       if (seeded) {
         setCustomersMap(prev => ({
@@ -1280,13 +2129,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             subtitle: `${created.name} (${created.owner})`,
             type: 'store',
           });
-          const pack = defaultThemeSettings(effectivePlanCode(created), {
-            name: created.name,
-            accentColor: created.accentColor,
-            logo: created.logo,
+          const storeSpecificThemes = createDefaultStoreThemes(created);
+          setAllStoreThemes((prev) => {
+            const next = { ...prev, [created.id]: storeSpecificThemes };
+            saveStoreThemesMap(next);
+            return next;
           });
-          setStoreActiveTheme((prev) => ({ ...prev, [created.id]: DEFAULT_COMMERCE_THEME_ID }));
-          setStoreActiveHomepage((prev) => ({ ...prev, [created.id]: pack.homepage_style }));
+          const primaryThemeId = storeSpecificThemes[0]?.id || `theme-${created.id}-official`;
+          setStoreActiveTheme((prev) => ({ ...prev, [created.id]: primaryThemeId }));
+          setStoreActiveHomepage((prev) => ({ ...prev, [created.id]: 'Default Commerce' }));
         })
         .catch((err) => {
           setApiError(err instanceof Error ? err.message : 'Create store failed');
@@ -1298,6 +2149,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteStore = (storeId: string) => {
+    const session = readAuthSession();
+    if (session?.user?.role && !canDeleteEntities(session.user.role)) {
+      console.warn('Security guard blocked deleteStore: role unauthorized to delete stores.');
+      setApiError('Access Denied: Partner role cannot delete stores.');
+      return;
+    }
     const runLocal = () => {
       setStores(prev => prev.filter(s => s.id !== storeId));
       if (activeStoreId === storeId) {
@@ -1487,6 +2344,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       return d;
     }));
+    if (isApiEnabled()) {
+      tenantApi.toggleDomainSslApi(domainId).catch(() => {});
+    }
   };
 
   const connectHostingerToStore = useCallback((storeId: string, config: { hostingId: string; plan: string; serverIp?: string }) => {
@@ -1571,6 +2431,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         status: 'success',
         details: 'DNS verification completed successfully on Hostinger Shared nameservers.',
       });
+    }
+
+    if (isApiEnabled()) {
+      tenantApi.verifyDomainDnsApi(domainId).catch(() => {});
     }
   }, [addAuditLog]);
 
@@ -1755,6 +2619,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       return next;
     });
+
+    if (API_MODE) {
+      tenantApi.updateThemeSettingsApi(storeId, { theme_id: themeId }).catch((err) => {
+        console.warn(`[TenantContext] Failed to sync active theme ${themeId} to backend:`, err);
+      });
+    }
+
     bumpStore(storeId, 'theme');
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
@@ -1791,6 +2662,138 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }),
       );
     }
+  };
+
+  /**
+   * Simulate and bind any incoming domain or subdomain dynamically (Phase 6.1).
+   */
+  const simulateDomain = useCallback(
+    async (domainName: string): Promise<DomainResolutionResult> => {
+      const res = await resolveDomainDynamic(domainName, stores, domains);
+      setResolvedDomain(res);
+      if (res.resolved && res.storeId) {
+        setActiveStoreId(res.storeId);
+        if (res.activeThemeId) {
+          setStoreTheme(res.storeId, res.activeThemeId);
+        }
+        addAuditLog({
+          userId: 'usr-admin',
+          userName: 'Admin',
+          storeId: res.storeId,
+          action: 'SIMULATE_DOMAIN_ROUTING',
+          affectedResource: `Domain (${domainName})`,
+          status: 'success',
+          details: `Simulated routing for domain "${domainName}" -> Store "${res.storeName || res.storeId}" with active theme "${res.activeThemeId}".`,
+        });
+      }
+      return res;
+    },
+    [stores, domains, addAuditLog]
+  );
+
+  // Background dynamic domain detector: keeps active store aligned with URL host/test_domain
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search);
+    const hostParam = q.get('test_domain') || q.get('host');
+    const effectiveHostname = hostParam || window.location.hostname;
+    if (!effectiveHostname || effectiveHostname === 'localhost' || effectiveHostname === '127.0.0.1') {
+      return;
+    }
+
+    resolveDomainDynamic(effectiveHostname, stores, domains)
+      .then((res) => {
+        if (res.resolved && res.storeId) {
+          setResolvedDomain(res);
+          setActiveStoreId((prev) => (prev !== res.storeId ? res.storeId! : prev));
+          if (res.activeThemeId) {
+            setStoreTheme(res.storeId, res.activeThemeId);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [stores, domains]);
+
+  const createStoreTheme = (
+    storeId: string,
+    themeData: Omit<ThemeItem, 'id' | 'storeId'> & { id?: string },
+  ): ThemeItem => {
+    const newThemeId = themeData.id || `theme-${storeId}-${Date.now().toString().slice(-4)}`;
+    const newTheme: ThemeItem = {
+      ...themeData,
+      id: newThemeId,
+      storeId,
+    };
+    setAllStoreThemes((prev) => {
+      const existing = prev[storeId] || [];
+      const updated = [...existing, newTheme];
+      const next = { ...prev, [storeId]: updated };
+      saveStoreThemesMap(next);
+      return next;
+    });
+    bumpStore(storeId, 'theme');
+    return newTheme;
+  };
+
+  const updateStoreTheme = (storeId: string, themeId: string, updates: Partial<ThemeItem>) => {
+    setAllStoreThemes((prev) => {
+      const existing = prev[storeId] || [];
+      const updated = existing.map((t) => (t.id === themeId ? { ...t, ...updates } : t));
+      const next = { ...prev, [storeId]: updated };
+      saveStoreThemesMap(next);
+      return next;
+    });
+    bumpStore(storeId, 'theme');
+  };
+
+  const deleteStoreTheme = (storeId: string, themeId: string) => {
+    setAllStoreThemes((prev) => {
+      const existing = prev[storeId] || [];
+      if (existing.length <= 1) return prev; // Always preserve at least 1 theme for the store
+      const updated = existing.filter((t) => t.id !== themeId);
+      const next = { ...prev, [storeId]: updated };
+      saveStoreThemesMap(next);
+      return next;
+    });
+    setStoreActiveTheme((prev) => {
+      if (prev[storeId] === themeId) {
+        const remaining = (allStoreThemes[storeId] || []).filter((t) => t.id !== themeId);
+        const fallbackId = remaining[0]?.id || `theme-${storeId}-official`;
+        const next = { ...prev, [storeId]: fallbackId };
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('unityteck_store_active_theme_map', JSON.stringify(next));
+          }
+        } catch {}
+        return next;
+      }
+      return prev;
+    });
+    bumpStore(storeId, 'theme');
+  };
+
+  const duplicateStoreTheme = (storeId: string, themeId: string): ThemeItem => {
+    const existing = allStoreThemes[storeId] || createDefaultStoreThemes(activeStore);
+    const source = existing.find((t) => t.id === themeId) || existing[0];
+    const newThemeId = `${themeId}-copy-${Date.now().toString().slice(-4)}`;
+    const clonedTheme: ThemeItem = {
+      ...source,
+      id: newThemeId,
+      storeId,
+      name: `${source.name} (نسخة مخصصة)`,
+      nameAr: source.nameAr ? `${source.nameAr} (نسخة مخصصة)` : `${source.name} (نسخة مخصصة)`,
+      nameEn: source.nameEn ? `${source.nameEn} (Custom Copy)` : `${source.name} (Custom Copy)`,
+      isDefault: false,
+    };
+    setAllStoreThemes((prev) => {
+      const currentList = prev[storeId] || [];
+      const updated = [...currentList, clonedTheme];
+      const next = { ...prev, [storeId]: updated };
+      saveStoreThemesMap(next);
+      return next;
+    });
+    bumpStore(storeId, 'theme');
+    return clonedTheme;
   };
 
   // Plugins
@@ -2069,6 +3072,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteProduct = (productId: string, targetStoreId?: string) => {
+    const session = readAuthSession();
+    if (session?.user?.role && !canDeleteEntities(session.user.role)) {
+      console.warn('Security guard blocked deleteProduct: role unauthorized to delete products.');
+      setApiError('Access Denied: Partner role cannot delete products.');
+      return;
+    }
     let storeId = targetStoreId;
     if (!storeId) {
       for (const [sId, pList] of Object.entries(productsMap)) {
@@ -2172,7 +3181,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Orders
-  const addOrder = (orderData: Omit<Order, 'id' | 'storeId' | 'orderNumber' | 'date'>, targetStoreId?: string) => {
+  const addOrder = (orderData: Omit<Order, 'id' | 'storeId' | 'orderNumber' | 'date'> & { date?: string }, targetStoreId?: string) => {
     const sId = targetStoreId || activeStoreId;
     const newOrdId = `ord-${Date.now()}`;
     const newOrdNum = `WM-MK-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -2181,17 +3190,30 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       id: newOrdId,
       storeId: sId,
       orderNumber: newOrdNum,
-      date: 'Just now',
+      date: orderData.date || new Date().toISOString().split('T')[0],
+      isArchived: false,
     };
-    setOrdersMap(prev => ({
-      ...prev,
-      [sId]: [newOrd, ...(prev[sId] || [])]
-    }));
-    setStores(prev => prev.map(s => s.id === sId ? {
-      ...s,
-      ordersCount: (s.ordersCount || 0) + 1,
-      revenue: (s.revenue || 0) + (orderData.total || 0),
-    } : s));
+    setOrdersMap(prev => {
+      const next = {
+        ...prev,
+        [sId]: [newOrd, ...(prev[sId] || [])]
+      };
+      saveOrdersMap(next);
+      return next;
+    });
+    setStores(prev => {
+      const next = prev.map(s => s.id === sId ? {
+        ...s,
+        ordersCount: (s.ordersCount || 0) + 1,
+        revenue: (s.revenue || 0) + (orderData.total || 0),
+      } : s);
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('unityteck_stores', JSON.stringify(next));
+        }
+      } catch {}
+      return next;
+    });
 
     // Dynamic Customer Auto-Update or Creation
     const cPhone = orderData.customerPhone?.trim() || '';
@@ -2216,6 +3238,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         (cName && c.name.toLowerCase() === cName.toLowerCase())
       );
 
+      let nextList = [...currentCusts];
       if (matchIndex > -1) {
         const existing = currentCusts[matchIndex];
         const newTotalOrders = (existing.totalOrders || 0) + 1;
@@ -2234,9 +3257,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           group: shouldBeVip ? 'VIP' : existing.group,
         };
 
-        const nextList = [...currentCusts];
         nextList[matchIndex] = updatedCust;
-        return { ...prev, [sId]: nextList };
       } else {
         const shouldBeVip = (orderData.total || 0) >= 1500;
         const newCust: Customer = {
@@ -2257,8 +3278,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           registeredDate: 'Today',
           lastOrderDate: 'Today',
         };
-        return { ...prev, [sId]: [newCust, ...currentCusts] };
+        nextList = [newCust, ...currentCusts];
       }
+      const nextMap = { ...prev, [sId]: nextList };
+      saveCustomersMap(nextMap);
+      return nextMap;
     });
 
     addActivity({
@@ -2266,6 +3290,29 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       subtitle: `${orderData.customerName} via ${orderData.source} (SAR ${orderData.total})`,
       type: 'order',
     });
+
+    // Auto-deduct inventory for all ordered products
+    const orderItems = orderData.items;
+    if (orderItems && orderItems.length > 0) {
+      setProductsMap(prev => {
+        const storeProducts = prev[sId] || [];
+        const nextProducts = storeProducts.map(p => {
+          const item = orderItems.find(i => i.id === p.id);
+          if (item) {
+            const nextStock = Math.max(0, (p.stock || 0) - (item.quantity || 1));
+            return {
+              ...p,
+              stock: nextStock,
+              badge: nextStock === 0 ? 'out_of_stock' : p.badge,
+            };
+          }
+          return p;
+        });
+        const nextMap = { ...prev, [sId]: nextProducts };
+        saveProductsMap(nextMap);
+        return nextMap;
+      });
+    }
 
     // API Mode Sync (Hostinger DB / Laravel Backend)
     if (dataSourceRef.current === 'api') {
@@ -2291,9 +3338,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         .then(async () => {
           bumpCacheTag(storeTag(sId, 'orders'));
           bumpCacheTag(storeTag(sId, 'customers'));
+          bumpCacheTag(storeTag(sId, 'products'));
           await Promise.all([
             revalidateResource(sId, 'orders'),
             revalidateResource(sId, 'customers'),
+            revalidateResource(sId, 'products'),
           ]);
         })
         .catch(err => {
@@ -2304,28 +3353,86 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const updateOrderStatus = (orderId: string, status: Order['status'], targetStoreId?: string) => {
     let resolvedStoreId = targetStoreId || activeStoreId;
+    let oldStatus: Order['status'] | undefined;
+    let affectedOrder: Order | undefined;
+
     setOrdersMap((prev) => {
       const next = { ...prev };
       for (const sId of Object.keys(next)) {
-        if (next[sId]?.some((o) => o.id === orderId)) {
+        const found = next[sId]?.find((o) => o.id === orderId);
+        if (found) {
           resolvedStoreId = sId;
+          oldStatus = found.status;
+          affectedOrder = found;
           next[sId] = next[sId].map((o) => (o.id === orderId ? { ...o, status } : o));
           break;
         }
       }
+      saveOrdersMap(next);
       return next;
     });
+
+    const isNowInactive = status === 'cancelled' || status === 'returned';
+    const wasPrevInactive = oldStatus === 'cancelled' || oldStatus === 'returned';
+    const orderItems = affectedOrder?.items;
+
+    // Auto-restock inventory if moving to cancelled or returned
+    if (isNowInactive && !wasPrevInactive && orderItems && orderItems.length > 0) {
+      setProductsMap((prev) => {
+        const storeProducts = prev[resolvedStoreId] || [];
+        const nextProducts = storeProducts.map((p) => {
+          const item = orderItems.find((i) => i.id === p.id);
+          if (item) {
+            const restoredStock = (p.stock || 0) + (item.quantity || 1);
+            return {
+              ...p,
+              stock: restoredStock,
+              badge: p.badge === 'out_of_stock' && restoredStock > 0 ? undefined : p.badge,
+            };
+          }
+          return p;
+        });
+        const nextMap = { ...prev, [resolvedStoreId]: nextProducts };
+        saveProductsMap(nextMap);
+        return nextMap;
+      });
+    }
+    // Re-deduct inventory if reactivating a cancelled/returned order
+    else if (!isNowInactive && wasPrevInactive && orderItems && orderItems.length > 0) {
+      setProductsMap((prev) => {
+        const storeProducts = prev[resolvedStoreId] || [];
+        const nextProducts = storeProducts.map((p) => {
+          const item = orderItems.find((i) => i.id === p.id);
+          if (item) {
+            const newStock = Math.max(0, (p.stock || 0) - (item.quantity || 1));
+            return {
+              ...p,
+              stock: newStock,
+              badge: newStock === 0 ? 'out_of_stock' : p.badge,
+            };
+          }
+          return p;
+        });
+        const nextMap = { ...prev, [resolvedStoreId]: nextProducts };
+        saveProductsMap(nextMap);
+        return nextMap;
+      });
+    }
 
     if (dataSourceRef.current === 'api') {
       void tenantApi
         .updateOrderStatus(resolvedStoreId, orderId, status)
         .then((updated) => {
-          setOrdersMap((prev) => ({
-            ...prev,
-            [resolvedStoreId]: (prev[resolvedStoreId] || []).map((o) =>
-              o.id === orderId ? updated : o,
-            ),
-          }));
+          setOrdersMap((prev) => {
+            const next = {
+              ...prev,
+              [resolvedStoreId]: (prev[resolvedStoreId] || []).map((o) =>
+                o.id === orderId ? updated : o,
+              ),
+            };
+            saveOrdersMap(next);
+            return next;
+          });
           bumpCacheTag(storeTag(resolvedStoreId, 'orders'));
           void revalidateResource(resolvedStoreId, 'orders');
         })
@@ -2336,19 +3443,253 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateOrder = (orderId: string, patch: Partial<Order>, targetStoreId?: string) => {
+    let resolvedStoreId = targetStoreId || activeStoreId;
     setOrdersMap((prev) => {
       const next = { ...prev };
       for (const sId of Object.keys(next)) {
         if (next[sId]?.some((o) => o.id === orderId)) {
+          resolvedStoreId = sId;
           next[sId] = next[sId].map((o) => (o.id === orderId ? { ...o, ...patch } : o));
           break;
         }
       }
+      saveOrdersMap(next);
+      return next;
+    });
+
+    if (dataSourceRef.current === 'api') {
+      void tenantApi
+        .updateOrder(resolvedStoreId, orderId, patch as Record<string, unknown>)
+        .then((updated) => {
+          setOrdersMap((prev) => {
+            const next = {
+              ...prev,
+              [resolvedStoreId]: (prev[resolvedStoreId] || []).map((o) =>
+                o.id === orderId ? updated : o,
+              ),
+            };
+            saveOrdersMap(next);
+            return next;
+          });
+          bumpCacheTag(storeTag(resolvedStoreId, 'orders'));
+          void revalidateResource(resolvedStoreId, 'orders');
+        })
+        .catch((err) => {
+          setApiError(err instanceof Error ? err.message : 'Update order failed');
+        });
+    }
+  };
+
+  const processOrderReturn = async (
+    orderId: string,
+    returnData: {
+      reason: string;
+      reasonDetails?: string;
+      refundAmount?: number;
+      restockInventory?: boolean;
+      adminNotes?: string;
+      status?: 'requested' | 'approved' | 'rejected' | 'completed';
+    },
+    targetStoreId?: string
+  ) => {
+    let resolvedStoreId = targetStoreId || activeStoreId;
+    let targetOrder: Order | undefined;
+
+    const restock = returnData.restockInventory !== false;
+    const isApprovedOrCompleted =
+      returnData.status === 'approved' || returnData.status === 'completed' || !returnData.status;
+
+    setOrdersMap((prev) => {
+      const next = { ...prev };
+      for (const sId of Object.keys(next)) {
+        const found = next[sId]?.find((o) => o.id === orderId);
+        if (found) {
+          resolvedStoreId = sId;
+          targetOrder = found;
+          const returnItem: OrderReturn = {
+            id: `ret_${Date.now()}`,
+            storeId: sId,
+            orderId: found.id,
+            returnNumber: `RET-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`,
+            customerName: found.customerName,
+            reason: returnData.reason,
+            reasonDetails: returnData.reasonDetails,
+            status: returnData.status || 'approved',
+            refundAmount: returnData.refundAmount ?? found.total,
+            restockInventory: restock,
+            items: found.items,
+            adminNotes: returnData.adminNotes,
+            requestedAt: new Date().toISOString(),
+            processedAt: isApprovedOrCompleted ? new Date().toISOString() : undefined,
+          };
+
+          const existingReturns = found.returns || [];
+          next[sId] = next[sId].map((o) =>
+            o.id === orderId
+              ? {
+                  ...o,
+                  status: isApprovedOrCompleted ? 'returned' : o.status,
+                  refundStatus: isApprovedOrCompleted
+                    ? 'refunded'
+                    : returnData.status === 'rejected'
+                    ? 'rejected'
+                    : 'pending',
+                  refundAmount: returnData.refundAmount ?? o.total,
+                  returnReason: returnData.reason,
+                  returnedAt: isApprovedOrCompleted ? new Date().toISOString() : o.returnedAt,
+                  restockedAt: isApprovedOrCompleted && restock ? new Date().toISOString() : o.restockedAt,
+                  returns: [returnItem, ...existingReturns],
+                }
+              : o
+          );
+          break;
+        }
+      }
+      saveOrdersMap(next);
+      return next;
+    });
+
+    // Auto-restock products in memory if approved
+    if (isApprovedOrCompleted && restock && targetOrder?.items && !targetOrder.restockedAt) {
+      const returnItems = targetOrder.items;
+      setProductsMap((prev) => {
+        const storeProducts = prev[resolvedStoreId] || [];
+        const nextProducts = storeProducts.map((p) => {
+          const item = returnItems.find((i) => i.id === p.id);
+          if (item) {
+            const restoredStock = (p.stock || 0) + (item.quantity || 1);
+            return {
+              ...p,
+              stock: restoredStock,
+              badge: p.badge === 'out_of_stock' && restoredStock > 0 ? undefined : p.badge,
+            };
+          }
+          return p;
+        });
+        const nextMap = { ...prev, [resolvedStoreId]: nextProducts };
+        saveProductsMap(nextMap);
+        return nextMap;
+      });
+    }
+
+    if (dataSourceRef.current === 'api') {
+      try {
+        const res = await tenantApi.processOrderReturn(resolvedStoreId, orderId, {
+          reason: returnData.reason,
+          reason_details: returnData.reasonDetails,
+          refund_amount: returnData.refundAmount,
+          restock_inventory: restock,
+          admin_notes: returnData.adminNotes,
+          status: returnData.status,
+        });
+        setOrdersMap((prev) => {
+          const next = {
+            ...prev,
+            [resolvedStoreId]: (prev[resolvedStoreId] || []).map((o) =>
+              o.id === orderId ? res.order : o
+            ),
+          };
+          saveOrdersMap(next);
+          return next;
+        });
+        bumpCacheTag(storeTag(resolvedStoreId, 'orders'));
+        void revalidateResource(resolvedStoreId, 'orders');
+      } catch (err) {
+        setApiError(err instanceof Error ? err.message : 'Process return failed');
+      }
+    }
+  };
+
+  const updateOrderCodStatus = async (
+    orderId: string,
+    codStatus: CodStatus,
+    notes?: string,
+    targetStoreId?: string
+  ) => {
+    let resolvedStoreId = targetStoreId || activeStoreId;
+    const now = new Date().toISOString();
+
+    setOrdersMap((prev) => {
+      const next = { ...prev };
+      for (const sId of Object.keys(next)) {
+        if (next[sId]?.some((o) => o.id === orderId)) {
+          resolvedStoreId = sId;
+          next[sId] = next[sId].map((o) => {
+            if (o.id !== orderId) return o;
+            const isCollected = codStatus === 'collected_by_courier';
+            const isRemitted = codStatus === 'remitted_to_bank';
+            return {
+              ...o,
+              codStatus,
+              codNotes: notes !== undefined ? notes : o.codNotes,
+              codCollectedAt: isCollected ? o.codCollectedAt || now : o.codCollectedAt,
+              codRemittedAt: isRemitted ? o.codRemittedAt || now : o.codRemittedAt,
+              paymentStatus: isCollected || isRemitted ? 'Paid' : o.paymentStatus,
+            };
+          });
+          break;
+        }
+      }
+      saveOrdersMap(next);
+      return next;
+    });
+
+    if (dataSourceRef.current === 'api') {
+      try {
+        const updated = await tenantApi.updateOrderCodStatus(resolvedStoreId, orderId, codStatus, notes);
+        setOrdersMap((prev) => {
+          const next = {
+            ...prev,
+            [resolvedStoreId]: (prev[resolvedStoreId] || []).map((o) =>
+              o.id === orderId ? updated : o
+            ),
+          };
+          saveOrdersMap(next);
+          return next;
+        });
+        bumpCacheTag(storeTag(resolvedStoreId, 'orders'));
+        void revalidateResource(resolvedStoreId, 'orders');
+      } catch (err) {
+        setApiError(err instanceof Error ? err.message : 'Update COD status failed');
+      }
+    }
+  };
+
+  const archiveOrder = (orderId: string, targetStoreId?: string) => {
+    setOrdersMap((prev) => {
+      const next = { ...prev };
+      for (const sId of Object.keys(next)) {
+        if (next[sId]?.some((o) => o.id === orderId)) {
+          next[sId] = next[sId].map((o) => (o.id === orderId ? { ...o, isArchived: true, archivedAt: new Date().toISOString() } : o));
+          break;
+        }
+      }
+      saveOrdersMap(next);
       return next;
     });
   };
 
-  const deleteOrder = (orderId: string, targetStoreId?: string) => {
+  const restoreOrder = (orderId: string, targetStoreId?: string) => {
+    setOrdersMap((prev) => {
+      const next = { ...prev };
+      for (const sId of Object.keys(next)) {
+        if (next[sId]?.some((o) => o.id === orderId)) {
+          next[sId] = next[sId].map((o) => (o.id === orderId ? { ...o, isArchived: false, archivedAt: undefined } : o));
+          break;
+        }
+      }
+      saveOrdersMap(next);
+      return next;
+    });
+  };
+
+  const permanentDeleteOrder = (orderId: string, targetStoreId?: string) => {
+    const session = readAuthSession();
+    if (session?.user?.role && !canDeleteEntities(session.user.role)) {
+      console.warn('Security guard blocked permanentDeleteOrder: role unauthorized to delete orders.');
+      setApiError('Access Denied: Partner role cannot delete orders.');
+      return;
+    }
     let resolvedStoreId = targetStoreId || activeStoreId;
     setOrdersMap((prev) => {
       const next = { ...prev };
@@ -2359,6 +3700,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           break;
         }
       }
+      saveOrdersMap(next);
       return next;
     });
 
@@ -2375,6 +3717,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.warn('API Order delete note:', err);
         });
     }
+  };
+
+  const deleteOrder = (orderId: string, targetStoreId?: string) => {
+    archiveOrder(orderId, targetStoreId);
   };
 
   // Coupons
@@ -2418,7 +3764,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCouponsMap(prev => {
       const next = {
         ...prev,
-        [activeStoreId]: (prev[activeStoreId] || []).map(c => c.id === couponId ? { ...c, status: c.status === 'active' ? 'expired' : 'active' } : c)
+        [activeStoreId]: (prev[activeStoreId] || []).map(c => c.id === couponId ? { ...c, status: (c.status === 'active' ? 'expired' : 'active') as CouponItem['status'] } : c)
       };
       try {
         if (typeof window !== 'undefined') {
@@ -2456,9 +3802,21 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
-  const recordStoreVisit = (storeId?: string) => {
+  const recordStoreVisit = useCallback((storeId?: string) => {
     const sId = storeId || activeStoreId;
     if (!sId) return;
+
+    // Throttle / de-duplicate: record visit once per session to avoid infinite re-render cascades
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        const visitedKey = `unityteck_visited_${sId}`;
+        if (sessionStorage.getItem(visitedKey)) {
+          return;
+        }
+        sessionStorage.setItem(visitedKey, '1');
+      }
+    } catch {}
+
     setStores((prev) => {
       const next = prev.map((s) => (s.id === sId ? { ...s, visitorsCount: (s.visitorsCount || 0) + 1 } : s));
       try {
@@ -2468,7 +3826,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch {}
       return next;
     });
-  };
+  }, [activeStoreId]);
 
   // Shipping
   const updateShippingRate = (id: string, rate: number, freeAbove: number) => {
@@ -3025,14 +4383,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ...prev
     ]);
 
-    // Every onboarded store gets Commerce Starter (basic vs full by plan)
-    const pack = defaultThemeSettings(clientData.plan, {
-      name: newStore.name,
-      accentColor: newStore.accentColor,
-      logo: newStore.logo,
+    // Provision private, isolated themes exclusively for this onboarded store
+    const storeSpecificThemes = createDefaultStoreThemes(newStore);
+    setAllStoreThemes((prev) => {
+      const next = { ...prev, [newId]: storeSpecificThemes };
+      saveStoreThemesMap(next);
+      return next;
     });
-    setStoreActiveTheme((prev) => ({ ...prev, [newId]: DEFAULT_COMMERCE_THEME_ID }));
-    setStoreActiveHomepage((prev) => ({ ...prev, [newId]: pack.homepage_style }));
+    const primaryThemeId = storeSpecificThemes[0]?.id || `theme-${newId}-official`;
+    setStoreActiveTheme((prev) => ({ ...prev, [newId]: primaryThemeId }));
+    setStoreActiveHomepage((prev) => ({ ...prev, [newId]: 'Default Commerce' }));
 
     addActivity({
       title: 'Client self-registered via Onboarding Link',
@@ -3176,10 +4536,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       optimizationStatus: asset.optimizationStatus || 'optimized',
     };
 
-    setMediaMap((prev) => ({
-      ...prev,
-      [storeId]: [fullAsset, ...(prev[storeId] || [])],
-    }));
+    setMediaMap((prev) => {
+      const existing = prev[storeId] && prev[storeId].length > 0 
+        ? prev[storeId] 
+        : (INITIAL_MEDIA[storeId] || []);
+      return {
+        ...prev,
+        [storeId]: [fullAsset, ...existing],
+      };
+    });
 
     bumpCacheTag(storeTag(storeId, 'media' as any));
     addActivity({
@@ -3187,6 +4552,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       subtitle: `${fullAsset.fileName} uploaded to store library`,
       type: 'product',
     });
+
+    if (isApiEnabled()) {
+      tenantApi.createMedia(storeId, fullAsset).catch((err) => {
+        console.warn('API createMedia sync failed:', err);
+      });
+    }
 
     return fullAsset;
   };
@@ -3214,6 +4585,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       [storeId]: (prev[storeId] || []).filter((m) => m.id !== id),
     }));
     bumpCacheTag(storeTag(storeId, 'media' as any));
+
+    if (isApiEnabled()) {
+      tenantApi.deleteMedia(storeId, id).catch((err) => {
+        console.warn('API deleteMedia sync failed:', err);
+      });
+    }
+
     return true;
   };
 
@@ -3302,6 +4680,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       subtitle: `${existing.fileName} updated with cache-busted zero stale version v${newVersion}`,
       type: 'product',
     });
+
+    if (isApiEnabled()) {
+      tenantApi.replaceMedia(storeId, id, newFile).catch((err) => {
+        console.warn('API replaceMedia sync failed:', err);
+      });
+    }
   };
 
   const getMediaUsages = (mediaIdOrUrl: string, targetStoreId?: string): MediaUsage[] => {
@@ -3327,24 +4711,48 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // 1. Check Products
     const prods = productsMap[storeId] || [];
     prods.forEach((prod) => {
-      if (matchUrls.has(prod.image)) {
+      if (matchUrls.has(prod.image) || (prod.imageUrl && matchUrls.has(prod.imageUrl))) {
         usages.push({
           id: `usage-prod-img-${prod.id}`,
           type: 'product_image',
           label: `Product Main Image: ${prod.name}`,
           referenceId: prod.id,
           referenceName: prod.name,
-          previewThumb: prod.image,
+          previewThumb: (prod.image || prod.imageUrl) || undefined,
         });
       }
-      if (prod.galleryUrls?.some((u) => matchUrls.has(u))) {
+      if (
+        prod.galleryUrls?.some((u) => matchUrls.has(u)) ||
+        prod.images?.some((u) => matchUrls.has(u)) ||
+        (prod as any).gallery?.some((u: string) => matchUrls.has(u))
+      ) {
         usages.push({
           id: `usage-prod-gal-${prod.id}`,
           type: 'product_gallery',
           label: `Product Gallery: ${prod.name}`,
           referenceId: prod.id,
           referenceName: prod.name,
-          previewThumb: prod.image,
+          previewThumb: (prod.image || prod.imageUrl) || undefined,
+        });
+      }
+      if (prod.colors?.some((c) => matchUrls.has(c.image))) {
+        usages.push({
+          id: `usage-prod-col-${prod.id}`,
+          type: 'product_variant',
+          label: `Product Color Variant: ${prod.name}`,
+          referenceId: prod.id,
+          referenceName: prod.name,
+          previewThumb: (prod.image || prod.imageUrl) || undefined,
+        });
+      }
+      if (prod.variations?.some((v) => v.imageUrl && matchUrls.has(v.imageUrl))) {
+        usages.push({
+          id: `usage-prod-var-${prod.id}`,
+          type: 'product_variant',
+          label: `Product Variation: ${prod.name}`,
+          referenceId: prod.id,
+          referenceName: prod.name,
+          previewThumb: (prod.image || prod.imageUrl) || undefined,
         });
       }
     });
@@ -3385,16 +4793,43 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return usages;
   };
 
-  return (
-    <TenantContext.Provider
-      value={{
-        dataSource,
-        apiReady,
-        apiError,
-        cacheEpoch,
-        softRefreshTenantData,
-        revalidateResource,
-        mode,
+  const syncProductImagesToMedia = useCallback(
+    (targetStoreId?: string): number => {
+      const storeId = targetStoreId || activeStoreId;
+      const storeProducts = productsMap[storeId] || INITIAL_PRODUCTS[storeId] || [];
+      const storeObj = stores.find((s) => s.id === storeId);
+      let countAdded = 0;
+
+      setMediaMap((prev) => {
+        const currentList = prev[storeId] || INITIAL_MEDIA[storeId] || [];
+        const merged = syncCatalogImagesToMediaAssets(
+          storeId,
+          storeProducts,
+          currentList,
+          storeObj?.logo,
+          storeObj?.nameAr || storeObj?.name
+        );
+        countAdded = merged.length - currentList.length;
+        return {
+          ...prev,
+          [storeId]: merged,
+        };
+      });
+
+      bumpCacheTag(storeTag(storeId, 'media' as any));
+      return countAdded;
+    },
+    [activeStoreId, productsMap, stores],
+  );
+
+  const contextValue: TenantContextType = {
+    dataSource,
+    apiReady,
+    apiError,
+    cacheEpoch,
+    softRefreshTenantData,
+    revalidateResource,
+    mode,
         setMode: setModeSafe,
         canAccessMaster,
         activeStoreId,
@@ -3413,6 +4848,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         recentActivities: activities,
         addActivity,
         domains,
+        resolvedDomain,
+        simulateDomain,
         activateDomain,
         toggleDomainSsl,
         addDomainRequest,
@@ -3428,10 +4865,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         approveUpdate,
         rollbackUpdate,
         themes,
+        allStoreThemes,
         storeActiveTheme,
         storeActiveHomepage,
         setStoreTheme,
         setStoreHomepageStyle,
+        createStoreTheme,
+        updateStoreTheme,
+        deleteStoreTheme,
+        duplicateStoreTheme,
         plugins,
         storeInstalledPlugins,
         toggleStorePlugin,
@@ -3454,7 +4896,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addOrder,
         updateOrderStatus,
         updateOrder,
+        processOrderReturn,
+        updateOrderCodStatus,
         deleteOrder,
+        archiveOrder,
+        restoreOrder,
+        permanentDeleteOrder,
         currentCoupons,
         allCoupons: couponsMap,
         addCoupon,
@@ -3506,13 +4953,20 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         deleteMediaAsset,
         replaceMediaAsset,
         getMediaUsages,
+        syncProductImagesToMedia,
         showArchDrawer,
         setShowArchDrawer,
         searchQuery,
         setSearchQuery,
-        notificationCount,
-      }}
-    >
+    notificationCount,
+  };
+
+  if (typeof window !== 'undefined') {
+    (window as any).__unityteck_tenant_context = contextValue;
+  }
+
+  return (
+    <TenantContext.Provider value={contextValue}>
       {children}
     </TenantContext.Provider>
   );
@@ -3520,8 +4974,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
 export const useTenant = () => {
   const context = useContext(TenantContext);
-  if (!context) {
-    throw new Error('useTenant must be used within a TenantProvider');
+  if (context) return context;
+  if (typeof window !== 'undefined' && (window as any).__unityteck_tenant_context) {
+    return (window as any).__unityteck_tenant_context as TenantContextType;
   }
-  return context;
+  return createFallbackTenantContext();
 };

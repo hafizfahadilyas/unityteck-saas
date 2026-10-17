@@ -47,9 +47,26 @@ export function generateStoreSEO(options: {
   const baseUrl = `https://${store.slug}.saudi-stores.com`;
   const primaryImage = activeProduct?.image || products[0]?.image || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80';
 
+  const isCoffeeStore = store.id === 'store-coffee' || store.slug?.includes('coffee');
+  const isCarStore = store.id === 'store-bleco' || store.slug?.includes('alsaeedi') || store.slug?.includes('car');
+
   // 1. Dynamic Meta Title (Tailored to active product, category, or homepage)
   let title = '';
-  if (activeProduct) {
+  if (isCoffeeStore) {
+    if (activeProduct) {
+      title = `${activeProduct.nameAr || activeProduct.name} | HiBrew KSA متجر مكائن ومستلزمات القهوة`;
+    } else if (selectedCategory && selectedCategory !== 'All') {
+      title = `${selectedCategory} | HiBrew KSA متجر مكائن ومستلزمات القهوة`;
+    } else {
+      title = 'HiBrew KSA | Official Coffee Store متجر مكائن ومستلزمات القهوة';
+    }
+  } else if (isCarStore) {
+    if (activeProduct) {
+      title = `${activeProduct.name} | السعيدي لخدمات السيارات`;
+    } else {
+      title = 'السعيدي لخدمات السيارات | تلابيس مقاعد وأرضيات واكسسوارات السيارات';
+    }
+  } else if (activeProduct) {
     title = isArabic
       ? `${activeProduct.name} | ${store.name} - مكة المكرمة`
       : `${activeProduct.name} | ${store.name} - Makkah Delivery`;
@@ -67,7 +84,11 @@ export function generateStoreSEO(options: {
 
   // 2. Dynamic Meta Description (120-160 chars, natural and compelling)
   let description = '';
-  if (activeProduct) {
+  if (isCoffeeStore) {
+    description = 'متخصصون في بيع مكائن القهوة و مستلزماتها ذات جودة عالية و بسعر مناسب ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية';
+  } else if (isCarStore) {
+    description = 'وجهتك الأولى للارتقاء بجمال سيارتك وفخامتها من تلبيسات المقاعد المصممة بعناية إلى أحدث الإكسسوارات نقدم لك كل ما تحتاجه لتجربة قيادة لا تنسى';
+  } else if (activeProduct) {
     description = isArabic
       ? `اطلب ${activeProduct.name} بسعر ${activeProduct.price} ريال من ${store.name}. توصيل سريع خلال ساعتين لفنادق الحرم وأحياء مكة المكرمة.`
       : `Order ${activeProduct.name} for SAR ${activeProduct.price} from ${store.name}. Same-day 2-hour express delivery to all Makkah hotels & districts.`;

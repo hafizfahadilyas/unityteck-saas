@@ -300,6 +300,81 @@ export const ProductVariationsPanel: React.FC<Props> = ({
           )}
         </div>
 
+        {/* Automotive Floor Mats Quick Presets */}
+        <div className="p-2 rounded-lg bg-purple-50/80 border border-purple-200 text-[11px] space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-purple-900">قوالب أرضيات السيارات السريعة (Auto Presets):</span>
+            <span className="text-[10px] text-purple-600">نقرة واحدة للتعبئة</span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setField('size', '5 مقاعد (صفين)');
+                setField('material', 'جلد صناعي 5D ليزر');
+                setField('custom', 'شامل كلبسات التثبيت');
+                if (!draft.sku) setField('sku', `MAT-5S-${Date.now().toString().slice(-4)}`);
+                if (!draft.price) setField('price', '380');
+              }}
+              className="px-2 py-0.5 rounded bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 cursor-pointer font-bold"
+            >
+              ٥ مقاعد (صفين)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setField('size', '7 مقاعد (3 صفوف)');
+                setField('material', 'جلد صناعي 5D ليزر');
+                setField('custom', 'تغطية كاملة مع الصف الثالث');
+                if (!draft.sku) setField('sku', `MAT-7S-${Date.now().toString().slice(-4)}`);
+                if (!draft.price) setField('price', '440');
+              }}
+              className="px-2 py-0.5 rounded bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 cursor-pointer font-bold"
+            >
+              ٧ مقاعد (+60 ر.س)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setField('size', '٥ مقاعد + دعاسة الشنطة');
+                setField('material', 'جلد صناعي 5D ليزر مقاوم للماء');
+                setField('custom', 'كامل الكابينة مع الصندوق الخلفي');
+                if (!draft.sku) setField('sku', `MAT-5S-TRK-${Date.now().toString().slice(-4)}`);
+                if (!draft.price) setField('price', '470');
+              }}
+              className="px-2 py-0.5 rounded bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 cursor-pointer font-bold"
+            >
+              ٥ مقاعد + الشنطة (+90 ر.س)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setField('size', '٧ مقاعد + دعاسة الشنطة');
+                setField('material', 'جلد صناعي 5D ليزر مقاوم للماء');
+                setField('custom', '3 صفوف + حماية الصندوق الخلفي');
+                if (!draft.sku) setField('sku', `MAT-7S-TRK-${Date.now().toString().slice(-4)}`);
+                if (!draft.price) setField('price', '530');
+              }}
+              className="px-2 py-0.5 rounded bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 cursor-pointer font-bold"
+            >
+              ٧ مقاعد + الشنطة (+150 ر.س)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setField('size', 'دعاسة الشنطة فقط');
+                setField('material', 'جلد صناعي 5D ليزر');
+                setField('custom', 'حماية الصندوق الخلفي من السوائل');
+                if (!draft.sku) setField('sku', `MAT-TRK-${Date.now().toString().slice(-4)}`);
+                if (!draft.price) setField('price', '150');
+              }}
+              className="px-2 py-0.5 rounded bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 cursor-pointer font-bold"
+            >
+              دعاسة الشنطة فقط (150 ر.س)
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-2">
           <input
             placeholder="SKU *"

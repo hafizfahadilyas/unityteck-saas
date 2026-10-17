@@ -5,14 +5,18 @@ export interface Product {
   id: string;
   name: string;
   nameEn: string;
+  nameAr?: string;
   price: number;
   originalPrice?: number;
   rating: number;
   reviewsCount: number;
   image: string;
   additionalImages?: string[];
+  galleryUrls?: string[];
+  colors?: any[];
   category: string;
   categoryEn: string;
+  categoryAr?: string;
   categorySlug?: string;
   occasions?: string[];
   tags?: string[];

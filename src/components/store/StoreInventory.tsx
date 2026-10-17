@@ -15,15 +15,20 @@ import {
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { WindowedPagination } from '../common/WindowedPagination';
+import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
+import { getProductDisplayCategory, getProductDisplayName } from '../../utils/storeLocalization';
 
 export const StoreInventory: React.FC = () => {
-  const { activeStore, currentProducts } = useTenant();
+  const { activeStore, currentProducts, updateProduct } = useTenant();
   const { locale } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'low' | 'out' | 'in'>('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [stockMap, setStockMap] = useState<Record<string, number>>(() => {
     const map: Record<string, number> = {};
     (currentProducts || []).forEach((p: any) => {
@@ -58,6 +63,15 @@ export const StoreInventory: React.FC = () => {
     });
   }, [productsList, search, filterStatus]);
 
+  // Pagination
+  const totalCount = filteredProducts.length;
+  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pagedProducts = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filteredProducts.slice(start, start + pageSize);
+  }, [filteredProducts, safePage, pageSize]);
+
   const stats = useMemo(() => {
     const total = productsList.length;
     const inStock = productsList.filter((p: any) => p.currentStock > 5).length;
@@ -70,19 +84,25 @@ export const StoreInventory: React.FC = () => {
     setStockMap((prev) => {
       const current = prev[id] !== undefined ? prev[id] : 25;
       const next = Math.max(0, current + delta);
+      updateProduct(id, { stock: next, badge: next === 0 ? 'out_of_stock' : undefined }, activeStore.id);
       return { ...prev, [id]: next };
     });
   };
 
   const handleDirectStockInput = (id: string, val: string) => {
     const num = parseInt(val, 10);
+    const next = isNaN(num) ? 0 : Math.max(0, num);
     setStockMap((prev) => ({
       ...prev,
-      [id]: isNaN(num) ? 0 : Math.max(0, num),
+      [id]: next,
     }));
+    updateProduct(id, { stock: next, badge: next === 0 ? 'out_of_stock' : undefined }, activeStore.id);
   };
 
   const handleSaveAll = () => {
+    Object.entries(stockMap).forEach(([id, stock]) => {
+      updateProduct(id, { stock, badge: stock === 0 ? 'out_of_stock' : undefined }, activeStore.id);
+    });
     toast(isAr ? 'تم حفظ وتحديث مستويات المخزون بنجاح' : 'Inventory stock levels saved successfully', 'success');
   };
 
@@ -226,7 +246,7 @@ export const StoreInventory: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map((p: any) => {
+                pagedProducts.map((p: any) => {
                   const stock = p.currentStock;
                   const isOut = stock <= 0;
                   const isLow = stock > 0 && stock <= 5;
@@ -236,18 +256,19 @@ export const StoreInventory: React.FC = () => {
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={p.image || p.images?.[0] || 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=100'}
-                            alt={p.name}
+                            src={p.image || p.images?.[0] || FALLBACK_PRODUCT_IMAGE}
+                            alt={getProductDisplayName(p, locale)}
+                            onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                             className="w-10 h-10 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0"
                           />
                           <div>
-                            <span className="font-bold text-slate-900 dark:text-white block">{p.name || p.nameEn}</span>
+                            <span className="font-bold text-slate-900 dark:text-white block">{getProductDisplayName(p, locale)}</span>
                             <span className="text-[10px] text-slate-400 block font-mono">SKU: {p.sku || `SKU-${p.id.slice(0, 6)}`}</span>
                           </div>
                         </div>
                       </td>
                       <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-medium">
-                        {p.category || 'عام'}
+                        {getProductDisplayCategory(p, locale) || (isAr ? 'عام' : 'General')}
                       </td>
                       <td className="py-3.5 px-4 font-black text-slate-900 dark:text-white font-mono">
                         {p.price} SAR
@@ -306,6 +327,18 @@ export const StoreInventory: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        <WindowedPagination
+          currentPage={safePage}
+          totalPages={pageCount}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          isAr={isAr}
+          itemLabel={isAr ? 'منتج بالمستودع' : 'inventory items'}
+          pageSizeOptions={[10, 25, 50, 100]}
+        />
       </div>
     </div>
   );

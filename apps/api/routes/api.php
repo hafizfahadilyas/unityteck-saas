@@ -20,6 +20,9 @@ use App\Http\Controllers\Api\CourierController;
 use App\Http\Controllers\Api\PaymentGatewayController;
 use App\Http\Controllers\Api\WebhooksController;
 use App\Http\Controllers\Api\AnalyticsReportController;
+use App\Http\Controllers\Api\StoreThemeController;
+use App\Http\Controllers\Api\StoreSettingsController;
+use App\Http\Controllers\Api\DomainController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', [HealthController::class, 'show']);
@@ -97,6 +100,8 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     });
 
     Route::middleware('role.can:orders.read')->get('/orders', [OrderController::class, 'index']);
+    Route::middleware('role.can:orders.read')->get('/orders-cod-summary', [OrderController::class, 'codSummary']);
+    Route::middleware('role.can:orders.read')->get('/orders-returns', [OrderController::class, 'returnsIndex']);
     Route::middleware('role.can:orders.read')->get('/orders/{id}', [OrderController::class, 'show']);
     Route::middleware([
         'role.can:orders.write',
@@ -105,6 +110,8 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     ])->group(function () {
         Route::post('/orders', [OrderController::class, 'store']);
         Route::patch('/orders/{id}', [OrderController::class, 'update']);
+        Route::post('/orders/{id}/return', [OrderController::class, 'processReturn']);
+        Route::post('/orders/{id}/cod-status', [OrderController::class, 'updateCodStatus']);
         Route::delete('/orders/{id}', [OrderController::class, 'destroy']);
     });
 
@@ -190,7 +197,45 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     // Real Database-Calculated Payment & Shipping Analytics
     Route::get('/analytics/payments', [AnalyticsReportController::class, 'paymentReports']);
     Route::get('/analytics/shipping', [AnalyticsReportController::class, 'shippingReports']);
+
+    // Theme & Page Builder Persistence (Phase 2.2)
+    Route::get('/themes-catalog', [StoreThemeController::class, 'catalog']);
+    Route::get('/theme-settings', [StoreThemeController::class, 'show']);
+    Route::put('/theme-settings', [StoreThemeController::class, 'update']);
+    Route::patch('/theme-settings', [StoreThemeController::class, 'update']);
+    Route::get('/builder-layout', [StoreThemeController::class, 'getBuilderLayout']);
+    Route::put('/builder-layout', [StoreThemeController::class, 'saveBuilderLayout']);
+    Route::post('/builder-layout', [StoreThemeController::class, 'saveBuilderLayout']);
+
+    // Direct storeId parameter routes
+    Route::get('/stores/{storeId}/theme-settings', [StoreThemeController::class, 'show']);
+    Route::put('/stores/{storeId}/theme-settings', [StoreThemeController::class, 'update']);
+    Route::patch('/stores/{storeId}/theme-settings', [StoreThemeController::class, 'update']);
+    Route::get('/stores/{storeId}/builder-layout', [StoreThemeController::class, 'getBuilderLayout']);
+    Route::put('/stores/{storeId}/builder-layout', [StoreThemeController::class, 'saveBuilderLayout']);
+    Route::post('/stores/{storeId}/builder-layout', [StoreThemeController::class, 'saveBuilderLayout']);
+
+    // Store Settings
+    Route::get('/store-settings', [StoreSettingsController::class, 'show']);
+    Route::put('/store-settings', [StoreSettingsController::class, 'update']);
+    Route::get('/stores/{storeId}/store-settings', [StoreSettingsController::class, 'show']);
+    Route::put('/stores/{storeId}/store-settings', [StoreSettingsController::class, 'update']);
+
+    // Multi-Domain & Custom Domains Management (Phase 6.1)
+    Route::get('/domains', [DomainController::class, 'index']);
+    Route::post('/domains', [DomainController::class, 'store']);
+    Route::post('/domains/{id}/verify', [DomainController::class, 'verify']);
+    Route::post('/domains/{id}/ssl', [DomainController::class, 'ssl']);
+    Route::delete('/domains/{id}', [DomainController::class, 'destroy']);
 });
+
+// Public Dynamic Domain & Subdomain Resolution for Storefront (Phase 6.1)
+Route::get('/storefront/resolve-domain', [DomainController::class, 'resolveDomain']);
+Route::get('/resolve-domain', [DomainController::class, 'resolveDomain']);
+
+// Public Theme & Page Builder Layout for Storefront
+Route::get('/storefront/theme', [StoreThemeController::class, 'storefrontTheme']);
+Route::get('/storefront/builder-layout', [StoreThemeController::class, 'storefrontTheme']);
 
 // Public Inbound Webhooks for official Payment Gateways and Couriers
 Route::post('/webhooks/payments/{provider}', [WebhooksController::class, 'paymentWebhook']);
@@ -199,6 +244,11 @@ Route::post('/webhooks/couriers/{provider}', [WebhooksController::class, 'courie
 // Public Dynamic Shipping Calculation for Storefront Checkout
 Route::post('/storefront/shipping/calculate', [ShippingController::class, 'calculate']);
 Route::post('/storefront/orders', [OrderController::class, 'storefrontStore']);
+
+// Public Storefront Saudi Payments (Mada, Apple Pay, Tabby, Tamara, Card, COD)
+Route::get('/storefront/payments/methods', [PaymentGatewayController::class, 'storefrontMethods']);
+Route::post('/storefront/payments/initiate', [PaymentGatewayController::class, 'storefrontInitiate']);
+Route::post('/storefront/payments/verify', [PaymentGatewayController::class, 'storefrontVerify']);
 
 // Master Admin: Multi-Store Google Integration Ledger
 Route::middleware(['auth:sanctum', 'role.can:stores.read'])->group(function () {

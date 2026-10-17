@@ -34,19 +34,19 @@
   /* default = light until data-theme applied */
   --bg: #F8FAFC;
   --surface: #ffffff;
-  --text: #0F172A;
-  --muted: #64748B;
+  --text: #020617;
+  --muted: #334155;
   --border: #E2E8F0;
   --accent: #1d8b94;
-  --icon-on-light: #0a3d4a;
+  --icon-on-light: #04222b;
   --icon-on-dark: #e2f4f0;
   --icon-box-bg: color-mix(in srgb, #1d8b94 12%, #ffffff);
-  --icon-box-fg: #10606f;
+  --icon-box-fg: #04222b;
   --input-bg: #ffffff;
-  --input-fg: #04222b;
-  --input-ph: #64748b;
-  --table-head: #0a3d4a;
-  --card-fg: #04222b;
+  --input-fg: #020617;
+  --input-ph: #475569;
+  --table-head: #020617;
+  --card-fg: #020617;
   --tone-success: #059669;
   --tone-info: #0284c7;
   --tone-warn: #d97706;
@@ -63,27 +63,27 @@
   /* branding may override inline */
 }
 
-/* LIGHT — high contrast readable text */
+/* LIGHT — high contrast readable dark text */
 [data-theme="light"][data-portal="master"],
 [data-theme="light"][data-portal="store"],
 [data-theme="light"] {
   --bg: #F8FAFC;
   --surface: #ffffff;
-  --text: #0F172A;
-  --muted: #64748B;
-  --border: #E2E8F0;
+  --text: #020617;
+  --muted: #334155;
+  --border: #CBD5E1;
   --accent: var(--portal-600);
   --active-bg: var(--portal-600);
   --active-fg: #ffffff;
-  --icon-on-light: #0a3d4a;
+  --icon-on-light: #04222b;
   --icon-on-dark: #e2f4f0;
   --icon-box-bg: color-mix(in srgb, var(--portal-600) 12%, #ffffff);
-  --icon-box-fg: var(--portal-800);
+  --icon-box-fg: #04222b;
   --input-bg: #ffffff;
-  --input-fg: #04222b;
-  --input-ph: #64748b;
-  --table-head: #0a3d4a;
-  --card-fg: #04222b;
+  --input-fg: #020617;
+  --input-ph: #475569;
+  --table-head: #020617;
+  --card-fg: #020617;
   --tone-success: #059669;
   --tone-info: #0284c7;
   --tone-warn: #d97706;

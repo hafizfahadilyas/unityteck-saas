@@ -35,21 +35,125 @@ export function rangeBounds(key: DateRangeKey): { start: Date; end: Date } | nul
   return null;
 }
 
-export function parseOrderDate(raw: string | undefined): Date | null {
-  if (!raw) return null;
-  const iso = Date.parse(raw);
+export function parseOrderDate(raw: string | number | Date | undefined | null): Date | null {
+  if (!raw && raw !== 0) return null;
+  if (typeof raw === 'object' && raw instanceof Date) {
+    return isNaN(raw.getTime()) ? null : raw;
+  }
+  if (typeof raw === 'number') {
+    const d = new Date(raw < 1e11 ? raw * 1000 : raw);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof raw !== 'string') return null;
+
+  // Convert Arabic-Indic numerals to Latin numerals: ٠-٩ -> 0-9
+  let clean = raw
+    .trim()
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632));
+
+  if (!clean) return null;
+
+  // Check if it's a numeric timestamp string
+  if (/^\d{10,13}$/.test(clean)) {
+    const ts = parseInt(clean, 10);
+    const d = new Date(ts < 1e11 ? ts * 1000 : ts);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+
+  // Handle standard ISO and Date.parse
+  const iso = Date.parse(clean);
   if (!Number.isNaN(iso)) return new Date(iso);
-  const loose = Date.parse(raw.replace(/(\d+)(st|nd|rd|th)/i, '$1'));
+
+  // Handle "10th Feb 2025" or "Feb 10th, 2025"
+  const loose = Date.parse(clean.replace(/(\d+)(st|nd|rd|th)/i, '$1'));
   if (!Number.isNaN(loose)) return new Date(loose);
+
+  // Handle DD/MM/YYYY or MM/DD/YYYY or YYYY/MM/DD
+  const slashParts = clean.match(/^(\d{1,4})[/.-](\d{1,2})[/.-](\d{1,4})/);
+  if (slashParts) {
+    const [, p1, p2, p3] = slashParts;
+    const n1 = parseInt(p1, 10);
+    const n2 = parseInt(p2, 10);
+    const n3 = parseInt(p3, 10);
+    if (n1 > 1000) {
+      // YYYY-MM-DD
+      const d = new Date(n1, n2 - 1, n3);
+      if (!Number.isNaN(d.getTime())) return d;
+    } else if (n3 > 1000) {
+      if (n1 > 12) {
+        // DD/MM/YYYY
+        const d = new Date(n3, n2 - 1, n1);
+        if (!Number.isNaN(d.getTime())) return d;
+      } else if (n2 > 12) {
+        // MM/DD/YYYY
+        const d = new Date(n3, n1 - 1, n2);
+        if (!Number.isNaN(d.getTime())) return d;
+      } else {
+        // Default DD/MM/YYYY
+        const d = new Date(n3, n2 - 1, n1);
+        if (!Number.isNaN(d.getTime())) return d;
+      }
+    }
+  }
+
+  // Handle relative English and Arabic strings
+  const lower = clean.toLowerCase();
+  if (lower.includes('today') || clean.includes('اليوم')) {
+    return new Date();
+  }
+  if (lower.includes('yesterday') || clean.includes('أمس') || clean.includes('امس')) {
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    return y;
+  }
+
   return null;
 }
 
-export function filterOrdersByRange(orders: Order[], key: DateRangeKey): Order[] {
+export function getOrderDate(order: Order | undefined | null): Date | null {
+  if (!order) return null;
+  return (
+    parseOrderDate(order.date) ||
+    parseOrderDate((order as any).createdAt) ||
+    parseOrderDate((order as any).created_at) ||
+    parseOrderDate((order as any).order_date) ||
+    parseOrderDate(order.paymentDate)
+  );
+}
+
+export function filterOrdersByRange(
+  orders: Order[],
+  key: DateRangeKey,
+  customStart?: Date | string | null,
+  customEnd?: Date | string | null,
+): Order[] {
+  if (key === 'all') {
+    if (customStart && customEnd) {
+      const start =
+        typeof customStart === 'string'
+          ? new Date(customStart + (customStart.includes('T') ? '' : 'T00:00:00'))
+          : new Date(customStart);
+      start.setHours(0, 0, 0, 0);
+      const end =
+        typeof customEnd === 'string'
+          ? new Date(customEnd + (customEnd.includes('T') ? '' : 'T23:59:59'))
+          : new Date(customEnd);
+      end.setHours(23, 59, 59, 999);
+      const [actualStart, actualEnd] =
+        start.getTime() <= end.getTime() ? [start, end] : [end, start];
+      return orders.filter((o) => {
+        const d = getOrderDate(o);
+        if (!d) return true;
+        return d >= actualStart && d <= actualEnd;
+      });
+    }
+    return orders;
+  }
   const bounds = rangeBounds(key);
   if (!bounds) return orders;
   return orders.filter((o) => {
-    const d = parseOrderDate(o.date);
-    if (!d) return key === 'all';
+    const d = getOrderDate(o);
+    if (!d) return true;
     return d >= bounds.start && d <= bounds.end;
   });
 }
@@ -61,7 +165,7 @@ export function dayKey(d: Date): string {
 export function revenueByDate(orders: Order[], maxPoints = 7): { label: string; value: number }[] {
   const map = new Map<string, number>();
   orders.forEach((o) => {
-    const d = parseOrderDate(o.date);
+    const d = getOrderDate(o);
     const key = d ? dayKey(d) : o.date || 'Unknown';
     map.set(key, (map.get(key) || 0) + (Number(o.total) || 0));
   });
@@ -74,7 +178,7 @@ export function revenueByDate(orders: Order[], maxPoints = 7): { label: string; 
 export function ordersCountByDate(orders: Order[], maxPoints = 7): { label: string; value: number }[] {
   const map = new Map<string, number>();
   orders.forEach((o) => {
-    const d = parseOrderDate(o.date);
+    const d = getOrderDate(o);
     const key = d ? dayKey(d) : o.date || 'Unknown';
     map.set(key, (map.get(key) || 0) + 1);
   });
@@ -87,7 +191,7 @@ export function ordersCountByDate(orders: Order[], maxPoints = 7): { label: stri
 export function revenueByWeek(orders: Order[]): { label: string; value: number }[] {
   if (!orders.length) return [];
   const withDates = orders
-    .map((o) => ({ o, d: parseOrderDate(o.date) }))
+    .map((o) => ({ o, d: getOrderDate(o) }))
     .filter((x): x is { o: Order; d: Date } => Boolean(x.d))
     .sort((a, b) => a.d.getTime() - b.d.getTime());
 

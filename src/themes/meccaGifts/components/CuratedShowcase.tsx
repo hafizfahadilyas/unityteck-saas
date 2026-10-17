@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { PINK_PEONIES_IMAGE, LUXURY_GIFT_SET_IMAGE } from '../data/mockData';
 
 export const CuratedShowcase: React.FC = () => {
-  const { language, navigateToCategory } = useApp();
+  const { language, navigateToCategory, builderDevice } = useApp();
   const isAr = language === 'ar';
 
   const items = [
@@ -52,7 +52,15 @@ export const CuratedShowcase: React.FC = () => {
       </div>
 
       {/* 4 Cards Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div
+        className={`grid ${
+          builderDevice === 'mobile'
+            ? 'grid-cols-2 gap-3.5'
+            : builderDevice === 'tablet'
+              ? 'grid-cols-2 sm:grid-cols-3 gap-4'
+              : 'grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6'
+        }`}
+      >
         {items.map((item) => (
           <div
             key={item.id}

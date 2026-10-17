@@ -11,6 +11,7 @@ export type AuthUser = {
   role: string;
   role_label?: string;
   role_level?: number;
+  avatar?: string;
 };
 
 export type AuthSession = {

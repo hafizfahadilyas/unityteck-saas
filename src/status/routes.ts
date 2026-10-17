@@ -56,6 +56,18 @@ export function isKnownAppPath(path: string): boolean {
     clean === '/admin/login' ||
     clean === '/storefront' ||
     clean === '/shop' ||
+    clean === '/coffee' ||
+    clean.startsWith('/coffee') ||
+    clean === '/car' ||
+    clean.startsWith('/car') ||
+    clean === '/cars' ||
+    clean.startsWith('/cars') ||
+    clean === '/bleco' ||
+    clean.startsWith('/bleco') ||
+    clean === '/flowers' ||
+    clean.startsWith('/flowers') ||
+    clean === '/hadaya' ||
+    clean.startsWith('/hadaya') ||
     clean === '/catalog' ||
     clean === '/cart' ||
     clean === '/checkout' ||

@@ -90,4 +90,9 @@ class Store extends Model
     {
         return $this->hasOne(SeoConfig::class);
     }
+
+    public function domains(): HasMany
+    {
+        return $this->hasMany(Domain::class);
+    }
 }

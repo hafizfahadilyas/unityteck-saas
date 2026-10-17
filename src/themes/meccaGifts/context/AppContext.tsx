@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import { Product, CartItem, Order, Language, OccasionReminder, SavedAddress, AddonOption } from '../types';
 import { PRODUCTS, INITIAL_ORDERS, INITIAL_OCCASIONS, INITIAL_ADDRESSES } from '../data/mockData';
+import { COFFEE_STORE_PRODUCTS } from '../../../data/hadayaMeccaData';
 import { useTenant } from '../../../context/TenantContext';
 import { CouponItem } from '../../../types';
 
@@ -59,6 +60,8 @@ interface AppContextType {
   appliedDiscount: number;
   applyCouponCode: (rawCode: string) => { success: boolean; message: string; discount: number };
   removeAppliedCoupon: () => void;
+  builderDevice?: 'desktop' | 'laptop' | 'tablet' | 'mobile';
+  setBuilderDevice?: (device: 'desktop' | 'laptop' | 'tablet' | 'mobile') => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -66,8 +69,10 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentProducts, currentOrders, activeStore, currentCoupons, addOrder: tenantAddOrder, updateOrderStatus, updateOrder, recordCouponUsage } = useTenant();
 
-  // Dynamic products from store tenant context with fallback to PRODUCTS
+  // Dynamic products from store tenant context with store-isolated fallbacks
   const products: Product[] = useMemo(() => {
+    const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
+
     if (currentProducts && currentProducts.length > 0) {
       return currentProducts.map((p) => {
         const isArName = /[\u0600-\u06FF]/.test(p.nameAr || p.name || '');
@@ -76,32 +81,65 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const pAny = p as any;
         return {
           id: String(p.id),
-          name: nameAr || 'باقة ورد طبيعي',
-          nameEn: nameEn || 'Fresh Flower Bouquet',
+          name: nameAr || (isCoffee ? 'محصول قهوة مختصة' : 'باقة ورد طبيعي'),
+          nameEn: nameEn || (isCoffee ? 'Specialty Single Origin Coffee' : 'Fresh Flower Bouquet'),
           price: Number(p.discountedPrice || p.price || 0),
           originalPrice: p.originalPrice ? Number(p.originalPrice) : (p.discountedPrice && p.discountedPrice < p.price ? Number(p.price) : undefined),
           rating: 4.9,
           reviewsCount: p.salesCount || 135,
-          image: p.image || '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+          image: p.image || (isCoffee ? 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80' : '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg'),
           additionalImages: p.galleryUrls && p.galleryUrls.length > 0 ? p.galleryUrls : [p.image],
-          category: p.category || 'باقات الورود الطبيعية',
-          categoryEn: pAny.categoryEn || p.category || 'Natural Flower Bouquets',
-          categorySlug: pAny.categorySlug || (p.category ? p.category.toLowerCase().replace(/\s+/g, '-') : 'bouquets'),
-          occasions: p.tags || ['هدايا الحرم', 'مناسبات خاصة'],
-          tags: p.tags || ['طبيعي', 'هولندي', 'فاخر'],
+          category: p.category || (isCoffee ? 'حبوب القهوة المختصة' : 'باقات الورود الطبيعية'),
+          categoryEn: pAny.categoryEn || p.category || (isCoffee ? 'Specialty Beans' : 'Natural Flower Bouquets'),
+          categorySlug: pAny.categorySlug || (p.category ? p.category.toLowerCase().replace(/\s+/g, '-') : (isCoffee ? 'coffee-beans' : 'bouquets')),
+          occasions: p.tags || (isCoffee ? ['قهوة الصباح', 'محاصيل مختارة'] : ['هدايا الحرم', 'مناسبات خاصة']),
+          tags: p.tags || (isCoffee ? ['قهوة مختصة', 'محمصة', 'حبوب بن'] : ['طبيعي', 'هولندي', 'فاخر']),
           badge: p.originalPrice ? 'عرض خاص' : undefined,
           badgeEn: p.originalPrice ? 'Special Offer' : undefined,
-          description: p.descriptionAr || p.description || 'تنسيق فاخر من أجود أنواع الزهور والورود الطبيعية.',
-          descriptionEn: p.description || p.descriptionAr || 'Luxury fresh floral arrangement crafted with premium blooms.',
-          flowerTypes: pAny.flowerTypes || ['جوري هولندي فاخر', 'بيبي روز', 'يوكاليبتوس'],
-          dimensions: pAny.dimensions || 'ارتفاع 50 سم × عرض 35 سم',
+          description: p.descriptionAr || p.description || (isCoffee ? 'محصول قهوة مختصة محمص بعناية وإيحاءات فريدة.' : 'تنسيق فاخر من أجود أنواع الزهور والورود الطبيعية.'),
+          descriptionEn: p.description || p.descriptionAr || (isCoffee ? 'Specialty single origin roasted coffee beans.' : 'Luxury fresh floral arrangement crafted with premium blooms.'),
+          flowerTypes: isCoffee ? [] : (pAny.flowerTypes || ['جوري هولندي فاخر', 'بيبي روز', 'يوكاليبتوس']),
+          dimensions: pAny.dimensions || (isCoffee ? '250g' : 'ارتفاع 50 سم × عرض 35 سم'),
           inStock: p.stock !== undefined ? p.stock > 0 : true,
           featured: true,
         };
       });
     }
+
+    if (isCoffee) {
+      return COFFEE_STORE_PRODUCTS.map((p) => {
+        const isArName = /[\u0600-\u06FF]/.test(p.nameAr || p.name || '');
+        const nameAr = p.nameAr || (isArName ? p.name : p.subtitleAr || p.name);
+        const nameEn = (!isArName ? p.name : (p.subtitle || p.sku || p.name));
+        return {
+          id: String(p.id),
+          name: nameAr || 'محصول قهوة مختصة',
+          nameEn: nameEn || 'Specialty Coffee',
+          price: Number(p.discountedPrice || p.price || 0),
+          originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
+          rating: 4.9,
+          reviewsCount: p.salesCount || 140,
+          image: p.image || 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80',
+          additionalImages: p.galleryUrls && p.galleryUrls.length > 0 ? p.galleryUrls : [p.image],
+          category: p.category || 'حبوب القهوة المختصة',
+          categoryEn: 'Specialty Beans',
+          categorySlug: 'coffee-beans',
+          occasions: ['قهوة الصباح', 'تحميص طازج'],
+          tags: ['قهوة مختصة', 'محمصة', 'سنجل أوريجن'],
+          badge: p.originalPrice ? 'عرض خاص' : undefined,
+          badgeEn: p.originalPrice ? 'Special Offer' : undefined,
+          description: p.descriptionAr || p.description || 'محصول قهوة مختصة فريد النكهات.',
+          descriptionEn: p.description || 'Specialty single origin beans.',
+          flowerTypes: [],
+          dimensions: '250g',
+          inStock: true,
+          featured: true,
+        };
+      });
+    }
+
     return PRODUCTS;
-  }, [currentProducts]);
+  }, [currentProducts, activeStore]);
 
   const resolveValidPage = (raw: string | null | undefined): string | null => {
     if (!raw) return null;
@@ -116,6 +154,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const [language, setLanguageState] = useState<Language>('ar');
+  const [builderDevice, setBuilderDevice] = useState<'desktop' | 'laptop' | 'tablet' | 'mobile'>('desktop');
   const [currentPage, setCurrentPageState] = useState<string>(() => {
     try {
       if (typeof window !== 'undefined') {
@@ -306,9 +345,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
   }, [language]);
 
-  const setLanguage = (lang: Language) => {
+  const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
-  };
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -763,7 +802,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         appliedCoupon,
         appliedDiscount,
         applyCouponCode,
-        removeAppliedCoupon
+        removeAppliedCoupon,
+        builderDevice,
+        setBuilderDevice,
       }}
     >
       {children}
@@ -824,6 +865,8 @@ const DEFAULT_FALLBACK_APP_CONTEXT: AppContextType = {
   appliedDiscount: 0,
   applyCouponCode: () => ({ success: false, message: '', discount: 0 }),
   removeAppliedCoupon: () => {},
+  builderDevice: 'desktop',
+  setBuilderDevice: () => {},
 };
 
 export const useApp = () => {

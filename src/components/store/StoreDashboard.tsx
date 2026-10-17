@@ -1,11 +1,29 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, lazy, Suspense, useRef, useEffect } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
+import {
+  useNotifications,
+  IssuesSidebar,
+  NotificationsMain,
+  PaginatedNotifications,
+  UrgentBottomBar,
+  DateRangeFilter,
+  useDateRange,
+} from '../../notification-system';
+import { DashboardOrdersTable } from './DashboardOrdersTable';
+import { CreateStoreOrderModal } from './CreateStoreOrderModal';
+
+const NotificationCenter = lazy(() =>
+  import('../../notification-system/components/NotificationCenter').then((m) => ({
+    default: m.NotificationCenter,
+  })),
+);
 import { AreaChart } from '../common/AreaChart';
 import { DonutChart } from '../common/DonutChart';
 import { CylinderBarChart } from '../common/CylinderBarChart';
 import { OverviewStatCard } from '../common/OverviewStatCard';
 import { StoreHealthAlertBanner } from '../common/StoreHealthAlertBanner';
+import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
 import { AdminPageShell } from '../common/AdminPageHeader';
 import {
   Store as StoreIcon,
@@ -37,8 +55,12 @@ import {
   Lock,
   Globe,
   Palette,
+  ReceiptText,
+  Sliders,
 } from 'lucide-react';
 import { useToast } from '../common/ToastProvider';
+import { preloadVisualThemeBuilder } from './visualBuilder/preloadVisualBuilder';
+import { getProductDisplayCategory, getProductDisplayName, getStoreDisplayName } from '../../utils/storeLocalization';
 import {
   type DateRangeKey,
   aggregateOrderSources,
@@ -48,6 +70,8 @@ import {
   rangeBounds,
   statusChipStyle,
   sourceTone,
+  filterOrdersByRange,
+  parseOrderDate,
 } from '../../utils/liveSeries';
 
 interface StoreDashboardProps {
@@ -66,7 +90,7 @@ function seriesDelta(series: { value: number }[]): number | null {
   return Math.round(((last - first) / first) * 100);
 }
 
-export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab }) => {
+export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab, onCustomizeTheme }) => {
   const {
     activeStore,
     currentCustomers,
@@ -77,11 +101,26 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab })
     cacheEpoch,
     updateStorePlan,
     addAuditLog,
+    addOrder,
   } = useTenant();
   const { money, amount, t, locale } = usePrefs();
   const isAr = locale === 'ar';
   const { toast } = useToast();
+  const {
+    notifications,
+    zone1Items,
+    zone2Items,
+    zone3Items,
+    markAsRead,
+    markAllAsRead,
+    dismissNotification,
+    snoozeNotification,
+    handleAction,
+  } = useNotifications();
 
+  const [showNotificationCenter, setShowNotificationCenter] = useState(false);
+  const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
+  const universalDateRange = useDateRange();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [isProcessingUpgrade, setIsProcessingUpgrade] = useState(false);
 
@@ -113,11 +152,229 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab })
   };
 
   const [dateRange, setDateRange] = useState<DateRangeKey>('month');
-  const [orderSearch, setOrderSearch] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('All');
-  const [sortField, setSortField] = useState<'total' | 'date' | 'items'>('date');
-  const [showFilters, setShowFilters] = useState(false);
-  const [page, setPage] = useState(0);
+  const [showCustomAnalyticsPicker, setShowCustomAnalyticsPicker] = useState(false);
+  const [customFromDate, setCustomFromDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split('T')[0];
+  });
+  const [customToDate, setCustomToDate] = useState<string>(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+  const customAnalyticsPickerRef = useRef<HTMLDivElement>(null);
+
+  const handleApplyCustomDateRange = (from?: string, to?: string) => {
+    const f = from || customFromDate;
+    const t = to || customToDate;
+    if (!f || !t) return;
+    const dFrom = new Date(f + 'T00:00:00');
+    const dTo = new Date(t + 'T23:59:59');
+    let startStr = f;
+    let endStr = t;
+    if (dFrom.getTime() > dTo.getTime()) {
+      startStr = t;
+      endStr = f;
+    }
+    setCustomFromDate(startStr);
+    setCustomToDate(endStr);
+    setDateRange('all');
+    setShowCustomAnalyticsPicker(false);
+    toast(
+      locale === 'ar'
+        ? `تم تطبيق النطاق المخصص: ${startStr} إلى ${endStr}`
+        : `Custom date range applied: ${startStr} to ${endStr}`,
+      'info',
+    );
+  };
+
+  const handleResetDateRange = () => {
+    const d = new Date();
+    const toStr = d.toISOString().split('T')[0];
+    d.setDate(d.getDate() - 29);
+    const fromStr = d.toISOString().split('T')[0];
+    setCustomFromDate(fromStr);
+    setCustomToDate(toStr);
+    setDateRange('month');
+    setShowCustomAnalyticsPicker(false);
+    toast(
+      locale === 'ar'
+        ? 'تمت إعادة ضبط الفلتر الزمني إلى آخر 30 يوماً'
+        : 'Date filter reset to Last 30 Days',
+      'info',
+    );
+  };
+
+  // Close custom picker on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        customAnalyticsPickerRef.current &&
+        !customAnalyticsPickerRef.current.contains(e.target as Node)
+      ) {
+        setShowCustomAnalyticsPicker(false);
+      }
+    };
+    if (showCustomAnalyticsPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCustomAnalyticsPicker]);
+
+  // Month and Year string for Monthly Summary Card (Image 2)
+  const currentMonthYear = useMemo(() => {
+    const now = new Date();
+    return now.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
+      month: 'long',
+      year: 'numeric',
+    });
+  }, [locale]);
+
+  // Dynamic analytics orders filtered by dateRange or custom date range
+  const analyticsOrders = useMemo(() => {
+    return filterOrdersByRange(currentOrders, dateRange, customFromDate, customToDate);
+  }, [currentOrders, dateRange, customFromDate, customToDate]);
+
+  const analyticsRevenue = useMemo(() => {
+    const sum = analyticsOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    if (analyticsOrders.length > 0 || currentOrders.length > 0) return sum;
+    if (dateRange === 'all' || dateRange === 'year' || dateRange === 'month') return Number(activeStore.revenue) || 0;
+    return 0;
+  }, [analyticsOrders, currentOrders.length, dateRange, activeStore.revenue]);
+
+  const analyticsOrdersCount = analyticsOrders.length;
+
+  const analyticsCustomersCount = useMemo(() => {
+    if (analyticsOrders.length > 0) {
+      const customerSet = new Set<string>();
+      analyticsOrders.forEach((o) => {
+        if ((o as any).customerId) customerSet.add((o as any).customerId);
+        else if (o.customerEmail) customerSet.add(o.customerEmail);
+        else if (o.customerName) customerSet.add(o.customerName);
+      });
+      return customerSet.size > 0 ? customerSet.size : analyticsOrders.length;
+    }
+    return currentOrders.length > 0 ? 0 : (dateRange === 'all' || dateRange === 'month' ? currentCustomers.length : 0);
+  }, [analyticsOrders, currentOrders.length, currentCustomers.length, dateRange]);
+
+  const analyticsVisitorsCount = useMemo(() => {
+    const baseVisitors = Number(activeStore.visitorsCount) || 0;
+    if (dateRange === 'today' || dateRange === 'yesterday') return Math.max(1, Math.round(baseVisitors / 30));
+    if (dateRange === 'week') return Math.max(1, Math.round(baseVisitors / 4));
+    if (dateRange === 'month') return baseVisitors;
+    if (dateRange === 'year') return baseVisitors * 12;
+    if (dateRange === 'all') {
+      if (customFromDate && customToDate) {
+        const fromT = new Date(customFromDate).getTime();
+        const toT = new Date(customToDate).getTime();
+        const diffDays = Math.max(
+          1,
+          Math.round(Math.abs(toT - fromT) / (1000 * 60 * 60 * 24)) + 1,
+        );
+        return Math.round(baseVisitors * (diffDays / 30));
+      }
+      return baseVisitors;
+    }
+    return baseVisitors;
+  }, [activeStore.visitorsCount, dateRange, customFromDate, customToDate]);
+
+  const analyticsRevenueGrowthData = useMemo(() => {
+    let days = 30;
+    if (dateRange === 'today' || dateRange === 'yesterday') days = 1;
+    else if (dateRange === 'week') days = 7;
+    else if (dateRange === 'month') days = 30;
+    else if (dateRange === 'year') days = 90;
+    else if (dateRange === 'all' && customFromDate && customToDate) {
+      const fromT = new Date(customFromDate).getTime();
+      const toT = new Date(customToDate).getTime();
+      days = Math.max(1, Math.round(Math.abs(toT - fromT) / (1000 * 60 * 60 * 24)) + 1);
+    }
+    return revenueByDate(analyticsOrders, Math.min(days, 30));
+  }, [analyticsOrders, dateRange, customFromDate, customToDate]);
+
+  const analyticsOrdersGrowthData = useMemo(() => {
+    let days = 30;
+    if (dateRange === 'today' || dateRange === 'yesterday') days = 1;
+    else if (dateRange === 'week') days = 7;
+    else if (dateRange === 'month') days = 30;
+    else if (dateRange === 'year') days = 90;
+    else if (dateRange === 'all' && customFromDate && customToDate) {
+      const fromT = new Date(customFromDate).getTime();
+      const toT = new Date(customToDate).getTime();
+      days = Math.max(1, Math.round(Math.abs(toT - fromT) / (1000 * 60 * 60 * 24)) + 1);
+    }
+    return ordersCountByDate(analyticsOrders, Math.min(days, 30));
+  }, [analyticsOrders, dateRange, customFromDate, customToDate]);
+
+  const analyticsRevenueDelta = seriesDelta(analyticsRevenueGrowthData);
+  const analyticsOrdersDelta = seriesDelta(analyticsOrdersGrowthData);
+
+  const analyticsEstimatedProfit = Math.round(analyticsRevenue * 0.35);
+
+  const analyticsConversionRate = useMemo(() => {
+    if (!analyticsVisitorsCount || analyticsVisitorsCount <= 0) return '0%';
+    const rate = ((analyticsOrdersCount / analyticsVisitorsCount) * 100).toFixed(1);
+    return `${rate}%`;
+  }, [analyticsVisitorsCount, analyticsOrdersCount]);
+
+  const analyticsPeriodLabel = useMemo(() => {
+    if (dateRange === 'today') return isAr ? 'اليوم' : 'Today';
+    if (dateRange === 'yesterday') return isAr ? 'أمس' : 'Yesterday';
+    if (dateRange === 'week') return isAr ? 'هذا الأسبوع' : 'This Week';
+    if (dateRange === 'month') return currentMonthYear;
+    if (dateRange === 'year') return isAr ? 'هذه السنة' : 'This Year';
+    if (dateRange === 'all') {
+      if (customFromDate && customToDate) {
+        return `${customFromDate} – ${customToDate}`;
+      }
+      return isAr ? 'كل الأوقات (مخصص)' : 'All Time (Custom)';
+    }
+    return currentMonthYear;
+  }, [dateRange, currentMonthYear, customFromDate, customToDate, isAr]);
+
+  // Monthly stats for Monthly Summary Card (Image 2)
+  const monthlyStats = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const monthOrders = currentOrders.filter((o) => {
+      try {
+        const d = new Date(o.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      } catch {
+        return true;
+      }
+    });
+
+    const activeList = monthOrders.length > 0 ? monthOrders : currentOrders;
+    const salesTotal = activeList.reduce((s, o) => s + (Number(o.total) || 0), 0) || (activeStore.revenue ? Number(activeStore.revenue) : 0);
+    const ordersTotal = activeList.length;
+    const visitsTotal = Number(activeStore.visitorsCount) || 0;
+    const estimatedProfit = Math.round(salesTotal * 0.35);
+
+    return {
+      sales: salesTotal,
+      orders: ordersTotal,
+      visits: visitsTotal,
+      estimatedProfit,
+    };
+  }, [currentOrders, activeStore.revenue, activeStore.visitorsCount]);
+
+  // Universal date range filtering for orders & metrics
+  const rangeOrders = useMemo(() => {
+    if (!universalDateRange.isFiltered) return currentOrders;
+    const filtered = currentOrders.filter((ord) => {
+      try {
+        const d = new Date(ord.date);
+        return d >= universalDateRange.from && d <= universalDateRange.to;
+      } catch {
+        return true;
+      }
+    });
+    return filtered.length > 0 ? filtered : currentOrders;
+  }, [currentOrders, universalDateRange.from, universalDateRange.to, universalDateRange.isFiltered]);
 
   const RANGE_TABS = useMemo(
     () =>
@@ -132,13 +389,13 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab })
   );
 
   const liveRevenue = useMemo(
-    () => currentOrders.reduce((s, o) => s + (Number(o.total) || 0), 0),
-    [currentOrders, cacheEpoch],
+    () => rangeOrders.reduce((s, o) => s + (Number(o.total) || 0), 0),
+    [rangeOrders, cacheEpoch],
   );
 
   const pendingCount = useMemo(
-    () => currentOrders.filter((o) => o.status === 'pending').length,
-    [currentOrders, cacheEpoch],
+    () => rangeOrders.filter((o) => o.status === 'pending').length,
+    [rangeOrders, cacheEpoch],
   );
 
   const activeCouponsCount = useMemo(
@@ -199,8 +456,8 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab })
     if (!entries.length) {
       return [{ label: locale === 'ar' ? 'الكتالوج' : 'Catalog', value: 100, color: '#004d5a' }];
     }
-    return entries.map(([label, n], i) => ({
-      label,
+    return entries.map(([rawCat, n], i) => ({
+      label: getProductDisplayCategory(rawCat, locale),
       value: Math.round((n / total) * 100),
       color: colors[i % colors.length],
     }));
@@ -208,8 +465,8 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab })
 
   // Order sources distribution cylinders
   const sources = useMemo(
-    () => aggregateOrderSources(currentOrders).slice(0, 4),
-    [currentOrders, cacheEpoch],
+    () => aggregateOrderSources(analyticsOrders.length > 0 ? analyticsOrders : currentOrders).slice(0, 4),
+    [analyticsOrders, currentOrders, cacheEpoch],
   );
 
   const cylinderSourceItems = useMemo(() => {
@@ -224,31 +481,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab })
     }));
   }, [sources]);
 
-  // Filtered & Paginated Orders
-  const filteredOrders = useMemo(() => {
-    const q = orderSearch.trim().toLowerCase();
-    return currentOrders
-      .filter((o) => {
-        const matchesQuery =
-          !q ||
-          o.orderNumber.toLowerCase().includes(q) ||
-          o.customerName.toLowerCase().includes(q) ||
-          (o.source && o.source.toLowerCase().includes(q));
-        const matchesStatus = selectedStatus === 'All' || o.status === selectedStatus;
-        return matchesQuery && matchesStatus;
-      })
-      .sort((a, b) => {
-        if (sortField === 'total') return Number(b.total) - Number(a.total);
-        if (sortField === 'items') return b.itemsCount - a.itemsCount;
-        return new Date(b.date || '').getTime() - new Date(a.date || '').getTime();
-      });
-  }, [currentOrders, orderSearch, selectedStatus, sortField]);
 
-  const pageCount = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
-  const pagedOrders = filteredOrders.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
-  const showFrom = filteredOrders.length === 0 ? 0 : safePage * PAGE_SIZE + 1;
-  const showTo = Math.min(filteredOrders.length, (safePage + 1) * PAGE_SIZE);
 
   const vsLastMonth = t('vsLastMonth') || 'vs last month';
   const vsLastWeek = locale === 'ar' ? 'مقارنة بالأسبوع الماضي' : 'vs last week';
@@ -337,45 +570,61 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab })
           </div>
         </div>
 
-        {/* Action Controls & Date Picker */}
+        {/* Top Quick Actions (Direct access to Theme Settings, Invoices & Builder) */}
         <div className="flex items-center gap-2 flex-wrap">
-          <a
-            href="https://giftshop-sa.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 shadow-xs transition-opacity hover:opacity-95 cursor-pointer"
-            style={{ background: 'var(--portal-cta)' }}
-          >
-            <Globe className="w-3.5 h-3.5" />
-            <span>giftshop-sa.com</span>
-          </a>
           <button
             type="button"
-            onClick={() => (onCustomizeTheme ? onCustomizeTheme() : onNavigateTab('themes'))}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 shadow-xs transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-            style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-            title={isAr ? 'تخصيص الثيم وتصميم صفحات المتجر' : 'Customize Theme & Pages'}
+            onClick={() => onNavigateTab('themes')}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs border hover:opacity-90 active:scale-[0.98]"
+            style={{
+              background: 'color-mix(in srgb, var(--accent) 12%, var(--surface))',
+              borderColor: 'color-mix(in srgb, var(--accent) 30%, var(--border))',
+              color: 'var(--accent)',
+            }}
+            title={isAr ? 'الانتقال إلى إعدادات الثيم والواجهة (١٨ شاشة)' : 'Open Theme Settings (18 Sections)'}
           >
-            <Palette className="w-3.5 h-3.5 text-emerald-600" />
-            <span>{isAr ? 'تخصيص الثيم' : 'Customize Theme'}</span>
+            <Sliders className="w-3.5 h-3.5" />
+            <span>{isAr ? 'إعدادات الثيم' : 'Theme Settings'}</span>
           </button>
-          <div
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer transition-colors shadow-xs"
+
+          {onCustomizeTheme && (
+            <button
+              type="button"
+              onClick={onCustomizeTheme}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs border hover:opacity-90 active:scale-[0.98] text-emerald-600 dark:text-emerald-400"
+              style={{
+                background: 'color-mix(in srgb, #10b981 10%, var(--surface))',
+                borderColor: 'color-mix(in srgb, #10b981 25%, var(--border))',
+              }}
+              title={isAr ? 'فتح محرر الثيم والصفحات المباشر' : 'Open Live Page Builder'}
+            >
+              <Palette className="w-3.5 h-3.5" />
+              <span>{isAr ? 'محرر الصفحات' : 'Page Builder'}</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onNavigateTab('invoices')}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs border hover:opacity-90 active:scale-[0.98]"
             style={{
               background: 'var(--surface)',
               borderColor: 'var(--border)',
               color: 'var(--text)',
             }}
+            title={isAr ? 'عرض فواتير المتجر الضريبية' : 'View Store Invoices'}
           >
-            <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--muted)' }} />
-            <span>{dateLabel}</span>
-            <ChevronDown className="w-3.5 h-3.5 ms-1" style={{ color: 'var(--muted)' }} />
-          </div>
+            <ReceiptText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>{isAr ? 'الفواتير' : 'Invoices'}</span>
+          </button>
         </div>
       </div>
 
       {/* ── Real Health & Action Required Diagnostics Banner ── */}
       <StoreHealthAlertBanner onNavigateTab={onNavigateTab} />
+
+      {/* ── Connected Local Project Workspace Hub ── */}
+      <ConnectedWorkspaceBanner page="dashboard" onNavigateTab={onNavigateTab} />
 
       {/* Free Plan Upgrade Prompt Banner */}
       {activeStore.plan === 'free' && !activeStore.masterGrantedPro && (
@@ -518,210 +767,365 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab })
             </div>
           </div>
 
-          {/* ── Store Analytics ── */}
-          <div className="u-chart-panel p-4 sm:p-5 rounded-2xl">
+          {/* ── Store Analytics (Combined Live Analytics & Period Summary) ── */}
+          <div
+            className="u-chart-panel p-4 sm:p-5 rounded-2xl border transition-all relative"
+            style={{
+              background: 'var(--surface)',
+              borderColor: 'var(--border)',
+            }}
+          >
             <div
               className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b"
               style={{ borderColor: 'var(--border)' }}
             >
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-                <h3 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-                  {t('storeAnalytics')}
-                </h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 flex items-center justify-center border border-teal-200/60 dark:border-teal-800/40">
+                  <Activity className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base tracking-tight text-slate-950 dark:text-white">
+                    {t('storeAnalytics') || (isAr ? 'تحليلات المتجر' : 'Store Analytics')}
+                  </h3>
+                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">
+                    {analyticsPeriodLabel} · {isAr ? 'بيانات حية متصلة بالقاعدة' : 'Live database synced'}
+                  </span>
+                </div>
               </div>
-              <div
-                className="flex items-center gap-1 p-1 rounded-xl flex-wrap"
-                style={{ background: 'var(--hover-bg)' }}
-                role="tablist"
-              >
-                {RANGE_TABS.map(({ key, label }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    role="tab"
-                    aria-selected={dateRange === key}
-                    onClick={() => setDateRange(key)}
-                    className="px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer"
-                    style={
-                      dateRange === key
-                        ? {
-                            background: 'var(--portal-900)',
-                            color: '#ffffff',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+
+              {/* Period Tabs & Custom Datepicker Anchor */}
+              <div className="relative flex items-center gap-1">
+                <div
+                  className="flex items-center gap-1 p-1 rounded-xl flex-wrap"
+                  style={{ background: 'var(--hover-bg)' }}
+                  role="tablist"
+                >
+                  {RANGE_TABS.map(({ key, label }) => {
+                    const isSelected = dateRange === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        role="tab"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          setDateRange(key);
+                          if (key === 'all') {
+                            setShowCustomAnalyticsPicker((prev) => !prev);
+                          } else {
+                            setShowCustomAnalyticsPicker(false);
                           }
-                        : { color: 'var(--muted)' }
-                    }
+                        }}
+                        className="px-3.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                        style={
+                          isSelected
+                            ? {
+                                background: '#00383b',
+                                color: '#ffffff',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                              }
+                            : { color: 'var(--text)' }
+                        }
+                      >
+                        {key === 'all' && <Calendar className="w-3.5 h-3.5" />}
+                        {label}
+                        {key === 'all' && <ChevronDown className={`w-3 h-3 transition-transform ${showCustomAnalyticsPicker ? 'rotate-180' : ''}`} />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Datepicker Popover */}
+                {showCustomAnalyticsPicker && (
+                  <div
+                    ref={customAnalyticsPickerRef}
+                    className="absolute end-0 top-full mt-2 w-72 sm:w-80 p-4 rounded-2xl border shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150"
+                    style={{
+                      background: 'var(--surface)',
+                      borderColor: 'var(--border)',
+                      boxShadow: '0 20px 40px -15px rgba(0,0,0,0.3)',
+                    }}
                   >
-                    {label}
-                  </button>
-                ))}
+                    <div className="flex items-center justify-between pb-3 mb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                        <span className="text-xs font-black text-slate-950 dark:text-white">
+                          {isAr ? 'تخصيص نطاق التاريخ' : 'Custom Date Range'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowCustomAnalyticsPicker(false)}
+                        className="p-1 rounded-lg text-slate-500 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div className="mb-3">
+                      <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
+                        {isAr ? 'اختصارات سريعة' : 'Quick Presets'}
+                      </span>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[
+                          {
+                            label: isAr ? 'آخر 7 أيام' : 'Last 7 Days',
+                            action: () => {
+                              const d = new Date();
+                              const toStr = d.toISOString().split('T')[0];
+                              d.setDate(d.getDate() - 6);
+                              const fromStr = d.toISOString().split('T')[0];
+                              handleApplyCustomDateRange(fromStr, toStr);
+                            },
+                          },
+                          {
+                            label: isAr ? 'آخر 30 يوم' : 'Last 30 Days',
+                            action: () => {
+                              const d = new Date();
+                              const toStr = d.toISOString().split('T')[0];
+                              d.setDate(d.getDate() - 29);
+                              const fromStr = d.toISOString().split('T')[0];
+                              handleApplyCustomDateRange(fromStr, toStr);
+                            },
+                          },
+                          {
+                            label: isAr ? 'هذا الشهر' : 'This Month',
+                            action: () => {
+                              const d = new Date();
+                              const toStr = d.toISOString().split('T')[0];
+                              const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
+                              const fromStr = firstDay.toISOString().split('T')[0];
+                              handleApplyCustomDateRange(fromStr, toStr);
+                            },
+                          },
+                          {
+                            label: isAr ? 'كل الأوقات' : 'All Time',
+                            action: () => {
+                              const toStr = new Date().toISOString().split('T')[0];
+                              handleApplyCustomDateRange('2024-01-01', toStr);
+                            },
+                          },
+                        ].map((preset, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={preset.action}
+                            className="px-2.5 py-1.5 text-[11px] font-bold rounded-lg border text-start hover:bg-teal-50 dark:hover:bg-teal-950/40 hover:border-teal-500 transition-all text-slate-800 dark:text-slate-200 cursor-pointer"
+                            style={{ borderColor: 'var(--border)' }}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Dual Date Pickers */}
+                    <div className="space-y-2 mb-4">
+                      <div>
+                        <label className="text-[11px] font-black text-slate-900 dark:text-slate-200 block mb-1">
+                          {isAr ? 'من تاريخ:' : 'From Date:'}
+                        </label>
+                        <input
+                          type="date"
+                          value={customFromDate}
+                          onChange={(e) => setCustomFromDate(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border bg-white dark:bg-slate-900 text-slate-950 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-600"
+                          style={{ borderColor: 'var(--border)' }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-black text-slate-900 dark:text-slate-200 block mb-1">
+                          {isAr ? 'إلى تاريخ:' : 'To Date:'}
+                        </label>
+                        <input
+                          type="date"
+                          value={customToDate}
+                          onChange={(e) => setCustomToDate(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border bg-white dark:bg-slate-900 text-slate-950 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-600"
+                          style={{ borderColor: 'var(--border)' }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyCustomDateRange(customFromDate, customToDate)}
+                        className="flex-1 py-1.5 text-xs font-black rounded-xl bg-teal-800 hover:bg-teal-900 text-white transition-all shadow-sm cursor-pointer text-center"
+                      >
+                        {isAr ? 'تطبيق الفلتر' : 'Apply Filter'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResetDateRange}
+                        className="px-3 py-1.5 text-xs font-bold rounded-xl border hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
+                        style={{ borderColor: 'var(--border)' }}
+                      >
+                        {isAr ? 'إعادة ضبط' : 'Reset'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* 4 Analytics Growth Cards */}
+            {/* 4 Analytics Growth Cards (Wide, responsive, high-contrast with Icons) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 pt-4">
               {/* 1. Revenue Growth */}
               <div
-                className="p-3.5 rounded-xl border min-w-0"
-                style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)' }}
+                className="p-4 rounded-2xl border min-w-0 transition-all hover:shadow-xs flex flex-col justify-between"
+                style={{
+                  background: 'color-mix(in srgb, var(--surface) 92%, #0d9488 8%)',
+                  borderColor: 'color-mix(in srgb, var(--border) 80%, #0d9488 20%)',
+                }}
               >
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
-                    {locale === 'ar' ? 'نمو الإيرادات' : 'Revenue Growth'}
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-900 dark:bg-teal-950 dark:text-teal-200 flex items-center justify-center shrink-0 border border-teal-300 dark:border-teal-700">
+                      <Coins className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-black text-slate-950 dark:text-slate-100 whitespace-nowrap">
+                      {locale === 'ar' ? 'نمو الإيرادات' : 'Revenue Growth'}
+                    </span>
+                  </div>
+                  <span
+                    className="text-[11px] font-black px-2 py-0.5 rounded-md bg-teal-100 text-teal-900 dark:bg-teal-950 dark:text-teal-200 border border-teal-300 dark:border-teal-700 shrink-0"
+                  >
+                    {analyticsRevenueDelta !== null ? (analyticsRevenueDelta >= 0 ? `+${analyticsRevenueDelta}%` : `${analyticsRevenueDelta}%`) : (analyticsRevenue > 0 ? '+100%' : '0%')}
                   </span>
-                  {revenueDelta !== null ? (
-                    <span
-                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
-                      style={{
-                        background: 'color-mix(in srgb, var(--tone-success) 14%, transparent)',
-                        color: 'var(--tone-success)',
-                      }}
-                    >
-                      {revenueDelta >= 0 ? `+${revenueDelta}%` : `${revenueDelta}%`}
-                    </span>
-                  ) : (
-                    <span
-                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
-                      style={{
-                        background: 'color-mix(in srgb, var(--tone-success) 14%, transparent)',
-                        color: 'var(--tone-success)',
-                      }}
-                    >
-                      {liveRevenue > 0 ? '+100%' : '0%'}
-                    </span>
-                  )}
                 </div>
-                <div className="text-base font-black mb-2 tabular-nums" style={{ color: 'var(--text)' }}>
-                  {money(liveRevenue || activeStore.revenue || 0)}
+                <div className="text-xl font-black tracking-tight mb-3 tabular-nums text-slate-950 dark:text-white">
+                  {money(analyticsRevenue)}
                 </div>
-                <AreaChart
-                  data={revenueGrowthData.length > 0 ? revenueGrowthData : [{ label: '1', value: 0 }, { label: '2', value: 0 }]}
-                  color="#14b8a6"
-                  fillGradient={['#14b8a6', '#0d9488']}
-                  height={60}
-                  prefix=""
-                />
+                {/* Glowing Teal Line with Endpoints */}
+                <div className="relative h-2 flex items-center pt-1">
+                  <div className="w-full h-[2.5px] bg-gradient-to-r from-teal-400 to-teal-500 rounded-full" />
+                  <div className="absolute start-0 w-2.5 h-2.5 rounded-full bg-teal-400 shadow-[0_0_8px_rgba(20,184,166,0.9)] ring-2 ring-teal-100 dark:ring-teal-950" />
+                  <div className="absolute end-0 w-2.5 h-2.5 rounded-full bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.9)] ring-2 ring-teal-100 dark:ring-teal-950" />
+                </div>
               </div>
 
               {/* 2. Orders Growth */}
               <div
-                className="p-3.5 rounded-xl border min-w-0"
-                style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)' }}
+                className="p-4 rounded-2xl border min-w-0 transition-all hover:shadow-xs flex flex-col justify-between"
+                style={{
+                  background: 'color-mix(in srgb, var(--surface) 92%, #0284c7 8%)',
+                  borderColor: 'color-mix(in srgb, var(--border) 80%, #0284c7 20%)',
+                }}
               >
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
-                    {locale === 'ar' ? 'نمو الطلبات' : 'Orders Growth'}
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200 flex items-center justify-center shrink-0 border border-sky-300 dark:border-sky-700">
+                      <ShoppingCart className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-black text-slate-950 dark:text-slate-100 whitespace-nowrap">
+                      {locale === 'ar' ? 'نمو الطلبات' : 'Orders Growth'}
+                    </span>
+                  </div>
+                  <span
+                    className="text-[11px] font-black px-2 py-0.5 rounded-md bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200 border border-sky-300 dark:border-sky-700 shrink-0"
+                  >
+                    {analyticsOrdersDelta !== null ? (analyticsOrdersDelta >= 0 ? `+${analyticsOrdersDelta}%` : `${analyticsOrdersDelta}%`) : (analyticsOrdersCount > 0 ? '+100%' : '0%')}
                   </span>
-                  {ordersDelta !== null ? (
-                    <span
-                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
-                      style={{
-                        background: 'color-mix(in srgb, var(--tone-info) 14%, transparent)',
-                        color: 'var(--tone-info)',
-                      }}
-                    >
-                      {ordersDelta >= 0 ? `+${ordersDelta}%` : `${ordersDelta}%`}
-                    </span>
-                  ) : (
-                    <span
-                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
-                      style={{
-                        background: 'color-mix(in srgb, var(--tone-info) 14%, transparent)',
-                        color: 'var(--tone-info)',
-                      }}
-                    >
-                      {currentOrders.length > 0 ? '+100%' : '0%'}
-                    </span>
-                  )}
                 </div>
-                <div className="text-base font-black mb-2 tabular-nums" style={{ color: 'var(--text)' }}>
-                  {currentOrders.length.toLocaleString(loc)}
+                <div className="text-xl font-black tracking-tight mb-3 tabular-nums text-slate-950 dark:text-white">
+                  {analyticsOrdersCount.toLocaleString(loc)}
                 </div>
-                <AreaChart
-                  data={ordersGrowthData.length > 0 ? ordersGrowthData : [{ label: '1', value: 0 }, { label: '2', value: 0 }]}
-                  color="#0ea5e9"
-                  fillGradient={['#0ea5e9', '#0284c7']}
-                  height={60}
-                  prefix=""
-                />
+                {/* Glowing Sky Blue Line with Endpoints */}
+                <div className="relative h-2 flex items-center pt-1">
+                  <div className="w-full h-[2.5px] bg-gradient-to-r from-sky-400 to-sky-500 rounded-full" />
+                  <div className="absolute start-0 w-2.5 h-2.5 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(14,165,233,0.9)] ring-2 ring-sky-100 dark:ring-sky-950" />
+                  <div className="absolute end-0 w-2.5 h-2.5 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.9)] ring-2 ring-sky-100 dark:ring-sky-950" />
+                </div>
               </div>
 
               {/* 3. Customer Growth */}
               <div
-                className="p-3.5 rounded-xl border min-w-0"
-                style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)' }}
+                className="p-4 rounded-2xl border min-w-0 transition-all hover:shadow-xs flex flex-col justify-between"
+                style={{
+                  background: 'color-mix(in srgb, var(--surface) 92%, #7c3aed 8%)',
+                  borderColor: 'color-mix(in srgb, var(--border) 80%, #7c3aed 20%)',
+                }}
               >
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
-                    {locale === 'ar' ? 'نمو العملاء' : 'Customer Growth'}
-                  </span>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-900 dark:bg-purple-950 dark:text-purple-200 flex items-center justify-center shrink-0 border border-purple-300 dark:border-purple-700">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-black text-slate-950 dark:text-slate-100 whitespace-nowrap">
+                      {locale === 'ar' ? 'نمو العملاء' : 'Customer Growth'}
+                    </span>
+                  </div>
                   <span
-                    className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
-                    style={{
-                      background: 'color-mix(in srgb, var(--tone-violet) 14%, transparent)',
-                      color: 'var(--tone-violet)',
-                    }}
+                    className="text-[11px] font-black px-2 py-0.5 rounded-md bg-purple-100 text-purple-900 dark:bg-purple-950 dark:text-purple-200 border border-purple-300 dark:border-purple-700 shrink-0"
                   >
-                    {currentCustomers.length > 0 ? `+${currentCustomers.length}` : '0'}
+                    {analyticsCustomersCount > 0 ? `${analyticsCustomersCount}` : '0'}
                   </span>
                 </div>
-                <div className="text-base font-black mb-2 tabular-nums" style={{ color: 'var(--text)' }}>
-                  {currentCustomers.length.toLocaleString(loc)}
+                <div className="text-xl font-black tracking-tight mb-3 tabular-nums text-slate-950 dark:text-white">
+                  {analyticsCustomersCount.toLocaleString(loc)}
                 </div>
-                <AreaChart
-                  data={
-                    currentCustomers.length > 0
-                      ? [
-                          { label: '1', value: Math.max(0, currentCustomers.length - 1) },
-                          { label: '2', value: currentCustomers.length },
-                        ]
-                      : [{ label: '1', value: 0 }, { label: '2', value: 0 }]
-                  }
-                  color="#8b5cf6"
-                  fillGradient={['#8b5cf6', '#6d28d9']}
-                  height={60}
-                  prefix=""
-                />
+                {/* Glowing Purple Line with Endpoints */}
+                <div className="relative h-2 flex items-center pt-1">
+                  <div className="w-full h-[2.5px] bg-gradient-to-r from-purple-400 to-purple-500 rounded-full" />
+                  <div className="absolute start-0 w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.9)] ring-2 ring-purple-100 dark:ring-purple-950" />
+                  <div className="absolute end-0 w-2.5 h-2.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.9)] ring-2 ring-purple-100 dark:ring-purple-950" />
+                </div>
               </div>
 
-              {/* 4. Conversion & Traffic */}
+              {/* 4. Traffic Growth */}
               <div
-                className="p-3.5 rounded-xl border min-w-0"
-                style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)' }}
+                className="p-4 rounded-2xl border min-w-0 transition-all hover:shadow-xs flex flex-col justify-between"
+                style={{
+                  background: 'color-mix(in srgb, var(--surface) 92%, #ea580c 8%)',
+                  borderColor: 'color-mix(in srgb, var(--border) 80%, #ea580c 20%)',
+                }}
               >
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
-                    {locale === 'ar' ? 'نمو الزيارات' : 'Traffic Growth'}
-                  </span>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 flex items-center justify-center shrink-0 border border-amber-300 dark:border-amber-700">
+                      <Eye className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-black text-slate-950 dark:text-slate-100 whitespace-nowrap">
+                      {locale === 'ar' ? 'نمو الزيارات' : 'Traffic Growth'}
+                    </span>
+                  </div>
                   <span
-                    className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
-                    style={{
-                      background: 'color-mix(in srgb, var(--tone-warn) 14%, transparent)',
-                      color: 'var(--tone-warn)',
-                    }}
+                    className="text-[11px] font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 shrink-0"
                   >
-                    {visitorsCount > 0 ? `+${visitorsCount}` : '0'}
+                    {analyticsVisitorsCount > 0 ? `${analyticsVisitorsCount}` : '0'}
                   </span>
                 </div>
-                <div className="text-base font-black mb-2 tabular-nums" style={{ color: 'var(--text)' }}>
-                  {visitorsCount.toLocaleString(loc)}
+                <div className="text-xl font-black tracking-tight mb-3 tabular-nums text-slate-950 dark:text-white">
+                  {analyticsVisitorsCount.toLocaleString(loc)}
                 </div>
-                <AreaChart
-                  data={
-                    visitorsCount > 0
-                      ? [
-                          { label: '1', value: Math.round(visitorsCount * 0.8) },
-                          { label: '2', value: visitorsCount },
-                        ]
-                      : [{ label: '1', value: 0 }, { label: '2', value: 0 }]
-                  }
-                  color="#f97316"
-                  fillGradient={['#f97316', '#ea580c']}
-                  height={60}
-                  prefix=""
-                />
+                {/* Glowing Orange Line with Endpoints */}
+                <div className="relative h-2 flex items-center pt-1">
+                  <div className="w-full h-[2.5px] bg-gradient-to-r from-amber-400 to-amber-500 rounded-full" />
+                  <div className="absolute start-0 w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(249,115,22,0.9)] ring-2 ring-amber-100 dark:ring-amber-950" />
+                  <div className="absolute end-0 w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(249,115,22,0.9)] ring-2 ring-amber-100 dark:ring-amber-950" />
+                </div>
               </div>
+            </div>
+
+            {/* Bottom Reports Action Bar */}
+            <div className="pt-4 mt-3 border-t flex items-center justify-between flex-wrap gap-2" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-3 text-xs font-bold text-slate-700 dark:text-slate-300">
+                <span>{locale === 'ar' ? 'الأرباح التقديرية:' : 'Estimated Profit:'} <strong className="text-slate-950 dark:text-white font-black">{money(analyticsEstimatedProfit)}</strong></span>
+                <span>·</span>
+                <span>{locale === 'ar' ? 'معدل التحويل:' : 'Conversion:'} <strong className="text-slate-950 dark:text-white font-black">{analyticsConversionRate}</strong></span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onNavigateTab('reports')}
+                className="text-xs font-black text-teal-800 hover:text-teal-950 dark:text-teal-300 flex items-center gap-1 hover:underline cursor-pointer"
+              >
+                <span>{isAr ? 'عرض المزيد من التقارير' : 'View more reports'}</span>
+                <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
+              </button>
             </div>
           </div>
 
@@ -769,18 +1173,18 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab })
                     className="px-2.5 py-1 rounded-lg text-[10px] font-bold shadow-xs text-white"
                     style={{ background: '#004d5a' }}
                   >
-                    {money(liveRevenue || activeStore.revenue || 0)} <span className="opacity-75 font-normal">/ {locale === 'ar' ? 'الذروة' : 'Peak'}</span>
+                    {money(analyticsRevenue || activeStore.revenue || 0)} <span className="opacity-75 font-normal">/ {locale === 'ar' ? 'الذروة' : 'Peak'}</span>
                   </div>
                 </div>
               </div>
               <div className="pt-2 min-w-0">
                 <AreaChart
                   data={
-                    revenueGrowthData.length > 1
-                      ? revenueGrowthData
+                    analyticsRevenueGrowthData.length > 1
+                      ? analyticsRevenueGrowthData
                       : [
                           { label: '1', value: 0 },
-                          { label: '2', value: liveRevenue || activeStore.revenue || 0 },
+                          { label: '2', value: analyticsRevenue || activeStore.revenue || 0 },
                         ]
                   }
                   color="#00b4d8"
@@ -793,263 +1197,33 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab })
             </div>
           </div>
 
-          {/* ── Store Orders Table ── */}
-          <div className="u-panel p-4 sm:p-5 overflow-hidden rounded-2xl" data-panel="store-orders">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-                <h3 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-                  {isAr ? 'أحدث الطلبات' : 'Recent Orders'}
-                </h3>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="relative">
-                  <Search
-                    className="w-3.5 h-3.5 absolute start-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                    style={{ color: 'var(--muted)' }}
-                  />
-                  <input
-                    type="text"
-                    placeholder={isAr ? 'بحث في الطلبات...' : 'Search orders...'}
-                    value={orderSearch}
-                    onChange={(e) => {
-                      setOrderSearch(e.target.value);
-                      setPage(0);
-                    }}
-                    className="ps-8 pe-3 py-1.5 text-xs rounded-lg border w-36 sm:w-44"
-                    style={{
-                      background: 'var(--input-bg)',
-                      borderColor: 'var(--border)',
-                      color: 'var(--input-fg)',
-                    }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowFilters((v) => !v)}
-                  className="px-2.5 py-1.5 text-xs rounded-lg border font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  style={{
-                    background: showFilters ? 'var(--hover-bg)' : 'var(--surface)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text)',
-                  }}
-                >
-                  <Filter className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
-                  <span>{isAr ? 'تصفية' : 'Filters'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSortField((f) => (f === 'date' ? 'total' : f === 'total' ? 'items' : 'date'));
-                    setPage(0);
-                  }}
-                  className="px-2.5 py-1.5 text-xs rounded-lg border font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  style={{
-                    background: 'var(--surface)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text)',
-                  }}
-                  title={sortField}
-                >
-                  <ArrowUpDown className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
-                  <span>{isAr ? 'ترتيب' : 'Sort'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab('orders')}
-                  className="px-3.5 py-1.5 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  style={{ background: 'var(--portal-cta)' }}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{isAr ? 'إدارة الطلبات' : 'Manage Orders'}</span>
-                </button>
-              </div>
-            </div>
+          {/* ── Middle Left: Recent Orders Data Table (Image 1) ── */}
+          <DashboardOrdersTable
+            orders={analyticsOrders}
+            onNavigateTab={onNavigateTab}
+            onOpenCreateOrder={() => setIsCreateOrderModalOpen(true)}
+          />
 
-            {showFilters ? (
-              <div className="mb-3">
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => {
-                    setSelectedStatus(e.target.value);
-                    setPage(0);
-                  }}
-                  className="px-2.5 py-1.5 text-xs rounded-lg border"
-                  style={{
-                    background: 'var(--input-bg)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--input-fg)',
-                  }}
-                >
-                  <option value="All">{isAr ? 'جميع الحالات' : 'All Statuses'}</option>
-                  <option value="pending">{isAr ? 'بانتظار التأكيد' : 'Pending'}</option>
-                  <option value="processing">{isAr ? 'قيد التنفيذ' : 'Processing'}</option>
-                  <option value="delivered">{isAr ? 'تم التوصيل' : 'Delivered'}</option>
-                  <option value="cancelled">{isAr ? 'ملغي' : 'Cancelled'}</option>
-                </select>
-              </div>
-            ) : null}
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-start text-xs min-w-[740px] border-separate border-spacing-0">
-                <thead>
-                  <tr>
-                    {[
-                      [isAr ? 'رقم الطلب' : 'Order Number', 'text-start'],
-                      [isAr ? 'العميل' : 'Customer', 'text-start'],
-                      [isAr ? 'قناة البيع' : 'Source Channel', 'text-start'],
-                      [isAr ? 'طريقة الدفع' : 'Payment', 'text-start'],
-                      [isAr ? 'المنتجات' : 'Items', 'text-end'],
-                      [isAr ? 'الإجمالي' : 'Total Amount', 'text-end'],
-                      [isAr ? 'الحالة' : 'Status', 'text-center'],
-                      [isAr ? 'التاريخ' : 'Date', 'text-start'],
-                      [isAr ? 'الإجراءات' : 'Actions', 'text-end'],
-                    ].map(([label, align]) => (
-                      <th
-                        key={label}
-                        className={`pb-3 px-2 font-semibold whitespace-nowrap ${align}`}
-                        style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}
-                      >
-                        {label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagedOrders.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} className="py-8 text-center text-xs" style={{ color: 'var(--muted)' }}>
-                        {isAr ? 'لا توجد طلبات تطابق الفلتر المحدد.' : 'No orders matching current filter.'}
-                      </td>
-                    </tr>
-                  ) : (
-                    pagedOrders.map((ord) => {
-                      const srcTone = sourceTone(ord.source || 'Unknown');
-                      return (
-                        <tr key={ord.id} className="hover:[background:var(--hover-bg)] transition-colors">
-                          <td className="py-3 px-2 font-mono font-bold" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
-                            {ord.orderNumber}
-                          </td>
-                          <td className="py-3 px-2 whitespace-nowrap" style={{ borderBottom: '1px solid var(--border)' }}>
-                            <div className="font-semibold" style={{ color: 'var(--text)' }}>{ord.customerName}</div>
-                            <div className="text-[10px]" style={{ color: 'var(--muted)' }}>{ord.customerPhone}</div>
-                          </td>
-                          <td className="py-3 px-2" style={{ borderBottom: '1px solid var(--border)' }}>
-                            <span
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border"
-                              style={{
-                                background: `color-mix(in srgb, ${srcTone.accent} 12%, var(--surface))`,
-                                color: srcTone.accent,
-                                borderColor: `color-mix(in srgb, ${srcTone.accent} 28%, var(--border))`,
-                              }}
-                            >
-                              {ord.source || (isAr ? 'مباشر' : 'Direct')}
-                            </span>
-                          </td>
-                          <td className="py-3 px-2 whitespace-nowrap" style={{ borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>
-                            {ord.paymentMethod}
-                          </td>
-                          <td className="py-3 px-2 text-end tabular-nums font-medium" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
-                            {ord.itemsCount}
-                          </td>
-                          <td className="py-3 px-2 text-end font-bold tabular-nums whitespace-nowrap" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
-                            {money(Number(ord.total))}
-                          </td>
-                          <td className="py-3 px-2 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
-                            <span
-                              className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold border capitalize"
-                              style={statusChipStyle(ord.status)}
-                            >
-                              {isAr
-                                ? ord.status === 'pending'
-                                  ? 'بانتظار التأكيد'
-                                  : ord.status === 'processing'
-                                    ? 'قيد التنفيذ'
-                                    : ord.status === 'delivered'
-                                      ? 'تم التوصيل'
-                                      : ord.status === 'cancelled'
-                                        ? 'ملغي'
-                                        : ord.status
-                                : ord.status}
-                            </span>
-                          </td>
-                          <td className="py-3 px-2 whitespace-nowrap text-[11px]" style={{ borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>
-                            {ord.date}
-                          </td>
-                          <td className="py-3 px-2 text-end" style={{ borderBottom: '1px solid var(--border)' }}>
-                            <div className="inline-flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => onNavigateTab('orders')}
-                                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer border inline-flex items-center gap-1 shadow-xs"
-                                style={{
-                                  background: 'var(--surface)',
-                                  borderColor: 'var(--border)',
-                                  color: 'var(--text)',
-                                }}
-                              >
-                                <span>{isAr ? 'تفاصيل' : 'Details'}</span>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>
-                {isAr
-                  ? `عرض ${showFrom}–${showTo} من أصل ${filteredOrders.length} طلب`
-                  : `Showing ${showFrom}–${showTo} of ${filteredOrders.length} orders`}
-              </p>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled={safePage <= 0}
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  className="p-1.5 rounded-lg border cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
-                  style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
-                  aria-label="Previous"
-                >
-                  <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
-                </button>
-                {Array.from({ length: pageCount }).map((_, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setPage(idx)}
-                    className="w-7 h-7 rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-xs"
-                    style={
-                      safePage === idx
-                        ? { background: 'var(--portal-cta)', color: '#ffffff' }
-                        : { background: 'var(--surface)', color: 'var(--muted)', border: '1px solid var(--border)' }
-                    }
-                  >
-                    {idx + 1}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  disabled={safePage >= pageCount - 1}
-                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-                  className="p-1.5 rounded-lg border cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
-                  style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
-                  aria-label="Next"
-                >
-                  <ChevronRight className="w-4 h-4 rtl:rotate-180" />
-                </button>
-              </div>
-            </div>
-          </div>
+          {/* ── Bottom Left: Paginated Notifications (Max 4 items per page + Tabs) ── */}
+          <PaginatedNotifications
+            notifications={zone2Items}
+            onAction={(item) => handleAction(item, onNavigateTab)}
+            onMarkRead={markAsRead}
+            onDismiss={dismissNotification}
+            onSnooze={snoozeNotification}
+            onViewAll={() => onNavigateTab('notifications')}
+          />
         </div>
 
         {/* ════ RIGHT COLUMN (3 cols) ════ */}
         <div className="xl:col-span-3 space-y-5 min-w-0">
+          {/* ── ZONE 1: Issues Requiring Your Attention (Internal Scroll, max-h-[500px]) ── */}
+          <IssuesSidebar
+            issues={zone1Items}
+            onSelectIssue={(item) => handleAction(item, onNavigateTab)}
+            onViewAllIssues={() => onNavigateTab('notifications')}
+          />
+
           {/* ── 1. Storefront Quick Launch Card ── */}
           <div
             className="rounded-2xl p-5 text-white relative overflow-hidden shadow-md"
@@ -1071,11 +1245,15 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab })
               <div className="mt-4 flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
+                  onMouseEnter={preloadVisualThemeBuilder}
+                  onPointerDown={preloadVisualThemeBuilder}
+                  onFocus={preloadVisualThemeBuilder}
+                  onTouchStart={preloadVisualThemeBuilder}
                   onClick={() => (onCustomizeTheme ? onCustomizeTheme() : onNavigateTab('themes'))}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all hover:bg-emerald-50"
+                  className="group relative overflow-hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all duration-200 ease-out hover:scale-[1.03] hover:shadow-lg hover:bg-emerald-50 active:scale-95 active:brightness-95 select-none"
                   style={{ background: '#ffffff', color: '#04222b' }}
                 >
-                  <Palette className="w-3.5 h-3.5 text-emerald-600" />
+                  <Palette className="w-3.5 h-3.5 text-emerald-600 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
                   <span>{isAr ? 'تخصيص الثيم وتصميم الصفحات' : 'Customize Theme'}</span>
                 </button>
                 <button
@@ -1285,6 +1463,40 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({ onNavigateTab })
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── ZONE 3: Urgent Action Bottom Bar (Sticky) ── */}
+      <UrgentBottomBar
+        urgentItems={zone3Items}
+        onAction={(item) => handleAction(item, onNavigateTab)}
+        onDismiss={dismissNotification}
+      />
+
+      {/* Create Order Modal */}
+      {isCreateOrderModalOpen && (
+        <CreateStoreOrderModal
+          isOpen={isCreateOrderModalOpen}
+          storeId={activeStore.id}
+          storeName={activeStore.name}
+          onClose={() => setIsCreateOrderModalOpen(false)}
+          onCreate={(orderData) => {
+            try {
+              addOrder(orderData as any, activeStore.id);
+              toast(
+                locale === 'ar'
+                  ? 'تم إنشاء الطلب الجديد وإضافته بنجاح إلى قاعدة البيانات!'
+                  : 'New order created and saved to database successfully!',
+                'success',
+              );
+              setIsCreateOrderModalOpen(false);
+            } catch (err) {
+              toast(
+                locale === 'ar' ? 'حدث خطأ أثناء حفظ الطلب' : 'Failed to save new order',
+                'error',
+              );
+            }
+          }}
+        />
       )}
     </AdminPageShell>
   );

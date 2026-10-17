@@ -46,6 +46,7 @@ import { ProductCardsForm } from './ProductCardsForm';
 import { CustomProductsForm } from './CustomProductsForm';
 import { SpecialOfferCountdownForm } from './SpecialOfferCountdownForm';
 import { StoreStatisticsForm } from './StoreStatisticsForm';
+import { ConnectedWorkspaceBanner } from '../../common/ConnectedWorkspaceBanner';
 
 export interface ThemeSectionMeta {
   id: string;
@@ -261,10 +262,11 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
 ];
 
 interface ThemeSettingsMasterProps {
-  onOpenStorefront: () => void;
+  onOpenStorefront?: () => void;
 }
 
 export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({ onOpenStorefront }) => {
+  const { activeStore } = useTenant();
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
 
@@ -296,6 +298,9 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({ onOpen
 
   return (
     <div className="space-y-6">
+      {/* ── Connected Local Project Workspace Banner ── */}
+      <ConnectedWorkspaceBanner page="settings" />
+
       {/* If a section is selected, render the editor screen with navigation header */}
       {activeSection ? (
         <div className="space-y-4">
@@ -344,7 +349,14 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({ onOpen
 
               <button
                 type="button"
-                onClick={onOpenStorefront}
+                onClick={() => {
+                  if (onOpenStorefront) {
+                    onOpenStorefront();
+                  } else if (typeof window !== 'undefined') {
+                    const storeSlug = activeStore?.slug || (activeStore?.id === 'store-coffee' ? 'coffee' : activeStore?.id === 'store-bleco' ? 'bleco' : 'flowers');
+                    window.open(`/?store=${storeSlug}&fullscreen=1`, '_blank');
+                  }
+                }}
                 className="px-3.5 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 style={{ borderColor: 'var(--border)' }}
               >

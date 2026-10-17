@@ -1,12 +1,15 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Sparkles, CreditCard, Tag } from 'lucide-react';
+import { useTenant } from '../../../context/TenantContext';
+import { Sparkles, CreditCard, Tag, Coffee } from 'lucide-react';
 
 export const MarqueeBanner: React.FC = () => {
   const { language } = useApp();
+  const { activeStore } = useTenant();
   const isAr = language === 'ar';
+  const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
 
-  const messages = [
+  const flowerMessages = [
     {
       icon: CreditCard,
       text: isAr ? 'خيار دفع ولا بالأحلام .. قسّط فاتورتك على أربع دفعات مع تابي وتمارا بدون فوائد' : 'Split your bill into 4 interest-free payments with Tabby & Tamara',
@@ -24,8 +27,28 @@ export const MarqueeBanner: React.FC = () => {
     }
   ];
 
+  const coffeeMessages = [
+    {
+      icon: CreditCard,
+      text: isAr ? 'قسّط طلبات القهوة والمكائن على 4 دفعات بدون فوائد مع تابي وتمارا' : 'Split your coffee & espresso gear order into 4 interest-free payments',
+      code: '0% INTEREST'
+    },
+    {
+      icon: Tag,
+      text: isAr ? 'كود الخصم الحصري: استخدم COFFEE10 واحصل على خصم 10% على كافة المحاصيل والأدوات' : 'Special promo: Use code COFFEE10 for 10% off all specialty beans & gear',
+      code: 'COFFEE10'
+    },
+    {
+      icon: Coffee,
+      text: isAr ? 'شحن سريع لجميع مدن المملكة بصمام حماية النكهة مجاناً للطلبات فوق 250 ريال' : 'Free express delivery across KSA on orders above 250 SAR',
+      code: 'FREE SHIPPING'
+    }
+  ];
+
+  const messages = isCoffee ? coffeeMessages : flowerMessages;
+
   return (
-    <div className="bg-[#122e1f] text-[#FAF9F5] border-y border-[#264b36] py-3 overflow-hidden select-none">
+    <div className={`${isCoffee ? 'bg-[#1e1009] border-[#382114]' : 'bg-[#122e1f] border-[#264b36]'} text-[#FAF9F5] border-y py-3 overflow-hidden select-none`}>
       <div className="flex items-center gap-12 whitespace-nowrap animate-marquee">
         {[...messages, ...messages, ...messages].map((item, idx) => {
           const Icon = item.icon;

@@ -15,15 +15,21 @@ export const FaqSection: React.FC = () => {
 
   return (
     <section className="py-14 md:py-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
-      {/* Title */}
-      <div className="text-center mb-10">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#102a1c]/10 text-[#102a1c] text-xs font-semibold mb-2">
-          <HelpCircle className="w-3.5 h-3.5" />
-          <span>{isAr ? 'إجابات واضحة لاستفساراتكم' : 'Frequently Asked Questions'}</span>
+      {/* Title Header matching site-wide uniform styling */}
+      <div className="flex items-center justify-between mb-8 pb-3 border-b border-[#ece7de]">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c]">
+            {isAr ? 'الأسئلة الشائعة' : 'Common Inquiries'}
+          </h2>
+          <p className="text-xs sm:text-sm text-[#7a7164] mt-1 font-light">
+            {isAr ? 'إجابات واضحة لاستفساراتكم' : 'Frequently Asked Questions & Answers'}
+          </p>
         </div>
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#102a1c] font-serif">
-          {isAr ? 'الأسئلة الشائعة' : 'Common Inquiries'}
-        </h2>
+
+        <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#102a1c]/10 text-[#102a1c] text-xs font-semibold shrink-0">
+          <HelpCircle className="w-3.5 h-3.5 text-[#102a1c]" />
+          <span>{isAr ? 'مركز المساعدة' : 'Help Center'}</span>
+        </div>
       </div>
 
       {/* Accordion list */}

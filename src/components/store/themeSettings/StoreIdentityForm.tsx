@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, Check, Image, Mail, MapPin, Phone, Save } from 'lucide-react';
+import { Building2, Check, Image, Mail, MapPin, Phone, Save, HardDrive, Copy, ExternalLink } from 'lucide-react';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
@@ -10,6 +10,7 @@ import {
   type StoreIdentitySettings,
 } from '../../../themes/settings/storeIdentity';
 import { MediaUploadField } from '../../common/MediaUploadField';
+import { COFFEE_STORE_WORKSPACE_PATH } from '../../../data/coffeeStoreData';
 
 /**
  * Theme Settings · 01 Store Identity — Holst form, same-to-same Phase 5.1 start.
@@ -183,6 +184,45 @@ export const StoreIdentityForm: React.FC = () => {
         {field('Instagram', 'instagram', { dir: 'ltr', placeholder: '@handle' })}
         {field(locale === 'ar' ? 'السجل التجاري' : 'Commercial registration', 'commercialReg', { dir: 'ltr' })}
         {field(locale === 'ar' ? 'الرقم الضريبي' : 'VAT number', 'vatNumber', { dir: 'ltr' })}
+      </div>
+
+      {/* Connected Local Workspace Directory Link */}
+      <div className="p-3.5 rounded-xl border space-y-1.5" style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)' }}>
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--accent)' }}>
+            <HardDrive className="w-3.5 h-3.5" />
+            <span>{locale === 'ar' ? 'مسار مجلد المشروع المحلي المرتبط (Local Workspace)' : 'Connected Local Workspace Path'}</span>
+          </span>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+            {locale === 'ar' ? 'متصل' : 'Connected'}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 px-2.5 py-1.5 rounded-lg border text-xs font-mono font-bold truncate bg-white dark:bg-slate-900" style={{ borderColor: 'var(--border)' }}>
+            {activeStore.workspacePath || COFFEE_STORE_WORKSPACE_PATH}
+          </code>
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(activeStore.workspacePath || COFFEE_STORE_WORKSPACE_PATH);
+              toast(locale === 'ar' ? 'تم نسخ المسار' : 'Path copied', 'success');
+            }}
+            className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+            style={{ borderColor: 'var(--border)' }}
+            title={locale === 'ar' ? 'نسخ المسار' : 'Copy path'}
+          >
+            <Copy className="w-3.5 h-3.5" />
+          </button>
+          <a
+            href={`file:///${(activeStore.workspacePath || COFFEE_STORE_WORKSPACE_PATH).replace(/\\/g, '/')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-1.5 rounded-lg bg-amber-800 text-white hover:bg-amber-900 cursor-pointer shadow-2xs"
+            title={locale === 'ar' ? 'فتح المجلد' : 'Open folder'}
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>

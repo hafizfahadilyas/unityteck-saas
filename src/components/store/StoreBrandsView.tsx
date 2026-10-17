@@ -47,7 +47,30 @@ export interface CustomFieldItem {
   status: 'active' | 'inactive';
 }
 
-const INITIAL_BRANDS: BrandItem[] = [
+import { useTenant } from '../../context/TenantContext';
+import { CAR_BRANDS } from '../../data/blecoStoreData';
+
+export interface BrandItem {
+  id: string;
+  name: string;
+  description: string;
+  logo: string;
+  productsCount: number;
+  showInChannels: boolean;
+  status: 'active' | 'inactive';
+}
+
+export interface CustomFieldItem {
+  id: string;
+  name: string;
+  type: 'Text' | 'File' | 'Number' | 'Date' | 'Single Select';
+  appliedTo: string;
+  showToCustomer: boolean;
+  status: 'active' | 'inactive';
+}
+
+// ── FLOWER STORE SEED (store-1: Hadaya Mecca Flowers) ─────────────────────────
+export const FLOWER_STORE_BRANDS: BrandItem[] = [
   {
     id: 'b1',
     name: 'Hadaya Mecca Signature (هدايا مكة سيغنتشر)',
@@ -113,54 +136,264 @@ const INITIAL_BRANDS: BrandItem[] = [
   },
 ];
 
-const INITIAL_CUSTOM_FIELDS: CustomFieldItem[] = [
+export const FLOWER_CUSTOM_FIELDS: CustomFieldItem[] = [
   {
-    id: 'cf1',
-    name: 'Material',
+    id: 'cf-flw-1',
+    name: 'Greeting Card Message (رسالة كرت الإهداء)',
     type: 'Text',
     appliedTo: 'All Products',
     showToCustomer: true,
     status: 'active',
   },
   {
-    id: 'cf2',
-    name: 'Size Guide',
-    type: 'File',
-    appliedTo: 'Specific Categories (Clothing)',
+    id: 'cf-flw-2',
+    name: 'Preferred Flower Color (لون الورد المفضل)',
+    type: 'Single Select',
+    appliedTo: 'All Products',
     showToCustomer: true,
     status: 'active',
   },
   {
-    id: 'cf3',
-    name: 'Warranty Period',
+    id: 'cf-flw-3',
+    name: 'Delivery Time Slot (فترة التوصيل)',
+    type: 'Single Select',
+    appliedTo: 'All Products',
+    showToCustomer: true,
+    status: 'active',
+  },
+  {
+    id: 'cf-flw-4',
+    name: 'Ribbon Color (لون شريط الساتان)',
+    type: 'Single Select',
+    appliedTo: 'All Products',
+    showToCustomer: true,
+    status: 'active',
+  },
+  {
+    id: 'cf-flw-5',
+    name: 'Delivery Date (تاريخ المناسبة)',
+    type: 'Date',
+    appliedTo: 'All Products',
+    showToCustomer: true,
+    status: 'active',
+  },
+  {
+    id: 'cf-flw-6',
+    name: 'Custom Attachment (صورة أو بطاقة خاصة)',
+    type: 'File',
+    appliedTo: 'All Products',
+    showToCustomer: true,
+    status: 'active',
+  },
+];
+
+// ── CAR STORE SEED (store-bleco: Al-Saeedi Car Services / Saudia Transport) ──
+export const CAR_STORE_BRANDS: BrandItem[] = CAR_BRANDS.map((cb) => ({
+  id: `brand-car-${cb.id}`,
+  name: `${cb.nameAr} (${cb.nameEn})`,
+  description: `وكالة وماركة ${cb.nameAr} الرسمية — تفصيل وتلبيس مقاعد ليزري وأرضيات 5D لجميع الموديلات والفئات.`,
+  logo: cb.logo,
+  productsCount: cb.productCount || 4,
+  showInChannels: true,
+  status: 'active',
+}));
+
+export const CAR_CUSTOM_FIELDS: CustomFieldItem[] = [
+  {
+    id: 'cf-car-1',
+    name: 'Vehicle Make & Brand (ماركة وصانع السيارة)',
+    type: 'Single Select',
+    appliedTo: 'All Products',
+    showToCustomer: true,
+    status: 'active',
+  },
+  {
+    id: 'cf-car-2',
+    name: 'Model & Production Year (موديل وسنة الصنع)',
+    type: 'Text',
+    appliedTo: 'All Products',
+    showToCustomer: true,
+    status: 'active',
+  },
+  {
+    id: 'cf-car-3',
+    name: 'Leather Grade (نوع وجودة الجلد)',
+    type: 'Single Select',
+    appliedTo: 'تنجيد وتلابيس المقاعد',
+    showToCustomer: true,
+    status: 'active',
+  },
+  {
+    id: 'cf-car-4',
+    name: 'Laser Stitching Color (لون خياطة وتطريز الليزر)',
+    type: 'Single Select',
+    appliedTo: 'تنجيد وتلابيس المقاعد',
+    showToCustomer: true,
+    status: 'active',
+  },
+  {
+    id: 'cf-car-5',
+    name: 'Custom Logo/Name Embroidery (تطريز اسم أو شعار خاص)',
+    type: 'Text',
+    appliedTo: 'All Products',
+    showToCustomer: true,
+    status: 'active',
+  },
+  {
+    id: 'cf-car-6',
+    name: 'Current Interior Photo (صورة مقاعد السيارة من الداخل)',
+    type: 'File',
+    appliedTo: 'All Products',
+    showToCustomer: true,
+    status: 'active',
+  },
+];
+
+// ── COFFEE STORE SEED (store-coffee: Specialty Coffee Roasters) ───────────────
+export const COFFEE_STORE_BRANDS: BrandItem[] = [
+  {
+    id: 'b-cof-1',
+    name: 'Hario Japan (هاريو اليابان)',
+    description: 'أدوات تقطير V60 وفلاتر وسيرفرات زجاجية مقاومة للحرارة مصنوعة في اليابان.',
+    logo: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=300&q=80',
+    productsCount: 5,
+    showInChannels: true,
+    status: 'active',
+  },
+  {
+    id: 'b-cof-2',
+    name: 'Chemex USA (كيمكس الأمريكية)',
+    description: 'أدوات تحضير القهوة المقطرة الكلاسيكية بتصميم فني زجاجي أيقوني.',
+    logo: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=300&q=80',
+    productsCount: 4,
+    showInChannels: true,
+    status: 'active',
+  },
+  {
+    id: 'b-cof-3',
+    name: 'Fellow Products (فيلو برودكتس)',
+    description: 'غلايات ستاج الذكية ومطاحن القهوة الأود الفاخرة للقهوة المختصة.',
+    logo: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?auto=format&fit=crop&w=300&q=80',
+    productsCount: 4,
+    showInChannels: true,
+    status: 'active',
+  },
+  {
+    id: 'b-cof-4',
+    name: 'AeroPress (آيروبرس)',
+    description: 'أداة الضغط الهوائي السريعة لاستخلاص القهوة المركزة في السفر والمنزل.',
+    logo: 'https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=300&q=80',
+    productsCount: 3,
+    showInChannels: true,
+    status: 'active',
+  },
+  {
+    id: 'b-cof-5',
+    name: 'Comandante (كوماندانتي)',
+    description: 'مطاحن يدوية دقيقة بحجر طحن نيترو بليد ألماني فائق الحدة.',
+    logo: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=300&q=80',
+    productsCount: 3,
+    showInChannels: true,
+    status: 'active',
+  },
+  {
+    id: 'b-cof-6',
+    name: 'La Marzocco (لامارزوكو الإيطالية)',
+    description: 'مكائن الإسبريسو الإيطالية التجارية الفاخرة للمقاهي والمحترفين.',
+    logo: 'https://images.unsplash.com/photo-1509785307050-d4066910ec1e?auto=format&fit=crop&w=300&q=80',
+    productsCount: 2,
+    showInChannels: true,
+    status: 'active',
+  },
+];
+
+export const COFFEE_CUSTOM_FIELDS: CustomFieldItem[] = [
+  {
+    id: 'cf-cof-1',
+    name: 'Bean Origin (بلد منشأ البن)',
+    type: 'Single Select',
+    appliedTo: 'All Products',
+    showToCustomer: true,
+    status: 'active',
+  },
+  {
+    id: 'cf-cof-2',
+    name: 'Roast Level (درجة التحميص)',
+    type: 'Single Select',
+    appliedTo: 'All Products',
+    showToCustomer: true,
+    status: 'active',
+  },
+  {
+    id: 'cf-cof-3',
+    name: 'Grind Size (نوع الطحن)',
+    type: 'Single Select',
+    appliedTo: 'All Products',
+    showToCustomer: true,
+    status: 'active',
+  },
+  {
+    id: 'cf-cof-4',
+    name: 'Processing Method (المعالجة)',
+    type: 'Single Select',
+    appliedTo: 'All Products',
+    showToCustomer: true,
+    status: 'active',
+  },
+  {
+    id: 'cf-cof-5',
+    name: 'Roast Date (تاريخ التحميص)',
+    type: 'Date',
+    appliedTo: 'All Products',
+    showToCustomer: true,
+    status: 'active',
+  },
+  {
+    id: 'cf-cof-6',
+    name: 'Altitude MASL (الارتفاع بالمتر)',
     type: 'Number',
     appliedTo: 'All Products',
     showToCustomer: true,
     status: 'active',
   },
-  {
-    id: 'cf4',
-    name: 'Release Date',
-    type: 'Date',
-    appliedTo: 'All Products',
-    showToCustomer: false,
-    status: 'inactive',
-  },
-  {
-    id: 'cf5',
-    name: 'Color Options',
-    type: 'Single Select',
-    appliedTo: 'Specific Categories (Electronics)',
-    showToCustomer: true,
-    status: 'active',
-  },
 ];
+
+// Backwards compatibility export
+export const INITIAL_BRANDS = FLOWER_STORE_BRANDS;
+export const INITIAL_CUSTOM_FIELDS = FLOWER_CUSTOM_FIELDS;
+
+export function getStoreBrands(storeId: string): BrandItem[] {
+  try {
+    const saved = localStorage.getItem(`unityteck_store_brands_${storeId}`);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  if (storeId === 'store-bleco') return CAR_STORE_BRANDS;
+  if (storeId === 'store-coffee') return COFFEE_STORE_BRANDS;
+  return FLOWER_STORE_BRANDS;
+}
+
+export function getStoreCustomFields(storeId: string): CustomFieldItem[] {
+  try {
+    const saved = localStorage.getItem(`unityteck_store_custom_fields_${storeId}`);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  if (storeId === 'store-bleco') return CAR_CUSTOM_FIELDS;
+  if (storeId === 'store-coffee') return COFFEE_CUSTOM_FIELDS;
+  return FLOWER_CUSTOM_FIELDS;
+}
 
 interface StoreBrandsViewProps {
   onBackToProducts: () => void;
 }
 
 export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProducts }) => {
+  const { activeStore } = useTenant();
   const { t, locale } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
@@ -168,25 +401,17 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
   // Docs Guide Modal State
   const [isGuideOpen, setIsGuideOpen] = useState(false);
 
-  // Brands State
-  const [brands, setBrands] = useState<BrandItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('unityteck_store_brands');
-      return saved ? JSON.parse(saved) : INITIAL_BRANDS;
-    } catch {
-      return INITIAL_BRANDS;
-    }
-  });
+  // Store-isolated Brands State with lifetime persistence
+  const [brands, setBrands] = useState<BrandItem[]>(() => getStoreBrands(activeStore.id));
 
-  // Custom Fields State
-  const [customFields, setCustomFields] = useState<CustomFieldItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('unityteck_store_custom_fields');
-      return saved ? JSON.parse(saved) : INITIAL_CUSTOM_FIELDS;
-    } catch {
-      return INITIAL_CUSTOM_FIELDS;
-    }
-  });
+  // Store-isolated Custom Fields State with lifetime persistence
+  const [customFields, setCustomFields] = useState<CustomFieldItem[]>(() => getStoreCustomFields(activeStore.id));
+
+  // Sync state whenever activeStore changes
+  React.useEffect(() => {
+    setBrands(getStoreBrands(activeStore.id));
+    setCustomFields(getStoreCustomFields(activeStore.id));
+  }, [activeStore.id]);
 
   // Filters for Brands
   const [searchBrand, setSearchBrand] = useState('');
@@ -233,14 +458,16 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
   const saveBrands = (next: BrandItem[]) => {
     setBrands(next);
     try {
-      localStorage.setItem('unityteck_store_brands', JSON.stringify(next));
+      localStorage.setItem(`unityteck_store_brands_${activeStore.id}`, JSON.stringify(next));
+      window.dispatchEvent(new CustomEvent('unityteck-brands-updated', { detail: { storeId: activeStore.id, brands: next } }));
     } catch {}
   };
 
   const saveCustomFields = (next: CustomFieldItem[]) => {
     setCustomFields(next);
     try {
-      localStorage.setItem('unityteck_store_custom_fields', JSON.stringify(next));
+      localStorage.setItem(`unityteck_store_custom_fields_${activeStore.id}`, JSON.stringify(next));
+      window.dispatchEvent(new CustomEvent('unityteck-custom-fields-updated', { detail: { storeId: activeStore.id, fields: next } }));
     } catch {}
   };
 
@@ -486,13 +713,27 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
-              {isAr ? 'العلامات التجارية' : 'Brands'}
-            </h1>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
+                {isAr ? 'العلامات التجارية' : 'Brands'}
+              </h1>
+              <span
+                className="text-xs px-2.5 py-1 rounded-full font-bold border flex items-center gap-1.5"
+                style={{
+                  background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                  borderColor: 'var(--accent)',
+                  color: 'var(--accent)',
+                }}
+              >
+                <Tag className="w-3 h-3" />
+                <span>{activeStore.name}</span>
+                <span className="opacity-75 text-[10px]">({brands.length} {isAr ? 'علامة' : 'brands'})</span>
+              </span>
+            </div>
             <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--muted)' }}>
               {isAr
-                ? 'إدارة العلامات التجارية لمنتجاتك، إضافتها وتعديلها ورفع شعاراتها والتحكم في ظهورها عبر قنوات البيع.'
-                : 'Manage your product brands. Add, edit, upload logos, and control their visibility across sales channels.'}
+                ? `إدارة العلامات التجارية لمتجر "${activeStore.name}". معزولة بالكامل ومخصصة لنشاط وثيم هذا المتجر فقط.`
+                : `Manage product brands dedicated to "${activeStore.name}". Fully isolated per tenant and theme.`}
             </p>
           </div>
 
@@ -708,13 +949,27 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
       <div className="space-y-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
-              {isAr ? 'الحقول المخصصة' : 'Custom Fields'}
-            </h2>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
+                {isAr ? 'الحقول المخصصة' : 'Custom Fields'}
+              </h2>
+              <span
+                className="text-xs px-2.5 py-1 rounded-full font-bold border flex items-center gap-1.5"
+                style={{
+                  background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                  borderColor: 'var(--accent)',
+                  color: 'var(--accent)',
+                }}
+              >
+                <Boxes className="w-3 h-3" />
+                <span>{activeStore.name}</span>
+                <span className="opacity-75 text-[10px]">({customFields.length} {isAr ? 'حقول' : 'fields'})</span>
+              </span>
+            </div>
             <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--muted)' }}>
               {isAr
-                ? 'أنشئ حقولاً مخصصة لجمع معلومات إضافية عن منتجاتك (المواد، جدول المقاسات، الضمان).'
-                : 'Create custom fields to collect additional information about your products.'}
+                ? `الحقول المخصصة ومواصفات المنتجات لمتجر "${activeStore.name}". معزولة ومستقلة لكل متجر وثيم.`
+                : `Custom product fields and specifications for "${activeStore.name}". Isolated per store & theme.`}
             </p>
           </div>
 

@@ -47,6 +47,7 @@ import { BrandingPanel } from '../common/BrandingPanel';
 import { DbSyncSettingsCard } from '../common/DbSyncSettingsCard';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { getStoreDisplayName } from '../../utils/storeLocalization';
 
 interface MasterGeneralViewProps {
   tab: string;
@@ -318,7 +319,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
             >
               <option value="All">{isAr ? 'جميع المتاجر' : 'All Stores'}</option>
               {stores.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.id}>{getStoreDisplayName(s, locale)}</option>
               ))}
             </select>
             <select
@@ -581,7 +582,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
             >
               <option value="All">{isAr ? 'جميع متاجر التجار' : 'All Merchant Stores'}</option>
               {stores.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.id}>{getStoreDisplayName(s, locale)}</option>
               ))}
             </select>
           </div>
@@ -855,7 +856,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
             >
               <option value="All">{isAr ? 'جميع المتاجر' : 'All Stores'}</option>
               {stores.map((s) => (
-                <option key={s.id} value={s.name}>{s.name}</option>
+                <option key={s.id} value={s.id}>{getStoreDisplayName(s, locale)}</option>
               ))}
             </select>
             <select
@@ -1231,7 +1232,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
             >
               <option value="All">{isAr ? 'جميع المتاجر' : 'All Stores'}</option>
               {stores.map((s) => (
-                <option key={s.id} value={s.name}>{s.name}</option>
+                <option key={s.id} value={s.id}>{getStoreDisplayName(s, locale)}</option>
               ))}
             </select>
             <select

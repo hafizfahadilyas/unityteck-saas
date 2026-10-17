@@ -5,6 +5,8 @@
  */
 
 import { defaultStoreIdentity, readStoreIdentity, writeStoreIdentity, type StoreIdentitySettings } from './storeIdentity';
+import { type HeaderCustomSettings, DEFAULT_HEADER_SETTINGS, getDefaultHeaderSettings } from './headerCustomSettings';
+import { getThemeManifest } from '../registry';
 
 export interface CustomMenuItem {
   id: string;
@@ -203,6 +205,11 @@ export interface DetailedProductsSettings {
   displayProductOptions?: boolean;
   displayTwoLinesDesc?: boolean;
   displayBuyNowButton?: boolean;
+  enableCarMatsCustomizer?: boolean;
+  enableTrunkMatOption?: boolean;
+  enableHybridFuelOption?: boolean;
+  enableDriverHeelPadOption?: boolean;
+  enableRemovableCarpetOption?: boolean;
   customCssClass?: string;
   browserDisplay?: 'all' | 'desktop' | 'mobile';
 }
@@ -490,6 +497,7 @@ export interface AllThemeSettings {
   customProducts: CustomProductsSettings;
   specialOffer: SpecialOfferCountdownSettings;
   statistics: StoreStatisticsSettings;
+  customHeader?: HeaderCustomSettings;
   maintenance?: MaintenanceModeSettings;
   updatedAt: string;
 }
@@ -689,6 +697,11 @@ export function defaultThemeSettingsMap(fallback: {
       displayProductOptions: true,
       displayTwoLinesDesc: true,
       displayBuyNowButton: true,
+      enableCarMatsCustomizer: true,
+      enableTrunkMatOption: true,
+      enableHybridFuelOption: true,
+      enableDriverHeelPadOption: true,
+      enableRemovableCarpetOption: true,
       browserDisplay: 'all',
     },
     imageGrid: {
@@ -1082,21 +1095,76 @@ export function defaultThemeSettingsMap(fallback: {
       showEmailSubscribe: true,
       whatsappNumber: '+966581617712',
     },
+    customHeader: getDefaultHeaderSettings({ ...fallback, id: (fallback as any).id }),
     updatedAt: new Date().toISOString(),
   };
 }
 
-const themeSettingsStorageKey = (storeId: string) => `unityteck_theme_settings_full_${storeId}`;
+export const getThemeSettingsCompositeKey = (storeId: string, themeId?: string): string => {
+  if (themeId && themeId.trim() !== '') {
+    return `unityteck_theme_settings_${storeId}_${themeId.trim()}`;
+  }
+  return `unityteck_theme_settings_full_${storeId}`;
+};
+
+export function resolveStoreActiveThemeId(storeId: string): string | undefined {
+  if (typeof localStorage === 'undefined') return undefined;
+  try {
+    const rawMap = localStorage.getItem('unityteck_store_active_theme_map');
+    if (rawMap) {
+      const map = JSON.parse(rawMap);
+      if (map && map[storeId]) return map[storeId];
+    }
+  } catch {}
+  return undefined;
+}
 
 export function readAllThemeSettings(
   storeId: string,
   fallbackStore: { name: string; ownerEmail?: string; logo?: string; accentColor?: string },
+  explicitThemeId?: string,
 ): AllThemeSettings {
-  const defaults = defaultThemeSettingsMap(fallbackStore);
+  const targetThemeId = explicitThemeId || resolveStoreActiveThemeId(storeId);
+  const defaults = defaultThemeSettingsMap({ ...fallbackStore, id: storeId } as any);
+
+  // If a theme manifest exists, adapt default colors to match that theme's branding
+  if (targetThemeId) {
+    const manifest = getThemeManifest(targetThemeId);
+    if (manifest && manifest.defaultColors) {
+      defaults.colors = {
+        ...defaults.colors,
+        primaryBgColor: manifest.defaultColors.primary,
+        secondaryBgColor: manifest.defaultColors.secondary,
+        headerBgColor: manifest.defaultColors.surface,
+        mainTextColor: manifest.defaultColors.text,
+      };
+    }
+  }
+
   try {
-    const raw = localStorage.getItem(themeSettingsStorageKey(storeId));
+    // 1. Try loading from theme-isolated composite key
+    let raw: string | null = null;
+    if (targetThemeId) {
+      raw = localStorage.getItem(getThemeSettingsCompositeKey(storeId, targetThemeId));
+    }
+    // 2. If not found, try fallback legacy store key
+    if (!raw) {
+      raw = localStorage.getItem(getThemeSettingsCompositeKey(storeId));
+    }
+
     if (raw) {
       const parsed = JSON.parse(raw);
+      // Self-heal header if it holds wrong store's default flowers for coffee/car/other store
+      const isNotHadayaStore = storeId === 'store-coffee' || storeId === 'store-bleco' || storeId !== 'store-1';
+      const hasWrongFlowerHeader = isNotHadayaStore && (
+        parsed.customHeader?.logo?.titleAr === 'هدايا مكة' ||
+        parsed.customHeader?.logo?.titleEn === 'Hadaya Makkah' ||
+        parsed.customHeader?.announcement?.messages?.some((m: any) => m.textEn?.includes('Holland') || m.textEn?.includes('Flowers'))
+      );
+      const safeCustomHeader = hasWrongFlowerHeader
+        ? defaults.customHeader
+        : (parsed.customHeader || defaults.customHeader);
+
       return {
         ...defaults,
         ...parsed,
@@ -1118,6 +1186,7 @@ export function readAllThemeSettings(
         customProducts: { ...defaults.customProducts, ...(parsed.customProducts || {}) },
         specialOffer: { ...defaults.specialOffer, ...(parsed.specialOffer || {}) },
         statistics: { ...defaults.statistics, ...(parsed.statistics || {}) },
+        customHeader: safeCustomHeader,
         maintenance: { ...(defaults.maintenance || {}), ...(parsed.maintenance || {}) },
       };
     }
@@ -1127,9 +1196,20 @@ export function readAllThemeSettings(
   return defaults;
 }
 
-export function writeAllThemeSettings(storeId: string, settings: AllThemeSettings): void {
+export function writeAllThemeSettings(
+  storeId: string,
+  settings: AllThemeSettings,
+  explicitThemeId?: string,
+): void {
+  const targetThemeId = explicitThemeId || resolveStoreActiveThemeId(storeId);
   const next = { ...settings, updatedAt: new Date().toISOString() };
-  localStorage.setItem(themeSettingsStorageKey(storeId), JSON.stringify(next));
+
+  // 1. Write to theme-isolated composite key
+  if (targetThemeId) {
+    localStorage.setItem(getThemeSettingsCompositeKey(storeId, targetThemeId), JSON.stringify(next));
+  }
+  // 2. Also write to legacy store key for compatibility
+  localStorage.setItem(getThemeSettingsCompositeKey(storeId), JSON.stringify(next));
 
   // Sync identity with the dedicated storeIdentity key for backwards compatibility
   writeStoreIdentity(storeId, next.identity);
@@ -1137,7 +1217,7 @@ export function writeAllThemeSettings(storeId: string, settings: AllThemeSetting
   if (typeof window !== 'undefined') {
     window.dispatchEvent(
       new CustomEvent('unityteck-theme-settings', {
-        detail: { storeId, updatedAt: next.updatedAt },
+        detail: { storeId, themeId: targetThemeId, updatedAt: next.updatedAt },
       }),
     );
     window.dispatchEvent(

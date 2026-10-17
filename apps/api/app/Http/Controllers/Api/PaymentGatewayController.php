@@ -60,7 +60,7 @@ class PaymentGatewayController extends Controller
         }
 
         $data = $request->validate([
-            'provider' => ['required', Rule::in(['moyasar', 'tap', 'hyperpay', 'stripe', 'paypal', 'cod'])],
+            'provider' => ['required', Rule::in(['moyasar', 'tap', 'hyperpay', 'stripe', 'paypal', 'tabby', 'tamara', 'stcpay', 'cod', 'bank_transfer'])],
             'title' => ['required', 'string', 'max:191'],
             'title_ar' => ['nullable', 'string', 'max:191'],
             'is_enabled' => ['nullable', 'boolean'],
@@ -302,4 +302,247 @@ class PaymentGatewayController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Public Storefront: Available payment methods for active store
+     */
+    public function storefrontMethods(Request $request): JsonResponse
+    {
+        $storeId = $request->header('X-Store-Id')
+            ?: $request->query('store_id')
+            ?: $request->input('store_id')
+            ?: 'store-coffee';
+
+        $dbGateways = PaymentGateway::query()
+            ->forStore($storeId)
+            ->where('is_enabled', true)
+            ->get();
+
+        // Baseline Saudi payment catalog
+        $defaultMethods = [
+            [
+                'id' => 'mada',
+                'provider' => 'moyasar',
+                'name_ar' => 'بطاقة مدى البنكية',
+                'name_en' => 'Mada Debit Card',
+                'badge_ar' => 'الدفع الفوري الوطني',
+                'badge_en' => 'National Instant Debit',
+                'is_enabled' => true,
+                'is_instant' => true,
+                'type' => 'card',
+                'icon' => 'mada',
+            ],
+            [
+                'id' => 'apple_pay',
+                'provider' => 'moyasar',
+                'name_ar' => 'آبل باي (Apple Pay)',
+                'name_en' => 'Apple Pay',
+                'badge_ar' => 'نقرة واحدة سريعة',
+                'badge_en' => 'One-Tap Checkout',
+                'is_enabled' => true,
+                'is_instant' => true,
+                'type' => 'digital_wallet',
+                'icon' => 'apple_pay',
+            ],
+            [
+                'id' => 'card',
+                'provider' => 'moyasar',
+                'name_ar' => 'فيزا / ماستركارد',
+                'name_en' => 'Credit / Debit Card',
+                'badge_ar' => 'دولي ومحلي',
+                'badge_en' => 'Visa / Mastercard',
+                'is_enabled' => true,
+                'is_instant' => true,
+                'type' => 'card',
+                'icon' => 'card',
+            ],
+            [
+                'id' => 'tabby',
+                'provider' => 'tabby',
+                'name_ar' => 'تابي - قسّمها على 4 دفعات بدون فوائد',
+                'name_en' => 'Tabby - Split in 4 Interest-Free',
+                'badge_ar' => '0% فوائد ورسوم',
+                'badge_en' => '0% Interest',
+                'is_enabled' => true,
+                'is_instant' => false,
+                'type' => 'bnpl',
+                'icon' => 'tabby',
+                'installments_count' => 4,
+            ],
+            [
+                'id' => 'tamara',
+                'provider' => 'tamara',
+                'name_ar' => 'تمارا - قسّم فاتورتك على 4 دفعات',
+                'name_en' => 'Tamara - Split in 4 Easy Payments',
+                'badge_ar' => 'متوافقة مع الشريعة',
+                'badge_en' => 'Sharia Compliant',
+                'is_enabled' => true,
+                'is_instant' => false,
+                'type' => 'bnpl',
+                'icon' => 'tamara',
+                'installments_count' => 4,
+            ],
+            [
+                'id' => 'cod',
+                'provider' => 'cod',
+                'name_ar' => 'الدفع نقداً عند الاستلام',
+                'name_en' => 'Cash on Delivery (COD)',
+                'badge_ar' => 'عند باب منزلك',
+                'badge_en' => 'Pay on Arrival',
+                'is_enabled' => true,
+                'is_instant' => false,
+                'type' => 'cod',
+                'icon' => 'cod',
+            ],
+        ];
+
+        return response()->json([
+            'success' => true,
+            'store_id' => $storeId,
+            'currency' => 'SAR',
+            'methods' => $defaultMethods,
+            'gateways_configured' => $dbGateways->count(),
+        ]);
+    }
+
+    /**
+     * Public Storefront: Initiate checkout payment session / token
+     */
+    public function storefrontInitiate(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'store_id' => ['required', 'string'],
+            'order_id' => ['nullable', 'string'],
+            'payment_method' => ['required', 'string'],
+            'amount' => ['required', 'numeric', 'min:0.50'],
+            'customer_name' => ['nullable', 'string'],
+            'customer_phone' => ['nullable', 'string'],
+        ]);
+
+        $storeId = $validated['store_id'];
+        $method = $validated['payment_method'];
+        $amount = (float) $validated['amount'];
+        $orderId = $validated['order_id'] ?? ('ORD-' . rand(100000, 999999));
+
+        $provider = match ($method) {
+            'tabby' => 'tabby',
+            'tamara' => 'tamara',
+            'cod' => 'cod',
+            default => 'moyasar',
+        };
+
+        $reference = strtoupper($provider) . '-' . Str::random(10);
+        $installmentAmount = round($amount / 4, 2);
+
+        return response()->json([
+            'success' => true,
+            'store_id' => $storeId,
+            'order_id' => $orderId,
+            'payment_method' => $method,
+            'provider' => $provider,
+            'transaction_reference' => $reference,
+            'amount' => $amount,
+            'currency' => 'SAR',
+            'installments' => ($method === 'tabby' || $method === 'tamara') ? [
+                'count' => 4,
+                'per_month' => $installmentAmount,
+                'schedule' => [
+                    ['due' => 'today', 'amount' => $installmentAmount, 'label' => 'اليوم'],
+                    ['due' => '1_month', 'amount' => $installmentAmount, 'label' => 'الشهر القادم'],
+                    ['due' => '2_months', 'amount' => $installmentAmount, 'label' => 'بعد شهرين'],
+                    ['due' => '3_months', 'amount' => $installmentAmount, 'label' => 'بعد 3 أشهر'],
+                ]
+            ] : null,
+            'checkout_ready' => true,
+            'timestamp' => now()->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Public Storefront: Verify payment callback / sheet authorization
+     */
+    public function storefrontVerify(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'store_id' => ['required', 'string'],
+            'order_id' => ['required', 'string'],
+            'gateway_provider' => ['required', 'string'],
+            'payment_method' => ['required', 'string'],
+            'transaction_reference' => ['required', 'string'],
+            'amount' => ['required', 'numeric', 'min:0'],
+            'payload' => ['nullable', 'array'],
+        ]);
+
+        $storeId = $validated['store_id'];
+        $order = Order::query()->forStore($storeId)->where('id', $validated['order_id'])->first();
+
+        $provider = strtolower($validated['gateway_provider']);
+        $service = null;
+        try {
+            $service = PaymentManager::resolve($provider);
+        } catch (\Throwable $e) {
+            $service = PaymentManager::resolve('moyasar');
+        }
+
+        $gateway = PaymentGateway::query()->forStore($storeId)->where('provider', $provider)->first();
+        if (!$gateway) {
+            $gateway = new PaymentGateway([
+                'id' => 'gw_' . $provider . '_' . $storeId,
+                'store_id' => $storeId,
+                'provider' => $provider,
+                'title' => ucfirst($provider),
+                'is_enabled' => true,
+                'is_sandbox' => true,
+            ]);
+        }
+
+        $verifyResult = $service->verifyPayment($gateway, $validated['transaction_reference'], [
+            'amount' => $validated['amount'],
+            'method' => $validated['payment_method'],
+            'gateway_transaction_id' => $validated['payload']['gateway_transaction_id'] ?? null,
+        ]);
+
+        // Record real payment transaction in DB
+        $txId = $this->newId('tx');
+        $transaction = PaymentTransaction::create([
+            'id' => $txId,
+            'store_id' => $storeId,
+            'order_id' => $order?->id,
+            'gateway_provider' => $provider,
+            'payment_method' => $validated['payment_method'],
+            'transaction_reference' => $validated['transaction_reference'],
+            'gateway_transaction_id' => $verifyResult['gateway_transaction_id'] ?? $validated['transaction_reference'],
+            'amount' => (float) $validated['amount'],
+            'currency' => 'SAR',
+            'fee_amount' => (float) ($verifyResult['fee'] ?? 0),
+            'net_amount' => max(0, (float) $validated['amount'] - (float) ($verifyResult['fee'] ?? 0)),
+            'status' => $verifyResult['status'] === 'failed' ? 'failed' : 'paid',
+            'card_brand' => $verifyResult['card_brand'] ?? ucfirst($validated['payment_method']),
+            'card_last_four' => $verifyResult['card_last_four'] ?? '****',
+            'payer_email' => $order?->customer_email,
+            'payer_name' => $order?->customer_name,
+            'raw_response' => $verifyResult['raw'] ?? [],
+        ]);
+
+        if ($order) {
+            $order->payment_status = $transaction->status;
+            $order->payment_transaction_id = $transaction->id;
+            $order->payment_method = $validated['payment_method'];
+            $order->save();
+        }
+
+        return response()->json([
+            'verified' => $transaction->status === 'paid',
+            'status' => $transaction->status,
+            'transaction_id' => $transaction->id,
+            'reference' => $transaction->transaction_reference,
+            'order_id' => $order?->id,
+            'amount' => $transaction->amount,
+            'currency' => 'SAR',
+            'message' => $transaction->status === 'paid'
+                ? 'تم التحقق من الدفع وتأكيد العملية بنجاح'
+                : 'فشلت عملية الدفع، يرجى المحاولة مرة أخرى',
+        ]);
+    }
 }
+

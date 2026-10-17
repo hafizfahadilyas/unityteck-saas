@@ -3,6 +3,7 @@ import { useTenant } from '../../context/TenantContext';
 import { Sparkline } from '../common/Sparkline';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { getStoreDisplayName } from '../../utils/storeLocalization';
 import { 
   Search, 
   Globe, 
@@ -95,7 +96,7 @@ export const MasterSEO: React.FC = () => {
   const handleExportCsv = () => {
     const header = ['Store', 'Slug', 'Google Account', 'GA4 ID', 'GTM Container', 'Indexed URLs', 'Clicks', 'Impressions', 'CTR'];
     const rows = filteredStores.map(({ store, seo }) => [
-      store.name,
+      getStoreDisplayName(store, locale),
       store.slug,
       seo.googleConnected ? seo.googleAccountEmail || '' : 'Not connected',
       seo.ga4MeasurementId || '',
@@ -340,7 +341,7 @@ export const MasterSEO: React.FC = () => {
                       <Flower2 className="w-4 h-4" />
                     </span>
                     <div>
-                      <div className="font-bold text-slate-900">{store.name}</div>
+                      <div className="font-bold text-slate-900">{getStoreDisplayName(store, locale)}</div>
                       <div className="text-[10px] text-slate-400 font-mono" dir="ltr">{store.slug}.saudi-stores.com</div>
                     </div>
                   </td>

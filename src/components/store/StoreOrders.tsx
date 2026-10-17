@@ -44,11 +44,25 @@ import {
   ShieldCheck,
   Sparkles,
   AlertCircle,
+  Archive,
+  RotateCcw,
+  ArchiveRestore,
+  ExternalLink,
 } from 'lucide-react';
 import { useToast } from '../common/ToastProvider';
 import { RetailInvoiceModal } from '../common/RetailInvoiceModal';
+import { InvoicePreviewModal } from './invoices/InvoicePreviewModal';
+import { invoiceService } from '../../services/invoiceService';
+import type { InvoiceDocument } from '../../types/invoices';
 import { EditOrderModal } from '../common/EditOrderModal';
+import { ReturnsManager } from './orders/ReturnsManager';
+import { CodLedgerModal } from './orders/CodLedgerModal';
+import { OrderDetailsModal } from './orders/OrderDetailsModal';
 import { formatDisplayDate, formatDisplayTime } from '../../utils/dateLocale';
+import { CreateStoreOrderModal } from './CreateStoreOrderModal';
+import { OrderFilters, type OrderFilterState } from './OrderFilters';
+import { WindowedPagination } from '../common/WindowedPagination';
+import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
 
 /**
  * StoreOrders — Store Admin Order Management (100% Pixel Perfect to Mockups 04 & 05)
@@ -63,6 +77,9 @@ export const StoreOrders: React.FC = () => {
     updateOrderStatus,
     updateOrder,
     deleteOrder,
+    archiveOrder,
+    restoreOrder,
+    permanentDeleteOrder,
     addOrder,
     createShipmentForOrder,
   } = useTenant();
@@ -71,6 +88,15 @@ export const StoreOrders: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [orderFilters, setOrderFilters] = useState<OrderFilterState>({
+    datePreset: 'all',
+    startDate: '',
+    endDate: '',
+    paymentStatus: 'all',
+    shippingStatus: 'all',
+    paymentMethod: 'all',
+    orderSource: 'all',
+  });
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all');
   const [selectedSource, setSelectedSource] = useState<string>('all');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
@@ -85,9 +111,96 @@ export const StoreOrders: React.FC = () => {
   // Modals state
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
+  const [invoiceConfig, setInvoiceConfig] = useState<any>(() => invoiceService.getTemplateConfig(activeStore.id));
   const [showEditOrderModal, setShowEditOrderModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [showReturnsModal, setShowReturnsModal] = useState(false);
+  const [returnsOrder, setReturnsOrder] = useState<Order | null>(null);
+  const [showCodLedgerModal, setShowCodLedgerModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [detailsModalOrder, setDetailsModalOrder] = useState<Order | null>(null);
   const isAr = locale === 'ar';
+
+  const previewInvoiceDoc = useMemo<InvoiceDocument | null>(() => {
+    if (!invoiceOrder) return null;
+    const existing = invoiceService.getDocuments(activeStore.id).find(
+      (d) => d.orderNumber === invoiceOrder.orderNumber || d.orderId === invoiceOrder.id
+    );
+    if (existing) return existing;
+
+    const now = new Date().toISOString();
+    const items = (invoiceOrder.items || []).map((it, idx) => ({
+      id: `it-${idx + 1}`,
+      name: it.name,
+      sku: it.sku || `SKU-${idx + 1}`,
+      quantity: it.quantity || 1,
+      unitPrice: it.price,
+      discount: 0,
+      taxRate: 15,
+      taxAmount: it.price * (it.quantity || 1) * 0.15,
+      total: (it.price * (it.quantity || 1)) * 1.15,
+      image: it.image,
+    }));
+    const subtotal = invoiceOrder.subtotal || invoiceOrder.total / 1.15;
+    const taxAmount = invoiceOrder.tax || subtotal * 0.15;
+
+    return {
+      id: `doc-${invoiceOrder.id}`,
+      storeId: activeStore.id,
+      documentType: invoiceOrder.status === 'cancelled' ? 'cancelled_order_invoice' : 'order_invoice',
+      documentNumber: `INV-2026-${invoiceOrder.orderNumber.replace(/[^0-9]/g, '') || '0100'}`,
+      title: 'Commercial Sales Invoice',
+      titleAr: 'فاتورة مبيعات تجارية',
+      orderId: invoiceOrder.id,
+      orderNumber: invoiceOrder.orderNumber,
+      issueDate: invoiceOrder.date || now,
+      seller: {
+        name: activeStore.name || 'Makkah Gifts Est.',
+        nameAr: activeStore.nameAr || 'مؤسسة هدايا مكة والزهور الفاخرة',
+        email: 'billing@makkah-gifts.sa',
+        phone: '+966 12 555 8899',
+        address: 'Ibrahim Al-Khalil Road, Jabal Omar District',
+        addressAr: 'طريق إبراهيم الخليل، منطقة جبل عمر',
+        city: 'Makkah',
+        cityAr: 'مكة المكرمة',
+        country: 'Saudi Arabia',
+        vatNumber: '300948215600003',
+        crNumber: '1010892341',
+      },
+      buyer: {
+        name: invoiceOrder.customerName,
+        email: invoiceOrder.customerEmail,
+        phone: invoiceOrder.customerPhone,
+        address: invoiceOrder.deliveryLocation,
+        city: 'Makkah',
+        country: 'Saudi Arabia',
+      },
+      items,
+      subtotal,
+      discountAmount: invoiceOrder.discountAmount || 0,
+      shippingFee: invoiceOrder.shippingFee || 0,
+      taxRate: 15,
+      taxAmount,
+      grandTotal: invoiceOrder.total,
+      amountPaid: invoiceOrder.paymentStatus === 'Paid' ? invoiceOrder.total : 0,
+      outstandingBalance: invoiceOrder.paymentStatus === 'Paid' ? 0 : invoiceOrder.total,
+      currency: 'SAR',
+      status: invoiceOrder.paymentStatus === 'Paid' ? 'paid' : 'issued',
+      isLocked: true,
+      auditTrail: [
+        {
+          id: `aud-${Date.now()}`,
+          timestamp: now,
+          action: 'issued',
+          actorName: 'Store Administrator',
+          actorRole: 'admin',
+          details: 'Invoice rendered from live store order data.',
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    };
+  }, [invoiceOrder, activeStore]);
 
   const handleSaveEditedOrder = (orderId: string, updates: Partial<Order>) => {
     updateOrder(orderId, updates, activeStore?.id);
@@ -100,6 +213,10 @@ export const StoreOrders: React.FC = () => {
   const [isEditingInternalNotes, setIsEditingInternalNotes] = useState(false);
   const [internalNotesDraft, setInternalNotesDraft] = useState('');
 
+  // Active vs Archived separation
+  const activeOrders = useMemo(() => currentOrders.filter((o) => !o.isArchived), [currentOrders]);
+  const archivedOrders = useMemo(() => currentOrders.filter((o) => Boolean(o.isArchived)), [currentOrders]);
+
   // Keep selectedOrder in sync with DB state
   const currentSelectedOrder = useMemo(() => {
     if (!selectedOrder) return null;
@@ -108,29 +225,30 @@ export const StoreOrders: React.FC = () => {
 
   // ── 4 KPI Summary Cards matching Mockup 04 (Store Scoped) ──
   const kpi = useMemo(() => {
-    const total = currentOrders.length;
-    const completed = currentOrders.filter(
+    const total = activeOrders.length;
+    const completed = activeOrders.filter(
       (o) => o.status === 'completed' || o.status === 'delivered',
     ).length;
-    const pending = currentOrders.filter((o) => o.status === 'pending').length;
-    const inDelivery = currentOrders.filter(
+    const pending = activeOrders.filter((o) => o.status === 'pending').length;
+    const inDelivery = activeOrders.filter(
       (o) => o.status === 'shipped' || o.status === 'out_for_delivery' || (o as any).fulfillmentStatus === 'out_for_delivery',
     ).length;
 
     return { total, completed, pending, inDelivery };
-  }, [currentOrders]);
+  }, [activeOrders]);
 
   // ── Status Tabs with Counts ──
   const STATUS_TABS = useMemo(() => {
     const counts = {
-      all: currentOrders.length,
-      awaiting_payment: currentOrders.filter((o) => o.status === 'pending').length,
-      processing: currentOrders.filter((o) => o.status === 'processing').length,
-      shipped: currentOrders.filter((o) => o.status === 'shipped').length,
-      out_for_delivery: currentOrders.filter((o) => o.status === 'out_for_delivery').length,
-      delivered: currentOrders.filter((o) => o.status === 'completed' || o.status === 'delivered').length,
-      cancelled: currentOrders.filter((o) => o.status === 'cancelled').length,
-      returned: currentOrders.filter((o) => o.status === 'returned').length,
+      all: activeOrders.length,
+      awaiting_payment: activeOrders.filter((o) => o.status === 'pending').length,
+      processing: activeOrders.filter((o) => o.status === 'processing').length,
+      shipped: activeOrders.filter((o) => o.status === 'shipped').length,
+      out_for_delivery: activeOrders.filter((o) => o.status === 'out_for_delivery').length,
+      delivered: activeOrders.filter((o) => o.status === 'completed' || o.status === 'delivered').length,
+      cancelled: activeOrders.filter((o) => o.status === 'cancelled').length,
+      returned: activeOrders.filter((o) => o.status === 'returned').length,
+      archived: archivedOrders.length,
     };
 
     return [
@@ -142,28 +260,111 @@ export const StoreOrders: React.FC = () => {
       { key: 'delivered', label: t('deliveredTab'), count: counts.delivered },
       { key: 'cancelled', label: t('cancelledTab'), count: counts.cancelled },
       { key: 'returned', label: t('returnedTab'), count: counts.returned },
+      { key: 'archived', label: t('archivedOrdersTab') || (isAr ? 'الأرشيف / المحذوفات' : 'Archived / Trash'), count: counts.archived },
     ];
-  }, [currentOrders, t]);
+  }, [activeOrders, archivedOrders, t, isAr]);
 
   // ── Filtered & Paginated orders ──
   const filteredOrders = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return currentOrders.filter((o) => {
+    const sourceList = activeTab === 'archived' ? archivedOrders : activeOrders;
+
+    return sourceList.filter((o) => {
       const matchesSearch =
         !q ||
         o.orderNumber.toLowerCase().includes(q) ||
         o.customerName.toLowerCase().includes(q) ||
         o.customerPhone.includes(q);
 
+      const effectivePaymentMethod = orderFilters.paymentMethod || selectedPaymentMethod;
       const matchesPayment =
-        selectedPaymentMethod === 'all' ||
-        o.paymentMethod.toLowerCase().includes(selectedPaymentMethod.toLowerCase());
+        effectivePaymentMethod === 'all' ||
+        o.paymentMethod.toLowerCase().includes(effectivePaymentMethod.toLowerCase());
 
-      const matchesSource = selectedSource === 'all' || o.source === selectedSource;
+      const effectiveSource = orderFilters.orderSource || selectedSource;
+      const matchesSource = effectiveSource === 'all' || o.source === effectiveSource;
 
-      if (!matchesSearch || !matchesPayment || !matchesSource) return false;
+      // Payment Status filter
+      const matchesPaymentStatus = (() => {
+        if (orderFilters.paymentStatus === 'all') return true;
+        const ps = (o.paymentStatus || '').toLowerCase();
+        const target = orderFilters.paymentStatus.toLowerCase();
+        if (ps === target) return true;
+        if (target === 'paid') return ps.includes('paid') || o.status === 'completed';
+        if (target === 'pending payment') return ps.includes('pending') || o.status === 'pending';
+        if (target === 'payment failed') return ps.includes('fail');
+        if (target === 'refunded') return ps.includes('refund');
+        if (target === 'partially refunded') return ps.includes('partially');
+        return false;
+      })();
 
-      if (activeTab === 'all') return true;
+      // Shipping Status filter
+      const matchesShippingStatus = (() => {
+        if (orderFilters.shippingStatus === 'all') return true;
+        const ss = (o.shippingStatus || (o as any).fulfillmentStatus || '').toLowerCase();
+        const target = orderFilters.shippingStatus.toLowerCase();
+        if (ss === target) return true;
+        if (target === 'not shipped') return !ss || ss.includes('not') || ss === 'pending';
+        if (target === 'ready to ship') return ss.includes('ready') || o.status === 'processing';
+        if (target === 'handed to carrier') return ss.includes('carrier') || ss.includes('dispatched');
+        if (target === 'in transit') return ss.includes('transit') || o.status === 'shipped';
+        if (target === 'delivered') return ss.includes('delivered') || o.status === 'delivered' || o.status === 'completed';
+        if (target === 'delivery failed') return ss.includes('fail');
+        if (target === 'delayed') return ss.includes('delay');
+        return false;
+      })();
+
+      // Date Range filter
+      const matchesDate = (() => {
+        if (orderFilters.datePreset === 'all') return true;
+        const orderDate = new Date(o.date);
+        const now = new Date();
+        if (isNaN(orderDate.getTime())) return true;
+
+        if (orderFilters.datePreset === 'today') {
+          return orderDate.toDateString() === now.toDateString();
+        }
+        if (orderFilters.datePreset === 'last_7_days') {
+          const past = new Date();
+          past.setDate(now.getDate() - 7);
+          return orderDate >= past && orderDate <= now;
+        }
+        if (orderFilters.datePreset === 'last_30_days') {
+          const past = new Date();
+          past.setDate(now.getDate() - 30);
+          return orderDate >= past && orderDate <= now;
+        }
+        if (orderFilters.datePreset === 'this_month') {
+          return (
+            orderDate.getMonth() === now.getMonth() &&
+            orderDate.getFullYear() === now.getFullYear()
+          );
+        }
+        if (orderFilters.datePreset === 'custom') {
+          if (!orderFilters.startDate && !orderFilters.endDate) return true;
+          const from = orderFilters.startDate
+            ? new Date(orderFilters.startDate)
+            : new Date(0);
+          const to = orderFilters.endDate
+            ? new Date(new Date(orderFilters.endDate).setHours(23, 59, 59, 999))
+            : new Date(8640000000000000);
+          return orderDate >= from && orderDate <= to;
+        }
+        return true;
+      })();
+
+      if (
+        !matchesSearch ||
+        !matchesPayment ||
+        !matchesSource ||
+        !matchesPaymentStatus ||
+        !matchesShippingStatus ||
+        !matchesDate
+      ) {
+        return false;
+      }
+
+      if (activeTab === 'all' || activeTab === 'archived') return true;
       if (activeTab === 'awaiting_payment') return o.status === 'pending';
       if (activeTab === 'processing') return o.status === 'processing';
       if (activeTab === 'shipped') return o.status === 'shipped';
@@ -173,7 +374,109 @@ export const StoreOrders: React.FC = () => {
       if (activeTab === 'returned') return o.status === 'returned';
       return true;
     });
-  }, [currentOrders, search, selectedPaymentMethod, selectedSource, activeTab]);
+  }, [activeOrders, archivedOrders, search, selectedPaymentMethod, selectedSource, orderFilters, activeTab]);
+
+  const handleArchiveSingleOrder = async (ord: Order) => {
+    const ok = await confirm({
+      title: t('archiveOrderConfirmTitle') || (isAr ? 'أرشفة الطلب' : 'Archive Order'),
+      message: (t('archiveOrderConfirmMsg') || (isAr ? 'هل أنت متأكد من نقل الطلب {number} إلى الأرشيف؟ يمكنك استعادته في أي وقت من قسم الأرشيف.' : 'Are you sure you want to move order {number} to the archive? You can restore it anytime.')).replace('{number}', ord.orderNumber),
+      confirmLabel: t('archiveOrder') || (isAr ? 'نقل إلى الأرشيف' : 'Move to Archive'),
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+      danger: false,
+    });
+    if (ok) {
+      archiveOrder(ord.id, ord.storeId);
+      if (selectedOrder?.id === ord.id) {
+        setSelectedOrder(null);
+      }
+      toast(t('archiveOrderSuccess') || (isAr ? 'تم نقل الطلب إلى الأرشيف بنجاح' : 'Order moved to archive successfully'), 'success');
+    }
+  };
+
+  const handleRestoreSingleOrder = async (ord: Order) => {
+    const ok = await confirm({
+      title: t('restoreOrderConfirmTitle') || (isAr ? 'استعادة الطلب' : 'Restore Order'),
+      message: (t('restoreOrderConfirmMsg') || (isAr ? 'هل أنت متأكد من استعادة الطلب {number} إلى قائمة الطلبات النشطة؟' : 'Are you sure you want to restore order {number} back to active orders?')).replace('{number}', ord.orderNumber),
+      confirmLabel: t('restoreOrder') || (isAr ? 'استعادة الطلب' : 'Restore Order'),
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+      danger: false,
+    });
+    if (ok) {
+      restoreOrder(ord.id, ord.storeId);
+      if (selectedOrder?.id === ord.id) {
+        setSelectedOrder((prev) => (prev ? { ...prev, isArchived: false } : null));
+      }
+      toast(t('restoreOrderSuccess') || (isAr ? 'تمت استعادة الطلب بنجاح' : 'Order restored successfully'), 'success');
+    }
+  };
+
+  const handlePermanentDeleteSingleOrder = async (ord: Order) => {
+    const ok = await confirm({
+      title: t('permanentDeleteOrderConfirmTitle') || (isAr ? 'حذف الطلب نهائياً' : 'Permanently Delete Order'),
+      message: (t('permanentDeleteOrderConfirmMsg') || (isAr ? 'هل أنت متأكد من الحذف النهائي للطلب {number}؟ هذا الإجراء نهائي ولا يمكن التراجع عنه أبداً!' : 'Are you sure you want to permanently delete order {number}? This action cannot be undone!')).replace('{number}', ord.orderNumber),
+      confirmLabel: t('permanentDeleteOrder') || (isAr ? 'حذف نهائي' : 'Delete Permanently'),
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+      danger: true,
+    });
+    if (ok) {
+      permanentDeleteOrder(ord.id, ord.storeId);
+      if (selectedOrder?.id === ord.id) {
+        setSelectedOrder(null);
+      }
+      toast(t('permanentDeleteOrderSuccess') || (isAr ? 'تم حذف الطلب نهائياً بنجاح' : 'Order permanently deleted'), 'success');
+    }
+  };
+
+  const handleBulkArchive = async () => {
+    if (selectedOrderIds.length === 0) return;
+    const count = selectedOrderIds.length;
+    const ok = await confirm({
+      title: t('archiveOrderConfirmTitle') || (isAr ? 'أرشفة الطلبات المحددة' : 'Archive Selected Orders'),
+      message: isAr ? `هل أنت متأكد من نقل ${count} طلبات محددة إلى الأرشيف؟` : `Are you sure you want to move ${count} selected orders to the archive?`,
+      confirmLabel: t('bulkArchiveOrders') || (isAr ? 'أرشفة المحدد' : 'Archive Selected'),
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+      danger: false,
+    });
+    if (ok) {
+      selectedOrderIds.forEach((id) => archiveOrder(id, activeStore.id));
+      setSelectedOrderIds([]);
+      toast(isAr ? `تم نقل ${count} طلبات إلى الأرشيف بنجاح` : `${count} orders moved to archive`, 'success');
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    if (selectedOrderIds.length === 0) return;
+    const count = selectedOrderIds.length;
+    const ok = await confirm({
+      title: t('restoreOrderConfirmTitle') || (isAr ? 'استعادة الطلبات المحددة' : 'Restore Selected Orders'),
+      message: isAr ? `هل أنت متأكد من استعادة ${count} طلبات محددة إلى القائمة النشطة؟` : `Are you sure you want to restore ${count} selected orders?`,
+      confirmLabel: t('bulkRestoreOrders') || (isAr ? 'استعادة المحدد' : 'Restore Selected'),
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+      danger: false,
+    });
+    if (ok) {
+      selectedOrderIds.forEach((id) => restoreOrder(id, activeStore.id));
+      setSelectedOrderIds([]);
+      toast(isAr ? `تمت استعادة ${count} طلبات بنجاح` : `${count} orders restored successfully`, 'success');
+    }
+  };
+
+  const handleBulkPermanentDelete = async () => {
+    if (selectedOrderIds.length === 0) return;
+    const count = selectedOrderIds.length;
+    const ok = await confirm({
+      title: t('permanentDeleteOrderConfirmTitle') || (isAr ? 'حذف نهائي للطلبات المحددة' : 'Permanently Delete Selected Orders'),
+      message: isAr ? `هل أنت متأكد من حذف ${count} طلبات محددة نهائياً؟ هذا الإجراء لا يمكن التراجع عنه!` : `Are you sure you want to permanently delete ${count} selected orders? This cannot be undone!`,
+      confirmLabel: t('bulkPermanentDeleteOrders') || (isAr ? 'حذف نهائي للمحدد' : 'Permanently Delete Selected'),
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+      danger: true,
+    });
+    if (ok) {
+      selectedOrderIds.forEach((id) => permanentDeleteOrder(id, activeStore.id));
+      setSelectedOrderIds([]);
+      toast(isAr ? `تم الحذف النهائي لـ ${count} طلبات` : `${count} orders permanently deleted`, 'success');
+    }
+  };
 
   const totalCount = filteredOrders.length;
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -441,20 +744,6 @@ export const StoreOrders: React.FC = () => {
       },
     ];
 
-    const handleDeleteOrder = async () => {
-      const ok = await confirm({
-        title: t('deleteOrder'),
-        message: `Are you sure you want to delete order ${o.orderNumber}? This action cannot be undone.`,
-        confirmLabel: t('deleteOrder'),
-        danger: true,
-      });
-      if (ok) {
-        deleteOrder(o.id, o.storeId);
-        setSelectedOrder(null);
-        toast(t('orderConfirmedDelete'), 'success');
-      }
-    };
-
     const handleSaveCustomerNotes = () => {
       updateOrder(o.id, { customerNotes: customerNotesDraft });
       setIsEditingCustomerNotes(false);
@@ -494,6 +783,12 @@ export const StoreOrders: React.FC = () => {
                 {t('orderTitle')} {o.orderNumber}
               </h1>
               {getStatusBadge(o.status)}
+              {o.isArchived && (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold inline-flex items-center gap-1 border border-amber-300 dark:border-amber-700 bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200">
+                  <Archive className="w-3 h-3" />
+                  {isAr ? 'مؤرشف' : 'Archived'}
+                </span>
+              )}
             </div>
             <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
               {t('orderPlacedAt')
@@ -503,7 +798,7 @@ export const StoreOrders: React.FC = () => {
             </p>
           </div>
 
-          {/* Action buttons: ... , Print Invoice, Delete Order, Edit Order */}
+          {/* Action buttons */}
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
@@ -527,14 +822,35 @@ export const StoreOrders: React.FC = () => {
               <span>{t('printInvoice')}</span>
             </button>
 
-            <button
-              type="button"
-              onClick={handleDeleteOrder}
-              className="px-4 py-2.5 rounded-xl text-xs font-bold border border-rose-200 text-rose-600 bg-rose-50/60 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-400 flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors hover:bg-rose-100"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>{t('deleteOrder')}</span>
-            </button>
+            {o.isArchived ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleRestoreSingleOrder(o)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold border border-emerald-300 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors hover:bg-emerald-100"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>{t('restoreOrder') || (isAr ? 'استعادة الطلب' : 'Restore Order')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePermanentDeleteSingleOrder(o)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold border border-rose-200 text-rose-600 bg-rose-50/60 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-400 flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors hover:bg-rose-100"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>{t('permanentDeleteOrder') || (isAr ? 'حذف نهائي' : 'Delete Permanently')}</span>
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleArchiveSingleOrder(o)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-300 text-slate-700 bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors hover:bg-slate-200 dark:hover:bg-slate-700"
+              >
+                <Archive className="w-4 h-4 text-slate-500" />
+                <span>{t('archiveOrder') || (isAr ? 'نقل إلى الأرشيف' : 'Move to Archive')}</span>
+              </button>
+            )}
 
             {/* Clean Edit Order button opening modal */}
             <button
@@ -549,6 +865,21 @@ export const StoreOrders: React.FC = () => {
               <Edit className="w-3.5 h-3.5" />
               <span>{t('editOrder')}</span>
             </button>
+
+            {/* Return / Refund button */}
+            {o.status !== 'returned' && o.status !== 'cancelled' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setReturnsOrder(o);
+                  setShowReturnsModal(true);
+                }}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/20 hover:bg-rose-100 flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{isAr ? 'إرجاع واسترداد' : 'Return / Refund'}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -725,17 +1056,17 @@ export const StoreOrders: React.FC = () => {
         {/* ── 3 INFORMATION CARDS (Customer · Shipping · Payment) ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Card 1: Customer Information */}
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-3 border-b mb-4" style={{ borderColor: 'var(--border)' }}>
-                <div className="flex items-center gap-2 font-bold text-sm" style={{ color: 'var(--text)' }}>
-                  <User className="w-4 h-4 text-slate-400" />
+                <div className="flex items-center gap-2 font-black text-sm text-slate-950 dark:text-white">
+                  <User className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                   <span>{t('customerInfo')}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => toast(t('customerInfo'), 'info')}
-                  className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1 cursor-pointer"
+                  className="text-xs font-black text-slate-700 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white flex items-center gap-1 cursor-pointer"
                 >
                   <Edit className="w-3 h-3" />
                   <span>{t('edit')}</span>
@@ -744,59 +1075,59 @@ export const StoreOrders: React.FC = () => {
 
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 font-bold flex items-center justify-center text-sm">
+                  <div className="w-11 h-11 rounded-full bg-teal-100 text-teal-900 dark:bg-teal-950 dark:text-teal-200 font-black flex items-center justify-center text-sm border border-teal-200">
                     {o.customerAvatar || (o.customerName ? o.customerName.slice(0, 2).toUpperCase() : 'AQ')}
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm leading-tight" style={{ color: 'var(--text)' }}>
+                    <h3 className="font-black text-sm text-slate-950 dark:text-white leading-tight">
                       {o.customerName}
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 mt-1 inline-block">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 mt-1 inline-block">
                       {o.customerType ? (o.customerType.toLowerCase().includes('return') ? t('returningCustomer') : o.customerType) : t('returningCustomer')}
                     </span>
                   </div>
                 </div>
 
                 <div className="text-end text-xs">
-                  <span className="text-[10px] block" style={{ color: 'var(--muted)' }}>{t('totalOrders')}</span>
-                  <span className="font-bold font-mono text-sm" style={{ color: 'var(--text)' }}>12</span>
+                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">{t('totalOrders')}</span>
+                  <span className="font-black font-mono text-sm text-slate-950 dark:text-white">12</span>
                 </div>
               </div>
 
               <div className="space-y-2.5 text-xs">
-                <div className="flex items-center gap-2" style={{ color: 'var(--text)' }}>
-                  <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
+                  <Phone className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0" />
                   <span className="font-mono">{o.customerPhone}</span>
                 </div>
-                <div className="flex items-center gap-2" style={{ color: 'var(--text)' }}>
-                  <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
+                  <Mail className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0" />
                   <span>{o.customerEmail || 'ahmed@example.com'}</span>
                 </div>
-                <div className="flex items-start gap-2 pt-1" style={{ color: 'var(--muted)' }}>
-                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-2 pt-1 font-semibold text-slate-800 dark:text-slate-200">
+                  <MapPin className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0 mt-0.5" />
                   <span>{o.deliveryLocation || (isAr ? 'الرياض، حي العليا، طريق الملك فهد، مبنى 123' : 'Riyadh, Al Olaya District, King Fahd Road, Building 123')}</span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-4 border-t mt-4 text-[11px] flex justify-between border-slate-100 dark:border-slate-800" style={{ color: 'var(--muted)' }}>
+            <div className="pt-4 border-t mt-4 text-[11px] flex justify-between border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold">
               <span>{t('customerSince')}</span>
-              <span className="font-bold" style={{ color: 'var(--text)' }}>{formatDisplayDate(o.customerSince || 'Jan 2023', locale)}</span>
+              <span className="font-black text-slate-950 dark:text-white">{formatDisplayDate(o.customerSince || 'Jan 2023', locale)}</span>
             </div>
           </div>
 
           {/* Card 2: Shipping Information */}
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-3 border-b mb-4" style={{ borderColor: 'var(--border)' }}>
-                <div className="flex items-center gap-2 font-bold text-sm" style={{ color: 'var(--text)' }}>
-                  <Truck className="w-4 h-4 text-slate-400" />
+                <div className="flex items-center gap-2 font-black text-sm text-slate-950 dark:text-white">
+                  <Truck className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                   <span>{t('shippingInfo')}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => toast(t('shippingInfo'), 'info')}
-                  className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1 cursor-pointer"
+                  className="text-xs font-black text-slate-700 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white flex items-center gap-1 cursor-pointer"
                 >
                   <Edit className="w-3 h-3" />
                   <span>{t('edit')}</span>
@@ -805,8 +1136,8 @@ export const StoreOrders: React.FC = () => {
 
               <div className="space-y-3 text-xs">
                 <div className="flex items-center justify-between">
-                  <span style={{ color: 'var(--muted)' }}>{t('shippingCompany')}</span>
-                  <span className="font-bold flex items-center gap-1.5" style={{ color: 'var(--text)' }}>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{t('shippingCompany')}</span>
+                  <span className="font-black flex items-center gap-1.5 text-slate-950 dark:text-white">
                     {o.shippingCompany ? (
                       <>
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-blue-600 text-white">
@@ -815,16 +1146,16 @@ export const StoreOrders: React.FC = () => {
                         <span>{o.shippingCompany}</span>
                       </>
                     ) : (
-                      <span className="text-slate-400 font-normal italic">{isAr ? 'لم تحدد شركة الشحن' : 'Not Assigned'}</span>
+                      <span className="text-slate-600 dark:text-slate-400 font-bold italic">{isAr ? 'لم تحدد شركة الشحن' : 'Not Assigned'}</span>
                     )}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span style={{ color: 'var(--muted)' }}>{t('trackingNumber')}</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{t('trackingNumber')}</span>
                   {o.trackingNumber ? (
                     <div className="flex items-center gap-1.5">
-                      <span className="font-mono font-bold" style={{ color: 'var(--text)' }}>
+                      <span className="font-mono font-black text-slate-950 dark:text-white">
                         {o.trackingNumber}
                       </span>
                       <button
@@ -836,7 +1167,7 @@ export const StoreOrders: React.FC = () => {
                         {copiedId === 'track-num-store' ? (
                           <Check className="w-3.5 h-3.5 text-emerald-600" />
                         ) : (
-                          <Copy className="w-3.5 h-3.5" style={{ color: 'var(--muted)' }} />
+                          <Copy className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                         )}
                       </button>
                     </div>
@@ -851,7 +1182,7 @@ export const StoreOrders: React.FC = () => {
                           toast('Failed to generate AWB', 'error');
                         }
                       }}
-                      className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold text-[10px] hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-black text-[11px] hover:bg-blue-700 cursor-pointer shadow-2xs"
                     >
                       {isAr ? 'إصدار بوليصة AWB' : 'Dispatch / Create AWB'}
                     </button>
@@ -859,39 +1190,39 @@ export const StoreOrders: React.FC = () => {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span style={{ color: 'var(--muted)' }}>{t('shippingStatus')}</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{t('shippingStatus')}</span>
                   {getStatusBadge(o.shippingStatus || (o.trackingNumber ? 'in_transit' : 'pending'))}
                 </div>
 
                 <div className="pt-2">
-                  <span className="text-[11px] font-medium block mb-1" style={{ color: 'var(--muted)' }}>
+                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
                     {t('shippingAddress')}
                   </span>
-                  <p className="leading-relaxed text-xs font-medium" style={{ color: 'var(--text)' }}>
+                  <p className="leading-relaxed text-xs font-bold text-slate-950 dark:text-white">
                     {o.shippingAddress || o.deliveryLocation || (isAr ? 'الرياض، حي العليا، طريق الملك فهد، مبنى 123، المملكة العربية السعودية' : 'Riyadh, Al Olaya District, King Fahd Road, Building 123, Riyadh 12211, Saudi Arabia')}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="pt-4 border-t mt-4 text-[11px] flex justify-between border-slate-100 dark:border-slate-800" style={{ color: 'var(--muted)' }}>
+            <div className="pt-4 border-t mt-4 text-[11px] flex justify-between border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold">
               <span>{t('deliveryGuarantee')}</span>
-              <span className="font-bold text-emerald-600">{t('onTimeGuaranteed')}</span>
+              <span className="font-black text-emerald-700 dark:text-emerald-400">{t('onTimeGuaranteed')}</span>
             </div>
           </div>
 
           {/* Card 3: Payment Information */}
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-3 border-b mb-4" style={{ borderColor: 'var(--border)' }}>
-                <div className="flex items-center gap-2 font-bold text-sm" style={{ color: 'var(--text)' }}>
-                  <CreditCard className="w-4 h-4 text-slate-400" />
+                <div className="flex items-center gap-2 font-black text-sm text-slate-950 dark:text-white">
+                  <CreditCard className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                   <span>{t('paymentInfo')}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => toast(t('paymentInfo'), 'info')}
-                  className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1 cursor-pointer"
+                  className="text-xs font-black text-slate-700 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white flex items-center gap-1 cursor-pointer"
                 >
                   <Edit className="w-3 h-3" />
                   <span>{t('edit')}</span>
@@ -900,21 +1231,21 @@ export const StoreOrders: React.FC = () => {
 
               <div className="space-y-3 text-xs">
                 <div className="flex items-center justify-between">
-                  <span style={{ color: 'var(--muted)' }}>{t('paymentMethod')}</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{t('paymentMethod')}</span>
                   {getPaymentBadge(o.paymentMethod || 'mada')}
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span style={{ color: 'var(--muted)' }}>{t('paymentStatus')}</span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#EBF8F2] text-[#059669] border border-[#A7F3D0] dark:bg-emerald-950/40 dark:text-emerald-400">
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{t('paymentStatus')}</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300">
                     {o.paymentStatus?.toLowerCase() === 'unpaid' ? t('unpaidStatus') : t('paidStatus')}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span style={{ color: 'var(--muted)' }}>{t('transactionId')}</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{t('transactionId')}</span>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-bold" style={{ color: 'var(--text)' }}>
+                    <span className="font-mono font-black text-slate-950 dark:text-white">
                       {o.transactionId || 'MADA-789123456'}
                     </span>
                     <button
@@ -926,24 +1257,24 @@ export const StoreOrders: React.FC = () => {
                       {copiedId === 'tx-id-store' ? (
                         <Check className="w-3.5 h-3.5 text-emerald-600" />
                       ) : (
-                        <Copy className="w-3.5 h-3.5" style={{ color: 'var(--muted)' }} />
+                        <Copy className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                       )}
                     </button>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-1">
-                  <span style={{ color: 'var(--muted)' }}>{t('paymentDate')}</span>
-                  <span className="font-medium" style={{ color: 'var(--text)' }}>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{t('paymentDate')}</span>
+                  <span className="font-black text-slate-950 dark:text-white">
                     {formatDisplayDate(o.paymentDate || `${o.date || '2026-09-29'} at ${o.time || '02:34 PM'}`, locale)}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-4 border-t mt-4 text-[11px] flex justify-between border-slate-100 dark:border-slate-800" style={{ color: 'var(--muted)' }}>
+            <div className="pt-4 border-t mt-4 text-[11px] flex justify-between border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold">
               <span>{t('gatewaySettlement')}</span>
-              <span className="font-bold flex items-center gap-1 text-emerald-600">
+              <span className="font-black flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
                 <ShieldCheck className="w-3.5 h-3.5" /> {t('directMerchantDeposit')}
               </span>
             </div>
@@ -962,19 +1293,19 @@ export const StoreOrders: React.FC = () => {
                 <table className="w-full text-start text-xs border-separate border-spacing-0">
                   <thead>
                     <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
-                      <th className="pb-3 text-start font-semibold text-[11px]" style={{ color: 'var(--muted)' }}>
+                      <th className="pb-3 text-start font-black text-xs text-slate-950 dark:text-slate-100">
                         #
                       </th>
-                      <th className="pb-3 text-start font-semibold text-[11px]" style={{ color: 'var(--muted)' }}>
+                      <th className="pb-3 text-start font-black text-xs text-slate-950 dark:text-slate-100">
                         {t('product')}
                       </th>
-                      <th className="pb-3 text-end font-semibold text-[11px]" style={{ color: 'var(--muted)' }}>
+                      <th className="pb-3 text-end font-black text-xs text-slate-950 dark:text-slate-100">
                         {t('price')}
                       </th>
-                      <th className="pb-3 text-center font-semibold text-[11px]" style={{ color: 'var(--muted)' }}>
+                      <th className="pb-3 text-center font-black text-xs text-slate-950 dark:text-slate-100">
                         {t('quantity')}
                       </th>
-                      <th className="pb-3 text-end font-semibold text-[11px]" style={{ color: 'var(--muted)' }}>
+                      <th className="pb-3 text-end font-black text-xs text-slate-950 dark:text-slate-100">
                         {t('total')}
                       </th>
                     </tr>
@@ -983,12 +1314,12 @@ export const StoreOrders: React.FC = () => {
                     {items.map((it, idx) => (
                       <tr
                         key={it.id || idx}
-                        className="border-b hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition-colors"
+                        className="border-b hover:bg-slate-100/60 dark:hover:bg-slate-900/50 transition-colors"
                         style={{ borderColor: 'var(--border)' }}
                       >
                         <td
-                          className="py-3 px-1 text-start font-mono text-[11px]"
-                          style={{ borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}
+                          className="py-3 px-1 text-start font-mono text-xs font-black text-slate-800 dark:text-slate-200"
+                          style={{ borderBottom: '1px solid var(--border)' }}
                         >
                           {idx + 1}
                         </td>
@@ -997,40 +1328,41 @@ export const StoreOrders: React.FC = () => {
                             {it.image ? (
                               <img
                                 src={it.image}
-                                alt={it.name}
+                                alt={isAr ? (it.nameAr || it.name) : (it.nameEn || it.name)}
+                                onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                                 className="w-9 h-9 rounded-xl object-cover shrink-0 border"
                                 style={{ borderColor: 'var(--border)' }}
                               />
                             ) : (
-                              <span className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
-                                <Package className="w-4 h-4 text-slate-500" />
+                              <span className="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                                <Package className="w-4 h-4 text-slate-700" />
                               </span>
                             )}
                             <div className="min-w-0">
-                              <span className="font-bold block truncate max-w-[130px]" style={{ color: 'var(--text)' }}>
-                                {it.name}
+                              <span className="font-black text-xs block truncate max-w-[140px] text-slate-950 dark:text-white">
+                                {isAr ? (it.nameAr || it.name) : (it.nameEn || it.name)}
                               </span>
-                              <span className="text-[10px] font-mono block" style={{ color: 'var(--muted)' }}>
+                              <span className="text-[10px] font-mono font-bold block text-slate-700 dark:text-slate-300 mt-0.5">
                                 SKU: {it.sku || `SKU-${idx + 1}`}
                               </span>
                             </div>
                           </div>
                         </td>
                         <td
-                          className="py-3 px-2 text-end font-medium"
-                          style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}
+                          className="py-3 px-2 text-end font-bold text-xs text-slate-900 dark:text-slate-100"
+                          style={{ borderBottom: '1px solid var(--border)' }}
                         >
                           {money(it.price)}
                         </td>
                         <td
-                          className="py-3 px-2 text-center font-medium"
-                          style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}
+                          className="py-3 px-2 text-center font-black text-xs text-slate-950 dark:text-white"
+                          style={{ borderBottom: '1px solid var(--border)' }}
                         >
                           {it.quantity}
                         </td>
                         <td
-                          className="py-3 px-2 text-end font-bold"
-                          style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}
+                          className="py-3 px-2 text-end font-black text-xs text-slate-950 dark:text-white"
+                          style={{ borderBottom: '1px solid var(--border)' }}
                         >
                           {money(it.price * it.quantity)}
                         </td>
@@ -1043,31 +1375,31 @@ export const StoreOrders: React.FC = () => {
           </div>
 
           {/* Column 2: Order Summary (30% approx -> 3 cols) */}
-          <div className="lg:col-span-3 bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+          <div className="lg:col-span-3 bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col justify-between">
             <div>
-              <h3 className="font-bold text-sm mb-4" style={{ color: 'var(--text)' }}>
+              <h3 className="font-black text-sm mb-4 text-slate-950 dark:text-white">
                 {t('orderSummary')}
               </h3>
               <div className="space-y-3 text-xs">
-                <div className="flex justify-between" style={{ color: 'var(--muted)' }}>
+                <div className="flex justify-between font-bold text-slate-700 dark:text-slate-300">
                   <span>{t('subtotalLabel')} ({items.length} {t('items')})</span>
-                  <span className="font-medium" style={{ color: 'var(--text)' }}>
+                  <span className="font-black text-slate-950 dark:text-white">
                     {money(subtotal)}
                   </span>
                 </div>
-                <div className="flex justify-between text-rose-600">
+                <div className="flex justify-between font-bold text-rose-600">
                   <span>{t('discountLabel')} ({o.discountCode || 'WELCOME10'})</span>
-                  <span className="font-medium">- {money(discount)}</span>
+                  <span className="font-black">- {money(discount)}</span>
                 </div>
-                <div className="flex justify-between" style={{ color: 'var(--muted)' }}>
+                <div className="flex justify-between font-bold text-slate-700 dark:text-slate-300">
                   <span>{t('shippingFeeLabel')}</span>
-                  <span className="font-medium" style={{ color: 'var(--text)' }}>
+                  <span className="font-black text-slate-950 dark:text-white">
                     {money(shipping)}
                   </span>
                 </div>
-                <div className="flex justify-between" style={{ color: 'var(--muted)' }}>
+                <div className="flex justify-between font-bold text-slate-700 dark:text-slate-300">
                   <span>{t('taxVatLabel')}</span>
-                  <span className="font-medium" style={{ color: 'var(--text)' }}>
+                  <span className="font-black text-slate-950 dark:text-white">
                     {money(tax)}
                   </span>
                 </div>
@@ -1078,11 +1410,11 @@ export const StoreOrders: React.FC = () => {
               className="pt-4 border-t mt-4 flex items-center justify-between"
               style={{ borderColor: 'var(--border)' }}
             >
-              <span className="text-sm font-black" style={{ color: 'var(--text)' }}>
+              <span className="text-sm font-black text-slate-950 dark:text-white">
                 {t('grandTotalLabel')}
               </span>
               <span
-                className="text-lg font-black px-3 py-1 rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/50 dark:border-blue-900"
+                className="text-lg font-black px-3 py-1 rounded-xl bg-blue-100 text-blue-950 dark:bg-blue-950/80 dark:text-blue-200 border border-blue-300 dark:border-blue-900"
               >
                 {money(grandTotal)}
               </span>
@@ -1090,9 +1422,9 @@ export const StoreOrders: React.FC = () => {
           </div>
 
           {/* Column 3: Order History Vertical Stepper (Mockup 05 -> 4 cols) */}
-          <div className="lg:col-span-4 bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-            <h3 className="font-bold text-sm mb-4 flex items-center gap-2" style={{ color: 'var(--text)' }}>
-              <Clock className="w-4 h-4 text-blue-500" />
+          <div className="lg:col-span-4 bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs">
+            <h3 className="font-black text-sm mb-4 flex items-center gap-2 text-slate-950 dark:text-white">
+              <Clock className="w-4 h-4 text-blue-600" />
               <span>{t('orderHistory')}</span>
             </h3>
 
@@ -1308,6 +1640,14 @@ export const StoreOrders: React.FC = () => {
           order={editingOrder}
           onSave={handleSaveEditedOrder}
         />
+
+        {showReturnsModal && (
+          <ReturnsManager
+            isOpen={showReturnsModal}
+            onClose={() => setShowReturnsModal(false)}
+            order={returnsOrder || currentSelectedOrder}
+          />
+        )}
       </AdminPageShell>
     );
   }
@@ -1328,17 +1668,30 @@ export const StoreOrders: React.FC = () => {
           </p>
         </div>
 
-        {/* + New Order Primary CTA Button */}
-        <button
-          type="button"
-          onClick={() => setShowNewOrderModal(true)}
-          className="py-2.5 px-4 rounded-xl text-xs font-bold text-white flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:opacity-95 shrink-0 self-start sm:self-auto"
-          style={{ background: 'var(--portal-cta, #0284c7)' }}
-          aria-label="Create new order"
-        >
-          <Plus className="w-4 h-4 shrink-0" />
-          <span>{t('newOrder')}</span>
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
+          {/* COD Cash Ledger Button */}
+          <button
+            type="button"
+            onClick={() => setShowCodLedgerModal(true)}
+            className="py-2.5 px-3.5 rounded-xl text-xs font-bold border border-amber-300 dark:border-amber-700/60 bg-amber-50/80 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 flex items-center gap-2 shadow-2xs cursor-pointer transition-all shrink-0"
+            aria-label="COD Cash Ledger"
+          >
+            <Banknote className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>{isAr ? 'سجل تحصيل COD' : 'COD Cash Ledger'}</span>
+          </button>
+
+          {/* + New Order Primary CTA Button */}
+          <button
+            type="button"
+            onClick={() => setShowNewOrderModal(true)}
+            className="py-2.5 px-4 rounded-xl text-xs font-bold text-white flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:opacity-95 shrink-0"
+            style={{ background: 'var(--portal-cta, #0284c7)' }}
+            aria-label="Create new order"
+          >
+            <Plus className="w-4 h-4 shrink-0" />
+            <span>{t('newOrder')}</span>
+          </button>
+        </div>
       </div>
 
       {/* ── 4 KPI CARDS DEDICATED GRID (Mockup 04 - 100% UNIFORM NO 3+1 WRAPPING) ── */}
@@ -1489,68 +1842,32 @@ export const StoreOrders: React.FC = () => {
 
         {/* More Filters Expandable Drawer */}
         {showMoreFilters && (
-          <div
-            className="p-4 rounded-xl border grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 animate-in fade-in duration-150"
-            style={{ background: 'color-mix(in srgb, var(--accent) 4%, var(--surface))', borderColor: 'var(--border)' }}
-          >
-            <div>
-              <label className="text-[10px] font-bold block mb-1" style={{ color: 'var(--muted)' }}>
-                {t('paymentMethod')}
-              </label>
-              <select
-                value={selectedPaymentMethod}
-                onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border"
-                style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
-              >
-                <option value="all">{t('allPaymentMethods')}</option>
-                <option value="mada">{locale === 'en' ? 'mada' : 'مدى'}</option>
-                <option value="apple">{t('applePay')}</option>
-                <option value="credit">{t('creditCard')}</option>
-                <option value="stc">{t('stcPay')}</option>
-                <option value="visa">Visa</option>
-                <option value="cash">{t('cashOnDelivery')}</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-[10px] font-bold block mb-1" style={{ color: 'var(--muted)' }}>
-                {t('orderSource')}
-              </label>
-              <select
-                value={selectedSource}
-                onChange={(e) => setSelectedSource(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border"
-                style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
-              >
-                <option value="all">{t('allSources')}</option>
-                <option value="Instagram">Instagram</option>
-                <option value="Google Ads">Google Ads</option>
-                <option value="Direct">{t('directSource')}</option>
-                <option value="TikTok">TikTok</option>
-                <option value="Snapchat">Snapchat</option>
-                <option value="Organic Search">{t('organicSearch')}</option>
-                <option value="AI Assistant">{t('aiAssistant')}</option>
-                <option value="Referral">{t('referral')}</option>
-              </select>
-            </div>
-
-            <div className="flex items-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedPaymentMethod('all');
-                  setSelectedSource('all');
-                  setSearch('');
-                  toast('Filters reset to default', 'info');
-                }}
-                className="px-4 py-2 text-xs font-bold rounded-xl border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-              >
-                Reset Filters
-              </button>
-            </div>
-          </div>
+          <OrderFilters
+            filters={orderFilters}
+            onChange={(newFilters) => {
+              setOrderFilters(newFilters);
+              if (newFilters.paymentMethod) setSelectedPaymentMethod(newFilters.paymentMethod);
+              if (newFilters.orderSource) setSelectedSource(newFilters.orderSource);
+              setPage(1);
+            }}
+            onReset={() => {
+              const resetState: OrderFilterState = {
+                datePreset: 'all',
+                startDate: '',
+                endDate: '',
+                paymentStatus: 'all',
+                shippingStatus: 'all',
+                paymentMethod: 'all',
+                orderSource: 'all',
+              };
+              setOrderFilters(resetState);
+              setSelectedPaymentMethod('all');
+              setSelectedSource('all');
+              setSearch('');
+              toast('Filters reset to default', 'info');
+            }}
+            isOpen={showMoreFilters}
+          />
         )}
 
         {/* ── STATUS TABS WITH COUNT PILLS (Mockup 04 / Screenshot 5) ── */}
@@ -1569,6 +1886,7 @@ export const StoreOrders: React.FC = () => {
               delivered: { bg: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200', activeBg: 'bg-emerald-600', activeText: 'text-white' },
               cancelled: { bg: 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200', activeBg: 'bg-rose-600', activeText: 'text-white' },
               returned: { bg: 'bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-200', activeBg: 'bg-red-600', activeText: 'text-white' },
+              archived: { bg: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200', activeBg: 'bg-slate-700', activeText: 'text-white' },
             };
             const color = pillColors[tab.key] || pillColors.all;
 
@@ -1598,6 +1916,58 @@ export const StoreOrders: React.FC = () => {
             );
           })}
         </div>
+
+        {/* ── BULK ACTIONS BAR ── */}
+        {selectedOrderIds.length > 0 && (
+          <div className="flex items-center justify-between gap-3 p-3.5 bg-blue-50 dark:bg-slate-800/90 border border-blue-200 dark:border-slate-700 rounded-2xl shadow-sm animate-fadeIn">
+            <div className="flex items-center gap-2 text-xs font-bold text-blue-900 dark:text-blue-200">
+              <span className="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center text-[11px]">
+                {selectedOrderIds.length}
+              </span>
+              <span>
+                {isAr ? `تم تحديد ${selectedOrderIds.length} طلبات` : `${selectedOrderIds.length} orders selected`}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {activeTab === 'archived' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleBulkRestore}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>{t('bulkRestoreOrders') || (isAr ? 'استعادة المحدد' : 'Restore Selected')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBulkPermanentDelete}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{t('bulkPermanentDeleteOrders') || (isAr ? 'حذف نهائي للمحدد' : 'Permanently Delete Selected')}</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleBulkArchive}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-700 hover:bg-slate-800 text-white flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                >
+                  <Archive className="w-3.5 h-3.5" />
+                  <span>{t('bulkArchiveOrders') || (isAr ? 'أرشفة المحدد' : 'Archive Selected')}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setSelectedOrderIds([])}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:bg-slate-700 cursor-pointer"
+              >
+                {isAr ? 'إلغاء التحديد' : 'Clear'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── ORDERS TABLE (Mockup 04) ── */}
         <div className="overflow-x-auto pt-1">
@@ -1698,6 +2068,7 @@ export const StoreOrders: React.FC = () => {
                             <img
                               src={itemsList[0].image}
                               alt="prod"
+                              onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                               className="w-6 h-6 rounded-md object-cover border"
                               style={{ borderColor: 'var(--border)' }}
                             />
@@ -1711,6 +2082,7 @@ export const StoreOrders: React.FC = () => {
                             <img
                               src={itemsList[1].image}
                               alt="prod"
+                              onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                               className="w-6 h-6 rounded-md object-cover border"
                               style={{ borderColor: 'var(--border)' }}
                             />
@@ -1808,6 +2180,32 @@ export const StoreOrders: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    setDetailsModalOrder(ord);
+                                    setShowDetailsModal(true);
+                                    setActiveActionMenuId(null);
+                                  }}
+                                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5 text-teal-500" />
+                                  <span>{isAr ? 'نافذة سريعة' : 'Quick Inspector'}</span>
+                                </button>
+                                {ord.status !== 'returned' && ord.status !== 'cancelled' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setReturnsOrder(ord);
+                                      setShowReturnsModal(true);
+                                      setActiveActionMenuId(null);
+                                    }}
+                                    className="w-full text-start px-3 py-2 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    <span>{isAr ? 'معالجة الإرجاع' : 'Process Return'}</span>
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
                                     setEditingOrder(ord);
                                     setShowEditOrderModal(true);
                                     setActiveActionMenuId(null);
@@ -1853,27 +2251,45 @@ export const StoreOrders: React.FC = () => {
                                   <Check className="w-3.5 h-3.5 text-emerald-500" />
                                   <span>{isAr ? 'تبديل كـ تم التوصيل' : 'Toggle Delivered'}</span>
                                 </button>
-                                <div className="h-[1px] my-1" style={{ background: 'var(--border)' }} />
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    setActiveActionMenuId(null);
-                                    const ok = await confirm({
-                                      title: t('deleteOrder'),
-                                      message: `Are you sure you want to delete ${ord.orderNumber}?`,
-                                      confirmLabel: t('deleteOrder'),
-                                      danger: true,
-                                    });
-                                    if (ok) {
-                                      deleteOrder(ord.id, ord.storeId);
-                                      toast(t('orderConfirmedDelete'), 'success');
-                                    }
-                                  }}
-                                  className="w-full text-start px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  <span>{t('deleteOrder')}</span>
-                                </button>
+                                 <div className="h-[1px] my-1" style={{ background: 'var(--border)' }} />
+                                {ord.isArchived ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveActionMenuId(null);
+                                        handleRestoreSingleOrder(ord);
+                                      }}
+                                      className="w-full text-start px-3 py-2 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <RotateCcw className="w-3.5 h-3.5" />
+                                      <span>{t('restoreOrder') || (isAr ? 'استعادة الطلب' : 'Restore Order')}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveActionMenuId(null);
+                                        handlePermanentDeleteSingleOrder(ord);
+                                      }}
+                                      className="w-full text-start px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      <span>{t('permanentDeleteOrder') || (isAr ? 'حذف نهائي' : 'Delete Permanently')}</span>
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveActionMenuId(null);
+                                      handleArchiveSingleOrder(ord);
+                                    }}
+                                    className="w-full text-start px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Archive className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>{t('archiveOrder') || (isAr ? 'نقل إلى الأرشيف' : 'Move to Archive')}</span>
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1888,80 +2304,27 @@ export const StoreOrders: React.FC = () => {
         </div>
 
         {/* ── PAGINATION CONTROLS (Mockup 04) ── */}
-        <div
-          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t"
-          style={{ borderColor: 'var(--border)' }}
-        >
-          <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--muted)' }}>
-            <div className="flex items-center gap-1.5">
-              <span>{t('show')}</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setPage(1);
-                }}
-                className="px-2 py-1 rounded-lg border text-xs font-semibold cursor-pointer"
-                style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
-            <span>
-              Showing {totalCount > 0 ? (safePage - 1) * pageSize + 1 : 0}–
-              {Math.min(safePage * pageSize, totalCount)} of {totalCount.toLocaleString()} orders
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={safePage <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="p-1.5 rounded-lg border cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
-              aria-label="Previous page"
-            >
-              <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
-            </button>
-            {Array.from({ length: pageCount }).map((_, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setPage(idx + 1)}
-                className="w-7 h-7 rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-xs"
-                style={
-                  safePage === idx + 1
-                    ? { background: 'var(--portal-cta)', color: '#ffffff' }
-                    : { background: 'var(--surface)', color: 'var(--muted)', border: '1px solid var(--border)' }
-                }
-              >
-                {idx + 1}
-              </button>
-            ))}
-            <button
-              type="button"
-              disabled={safePage >= pageCount}
-              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-              className="p-1.5 rounded-lg border cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
-              aria-label="Next page"
-            >
-              <ChevronRight className="w-4 h-4 rtl:rotate-180" />
-            </button>
-          </div>
-        </div>
+        <WindowedPagination
+          currentPage={safePage}
+          totalPages={pageCount}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          isAr={isAr}
+          itemLabel={isAr ? 'طلب' : 'orders'}
+          pageSizeOptions={[10, 20, 50, 100]}
+        />
       </div>
 
       {/* ── NEW ORDER MODAL (Store scoped) ── */}
       {showNewOrderModal && (
         <CreateStoreOrderModal
           storeName={activeStore.name}
+          storeId={activeStore.id}
           onClose={() => setShowNewOrderModal(false)}
           onCreate={(orderData) => {
-            addOrder({ ...orderData, storeId: activeStore.id } as any);
+            addOrder({ ...orderData, storeId: activeStore.id } as any, activeStore.id);
             setShowNewOrderModal(false);
             toast(t('orderCreatedSuccess'), 'success');
           }}
@@ -1969,12 +2332,15 @@ export const StoreOrders: React.FC = () => {
       )}
 
       {/* ── MODALS (Invoice Print & Edit Order) ── */}
-      <RetailInvoiceModal
-        isOpen={showInvoiceModal}
-        onClose={() => setShowInvoiceModal(false)}
-        order={invoiceOrder}
-        store={activeStore}
-      />
+      {showInvoiceModal && previewInvoiceDoc && (
+        <InvoicePreviewModal
+          isOpen={showInvoiceModal}
+          onClose={() => setShowInvoiceModal(false)}
+          document={previewInvoiceDoc}
+          config={invoiceConfig}
+          onConfigChange={(updated) => setInvoiceConfig(updated)}
+        />
+      )}
 
       <EditOrderModal
         isOpen={showEditOrderModal}
@@ -1982,181 +2348,42 @@ export const StoreOrders: React.FC = () => {
         order={editingOrder}
         onSave={handleSaveEditedOrder}
       />
+
+      {showReturnsModal && (
+        <ReturnsManager
+          isOpen={showReturnsModal}
+          onClose={() => setShowReturnsModal(false)}
+          order={returnsOrder}
+        />
+      )}
+
+      {showCodLedgerModal && (
+        <CodLedgerModal
+          isOpen={showCodLedgerModal}
+          onClose={() => setShowCodLedgerModal(false)}
+          orders={activeOrders}
+        />
+      )}
+
+      {showDetailsModal && (
+        <OrderDetailsModal
+          isOpen={showDetailsModal}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setDetailsModalOrder(null);
+          }}
+          order={detailsModalOrder}
+          onPrintInvoice={(ord) => {
+            setInvoiceOrder(ord);
+            setShowInvoiceModal(true);
+          }}
+          onEditOrder={(ord) => {
+            setEditingOrder(ord);
+            setShowEditOrderModal(true);
+          }}
+        />
+      )}
     </AdminPageShell>
   );
 };
 
-/**
- * Clean New Store Order Modal Form
- */
-const CreateStoreOrderModal: React.FC<{
-  storeName: string;
-  onClose: () => void;
-  onCreate: (data: Partial<Order>) => void;
-}> = ({ storeName, onClose, onCreate }) => {
-  const { t, locale } = usePrefs();
-  const isAr = locale === 'ar';
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [productName, setProductName] = useState('');
-  const [price, setPrice] = useState(180);
-  const [paymentMethod, setPaymentMethod] = useState<any>('mada');
-  const [source, setSource] = useState<any>('Instagram');
-  const [location, setLocation] = useState('Riyadh, Saudi Arabia');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customerName || !customerPhone) return;
-
-    onCreate({
-      customerName,
-      customerPhone,
-      total: price,
-      itemsCount: 1,
-      itemsSummary: productName || 'Selected Product',
-      source,
-      deliveryLocation: location,
-      status: 'pending',
-      paymentMethod,
-      date: 'Just now',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div
-        className="w-full max-w-lg rounded-2xl border p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150"
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
-      >
-        <div className="flex items-center justify-between pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-          <div>
-            <h2 className="text-lg font-black tracking-tight">{t('createStoreOrder')}</h2>
-            <p className="text-[11px] font-semibold text-emerald-600">{storeName}</p>
-          </div>
-          <button type="button" onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
-            <X className="w-5 h-5 text-slate-400" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="font-bold block mb-1">{isAr ? 'اسم العميل *' : 'Customer Name *'}</label>
-              <input
-                type="text"
-                required
-                placeholder={isAr ? 'أحمد القحطاني' : 'Ahmed Al-Qahtani'}
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border text-xs"
-                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-              />
-            </div>
-            <div>
-              <label className="font-bold block mb-1">{isAr ? 'رقم الهاتف (+966) *' : 'Phone (+966) *'}</label>
-              <input
-                type="text"
-                required
-                placeholder="+966 50 123 4567"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border text-xs font-mono"
-                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="font-bold block mb-1">{t('productDescription')}</label>
-              <input
-                type="text"
-                placeholder={isAr ? 'سماعات لاسلكية' : 'Wireless Headphones'}
-                value={productName}
-                onChange={(e) => setProductName(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border text-xs"
-                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-              />
-            </div>
-            <div>
-              <label className="font-bold block mb-1">{t('grandTotalLabel')}</label>
-              <input
-                type="number"
-                value={price}
-                onChange={(e) => setPrice(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-xl border text-xs font-bold"
-                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="font-bold block mb-1">{t('paymentMethod')}</label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border text-xs"
-                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-              >
-                <option value="mada">{locale === 'en' ? 'mada' : 'مدى'}</option>
-                <option value="Apple Pay">{t('applePay')}</option>
-                <option value="Credit Card">{t('creditCard')}</option>
-                <option value="stc pay">{t('stcPay')}</option>
-                <option value="Visa">Visa</option>
-                <option value="Cash on Delivery">{t('cashOnDelivery')}</option>
-              </select>
-            </div>
-            <div>
-              <label className="font-bold block mb-1">{t('orderSource')}</label>
-              <select
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border text-xs"
-                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-              >
-                <option value="Instagram">Instagram</option>
-                <option value="Google Ads">Google Ads</option>
-                <option value="Direct">{t('directSource')}</option>
-                <option value="TikTok">TikTok</option>
-                <option value="Snapchat">Snapchat</option>
-                <option value="WhatsApp">WhatsApp</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="font-bold block mb-1">{t('shippingAddress')}</label>
-            <input
-              type="text"
-              placeholder={isAr ? 'الرياض، حي العليا، طريق الملك فهد' : 'Riyadh, Al Olaya District, King Fahd Road'}
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border text-xs"
-              style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl border text-xs font-bold cursor-pointer"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-            >
-              {t('cancel')}
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2 rounded-xl text-xs font-bold text-white cursor-pointer shadow-xs"
-              style={{ background: 'var(--portal-cta)' }}
-            >
-              {t('createStoreOrder')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};

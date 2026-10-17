@@ -64,6 +64,27 @@ export interface Store {
   custom_domain?: string;
   hostinger_status?: 'not_connected' | 'connected' | 'provisioning' | 'active';
   dns_status?: 'unverified' | 'pending' | 'verified';
+  contactPhone?: string;
+  phone?: string;
+  email?: string;
+  taxNumber?: string;
+  crNumber?: string;
+  /** Linked local workspace directory path */
+  workspacePath?: string;
+}
+
+export interface CategoryItem {
+  id: string;
+  name: string;
+  nameAr?: string;
+  nameEn?: string;
+  slug?: string;
+  image?: string;
+  imageUrl?: string;
+  itemCount?: number;
+  productCount?: number;
+  description?: string;
+  icon?: string;
 }
 
 export type CustomerStatus = 'VIP' | 'Active' | 'New' | 'Inactive' | 'Cancelled';
@@ -122,8 +143,11 @@ export interface Product {
   storeId: string;
   name: string;
   nameAr?: string;
+  nameEn?: string;
   sku: string;
   category: string;
+  categoryAr?: string;
+  categoryEn?: string;
   price: number;
   originalPrice?: number | null;
   discountedPrice?: number | null;
@@ -139,13 +163,20 @@ export interface Product {
   image: string;
   imageVersion?: string | null;
   galleryUrls?: string[];
+  images?: string[];
+  additionalImages?: string[];
   videoUrl?: string | null;
   tags?: string[];
   description?: string | null;
   descriptionAr?: string | null;
+  descriptionEn?: string | null;
   subtitle?: string | null;
   subtitleAr?: string | null;
   productType?: string;
+  weight?: string | number | null;
+  type?: string;
+  rating?: number;
+  reviewsCount?: number;
   brand?: string;
   countryOfOrigin?: string;
   requiresShipping?: boolean;
@@ -155,6 +186,24 @@ export interface Product {
   seoTitle?: string | null;
   seoDescription?: string | null;
   seoKeywords?: string | null;
+  /** Dynamic color options with authentic seat photos (default: 3 colors per product) */
+  colors?: ProductColorOption[];
+  imageUrl?: string | null;
+  badge?: string;
+  badgeEn?: string;
+  variations?: ProductVariation[];
+  /** Specifications & Model Comparison Infographic Image (Per-Product) */
+  specComparisonImage?: string;
+  specComparisonImageAr?: string;
+}
+
+export interface ProductColorOption {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  hex: string;
+  image: string;
+  borderClass?: string;
 }
 
 /** Per-product variant: size/color/weight/material/custom + price/SKU/stock/image */
@@ -224,11 +273,41 @@ export type PaymentMethod =
 export interface OrderItemDetail {
   id: string;
   name: string;
+  nameAr?: string;
+  nameEn?: string;
   sku: string;
   price: number;
   quantity: number;
   total: number;
   image?: string;
+}
+
+export type CodStatus = 'not_cod' | 'pending_collection' | 'collected_by_courier' | 'remitted_to_bank' | 'failed_collection';
+
+export type ReturnReason =
+  | 'defective'
+  | 'wrong_item'
+  | 'customer_mind_change'
+  | 'not_as_described'
+  | 'size_mismatch'
+  | 'late_delivery'
+  | 'other';
+
+export interface OrderReturn {
+  id: string;
+  storeId: string;
+  orderId: string;
+  returnNumber: string;
+  customerName: string;
+  reason: ReturnReason | string;
+  reasonDetails?: string;
+  status: 'requested' | 'approved' | 'rejected' | 'completed';
+  refundAmount: number;
+  restockInventory: boolean;
+  items?: OrderItemDetail[];
+  adminNotes?: string;
+  requestedAt: string;
+  processedAt?: string;
 }
 
 export interface OrderTimelineItem {
@@ -285,6 +364,17 @@ export interface Order {
   cancelRequestedAt?: string;
   refundStatus?: 'none' | 'pending' | 'approved' | 'refunded' | 'rejected';
   refundAmount?: number;
+  codStatus?: CodStatus;
+  codCollectedAt?: string;
+  codRemittedAt?: string;
+  codNotes?: string;
+  returnReason?: ReturnReason | string;
+  returnNotes?: string;
+  returnedAt?: string;
+  restockedAt?: string;
+  returns?: OrderReturn[];
+  isArchived?: boolean;
+  archivedAt?: string;
 }
 
 export interface ActivityItem {
@@ -350,6 +440,19 @@ export interface DomainRecord {
   dnsRecords?: DnsRecord[];
 }
 
+export interface DomainResolutionResult {
+  resolved: boolean;
+  storeId?: string;
+  storeSlug?: string;
+  storeName?: string;
+  domain: string;
+  domainType?: 'custom' | 'subdomain' | 'primary' | 'demo';
+  activeThemeId?: string;
+  sslStatus?: 'active' | 'issuing' | 'expired' | 'pending';
+  store?: Partial<Store>;
+  message?: string;
+}
+
 export interface AuditLogItem {
   id: string;
   userId?: string;
@@ -383,31 +486,49 @@ export interface UpdateRelease {
 export interface ThemeItem {
   id: string;
   name: string;
-  category: 'General' | 'Ramadan' | 'Eid' | 'Seasonal' | 'Luxury' | 'Minimal';
+  nameAr?: string;
+  nameEn?: string;
+  category: 'General' | 'Ramadan' | 'Eid' | 'Seasonal' | 'Luxury' | 'Minimal' | 'Luxury Floral' | 'Modern Tech' | 'Royal Boutique' | 'Saudi Heritage' | string;
+  categoryAr?: string;
+  categoryEn?: string;
   tagline: string;
+  taglineAr?: string;
+  taglineEn?: string;
   previewColor: string;
-  /** Optional Unsplash thumbnail preview image */
+  /** Optional Unsplash / UI mockup thumbnail preview image */
   thumbnail?: string;
   badge?: string;
+  badgeAr?: string;
+  badgeEn?: string;
   homepageStyles: string[];
   /** basic = Free/Paid default pack; full = Pro premium catalog */
   tier: 'basic' | 'full';
   activeStoresCount: number;
   isDefault?: boolean;
   rating: number;
+  /** Isolated to specific store ID */
+  storeId?: string;
 }
 
 export interface PluginItem {
   id: string;
   name: string;
+  nameAr?: string;
+  nameEn?: string;
   category: 'Payments' | 'Shipping' | 'Marketing' | 'Customer Support' | 'Compliance';
+  categoryAr?: string;
+  categoryEn?: string;
   description: string;
+  descriptionAr?: string;
+  descriptionEn?: string;
   icon: string;
   monthlyFee: number; // 0 for free
   isProOnly: boolean;
   rating: number;
   installedCount: number;
   provider: string;
+  providerAr?: string;
+  providerEn?: string;
   status: 'installed' | 'available' | 'coming_soon';
 }
 
@@ -545,7 +666,50 @@ export interface ShipmentItem {
   trackingEvents?: { time: string; status: string; description: string; location?: string }[];
 }
 
-export type PaymentGatewayProvider = 'moyasar' | 'tap' | 'hyperpay' | 'stripe' | 'paypal' | 'cod';
+export type PaymentGatewayProvider = 'moyasar' | 'tap' | 'hyperpay' | 'stripe' | 'paypal' | 'tabby' | 'tamara' | 'cod' | 'bank_transfer';
+
+export interface StorefrontPaymentMethod {
+  id: string;
+  provider: PaymentGatewayProvider;
+  name_ar: string;
+  name_en: string;
+  badge_ar?: string;
+  badge_en?: string;
+  is_enabled: boolean;
+  is_instant?: boolean;
+  type: 'card' | 'digital_wallet' | 'bnpl' | 'cod' | 'bank_wire';
+  icon: 'mada' | 'apple_pay' | 'card' | 'tabby' | 'tamara' | 'cod' | 'bank_wire';
+  installments_count?: number;
+}
+
+export interface StorefrontPaymentSession {
+  success: boolean;
+  store_id: string;
+  order_id: string;
+  payment_method: string;
+  provider: string;
+  transaction_reference: string;
+  amount: number;
+  currency: string;
+  installments?: {
+    count: number;
+    per_month: number;
+    schedule: { due: string; amount: number; label: string }[];
+  } | null;
+  checkout_ready: boolean;
+  timestamp: string;
+}
+
+export interface PaymentVerifyResponse {
+  verified: boolean;
+  status: 'paid' | 'failed' | 'pending';
+  transaction_id?: string;
+  reference?: string;
+  order_id?: string;
+  amount?: number;
+  currency?: string;
+  message: string;
+}
 
 export interface PaymentGatewayItem {
   id: string;

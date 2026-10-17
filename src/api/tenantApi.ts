@@ -8,6 +8,7 @@ import {
   mapSeo,
   mapShipping,
   mapStore,
+  mapDomain,
   seoPatchToApi,
   type ApiCouponRow,
   type ApiCustomerRow,
@@ -16,6 +17,7 @@ import {
   type ApiSeoRow,
   type ApiShippingRow,
   type ApiStoreRow,
+  type ApiDomainRow,
 } from './mappers';
 import type {
   CouponItem,
@@ -29,6 +31,11 @@ import type {
   StoreSEOConfig,
   MediaAsset,
   MediaUsage,
+  DomainRecord,
+  DomainResolutionResult,
+  StorefrontPaymentMethod,
+  StorefrontPaymentSession,
+  PaymentVerifyResponse,
 } from '../types';
 
 type ListResponse<T> = { data: T[] };
@@ -372,9 +379,88 @@ export async function deleteCategory(storeId: string, id: string): Promise<void>
   await apiFetch(`/categories/${id}`, { method: 'DELETE', storeId });
 }
 
-export async function fetchOrders(storeId: string): Promise<Order[]> {
-  const res = await apiFetch<ListResponse<ApiOrderRow>>('/orders', { storeId });
-  return (res.data ?? []).map(mapOrder);
+export type OrderListQuery = {
+  q?: string;
+  status?: string;
+  payment_status?: string;
+  payment_method?: string;
+  source?: string;
+  from_date?: string;
+  to_date?: string;
+  sort?: string;
+  dir?: 'asc' | 'desc';
+  page?: number;
+  per_page?: number;
+  all?: boolean;
+};
+
+export type OrderListResult = {
+  data: Order[];
+  meta: {
+    total: number;
+    page: number;
+    per_page: number;
+    last_page: number;
+    sort: string;
+    dir: string;
+  };
+};
+
+export type OrderSummaryResult = {
+  store_id: string;
+  total: number;
+  by_status: Record<string, number>;
+};
+
+export async function fetchOrders(
+  storeId: string,
+  query: OrderListQuery = { all: true },
+): Promise<Order[]> {
+  const res = await fetchOrdersPage(storeId, query);
+  return res.data;
+}
+
+export async function fetchOrdersPage(
+  storeId: string,
+  query: OrderListQuery = {},
+): Promise<OrderListResult> {
+  const params = new URLSearchParams();
+  if (query.q) params.set('q', query.q);
+  if (query.status) params.set('status', query.status);
+  if (query.payment_status) params.set('payment_status', query.payment_status);
+  if (query.payment_method) params.set('payment_method', query.payment_method);
+  if (query.source) params.set('source', query.source);
+  if (query.from_date) params.set('from_date', query.from_date);
+  if (query.to_date) params.set('to_date', query.to_date);
+  if (query.sort) params.set('sort', query.sort);
+  if (query.dir) params.set('dir', query.dir);
+  if (query.page) params.set('page', String(query.page));
+  if (query.per_page) params.set('per_page', String(query.per_page));
+  if (query.all) params.set('all', '1');
+
+  const qs = params.toString();
+  const res = await apiFetch<
+    ListResponse<ApiOrderRow> & { meta?: OrderListResult['meta'] }
+  >(`/orders${qs ? `?${qs}` : ''}`, { storeId });
+
+  const data = (res.data ?? []).map(mapOrder);
+  return {
+    data,
+    meta: res.meta ?? {
+      total: data.length,
+      page: 1,
+      per_page: data.length || 25,
+      last_page: 1,
+      sort: query.sort ?? 'order_date',
+      dir: query.dir ?? 'desc',
+    },
+  };
+}
+
+export async function fetchOrdersSummary(
+  storeId: string,
+): Promise<OrderSummaryResult> {
+  return await apiFetch<OrderSummaryResult>('/orders?summary=1', { storeId });
 }
 
 export async function createOrder(
@@ -403,6 +489,69 @@ export async function updateOrderStatus(
     body: { status },
   });
   return mapOrder(res.data);
+}
+
+export async function updateOrder(
+  storeId: string,
+  id: string,
+  payload: Record<string, unknown>,
+): Promise<Order> {
+  const res = await apiFetch<ItemResponse<ApiOrderRow>>(`/orders/${id}`, {
+    method: 'PATCH',
+    storeId,
+    body: payload,
+  });
+  return mapOrder(res.data);
+}
+
+export async function processOrderReturn(
+  storeId: string,
+  id: string,
+  payload: {
+    reason: string;
+    reason_details?: string;
+    refund_amount?: number;
+    restock_inventory?: boolean;
+    admin_notes?: string;
+    status?: string;
+  },
+): Promise<{ order: Order; returnRecord: any }> {
+  const res = await apiFetch<{ order: ApiOrderRow; return: any }>(`/orders/${id}/return`, {
+    method: 'POST',
+    storeId,
+    body: payload,
+  });
+  return {
+    order: mapOrder(res.order),
+    returnRecord: res.return,
+  };
+}
+
+export async function updateOrderCodStatus(
+  storeId: string,
+  id: string,
+  cod_status: string,
+  cod_notes?: string,
+): Promise<Order> {
+  const res = await apiFetch<{ order: ApiOrderRow }>(`/orders/${id}/cod-status`, {
+    method: 'POST',
+    storeId,
+    body: { cod_status, cod_notes },
+  });
+  return mapOrder(res.order);
+}
+
+export async function fetchCodSummary(
+  storeId: string,
+): Promise<{
+  total_orders: number;
+  total_amount: number;
+  pending_collection: { count: number; amount: number };
+  collected_by_courier: { count: number; amount: number };
+  remitted_to_bank: { count: number; amount: number };
+}> {
+  const res = await apiFetch<{ summary: any }>('/orders-cod-summary', { storeId });
+  return res.summary;
 }
 
 export async function deleteOrder(storeId: string, id: string): Promise<void> {
@@ -565,6 +714,70 @@ export async function createMedia(
     processingStatus: row.processing_status || 'ready',
     optimizationStatus: row.optimization_status || 'optimized',
     source: 'upload',
+  };
+}
+
+export async function uploadMediaFile(
+  storeId: string,
+  file: File,
+  meta?: { alt?: string; caption?: string; folder?: string },
+): Promise<MediaAsset> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (meta?.alt) formData.append('alt', meta.alt);
+  if (meta?.caption) formData.append('caption', meta.caption);
+  if (meta?.folder) formData.append('folder', meta.folder);
+
+  const res = await apiFetch<ItemResponse<any>>('/media', {
+    method: 'POST',
+    storeId,
+    body: formData,
+  });
+  const row = res.data;
+  return {
+    id: row.id,
+    storeId: row.store_id || storeId,
+    fileName: row.file_name,
+    title: row.file_name,
+    fileType: row.file_type || 'image',
+    mimeType: row.mime || file.type || 'image/jpeg',
+    fileSize: row.size_bytes || file.size,
+    width: row.width,
+    height: row.height,
+    originalUrl: row.url,
+    optimizedUrl: row.optimized_url || row.url,
+    webpUrl: row.webp_url || row.url,
+    thumbnailUrl: row.thumbnail_url || row.url,
+    posterUrl: row.poster_url,
+    altText: row.alt,
+    caption: row.caption,
+    folder: row.folder || 'general',
+    uploadDate: row.created_at || new Date().toISOString(),
+    updatedAt: row.updated_at || new Date().toISOString(),
+    version: row.version || 1,
+    processingStatus: row.processing_status || 'ready',
+    optimizationStatus: row.optimization_status || 'optimized',
+    source: 'upload',
+  };
+}
+
+export async function replaceMediaWithFile(
+  storeId: string,
+  id: string,
+  file: File,
+): Promise<{ url: string; version: number }> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await apiFetch<ItemResponse<any>>(`/media/${id}/replace`, {
+    method: 'POST',
+    storeId,
+    body: formData,
+  });
+  const row = res.data || {};
+  return {
+    url: row.url,
+    version: row.version || 1,
   };
 }
 
@@ -913,6 +1126,42 @@ export async function fetchPaymentTransactions(storeId: string, params?: Record<
   return apiFetch(`/payments/transactions${q}`, { storeId });
 }
 
+// ── Public Storefront Saudi Payments (Mada, Apple Pay, Tabby, Tamara, COD) ──
+
+export async function fetchStorefrontPaymentMethodsApi(storeId: string): Promise<StorefrontPaymentMethod[]> {
+  const res = await apiFetch<{ success: boolean; methods: StorefrontPaymentMethod[] }>(`/storefront/payments/methods?store_id=${encodeURIComponent(storeId)}`);
+  return res.methods ?? [];
+}
+
+export async function initiateStorefrontPaymentApi(payload: {
+  store_id: string;
+  order_id?: string;
+  payment_method: string;
+  amount: number;
+  customer_name?: string;
+  customer_phone?: string;
+}): Promise<StorefrontPaymentSession> {
+  return apiFetch<StorefrontPaymentSession>('/storefront/payments/initiate', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function verifyStorefrontPaymentApi(payload: {
+  store_id: string;
+  order_id: string;
+  gateway_provider: string;
+  payment_method: string;
+  transaction_reference: string;
+  amount: number;
+  payload?: Record<string, unknown>;
+}): Promise<PaymentVerifyResponse> {
+  return apiFetch<PaymentVerifyResponse>('/storefront/payments/verify', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
 // ── Real Analytics Reports (Database Aggregated) ──
 
 export async function fetchPaymentReportsApi(storeId: string): Promise<any> {
@@ -922,5 +1171,169 @@ export async function fetchPaymentReportsApi(storeId: string): Promise<any> {
 export async function fetchShippingReportsApi(storeId: string): Promise<any> {
   return apiFetch('/analytics/shipping', { storeId });
 }
+
+// ── Real Theme Settings & Page Builder Persistence (Phase 2.2 / 2.3) ──
+
+export async function fetchThemesCatalogApi(): Promise<any[]> {
+  const res = await apiFetch<{ success: boolean; data: any[] }>('/themes-catalog');
+  return res.data ?? [];
+}
+
+export async function fetchThemeSettingsApi(storeId: string): Promise<any> {
+  const res = await apiFetch<{ success: boolean; data: any }>(`/stores/${storeId}/theme-settings`, { storeId });
+  return res.data;
+}
+
+export async function updateThemeSettingsApi(
+  storeId: string,
+  payload: { theme_id?: string; homepage_style?: string; settings?: Record<string, any> }
+): Promise<any> {
+  const res = await apiFetch<{ success: boolean; data: any }>(`/stores/${storeId}/theme-settings`, {
+    method: 'PUT',
+    storeId,
+    body: payload,
+  });
+  return res.data;
+}
+
+export async function fetchBuilderLayoutApi(storeId: string): Promise<any> {
+  const res = await apiFetch<{ success: boolean; data: any }>(`/stores/${storeId}/builder-layout`, { storeId });
+  return res.data;
+}
+
+export async function saveBuilderLayoutApi(
+  storeId: string,
+  payload: {
+    theme_id?: string;
+    blocks: any[];
+    is_published?: boolean;
+    seasonal_theme?: any;
+    typography_settings?: any;
+    header_settings?: any;
+    mobile_menu_icon?: any;
+  }
+): Promise<any> {
+  const res = await apiFetch<{ success: boolean; data: any }>(`/stores/${storeId}/builder-layout`, {
+    method: 'PUT',
+    storeId,
+    body: payload,
+  });
+  return res.data;
+}
+
+export async function fetchStorefrontThemeApi(storeId?: string): Promise<any> {
+  const q = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
+  return apiFetch(`/storefront/theme${q}`, { storeId });
+}
+
+export async function fetchStoreSettingsApi(storeId: string): Promise<Record<string, any>> {
+  const res = await apiFetch<{ success: boolean; data: Record<string, any> }>(`/stores/${storeId}/store-settings`, { storeId });
+  return res.data ?? {};
+}
+
+export async function updateStoreSettingsApi(
+  storeId: string,
+  settings: Record<string, any>
+): Promise<Record<string, any>> {
+  const res = await apiFetch<{ success: boolean; data: Record<string, any> }>(`/stores/${storeId}/store-settings`, {
+    method: 'PUT',
+    storeId,
+    body: { settings },
+  });
+  return res.data ?? {};
+}
+
+// ====================================================================
+// Multi-Domain & Store Routing APIs (Phase 6.1)
+// ====================================================================
+
+/**
+ * Public dynamic domain and subdomain resolution for storefront.
+ * Resolves incoming hostname (e.g. specialtycoffee.sa, car.unityteck.com) to matching store and active theme.
+ */
+export async function resolveDomainApi(domain: string): Promise<DomainResolutionResult> {
+  const q = `?domain=${encodeURIComponent(domain)}`;
+  try {
+    return await apiFetch<DomainResolutionResult>(`/storefront/resolve-domain${q}`);
+  } catch (err: any) {
+    return {
+      resolved: false,
+      domain,
+      message: err?.message || 'Domain resolution failed',
+    };
+  }
+}
+
+/**
+ * List all domain bindings (store-isolated or platform-wide for master).
+ */
+export async function fetchDomainsApi(storeId?: string): Promise<DomainRecord[]> {
+  const q = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
+  const res = await apiFetch<ListResponse<ApiDomainRow>>(`/domains${q}`, { storeId });
+  return (res.data ?? []).map(mapDomain);
+}
+
+/**
+ * Register a new custom domain for a store.
+ */
+export async function createDomainApi(
+  payload: { domain_name: string; hosting_tier?: string; is_primary?: boolean; store_id?: string },
+  storeId?: string,
+): Promise<DomainRecord> {
+  const res = await apiFetch<ItemResponse<ApiDomainRow>>('/domains', {
+    method: 'POST',
+    storeId: payload.store_id || storeId,
+    body: payload,
+  });
+  return mapDomain(res.data);
+}
+
+/**
+ * Trigger DNS verification for a domain binding.
+ */
+export async function verifyDomainDnsApi(
+  id: string,
+  storeId?: string,
+): Promise<{ success: boolean; message: string; data?: DomainRecord }> {
+  const res = await apiFetch<{ success: boolean; message: string; data: ApiDomainRow }>(`/domains/${id}/verify`, {
+    method: 'POST',
+    storeId,
+  });
+  return {
+    success: res.success,
+    message: res.message,
+    data: res.data ? mapDomain(res.data) : undefined,
+  };
+}
+
+/**
+ * Toggle or reissue SSL status for a domain binding.
+ */
+export async function toggleDomainSslApi(
+  id: string,
+  storeId?: string,
+): Promise<{ success: boolean; message: string; data?: DomainRecord }> {
+  const res = await apiFetch<{ success: boolean; message: string; data: ApiDomainRow }>(`/domains/${id}/ssl`, {
+    method: 'POST',
+    storeId,
+  });
+  return {
+    success: res.success,
+    message: res.message,
+    data: res.data ? mapDomain(res.data) : undefined,
+  };
+}
+
+/**
+ * Delete a domain binding.
+ */
+export async function deleteDomainApi(id: string, storeId?: string): Promise<void> {
+  await apiFetch(`/domains/${id}`, {
+    method: 'DELETE',
+    storeId,
+  });
+}
+
+
 
 

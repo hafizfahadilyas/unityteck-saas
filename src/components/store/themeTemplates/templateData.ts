@@ -13,10 +13,11 @@ export interface HomepageTemplateItem {
   accentColor: string;
   badge: string;
   badgeAr: string;
-  category: 'Default' | 'Eid' | 'Ramadan' | 'Valentine';
+  category: 'Default' | 'Eid' | 'Ramadan' | 'Valentine' | 'Coffee' | 'Transport';
   features: string[];
   featuresAr: string[];
   bannerGradient: string;
+  thumbnail?: string;
 }
 
 export const HOMEPAGE_TEMPLATES: HomepageTemplateItem[] = [
@@ -46,6 +47,7 @@ export const HOMEPAGE_TEMPLATES: HomepageTemplateItem[] = [
       'تذييل متكامل مع النشرة البريدية وروابط التواصل',
     ],
     bannerGradient: 'linear-gradient(135deg, #059669 0%, #064e3b 100%)',
+    thumbnail: '/theme-mockups/real_storefront_hero.png',
   },
   {
     id: 'hp-eid',
@@ -73,6 +75,7 @@ export const HOMEPAGE_TEMPLATES: HomepageTemplateItem[] = [
       'زر طلب سريع عبر واتساب للباقات المخصصة',
     ],
     bannerGradient: 'linear-gradient(135deg, #0d9488 0%, #134e4a 100%)',
+    thumbnail: '/theme-mockups/real_storefront_3d_slider.png',
   },
   {
     id: 'hp-ramadan',
@@ -100,6 +103,7 @@ export const HOMEPAGE_TEMPLATES: HomepageTemplateItem[] = [
       'باقة الورد الأبيض مع العود والبخور الفاخر',
     ],
     bannerGradient: 'linear-gradient(135deg, #b45309 0%, #1e1b4b 100%)',
+    thumbnail: '/theme-mockups/real_storefront_products.png',
   },
   {
     id: 'hp-valentine',
@@ -127,6 +131,91 @@ export const HOMEPAGE_TEMPLATES: HomepageTemplateItem[] = [
       'تقييمات وصور تجارب العملاء في المناسبات السعيدة',
     ],
     bannerGradient: 'linear-gradient(135deg, #e11d48 0%, #881337 100%)',
+    thumbnail: '/theme-mockups/real_storefront_hero.png',
+  },
+  {
+    id: 'hp-coffee-boutique',
+    name: 'Boutique Espresso Showroom (HiBrew Flagship)',
+    nameAr: 'معرض الإسبريسو الحصري (HiBrew Flagship)',
+    styleKey: 'Boutique Espresso Showroom',
+    tagline: 'Highlighting flagship 20-bar espresso hardware, dual boiler specs, 3D exploded parts and cinematic video banners.',
+    taglineAr: 'واجهة فاخرة لمكائن الإسبريسو 20 بار والدبل بويلر مع عروض 3D تفاعلية وفيديوهات تشغيل سينمائية.',
+    accentColor: '#d97706',
+    badge: 'HiBrew Flagship',
+    badgeAr: 'إصدار هاي برو الرسمي',
+    category: 'Coffee',
+    features: [
+      'Cinema 3D Hero Slider with Buy Now & Learn More actions',
+      'Interactive 3D Flagship Espresso Machine Exploded Section',
+      'Titanium Conical Grinders & Burr Calibration showcase',
+      'Saudi plug 220V compliance & 2-year warranty badges',
+      'Seamless 1-click Express Checkout with Mada & Apple Pay',
+    ],
+    featuresAr: [
+      'سلايدر سينمائي تفاعلي ثلاثي الأبعاد مع الشراء الفوري',
+      'معرض تفاعلي لمكائن القهوة 20 بار وتفكيك القطع 3D',
+      'قسم مطاحن البن الاحترافية وتروس التيتانيوم المخروطية',
+      'ضمان سنتين معتمد ومطابقة المواصفات السعودية 220V',
+      'شراء فوري سريع بنقرة واحدة عبر مدى وأبل باي وتابي',
+    ],
+    bannerGradient: 'linear-gradient(135deg, #1c1917 0%, #78350f 100%)',
+    thumbnail: '/src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg',
+  },
+  {
+    id: 'hp-coffee-barista',
+    name: 'Barista Special Edition & Mills',
+    nameAr: 'إصدار الباريستا الاحترافي والمطاحن',
+    styleKey: 'Barista Special Edition',
+    tagline: 'Focused on precision barista tools, V60 pour-over kits, titanium conical burrs and specialty micro-lots.',
+    taglineAr: 'تصميم متخصص لأدوات الباريستا ومستلزمات التقطير V60 ومطاحن القهوة وحبوب البن المختصة.',
+    accentColor: '#78350f',
+    badge: 'Barista Pro',
+    badgeAr: 'مستلزمات الباريستا',
+    category: 'Coffee',
+    features: [
+      'Interactive Barista Kit & Precision Tools Slider',
+      'Titanium Conical Grinder Micrometric Dial Showcase',
+      'Roast Date & Altitude Origin Specialty Beans Filter',
+      'Live customer brew recipes & extraction reviews',
+      'Express SMSA & SPL Delivery across Saudi Arabia',
+    ],
+    featuresAr: [
+      'سلايدر أدوات الباريستا الدقيقة وموازين الإسبريسو الرقمية',
+      'استعراض مطاحن البن مع درجات الطحن الميكرومترية الدقيقة',
+      'فلترة حبوب القهوة المختصة حسب تاريخ التحميص والارتفاع',
+      'وصفات استخلاص وتقييمات مجربة من خبراء القهوة',
+      'شحن سريع لجميع مدن المملكة عبر سمسا وسبل',
+    ],
+    bannerGradient: 'linear-gradient(135deg, #292524 0%, #b45309 100%)',
+    thumbnail: '/src/assets/images/coffee_barista_accessories_set_1791219198302.jpg',
+  },
+  {
+    id: 'hp-coffee-minimal',
+    name: 'Minimal Roastery Dark (Matte Obsidian)',
+    nameAr: 'المحمصة المودرن الفاخرة (Matte Obsidian)',
+    styleKey: 'Minimal Roastery Dark',
+    tagline: 'High-contrast matte black and gold accents with bespoke coffee corner cabinet stations and unboxing flows.',
+    taglineAr: 'تصميم فخم باللون الأسود المطفي مع أركان ودواليب القهوة الفاخرة وتجربة شحن متميزة.',
+    accentColor: '#1c1917',
+    badge: 'Matte Obsidian',
+    badgeAr: 'الإصدار الملكي الأسود',
+    category: 'Coffee',
+    features: [
+      'Luxury Bespoke Coffee Corner & Station Showcase',
+      'High-contrast product photography & specs table',
+      'Direct Custom Order Builder for bespoke coffee bars',
+      'Split payments with Tabby & Tamara (4 installments)',
+      'Official HiBrew KSA Customer Support & Spare Parts',
+    ],
+    featuresAr: [
+      'عرض أركان ودواليب القهوة الفاخرة المصممة خصيصاً للمنازل',
+      'صور منتجات عالية الدقة مع جداول المواصفات الفنية المعتمدة',
+      'نموذج طلب تفصيل وتجهيز ركن القهوة المخصص بالكامل',
+      'تقسيط مريح عبر تابي وتمارا على 4 دفعات بدون فوائد',
+      'دعم فني وقطع غيار أصلية متوفرة لجميع مكائن هاي برو',
+    ],
+    bannerGradient: 'linear-gradient(135deg, #0c0a09 0%, #292524 100%)',
+    thumbnail: '/src/assets/images/coffee_corner_luxury_station_1791219182840.jpg',
   },
 ];
 
@@ -202,6 +291,17 @@ export const ALL_PAGE_TEMPLATES: PageCategoryTemplate[] = [
         previewBg: 'linear-gradient(135deg, #991b1b, #450a0a)',
         highlights: ['Live countdown timer', 'Remaining stock badge', 'Free delivery progress bar', '1-Click Apple Pay'],
       },
+      {
+        id: 'prod-hibrew-flagship',
+        name: 'HiBrew Flagship Espresso Specs, 20-Bar Breakdown & Buy Now',
+        nameAr: 'مواصفات ماكينة القهوة الفاخرة (20 بار والقطع الميكانيكية والشراء الفوري)',
+        description: 'Engineered for espresso machines with pressure gauge, dual boiler breakdown, grind size dial, and 1-click Buy Now.',
+        descriptionAr: 'واجهة متخصصة لمكائن الإسبريسو ومطاحن البن مع مؤشر الضغط 20 بار وتفكيك القطع وزر الشراء الفوري.',
+        styleTag: 'Coffee Hardware',
+        isPopular: true,
+        previewBg: 'linear-gradient(135deg, #1c1917, #78350f)',
+        highlights: ['20-Bar pressure gauge specs', 'Titanium conical burr dial', 'Direct Buy Now button', 'Saudi 220V plug guarantee'],
+      },
     ],
   },
   {
@@ -242,6 +342,17 @@ export const ALL_PAGE_TEMPLATES: PageCategoryTemplate[] = [
         styleTag: 'High Density',
         previewBg: 'linear-gradient(135deg, #075985, #0c4a6e)',
         highlights: ['Inline quantity picker', 'Instant SKU search', 'Bulk select to cart', 'Export catalog PDF'],
+      },
+      {
+        id: 'shop-hibrew-grid',
+        name: 'HiBrew Coffee Machines & Barista 4-Column Grid',
+        nameAr: 'شبكة مكائن القهوة وأدوات الباريستا مع فلترة الضغط والمطاحن',
+        description: 'Multi-filter storefront for espresso machines, conical grinders, and accessories with instant quick buy.',
+        descriptionAr: 'عرض شبكي فاخر لمكائن القهوة والمطاحن مع فلترة مخصصة حسب البار وتروس الطحن والسعر.',
+        styleTag: 'Coffee Storefront',
+        isPopular: true,
+        previewBg: 'linear-gradient(135deg, #292524, #1c1917)',
+        highlights: ['Filter by Bar Pressure (15-20 Bar)', 'Grind size selector', 'Barista accessories bundle', 'Live SAR currency'],
       },
     ],
   },

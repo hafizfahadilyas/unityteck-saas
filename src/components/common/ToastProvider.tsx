@@ -145,8 +145,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 function ConfirmModal({
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   danger,
   onConfirm,
   onCancel,
@@ -160,6 +160,9 @@ function ConfirmModal({
   onCancel: () => void;
 }) {
   const titleId = useId();
+  const isAr = isArabicDocument();
+  const effectiveConfirmLabel = confirmLabel || (isAr ? 'تأكيد' : 'Confirm');
+  const effectiveCancelLabel = cancelLabel || (isAr ? 'إلغاء' : 'Cancel');
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -171,6 +174,7 @@ function ConfirmModal({
 
   return (
     <div
+      dir={isAr ? 'rtl' : 'ltr'}
       className="fixed inset-0 z-[110] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
@@ -222,7 +226,7 @@ function ConfirmModal({
               borderColor: 'var(--border, #98d8d0)',
             }}
           >
-            {cancelLabel}
+            {effectiveCancelLabel}
           </button>
           <button
             type="button"
@@ -234,7 +238,7 @@ function ConfirmModal({
                 : 'var(--portal-cta, linear-gradient(90deg, #1d8b94, #4fb8b4))',
             }}
           >
-            {confirmLabel}
+            {effectiveConfirmLabel}
           </button>
         </div>
       </div>

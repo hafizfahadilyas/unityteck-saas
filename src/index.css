@@ -119,6 +119,34 @@
   background: color-mix(in srgb, var(--muted, #64748b) 60%, transparent);
 }
 
+/* ── Always Visible, High-Contrast Scrollbar for Visual Page Builder Canvas ── */
+#theme-builder-canvas-scroll {
+  scrollbar-width: thin !important;
+  scrollbar-color: #6366f1 #e2e8f0 !important;
+  overflow-y: scroll !important;
+}
+
+#theme-builder-canvas-scroll::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
+  display: block !important;
+}
+
+#theme-builder-canvas-scroll::-webkit-scrollbar-track {
+  background: #e2e8f0 !important;
+  border-radius: 9999px !important;
+}
+
+#theme-builder-canvas-scroll::-webkit-scrollbar-thumb {
+  background: #6366f1 !important;
+  border-radius: 9999px !important;
+  border: 2px solid #e2e8f0 !important;
+}
+
+#theme-builder-canvas-scroll::-webkit-scrollbar-thumb:hover {
+  background: #4f46e5 !important;
+}
+
 /* Helper: completely hide scrollbar on flex-wrap tab strips */
 .no-scrollbar {
   scrollbar-width: none;
@@ -213,4 +241,212 @@
   box-shadow: 0 20px 35px -10px rgba(16, 42, 28, 0.15), 0 10px 15px -8px rgba(212, 175, 55, 0.12);
   border-color: rgba(212, 175, 55, 0.65);
 }
+
+/* ========================================================
+   PAGE BUILDER MULTI-DEVICE RESPONSIVE SIMULATION & VIEWPORTS
+   Forces true mobile / tablet responsive layout inside canvas
+   regardless of physical desktop browser window width.
+   ======================================================== */
+
+/* ── 1. MOBILE DEVICE MODE (.builder-device-mobile) ── */
+.builder-device-mobile {
+  width: 100% !important;
+  max-width: 420px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  min-height: auto !important;
+}
+
+/* Ensure all store sections are fully visible and not clipped */
+.builder-device-mobile section {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Hero slider compact height for authentic mobile proportions */
+.builder-device-mobile section[aria-label="Hero Luxury Floral Slider"],
+.builder-device-mobile [class*="h-[460px]"],
+.builder-device-mobile [class*="lg:h-[640px]"] {
+  height: 380px !important;
+  min-height: 380px !important;
+}
+
+/* Visibility overrides: Desktop-only hidden, Mobile-only displayed */
+.builder-device-mobile .hidden.sm\:block,
+.builder-device-mobile .hidden.sm\:flex,
+.builder-device-mobile .hidden.sm\:grid,
+.builder-device-mobile .hidden.md\:block,
+.builder-device-mobile .hidden.md\:flex,
+.builder-device-mobile .hidden.md\:grid,
+.builder-device-mobile .hidden.lg\:block,
+.builder-device-mobile .hidden.lg\:flex,
+.builder-device-mobile .hidden.lg\:grid,
+.builder-device-mobile .hidden.xl\:block,
+.builder-device-mobile .hidden.xl\:flex {
+  display: none !important;
+}
+
+.builder-device-mobile .block.sm\:hidden,
+.builder-device-mobile .block.md\:hidden,
+.builder-device-mobile .block.lg\:hidden {
+  display: block !important;
+}
+
+.builder-device-mobile .flex.sm\:hidden,
+.builder-device-mobile .flex.md\:hidden,
+.builder-device-mobile .flex.lg\:hidden {
+  display: flex !important;
+}
+
+.builder-device-mobile .grid.sm\:hidden,
+.builder-device-mobile .grid.md\:hidden,
+.builder-device-mobile .grid.lg\:hidden {
+  display: grid !important;
+}
+
+.builder-device-mobile .sm\:hidden:not(.hidden) {
+  display: block !important;
+}
+
+.builder-device-mobile .lg\:hidden:not(.hidden) {
+  display: flex !important;
+}
+
+/* Grid columns: Force 4/5/6 columns to collapse to 2 columns on mobile */
+.builder-device-mobile .grid-cols-2.md\:grid-cols-4,
+.builder-device-mobile .grid-cols-2.lg\:grid-cols-4,
+.builder-device-mobile .grid-cols-2.sm\:grid-cols-2.md\:grid-cols-4,
+.builder-device-mobile .grid-cols-2.sm\:grid-cols-3.md\:grid-cols-5,
+.builder-device-mobile .grid-cols-2.sm\:grid-cols-3.md\:grid-cols-6,
+.builder-device-mobile .grid-cols-2.md\:grid-cols-5,
+.builder-device-mobile .grid-cols-2.md\:grid-cols-6,
+.builder-device-mobile .md\:grid-cols-4,
+.builder-device-mobile .lg\:grid-cols-4,
+.builder-device-mobile .xl\:grid-cols-4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+/* Grids that start with 1 column or are full-width cards collapse to 1 column */
+.builder-device-mobile .grid-cols-1.md\:grid-cols-2,
+.builder-device-mobile .grid-cols-1.sm\:grid-cols-2,
+.builder-device-mobile .grid-cols-1.lg\:grid-cols-12,
+.builder-device-mobile .grid-cols-1.lg\:grid-cols-4,
+.builder-device-mobile .grid-cols-1.md\:grid-cols-4,
+.builder-device-mobile .grid-cols-1.sm\:grid-cols-2.md\:grid-cols-3 {
+  grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+}
+
+/* Responsive flex direction */
+.builder-device-mobile .flex-col.sm\:flex-row,
+.builder-device-mobile .flex-col.md\:flex-row,
+.builder-device-mobile .flex-col.lg\:flex-row {
+  flex-direction: column !important;
+}
+
+/* Mobile typography scaling */
+.builder-device-mobile h1,
+.builder-device-mobile .sm\:text-4xl,
+.builder-device-mobile .md\:text-4xl,
+.builder-device-mobile .lg\:text-5xl {
+  font-size: 1.45rem !important;
+  line-height: 1.9rem !important;
+}
+
+.builder-device-mobile h2,
+.builder-device-mobile .sm\:text-3xl,
+.builder-device-mobile .md\:text-3xl,
+.builder-device-mobile .lg\:text-3xl {
+  font-size: 1.25rem !important;
+  line-height: 1.75rem !important;
+}
+
+.builder-device-mobile .sm\:text-2xl,
+.builder-device-mobile .md\:text-2xl {
+  font-size: 1.1rem !important;
+  line-height: 1.5rem !important;
+}
+
+/* Gaps and padding adjustments */
+.builder-device-mobile .gap-4.sm\:gap-6,
+.builder-device-mobile .gap-6.sm\:gap-8,
+.builder-device-mobile .gap-8.lg\:gap-10 {
+  gap: 0.75rem !important;
+}
+
+.builder-device-mobile .px-4.sm\:px-6.lg\:px-8 {
+  padding-left: 0.75rem !important;
+  padding-right: 0.75rem !important;
+}
+
+.builder-device-mobile .py-10.md\:py-14,
+.builder-device-mobile .py-8.sm\:py-12,
+.builder-device-mobile .py-10.sm\:py-14 {
+  padding-top: 1.5rem !important;
+  padding-bottom: 1.5rem !important;
+}
+
+
+/* ── 2. TABLET DEVICE MODE (.builder-device-tablet) ── */
+.builder-device-tablet {
+  width: 100% !important;
+  max-width: 768px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* Tablet visibility: lg and xl desktop-only elements hidden */
+.builder-device-tablet .hidden.lg\:block,
+.builder-device-tablet .hidden.lg\:flex,
+.builder-device-tablet .hidden.lg\:grid,
+.builder-device-tablet .hidden.xl\:block,
+.builder-device-tablet .hidden.xl\:flex {
+  display: none !important;
+}
+
+.builder-device-tablet .lg\:hidden {
+  display: flex !important;
+}
+
+/* Tablet grids: 2 or 3 columns instead of 4 or 5 */
+.builder-device-tablet .grid-cols-2.md\:grid-cols-4,
+.builder-device-tablet .grid-cols-2.lg\:grid-cols-4,
+.builder-device-tablet .grid-cols-2.sm\:grid-cols-2.md\:grid-cols-4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.builder-device-tablet .grid-cols-1.lg\:grid-cols-12 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.builder-device-tablet .grid-cols-1.lg\:grid-cols-4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.builder-device-tablet h1,
+.builder-device-tablet .lg\:text-5xl {
+  font-size: 1.85rem !important;
+}
+
+.builder-device-tablet h2,
+.builder-device-tablet .lg\:text-3xl {
+  font-size: 1.45rem !important;
+}
+
+
+/* ── 3. LAPTOP & DESKTOP MODES ── */
+.builder-device-laptop {
+  max-width: 1024px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.builder-device-desktop {
+  max-width: 1400px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
 

@@ -1,0 +1,5 @@
+import fs from 'fs';
+
+const file = fs.readFileSync('src/themes/saudiaTransport/SaudiaTransportThemeView.tsx', 'utf8');
+const lines = file.split('\n');
+console.log(lines.slice(260, 310).join('\n'));

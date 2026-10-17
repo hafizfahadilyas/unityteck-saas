@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600" width="1200" height="1600">
+  <defs>
+    <linearGradient id="eidBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#042f2e"/>
+      <stop offset="50%" stop-color="#0f766e"/>
+      <stop offset="100%" stop-color="#115e59"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="100%" stop-color="#ca8a04"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="1600" fill="#042f2e"/>
+
+  <!-- Announcement Bar -->
+  <rect width="1200" height="42" fill="#0f766e"/>
+  <text x="600" y="26" fill="#ffffff" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" text-anchor="middle">
+    🌙 كل عام وأنتم بخير بمناسبة عيد الفطر المبارك · باقات وهدايا وتوزيعات العيد مع توصيل فوري بمكة · Eid Mubarak Specials
+  </text>
+
+  <!-- Store Header -->
+  <rect y="42" width="1200" height="84" fill="#083344" stroke="#155e75" stroke-width="1"/>
+  <circle cx="90" cy="84" r="24" fill="url(#gold)"/>
+  <text x="90" y="90" fill="#042f2e" font-family="system-ui, sans-serif" font-size="20" font-weight="900" text-anchor="middle">🌙</text>
+  <text x="126" y="78" fill="#ffffff" font-family="system-ui, sans-serif" font-size="18" font-weight="900">هدايا مكة — باقات العيد الفاخرة</text>
+  <text x="126" y="96" fill="#2dd4bf" font-family="system-ui, sans-serif" font-size="11" font-weight="600">EID MUBARAK LUXURY GIFTS COLLECTION</text>
+
+  <rect x="420" y="62" width="420" height="44" rx="22" fill="#0e4b5e" stroke="#164e63" stroke-width="1.5"/>
+  <text x="450" y="88" fill="#99f6e4" font-family="system-ui, sans-serif" font-size="13">🔍 ابحث في هدايا العيد، توزيعات، شوكولاتة باتشي...</text>
+
+  <rect x="1005" y="66" width="110" height="36" rx="18" fill="url(#gold)"/>
+  <text x="1060" y="89" fill="#083344" font-family="system-ui, sans-serif" font-size="12" font-weight="900" text-anchor="middle">🛒 سلة العيد (٢)</text>
+
+  <!-- Navigation -->
+  <rect y="126" width="1200" height="48" fill="#0b3d4f"/>
+  <text x="120" y="156" fill="#2dd4bf" font-family="system-ui, sans-serif" font-size="13" font-weight="bold">الرئيسية</text>
+  <text x="250" y="156" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="13">باقات ورد العيد</text>
+  <text x="410" y="156" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="13">توزيعات وصواني العيد</text>
+  <text x="600" y="156" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="13">شوكولاتة وكعك العيد</text>
+  <text x="790" y="156" fill="#fde047" font-family="system-ui, sans-serif" font-size="13" font-weight="bold">✨ عيدية مكة الحصرية</text>
+
+  <!-- Hero Banner -->
+  <g filter="url(#shadow)">
+    <rect x="50" y="194" width="1100" height="380" rx="28" fill="url(#eidBg)" stroke="#2dd4bf" stroke-width="2"/>
+    <text x="100" y="270" fill="url(#gold)" font-family="system-ui, sans-serif" font-size="16" font-weight="900">✨ تشكيلة العيد الفاخرة الحصرية</text>
+    <text x="100" y="330" fill="#ffffff" font-family="system-ui, sans-serif" font-size="34" font-weight="900">عساكم من عواده — هدايا العيد بمكة</text>
+    <text x="100" y="370" fill="#ccfbf1" font-family="system-ui, sans-serif" font-size="16">صواني العيد الملكية، باقات الورد الزاهية وتوزيعات فاخرة للأهل والأحباب</text>
+    
+    <rect x="100" y="415" width="180" height="48" rx="24" fill="url(#gold)"/>
+    <text x="190" y="445" fill="#042f2e" font-family="system-ui, sans-serif" font-size="15" font-weight="900" text-anchor="middle">اطلب هدايا العيد 🎁</text>
+
+    <!-- Visual 3D Preview Box -->
+    <rect x="760" y="230" width="340" height="308" rx="20" fill="#0f766e" stroke="#2dd4bf" stroke-width="2"/>
+    <text x="930" y="360" font-size="54" text-anchor="middle">🌙🕌🎁</text>
+    <text x="930" y="475" fill="#fde047" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" text-anchor="middle">صينية فرحة العيد الملكية · ٢٩٩ ر.س</text>
+  </g>
+
+  <!-- Grid Items -->
+  <g transform="translate(100, 620)">
+    <rect width="470" height="300" rx="20" fill="#0f766e" stroke="#14b8a6" stroke-width="1.5"/>
+    <text x="30" y="50" fill="#ffffff" font-family="system-ui, sans-serif" font-size="18" font-weight="bold">باقات زهور العيد المنعشة 🌸</text>
+    <text x="30" y="80" fill="#ccfbf1" font-family="system-ui, sans-serif" font-size="13">تنسيقات الجوري والبيوني والزنبق الأبيض</text>
+    <text x="30" y="240" fill="#fde047" font-family="system-ui, sans-serif" font-size="20" font-weight="900">تبدأ من ١٧٥ ر.س</text>
+  </g>
+
+  <g transform="translate(630, 620)">
+    <rect width="470" height="300" rx="20" fill="#0f766e" stroke="#14b8a6" stroke-width="1.5"/>
+    <text x="30" y="50" fill="#ffffff" font-family="system-ui, sans-serif" font-size="18" font-weight="bold">توزيعات وشوكولاتة العيد 🍫</text>
+    <text x="30" y="80" fill="#ccfbf1" font-family="system-ui, sans-serif" font-size="13">بوكسات مخصصة بأسماء العائلة والأطفال</text>
+    <text x="30" y="240" fill="#fde047" font-family="system-ui, sans-serif" font-size="20" font-weight="900">تبدأ من ١٩٠ ر.س</text>
+  </g>
+
+  <!-- Footer -->
+  <rect y="1480" width="1200" height="120" fill="#083344"/>
+  <text x="600" y="1545" fill="#ffffff" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" text-anchor="middle">
+    جميع الحقوق محفوظة © متجر هدايا مكة الفاخرة — ستايل العيد المبارك
+  </text>
+</svg>

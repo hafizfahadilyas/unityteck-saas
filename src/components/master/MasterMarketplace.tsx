@@ -2,8 +2,19 @@ import React, { useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { AppStoreBrand, ThemeStoreGrid } from '../common/ThemeStoreGrid';
 import { Check, Plus, Star } from 'lucide-react';
+import { usePrefs } from '../../i18n/PrefsContext';
+import { getStoreDisplayName } from '../../utils/storeLocalization';
 
 type MasterTab = 'themes' | 'apps';
+
+const CATEGORY_AR: Record<string, string> = {
+  All: 'الكل',
+  Payments: 'المدفوعات',
+  Shipping: 'الشحن والتوصيل',
+  Marketing: 'التسويق',
+  'Customer Support': 'دعم العملاء',
+  Compliance: 'الامتثال الضريبي',
+};
 
 export const MasterMarketplace: React.FC = () => {
   const {
@@ -16,6 +27,8 @@ export const MasterMarketplace: React.FC = () => {
     setStoreTheme,
     setStoreHomepageStyle,
   } = useTenant();
+  const { locale } = usePrefs();
+  const isAr = locale === 'ar';
 
   const [tab, setTab] = useState<MasterTab>('themes');
   const [categoryFilter, setCategoryFilter] = useState('All');
@@ -55,7 +68,7 @@ export const MasterMarketplace: React.FC = () => {
             >
               {stores.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name}
+                  {getStoreDisplayName(s, locale)}
                 </option>
               ))}
             </select>
@@ -64,15 +77,15 @@ export const MasterMarketplace: React.FC = () => {
           <div className="flex p-1 rounded-xl gap-1" style={{ background: 'var(--hover-bg)' }}>
             {(
               [
-                ['themes', 'Theme Store'],
-                ['apps', 'Apps & plugins'],
+                ['themes', isAr ? 'متجر القوالب' : 'Theme Store'],
+                ['apps', isAr ? 'التطبيقات والإضافات' : 'Apps & plugins'],
               ] as const
             ).map(([id, label]) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setTab(id)}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors"
                 style={
                   tab === id
                     ? { background: 'var(--active-bg)', color: 'var(--active-fg)' }
@@ -104,7 +117,7 @@ export const MasterMarketplace: React.FC = () => {
                 key={cat}
                 type="button"
                 onClick={() => setCategoryFilter(cat)}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap cursor-pointer border"
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap cursor-pointer border transition-colors"
                 style={
                   categoryFilter === cat
                     ? { background: 'var(--active-bg)', color: 'var(--active-fg)', borderColor: 'transparent' }
@@ -115,7 +128,7 @@ export const MasterMarketplace: React.FC = () => {
                       }
                 }
               >
-                {cat}
+                {isAr ? CATEGORY_AR[cat] || cat : cat}
               </button>
             ))}
           </div>
@@ -123,6 +136,11 @@ export const MasterMarketplace: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((plug) => {
               const isInstalled = installedInSelectedStore.includes(plug.id);
+              const plugName = isAr ? (plug.nameAr || plug.name) : (plug.nameEn || plug.name);
+              const plugDesc = isAr ? (plug.descriptionAr || plug.description) : (plug.descriptionEn || plug.description);
+              const plugCategory = isAr ? (plug.categoryAr || CATEGORY_AR[plug.category] || plug.category) : (plug.categoryEn || plug.category);
+              const plugProvider = isAr ? (plug.providerAr || plug.provider) : (plug.providerEn || plug.provider);
+
               return (
                 <div
                   key={plug.id}
@@ -136,10 +154,10 @@ export const MasterMarketplace: React.FC = () => {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h3 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-                        {plug.name}
+                        {plugName}
                       </h3>
                       <span className="text-[10px] font-semibold" style={{ color: 'var(--accent)' }}>
-                        {plug.category}
+                        {plugCategory}
                       </span>
                     </div>
                     {plug.isProOnly ? (
@@ -147,15 +165,15 @@ export const MasterMarketplace: React.FC = () => {
                         className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
                         style={{ background: 'var(--hover-bg)', color: 'var(--muted)' }}
                       >
-                        Pro
+                        {isAr ? 'احترافي' : 'Pro'}
                       </span>
                     ) : null}
                   </div>
                   <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
-                    {plug.description}
+                    {plugDesc}
                   </p>
                   <div className="flex items-center justify-between text-[11px]" style={{ color: 'var(--muted)' }}>
-                    <span>{plug.provider}</span>
+                    <span>{plugProvider}</span>
                     <span className="inline-flex items-center gap-0.5 font-bold text-amber-600">
                       <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                       {plug.rating}
@@ -163,11 +181,13 @@ export const MasterMarketplace: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
                     <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
-                      {plug.monthlyFee === 0 ? 'Free' : `SAR ${plug.monthlyFee}/mo`}
+                      {plug.monthlyFee === 0
+                        ? isAr ? 'مجاني' : 'Free'
+                        : isAr ? `${plug.monthlyFee} ر.س/شهريًا` : `SAR ${plug.monthlyFee}/mo`}
                     </span>
                     <button
                       type="button"
-                      onClick={() => toggleStorePlugin(selectedStoreId, plug.id)}
+                      onClick={() => toggleStorePlugin(selectedStore.id, plug.id)}
                       className="px-3 py-1.5 rounded-xl text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
                       style={
                         isInstalled
@@ -179,7 +199,9 @@ export const MasterMarketplace: React.FC = () => {
                       }
                     >
                       {isInstalled ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                      {isInstalled ? 'Installed' : 'Install on store'}
+                      {isInstalled
+                        ? isAr ? 'مثبّت على المتجر' : 'Installed on store'
+                        : isAr ? 'تثبيت للمتجر' : 'Install for store'}
                     </button>
                   </div>
                 </div>
@@ -191,3 +213,4 @@ export const MasterMarketplace: React.FC = () => {
     </div>
   );
 };
+

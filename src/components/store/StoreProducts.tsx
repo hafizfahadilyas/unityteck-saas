@@ -42,14 +42,23 @@ import {
   AlertTriangle,
   FolderSearch,
   FileSpreadsheet,
+  Palette,
+  Sparkles,
+  Wand2,
 } from 'lucide-react';
 import { useToast } from '../common/ToastProvider';
 import { canAddProduct, planInfoForStore } from '../../auth/plans';
 import { resolveSubscription } from '../../auth/subscriptions';
 import { ProductTypePicker } from './ProductTypePicker';
-import { StoreBrandsView } from './StoreBrandsView';
+import { StoreBrandsView, getStoreBrands } from './StoreBrandsView';
 import { MediaPickerModal } from '../common/MediaPickerModal';
 import { BulkProductUploadModal } from './BulkProductUploadModal';
+import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
+import { WindowedPagination } from '../common/WindowedPagination';
+import type { ProductColorOption } from '../../types';
+import { SEAT_COLORS, getProductColors } from '../../data/blecoStoreData';
+import { getProductDisplayName, getProductDisplayCategory } from '../../utils/storeLocalization';
+import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
 
 /**
  * StoreProducts — Store Admin Products & Catalog Directory & Editor
@@ -98,6 +107,19 @@ export const StoreProducts: React.FC = () => {
   const [deletedPage, setDeletedPage] = useState(1);
   const [deletedProducts, setDeletedProducts] = useState<any[]>([]);
 
+  // Dynamically load brands for active store
+  const [availableStoreBrands, setAvailableStoreBrands] = useState(() => getStoreBrands(activeStore.id));
+  React.useEffect(() => {
+    setAvailableStoreBrands(getStoreBrands(activeStore.id));
+    const handleBrandsUpdate = (e: any) => {
+      if (!e.detail || e.detail.storeId === activeStore.id) {
+        setAvailableStoreBrands(getStoreBrands(activeStore.id));
+      }
+    };
+    window.addEventListener('unityteck-brands-updated', handleBrandsUpdate);
+    return () => window.removeEventListener('unityteck-brands-updated', handleBrandsUpdate);
+  }, [activeStore.id]);
+
   React.useEffect(() => {
     const handleSubView = (e: any) => {
       if (e.detail) {
@@ -141,14 +163,22 @@ export const StoreProducts: React.FC = () => {
       if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
-        const matchName = p.name.toLowerCase().includes(q);
-        const matchSku = p.sku.toLowerCase().includes(q);
-        const matchCat = p.category?.toLowerCase().includes(q);
+        const matchName =
+          p.name?.toLowerCase().includes(q) ||
+          p.nameAr?.toLowerCase().includes(q) ||
+          p.nameEn?.toLowerCase().includes(q) ||
+          getProductDisplayName(p, locale).toLowerCase().includes(q);
+        const matchSku = p.sku?.toLowerCase().includes(q);
+        const matchCat =
+          p.category?.toLowerCase().includes(q) ||
+          p.categoryAr?.toLowerCase().includes(q) ||
+          p.categoryEn?.toLowerCase().includes(q) ||
+          getProductDisplayCategory(p, locale).toLowerCase().includes(q);
         if (!matchName && !matchSku && !matchCat) return false;
       }
       return true;
     });
-  }, [currentProducts, selectedCategory, search]);
+  }, [currentProducts, selectedCategory, search, locale]);
 
   // Pagination
   const totalCount = filteredProducts.length;
@@ -602,18 +632,20 @@ export const StoreProducts: React.FC = () => {
 
             {/* Brand */}
             <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">Brand</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                {isAr ? 'العلامة التجارية' : 'Brand'}
+              </label>
               <select
                 value={filterBrand}
                 onChange={(e) => setFilterBrand(e.target.value)}
                 className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none"
               >
-                <option value="All">All Brands</option>
-                <option value="Casablanca Blooms">Casablanca Blooms</option>
-                <option value="Makkah Heritage">Makkah Heritage</option>
-                <option value="Dutch Flora">Dutch Flora</option>
-                <option value="Taif Rose Valley">Taif Rose Valley</option>
-                <option value="Royal Petals">Royal Petals</option>
+                <option value="All">{isAr ? 'جميع العلامات التجارية' : 'All Brands'}</option>
+                {availableStoreBrands.map((b) => (
+                  <option key={b.id} value={b.name}>
+                    {b.name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -966,6 +998,9 @@ export const StoreProducts: React.FC = () => {
         </button>
       </div>
 
+      {/* ── Connected Local Project Workspace Banner ── */}
+      <ConnectedWorkspaceBanner page="products" />
+
       {/* ── TOP HEADER — Title & Subtitle + Search + Filters + Add Product Button ── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
@@ -1080,7 +1115,7 @@ export const StoreProducts: React.FC = () => {
                   : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
               }`}
             >
-              {cat}
+              {getProductDisplayCategory(cat, locale)}
             </button>
           ))}
           {selectedCategory !== 'all' && (
@@ -1248,8 +1283,9 @@ export const StoreProducts: React.FC = () => {
                       <td className="py-3.5 px-3" style={{ borderBottom: '1px solid var(--border)' }}>
                         <div className="flex items-center gap-3">
                           <img
-                            src={prod.image || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=150&q=80'}
-                            alt={prod.name}
+                            src={prod.image || FALLBACK_PRODUCT_IMAGE}
+                            alt={getProductDisplayName(prod, locale)}
+                            onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                             className="w-11 h-11 rounded-xl object-cover border shrink-0 bg-slate-100 dark:bg-slate-800"
                             style={{ borderColor: 'var(--border)' }}
                           />
@@ -1259,7 +1295,7 @@ export const StoreProducts: React.FC = () => {
                               className="font-bold block truncate max-w-[220px] cursor-pointer hover:underline"
                               style={{ color: 'var(--text)' }}
                             >
-                              {prod.name}
+                              {getProductDisplayName(prod, locale)}
                             </span>
                             <span className="text-[11px] font-mono block text-slate-400">
                               SKU: {prod.sku}
@@ -1270,7 +1306,7 @@ export const StoreProducts: React.FC = () => {
 
                       {/* Category */}
                       <td className="py-3.5 px-3 whitespace-nowrap font-medium" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
-                        {prod.category}
+                        {getProductDisplayCategory(prod, locale)}
                       </td>
 
                       {/* Price */}
@@ -1383,70 +1419,17 @@ export const StoreProducts: React.FC = () => {
         </div>
 
         {/* ── PAGINATION CONTROLS MATCHING MOCKUP 06 ── */}
-        <div
-          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-t"
-          style={{ borderColor: 'var(--border)' }}
-        >
-          <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--muted)' }}>
-            <div className="flex items-center gap-1.5">
-              <span>{isAr ? 'عرض' : 'Show'}</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setPage(1);
-                }}
-                className="px-2 py-1 rounded-lg border text-xs font-semibold cursor-pointer"
-                style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
-            <span>
-              {isAr ? `عرض ${totalCount > 0 ? (safePage - 1) * pageSize + 1 : 0}–${Math.min(safePage * pageSize, totalCount)} من أصل ${totalCount} منتج` : `Showing ${totalCount > 0 ? (safePage - 1) * pageSize + 1 : 0}–${Math.min(safePage * pageSize, totalCount)} of ${totalCount.toLocaleString()} products`}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={safePage <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="p-1.5 rounded-lg border cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
-              aria-label="Previous page"
-            >
-              <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
-            </button>
-            {Array.from({ length: pageCount }).map((_, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setPage(idx + 1)}
-                className="w-7 h-7 rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-xs"
-                style={
-                  safePage === idx + 1
-                    ? { background: 'var(--portal-cta)', color: '#ffffff' }
-                    : { background: 'var(--surface)', color: 'var(--muted)', border: '1px solid var(--border)' }
-                }
-              >
-                {idx + 1}
-              </button>
-            ))}
-            <button
-              type="button"
-              disabled={safePage >= pageCount}
-              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-              className="p-1.5 rounded-lg border cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
-              aria-label="Next page"
-            >
-              <ChevronRight className="w-4 h-4 rtl:rotate-180" />
-            </button>
-          </div>
-        </div>
+        <WindowedPagination
+          currentPage={safePage}
+          totalPages={pageCount}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          isAr={isAr}
+          itemLabel={isAr ? 'منتج' : 'products'}
+          pageSizeOptions={[10, 20, 50, 100]}
+        />
       </div>
 
       {/* ── BULK PRODUCT UPLOAD & EXPORT MODAL ── */}
@@ -1524,16 +1507,32 @@ const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const [gallery, setGallery] = useState<string[]>(
     product.galleryUrls && product.galleryUrls.length > 0
       ? product.galleryUrls
-      : [
-          product.image || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
-          'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?auto=format&fit=crop&w=600&q=80',
-          'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=600&q=80',
-          'https://images.unsplash.com/photo-1582794543139-8ac9cb0f7b11?auto=format&fit=crop&w=600&q=80',
-        ]
+      : product.additionalImages && product.additionalImages.length > 0
+        ? [product.image, ...product.additionalImages].filter(Boolean)
+        : [
+            product.image || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?auto=format&fit=crop&w=600&q=80',
+            'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=600&q=80',
+            'https://images.unsplash.com/photo-1582794543139-8ac9cb0f7b11?auto=format&fit=crop&w=600&q=80',
+          ]
   );
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
-  const [pickerMode, setPickerMode] = useState<'main' | 'gallery'>('gallery');
+  const [pickerMode, setPickerMode] = useState<'main' | 'gallery' | 'color' | 'comparison'>('gallery');
+  const [colorPickerTargetIdx, setColorPickerTargetIdx] = useState<number | null>(null);
+  const [showAiColorPopover, setShowAiColorPopover] = useState(false);
+
+  // Specifications & Model Comparison Infographic Image (per product)
+  const [specComparisonImage, setSpecComparisonImage] = useState(product.specComparisonImage || '');
+  const [specComparisonImageAr, setSpecComparisonImageAr] = useState(product.specComparisonImageAr || '');
+
+  // Dynamic Product Colors (3 by default, expandable/editable by admin with AI assistant)
+  const [colors, setColors] = useState<ProductColorOption[]>(() => {
+    if (product.colors && Array.isArray(product.colors) && product.colors.length > 0) {
+      return product.colors;
+    }
+    return getProductColors(product);
+  });
 
   const handleSelectMedia = (selected: any) => {
     const assets = Array.isArray(selected) ? selected : [selected];
@@ -1543,9 +1542,21 @@ const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       const copy = [...gallery];
       copy[selectedImageIndex] = newUrls[0];
       setGallery(copy);
-    } else {
+    } else if (pickerMode === 'gallery') {
       setGallery((prev) => [...prev, ...newUrls]);
       setSelectedImageIndex(gallery.length);
+    } else if (pickerMode === 'color' && colorPickerTargetIdx !== null) {
+      const updated = [...colors];
+      if (updated[colorPickerTargetIdx]) {
+        updated[colorPickerTargetIdx] = {
+          ...updated[colorPickerTargetIdx],
+          image: newUrls[0]
+        };
+        setColors(updated);
+      }
+      setColorPickerTargetIdx(null);
+    } else if (pickerMode === 'comparison') {
+      setSpecComparisonImage(newUrls[0]);
     }
   };
 
@@ -1554,6 +1565,172 @@ const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     const effPrice = discountedPrice > 0 ? discountedPrice : price;
     return Math.max(0, effPrice - costPrice);
   }, [price, discountedPrice, costPrice]);
+
+  // AI Smart Automotive Seat Palettes
+  const AI_SEAT_PALETTES = [
+    {
+      id: 'oem_triad',
+      titleAr: 'طقم الوكالة الثلاثي المعتمد (3 ألوان)',
+      titleEn: 'Triple OEM Certified Palette (3 Colors)',
+      descAr: 'بيج وكالة، جملي رويال، رمادي ألماني',
+      colors: [
+        {
+          id: 'beige',
+          nameAr: 'بيج وكالة',
+          nameEn: 'OEM Beige',
+          hex: '#d8c8b4',
+          image: 'https://cdn.salla.sa/wYYVD/abf29eff-f124-4ceb-80f1-dca55d161546-750x1000-oUBcGKNNeCBsZcKewMV0170NkVrlqXwTYbVPQRMn.jpg',
+        },
+        {
+          id: 'camel',
+          nameAr: 'جملي رويال',
+          nameEn: 'Royal Camel',
+          hex: '#b87b44',
+          image: 'https://cdn.salla.sa/wYYVD/cVdD2fv4M7tFxKEr2Qolzcq9zgQXE4UhGUEOuvAF.png',
+        },
+        {
+          id: 'grey',
+          nameAr: 'رمادي ألماني',
+          nameEn: 'German Grey',
+          hex: '#7e848d',
+          image: 'https://cdn.salla.sa/wYYVD/zYsjiTRpFRCgzbPdxlwaBsYZhpPR5oUFlr9EmDov.png',
+        },
+      ]
+    },
+    {
+      id: 'vip_luxury',
+      titleAr: 'طقم VIP كبار الشخصيات (3 ألوان)',
+      titleEn: 'VIP Luxury Interior Palette (3 Colors)',
+      descAr: 'أسود ملكي، عنابي فاخر، جملي رويال',
+      colors: [
+        {
+          id: 'black',
+          nameAr: 'أسود ملكي',
+          nameEn: 'Royal Black',
+          hex: '#1e2124',
+          image: 'https://cdn.salla.sa/wYYVD/eb50919f-da35-472e-820f-1319588bde31-750x1000-u2z52ESAtM9kL2R62p0rVycVUA7RhJQe4jwOsVtR.jpg',
+        },
+        {
+          id: 'maroon',
+          nameAr: 'عنابي فاخر',
+          nameEn: 'Luxury Maroon',
+          hex: '#641525',
+          image: 'https://cdn.salla.sa/wYYVD/mxvpwbKs7HgjOvroP6zPnwVB6cO56TkZrasW0GPv.png',
+        },
+        {
+          id: 'camel',
+          nameAr: 'جملي رويال',
+          nameEn: 'Royal Camel',
+          hex: '#b87b44',
+          image: 'https://cdn.salla.sa/wYYVD/cVdD2fv4M7tFxKEr2Qolzcq9zgQXE4UhGUEOuvAF.png',
+        },
+      ]
+    },
+    {
+      id: 'sport_cruise',
+      titleAr: 'طقم سبورت وأناقة عصرية (3 ألوان)',
+      titleEn: 'Modern Sport Cruise (3 Colors)',
+      descAr: 'كحلي داكن، رمادي ألماني، أسود ملكي',
+      colors: [
+        {
+          id: 'navy',
+          nameAr: 'كحلي داكن',
+          nameEn: 'Navy Blue',
+          hex: '#18273d',
+          image: 'https://cdn.salla.sa/wYYVD/533e5580-b807-4d5d-8cdc-c88113841be2-750x1000-cusHPAMBUcXmtMSKkL7sqO6fPXmDqp4Vw5NtTOAy.jpg',
+        },
+        {
+          id: 'grey',
+          nameAr: 'رمادي ألماني',
+          nameEn: 'German Grey',
+          hex: '#7e848d',
+          image: 'https://cdn.salla.sa/wYYVD/zYsjiTRpFRCgzbPdxlwaBsYZhpPR5oUFlr9EmDov.png',
+        },
+        {
+          id: 'black',
+          nameAr: 'أسود ملكي',
+          nameEn: 'Royal Black',
+          hex: '#1e2124',
+          image: 'https://cdn.salla.sa/wYYVD/eb50919f-da35-472e-820f-1319588bde31-750x1000-u2z52ESAtM9kL2R62p0rVycVUA7RhJQe4jwOsVtR.jpg',
+        },
+      ]
+    },
+    {
+      id: 'desert_safari',
+      titleAr: 'طقم صحراوي وسفاري (3 ألوان)',
+      titleEn: 'Desert & Safari Edition (3 Colors)',
+      descAr: 'زيتوني صحراوي، بيج وكالة، جملي رويال',
+      colors: [
+        {
+          id: 'olive',
+          nameAr: 'زيتوني صحراوي',
+          nameEn: 'Desert Olive',
+          hex: '#556b2f',
+          image: 'https://cdn.salla.sa/wYYVD/Upqo30iNth6s16xuqENbWsTXwgkffli1i49LHjHs.png',
+        },
+        {
+          id: 'beige',
+          nameAr: 'بيج وكالة',
+          nameEn: 'OEM Beige',
+          hex: '#d8c8b4',
+          image: 'https://cdn.salla.sa/wYYVD/abf29eff-f124-4ceb-80f1-dca55d161546-750x1000-oUBcGKNNeCBsZcKewMV0170NkVrlqXwTYbVPQRMn.jpg',
+        },
+        {
+          id: 'camel',
+          nameAr: 'جملي رويال',
+          nameEn: 'Royal Camel',
+          hex: '#b87b44',
+          image: 'https://cdn.salla.sa/wYYVD/cVdD2fv4M7tFxKEr2Qolzcq9zgQXE4UhGUEOuvAF.png',
+        },
+      ]
+    }
+  ];
+
+  const handleApplyAiPalette = (pal: typeof AI_SEAT_PALETTES[0]) => {
+    setColors(pal.colors);
+    setShowAiColorPopover(false);
+  };
+
+  const handleSmartAiAutoSuggest = () => {
+    const text = (name + ' ' + (brand || '') + ' ' + (description || '')).toLowerCase();
+    let selectedPalette = AI_SEAT_PALETTES[0]; // default OEM
+    if (text.includes('يوكن') || text.includes('yukon') || text.includes('لاندكروزر') || text.includes('land cruiser') || text.includes('safari') || text.includes('باترول')) {
+      selectedPalette = AI_SEAT_PALETTES[3]; // Desert
+    } else if (text.includes('vip') || text.includes('لكزس') || text.includes('lexus') || text.includes('فاخر')) {
+      selectedPalette = AI_SEAT_PALETTES[1]; // VIP
+    } else if (text.includes('سبورت') || text.includes('sport') || text.includes('كحلي') || text.includes('تورس')) {
+      selectedPalette = AI_SEAT_PALETTES[2]; // Sport
+    }
+    setColors(selectedPalette.colors);
+    setShowAiColorPopover(false);
+  };
+
+  const handleAddColor = () => {
+    const newIdx = colors.length + 1;
+    const defaultAvailable = SEAT_COLORS.find(sc => !colors.some(c => c.id === sc.id)) || {
+      id: `custom-color-${Date.now()}`,
+      nameAr: `لون إضافي ${newIdx}`,
+      nameEn: `Custom Color ${newIdx}`,
+      hex: '#3e0f77',
+      image: gallery[0] || 'https://cdn.salla.sa/wYYVD/cVdD2fv4M7tFxKEr2Qolzcq9zgQXE4UhGUEOuvAF.png',
+    };
+    setColors([...colors, {
+      id: defaultAvailable.id,
+      nameAr: defaultAvailable.nameAr,
+      nameEn: defaultAvailable.nameEn,
+      hex: defaultAvailable.hex,
+      image: defaultAvailable.image,
+    }]);
+  };
+
+  const handleRemoveColor = (idx: number) => {
+    if (colors.length <= 1) return;
+    setColors(colors.filter((_, i) => i !== idx));
+  };
+
+  const handleUpdateColor = (idx: number, patch: Partial<ProductColorOption>) => {
+    setColors(colors.map((c, i) => i === idx ? { ...c, ...patch } : c));
+  };
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -1576,10 +1753,21 @@ const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       taxRate: Number(taxRate),
       image: gallery[selectedImageIndex] || gallery[0],
       galleryUrls: gallery,
+      additionalImages: gallery.slice(1),
       seoTitle: pageTitle,
       customUrl,
       seoDescription,
+      colors,
+      specComparisonImage,
+      specComparisonImageAr,
     });
+    if (typeof window !== 'undefined' && product.id) {
+      if (specComparisonImage) {
+        localStorage.setItem(`unityteck_coffee_spec_img_${product.id}`, specComparisonImage);
+      } else {
+        localStorage.removeItem(`unityteck_coffee_spec_img_${product.id}`);
+      }
+    }
   };
 
   return (
@@ -1691,8 +1879,9 @@ const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 <span>{isAr ? 'تغيير' : 'Change'}</span>
               </button>
               <img
-                src={gallery[selectedImageIndex] || gallery[0]}
+                src={gallery[selectedImageIndex] || gallery[0] || FALLBACK_PRODUCT_IMAGE}
                 alt="Product Preview"
+                onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                 className="w-full h-full object-contain p-4"
               />
             </div>
@@ -1710,7 +1899,12 @@ const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                       : 'border-slate-200 dark:border-slate-800 hover:border-slate-400'
                   }`}
                 >
-                  <img src={url} alt={`thumb-${idx}`} className="w-full h-full object-contain" />
+                  <img
+                    src={url || FALLBACK_PRODUCT_IMAGE}
+                    alt={`thumb-${idx}`}
+                    onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
+                    className="w-full h-full object-contain"
+                  />
                 </button>
               ))}
             </div>
@@ -1734,6 +1928,62 @@ const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   ? 'رفع ملفات جديدة، الاختيار من المكتبة، أو الاستيراد من Google Drive'
                   : 'Upload new, choose from Media Library, or import from Google Drive'}
               </p>
+            </div>
+
+            {/* Specifications & Model Comparison Infographic Card */}
+            <div className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#071E26] shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-xs flex items-center gap-1.5" style={{ color: 'var(--text)' }}>
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" />
+                    <span>{isAr ? 'مخطط مقارنة المواصفات' : 'Specifications & Comparison Image'}</span>
+                  </h4>
+                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                    {isAr ? 'صورة جدول مقارنة المواصفات الفنية المعتمدة لهذا المنتج' : 'Comparison infographic image displayed on product page'}
+                  </p>
+                </div>
+              </div>
+
+              {specComparisonImage ? (
+                <div className="relative rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-900 group">
+                  <img
+                    src={specComparisonImage}
+                    alt="Specs Comparison"
+                    onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
+                    className="w-full h-36 object-contain p-2"
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSpecComparisonImage('')}
+                      className="px-2.5 py-1 rounded-lg bg-rose-600 text-white text-[10px] font-bold cursor-pointer"
+                    >
+                      {isAr ? 'حذف' : 'Remove'}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={specComparisonImage}
+                  onChange={(e) => setSpecComparisonImage(e.target.value)}
+                  placeholder={isAr ? 'رابط صورة المقارنة...' : 'Comparison image URL...'}
+                  className="flex-1 px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none"
+                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPickerMode('comparison');
+                    setIsMediaPickerOpen(true);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900 text-xs font-bold shrink-0 hover:bg-blue-100 cursor-pointer"
+                >
+                  {isAr ? 'المكتبة' : 'Media'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1863,12 +2113,12 @@ const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                 >
                   {categories.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c} value={c}>{getProductDisplayCategory(c, locale)}</option>
                   ))}
-                  <option value="Bouquets">Bouquets</option>
-                  <option value="Vases">Vases</option>
-                  <option value="Gifts">Gifts</option>
-                  <option value="Chocolates">Chocolates</option>
+                  <option value="Bouquets">{isAr ? 'باقات' : 'Bouquets'}</option>
+                  <option value="Vases">{isAr ? 'فازات' : 'Vases'}</option>
+                  <option value="Gifts">{isAr ? 'هدايا' : 'Gifts'}</option>
+                  <option value="Chocolates">{isAr ? 'شوكولاتة' : 'Chocolates'}</option>
                 </select>
               </div>
             </div>
@@ -1987,6 +2237,241 @@ const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   className="w-5 h-5 rounded cursor-pointer accent-blue-600"
                 />
               </label>
+            </div>
+          </div>
+
+          {/* Card 3: Dynamic Product Colors & AI Assistant (خارطة ألوان المنتج والذكاء الاصطناعي) */}
+          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
+                  <Palette className="w-4 h-4 text-purple-600" />
+                  <span>{isAr ? 'ألوان وخيارات المقاعد والتلابيس' : 'Seat Colors & Variants'}</span>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300">
+                    {colors.length} {isAr ? 'ألوان' : 'Colors'}
+                  </span>
+                </h3>
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                  {isAr 
+                    ? '3 خيارات ألوان افتراضية لكل منتج مع صور حقيقية. أضف أو عدل الألوان لتتحدث فوراً في المتجر.' 
+                    : 'Exactly 3 real colors per product by default. Add or edit to update the storefront dynamically.'}
+                </p>
+              </div>
+
+              {/* Action Buttons: AI Assistant + Add Color */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowAiColorPopover(!showAiColorPopover)}
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white flex items-center gap-1.5 cursor-pointer shadow-xs hover:opacity-95 transition-opacity"
+                    title={isAr ? 'مساعد الذكاء الاصطناعي لاختيار الألوان' : 'AI Color Assistant'}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{isAr ? '✨ مساعد الألوان الذكي' : '✨ AI Colors'}</span>
+                  </button>
+
+                  {/* AI Palettes Popover */}
+                  {showAiColorPopover && (
+                    <div className="absolute end-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-3 z-30 space-y-2.5 animate-fadeIn">
+                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                        <div className="flex items-center gap-1.5">
+                          <Wand2 className="w-4 h-4 text-purple-600" />
+                          <span className="font-bold text-xs" style={{ color: 'var(--text)' }}>
+                            {isAr ? 'توليد ألوان ذكية للمقاعد' : 'Generate Seat Colors'}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowAiColorPopover(false)}
+                          className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Smart Auto-Suggest Button */}
+                      <button
+                        type="button"
+                        onClick={handleSmartAiAutoSuggest}
+                        className="w-full p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 font-bold text-xs flex items-center justify-between cursor-pointer hover:bg-purple-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-purple-600" />
+                          <div className="text-start">
+                            <span className="block font-black">{isAr ? 'اقتراح ذكي حسب السيارة' : 'Auto-Match by Car Model'}</span>
+                            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-normal">
+                              {isAr ? `توليد 3 ألوان متناسقة لـ "${brand || 'السيارة'}"` : `Best 3 colors for ${brand || 'Vehicle'}`}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* Curated AI Palettes */}
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] font-bold text-slate-400 block px-1">
+                          {isAr ? 'أو اختر باقة ألوان معتمدة (3 ألوان):' : 'Or select a curated 3-color palette:'}
+                        </span>
+                        {AI_SEAT_PALETTES.map(pal => (
+                          <div
+                            key={pal.id}
+                            onClick={() => handleApplyAiPalette(pal)}
+                            className="p-2 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all flex items-center justify-between"
+                          >
+                            <div>
+                              <div className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                                {isAr ? pal.titleAr : pal.titleEn}
+                              </div>
+                              <div className="text-[10px] text-slate-500">
+                                {isAr ? pal.descAr : pal.titleEn}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {pal.colors.map((c, ci) => (
+                                <span
+                                  key={ci}
+                                  className="w-4 h-4 rounded-full border border-black/20 shadow-xs"
+                                  style={{ backgroundColor: c.hex }}
+                                  title={c.nameAr}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddColor}
+                  className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isAr ? 'إضافة لون' : 'Add Color'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* List of Colors */}
+            <div className="space-y-2.5">
+              {colors.map((col, idx) => (
+                <div
+                  key={col.id || idx}
+                  className="p-3 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-2.5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] font-bold flex items-center justify-center text-slate-600 dark:text-slate-300">
+                        {idx + 1}
+                      </span>
+                      {/* Color Preview & Native Color Picker */}
+                      <label className="relative cursor-pointer flex items-center gap-2">
+                        <span
+                          className="w-7 h-7 rounded-full border-2 border-white dark:border-slate-800 shadow-md inline-block shrink-0"
+                          style={{ backgroundColor: col.hex }}
+                        />
+                        <input
+                          type="color"
+                          value={col.hex}
+                          onChange={(e) => handleUpdateColor(idx, { hex: e.target.value })}
+                          className="sr-only"
+                        />
+                        <input
+                          type="text"
+                          value={col.hex}
+                          onChange={(e) => handleUpdateColor(idx, { hex: e.target.value })}
+                          className="w-20 px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
+                        />
+                      </label>
+                    </div>
+
+                    {/* Delete button if more than 1 color */}
+                    {colors.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveColor(idx)}
+                        className="p-1 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors"
+                        title={isAr ? 'حذف هذا اللون' : 'Delete Color'}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Names & Image Row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block mb-0.5">
+                        {isAr ? 'الاسم بالعربية:' : 'Arabic Name:'}
+                      </label>
+                      <input
+                        type="text"
+                        value={col.nameAr}
+                        onChange={(e) => handleUpdateColor(idx, { nameAr: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                        placeholder="مثال: بيج وكالة"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block mb-0.5">
+                        {isAr ? 'الاسم بالإنجليزية:' : 'English Name:'}
+                      </label>
+                      <input
+                        type="text"
+                        value={col.nameEn}
+                        onChange={(e) => handleUpdateColor(idx, { nameEn: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                        placeholder="e.g. OEM Beige"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block mb-0.5">
+                        {isAr ? 'صورة المقعد الحقيقية:' : 'Real Seat Image:'}
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <img
+                          src={col.image || gallery[0]}
+                          alt={col.nameAr}
+                          className="w-7 h-7 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shrink-0 bg-white"
+                        />
+                        <input
+                          type="text"
+                          value={col.image}
+                          onChange={(e) => handleUpdateColor(idx, { image: e.target.value })}
+                          className="flex-1 px-2 py-1.5 text-[11px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl truncate"
+                          placeholder="https://..."
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setColorPickerTargetIdx(idx);
+                            setPickerMode('color');
+                            setIsMediaPickerOpen(true);
+                          }}
+                          className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 cursor-pointer shrink-0"
+                          title={isAr ? 'اختيار من مكتبة الوسائط' : 'Pick from Media Library'}
+                        >
+                          <FolderSearch className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Hint Notice */}
+            <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 flex items-start gap-2 text-[11px] text-blue-900 dark:text-blue-300">
+              <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <span>
+                {isAr
+                  ? 'يتم عرض أول 3 ألوان كخيارات أساسية في بطاقة المنتج ومتجر السعيدي، مع تحديث صورة المقعد فوراً عند نقر المستهلك على اللون.'
+                  : 'The top 3 colors are displayed as primary swatches in the storefront, dynamically updating the car seat photo on click.'}
+              </span>
             </div>
           </div>
         </div>

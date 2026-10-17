@@ -1,0 +1,5 @@
+import fs from 'fs';
+
+const cur = fs.readFileSync('src/data/blecoStoreData.ts', 'utf8');
+const lines = cur.split('\n');
+console.log(lines.slice(340, 390).join('\n'));

@@ -60,6 +60,7 @@ UnityTeck Multi-Store E-Commerce SaaS is a high-performance multi-tenant e-comme
   - **`docs/24-seo-architecture-and-store-instructions.md`**: Bilingual (EN / AR) SEO manual covering multi-tenant search engine architecture, SSR/ISR metadata, JSON-LD structured schemas, hreflang multi-lingual routing, robots.txt, sitemaps, and Google Analytics / Search Console verification.
   - **`docs/25-marketing-hub-campaigns-and-promotions-guide.md`**: Bilingual (EN / AR) marketing manual covering UTM link generators, multi-tier coupon rules, discount popups/banners, Customer Journey Funnel (CRO), WhatsApp commerce, and pixel integrations (Meta, TikTok, Snap, Google).
   - **`docs/26-reporting-business-intelligence-and-analytics-guide.md`**: Bilingual (EN / AR) business intelligence manual covering gross/net sales, order fulfillment breakdown, inventory valuation & alerts, customer lifetime value (CLV), channel attribution, Saudi ZATCA 15% VAT tax compliance, and automated Excel/CSV/PDF exports.
+  - **`docs/27-ai-and-developer-master-handbook-roman.md`**: Master status, architectural guide, AI continuity rules, Saudi localization, SEO & marketing blueprint written in Roman Urdu.
   - Updated `docs/10-sqa-quality-seo-auditor.md` with bilingual SQA, SEO, marketing, and reporting audit criteria and test matrices.
 
 ---

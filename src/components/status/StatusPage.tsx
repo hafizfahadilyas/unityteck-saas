@@ -9,6 +9,11 @@ import {
   ShieldOff,
   WifiOff,
   Wrench,
+  AlertCircle,
+  Copy,
+  Check,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { StatusKind } from '../../status/routes';
 import { STATUS_HUB_LINKS } from '../../status/routes';
@@ -21,6 +26,8 @@ type StatusPageProps = {
   onHome: () => void;
   onNavigate: (path: string) => void;
   redirectTo?: string;
+  error?: Error | unknown;
+  errorInfo?: React.ErrorInfo;
 };
 
 const COPY: Record<
@@ -73,9 +80,13 @@ export const StatusPage: React.FC<StatusPageProps> = ({
   onHome,
   onNavigate,
   redirectTo = '/',
+  error,
+  errorInfo,
 }) => {
   const { t, theme, dir, locale } = usePrefs();
   const [secs, setSecs] = useState(3);
+  const [showDetails, setShowDetails] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-portal', 'master');
@@ -179,6 +190,68 @@ export const StatusPage: React.FC<StatusPageProps> = ({
             </button>
           )}
         </div>
+        {kind === '500' && !!error && (
+          <div className="mt-4 pt-4 border-t text-left" style={{ borderColor: 'var(--border)' }}>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() => setShowDetails(!showDetails)}
+                className="text-xs font-mono font-medium flex items-center gap-1.5 text-rose-500 hover:text-rose-600 transition-colors cursor-pointer"
+              >
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>{showDetails ? 'Hide technical error details' : 'Show technical error details'}</span>
+                {showDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const errText = [
+                    error instanceof Error ? error.name + ': ' + error.message : String(error),
+                    error instanceof Error ? error.stack : '',
+                    errorInfo?.componentStack ? 'Component stack:\n' + errorInfo.componentStack : '',
+                  ]
+                    .filter(Boolean)
+                    .join('\n\n');
+                  if (navigator.clipboard?.writeText) {
+                    navigator.clipboard.writeText(errText);
+                  }
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="text-[11px] font-mono px-2 py-0.5 rounded border flex items-center gap-1 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                style={{ borderColor: 'var(--border)' }}
+                title="Copy full crash details to clipboard"
+              >
+                {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                <span>{copied ? 'Copied' : 'Copy Error'}</span>
+              </button>
+            </div>
+
+            {showDetails && (
+              <div className="p-3 rounded-xl bg-slate-950 text-slate-100 text-xs font-mono overflow-x-auto max-h-60 overflow-y-auto space-y-2 border border-slate-800 dir-ltr select-text">
+                <div className="text-rose-400 font-bold whitespace-pre-wrap">
+                  {error instanceof Error ? `${error.name}: ${error.message}` : String(error)}
+                </div>
+                {error instanceof Error && error.stack && (
+                  <pre className="text-[11px] text-slate-400 whitespace-pre-wrap">
+                    {error.stack}
+                  </pre>
+                )}
+                {errorInfo?.componentStack && (
+                  <div className="pt-2 border-t border-slate-800">
+                    <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">
+                      Component Stack
+                    </div>
+                    <pre className="text-[10px] text-slate-400 whitespace-pre-wrap">
+                      {errorInfo.componentStack}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         <button
           type="button"
           onClick={() => onNavigate('/status')}

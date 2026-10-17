@@ -219,28 +219,21 @@ export const SocialReelsSection: React.FC = () => {
       className="py-14 sm:py-20 md:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto select-none overflow-hidden"
       aria-label={isAr ? "سينما الضيافة والقهوة السعودية" : "Video Accordion Pro: Saudi Luxury Coffee & Hospitality"}
     >
-      {/* ── Section Title Header ────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 sm:mb-12 gap-5 border-b border-[#e8e4dc]/80 pb-6">
+      {/* ── Section Title Header: Uniform Site-wide Layout ────────────────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 pb-3 border-b border-[#ece7de] gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#102a1c]/10 text-[#102a1c] text-xs font-semibold mb-2.5 shadow-2xs border border-[#102a1c]/15">
-            <Coffee className="w-3.5 h-3.5 text-[#d4af37]" />
-            <span>{isAr ? 'سينما الضيافة السعودية والقهوة الفاخرة' : 'Saudi Coffee & Royal Hospitality in Motion'}</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#d4af37] animate-pulse" />
-          </div>
-
-          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold font-serif text-[#102a1c] tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c]">
             {isAr ? 'لحظات استثنائية تنبض بالحياة' : 'Exceptional Celebrations in Motion'}
           </h2>
-
-          <p className="text-xs sm:text-sm text-[#7a7164] mt-2 max-w-2xl font-light leading-relaxed">
+          <p className="text-xs sm:text-sm text-[#7a7164] mt-1 font-light">
             {isAr
-              ? 'أربعة مقاطع سينمائية تجسد فخامة القهوة السعودية المحوجة بالهيل والزعفران، الدلة المكية الملكية، وتناغمها مع أرقى باقات الزهور والتمور.'
-              : 'Four cinematic reels capturing royal Saudi golden coffee, artisan Khawlani beans, gilded dallah carafes, and luxury fresh bloom trays.'}
+              ? 'سينما الضيافة السعودية والقهوة الفاخرة المحوجة بالهيل والزعفران'
+              : 'Four cinematic reels capturing royal Saudi coffee and luxury blooms in motion'}
           </p>
         </div>
 
         {/* Global Toolbar Controls: Sound, Autoplay, Interaction Mode & Nav Arrows */}
-        <div className="flex flex-wrap items-center gap-2.5 self-start md:self-auto">
+        <div className="flex flex-wrap items-center gap-2.5">
           {/* Interaction Mode Toggle (Hover / Tap) on Desktop */}
           {!isMobile && (
             <button

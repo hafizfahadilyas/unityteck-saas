@@ -639,6 +639,61 @@ export const DetailedProductsForm: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* 7. Automotive Floor Mats Customizer (أرضيات السيارات والدايموند) */}
+        <div className="col-span-1 md:col-span-2 rounded-xl border p-4 space-y-3 bg-gradient-to-r from-purple-50/40 via-amber-50/30 to-white dark:from-slate-900 dark:to-slate-850" style={{ borderColor: 'var(--border)' }}>
+          <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: 'var(--border)' }}>
+            <h3 className="text-xs font-bold uppercase text-purple-700 dark:text-purple-400 flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-purple-700 text-white flex items-center justify-center text-[10px]">7</span>
+              <span>{isAr ? 'مخصص أرضيات السيارات (Car Floor Mats & Trunk Customizer)' : '7. Car Floor Mats Customizer'}</span>
+            </h3>
+            <span className="text-[10px] font-bold text-amber-700 bg-amber-100 dark:bg-amber-950 px-2 py-0.5 rounded-full">
+              {isAr ? 'نظام ليزري 5D' : '5D Laser Fit'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <label className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 cursor-pointer">
+              <span className="font-bold">{isAr ? 'تفعيل نافذة تخصيص الأرضيات' : 'Enable Mats Customizer'}</span>
+              <input
+                type="checkbox"
+                checked={settings.enableCarMatsCustomizer !== false}
+                onChange={(e) => setVal('enableCarMatsCustomizer', e.target.checked)}
+                className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+              />
+            </label>
+
+            <label className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 cursor-pointer">
+              <span className="font-bold">{isAr ? 'خيار دعاسة الشنطة / الصندوق' : 'Enable Trunk Mat Option'}</span>
+              <input
+                type="checkbox"
+                checked={settings.enableTrunkMatOption !== false}
+                onChange={(e) => setVal('enableTrunkMatOption', e.target.checked)}
+                className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+              />
+            </label>
+
+            <label className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 cursor-pointer">
+              <span className="font-bold">{isAr ? 'محدد المحرك (هايبرد / بنزين)' : 'Hybrid Engine Contour'}</span>
+              <input
+                type="checkbox"
+                checked={settings.enableHybridFuelOption !== false}
+                onChange={(e) => setVal('enableHybridFuelOption', e.target.checked)}
+                className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+              />
+            </label>
+
+            <label className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 cursor-pointer">
+              <span className="font-bold">{isAr ? 'إضافة كعبية حديد + سجاد علوي' : 'Heel Pad & Carpet Layer'}</span>
+              <input
+                type="checkbox"
+                checked={settings.enableDriverHeelPadOption !== false}
+                onChange={(e) => setVal('enableDriverHeelPadOption', e.target.checked)}
+                className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+              />
+            </label>
+          </div>
+        </div>
       </div>
 
       {/* Bottom Save Bar */}

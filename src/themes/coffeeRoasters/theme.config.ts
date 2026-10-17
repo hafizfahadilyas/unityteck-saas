@@ -1,0 +1,122 @@
+import React from 'react';
+import type { ThemeManifest } from '../types';
+
+const CoffeeRoastersThemeView = React.lazy(() =>
+  import('./CoffeeRoastersThemeView').then((m) => ({ default: m.CoffeeRoastersThemeView })),
+);
+
+export const coffeeRoastersThemeConfig: ThemeManifest = {
+  id: 'theme-coffee',
+  slug: 'coffeeRoasters',
+  name: 'HiBrew Coffee & Roasters',
+  nameAr: 'محمصة ومكائن هاي برو الفاخرة',
+  version: '2.4.0',
+  description: 'Specialty coffee roastery and espresso machine flagship store theme with interactive machinery showcases.',
+  descriptionAr: 'قالب رسمي مخصص للمقاهي ومحامص القهوة المتخصصة وأجهزة الإسبريسو مع عروض تفاعلية للمنتجات.',
+  author: 'Unityteck Storefront Engine',
+  category: 'cafe',
+  previewImage: '/src/assets/images/hero_hibrew_espresso_1791217182679.jpg',
+  tags: ['coffee', 'espresso', 'roasters', 'machines', 'barista', 'luxury'],
+  defaultColors: {
+    primary: '#1c1917',
+    secondary: '#78350f',
+    accent: '#d97706',
+    surface: '#ffffff',
+    background: '#fafaf9',
+    text: '#1c1917',
+  },
+  homeStyles: [
+    {
+      id: 'boutique-espresso',
+      name: 'Boutique Espresso Showroom',
+      nameAr: 'معرض الإسبريسو الحصري',
+      description: 'Highlighting flagship espresso hardware with technical specs and cinematic video banners.',
+    },
+    {
+      id: 'barista-special',
+      name: 'Barista Special Edition',
+      nameAr: 'إصدار الباريستا الاحترافي',
+      description: 'Focus on manual brewing gear, V60 tools, and artisan specialty beans.',
+    },
+    {
+      id: 'minimal-roastery',
+      name: 'Minimal Roastery Dark',
+      nameAr: 'المحمصة المودرن الفاخرة',
+      description: 'Deep espresso tones with high-contrast product photography.',
+    },
+  ],
+  supportedSections: [
+    {
+      id: 'header',
+      name: 'Brand Navigation Bar',
+      nameAr: 'شريط التنقل العلوي',
+      category: 'header',
+      defaultEnabled: true,
+    },
+    {
+      id: 'hero',
+      name: 'Cinema Machine Hero',
+      nameAr: 'واجهة سينمائية للمكائن',
+      category: 'hero',
+      defaultEnabled: true,
+    },
+    {
+      id: 'categories',
+      name: 'Interactive Equipment Bubbles',
+      nameAr: 'أقسام المعدات الدائرية',
+      category: 'categories',
+      defaultEnabled: true,
+    },
+    {
+      id: 'featured_machines',
+      name: 'Flagship Machines Carousel',
+      nameAr: 'مكائن القهوة المميزة',
+      category: 'products',
+      defaultEnabled: true,
+    },
+    {
+      id: 'barista_tools',
+      name: 'Barista & Roasting Accessories',
+      nameAr: 'مستلزمات وأدوات الباريستا',
+      category: 'products',
+      defaultEnabled: true,
+    },
+    {
+      id: 'video_showcase',
+      name: 'Machine In-Action Video',
+      nameAr: 'فيديو تشغيل الماكينة',
+      category: 'media',
+      defaultEnabled: true,
+    },
+    {
+      id: 'reviews',
+      name: 'Coffee Aficionado Reviews',
+      nameAr: 'تقييمات عشاق القهوة',
+      category: 'reviews',
+      defaultEnabled: true,
+    },
+    {
+      id: 'footer',
+      name: 'Roastery Footer & Badges',
+      nameAr: 'تذييل المتجر الرسمي',
+      category: 'footer',
+      defaultEnabled: true,
+    },
+  ],
+  systemPages: [
+    { id: 'home', slug: '', title: 'Home', titleAr: 'الرئيسية', isSystem: true },
+    { id: 'catalog', slug: 'catalog', title: 'Equipment & Beans', titleAr: 'المكائن والمستلزمات', isSystem: true },
+    { id: 'product', slug: 'product', title: 'Product Details (Learn More)', titleAr: 'تفاصيل المنتج (اعرف المزيد)', isSystem: true },
+    { id: 'product-buy', slug: 'buy', title: 'Buy Now Configurator', titleAr: 'الشراء الفوري وتخصيص الماكينة', isSystem: true },
+    { id: 'custom-order', slug: 'custom-order', title: 'Custom Coffee Corner Builder', titleAr: 'تفصيل أركان ودواليب القهوة', isSystem: true },
+    { id: 'cart', slug: 'cart', title: 'Shopping Cart', titleAr: 'سلة المشتريات', isSystem: true },
+    { id: 'checkout', slug: 'checkout', title: 'Express Checkout', titleAr: 'إتمام الطلب السريع', isSystem: true },
+    { id: 'profile', slug: 'profile', title: 'Customer Profile & Orders', titleAr: 'حساب العميل والطلبات', isSystem: true },
+    { id: 'reviews', slug: 'reviews', title: 'Customer Reviews & Photos', titleAr: 'تقييمات وصور المشترين', isSystem: true },
+    { id: 'track-order', slug: 'track-order', title: 'Live Order Tracking', titleAr: 'تتبع الشحنة المباشر', isSystem: true },
+    { id: 'warranty', slug: 'warranty', title: 'Official 2-Year Warranty', titleAr: 'الضمان المعتمد سنتين', isSystem: true },
+    { id: 'return', slug: 'return', title: 'Return & Refund Policy', titleAr: 'سياسة الاستبدال والاسترجاع', isSystem: true },
+    { id: 'privacy', slug: 'privacy', title: 'Privacy Policy', titleAr: 'سياسة الخصوصية', isSystem: true },
+  ],
+  ViewComponent: CoffeeRoastersThemeView,
+};

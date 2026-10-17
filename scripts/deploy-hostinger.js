@@ -11,10 +11,15 @@ import { fileURLToPath } from 'url';
 import http from 'http';
 import https from 'https';
 
+import dotenv from 'dotenv';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const distDir = path.resolve(rootDir, 'dist');
+
+// Load environment variables strictly from .env
+dotenv.config({ path: path.resolve(rootDir, '.env') });
 
 // Read command line arguments
 const args = process.argv.slice(2);
@@ -24,11 +29,18 @@ const getArg = (key, fallback) => {
   return fallback;
 };
 
-const FTP_HOST = getArg('host', process.env.FTP_HOST || '145.79.26.23');
-const FTP_USER = getArg('user', process.env.FTP_USER || 'u920689430.giftshop');
-const FTP_PASSWORD = getArg('password', process.env.FTP_PASSWORD || 'Giftshop2030#');
-const REMOTE_DIR = getArg('dir', process.env.REMOTE_DIR || '/');
-const TARGET_URL = 'http://giftshop-sa.com/';
+const FTP_HOST = getArg('host', process.env.FTP_HOST);
+const FTP_USER = getArg('user', process.env.FTP_USER);
+const FTP_PASSWORD = getArg('password', process.env.FTP_PASSWORD);
+const REMOTE_DIR = getArg('dir', process.env.FTP_REMOTE_DIR || process.env.REMOTE_DIR || '/');
+const TARGET_URL = process.env.FTP_TARGET_URL || 'http://giftshop-sa.com/';
+
+// Validate credentials to prevent execution with missing secrets
+if (!FTP_HOST || !FTP_USER || !FTP_PASSWORD) {
+  console.error('\n❌ Deployment configuration error:');
+  console.error('Missing required FTP credentials. Please define FTP_HOST, FTP_USER, and FTP_PASSWORD in your .env file or pass them as CLI arguments (e.g. --host=... --user=... --password=...).');
+  process.exit(1);
+}
 
 // Recursive file scanner for local dist directory
 function getAllFiles(dirPath, arrayOfFiles = []) {
@@ -99,13 +111,10 @@ async function deploy() {
     console.log('📄 Added .htaccess to dist/ with SPA routing & optimized cache headers.');
   }
 
-  const client = new ftp.Client(120000); // 120s timeout
-  client.ftp.verbose = false;
-
-  try {
+  async function connectClient(ftpClient) {
     console.log(`📡 Connecting to FTP ${FTP_HOST}:21 ...`);
     try {
-      await client.access({
+      await ftpClient.access({
         host: FTP_HOST,
         user: FTP_USER,
         password: FTP_PASSWORD,
@@ -113,7 +122,7 @@ async function deploy() {
       });
     } catch (plainErr) {
       console.log(`⚠️ Plain FTP returned (${plainErr.message}), trying FTPS (explicit TLS)...`);
-      await client.access({
+      await ftpClient.access({
         host: FTP_HOST,
         user: FTP_USER,
         password: FTP_PASSWORD,
@@ -121,8 +130,14 @@ async function deploy() {
         secureOptions: { rejectUnauthorized: false },
       });
     }
-
     console.log('✅ Connected & Authenticated successfully!\n');
+  }
+
+  let client = new ftp.Client(120000);
+  client.ftp.verbose = false;
+
+  try {
+    await connectClient(client);
 
     // List remote directory
     console.log(`🔍 Examining remote directory structure...`);
@@ -141,48 +156,30 @@ async function deploy() {
       }
     }
 
-    // Collect all local files in dist
-    const allLocalFiles = getAllFiles(distDir);
-    console.log(`\n📦 Found ${allLocalFiles.length} files in fresh dist/ ready for deployment.`);
+    console.log('🚀 Uploading fresh dist/ bundle using batch stream transfer...');
+    client.trackProgress((info) => {
+      console.log(`📤 Uploading: ${info.name} (${(info.bytesOverall / 1024 / 1024).toFixed(2)} MB total)`);
+    });
 
-    let uploadedCount = 0;
-    let totalBytes = 0;
-
-    for (const filePath of allLocalFiles) {
-      const relPath = path.relative(distDir, filePath).replace(/\\/g, '/');
-      const remoteFilePath = relPath;
-      const remoteDirForFile = path.dirname(relPath).replace(/\\/g, '/');
-
-      if (remoteDirForFile && remoteDirForFile !== '.') {
-        await client.ensureDir(remoteDirForFile);
-        // cd back to root
-        await client.cd('/');
-      }
-
-      const fileStats = fs.statSync(filePath);
-      const fileSizeKB = (fileStats.size / 1024).toFixed(1);
-
-      let attempts = 0;
-      let success = false;
-      while (attempts < 3 && !success) {
-        try {
-          attempts++;
-          await client.uploadFrom(filePath, remoteFilePath);
-          success = true;
-          uploadedCount++;
-          totalBytes += fileStats.size;
-          console.log(`📤 [${uploadedCount}/${allLocalFiles.length}] Uploaded: ${remoteFilePath} (${fileSizeKB} KB)`);
-        } catch (uploadErr) {
-          if (attempts >= 3) throw uploadErr;
-          console.warn(`⚠️ Retry ${attempts}/3 for ${remoteFilePath}: ${uploadErr.message}`);
-          await new Promise((r) => setTimeout(r, 1000));
-        }
+    let uploaded = false;
+    let attempts = 0;
+    while (!uploaded && attempts < 3) {
+      try {
+        attempts++;
+        await client.uploadFromDir(distDir);
+        uploaded = true;
+      } catch (uploadErr) {
+        console.warn(`⚠️ Batch upload attempt ${attempts} interrupted: ${uploadErr.message}`);
+        if (attempts >= 3) throw uploadErr;
+        console.log('🔄 Reconnecting FTP client and resuming upload...');
+        client.close();
+        client = new ftp.Client(120000);
+        await connectClient(client);
       }
     }
 
     console.log('\n====================================================');
-    console.log(`🎉 ALL ${uploadedCount} FILES DEPLOYED SUCCESSFULLY!`);
-    console.log(`📊 Total Transferred: ${(totalBytes / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`🎉 ALL FILES DEPLOYED TO HOSTINGER SUCCESSFULLY!`);
     console.log(`🌐 LIVE STORE URL   : ${TARGET_URL}`);
     console.log(`👑 MASTER ADMIN URL : ${TARGET_URL}master`);
     console.log(`🏪 STOREFRONT URL   : ${TARGET_URL}storefront`);

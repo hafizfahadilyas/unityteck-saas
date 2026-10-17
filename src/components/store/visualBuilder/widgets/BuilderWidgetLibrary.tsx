@@ -20,6 +20,9 @@ import {
   CreditCard,
   Package,
   Plus,
+  BookOpen,
+  Layout,
+  GripVertical,
 } from 'lucide-react';
 
 export interface WidgetDefinition {
@@ -78,12 +81,51 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   {
     id: 'w_columns',
     type: 'columns_container',
-    titleAr: 'أعمدة شبكية',
+    titleAr: 'أعمدة شبكية (Elementor Grid)',
     titleEn: 'Columns Container',
     category: 'general',
     icon: Columns,
-    defaultSettings: { layoutColumns: '3' },
+    defaultSettings: { layoutColumns: '3', columnGap: 16 },
     templateStyle: 'cols-3-grid',
+  },
+  {
+    id: 'w_inner_section',
+    type: 'columns_container',
+    titleAr: 'قسم داخلي (Inner Section 25, 25, 50)',
+    titleEn: 'Inner Section (25, 25, 50)',
+    category: 'general',
+    icon: Layout,
+    defaultSettings: {
+      layoutColumns: '25-25-50',
+      columnGap: 32, // wide gap
+      rowGap: 16,
+      gridOutline: true,
+      contentWidth: 'full',
+    },
+    templateStyle: 'inner-cols-25-25-50',
+  },
+  {
+    id: 'w_featured_posts',
+    type: 'featured_posts',
+    titleAr: 'مقالات مميزة (Typer Articles)',
+    titleEn: 'Featured Posts / Typer Articles',
+    category: 'general',
+    icon: BookOpen,
+    defaultSettings: {
+      postSource: 'latest', // 'latest' | 'most_liked'
+      category: 'Travel Stories',
+      showImage: true,
+      showCategory: true,
+      showTag: true,
+      maxPosts: 3,
+      showMeta: true,
+      columnLabel: '1',
+      labelFontSize: 82,
+      headingLevel: 'h3',
+      headingText: 'Travel Stories',
+      bgType: 'classic',
+    },
+    templateStyle: 'posts-typer-featured',
   },
   {
     id: 'w_video',
@@ -200,6 +242,76 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
     templateStyle: 'faq-accordion-clean',
   },
   {
+    id: 'w_category_grid',
+    type: 'category_grid',
+    titleAr: 'شبكة التصنيفات 8 (Category Grid)',
+    titleEn: '8-Categories Grid Showcase',
+    category: 'ecommerce',
+    icon: Grid,
+    defaultSettings: {},
+    templateStyle: 'grid-8cats',
+  },
+  {
+    id: 'w_best_sellers',
+    type: 'best_sellers',
+    titleAr: 'الأكثر مبيعاً (Best Sellers)',
+    titleEn: 'Best Sellers Showcase',
+    category: 'ecommerce',
+    icon: ShoppingBag,
+    defaultSettings: {},
+    templateStyle: 'bestsellers-4cards',
+  },
+  {
+    id: 'w_shop_by_category',
+    type: 'shop_by_category',
+    titleAr: 'تسوق حسب التصنيف (Shop by Category)',
+    titleEn: 'Shop by Category Cards',
+    category: 'ecommerce',
+    icon: Layers,
+    defaultSettings: {},
+    templateStyle: 'category-cards-4',
+  },
+  {
+    id: 'w_featured_collections',
+    type: 'featured_collections',
+    titleAr: 'تشكيلات مميزة وإحصائيات (Featured Collections)',
+    titleEn: 'Featured Collections & Stats',
+    category: 'sections',
+    icon: Sparkles,
+    defaultSettings: {},
+    templateStyle: 'stats-image-counters',
+  },
+  {
+    id: 'w_occasion_why_us',
+    type: 'occasion_why_us',
+    titleAr: 'المناسبات ولماذا تختارنا (Occasion & Why Us)',
+    titleEn: 'Shop by Occasion & Why Choose Us',
+    category: 'sections',
+    icon: CreditCard,
+    defaultSettings: {},
+    templateStyle: 'occasion-whyus-split',
+  },
+  {
+    id: 'w_custom_gift',
+    type: 'custom_gift_banner',
+    titleAr: 'بانر هدية خاصة (Looking for unique)',
+    titleEn: 'Looking for Unique Banner',
+    category: 'sections',
+    icon: Flame,
+    defaultSettings: {},
+    templateStyle: 'banner-custom-botanical',
+  },
+  {
+    id: 'w_trending_this_week',
+    type: 'trending_this_week',
+    titleAr: 'الأكثر رواجاً هذا الأسبوع (Trending)',
+    titleEn: 'Trending This Week Carousel',
+    category: 'ecommerce',
+    icon: ShoppingBag,
+    defaultSettings: {},
+    templateStyle: 'trending-carousel',
+  },
+  {
     id: 'w_features',
     type: 'store_features_bar',
     titleAr: 'مميزات وضمانات المتجر',
@@ -281,8 +393,15 @@ export const BuilderWidgetLibrary: React.FC<BuilderWidgetLibraryProps> = ({
             <button
               key={w.id}
               type="button"
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('application/json', JSON.stringify({ type: 'builder-widget', widget: w }));
+                e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'builder-widget', widget: w }));
+                e.dataTransfer.effectAllowed = 'copyMove';
+              }}
               onClick={() => onAddWidget(w)}
-              className="p-3 rounded-xl border border-slate-200 hover:border-indigo-500 hover:shadow-xs bg-white hover:bg-indigo-50/30 flex flex-col items-center justify-center text-center gap-1.5 transition-all group cursor-pointer"
+              className="p-3 rounded-xl border border-slate-200 hover:border-indigo-500 hover:shadow-xs bg-white hover:bg-indigo-50/30 flex flex-col items-center justify-center text-center gap-1.5 transition-all group cursor-grab active:cursor-grabbing relative"
+              title={isAr ? `انقر للإضافة أو اسحب وأفلت في أي قسم (${w.titleAr})` : `Click to add or drag & drop into any section (${w.titleEn})`}
             >
               <span className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-indigo-600 text-slate-600 group-hover:text-white flex items-center justify-center transition-colors">
                 <WIcon className="w-4 h-4" />
@@ -290,9 +409,10 @@ export const BuilderWidgetLibrary: React.FC<BuilderWidgetLibraryProps> = ({
               <span className="text-xs font-bold text-slate-800 group-hover:text-indigo-950 truncate max-w-full">
                 {isAr ? w.titleAr : w.titleEn}
               </span>
-              <span className="text-[9px] text-slate-400 group-hover:text-indigo-600 font-mono">
-                +{isAr ? 'إضافة' : 'Insert'}
-              </span>
+              <div className="flex items-center gap-1 text-[9px] text-slate-400 group-hover:text-indigo-600 font-mono">
+                <GripVertical className="w-3 h-3 opacity-60" />
+                <span>{isAr ? 'اسحب / أضف' : 'Drag / Add'}</span>
+              </div>
             </button>
           );
         })}

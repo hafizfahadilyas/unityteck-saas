@@ -4,6 +4,7 @@
 
 export type RoleSlug =
   | 'super_admin'
+  | 'partner'
   | 'admin'
   | 'manager'
   | 'support'
@@ -17,7 +18,8 @@ export type RoleSlug =
 type RoleMeta = { label: string; portal: 'master' | 'store'; level: number };
 
 const CATALOG: Record<RoleSlug, RoleMeta> = {
-  super_admin: { label: 'Super Admin', portal: 'master', level: 100 },
+  super_admin: { label: 'Super Admin (Owner)', portal: 'master', level: 100 },
+  partner: { label: 'Partner / Sub-Admin', portal: 'master', level: 95 },
   admin: { label: 'Admin', portal: 'store', level: 90 },
   manager: { label: 'Manager', portal: 'store', level: 80 },
   developer: { label: 'Developer', portal: 'store', level: 70 },
@@ -38,6 +40,11 @@ export function normalizeRole(role?: string | null): RoleSlug {
     case 'superadmin':
     case 'super_admin':
       return 'super_admin';
+    case 'partner':
+    case 'sub_admin':
+    case 'subadmin':
+    case 'partner_admin':
+      return 'partner';
     case 'store_manager':
     case 'manager':
       return 'manager';
@@ -97,7 +104,30 @@ export function abilitiesFor(role?: string | null): string[] {
   ];
   switch (n) {
     case 'super_admin':
-      return ['stores.read', 'stores.write', '*', ...allStore];
+      return ['stores.read', 'stores.write', 'stores.delete', '*', ...allStore];
+    case 'partner':
+      return [
+        'stores.read',
+        'stores.write',
+        'stores.create',
+        'products.read',
+        'products.write',
+        'orders.read',
+        'orders.write',
+        'customers.read',
+        'customers.write',
+        'coupons.read',
+        'coupons.write',
+        'shipping.read',
+        'shipping.write',
+        'seo.read',
+        'seo.write',
+        'themes.read',
+        'themes.write',
+        'settings.read',
+        'settings.write',
+        'analytics.read',
+      ];
     case 'admin':
     case 'manager':
       return allStore;
@@ -196,3 +226,19 @@ export function listRoles(portal?: 'master' | 'store'): Array<{
       level: CATALOG[slug].level,
     }));
 }
+
+/**
+ * Strict Security Guard: Only super_admin (Owner) can permanently delete stores, products, or orders.
+ * Partner / Sub-admin roles are explicitly blocked from all destructive deletion operations.
+ */
+export function canDeleteEntities(role?: string | null): boolean {
+  const r = normalizeRole(role);
+  return r === 'super_admin';
+}
+
+/** Check whether a role is a Master Portal Admin (Super Admin or Partner) */
+export function isMasterPortalUser(role?: string | null): boolean {
+  const r = normalizeRole(role);
+  return r === 'super_admin' || r === 'partner';
+}
+

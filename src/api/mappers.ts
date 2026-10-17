@@ -9,6 +9,7 @@ import type {
   ShippingZone,
   Store,
   StoreSEOConfig,
+  DomainRecord,
 } from '../types';
 
 /** Loose API row shapes (snake_case from Laravel). */
@@ -134,8 +135,12 @@ export function mapProduct(row: ApiProductRow): Product {
     id: str(row.id),
     storeId: str(row.store_id),
     name: str(row.name),
+    nameAr: row.name_ar ? str(row.name_ar) : undefined,
+    nameEn: row.name_en ? str(row.name_en) : undefined,
     sku: str(row.sku),
     category: str(row.category, 'General'),
+    categoryAr: row.category_ar ? str(row.category_ar) : undefined,
+    categoryEn: row.category_en ? str(row.category_en) : undefined,
     price: num(row.price),
     originalPrice,
     stock: num(row.stock),
@@ -156,6 +161,10 @@ export function mapProduct(row: ApiProductRow): Product {
         : str(row.seo_description),
     seoKeywords:
       row.seo_keywords == null || row.seo_keywords === '' ? null : str(row.seo_keywords),
+    specComparisonImage:
+      row.spec_comparison_image ? str(row.spec_comparison_image) : (row.specComparisonImage ? str(row.specComparisonImage) : undefined),
+    specComparisonImageAr:
+      row.spec_comparison_image_ar ? str(row.spec_comparison_image_ar) : (row.specComparisonImageAr ? str(row.specComparisonImageAr) : undefined),
   };
 }
 
@@ -190,13 +199,19 @@ function mapPaymentMethod(v: unknown): Order['paymentMethod'] {
 
 function mapOrderStatus(v: unknown): Order['status'] {
   const s = str(v, 'pending').toLowerCase();
-  if (
-    s === 'pending' ||
-    s === 'processing' ||
-    s === 'completed' ||
-    s === 'cancelled'
-  ) {
-    return s;
+  const validStatuses: Order['status'][] = [
+    'pending',
+    'processing',
+    'shipped',
+    'out_for_delivery',
+    'delivered',
+    'completed',
+    'cancellation_requested',
+    'cancelled',
+    'returned',
+  ];
+  if (validStatuses.includes(s as Order['status'])) {
+    return s as Order['status'];
   }
   return 'pending';
 }
@@ -209,6 +224,8 @@ export function mapOrder(row: ApiOrderRow): Order {
   }
   if (!itemsCount) itemsCount = 1;
 
+  const rowAny = row as Record<string, unknown>;
+
   return {
     id: str(row.id),
     storeId: str(row.store_id),
@@ -217,6 +234,17 @@ export function mapOrder(row: ApiOrderRow): Order {
     customerPhone: str(row.customer_phone),
     itemsCount,
     itemsSummary: row.items_summary != null ? str(row.items_summary) : undefined,
+    items: Array.isArray(items)
+      ? items.map((it: any) => ({
+          id: String(it.id || it.product_id || ''),
+          name: String(it.product_name || it.name || ''),
+          sku: String(it.sku || ''),
+          price: num(it.unit_price ?? it.price, 0),
+          quantity: num(it.quantity, 1),
+          total: num(it.subtotal ?? (num(it.unit_price ?? it.price, 0) * num(it.quantity, 1))),
+          image: it.image ? String(it.image) : undefined,
+        }))
+      : undefined,
     total: num(row.total_amount ?? row.total),
     source: mapOrderSource(row.source),
     sourceDetails:
@@ -224,6 +252,20 @@ export function mapOrder(row: ApiOrderRow): Order {
     deliveryLocation: str(row.delivery_location, ''),
     status: mapOrderStatus(row.status),
     paymentMethod: mapPaymentMethod(row.payment_method),
+    paymentStatus: rowAny.payment_status ? String(rowAny.payment_status) as any : undefined,
+    shippingStatus: rowAny.shipping_status ? String(rowAny.shipping_status) as any : undefined,
+    trackingNumber: rowAny.tracking_number ? String(rowAny.tracking_number) : undefined,
+    shippingCompany: rowAny.courier_code ? String(rowAny.courier_code) : undefined,
+    codStatus: rowAny.cod_status ? String(rowAny.cod_status) as any : undefined,
+    codCollectedAt: rowAny.cod_collected_at ? String(rowAny.cod_collected_at) : undefined,
+    codRemittedAt: rowAny.cod_remitted_at ? String(rowAny.cod_remitted_at) : undefined,
+    codNotes: rowAny.cod_notes ? String(rowAny.cod_notes) : undefined,
+    refundStatus: rowAny.refund_status ? String(rowAny.refund_status) as any : undefined,
+    refundAmount: rowAny.refund_amount != null ? num(rowAny.refund_amount) : undefined,
+    returnReason: rowAny.return_reason ? String(rowAny.return_reason) : undefined,
+    returnNotes: rowAny.return_notes ? String(rowAny.return_notes) : undefined,
+    returnedAt: rowAny.returned_at ? String(rowAny.returned_at) : undefined,
+    restockedAt: rowAny.restocked_at ? String(rowAny.restocked_at) : undefined,
     date: dateSlice(row.order_date ?? row.created_at),
     medium: row.medium != null ? str(row.medium) : undefined,
     campaign: row.campaign != null ? str(row.campaign) : undefined,
@@ -470,4 +512,33 @@ export function seoPatchToApi(
   }
   if (patch.sitemapUrl !== undefined) body.sitemap_url = patch.sitemapUrl;
   return body;
+}
+
+export type ApiDomainRow = Record<string, unknown>;
+
+export function mapDomain(row: ApiDomainRow): DomainRecord {
+  return {
+    id: str(row.id),
+    storeId: str(row.store_id),
+    domainName: str(row.domain_name),
+    sslStatus: (str(row.ssl_status, 'active') as DomainRecord['sslStatus']),
+    dnsVerified: Boolean(row.dns_verified),
+    hostingTier: (str(row.hosting_tier, 'Hostinger Shared Business') as DomainRecord['hostingTier']),
+    monthlyFee: num(row.monthly_fee, 49),
+    paymentReceived: Boolean(row.payment_received),
+    status: (str(row.status, 'active') as DomainRecord['status']),
+    nameservers: Array.isArray(row.nameservers)
+      ? (row.nameservers as string[])
+      : ['ns1.dns-parking.com', 'ns2.dns-parking.com'],
+    registeredDate: str(row.registered_date, new Date().toISOString().split('T')[0]),
+    hostingId: str(row.hosting_id) || undefined,
+    databaseId: str(row.database_id) || undefined,
+    deploymentStatus: (str(row.deployment_status, 'live') as DomainRecord['deploymentStatus']),
+    hostingerPlan: str(row.hostinger_plan) || undefined,
+    serverIp: str(row.server_ip, '185.199.108.153'),
+    domainType: Boolean(row.is_primary) ? 'custom' : 'demo',
+    dnsRecords: Array.isArray(row.dns_records)
+      ? (row.dns_records as DomainRecord['dnsRecords'])
+      : undefined,
+  };
 }

@@ -30,8 +30,13 @@ import {
   Code2,
 } from 'lucide-react';
 
+import { usePrefs } from '../../i18n/PrefsContext';
+import { getStoreDisplayName } from '../../utils/storeLocalization';
+
 export const MasterDatabase: React.FC = () => {
   const { stores, allProducts, allOrders, allStoreCustomers, activeStore } = useTenant();
+  const { locale } = usePrefs();
+  const isAr = locale === 'ar';
 
   // Hostinger Connection State
   const [dbConfig, setDbConfig] = useState<HostingerDbConfig>(DEFAULT_HOSTINGER_CONFIG);
@@ -93,7 +98,7 @@ export const MasterDatabase: React.FC = () => {
     if (selectedTable === 'stores') {
       return stores.map(s => ({
         id: s.id,
-        name: s.name,
+        name: getStoreDisplayName(s, locale),
         slug: s.slug,
         status: s.status,
         currency: 'SAR',
@@ -528,10 +533,10 @@ export const MasterDatabase: React.FC = () => {
                   onChange={(e) => setSelectedTenantFilter(e.target.value)}
                   className="px-3 py-1.5 bg-teal-50 border border-teal-200 rounded-xl text-xs font-semibold text-teal-900"
                 >
-                  <option value="all">All Tenants (Master Scope)</option>
+                  <option value="all">{isAr ? 'جميع المتاجر (نطاق المنصة الرئيسي)' : 'All Tenants (Master Scope)'}</option>
                   {stores.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} ({s.id})
+                      {getStoreDisplayName(s, locale)} ({s.id})
                     </option>
                   ))}
                 </select>

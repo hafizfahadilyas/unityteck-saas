@@ -58,13 +58,16 @@ export async function apiFetch<T>(
   options: ApiFetchOptions = {},
 ): Promise<T> {
   const { method = 'GET', body, storeId, portal, skipAuth } = options;
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    'Content-Type': 'application/json',
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     Pragma: 'no-cache',
     Expires: '0',
   };
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (portal === 'master') {
     headers['X-Portal'] = 'master';
@@ -89,7 +92,7 @@ export async function apiFetch<T>(
     method,
     headers,
     cache: 'no-store',
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: isFormData ? (body as FormData) : (body !== undefined ? JSON.stringify(body) : undefined),
   });
 
   let json: unknown = null;

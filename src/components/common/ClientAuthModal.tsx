@@ -16,10 +16,14 @@ import {
   Building,
   UserPlus,
   CheckCircle2,
+  AlertCircle,
+  Coffee,
+  Car,
 } from 'lucide-react';
 import { PlanType } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { initiateRealGoogleOAuth } from '../../utils/googleRealAuth';
+import { loginPortal, DEMO_CREDENTIALS } from '../../auth/api';
 
 interface ClientAuthModalProps {
   isOpen: boolean;
@@ -63,22 +67,27 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
     setLoginError('');
 
-    setTimeout(() => {
-      setLoginLoading(false);
-      // Find store by email or default to primary store
-      const matchingStore = stores.find(s => s.ownerEmail.toLowerCase() === loginEmail.toLowerCase());
-      if (matchingStore) {
-        switchToStore(matchingStore.id);
+    try {
+      const session = await loginPortal('store', loginEmail.trim(), loginPassword);
+      if (session.storeId) {
+        switchToStore(session.storeId);
       } else {
-        switchToStore(stores[0].id);
+        const matchingStore = stores.find(s => s.ownerEmail.toLowerCase() === loginEmail.toLowerCase());
+        if (matchingStore) {
+          switchToStore(matchingStore.id);
+        }
       }
       onClose();
-    }, 600);
+    } catch (err) {
+      setLoginError(err instanceof Error ? err.message : 'Invalid password or store credentials.');
+    } finally {
+      setLoginLoading(false);
+    }
   };
 
   const handleRegister = (e: React.FormEvent) => {
@@ -158,6 +167,13 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
         {/* ================= TAB 1: LOGIN ================= */}
         {activeTab === 'login' && (
           <form onSubmit={handleLogin} className="space-y-4">
+            {loginError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
                 Merchant Email Address
@@ -190,9 +206,9 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
               </div>
             </div>
 
-            {/* Quick Demo Credentials Box */}
+            {/* Quick Demo Credentials Box - Separate Passwords per Store */}
             <div
-              className="p-3 rounded-2xl text-[11px] space-y-1 border"
+              className="p-3 rounded-2xl text-[11px] space-y-2 border"
               style={{
                 background: 'color-mix(in srgb, var(--portal-50) 90%, white)',
                 borderColor: 'var(--portal-200)',
@@ -200,11 +216,59 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
               }}
             >
               <span className="font-bold block" style={{ color: 'var(--portal-800)' }}>
-                Demo Store Credentials (1-Click Ready):
+                {isAr ? 'كلمات المرور الأصلية لكل متجر (مستقلة وخاصة):' : 'Original Passwords per Store (Dedicated & Unique):'}
               </span>
-              <div className="font-mono" style={{ color: 'var(--portal-800)' }}>
-                Store: <strong>Makkah Gifts Store</strong> (giftshop-sa.com)<br/>
-                Email: <strong>admin@giftshop-sa.com</strong>
+              <div className="grid grid-cols-1 gap-1.5 font-mono text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginEmail(DEMO_CREDENTIALS.store.email);
+                    setLoginPassword(DEMO_CREDENTIALS.store.password);
+                  }}
+                  className="p-1.5 rounded-lg border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/80 text-start flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <div>
+                    <span className="font-bold text-emerald-950">🌸 هدايا وزهور مكة:</span>
+                    <span className="block text-emerald-700 text-[9px]">{DEMO_CREDENTIALS.store.email}</span>
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded bg-white text-emerald-800 font-bold border border-emerald-300">
+                    {DEMO_CREDENTIALS.store.password}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginEmail(DEMO_CREDENTIALS.coffee.email);
+                    setLoginPassword(DEMO_CREDENTIALS.coffee.password);
+                  }}
+                  className="p-1.5 rounded-lg border border-amber-200 bg-amber-50/70 hover:bg-amber-100/80 text-start flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <div>
+                    <span className="font-bold text-amber-950">☕ متجر القهوة المختصة:</span>
+                    <span className="block text-amber-700 text-[9px]">{DEMO_CREDENTIALS.coffee.email}</span>
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded bg-white text-amber-800 font-bold border border-amber-300">
+                    {DEMO_CREDENTIALS.coffee.password}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginEmail(DEMO_CREDENTIALS.car.email);
+                    setLoginPassword(DEMO_CREDENTIALS.car.password);
+                  }}
+                  className="p-1.5 rounded-lg border border-blue-200 bg-blue-50/70 hover:bg-blue-100/80 text-start flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <div>
+                    <span className="font-bold text-blue-950">🚗 تنجيد وإكسسوارات السيارات:</span>
+                    <span className="block text-blue-700 text-[9px]">{DEMO_CREDENTIALS.car.email}</span>
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded bg-white text-blue-800 font-bold border border-blue-300">
+                    {DEMO_CREDENTIALS.car.password}
+                  </span>
+                </button>
               </div>
             </div>
 

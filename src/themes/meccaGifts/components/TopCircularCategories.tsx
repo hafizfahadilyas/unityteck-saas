@@ -1,219 +1,253 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { StoreCollections3DGallery } from './StoreCollections3DGallery';
-import { RoundShapes3DMotionCarousel, RoundShapeItem } from './RoundShapes3DMotionCarousel';
+import { useTenant } from '../../../context/TenantContext';
+import { EIGHT_FEATURED_CATEGORIES } from '../data/mockData';
+import { ArrowLeft, ArrowRight, Edit3, Image as ImageIcon } from 'lucide-react';
+import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../../utils/imageFallback';
 
-export const TopCircularCategories: React.FC = () => {
-  const { language } = useApp();
+export const COFFEE_CIRCULAR_CATEGORIES: VisualCategoryItem[] = [
+  {
+    id: 'cat-cir-1',
+    name: 'حبوب البن المختصة',
+    nameEn: 'Specialty Beans',
+    image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80',
+    count: 12,
+  },
+  {
+    id: 'cat-cir-2',
+    name: 'أدوات التقطير V60',
+    nameEn: 'V60 Pour-Over',
+    image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80',
+    count: 8,
+  },
+  {
+    id: 'cat-cir-3',
+    name: 'مكائن الإسبريسو',
+    nameEn: 'Espresso Machines',
+    image: 'https://images.unsplash.com/photo-1509785307050-d4066910ec1e?auto=format&fit=crop&w=800&q=80',
+    count: 5,
+  },
+  {
+    id: 'cat-cir-4',
+    name: 'القهوة الباردة كولد برو',
+    nameEn: 'Cold Brew Reserve',
+    image: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?auto=format&fit=crop&w=800&q=80',
+    count: 4,
+  },
+  {
+    id: 'cat-cir-5',
+    name: 'مطاحن البن الاحترافية',
+    nameEn: 'Coffee Grinders',
+    image: 'https://images.unsplash.com/photo-1589396575653-c09c794ff6a6?auto=format&fit=crop&w=800&q=80',
+    count: 6,
+  },
+  {
+    id: 'cat-cir-6',
+    name: 'أكواب سيراميك باريستا',
+    nameEn: 'Barista Cups',
+    image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=800&q=80',
+    count: 9,
+  },
+  {
+    id: 'cat-cir-7',
+    name: 'موازين ومؤقتات رقمية',
+    nameEn: 'Precision Scales',
+    image: 'https://images.unsplash.com/photo-1517256064527-09c73fc73e38?auto=format&fit=crop&w=800&q=80',
+    count: 7,
+  },
+  {
+    id: 'cat-cir-8',
+    name: 'محاصيل نادرة وسنجل أوريجن',
+    nameEn: 'Single Origins',
+    image: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=800&q=80',
+    count: 10,
+  },
+];
+
+export interface VisualCategoryItem {
+  id: string;
+  name: string;
+  nameEn?: string;
+  image: string;
+  badge?: string;
+  link?: string;
+  count?: number;
+}
+
+export interface TopCircularCategoriesProps {
+  isBuilderMode?: boolean;
+  categories?: VisualCategoryItem[];
+  titleAr?: string;
+  titleEn?: string;
+  columns?: number;
+  selectedCategoryIndex?: number | null;
+  onSelectCategory?: (index: number) => void;
+}
+
+export const TopCircularCategories: React.FC<TopCircularCategoriesProps> = ({
+  isBuilderMode = false,
+  categories,
+  titleAr,
+  titleEn,
+  columns = 4,
+  selectedCategoryIndex = null,
+  onSelectCategory,
+}) => {
+  const { language, navigateToCategory, setCurrentPage, setSelectedCategory } = useApp();
+  const { activeStore, currentProducts } = useTenant();
   const isAr = language === 'ar';
+  const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
 
-  // 2. Categories By Occasion with 100% Round Shape 3D Motion Carousel
-  const occasionItems: RoundShapeItem[] = [
-    {
-      id: 'occ-1',
-      name: 'هدايا الزواج والعروس',
-      nameEn: 'Wedding & Bride',
-      image: 'https://cdn.salla.sa/form-builder/Z8aMbQ8cDkf9OnQakCZwnH4GvpnqLlXsCqBk70ik.png',
-      subtitle: 'باقات ملكية وتنسيقات زهور للعروسين',
-      subtitleEn: 'Royal bridal bouquets & floral arrangements',
-      badge: isAr ? 'ألف مبروك' : 'Wedding',
-      badgeEn: 'Wedding',
-      categoryFilter: 'ذكرى زواج'
-    },
-    {
-      id: 'occ-2',
-      name: 'هدايا التخرج والنجاح',
-      nameEn: 'Graduation Milestones',
-      image: 'https://cdn.salla.sa/form-builder/unEMJIoOHLnWigTn0DpvQZbQMxNjU4QgVOT2BdUM.png',
-      subtitle: 'أطواق ووشاحات التخرج وباقات مبهجة',
-      subtitleEn: 'Graduation floral sashes & congratulation sets',
-      badge: isAr ? 'مبارك التخرج' : 'Graduation',
-      badgeEn: 'Graduation',
-      categoryFilter: 'هدايا وخطوبة'
-    },
-    {
-      id: 'occ-3',
-      name: 'هدايا المواليد واستقبال',
-      nameEn: 'Newborn Welcome Gifts',
-      image: 'https://cdn.salla.sa/form-builder/h7hTylc4cMiriSfxe2sGsX0mL5Sc7akjxHAAUqHp.png',
-      subtitle: 'استقبال المواليد بأجمل باقات الزهور وأطقم الضيافة',
-      subtitleEn: 'Joyous baby shower flowers & welcome gifts',
-      badge: isAr ? 'مبروك المولود' : 'Newborn',
-      badgeEn: 'Newborn',
-      categoryFilter: 'باقات فاخرة'
-    },
-    {
-      id: 'occ-4',
-      name: 'لوحات مواجيب التراثية',
-      nameEn: 'Mawajeeb Keepsakes',
-      image: 'https://cdn.files.salla.network/products/246985580/539625c7-703f-4c13-aa4c-24d982e20865-original.webp',
-      subtitle: 'لوحات تذكارية وتراث حجازي عريق',
-      subtitleEn: 'Authentic Hijazi heritage keepsakes & art',
-      badge: isAr ? 'تراث حجازي' : 'Heritage',
-      badgeEn: 'Heritage',
-      categoryFilter: 'هدايا رجالية'
-    },
-    {
-      id: 'occ-5',
-      name: 'هدايا عيد ميلاد سعيدة',
-      nameEn: 'Birthday Blooms',
-      image: 'https://cdn.salla.sa/form-builder/nm5BDgkXRslZvqTetu5wTrCTTTTLTrsBhWwjHMyI.png',
-      subtitle: 'باقات ورود مبهجة وكيك وتنسيقات مفاجآت',
-      subtitleEn: 'Delightful birthday bouquets & custom treats',
-      badge: isAr ? 'كل عام وأنتم بخير' : 'Birthday',
-      badgeEn: 'Birthday',
-      categoryFilter: 'عيد ميلاد'
-    },
-    {
-      id: 'occ-6',
-      name: 'تمنيات الشفاء والسلامة',
-      nameEn: 'Get Well Soon',
-      image: 'https://cdn.salla.sa/form-builder/WnIswy3NAtj1b5CuPg0ESG1ONPIomfuzmnRfzPUD.png',
-      subtitle: 'زهور نضرة تبهج النفس وتبث التفاؤل',
-      subtitleEn: 'Uplifting blooms wishing speedy recovery',
-      badge: isAr ? 'الحمد لله على السلامة' : 'Get Well',
-      badgeEn: 'Get Well',
-      categoryFilter: 'باقات الورود الطبيعية'
-    },
-    {
-      id: 'occ-7',
-      name: 'ذكرى زواج وحب',
-      nameEn: 'Anniversary & Romance',
-      image: 'https://cdn.salla.sa/form-builder/Y0Yt8LLfhRt46ljjaZjTaANumrZvYodYnv5CGQ7o.png',
-      subtitle: 'جوري أحمر بلجيكي وتنسيقات رومانسية ساحرة',
-      subtitleEn: 'Red roses & luxurious romantic statements',
-      badge: isAr ? 'حب وامتنان' : 'Romance',
-      badgeEn: 'Romance',
-      categoryFilter: 'هدايا رومانسية'
-    }
-  ];
+  const categoryList: VisualCategoryItem[] = useMemo(() => {
+    if (categories && categories.length > 0) return categories;
+    if (isCoffee) return COFFEE_CIRCULAR_CATEGORIES;
+    if (activeStore?.id === 'store-1') return EIGHT_FEATURED_CATEGORIES;
 
-  // 3. Discounted & Special Offers with 100% Round Shape 3D Motion Carousel
-  const offerItems: RoundShapeItem[] = [
-    {
-      id: 'off-1',
-      name: 'باقات ورود طبيعية مخفضة',
-      nameEn: 'Discounted Fresh Bouquets',
-      image: '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
-      subtitle: 'جوري هولندي فاخر بسعر ترويجي مميز',
-      subtitleEn: 'Dutch long-stem roses at special promo rate',
-      badge: isAr ? 'خصم حتى 35%' : 'Up to 35% Off',
-      badgeEn: '35% Off',
-      categoryFilter: 'باقات ورود طبيعية مخفضة'
-    },
-    {
-      id: 'off-2',
-      name: 'عروض باقات الورد والشكولاتة',
-      nameEn: 'Roses & Chocolate Bundles',
-      image: '/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg',
-      subtitle: 'باقة جوري أحمر مع بوكس باتشي مذهب',
-      subtitleEn: 'Red roses paired with Patchi luxury box',
-      badge: isAr ? 'وفر 70 ر.س' : 'Save 70 SAR',
-      badgeEn: 'Save 70 SAR',
-      categoryFilter: 'ورد وشوكولاتة بلجيكية فاخرة'
-    },
-    {
-      id: 'off-3',
-      name: 'باقات التوفير الملكية الكبرى',
-      nameEn: 'Grand Royal Saver Bouquets',
-      image: '/src/assets/images/hadaya_pink_peonies_1791216156090.jpg',
-      subtitle: 'بيوني وزهور بيبي روز نادرة بتوفير مضاعف',
-      subtitleEn: 'Imported pink peonies with royal savings',
-      badge: isAr ? 'عرض حصري' : 'Exclusive Deal',
-      badgeEn: 'Exclusive Deal',
-      categoryFilter: 'باقات فاخرة'
-    },
-    {
-      id: 'off-4',
-      name: 'عروض فازات المكاتب والمجالس',
-      nameEn: 'Office & Salon Vases Sale',
-      image: '/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg',
-      subtitle: 'فازات كريستال ملكية تدوم طويلاً',
-      subtitleEn: 'Long-lasting handcrafted crystal orchid vases',
-      badge: isAr ? 'لفترة محدودة' : 'Limited Time',
-      badgeEn: 'Limited Time',
-      categoryFilter: 'فازات ورود طبيعية'
-    },
-    {
-      id: 'off-5',
-      name: 'بكجات هدايا التخرج المخفضة',
-      nameEn: 'Graduation Combo Packages',
-      image: 'https://cdn.salla.sa/form-builder/Z8aMbQ8cDkf9OnQakCZwnH4GvpnqLlXsCqBk70ik.png',
-      subtitle: 'طقم هدية تخرج فاخر مع باقة ورد طبيعي',
-      subtitleEn: 'Graduation keepsakes bundle & fresh flowers',
-      badge: isAr ? 'هدية + ورد' : 'Combo Pack',
-      badgeEn: 'Combo Pack',
-      categoryFilter: 'هدايا رجالية'
-    },
-    {
-      id: 'off-6',
-      name: 'عروض عطلة نهاية الأسبوع',
-      nameEn: 'Weekend Flash Deals',
-      image: '/src/assets/images/hadaya_promo_banner_1791216140411.jpg',
-      subtitle: 'توصيل فوري مجاني خلال ساعتين بمكة المكرمة',
-      subtitleEn: 'Express 2-hr free delivery across Mecca',
-      badge: isAr ? 'شحن مجاني' : 'Free Shipping',
-      badgeEn: 'Free Shipping',
-      categoryFilter: 'باقات الورود الطبيعية'
-    },
-    {
-      id: 'off-7',
-      name: 'عرض كيك وباقة الورد',
-      nameEn: 'Cake & Flower Celebration',
-      image: '/src/assets/images/hadaya_luxury_velvet_cake_1791218716453.jpg',
-      subtitle: 'كيك كوري طازج مع باقة ورود مختارة',
-      subtitleEn: 'Fresh bakery paired with fresh roses',
-      badge: isAr ? 'كيك + باقة' : 'Cake & Flowers',
-      badgeEn: 'Cake & Flowers',
-      categoryFilter: 'ورد و كيك'
+    if (currentProducts && currentProducts.length > 0) {
+      const map = new Map<string, VisualCategoryItem>();
+      currentProducts.forEach((p, idx) => {
+        const cat = p.category || 'General';
+        if (!map.has(cat)) {
+          map.set(cat, {
+            id: `cat-cir-dyn-${idx}`,
+            name: cat,
+            nameEn: (p as any).categoryEn || cat,
+            image: p.image || 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80',
+            count: 5,
+          });
+        }
+      });
+      if (map.size >= 2) return Array.from(map.values()).slice(0, 8);
     }
-  ];
+    return EIGHT_FEATURED_CATEGORIES;
+  }, [categories, isCoffee, activeStore?.id, currentProducts]);
+
+  // Compute responsive columns
+  const getGridColsClass = (cols: number) => {
+    switch (cols) {
+      case 2:
+        return 'grid-cols-2';
+      case 3:
+        return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
+      case 5:
+        return 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5';
+      case 6:
+        return 'grid-cols-2 sm:grid-cols-3 md:grid-cols-6';
+      case 4:
+      default:
+        return 'grid-cols-2 sm:grid-cols-2 md:grid-cols-4';
+    }
+  };
 
   return (
-    <div className="space-y-12 sm:space-y-16 py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto relative">
-      {/* Ambient Radial Floral Aura */}
-      <div className="absolute top-10 right-0 w-96 h-96 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#e6ca98]/12 via-[#FAF9F5]/40 to-transparent pointer-events-none rounded-full blur-2xl -z-10" />
-      <div className="absolute bottom-10 left-0 w-96 h-96 bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-[#102a1c]/8 via-[#FAF9F5]/40 to-transparent pointer-events-none rounded-full blur-2xl -z-10" />
+    <section className="py-8 sm:py-12 px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto select-none">
+      {/* Header: Categories with View All matching site-wide uniform styling */}
+      <div className="flex items-center justify-between mb-8 pb-3 border-b border-[#ece7de]">
+        <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c] flex items-center gap-2">
+          <span>{isAr ? titleAr || 'التصنيفات الرئيسية' : titleEn || 'Featured Categories'}</span>
+          {isBuilderMode && (
+            <span className="text-[10px] font-sans font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+              {categoryList.length} {isAr ? 'تصنيفات (انقر لتعديل أي عنصر)' : 'Categories (Click to edit any)'}
+            </span>
+          )}
+        </h2>
 
-      {/* 1. STORE COLLECTIONS: 3D Card Carousel with Smooth Motion Animation */}
-      <section className="relative bg-gradient-to-b from-white/70 via-[#fcfaf4] to-white/70 rounded-3xl p-4 sm:p-7 border border-[#e6ca98]/35 shadow-xs overflow-hidden">
-        <div className="flex items-center justify-between mb-2 sm:mb-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <span className="w-3.5 h-3.5 rounded-full bg-gradient-to-r from-[#102a1c] to-[#d4af37] shadow-xs" />
-              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold font-serif text-[#102a1c]">
-                {isAr ? 'تشكيلات المتجر' : 'Store Collections'}
-              </h2>
+        <button
+          type="button"
+          onClick={() => {
+            if (isBuilderMode) return;
+            setSelectedCategory(null);
+            setCurrentPage('catalog');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#102a1c] hover:text-[#b8860b] transition-colors cursor-pointer group"
+        >
+          <span>{isAr ? 'عرض الكل' : 'View All'}</span>
+          {isAr ? (
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          ) : (
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          )}
+        </button>
+      </div>
+
+      {/* Dynamic Grid: e.g. 5 categories = 5 columns, or 4 columns, etc. */}
+      <div className={`grid ${getGridColsClass(columns)} gap-3 sm:gap-4 lg:gap-5`}>
+        {categoryList.map((cat, idx) => {
+          const isSelected = isBuilderMode && selectedCategoryIndex === idx;
+
+          return (
+            <div
+              key={cat.id || `cat-${idx}`}
+              onClick={(e) => {
+                if (isBuilderMode) {
+                  e.stopPropagation();
+                  onSelectCategory?.(idx);
+                  return;
+                }
+                navigateToCategory(cat.name);
+              }}
+              className={`group relative aspect-[4/3.8] rounded-2xl sm:rounded-3xl overflow-hidden cursor-pointer shadow-md hover:shadow-2xl transition-all duration-300 transform bg-[#1a201c] ${
+                isSelected
+                  ? 'ring-4 ring-amber-400 ring-offset-2 scale-[1.03] z-20 shadow-2xl'
+                  : 'hover:-translate-y-1.5'
+              } ${isBuilderMode ? 'hover:ring-2 hover:ring-amber-300' : ''}`}
+            >
+              {/* Builder Mode Click Badge Indicator */}
+              {isBuilderMode && (
+                <div
+                  className={`absolute top-2.5 start-2.5 z-30 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-md transition-all ${
+                    isSelected
+                      ? 'bg-amber-400 text-slate-950 font-black shadow-lg scale-105'
+                      : 'bg-slate-900/85 text-white opacity-0 group-hover:opacity-100 backdrop-blur-xs'
+                  }`}
+                >
+                  <Edit3 className="w-3 h-3 text-amber-500" />
+                  <span>
+                    {isAr
+                      ? `تصنيف ${idx + 1} (انقر للتعديل)`
+                      : `Cat ${idx + 1} (Click to edit)`}
+                  </span>
+                </div>
+              )}
+
+              {/* Background Photography */}
+              <img
+                src={cat.image}
+                alt={isAr ? cat.name : cat.nameEn || cat.name}
+                onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
+                className="w-full h-full object-cover object-center group-hover:scale-108 transition-transform duration-500 ease-out"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+              />
+
+              {/* Dark Scrim Vignette Overlay at Bottom */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none" />
+
+              {/* Optional Custom Badge (e.g. 'ألف مبروك', 'جديد', 'عرض خاص') */}
+              {cat.badge && (
+                <div className="absolute top-2.5 end-2.5 z-10">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-[#0b241a] shadow-xs">
+                    {cat.badge}
+                  </span>
+                </div>
+              )}
+
+              {/* Bottom Centered Category Title & Arrow Indicator matching Reference Image */}
+              <div className="absolute inset-x-0 bottom-0 p-3 sm:p-4 md:p-5 flex items-center justify-center pointer-events-none">
+                <div className="flex items-center justify-center gap-1.5 text-white group-hover:text-[#f3e5ab] transition-colors">
+                  <span className="text-sm sm:text-base md:text-lg font-bold tracking-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                    {isAr ? cat.name : cat.nameEn || cat.name}
+                  </span>
+                  <span className="text-xs sm:text-sm md:text-base font-bold text-white/90 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                    →
+                  </span>
+                </div>
+              </div>
             </div>
-            <p className="text-xs sm:text-sm text-[#7a7164] mt-1 font-light">
-              {isAr ? 'أفخم تشكيلات الزهور والهدايا الفاخرة المنسقة بأعلى معايير الإتقان' : 'Curated premium fresh blooms and signature luxury collections'}
-            </p>
-          </div>
-        </div>
-
-        {/* 3D Interactive Card Carousel */}
-        <StoreCollections3DGallery />
-      </section>
-
-      {/* 2. CATEGORIES BY OCCASION: Round Shapes 3D Motion Carousel (ZERO SCROLLBARS) */}
-      <RoundShapes3DMotionCarousel
-        title="تصنيفات حسب المناسبة"
-        titleEn="Categories by Occasion"
-        subtitle="شاركهم أجمل اللحظات باختيار هديتك حسب المناسبة الخاصة"
-        subtitleEn="Celebrate life milestones with dedicated theme arrangements"
-        items={occasionItems}
-        themeColor="rose"
-      />
-
-      {/* 3. DISCOUNTED & SPECIAL OFFERS: Round Shapes 3D Motion Carousel (ZERO SCROLLBARS) */}
-      <RoundShapes3DMotionCarousel
-        title="عروض وتخفيضات خاصة"
-        titleEn="Special Offers & Promotions"
-        subtitle="توفير استثنائي على باقات الورد والهدايا الملكية لفترة محدودة"
-        subtitleEn="Limited-time discounts on royal flower bouquets and luxury gift packages"
-        items={offerItems}
-        themeColor="gold"
-      />
-    </div>
+          );
+        })}
+      </div>
+    </section>
   );
 };

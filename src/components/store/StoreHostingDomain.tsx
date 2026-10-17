@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import type { DomainRecord } from '../../types';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
+import { DomainRoutingTester } from './domains/DomainRoutingTester';
 
 export const StoreHostingDomain: React.FC = () => {
   const {
@@ -244,6 +245,9 @@ export const StoreHostingDomain: React.FC = () => {
           </a>
         </div>
       </div>
+
+      {/* Multi-Domain Dynamic Routing Tester (Phase 6.1) */}
+      <DomainRoutingTester embeddedIn="store" />
 
       {/* Hostinger Backup & Migration Quick Card Banner */}
       <div

@@ -21,6 +21,10 @@ import {
   Plus,
   X,
   FilePlus,
+  Globe,
+  Copy,
+  Trash2,
+  ShieldCheck,
 } from 'lucide-react';
 import { readAllThemeSettings, writeAllThemeSettings } from '../../themes/settings/themeSettingsStore';
 import { planHasFullThemes, planInfoForStore } from '../../auth/plans';
@@ -29,9 +33,12 @@ import { useToast } from '../common/ToastProvider';
 import { StoreIdentityForm } from './themeSettings/StoreIdentityForm';
 import { ThemeSettingsMaster } from './themeSettings/ThemeSettingsMaster';
 import { getStoreDisplayName } from '../../utils/storeLocalization';
+import { handleImageError } from '../../utils/imageFallback';
+import { preloadVisualThemeBuilder } from './visualBuilder/preloadVisualBuilder';
+import { ThemeBuilderLoadingShell } from './visualBuilder/ThemeBuilderLoadingShell';
 
-const VisualThemeBuilder = React.lazy(() =>
-  import('./visualBuilder/VisualThemeBuilder').then((m) => ({ default: m.VisualThemeBuilder }))
+const VisualThemeBuilder = React.lazy<React.ComponentType<any>>(() =>
+  preloadVisualThemeBuilder().then((m: any) => ({ default: m.VisualThemeBuilder }))
 );
 import {
   HOMEPAGE_TEMPLATES,
@@ -44,9 +51,10 @@ import {
 
 interface StoreThemesProps {
   onOpenStorefront?: () => void;
+  onCustomizeTheme?: (targetThemeId?: string, targetPage?: string) => void;
 }
 
-export const StoreThemes: React.FC<StoreThemesProps> = () => {
+export const StoreThemes: React.FC<StoreThemesProps> = ({ onOpenStorefront, onCustomizeTheme }) => {
   const {
     activeStore,
     themes,
@@ -54,15 +62,80 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
     setStoreTheme,
     storeActiveHomepage,
     setStoreHomepageStyle,
+    createStoreTheme,
+    duplicateStoreTheme,
+    deleteStoreTheme,
   } = useTenant();
   const { toast } = useToast();
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
 
+  const [isCreateThemeModalOpen, setIsCreateThemeModalOpen] = useState(false);
+  const [newThemeNameAr, setNewThemeNameAr] = useState('');
+  const [newThemeNameEn, setNewThemeNameEn] = useState('');
+  const [newThemeCategoryAr, setNewThemeCategoryAr] = useState('');
+  const [newThemeTaglineAr, setNewThemeTaglineAr] = useState('');
+  const [newThemeColor, setNewThemeColor] = useState(activeStore.accentColor || '#059669');
+
+  const handleCreateCustomTheme = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newThemeNameAr.trim() && !newThemeNameEn.trim()) {
+      toast(isAr ? 'يرجى إدخال اسم الثيم' : 'Please enter theme name', 'error');
+      return;
+    }
+    const created = createStoreTheme(activeStore.id, {
+      name: newThemeNameAr.trim() || newThemeNameEn.trim(),
+      nameAr: newThemeNameAr.trim() || newThemeNameEn.trim(),
+      nameEn: newThemeNameEn.trim() || newThemeNameAr.trim(),
+      category: newThemeCategoryAr.trim() || activeStore.category || 'متجر مخصص',
+      categoryAr: newThemeCategoryAr.trim() || activeStore.category || 'متجر مخصص',
+      categoryEn: 'Custom Store Theme',
+      tagline: newThemeTaglineAr.trim() || `ثيم مخصص حصرياً لمتجر ${activeStore.name}`,
+      taglineAr: newThemeTaglineAr.trim() || `ثيم مخصص حصرياً لمتجر ${activeStore.name}`,
+      taglineEn: `Exclusive custom theme for ${activeStore.name}`,
+      previewColor: newThemeColor,
+      thumbnail: activeStore.logo && activeStore.logo.startsWith('http') ? activeStore.logo : '/theme-mockups/real_storefront_fullpage.png',
+      badge: isAr ? 'ثيم خاص بالمتجر' : 'Private Store Theme',
+      badgeAr: 'ثيم خاص بالمتجر',
+      badgeEn: 'Private Store Theme',
+      homepageStyles: ['Default Commerce', 'Eid Home', 'Ramadan Home', 'Valentine Home'],
+      tier: 'full',
+      activeStoresCount: 1,
+      isDefault: false,
+      rating: 5.0,
+    });
+    toast(
+      isAr
+        ? `تم إنشاء الثيم الجديد "${created.name}" لمتجرك بنجاح!`
+        : `New private theme "${created.name}" created for your store!`,
+      'success',
+    );
+    setIsCreateThemeModalOpen(false);
+    setNewThemeNameAr('');
+    setNewThemeNameEn('');
+    setNewThemeCategoryAr('');
+    setNewThemeTaglineAr('');
+  };
+
   const [activeTab, setActiveTab] = useState<'theme-settings' | 'homepages' | 'pages' | 'catalog'>('theme-settings');
   const [selectedPageKey, setSelectedPageKey] = useState<string>('product');
   const [activePageTemplates, setActivePageTemplates] = useState<Record<string, string>>({});
-  const [isVisualBuilderOpen, setIsVisualBuilderOpen] = useState(false);
+  const [isVisualBuilderOpen, setIsVisualBuilderOpen] = useState(() => {
+    try {
+      if (typeof window === 'undefined') return false;
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('builder') === '1' || params.get('builder') === 'true') {
+        return true;
+      }
+      return sessionStorage.getItem('unityteck_visual_builder_open') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    preloadVisualThemeBuilder();
+  }, []);
   const [pageSearchQuery, setPageSearchQuery] = useState('');
   const [isCreatePageModalOpen, setIsCreatePageModalOpen] = useState(false);
   const [newPageTitleAr, setNewPageTitleAr] = useState('');
@@ -127,7 +200,105 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
 
   const currentThemeId = storeActiveTheme[activeStore.id] || DEFAULT_COMMERCE_THEME_ID;
   const currentStyle = storeActiveHomepage[activeStore.id] || pack.homepage_style;
-  const [builderThemeId, setBuilderThemeId] = useState<string>(() => currentThemeId);
+
+  const isCarStore =
+    activeStore.id === 'store-bleco' ||
+    activeStore.slug === 'bleco-sa' ||
+    activeStore.slug?.includes('car') ||
+    activeStore.slug?.includes('transport') ||
+    currentThemeId === 'theme-saudia-transport';
+
+  const isCoffeeStore =
+    !isCarStore &&
+    (activeStore.id === 'store-coffee' ||
+      activeStore.slug === 'coffee-store' ||
+      activeStore.slug?.includes('coffee') ||
+      activeStore.category?.includes('قهوة') ||
+      currentThemeId?.includes('coffee'));
+
+  const storeSlug = isCarStore ? 'car' : isCoffeeStore ? 'coffee' : 'hadaya';
+  const localStorefrontUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/?store=${storeSlug}&fullscreen=1`;
+
+  const isLocalHost =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+  const liveStoreLabel = isCarStore
+    ? (isAr ? 'متجر السيارات (محلي)' : 'Car Store (Local)')
+    : isCoffeeStore
+      ? (isAr ? 'متجر القهوة (محلي)' : 'Coffee Store (Local)')
+      : (activeStore.custom_domain || activeStore.domain || 'giftshop-sa.com');
+
+  const liveStoreHref = (isCarStore || isCoffeeStore || isLocalHost)
+    ? localStorefrontUrl
+    : (activeStore.custom_domain ? `https://${activeStore.custom_domain}/` : 'https://giftshop-sa.com/');
+
+  const [builderThemeId, setBuilderThemeId] = useState<string>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const q = new URLSearchParams(window.location.search).get('themeId');
+        if (q && !q.includes('[object') && q !== 'undefined' && q !== 'null') return q.trim();
+        const saved = sessionStorage.getItem(`unityteck_visual_builder_theme_${activeStore.id}`) || sessionStorage.getItem('unityteck_visual_builder_theme');
+        if (saved && !saved.includes('[object') && saved !== 'undefined' && saved !== 'null') return saved.trim();
+      }
+    } catch {}
+    return currentThemeId;
+  });
+
+  // Keep builder theme dynamic when active store changes
+  useEffect(() => {
+    setBuilderThemeId(currentThemeId);
+  }, [currentThemeId, activeStore.id]);
+
+  const openVisualBuilder = (targetThemeId?: string) => {
+    preloadVisualThemeBuilder();
+    const cleanTarget =
+      typeof targetThemeId === 'string' &&
+      targetThemeId.trim() &&
+      !targetThemeId.includes('[object') &&
+      targetThemeId !== 'undefined' &&
+      targetThemeId !== 'null'
+        ? targetThemeId.trim()
+        : undefined;
+
+    const tid = cleanTarget || currentThemeId;
+    if (onCustomizeTheme) {
+      onCustomizeTheme(tid);
+      return;
+    }
+
+    if (tid) setBuilderThemeId(tid);
+    setIsVisualBuilderOpen(true);
+    try {
+      sessionStorage.setItem('unityteck_visual_builder_open', '1');
+      if (tid) {
+        sessionStorage.setItem(`unityteck_visual_builder_theme_${activeStore.id}`, tid);
+        sessionStorage.setItem('unityteck_visual_builder_theme', tid);
+      }
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('builder', '1');
+        if (tid) url.searchParams.set('themeId', tid);
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch {}
+  };
+
+  const closeVisualBuilder = () => {
+    setIsVisualBuilderOpen(false);
+    try {
+      sessionStorage.removeItem('unityteck_visual_builder_open');
+      sessionStorage.removeItem('unityteck_visual_builder_theme');
+      sessionStorage.removeItem('unityteck_visual_builder_page');
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('builder');
+        url.searchParams.delete('themeId');
+        url.searchParams.delete('builderPage');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch {}
+  };
 
   const visibleThemes = useMemo(() => {
     return themes;
@@ -185,8 +356,13 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
   };
 
   const handleSelectHomepageTemplate = (template: HomepageTemplateItem) => {
-    // Determine target theme (makkah royal for seasonal, default for basic)
-    const targetThemeId = template.category === 'Default' ? DEFAULT_COMMERCE_THEME_ID : 'theme-makkah-royal';
+    // Determine target theme (coffee, makkah royal for seasonal, default for basic)
+    const targetThemeId =
+      template.category === 'Coffee'
+        ? 'theme-coffee'
+        : template.category === 'Default'
+        ? DEFAULT_COMMERCE_THEME_ID
+        : 'theme-makkah-royal';
     setStoreTheme(activeStore.id, targetThemeId);
     setStoreHomepageStyle(activeStore.id, template.styleKey);
     toast(
@@ -269,7 +445,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
           {/* Visual Builder Trigger */}
           <button
             type="button"
-            onClick={() => setIsVisualBuilderOpen(true)}
+            onClick={() => openVisualBuilder()}
             className="px-4 py-2.5 rounded-xl text-xs font-bold text-white shadow-md flex items-center gap-2 transition-all hover:scale-[1.02] cursor-pointer"
             style={{
               background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
@@ -279,9 +455,29 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
             <span>{isAr ? 'محرر التصميم البصري' : 'Visual Design Editor'}</span>
           </button>
 
+          {/* Live Storefront Direct Link */}
+          <a
+            href={liveStoreHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer hover:scale-[1.02] shadow-xs"
+            style={{
+              background: isCarStore
+                ? 'linear-gradient(135deg, rgba(18, 123, 254, 0.15), rgba(13, 98, 204, 0.08))'
+                : 'linear-gradient(135deg, rgba(5, 150, 105, 0.12), rgba(6, 78, 59, 0.05))',
+              borderColor: isCarStore ? '#127bfe' : 'var(--accent)',
+              color: isCarStore ? '#127bfe' : 'var(--accent)',
+            }}
+            title={isAr ? `زيارة المتجر المباشر: ${liveStoreLabel}` : `Visit Live Storefront: ${liveStoreLabel}`}
+          >
+            <Globe className={`w-4 h-4 ${isCarStore ? 'text-[#127bfe]' : 'text-emerald-500'}`} />
+            <span>{liveStoreLabel}</span>
+            <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+          </a>
+
           {/* Open in New Tab Button */}
           <a
-            href={`${typeof window !== 'undefined' ? window.location.origin : ''}/?tab=storefront&fullscreen=1`}
+            href={localStorefrontUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="px-4 py-2.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer hover:scale-[1.02]"
@@ -290,9 +486,9 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
               borderColor: 'var(--border)',
               color: 'var(--text)',
             }}
-            title={isAr ? 'فتح المتجر في نافذة مستقلة جديدة' : 'Open in New Tab'}
+            title={isAr ? 'فتح المتجر في نافذة مستقلة جديدة (محلي)' : 'Open in New Tab (Local)'}
           >
-            <ExternalLink className="w-4 h-4 text-emerald-500" />
+            <ExternalLink className={`w-4 h-4 ${isCarStore ? 'text-[#127bfe]' : 'text-emerald-500'}`} />
             <span>{isAr ? 'فتح في نافذة جديدة' : 'Open in New Tab'}</span>
           </a>
 
@@ -411,7 +607,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
               return (
                 <div
                   key={tmpl.id}
-                  className="rounded-2xl border overflow-hidden flex flex-col justify-between transition-all"
+                  className="rounded-2xl border overflow-hidden flex flex-col justify-between transition-all group hover:shadow-xl"
                   style={{
                     background: 'var(--surface)',
                     borderColor: isActive ? 'var(--accent)' : 'var(--border)',
@@ -419,35 +615,40 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
                   }}
                 >
                   <div>
-                    {/* Visual Banner Header */}
-                    <div
-                      className="p-5 text-white relative min-h-[140px] flex flex-col justify-between"
-                      style={{ background: tmpl.bannerGradient }}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-black/40 backdrop-blur-xs">
+                    {/* Visual UI Mockup Screenshot Frame with Hover Scroll */}
+                    <div className="relative h-48 w-full overflow-hidden bg-slate-950 select-none border-b" style={{ borderColor: 'var(--border)' }}>
+                      <img
+                        src={tmpl.thumbnail || '/theme-mockups/theme_flora_luxe_homepage_preview.svg'}
+                        alt={isAr ? tmpl.nameAr : tmpl.name}
+                        onError={(e) => handleImageError(e, '/theme-mockups/theme_flora_luxe_homepage_preview.svg')}
+                        className="w-full h-[540px] object-cover object-top transition-transform duration-[3500ms] ease-in-out group-hover:translate-y-[-58%]"
+                      />
+
+                      {/* Header Badge Overlay */}
+                      <div className="absolute top-2.5 start-2.5 end-2.5 flex items-center justify-between z-10 pointer-events-none">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-950/80 text-white backdrop-blur-xs border border-white/20">
                           {isAr ? tmpl.badgeAr : tmpl.badge}
                         </span>
                         {isActive && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white text-emerald-900 flex items-center gap-1 shadow-sm">
-                            <Check className="w-3 h-3 text-emerald-600" />
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white flex items-center gap-1 shadow-md">
+                            <Check className="w-3 h-3" />
                             {isAr ? 'نشط الآن' : 'Active'}
                           </span>
                         )}
-                      </div>
-
-                      <div>
-                        <h3 className="text-lg font-black text-white drop-shadow-sm">
-                          {isAr ? tmpl.nameAr : tmpl.name}
-                        </h3>
-                        <p className="text-[11px] text-white/80 mt-0.5">
-                          {isAr ? tmpl.styleKey : tmpl.styleKey}
-                        </p>
                       </div>
                     </div>
 
                     {/* Template Details */}
                     <div className="p-4 space-y-3">
+                      <div>
+                        <h3 className="text-sm font-black" style={{ color: 'var(--text)' }}>
+                          {isAr ? tmpl.nameAr : tmpl.name}
+                        </h3>
+                        <p className="text-[11px] font-semibold text-emerald-600 mt-0.5">
+                          {tmpl.styleKey}
+                        </p>
+                      </div>
+
                       <p className="text-xs leading-relaxed line-clamp-2" style={{ color: 'var(--muted)' }}>
                         {isAr ? tmpl.taglineAr : tmpl.tagline}
                       </p>
@@ -473,7 +674,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
                   >
                     <button
                       type="button"
-                      onClick={() => setIsVisualBuilderOpen(true)}
+                      onClick={() => openVisualBuilder(currentThemeId)}
                       className="px-2.5 py-1 rounded-lg text-xs font-semibold text-muted hover:text-text transition-colors cursor-pointer"
                     >
                       {isAr ? 'تخصيص' : 'Customize'}
@@ -685,7 +886,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
                     >
                       <button
                         type="button"
-                        onClick={() => setIsVisualBuilderOpen(true)}
+                        onClick={() => openVisualBuilder()}
                         className="text-[11px] font-semibold text-muted hover:text-text cursor-pointer"
                       >
                         {isAr ? 'معاينة' : 'Preview'}
@@ -722,31 +923,58 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
       )}
 
       {/* ======================================================== */}
-      {/* TAB 3: THEMES CATALOG & IDENTITY (EXISTING FULL CATALOG)   */}
+      {/* TAB 3: THEMES CATALOG & IDENTITY (PRIVATE STORE THEMES)   */}
       {/* ======================================================== */}
       {activeTab === 'catalog' && (
         <div className="space-y-6">
+          {/* Private Store Themes Isolation Banner */}
+          <div
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border"
+            style={{
+              background: 'linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, var(--surface)) 0%, var(--surface) 100%)',
+              borderColor: 'var(--border)',
+            }}
+          >
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-black" style={{ color: 'var(--text)' }}>
+                  {isAr
+                    ? `ثيمات متجر (${getStoreDisplayName(activeStore, 'ar')}) الخاصة`
+                    : `${getStoreDisplayName(activeStore, 'en')} — Private Store Themes`}
+                </h2>
+                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{isAr ? 'عزل كامل لكل متجر' : 'Strict Tenant Isolation'}</span>
+                </span>
+              </div>
+              <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--muted)' }}>
+                {isAr
+                  ? 'كل متجر يمتلك ثيماته الخاصة به بالكامل ولا يمكن لأي متجر آخر رؤيتها أو استخدامها. تظل كافة ميزات لوحة التحكم والمحرر البصري متطابقة للجميع.'
+                  : 'Every store has its own private themes. No other store can see or access them. All features (Dashboard, Visual Builder, 18 Theme Settings) are identical for everyone.'}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsCreateThemeModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-white shadow-md flex items-center gap-2 cursor-pointer transition-all hover:scale-[1.02] shrink-0"
+              style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}
+            >
+              <Plus className="w-4 h-4" />
+              <span>{isAr ? 'إنشاء ثيم جديد للمتجر' : 'Create New Private Theme'}</span>
+            </button>
+          </div>
+
           {/* Phase 5.1 — Theme Settings 01 first */}
           <StoreIdentityForm />
-
-          {!fullAccess ? (
-            <div
-              className="rounded-xl border px-4 py-3 text-xs"
-              style={{
-                background: 'color-mix(in srgb, var(--accent) 8%, var(--surface))',
-                borderColor: 'color-mix(in srgb, var(--accent) 28%, var(--border))',
-                color: 'var(--text)',
-              }}
-            >
-              Free plan: one default e-commerce theme with basic homepage. Upgrade to <strong>Pro</strong> for the full
-              catalog (Luxury, Ramadan, Bridal…) and all homepage styles. Brand colors / logo can still be changed later.
-            </div>
-          ) : null}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {visibleThemes.map((theme) => {
               const isActive = theme.id === currentThemeId;
               const styles = stylesForTheme(theme.id, theme.homepageStyles);
+              const themeTitle = isAr ? (theme.nameAr || theme.name) : (theme.nameEn || theme.name);
+              const themeCategory = isAr ? (theme.categoryAr || theme.category) : (theme.categoryEn || theme.category);
+              const themeTagline = isAr ? (theme.taglineAr || theme.tagline) : (theme.taglineEn || theme.tagline);
 
               return (
                 <div
@@ -760,18 +988,19 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
                 >
                   <div>
                     {/* Visual Screenshot Frame with Smooth Hover Scroll */}
-                    <div className="relative h-56 w-full overflow-hidden bg-slate-950 select-none border-b" style={{ borderColor: 'var(--border)' }}>
+                    <div className="relative h-64 w-full overflow-hidden bg-slate-950 select-none border-b" style={{ borderColor: 'var(--border)' }}>
                       <img
-                        src={theme.thumbnail || '/src/assets/images/hadaya_luxury_master_hero_1791217937117.jpg'}
-                        alt={theme.name}
-                        className="w-full h-[560px] object-cover object-top transition-transform duration-[3500ms] ease-in-out group-hover:translate-y-[-58%]"
+                        src={theme.thumbnail || '/theme-mockups/real_storefront_fullpage.png'}
+                        alt={themeTitle}
+                        onError={(e) => handleImageError(e, '/theme-mockups/real_storefront_fullpage.png')}
+                        className="w-full h-auto min-h-full block object-cover object-top transition-transform duration-[6000ms] ease-in-out group-hover:translate-y-[-60%]"
                       />
 
                       {/* Header Badges */}
-                      <div className="absolute top-3 start-3 end-3 flex items-center justify-between z-10 pointer-events-none">
-                        <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-slate-950/80 text-white backdrop-blur-xs border border-white/20 shadow-md">
-                          {theme.category}
-                          {theme.isDefault ? ' · الافتراضي' : ''}
+                      <div className="absolute top-2.5 start-2.5 end-2.5 flex items-center justify-between z-10 pointer-events-none">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-slate-950/85 text-white backdrop-blur-xs border border-white/20 shadow-md">
+                          {themeCategory}
+                          {theme.isDefault ? (isAr ? ' · الأساسي' : ' · Primary') : ''}
                         </span>
                         {isActive ? (
                           <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-600 text-white flex items-center gap-1 shadow-md">
@@ -779,8 +1008,8 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
                             {isAr ? 'النشط الآن' : 'Active'}
                           </span>
                         ) : (
-                          <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-amber-400 text-slate-950 shadow-md">
-                            {isAr ? 'متاح ومضمّن' : 'Included'}
+                          <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-700/80 text-white shadow-md">
+                            {isAr ? 'ثيم متجرك' : 'Your Theme'}
                           </span>
                         )}
                       </div>
@@ -789,10 +1018,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
                       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-20">
                         <button
                           type="button"
-                          onClick={() => {
-                            setBuilderThemeId(theme.id);
-                            setIsVisualBuilderOpen(true);
-                          }}
+                          onClick={() => openVisualBuilder(theme.id)}
                           className="px-4 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-900 text-white text-xs font-black shadow-xl flex items-center gap-1.5 transition-all transform hover:scale-105 cursor-pointer border border-white/20"
                         >
                           <Eye className="w-4 h-4 text-emerald-400" />
@@ -804,17 +1030,17 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
                     {/* Theme Info */}
                     <div className="p-4 space-y-3">
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="text-sm font-bold leading-tight" style={{ color: 'var(--text)' }}>
-                          {theme.name}
+                        <h3 className="text-sm font-black leading-tight" style={{ color: 'var(--text)' }}>
+                          {themeTitle}
                         </h3>
                         <div className="flex items-center gap-1 text-[11px] font-bold text-amber-500 shrink-0">
                           <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          <span>{theme.rating}</span>
+                          <span>{theme.rating.toFixed(1)}</span>
                         </div>
                       </div>
 
                       <p className="text-xs leading-relaxed line-clamp-2" style={{ color: 'var(--muted)' }}>
-                        {theme.tagline}
+                        {themeTagline}
                       </p>
 
                       <div>
@@ -852,13 +1078,10 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
                     className="p-3 border-t flex flex-wrap items-center justify-between gap-2"
                     style={{ borderColor: 'var(--border)', background: 'var(--hover-bg)' }}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <button
                         type="button"
-                        onClick={() => {
-                          setBuilderThemeId(theme.id);
-                          setIsVisualBuilderOpen(true);
-                        }}
+                        onClick={() => openVisualBuilder(theme.id)}
                         className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white shadow-xs flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] transition-all"
                         style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}
                         title={isAr ? `تخصيص ${theme.name} في المحرر البصري` : `Customize ${theme.name}`}
@@ -869,10 +1092,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
 
                       <button
                         type="button"
-                        onClick={() => {
-                          setBuilderThemeId(theme.id);
-                          setIsVisualBuilderOpen(true);
-                        }}
+                        onClick={() => openVisualBuilder(theme.id)}
                         className="px-2.5 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1 cursor-pointer transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
                         style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
                         title={isAr ? 'معاينة الثيم' : 'Preview Theme'}
@@ -880,6 +1100,36 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
                         <Eye className="w-3.5 h-3.5 text-emerald-500" />
                         <span>{isAr ? 'معاينة' : 'Preview'}</span>
                       </button>
+
+                      {/* Duplicate Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const copy = duplicateStoreTheme(activeStore.id, theme.id);
+                          toast(isAr ? `تم نسخ الثيم بنجاح: ${copy.name}` : `Theme duplicated: ${copy.name}`, 'success');
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1 cursor-pointer transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                        style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                        title={isAr ? 'نسخ هذا الثيم' : 'Duplicate Theme'}
+                      >
+                        <Copy className="w-3.5 h-3.5 text-slate-500" />
+                        <span className="hidden sm:inline">{isAr ? 'نسخ' : 'Clone'}</span>
+                      </button>
+
+                      {/* Delete Button (if more than 1 theme) */}
+                      {visibleThemes.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            deleteStoreTheme(activeStore.id, theme.id);
+                            toast(isAr ? 'تم حذف الثيم بنجاح' : 'Theme deleted successfully', 'success');
+                          }}
+                          className="p-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1 cursor-pointer transition-colors hover:bg-rose-50 text-rose-500 border-rose-200"
+                          title={isAr ? 'حذف هذا الثيم' : 'Delete Theme'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
 
                     <div>
@@ -914,14 +1164,14 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
       {/* ======================================================== */}
       {/* ELEMENTOR-STYLE FULL SCREEN VISUAL BUILDER MODAL         */}
       {/* ======================================================== */}
-      {isVisualBuilderOpen && (
-        <React.Suspense fallback={null}>
+      {!onCustomizeTheme && isVisualBuilderOpen && (
+        <React.Suspense fallback={<ThemeBuilderLoadingShell />}>
           <VisualThemeBuilder
             isOpen={isVisualBuilderOpen}
             themeId={builderThemeId}
-            onClose={() => setIsVisualBuilderOpen(false)}
+            onClose={closeVisualBuilder}
             onPublishSuccess={() => {
-              setIsVisualBuilderOpen(false);
+              closeVisualBuilder();
               toast(
                 isAr ? 'تم نشر التعديلات بنجاح على المتجر المباشر!' : 'Changes published successfully to live store!',
                 'success',
@@ -1052,6 +1302,126 @@ export const StoreThemes: React.FC<StoreThemesProps> = () => {
                   style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}
                 >
                   {isAr ? 'حفظ وإنشاء الصفحة' : 'Save & Create Page'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* CREATE NEW PRIVATE THEME MODAL                           */}
+      {/* ======================================================== */}
+      {isCreateThemeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div
+            className="w-full max-w-lg rounded-2xl border p-6 space-y-5 shadow-2xl relative"
+            style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+          >
+            <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-2.5">
+                <span className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-sm">
+                  <Palette className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base">
+                    {isAr ? 'إنشاء ثيم جديد خاص بمتجرك' : 'Create New Private Theme'}
+                  </h3>
+                  <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
+                    {isAr
+                      ? `سيتم حفظ هذا الثيم حصرياً لمتجر ${activeStore.name} ولن يظهر لأي متجر آخر`
+                      : `This theme will be private to ${activeStore.name} and hidden from other stores`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreateThemeModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCustomTheme} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-bold block">{isAr ? 'اسم الثيم (عربي) *' : 'Theme Name (Arabic) *'}</label>
+                  <input
+                    type="text"
+                    required
+                    value={newThemeNameAr}
+                    onChange={(e) => setNewThemeNameAr(e.target.value)}
+                    placeholder={isAr ? 'مثال: ثيم الصيف والعروض الخاصة' : 'e.g. Summer Promo Theme'}
+                    className="w-full px-3 py-2 rounded-xl border font-bold"
+                    style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold block">{isAr ? 'اسم الثيم (إنجليزي)' : 'Theme Name (English)'}</label>
+                  <input
+                    type="text"
+                    value={newThemeNameEn}
+                    onChange={(e) => setNewThemeNameEn(e.target.value)}
+                    placeholder="e.g. Summer Festive Edition"
+                    className="w-full px-3 py-2 rounded-xl border"
+                    style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold block">{isAr ? 'تصنيف الثيم' : 'Theme Category'}</label>
+                <input
+                  type="text"
+                  value={newThemeCategoryAr}
+                  onChange={(e) => setNewThemeCategoryAr(e.target.value)}
+                  placeholder={isAr ? 'مثال: عروض موسمية، فخم، عصري' : 'e.g. Seasonal, Luxury, Minimal'}
+                  className="w-full px-3 py-2 rounded-xl border"
+                  style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold block">{isAr ? 'وصف موجز للثيم' : 'Theme Tagline'}</label>
+                <textarea
+                  rows={2}
+                  value={newThemeTaglineAr}
+                  onChange={(e) => setNewThemeTaglineAr(e.target.value)}
+                  placeholder={isAr ? 'وصف مميزات وهوية الثيم الجديدة...' : 'Brief summary of the theme purpose...'}
+                  className="w-full px-3 py-2 rounded-xl border"
+                  style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold block">{isAr ? 'اللون الرئيسي للثيم' : 'Primary Accent Color'}</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={newThemeColor}
+                    onChange={(e) => setNewThemeColor(e.target.value)}
+                    className="w-9 h-9 rounded-xl cursor-pointer border-0 p-0"
+                  />
+                  <span className="font-mono text-xs">{newThemeColor}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateThemeModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border font-bold hover:bg-slate-100 cursor-pointer"
+                  style={{ borderColor: 'var(--border)' }}
+                >
+                  {isAr ? 'إلغاء' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl font-bold text-white cursor-pointer shadow-md transition-all hover:scale-[1.02]"
+                  style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}
+                >
+                  {isAr ? 'إنشاء وتضمين في المتجر' : 'Create & Add to Store'}
                 </button>
               </div>
             </form>

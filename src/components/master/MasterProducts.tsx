@@ -39,6 +39,13 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useToast } from '../common/ToastProvider';
+import {
+  getStoreDisplayName,
+  getStoreDisplayCategory,
+  getProductDisplayName,
+  getProductDisplayCategory,
+} from '../../utils/storeLocalization';
+import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
 
 /**
  * MasterProducts — Master Admin Products & Catalog Directory & Editor
@@ -334,7 +341,7 @@ export const MasterProducts: React.FC = () => {
             <option value="all">{t('allStores')}</option>
             {stores.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name}
+                {getStoreDisplayName(s, locale)}
               </option>
             ))}
           </select>
@@ -393,7 +400,7 @@ export const MasterProducts: React.FC = () => {
                   : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
               }`}
             >
-              {cat}
+              {getProductDisplayCategory(cat, locale)}
             </button>
           ))}
           {(selectedCategory !== 'all' || selectedStoreId !== 'all') && (
@@ -545,8 +552,9 @@ export const MasterProducts: React.FC = () => {
                       <td className="py-3.5 px-3" style={{ borderBottom: '1px solid var(--border)' }}>
                         <div className="flex items-center gap-3">
                           <img
-                            src={prod.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=150&q=80'}
-                            alt={prod.name}
+                            src={prod.image || FALLBACK_PRODUCT_IMAGE}
+                            alt={getProductDisplayName(prod, locale)}
+                            onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                             className="w-11 h-11 rounded-xl object-cover border shrink-0 bg-slate-100 dark:bg-slate-800"
                             style={{ borderColor: 'var(--border)' }}
                           />
@@ -556,7 +564,7 @@ export const MasterProducts: React.FC = () => {
                               className="font-bold block truncate max-w-[200px] cursor-pointer hover:underline"
                               style={{ color: 'var(--text)' }}
                             >
-                              {prod.name}
+                              {getProductDisplayName(prod, locale)}
                             </span>
                             <span className="text-[11px] font-mono block text-slate-400">
                               SKU: {prod.sku}
@@ -569,13 +577,13 @@ export const MasterProducts: React.FC = () => {
                       <td className="py-3.5 px-3 whitespace-nowrap" style={{ borderBottom: '1px solid var(--border)' }}>
                         <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 inline-flex items-center gap-1 border border-slate-200 dark:border-slate-700">
                           <StoreIcon className="w-3 h-3 text-cyan-600" />
-                          <span>{store?.name || prod.storeId}</span>
+                          <span>{getStoreDisplayName(store, locale) || prod.storeId}</span>
                         </span>
                       </td>
 
                       {/* Category */}
                       <td className="py-3.5 px-3 whitespace-nowrap font-medium" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
-                        {prod.category}
+                        {getProductDisplayCategory(prod, locale)}
                       </td>
 
                       {/* Price */}
@@ -957,8 +965,9 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
               <img
-                src={gallery[selectedImageIndex] || gallery[0]}
+                src={gallery[selectedImageIndex] || gallery[0] || FALLBACK_PRODUCT_IMAGE}
                 alt="Product Preview"
+                onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                 className="w-full h-full object-contain p-4"
               />
             </div>
@@ -976,7 +985,12 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
                       : 'border-slate-200 dark:border-slate-800 hover:border-slate-400'
                   }`}
                 >
-                  <img src={url} alt={`thumb-${idx}`} className="w-full h-full object-contain" />
+                  <img
+                    src={url || FALLBACK_PRODUCT_IMAGE}
+                    alt={`thumb-${idx}`}
+                    onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
+                    className="w-full h-full object-contain"
+                  />
                 </button>
               ))}
             </div>
@@ -1134,12 +1148,12 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                 >
                   {categories.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c} value={c}>{getProductDisplayCategory(c, locale)}</option>
                   ))}
-                  <option value="Sneakers">Sneakers</option>
-                  <option value="Electronics">Electronics</option>
-                  <option value="Apparel">Apparel</option>
-                  <option value="Home">Home</option>
+                  <option value="Sneakers">{isAr ? 'أحذية رياضية' : 'Sneakers'}</option>
+                  <option value="Electronics">{isAr ? 'إلكترونيات' : 'Electronics'}</option>
+                  <option value="Apparel">{isAr ? 'ملابس' : 'Apparel'}</option>
+                  <option value="Home">{isAr ? 'المنزل' : 'Home'}</option>
                 </select>
               </div>
             </div>

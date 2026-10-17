@@ -33,7 +33,8 @@ export const ProductSectionSlider: React.FC<ProductSectionSliderProps> = React.m
   badgeText,
   badgeTextEn,
 }) => {
-  const { language, setCurrentPage, setSelectedCategory } = useApp();
+  const { language, setCurrentPage, setSelectedCategory, builderDevice } = useApp();
+  const isMobileView = builderDevice === 'mobile';
   const effectiveCategory = categoryFilter || categorySlug;
   const isAr = language === 'ar';
 
@@ -65,13 +66,27 @@ export const ProductSectionSlider: React.FC<ProductSectionSliderProps> = React.m
     setActiveMobileIdx((prev) => (prev === 0 ? total - 1 : prev - 1));
   }, [total]);
 
+  const desktopScrollRef = useRef<HTMLDivElement>(null);
+
   const nextDesktop = useCallback(() => {
-    setDesktopSlideIdx((prev) => Math.min(prev + 1, Math.max(0, items.length - columns)));
-  }, [items.length, columns]);
+    if (desktopScrollRef.current) {
+      const scrollAmount = desktopScrollRef.current.clientWidth * 0.75;
+      desktopScrollRef.current.scrollBy({
+        left: isAr ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  }, [isAr]);
 
   const prevDesktop = useCallback(() => {
-    setDesktopSlideIdx((prev) => Math.max(prev - 1, 0));
-  }, []);
+    if (desktopScrollRef.current) {
+      const scrollAmount = desktopScrollRef.current.clientWidth * 0.75;
+      desktopScrollRef.current.scrollBy({
+        left: isAr ? scrollAmount : -scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  }, [isAr]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -98,26 +113,14 @@ export const ProductSectionSlider: React.FC<ProductSectionSliderProps> = React.m
 
   return (
     <section className="py-10 md:py-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto group/section section-reveal overflow-hidden">
-      {/* Title Header with Mecca Gifts Elegant Flourish SVG */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 mb-8 border-b border-[#e8e4dc] gap-4">
+      {/* Header: Uniform Site-wide Styling with Title, Subtitle, Arrows & View All */}
+      <div className="flex items-center justify-between mb-8 pb-3 border-b border-[#ece7de]">
         <div>
-          {/* Decorative Floral Ornament Line */}
-          <div className="flex items-center gap-2 mb-2">
-            <svg width="40" height="12" viewBox="0 0 100 24" fill="none" className="text-[#102a1c] group-hover/section:text-[#d4af37] transition-colors duration-500">
-              <path d="M0 12h35c5-8 15-8 20 0 5-8 15-8 20 0h25" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-              <circle cx="50" cy="12" r="4" fill="#e6ca98" />
-            </svg>
-            <span className="text-[11px] font-bold uppercase tracking-widest text-[#8c8275]">
-              {badgeText ? (isAr ? badgeText : badgeTextEn || badgeText) : (isAr ? 'مختارات هدايا مكة الفاخرة' : 'Hadaya Mecca Signature')}
-            </span>
-          </div>
-
           <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c]">
             {isAr ? title : titleEn}
           </h2>
-
           {(subtitle || subtitleEn) && (
-            <p className="text-xs sm:text-sm text-[#7a7164] mt-1">
+            <p className="text-xs sm:text-sm text-[#7a7164] mt-1 font-light">
               {isAr ? subtitle : subtitleEn}
             </p>
           )}
@@ -130,20 +133,18 @@ export const ProductSectionSlider: React.FC<ProductSectionSliderProps> = React.m
               <button
                 type="button"
                 onClick={prevDesktop}
-                disabled={desktopSlideIdx === 0}
-                className="w-8 h-8 rounded-full border border-[#102a1c]/30 text-[#102a1c] hover:bg-[#102a1c] hover:text-[#e6ca98] disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full border border-[#d6cfc0] bg-white hover:bg-[#102a1c] hover:text-white transition-colors shadow-2xs flex items-center justify-center cursor-pointer"
                 title={isAr ? 'السابق' : 'Previous'}
               >
-                <ChevronRight className="w-4 h-4 rtl:rotate-0 ltr:rotate-180" />
+                {isAr ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
               </button>
               <button
                 type="button"
                 onClick={nextDesktop}
-                disabled={desktopSlideIdx >= items.length - columns}
-                className="w-8 h-8 rounded-full border border-[#102a1c]/30 text-[#102a1c] hover:bg-[#102a1c] hover:text-[#e6ca98] disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full border border-[#d6cfc0] bg-white hover:bg-[#102a1c] hover:text-white transition-colors shadow-2xs flex items-center justify-center cursor-pointer"
                 title={isAr ? 'التالي' : 'Next'}
               >
-                <ChevronLeft className="w-4 h-4 rtl:rotate-0 ltr:rotate-180" />
+                {isAr ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
               </button>
             </div>
           )}
@@ -151,35 +152,44 @@ export const ProductSectionSlider: React.FC<ProductSectionSliderProps> = React.m
           <button
             type="button"
             onClick={handleViewAll}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[#102a1c] text-[#102a1c] hover:bg-[#102a1c] hover:text-[#e6ca98] text-xs font-bold transition-all duration-300 shadow-sm hover:shadow-md hover:scale-103 active:scale-97 cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#102a1c] hover:text-[#b8860b] transition-colors cursor-pointer group"
           >
             <span>{isAr ? 'عرض الكل' : 'View All'}</span>
-            {isAr ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
+            {isAr ? (
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            ) : (
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            )}
           </button>
         </div>
       </div>
 
       {/* ── Desktop & Tablet Grid / Slider ──────────────── */}
-      {layout === 'slider' && items.length > 4 ? (
-        <div className="hidden sm:block relative overflow-hidden">
-          <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 pt-1 snap-x scrollbar-thin scrollbar-thumb-[#102a1c]/20">
+      {!isMobileView && (
+        layout === 'slider' && items.length > 4 ? (
+          <div className="hidden sm:block relative overflow-hidden">
+            <div
+              ref={desktopScrollRef}
+              className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 pt-1 snap-x scroll-smooth scrollbar-thin scrollbar-thumb-[#102a1c]/20"
+            >
+              {items.map((product) => (
+                <div key={product.id} className="min-w-[260px] sm:min-w-[280px] max-w-[290px] shrink-0 snap-start">
+                  <ProductCard product={product} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
             {items.map((product) => (
-              <div key={product.id} className="min-w-[260px] sm:min-w-[280px] max-w-[290px] shrink-0 snap-start">
-                <ProductCard product={product} />
-              </div>
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
-        </div>
-      ) : (
-        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {items.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        )
       )}
 
       {/* ── Mobile 1-by-1 Interactive Smooth Carousel (No Horizontal Overflow) */}
-      <div className="block sm:hidden relative w-full">
+      <div className={`${isMobileView ? 'block' : 'block sm:hidden'} relative w-full`}>
         {/* Swipe Container for Single Active Card */}
         <div
           onTouchStart={handleTouchStart}

@@ -2,6 +2,8 @@ import React from 'react';
 import { Clock, Eye, Heart, ShoppingCart, Star, MessageCircle, Sparkles } from 'lucide-react';
 import type { Product } from '../../types';
 import { whatsappOrderHref } from './WhatsAppChatFab';
+import { getProductDisplayName, getProductDisplayCategory } from '../../utils/storeLocalization';
+import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
 
 type Props = {
   product: Product;
@@ -26,12 +28,14 @@ export const ProductCard: React.FC<Props> = ({
   onToggleWishlist,
 }) => {
   const ar = lang === 'ar';
+  const displayName = getProductDisplayName(product, ar ? 'ar' : 'en');
+  const displayCategory = getProductDisplayCategory(product, ar ? 'ar' : 'en');
 
   const whatsappMessage = [
     ar ? 'السلام عليكم ورحمة الله،' : 'Hello,',
     ar
-      ? `أرغب بطلب: *${product.name}* (كود: ${product.sku})`
-      : `I would like to order: *${product.name}* (SKU: ${product.sku})`,
+      ? `أرغب بطلب: *${displayName}* (كود: ${product.sku})`
+      : `I would like to order: *${displayName}* (SKU: ${product.sku})`,
     `${ar ? 'السعر' : 'Price'}: ${money(product.price)}`,
     ar ? 'التوصيل: مكة المكرمة' : 'Delivery: Makkah KSA',
   ];
@@ -54,8 +58,9 @@ export const ProductCard: React.FC<Props> = ({
         onClick={onQuickView}
       >
         <img
-          src={product.image}
-          alt={product.name}
+          src={product.image || FALLBACK_PRODUCT_IMAGE}
+          alt={displayName}
+          onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
           loading="lazy"
           decoding="async"
           className="w-full h-full object-cover object-center group-hover:scale-108 transition-transform duration-700 ease-out"
@@ -132,7 +137,7 @@ export const ProductCard: React.FC<Props> = ({
                 background: 'color-mix(in srgb, var(--sf-accent) 12%, transparent)',
               }}
             >
-              {product.category}
+              {displayCategory}
             </span>
           </div>
           <h4
@@ -140,7 +145,7 @@ export const ProductCard: React.FC<Props> = ({
             className="font-extrabold text-sm line-clamp-2 leading-snug cursor-pointer hover:opacity-80 transition-opacity"
             style={{ color: 'var(--sf-text)' }}
           >
-            {product.name}
+            {displayName}
           </h4>
         </div>
 

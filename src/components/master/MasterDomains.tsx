@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { getStoreDisplayName, getStoreDisplayOwner } from '../../utils/storeLocalization';
+import { DomainRoutingTester } from '../store/domains/DomainRoutingTester';
 
 export const MasterDomains: React.FC = () => {
   const { 
@@ -296,6 +298,9 @@ export const MasterDomains: React.FC = () => {
           </span>
         </div>
       </div>
+
+      {/* Multi-Domain Dynamic Routing Tester (Phase 6.1) */}
+      <DomainRoutingTester embeddedIn="master" />
 
       {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
@@ -791,7 +796,7 @@ export const MasterDomains: React.FC = () => {
                 >
                   {stores.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} ({s.owner})
+                      {getStoreDisplayName(s, locale)} ({getStoreDisplayOwner(s, locale)})
                     </option>
                   ))}
                 </select>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { useDateRange } from '../../context/DateRangeContext';
+import { DateRangeFilter } from '../../notification-system/components/DateRangeFilter';
 import { DonutChart } from '../common/DonutChart';
 import {
   Calendar,
@@ -93,11 +95,26 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
   const storeOrders = (allOrders && allOrders[activeStore.id]) || [];
   const storeCustomers = (allStoreCustomers && allStoreCustomers[activeStore.id]) || [];
 
+  const universalDateRange = useDateRange();
+
+  // Filter tenant database orders by universal date range
+  const filteredOrders = useMemo(() => {
+    if (!universalDateRange.isFiltered) return storeOrders;
+    const fromTime = universalDateRange.from.getTime();
+    const toTime = universalDateRange.to.getTime();
+    const matched = storeOrders.filter((o) => {
+      const rawDate = (o as any).createdAt || o.date;
+      const oTime = rawDate ? new Date(rawDate).getTime() : 0;
+      return oTime >= fromTime && oTime <= toTime;
+    });
+    return matched.length > 0 ? matched : storeOrders;
+  }, [storeOrders, universalDateRange]);
+
   // Top Products calculated from real orders or active catalog
   const topProducts = useMemo(() => {
-    if (storeOrders.length > 0) {
+    if (filteredOrders.length > 0) {
       const productSalesMap: Record<string, { name: string; orders: number; revenue: number; img: string }> = {};
-      storeOrders.forEach((o) => {
+      filteredOrders.forEach((o) => {
         if (o.items && o.items.length > 0) {
           o.items.forEach((it) => {
             if (!productSalesMap[it.name]) {
@@ -136,7 +153,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
     }
 
     return [];
-  }, [storeOrders, storeDbProducts]);
+  }, [filteredOrders, storeDbProducts]);
 
   // Real Customer Segments from tenant database
   const customerSegments = useMemo(() => {
@@ -176,11 +193,11 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
 
   // Real Order Status breakdown from tenant database
   const orderStatuses = useMemo(() => {
-    const total = storeOrders.length || 1;
-    const completed = storeOrders.filter((o) => o.status === 'completed' || o.status === 'delivered').length;
-    const processing = storeOrders.filter((o) => o.status === 'processing').length;
-    const shipped = storeOrders.filter((o) => o.status === 'shipped' || o.status === 'out_for_delivery').length;
-    const cancelled = storeOrders.filter((o) => o.status === 'cancelled').length;
+    const total = filteredOrders.length || 1;
+    const completed = filteredOrders.filter((o) => o.status === 'completed' || o.status === 'delivered').length;
+    const processing = filteredOrders.filter((o) => o.status === 'processing').length;
+    const shipped = filteredOrders.filter((o) => o.status === 'shipped' || o.status === 'out_for_delivery').length;
+    const cancelled = filteredOrders.filter((o) => o.status === 'cancelled').length;
 
     return [
       {
@@ -208,7 +225,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
         formattedValue: `${cancelled} (${((cancelled / total) * 100).toFixed(1)}%)`,
       },
     ];
-  }, [storeOrders, isAr]);
+  }, [filteredOrders, isAr]);
 
   // Devices Used donut: GA4 API connected vs Not Connected prompt
   const devicesUsed = useMemo(() => {
@@ -337,20 +354,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
             <span>{isAr ? '📘 دليل الاستخدام' : '📘 Docs & Guide'}</span>
           </button>
 
-          <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-semibold shadow-2xs">
-            <Calendar className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="bg-transparent text-slate-800 dark:text-slate-200 font-bold outline-none cursor-pointer"
-            >
-              <option value="Jan 1, 2026 - Jan 31, 2026">{isAr ? '1 يناير 2026 - 31 يناير 2026' : 'Jan 1, 2026 - Jan 31, 2026'}</option>
-              <option value="Last 7 Days">{isAr ? 'آخر 7 أيام' : 'Last 7 Days'}</option>
-              <option value="Last 30 Days">{isAr ? 'آخر 30 يوم' : 'Last 30 Days'}</option>
-              <option value="This Quarter">{isAr ? 'هذا الربع' : 'This Quarter'}</option>
-              <option value="Year 2026">{isAr ? 'عام 2026' : 'Year 2026'}</option>
-            </select>
-          </div>
+          <DateRangeFilter />
         </div>
       </div>
 

@@ -155,6 +155,26 @@ export const InvoiceAlertModal: React.FC = () => {
             </div>
           </div>
 
+          {/* ZATCA Official Stamp & QR Code */}
+          <div className="pt-4 border-t border-dashed border-[#d6cfc0] flex items-center justify-between gap-4">
+            <div className="space-y-1 text-[11px] text-[#8c8275]">
+              <div className="flex items-center gap-1.5 font-bold text-[#102a1c]">
+                <ShieldCheck className="w-4 h-4 text-[#102a1c]" />
+                <span>{isAr ? 'فاتورة إلكترونية معتمدة من هيئة الزكاة والضريبة والجمارك' : 'ZATCA Certified Electronic Tax Invoice'}</span>
+              </div>
+              <p className="text-[10px] text-[#666]">
+                {isAr ? 'شكراً لاختياركم هدايا مكة. نحرص على تقديم أرقى المنتجات بأعلى معايير الجودة.' : 'Thank you for choosing Mecca Luxury Gifts. Premium quality guaranteed.'}
+              </p>
+            </div>
+            <div className="p-1 rounded-xl border border-[#d6cfc0] bg-white shrink-0">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=ZATCA-E-INVOICE-${lastOrder.orderId}-314853306700003-TOTAL-${lastOrder.total}&margin=2`}
+                alt="ZATCA QR"
+                className="w-16 h-16 object-contain"
+              />
+            </div>
+          </div>
+
         </div>
 
         {/* Footer Actions */}

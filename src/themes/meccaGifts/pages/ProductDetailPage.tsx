@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { ADDON_OPTIONS, PRODUCTS } from '../data/mockData';
 import { AddonOption } from '../types';
@@ -17,6 +17,7 @@ import {
   CreditCard,
   MessageSquare
 } from 'lucide-react';
+import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../../utils/imageFallback';
 
 export const ProductDetailPage: React.FC = () => {
   const {
@@ -34,9 +35,25 @@ export const ProductDetailPage: React.FC = () => {
   const allProds = products && products.length > 0 ? products : PRODUCTS;
   const product = selectedProduct || allProds[0];
 
-  // Gallery state
-  const allImages = [product.image, ...(product.additionalImages || [])];
-  const [activeImage, setActiveImage] = useState<string>(product.image);
+  // Gallery state supporting galleryUrls and additionalImages
+  const allImages = useMemo(() => {
+    const pAny = product as any;
+    if (pAny.galleryUrls && Array.isArray(pAny.galleryUrls) && pAny.galleryUrls.length > 0) {
+      return pAny.galleryUrls as string[];
+    }
+    const list = [product.image, ...(product.additionalImages || [])].filter(Boolean) as string[];
+    return list.length > 0 ? list : [product.image || FALLBACK_PRODUCT_IMAGE];
+  }, [product.image, product.additionalImages, (product as any).galleryUrls]);
+
+  const [activeImage, setActiveImage] = useState<string>(product.image || FALLBACK_PRODUCT_IMAGE);
+  const [selectedColorIdx, setSelectedColorIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (product?.image) {
+      setActiveImage(product.image);
+      setSelectedColorIdx(null);
+    }
+  }, [product?.id, product?.image]);
 
   // Customization state
   const sizes = [
@@ -95,8 +112,8 @@ export const ProductDetailPage: React.FC = () => {
   const wishlisted = isWishlisted(product.id);
   const tabbyInstallment = (unitPrice / 4).toFixed(2);
 
-  // Related products
-  const relatedProducts = allProds.filter((p) => p.id !== product.id).slice(0, 4);
+  // Related products (3 per row)
+  const relatedProducts = allProds.filter((p) => p.id !== product.id).slice(0, 3);
 
   return (
     <div className="py-8 md:py-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -123,14 +140,15 @@ export const ProductDetailPage: React.FC = () => {
           {/* Main Large Display */}
           <div className="relative aspect-[4/3] sm:aspect-square w-full rounded-3xl overflow-hidden bg-[#efebe3] border border-[#e2ddd1] shadow-sm">
             <img
-              src={activeImage}
-              alt={isAr ? product.name : product.nameEn}
+              src={activeImage || FALLBACK_PRODUCT_IMAGE}
+              alt={isAr ? (product.nameAr || product.name) : (product.nameEn || product.name)}
+              onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
               className="w-full h-full object-cover object-center transition-all duration-300"
               referrerPolicy="no-referrer"
             />
             {product.badge && (
               <span className="absolute top-4 right-4 rtl:right-4 rtl:left-auto ltr:left-4 ltr:right-auto bg-[#102a1c] text-[#e6ca98] text-xs font-semibold px-3 py-1 rounded-full shadow-md">
-                {isAr ? product.badge : product.badgeEn}
+                {isAr ? product.badge : product.badgeEn || product.badge}
               </span>
             )}
             <button
@@ -148,7 +166,7 @@ export const ProductDetailPage: React.FC = () => {
           {/* Thumbnails row */}
           {allImages.length > 1 && (
             <div className="flex items-center gap-3 overflow-x-auto pb-2">
-              {allImages.map((img, idx) => (
+              {allImages.map((img: string, idx: number) => (
                 <button
                   key={idx}
                   onClick={() => setActiveImage(img)}
@@ -157,8 +175,9 @@ export const ProductDetailPage: React.FC = () => {
                   }`}
                 >
                   <img
-                    src={img}
+                    src={img || FALLBACK_PRODUCT_IMAGE}
                     alt={`Thumbnail ${idx + 1}`}
+                    onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
                   />
@@ -191,10 +210,10 @@ export const ProductDetailPage: React.FC = () => {
         <div className="lg:col-span-5 space-y-6">
           <div>
             <span className="text-xs uppercase tracking-widest text-[#8c8275] font-semibold">
-              {isAr ? product.category : product.categoryEn}
+              {isAr ? (product.categoryAr || product.category) : (product.categoryEn || product.category)}
             </span>
             <h1 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c] mt-1">
-              {isAr ? product.name : product.nameEn}
+              {isAr ? (product.nameAr || product.name) : (product.nameEn || product.name)}
             </h1>
 
             {/* Stars & Reviews */}
@@ -274,6 +293,46 @@ export const ProductDetailPage: React.FC = () => {
               ))}
             </div>
           </div>
+
+          {/* Color Variations (Authentic Photos Switcher) */}
+          {(product as any).colors && Array.isArray((product as any).colors) && (product as any).colors.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-[#e8e4dc]">
+              <label className="text-xs font-bold text-[#102a1c] block">
+                {isAr ? 'خيارات الألوان وتفاصيلها المتاحة:' : 'Color Variations & Photos:'}
+              </label>
+              <div className="flex flex-wrap gap-2.5">
+                {((product as any).colors as any[]).map((col: any, cIdx: number) => {
+                  const isSelected = selectedColorIdx === cIdx;
+                  return (
+                    <button
+                      key={col.id || cIdx}
+                      type="button"
+                      onClick={() => {
+                        setSelectedColorIdx(cIdx);
+                        if (col.image) setActiveImage(col.image);
+                      }}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-[#102a1c] bg-[#102a1c]/10 text-[#102a1c] font-bold ring-1 ring-[#102a1c]'
+                          : 'border-[#d6cfc0] bg-white text-[#495057] hover:border-[#102a1c]/40'
+                      }`}
+                    >
+                      <span
+                        className="w-4 h-4 rounded-full border border-black/20 shrink-0"
+                        style={{ backgroundColor: col.hex }}
+                      />
+                      <span>{isAr ? (col.nameAr || col.name) : (col.nameEn || col.name)}</span>
+                      {col.image && (
+                        <span className="text-[10px] text-[#8c8275] bg-white px-1.5 py-0.5 rounded border border-[#e2ddd1]">
+                          {isAr ? 'صورة خاصة' : 'Photo'}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Luxury Add-ons (Chocolates, Vases, Sealed Card) */}
           <div className="space-y-2 pt-2 border-t border-[#e8e4dc]">
@@ -396,7 +455,8 @@ export const ProductDetailPage: React.FC = () => {
         <h2 className="text-xl sm:text-2xl font-bold font-serif text-[#102a1c] mb-6">
           {isAr ? 'قد يعجبك أيضاً من تشكيلاتنا' : 'You May Also Like'}
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* Grid: 3 products per row on desktop (lg/xl), 2 on tablet (sm), 1 on mobile */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
           {relatedProducts.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}

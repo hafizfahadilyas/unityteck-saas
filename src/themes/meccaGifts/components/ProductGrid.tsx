@@ -57,9 +57,9 @@ export const ProductGrid: React.FC = () => {
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        {filteredProducts.slice(0, 8).map((product) => (
+      {/* Grid: 3 products per row on desktop (lg/xl), 2 on tablet (sm), 1 on mobile */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
+        {filteredProducts.slice(0, 6).map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>

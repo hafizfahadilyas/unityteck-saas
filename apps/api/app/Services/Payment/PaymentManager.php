@@ -14,6 +14,8 @@ class PaymentManager
             'hyperpay' => new HyperPayGatewayService(),
             'stripe' => new StripeGatewayService(),
             'paypal' => new PayPalGatewayService(),
+            'tabby' => new TabbyGatewayService(),
+            'tamara' => new TamaraGatewayService(),
             'cod' => new CodPaymentService(),
             default => throw new InvalidArgumentException("Unsupported payment provider: {$provider}"),
         };

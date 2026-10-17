@@ -12,19 +12,20 @@ export const MagazineSection: React.FC = () => {
 
   return (
     <section id="magazine-section" className="py-14 md:py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto scroll-mt-24">
-      {/* Title */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 mb-10 border-b border-[#e8e4dc] gap-4">
+      {/* Title Header matching site-wide uniform styling */}
+      <div className="flex items-center justify-between mb-8 pb-3 border-b border-[#ece7de]">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#102a1c]/10 text-[#102a1c] text-xs font-semibold mb-2">
-            <BookOpen className="w-3.5 h-3.5 text-[#102a1c]" />
-            <span>{isAr ? 'مجلة وإلهام هدايا مكة' : 'Hadaya Mecca Journal & Inspiration'}</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#102a1c] font-serif">
+          <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c]">
             {isAr ? 'أسرار وفنون الإهداء الملكي' : 'The Art of Royal Gifting'}
           </h2>
-          <p className="text-xs sm:text-sm text-[#7a7164] mt-1">
-            {isAr ? 'مقالات حصرية من خبراء ومنسقي الزهور في مكة المكرمة' : 'Exclusive articles from master florists and gift concierges in Mecca'}
+          <p className="text-xs sm:text-sm text-[#7a7164] mt-1 font-light">
+            {isAr ? 'مقالات وإلهام من خبراء ومنسقي الزهور في مكة المكرمة' : 'Exclusive articles from master florists and gift concierges in Mecca'}
           </p>
+        </div>
+
+        <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#102a1c]/10 text-[#102a1c] text-xs font-semibold shrink-0">
+          <BookOpen className="w-3.5 h-3.5 text-[#102a1c]" />
+          <span>{isAr ? 'مجلة هدايا مكة' : 'Mecca Journal'}</span>
         </div>
       </div>
 

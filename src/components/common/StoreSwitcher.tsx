@@ -29,26 +29,29 @@ export const StoreSwitcher: React.FC<StoreSwitcherProps> = ({
   variant = 'compact',
   className = '',
 }) => {
-  const { stores, activeStore, switchToStore, canAccessMaster } = useTenant();
+  const { stores, activeStore, switchToStore, canAccessMaster, mode } = useTenant();
   const { t, locale } = usePrefs();
+  const isAr = locale === 'ar';
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
 
   const session = readAuthSession();
   const visibleStores = useMemo(() => {
-    if (canAccessMaster) return stores;
-    const sid = session?.storeId;
-    if (sid) return stores.filter((s) => s.id === sid);
-    return stores.filter((s) => s.id === activeStore.id);
-  }, [stores, canAccessMaster, session?.storeId, activeStore.id]);
+    // Multi-tenant isolation: Only Super Admin in Master Portal mode can switch across all stores.
+    // In any store dashboard view, visibleStores is strictly locked to [activeStore].
+    if (!canAccessMaster || mode !== 'master') {
+      return [activeStore];
+    }
+    return stores.length > 0 ? stores : [activeStore];
+  }, [canAccessMaster, mode, stores, activeStore]);
 
   const filtered = useMemo(
     () => filterStores(visibleStores, query),
     [visibleStores, query],
   );
 
-  const canOpen = visibleStores.length > 1 || canAccessMaster;
+  const canOpen = canAccessMaster && mode === 'master' && visibleStores.length > 1;
 
   useEffect(() => {
     if (!open) return;
@@ -122,10 +125,13 @@ export const StoreSwitcher: React.FC<StoreSwitcherProps> = ({
           }}
         >
           <div
-            className="px-3 py-2 border-b text-[10px] font-bold uppercase tracking-wide"
+            className="px-3 py-2 border-b text-[10px] font-bold uppercase tracking-wide flex items-center justify-between"
             style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
           >
-            {canAccessMaster ? t('switchStoreAdmin') : t('yourStoreOnly')}
+            <span>{isAr ? 'التبديل بين المتاجر والأنشطة' : 'Switch Store / Merchant'}</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-mono">
+              {visibleStores.length} {isAr ? 'متاجر' : 'stores'}
+            </span>
           </div>
 
           {(canAccessMaster || visibleStores.length > 4) && (

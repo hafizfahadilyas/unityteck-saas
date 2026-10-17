@@ -1,0 +1,1860 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { 
+  Car, 
+  ShieldCheck, 
+  Sparkles, 
+  MapPin, 
+  Search, 
+  ShoppingCart, 
+  X, 
+  Star, 
+  ChevronRight, 
+  ChevronLeft, 
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2, 
+  CheckCircle,
+  Award, 
+  Truck, 
+  Plus, 
+  Minus, 
+  ShoppingBag, 
+  Globe, 
+  Palette, 
+  SlidersHorizontal,
+  RefreshCw,
+  Phone,
+  HelpCircle,
+  BookOpen,
+  FileText,
+  Lock,
+  Eye,
+  ExternalLink,
+  ArrowRight,
+  Menu,
+  Layers
+} from 'lucide-react';
+import { useTenant } from '../../context/TenantContext';
+import { usePrefs } from '../../i18n/PrefsContext';
+import { Product, CategoryItem } from '../../types';
+import { 
+  CAR_BRANDS, 
+  CAR_MODELS_MAP, 
+  SEAT_COLORS, 
+  FLOOR_MAT_COLORS,
+  FloorMatColorOption,
+  FEATURED_HOME_SEATS, 
+  FEATURED_FLOOR_MATS, 
+  BLECO_STORE_PRODUCTS, 
+  BLECO_FAQ, 
+  BLECO_BLOG_POSTS,
+  BLECO_TESTIMONIALS, 
+  BLECO_STORE_INFO, 
+  CarBrandItem, 
+  SeatColorOption,
+  BlecoBlogPost,
+  BlecoFaqItem
+} from '../../data/blecoStoreData';
+import { readAllThemeSettings } from '../settings/themeSettingsStore';
+import { AlsaeediLuxuryFooter } from './components/AlsaeediLuxuryFooter';
+import { FloorMatLuxuryModal, FloorMatCustomSpecs } from './components/FloorMatLuxuryModal';
+import './saudiaTransport.css';
+
+interface SaudiaTransportThemeViewProps {
+  initialPage?: string;
+  isAdmin?: boolean;
+}
+
+interface CartItem {
+  product: Product;
+  quantity: number;
+  selectedColor?: SeatColorOption | FloorMatColorOption;
+  selectedMaterial?: string;
+  selectedCoverage?: string;
+  unitPrice: number;
+  specs?: FloorMatCustomSpecs;
+}
+
+// WhatsApp icon SVG glyph
+function WhatsAppGlyph({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.458 5.704 1.459h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+    </svg>
+  );
+}
+
+export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> = ({
+  initialPage = 'home',
+  isAdmin = false
+}) => {
+  const { activeStore, addOrder, recordStoreVisit } = useTenant();
+  const prefs = usePrefs();
+  const locale = prefs?.locale;
+  const setLocale = prefs?.setLocale;
+
+  // Read admin theme settings
+  const storeId = activeStore?.id || 'store-bleco';
+  const themeSettings = useMemo(() => {
+    try {
+      return readAllThemeSettings(storeId, activeStore || { name: BLECO_STORE_INFO.nameAr });
+    } catch {
+      return null;
+    }
+  }, [storeId, activeStore]);
+
+  // Bilingual State (AR / EN)
+  const [currentLang, setCurrentLang] = useState<'ar' | 'en'>(locale === 'en' ? 'en' : 'ar');
+  const isAr = currentLang === 'ar';
+
+  const toggleLanguage = () => {
+    const nextLang = currentLang === 'ar' ? 'en' : 'ar';
+    setCurrentLang(nextLang);
+    if (setLocale) setLocale(nextLang);
+  };
+
+  useEffect(() => {
+    recordStoreVisit(storeId);
+    try {
+      document.title = isAr 
+        ? 'متجر السعيدي لخدمات السيارات — تنجيد مكة | تلابيس مقاعد وأرضيات ليزر ودايموند'
+        : 'Al-Saeedi Car Upholstery & Accessories Makkah | Custom Seat Covers & 5D Floor Mats';
+    } catch {}
+  }, [currentLang, isAr, recordStoreVisit, storeId]);
+
+  // View Mode: 'home' vs 'catalog'
+  const [viewMode, setViewMode] = useState<'home' | 'catalog'>('home');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Filter Form State
+  const [formMake, setFormMake] = useState<string>('all');
+  const [formModel, setFormModel] = useState<string>('all');
+  const [formYear, setFormYear] = useState<string>('all');
+  const [formColor, setFormColor] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterFeedback, setFilterFeedback] = useState<string | null>(null);
+
+  // Dynamic models for selected make
+  const availableModels = useMemo(() => {
+    if (formMake === 'all' || !CAR_MODELS_MAP[formMake]) return [];
+    return CAR_MODELS_MAP[formMake];
+  }, [formMake]);
+
+  // Dynamic years for selected model
+  const availableYears = useMemo(() => {
+    if (!availableModels || availableModels.length === 0 || formModel === 'all') {
+      return ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2015'];
+    }
+    const found = availableModels.find(m => m.modelEn.toLowerCase() === formModel.toLowerCase() || m.modelAr === formModel);
+    return found ? found.years : ['2025', '2024', '2023', '2022', '2021', '2020'];
+  }, [availableModels, formModel]);
+
+  // Active Brand filter
+  const [activeBrand, setActiveBrand] = useState<CarBrandItem | null>(null);
+
+  // Active Category filter
+  const [activeCategory, setActiveCategory] = useState<CategoryItem | null>(null);
+
+  // Card Color Swatches State (productId -> selectedColorOption)
+  const [cardSelectedColors, setCardSelectedColors] = useState<Record<string, SeatColorOption>>({});
+
+  // Single Product Detail Modal & Customizer
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [detailColor, setDetailColor] = useState<SeatColorOption>(SEAT_COLORS[0]);
+  const [detailMaterial, setDetailMaterial] = useState<'fabric' | 'leather' | 'diamond'>('leather');
+  const [detailCoverage, setDetailCoverage] = useState<'full' | 'front_only'>('full');
+  const [detailQuantity, setDetailQuantity] = useState(1);
+
+  // Modern Luxury Floor Mat Customizer & Showcase Modal
+  const [selectedFloorMatModal, setSelectedFloorMatModal] = useState<Product | null>(null);
+
+  // Blog Post Reading Modal
+  const [selectedBlogPost, setSelectedBlogPost] = useState<BlecoBlogPost | null>(null);
+
+  // Interactive Accordion State for 9 FAQs
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+
+  // Dynamic Price for Customizer
+  const computedDetailPrice = useMemo(() => {
+    if (!selectedProduct) return 0;
+    let base = selectedProduct.discountedPrice || selectedProduct.price;
+    if (detailMaterial === 'fabric') base = Math.max(390, base - 70);
+    else if (detailMaterial === 'diamond') base += 120;
+    if (detailCoverage === 'front_only') base -= 110;
+    return Math.max(290, base);
+  }, [selectedProduct, detailMaterial, detailCoverage]);
+
+  // Cart State (Persisted in localStorage)
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('alsaeedi_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('alsaeedi_cart', JSON.stringify(cart));
+    } catch {}
+  }, [cart]);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Checkout State
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [orderCompleteData, setOrderCompleteData] = useState<{ orderNumber: string; total: number } | null>(null);
+  const [checkoutForm, setCheckoutForm] = useState({
+    name: '',
+    phone: '',
+    city: 'مكة المكرمة',
+    address: '',
+    paymentMethod: 'cod',
+    notes: '',
+  });
+
+  // Handle Search / Filter Form Submit
+  const handleApplyFilter = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setViewMode('catalog');
+
+    let feedback = isAr ? 'نتائج مطابقة: ' : 'Matching Results: ';
+    if (formMake !== 'all') feedback += `${formMake.toUpperCase()} `;
+    if (formModel !== 'all') feedback += `(${formModel}) `;
+    if (formYear !== 'all') feedback += `[${formYear}] `;
+    if (formColor !== 'all') feedback += `· ${formColor}`;
+    setFilterFeedback(feedback);
+
+    const el = document.getElementById('catalog-view-top');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleResetFilter = () => {
+    setFormMake('all');
+    setFormModel('all');
+    setFormYear('all');
+    setFormColor('all');
+    setSearchQuery('');
+    setActiveBrand(null);
+    setActiveCategory(null);
+    setFilterFeedback(null);
+    setViewMode('home');
+  };
+
+  // Full Catalog Filtered (For Advance Search View)
+  const [catalogSort, setCatalogSort] = useState<'featured' | 'price-asc' | 'price-desc'>('featured');
+  const [catalogPageLimit, setCatalogPageLimit] = useState(24);
+
+  const fullFilteredProducts = useMemo(() => {
+    return BLECO_STORE_PRODUCTS.filter(product => {
+      if (activeCategory) {
+        if (activeCategory.id === 'cat-floors' && product.type !== 'floor-mat') return false;
+        if (activeCategory.id === 'cat-clothing' && product.type !== 'seat-cover') return false;
+      }
+      if (activeBrand) {
+        const matchesBrand = product.brand?.toLowerCase() === activeBrand.nameEn.toLowerCase() ||
+                             product.brand === activeBrand.nameAr ||
+                             product.tags?.some(t => t.toLowerCase() === activeBrand.nameEn.toLowerCase() || t === activeBrand.nameAr);
+        if (!matchesBrand && product.brand !== 'جميع الماركات' && product.type !== 'floor-mat') return false;
+      }
+      if (formModel !== 'all') {
+        const m = formModel.toLowerCase();
+        const matchesModel = product.name.toLowerCase().includes(m) || product.tags?.some(t => t.toLowerCase().includes(m));
+        if (!matchesModel && product.type === 'seat-cover') return false;
+      }
+      if (formColor !== 'all') {
+        const matchesColor = product.name.includes(formColor) || product.tags?.some(t => t.includes(formColor));
+        if (!matchesColor && product.type === 'seat-cover') return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesQ = product.name.toLowerCase().includes(q) || 
+                         (product.brand && product.brand.toLowerCase().includes(q)) || 
+                         product.tags?.some(t => t.toLowerCase().includes(q));
+        if (!matchesQ) return false;
+      }
+      return true;
+    }).sort((a, b) => {
+      const pA = a.discountedPrice || a.price;
+      const pB = b.discountedPrice || b.price;
+      if (catalogSort === 'price-asc') return pA - pB;
+      if (catalogSort === 'price-desc') return pB - pA;
+      return 0;
+    });
+  }, [activeBrand, activeCategory, formModel, formColor, searchQuery, catalogSort]);
+
+  // Cart Management
+  const addToCart = (product: Product, quantity = 1, color?: SeatColorOption, material?: string, coverage?: string, customPrice?: number) => {
+    const unitPrice = customPrice || product.discountedPrice || product.price;
+    const selectedCol = color || cardSelectedColors[product.id] || SEAT_COLORS[0];
+
+    setCart(prev => {
+      const existing = prev.find(item => item.product.id === product.id && item.selectedColor?.id === selectedCol.id);
+      if (existing) {
+        return prev.map(item => item.product.id === product.id && item.selectedColor?.id === selectedCol.id
+          ? { ...item, quantity: item.quantity + quantity }
+          : item
+        );
+      }
+      return [...prev, {
+        product,
+        quantity,
+        selectedColor: selectedCol,
+        selectedMaterial: material || 'جلد فاخر',
+        selectedCoverage: coverage || 'طقم كامل',
+        unitPrice,
+      }];
+    });
+
+    showToast(isAr ? `تمت إضافة "${product.nameAr || product.name}" للسلة` : `Added "${product.nameEn || product.name}" to cart`);
+  };
+
+  const addFloorMatToCart = (product: Product, quantity: number, specs: FloorMatCustomSpecs) => {
+    setCart(prev => {
+      return [...prev, {
+        product,
+        quantity,
+        selectedColor: {
+          id: specs.color.id,
+          nameAr: specs.color.nameAr,
+          nameEn: specs.color.nameEn,
+          hex: specs.color.baseHex,
+          image: product.image
+        },
+        selectedMaterial: isAr ? 'جلد صناعي صديق للبيئة (12 مل - 5 طبقات)' : 'Eco Synthetic Leather (12mm 5D)',
+        selectedCoverage: specs.seats === '7_seats' ? (isAr ? '٧ مقاعد (3 صفوف)' : '7 Seats (3 Rows)') : (isAr ? '٥ مقاعد (صفين)' : '5 Seats (2 Rows)'),
+        unitPrice: specs.unitPrice,
+        specs
+      }];
+    });
+    showToast(isAr ? `تمت إضافة أرضيات ${product.nameAr} لسلتك بنجاح!` : `Floor mats added to cart!`);
+  };
+
+  const directBuyFloorMat = (product: Product, quantity: number, specs: FloorMatCustomSpecs) => {
+    addFloorMatToCart(product, quantity, specs);
+    setSelectedFloorMatModal(null);
+    setCartDrawerOpen(false);
+    setCheckoutOpen(true);
+  };
+
+  const updateQuantity = (idx: number, qty: number) => {
+    if (qty <= 0) {
+      setCart(prev => prev.filter((_, i) => i !== idx));
+      return;
+    }
+    setCart(prev => prev.map((item, i) => i === idx ? { ...item, quantity: qty } : item));
+  };
+
+  const cartTotal = useMemo(() => cart.reduce((acc, item) => acc + (item.unitPrice * item.quantity), 0), [cart]);
+  const cartCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
+
+  // WhatsApp Order message
+  const openWhatsAppOrder = (product?: Product, color?: SeatColorOption, price?: number) => {
+    const p = product || selectedProduct;
+    const c = color || detailColor;
+    const finalPrice = price || computedDetailPrice || (p ? (p.discountedPrice || p.price) : 0);
+
+    let text = isAr 
+      ? `مرحباً متجر السعيدي لتنجيد السيارات، أرغب بالطلب والاستفسار:%0a`
+      : `Hello Al-Saeedi Car Upholstery, I would like to order:%0a`;
+
+    if (p) {
+      text += `*المنتج:* ${p.nameAr || p.name}%0a*الكود:* ${p.sku}%0a`;
+      if (c && p.type === 'seat-cover') text += `*اللون:* ${c.nameAr} (${c.nameEn})%0a`;
+      text += `*السعر:* ${finalPrice} ر.س%0a`;
+    } else if (cart.length > 0) {
+      text += `*سلة المشتريات:*%0a`;
+      cart.forEach((it, i) => {
+        text += `${i + 1}. ${it.product.nameAr || it.product.name} (${it.selectedColor?.nameAr || 'بيج'}) x ${it.quantity}%0a`;
+      });
+      text += `*الإجمالي:* ${cartTotal} ر.س%0a`;
+    } else {
+      text += isAr ? `أريد تفصيل تلبيسة أو أرضيات لسيارتي` : `I want custom tailored seat covers or floor mats`;
+    }
+
+    const phoneNum = themeSettings?.identity?.whatsapp || BLECO_STORE_INFO.whatsapp;
+    window.open(`https://wa.me/${phoneNum.replace(/[^0-9]/g, '')}?text=${text}`, '_blank');
+  };
+
+  // Checkout Submission
+  const handleCheckoutSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!checkoutForm.name || !checkoutForm.phone || !checkoutForm.address) {
+      alert(isAr ? 'يرجى تعبئة جميع الحقول المطلوبة' : 'Please fill all required fields');
+      return;
+    }
+
+    const orderNumber = `#ALS-${Math.floor(1000 + Math.random() * 9000)}`;
+    addOrder({
+      customerName: checkoutForm.name,
+      customerPhone: checkoutForm.phone,
+      customerEmail: `${checkoutForm.phone.replace(/[^0-9]/g, '')}@tanjeedmakkah.sa`,
+      deliveryLocation: `${checkoutForm.city} - ${checkoutForm.address}`,
+      itemsCount: cartCount,
+      items: cart.map(it => ({
+        id: it.product.id,
+        sku: it.product.sku,
+        name: `${it.product.nameAr || it.product.name} (${it.selectedColor?.nameAr || 'بيج'})`,
+        price: it.unitPrice,
+        quantity: it.quantity,
+        total: it.unitPrice * it.quantity,
+        image: it.selectedColor?.image || it.product.image
+      })),
+      total: cartTotal,
+      subtotal: cartTotal,
+      status: 'pending',
+      paymentMethod: checkoutForm.paymentMethod === 'cod' ? 'Cash on Delivery' : 'mada',
+      paymentStatus: checkoutForm.paymentMethod === 'cod' ? 'Pending' : 'Paid',
+      source: 'Car Store Online',
+      customerNotes: checkoutForm.notes,
+      time: new Date().toLocaleTimeString('ar-SA'),
+    }, storeId);
+
+    setOrderCompleteData({ orderNumber, total: cartTotal });
+    setCart([]);
+    setCheckoutOpen(false);
+  };
+
+  const storeDisplayName = isAr 
+    ? (themeSettings?.identity?.storeName || activeStore?.name || BLECO_STORE_INFO.nameAr)
+    : (themeSettings?.identity?.storeName || activeStore?.name || BLECO_STORE_INFO.nameEn);
+
+  return (
+    <div className="alsaeedi-theme-container" dir={isAr ? 'rtl' : 'ltr'}>
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[1000] bg-[#1c0537] text-white px-6 py-3 rounded-full shadow-2xl border border-[#d5a027]/70 flex items-center gap-2.5 animate-bounce">
+          <CheckCircle2 className="w-5 h-5 text-[#d5a027] shrink-0" />
+          <span className="text-xs sm:text-sm font-bold">{toastMessage}</span>
+        </div>
+      )}
+
+      {/* 1. SLIM TOP MICRO-BAR */}
+      <div className="alsaeedi-top-announce flex items-center justify-between">
+        <div className="max-w-7xl mx-auto w-full flex items-center justify-between px-4">
+          <div className="flex items-center gap-4 text-[11px] sm:text-xs">
+            <span className="flex items-center gap-1.5 text-slate-200">
+              <MapPin className="w-3.5 h-3.5 text-[#f6c344]" />
+              <span>{isAr ? 'مكة المكرمة — بطحاء قريش' : 'Makkah Al-Mukarramah'}</span>
+            </span>
+            <span className="hidden sm:flex items-center gap-1.5 text-slate-300">
+              <Truck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{isAr ? 'شحن وتوصيل لجميع مناطق المملكة (3-5 أيام)' : 'Express Delivery Across KSA (3-5 Days)'}</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <a 
+              href={`https://wa.me/${BLECO_STORE_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
+              target="_blank" 
+              rel="noreferrer"
+              className="text-[#f6c344] font-bold text-xs flex items-center gap-1 hover:underline"
+            >
+              <WhatsAppGlyph className="w-3.5 h-3.5" />
+              <span dir="ltr">0597757086</span>
+            </a>
+            <button
+              onClick={toggleLanguage}
+              className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-[#f6c344] font-bold text-[11px] border border-[#d5a027]/40 cursor-pointer"
+            >
+              <Globe className="w-3 h-3" />
+              <span>{isAr ? 'English 🌐' : 'العربية 🇸🇦'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. MAIN MODERN LUXURY NAVBAR (Bashayer Royal Purple #3e0f77) */}
+      <header className="sticky top-0 z-50 bg-[#3e0f77] text-white shadow-xl border-b border-[#d5a027]/30 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+          {/* Logo & Store Identity */}
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleResetFilter()}>
+            <img 
+              src={BLECO_STORE_INFO.logo} 
+              alt="متجر السعيدي لخدمات السيارات" 
+              className="h-9 md:h-11 w-auto object-contain filter drop-shadow"
+            />
+            <div>
+              <h1 className="text-sm md:text-base font-black text-white leading-tight flex items-center gap-1.5">
+                <span>{storeDisplayName}</span>
+                <span className="text-[9px] bg-[#d5a027] text-[#1c0537] px-1.5 py-0.2 rounded font-black">VIP</span>
+              </h1>
+              <p className="text-[10px] text-[#f6c344] font-medium hidden sm:block">
+                {isAr ? 'تنجيد وتلابيس مقاعد وأرضيات ليزر ودايموند 5D' : 'Luxury Car Seat Covers & 5D Floor Mats'}
+              </p>
+            </div>
+          </div>
+
+          {/* Clean Nav Links */}
+          <nav className="hidden lg:flex items-center gap-5 text-xs font-bold text-slate-200">
+            <button 
+              onClick={() => { setViewMode('home'); handleResetFilter(); }}
+              className={`hover:text-[#f6c344] transition-colors cursor-pointer ${viewMode === 'home' ? 'text-[#f6c344]' : ''}`}
+            >
+              {isAr ? 'الرئيسية' : 'Home'}
+            </button>
+            <a href="#floor-mats-section" className="hover:text-[#f6c344] transition-colors">
+              {isAr ? 'أرضيات السيارات' : 'Floor Mats'}
+            </a>
+            <a href="#featured-seats-section" className="hover:text-[#f6c344] transition-colors">
+              {isAr ? 'تلابيس المقاعد' : 'Seat Covers'}
+            </a>
+            <a href="#faq-section" className="hover:text-[#f6c344] transition-colors">
+              {isAr ? 'الأسئلة الشائعة' : 'FAQ'}
+            </a>
+            <a href="#blog-section" className="hover:text-[#f6c344] transition-colors">
+              {isAr ? 'المدونة' : 'Blog'}
+            </a>
+            <a href="#reviews-section" className="hover:text-[#f6c344] transition-colors">
+              {isAr ? 'آراء العملاء' : 'Reviews'}
+            </a>
+          </nav>
+
+          {/* Search, WhatsApp & Cart CTA */}
+          <div className="flex items-center gap-2.5">
+            <div className="relative hidden sm:block w-48 md:w-56">
+              <input 
+                type="text" 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleApplyFilter(); }}
+                placeholder={isAr ? "بحث بالسيارة أو الموديل..." : "Search car model..."}
+                className="w-full bg-white/10 text-white placeholder-slate-300 text-xs rounded-full pl-8 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-[#d5a027] focus:bg-white focus:text-slate-900 transition-all border border-white/20"
+              />
+              <Search className={`w-3.5 h-3.5 text-slate-300 absolute ${isAr ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 pointer-events-none`} />
+            </div>
+
+            <button 
+              onClick={() => openWhatsAppOrder()}
+              className="p-2 sm:px-3.5 sm:py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-xs font-bold transition-all shadow cursor-pointer flex items-center gap-1.5"
+              title="WhatsApp"
+            >
+              <WhatsAppGlyph className="w-4 h-4" />
+              <span className="hidden md:inline">{isAr ? 'واتساب' : 'WhatsApp'}</span>
+            </button>
+
+            <button 
+              onClick={() => setCartDrawerOpen(true)}
+              className="relative flex items-center gap-1.5 px-3.5 py-2 btn-bashayer-gold text-xs font-black transition-all shadow cursor-pointer"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              <span className="hidden sm:inline">{isAr ? 'السلة' : 'Cart'}</span>
+              {cartCount > 0 && (
+                <span className="bg-red-600 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black animate-scaleIn">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* VIEW 1: HOME PAGE */}
+      {viewMode === 'home' && (
+        <>
+          {/* 3. HERO SECTION WITH ADVANCED VEHICLE FILTER */}
+          <section className="relative bg-gradient-to-b from-[#3e0f77] via-[#2a0852] to-[#1c0537] text-white pt-10 pb-12 px-4 overflow-hidden border-b border-[#d5a027]/25">
+            <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#d5a027]/12 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="max-w-6xl mx-auto space-y-8 relative z-10 text-center">
+              <div className="space-y-3 max-w-3xl mx-auto">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#d5a027]/15 border border-[#d5a027]/40 text-[#f6c344] text-xs font-bold">
+                  <Sparkles className="w-3.5 h-3.5 text-[#f6c344]" />
+                  <span>{isAr ? 'متجر السعيدي لخدمات السيارات — تنجيد مكة' : 'Al-Saeedi Auto Services Store — Makkah'}</span>
+                </div>
+
+                <h2 className="text-2xl sm:text-4xl md:text-5xl font-black text-white leading-tight tracking-tight">
+                  {isAr ? (
+                    <>فخامة تلبيسات المقاعد وأرضيات <span className="text-[#f6c344]">الليزر والدايموند</span></>
+                  ) : (
+                    <>Luxury Custom Seat Covers & <span className="text-[#f6c344]">5D Precision Floor Mats</span></>
+                  )}
+                </h2>
+
+                <p className="text-slate-200 text-xs sm:text-sm max-w-xl mx-auto leading-relaxed">
+                  {isAr 
+                    ? 'تفصيل دقيق مطابق لأبعاد الوكالة 100% مع ضمان سنتين، خامات معالجة ضد الحرارة والماء وسهلة التنظيف.'
+                    : '100% factory match guaranteed with a 2-year warranty. Heat-resistant, waterproof, and easy to clean.'}
+                </p>
+              </div>
+
+              {/* 4. INSTANT VEHICLE FILTER BAR */}
+              <div className="alsaeedi-vehicle-filter text-slate-900 max-w-5xl mx-auto text-xs">
+                <form onSubmit={handleApplyFilter} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+                  {/* Make */}
+                  <div className="text-right">
+                    <label className="block text-slate-700 font-bold mb-1">{isAr ? 'ماركة السيارة:' : 'Make:'}</label>
+                    <select 
+                      value={formMake}
+                      onChange={e => { setFormMake(e.target.value); setFormModel('all'); }}
+                      className="w-full h-11 bg-slate-50 border border-slate-300 rounded-xl px-3 font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#3e0f77] cursor-pointer"
+                    >
+                      <option value="all">{isAr ? 'جميع الماركات' : 'All Makes'}</option>
+                      {CAR_BRANDS.map(b => (
+                        <option key={b.id} value={b.nameEn.toLowerCase()}>{isAr ? b.nameAr : b.nameEn}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Model */}
+                  <div className="text-right">
+                    <label className="block text-slate-700 font-bold mb-1">{isAr ? 'موديل السيارة:' : 'Model:'}</label>
+                    <select 
+                      value={formModel}
+                      onChange={e => setFormModel(e.target.value)}
+                      disabled={availableModels.length === 0}
+                      className={`w-full h-11 border rounded-xl px-3 font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#3e0f77] cursor-pointer ${
+                        availableModels.length === 0 ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-slate-50 border-slate-300'
+                      }`}
+                    >
+                      <option value="all">{availableModels.length === 0 ? (isAr ? 'اختر الماركة' : 'Select Make') : (isAr ? 'جميع الموديلات' : 'All Models')}</option>
+                      {availableModels.map((m, idx) => (
+                        <option key={idx} value={m.modelEn}>{isAr ? m.modelAr : m.modelEn}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Year */}
+                  <div className="text-right">
+                    <label className="block text-slate-700 font-bold mb-1">{isAr ? 'السنة:' : 'Year:'}</label>
+                    <select 
+                      value={formYear}
+                      onChange={e => setFormYear(e.target.value)}
+                      className="w-full h-11 bg-slate-50 border border-slate-300 rounded-xl px-3 font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#3e0f77] cursor-pointer"
+                    >
+                      <option value="all">{isAr ? 'جميع السنوات' : 'All Years'}</option>
+                      {availableYears.map(yr => (
+                        <option key={yr} value={yr}>{yr}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Color */}
+                  <div className="text-right">
+                    <label className="block text-slate-700 font-bold mb-1">{isAr ? 'اللون:' : 'Color:'}</label>
+                    <select 
+                      value={formColor}
+                      onChange={e => setFormColor(e.target.value)}
+                      className="w-full h-11 bg-slate-50 border border-slate-300 rounded-xl px-3 font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#3e0f77] cursor-pointer"
+                    >
+                      <option value="all">{isAr ? 'جميع الألوان' : 'All Colors'}</option>
+                      {SEAT_COLORS.map(c => (
+                        <option key={c.id} value={c.nameAr}>{isAr ? c.nameAr : c.nameEn}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Search Button */}
+                  <div>
+                    <button 
+                      type="submit"
+                      className="w-full h-11 btn-bashayer-gold text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+                    >
+                      <Search className="w-4 h-4" />
+                      <span>{isAr ? 'ابحث عن سيارتك' : 'Search Vehicle'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </section>
+
+          {/* MAIN PAGE BODY */}
+          <main className="max-w-7xl mx-auto px-4 py-12 space-y-16">
+
+            {/* ========================================================
+                SECTION: BROWSE BY CAR TYPE (تصفح حسب نوع السيارة)
+                ======================================================== */}
+            <section id="brands-section" className="space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <Car className="w-5 h-5 text-[#3e0f77]" />
+                    <span>{isAr ? 'تصفح حسب ماركة سيارتك' : 'Browse by Car Brand'}</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {isAr ? 'اضغط على الماركة لعرض الموديلات والتلابيس المتوافقة' : 'Click any brand to explore models and custom kits'}
+                  </p>
+                </div>
+                {activeBrand && (
+                  <button 
+                    onClick={() => setActiveBrand(null)} 
+                    className="text-xs font-bold text-[#3e0f77] hover:underline cursor-pointer"
+                  >
+                    {isAr ? 'إلغاء التحديد' : 'Clear'}
+                  </button>
+                )}
+              </div>
+
+              {/* Brands Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
+                {CAR_BRANDS.map(brand => {
+                  const isSelected = activeBrand?.id === brand.id;
+                  return (
+                    <div 
+                      key={brand.id}
+                      onClick={() => {
+                        setActiveBrand(isSelected ? null : brand);
+                        setFormMake(isSelected ? 'all' : brand.nameEn.toLowerCase());
+                      }}
+                      className={`alsaeedi-brand-card p-3 flex flex-col items-center justify-center text-center cursor-pointer group ${
+                        isSelected ? 'active' : ''
+                      }`}
+                    >
+                      <div className="h-9 w-full flex items-center justify-center">
+                        <img 
+                          src={brand.logo} 
+                          alt={isAr ? brand.nameAr : brand.nameEn} 
+                          className="h-9 max-w-[80px] w-auto object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform"
+                          loading="lazy"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.style.display = 'none';
+                            const fallback = target.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                        <div 
+                          style={{ display: 'none' }}
+                          className="w-8 h-8 rounded-full bg-purple-50 text-[#3e0f77] font-black text-xs items-center justify-center border border-purple-200"
+                        >
+                          {brand.nameEn.slice(0, 2).toUpperCase()}
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-bold mt-2 text-slate-800 line-clamp-1">
+                        {isAr ? brand.nameAr : brand.nameEn}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Models Chips if Brand Selected */}
+              {activeBrand && (
+                <div className="p-4 bg-purple-50/70 border border-[#d5a027]/40 rounded-2xl flex flex-wrap items-center gap-2 animate-fadeIn">
+                  <span className="text-xs font-bold text-[#3e0f77]">{isAr ? `موديلات ${activeBrand.nameAr}:` : `${activeBrand.nameEn} Models:`}</span>
+                  {(CAR_MODELS_MAP[activeBrand.id] || []).map((m, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setFormModel(m.modelEn);
+                        handleApplyFilter();
+                      }}
+                      className="px-3 py-1 bg-white hover:bg-[#3e0f77] hover:text-white text-slate-800 rounded-full text-xs font-bold border border-slate-200 transition-all cursor-pointer shadow-sm"
+                    >
+                      {isAr ? m.modelAr : m.modelEn}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* ========================================================
+                SECTION 3: CAR FLOOR MATS (أرضيات السيارة - 4 تصاميم أصلية)
+                ======================================================== */}
+            <section id="floor-mats-section" className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-slate-200 pb-3">
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-[#d5a027]" />
+                    <span>{isAr ? 'أرضيات السيارة (car floor mats)' : 'car floor mats'}</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {isAr ? '4 تصاميم فاخرة من الجلد الصناعي الصديق للبيئة (Eco-friendly synthetic leather)' : '4 Authentic designs crafted with Eco-friendly synthetic leather'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    const el = document.getElementById('catalog-view-top');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    setViewMode('catalog');
+                  }}
+                  className="text-xs font-bold text-[#3e0f77] hover:underline flex items-center gap-1 cursor-pointer self-start sm:self-auto"
+                >
+                  <span>View all</span>
+                  {isAr ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+
+              {/* 4 Swatch Cards Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {FEATURED_FLOOR_MATS.map(mat => (
+                  <div 
+                    key={mat.id} 
+                    className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-[#d5a027]/70 transition-all flex flex-col justify-between space-y-3.5 group relative"
+                  >
+                    {/* Swatch Image Box */}
+                    <div 
+                      className="relative aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/80 cursor-pointer group"
+                      onClick={() => setSelectedFloorMatModal(mat)}
+                    >
+                      <img 
+                        src={mat.image} 
+                        alt={mat.name} 
+                        className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500" 
+                      />
+                      <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-3">
+                        <span className="bg-[#3e0f77] text-white px-3.5 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 shadow-lg border border-[#f6c344]/40">
+                          <Sparkles className="w-3.5 h-3.5 text-[#f6c344]" />
+                          <span>{isAr ? 'عرض التفاصيل والتخصيص' : 'Customize & Details'}</span>
+                        </span>
+                        <span className="text-[10px] text-white/90 font-medium">
+                          {isAr ? 'اضغط للمعاينة واختيار سيارتك' : 'Click to select vehicle & specs'}
+                        </span>
+                      </div>
+                      <span className="absolute top-2.5 right-2.5 bg-[#3e0f77]/90 text-[#f6c344] text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-xs shadow">
+                        5D OEM
+                      </span>
+                      <span className="absolute top-2.5 left-2.5 bg-emerald-700/90 text-white text-[9px] font-bold px-2 py-0.5 rounded-full backdrop-blur-xs">
+                        {isAr ? 'أصلي 100%' : '100% OEM'}
+                      </span>
+                    </div>
+
+                    {/* Card Details */}
+                    <div>
+                      <h4 
+                        onClick={() => setSelectedFloorMatModal(mat)}
+                        className="font-black text-sm text-slate-900 group-hover:text-[#3e0f77] transition-colors cursor-pointer line-clamp-1"
+                      >
+                        {isAr ? mat.nameAr : mat.nameEn}
+                      </h4>
+                      <p className="text-[11px] text-emerald-700 font-semibold mt-1 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span>Eco-friendly synthetic leather</span>
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {isAr ? '12 خيار تطريز · 5 طبقات · مطابقة لمواصفات SASO' : '12 Stitching colors · 5 Layers · SASO'}
+                      </p>
+                    </div>
+
+                    {/* Price & Action */}
+                    <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                      <div>
+                        <span className="font-black text-base text-slate-900">{mat.price}</span>
+                        <span className="text-[11px] font-bold text-[#b07e16] mr-1 ml-1">{isAr ? 'ر.س' : 'SAR'}</span>
+                        {mat.originalPrice && mat.originalPrice > mat.price && (
+                          <span className="text-[10px] text-slate-400 line-through block">
+                            {mat.originalPrice} {isAr ? 'ر.س' : 'SAR'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setSelectedFloorMatModal(mat)}
+                          className="px-3.5 py-1.5 btn-bashayer-gold text-xs font-black flex items-center gap-1 cursor-pointer shadow-sm hover:shadow"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>{isAr ? 'تخصيص' : 'Customize'}</span>
+                        </button>
+                        <button
+                          onClick={() => openWhatsAppOrder(mat)}
+                          className="p-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl cursor-pointer shadow-xs"
+                          title="WhatsApp"
+                        >
+                          <WhatsAppGlyph className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* ========================================================
+                SECTION 4: CAR SEAT COVERS (تلابيس مقاعد السيارة - 9 منتجات)
+                ======================================================== */}
+            <section id="featured-seats-section" className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-slate-200 pb-3">
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-[#d5a027]" />
+                    <span>{isAr ? 'تلابيس مقاعد السيارة (Car seat covers)' : 'Car seat covers'}</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {isAr ? 'أطقم جاهزة ومفصلة بالملي مطابقة للوكالة لكامري، يوكن، راف فور، كورولا، ايفرست وباقي الماركات' : 'Ready-made tailored leather & fabric seat covers with OEM dimensions'}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setViewMode('catalog')}
+                  className="text-xs font-bold text-[#3e0f77] hover:underline flex items-center gap-1 cursor-pointer self-start sm:self-auto"
+                >
+                  <span>View all</span>
+                  {isAr ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+
+              {/* Product Cards Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                {FEATURED_HOME_SEATS.map(product => {
+                  const activeColor = cardSelectedColors[product.id] || SEAT_COLORS[0];
+                  const currentImage = activeColor ? activeColor.image : product.image;
+                  const isBestSeller = product.tags?.includes('best seller') || product.id.includes('custom');
+
+                  return (
+                    <div key={product.id} className="alsaeedi-product-card group relative">
+                      {/* Best Seller Ribbon Badge */}
+                      {isBestSeller && (
+                        <div className="absolute top-2.5 left-2.5 z-20 bg-amber-500 text-slate-900 text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-slate-900 text-slate-900" />
+                          <span>best seller</span>
+                        </div>
+                      )}
+
+                      {/* Image Frame */}
+                      <div 
+                        className="relative aspect-square overflow-hidden bg-slate-100 cursor-pointer"
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setDetailColor(activeColor);
+                          setDetailQuantity(1);
+                        }}
+                      >
+                        <img 
+                          src={currentImage} 
+                          alt={product.name} 
+                          className="w-full h-full object-cover img-zoom"
+                        />
+                        <span className="absolute top-2.5 right-2.5 bg-[#3e0f77]/90 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-white/20">
+                          {product.brand}
+                        </span>
+                      </div>
+
+                      {/* Card Content */}
+                      <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                        <div>
+                          <div className="flex items-center gap-1 text-amber-500 text-xs">
+                            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                            <span className="font-bold text-slate-800">{product.rating || 5.0}</span>
+                            <span className="text-[10px] text-slate-400">({product.reviewsCount || 120})</span>
+                          </div>
+
+                          <h4 
+                            onClick={() => { setSelectedProduct(product); setDetailColor(activeColor); }}
+                            className="font-bold text-slate-900 text-xs sm:text-sm hover:text-[#3e0f77] transition-colors line-clamp-2 mt-1 cursor-pointer leading-snug"
+                          >
+                            {isAr ? (product.nameAr || product.name) : (product.nameEn || product.name)}
+                          </h4>
+
+                          <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">
+                            {product.subtitle}
+                          </p>
+
+                          {/* Interactive Color Dots */}
+                          <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
+                            <span className="text-[10px] text-slate-400 font-semibold">
+                              {isAr ? activeColor.nameAr : activeColor.nameEn}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {SEAT_COLORS.map(c => (
+                                <button
+                                  key={c.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCardSelectedColors(prev => ({ ...prev, [product.id]: c }));
+                                  }}
+                                  className={`color-swatch-dot ${activeColor.id === c.id ? 'active' : ''}`}
+                                  style={{ backgroundColor: c.hex }}
+                                  title={isAr ? c.nameAr : c.nameEn}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Price & Action Buttons */}
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                          <div>
+                            <span className="text-base sm:text-lg font-black text-slate-900">
+                              {product.discountedPrice || product.price}
+                            </span>
+                            <span className="text-[11px] font-bold text-[#b07e16] mr-1 ml-1">
+                              {isAr ? 'ر.س' : 'SAR'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <button 
+                              onClick={() => { setSelectedProduct(product); setDetailColor(activeColor); }}
+                              className="p-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-[#3e0f77] font-bold text-xs transition-colors cursor-pointer"
+                              title={isAr ? 'تخصيص وتفصيل' : 'Customize'}
+                            >
+                              <Palette className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button 
+                              onClick={() => addToCart(product, 1, activeColor)}
+                              className="px-3 py-1.5 btn-bashayer-gold text-xs font-black flex items-center gap-1 cursor-pointer"
+                            >
+                              <ShoppingCart className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">{isAr ? 'أضف' : 'Add'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* ========================================================
+                SECTION 5: SHOP SAFELY GUARANTEES BAR (تسوق بأمان)
+                ======================================================== */}
+            <section className="bg-gradient-to-r from-[#1c0537] via-[#2a0852] to-[#1c0537] rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-[#d5a027]/40">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+                <div className="space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center mx-auto border border-white/20 text-[#f6c344]">
+                    <Lock className="w-6 h-6" />
+                  </div>
+                  <h4 className="font-black text-sm text-[#f6c344]">{isAr ? 'دفع آمن 100%' : '100% Secure Payment'}</h4>
+                  <p className="text-[11px] text-slate-300">{isAr ? 'تشفير بنكي معتمد من ساما' : 'Bank-grade SSL encryption'}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center mx-auto border border-white/20 text-emerald-400">
+                    <Award className="w-6 h-6" />
+                  </div>
+                  <h4 className="font-black text-sm text-[#f6c344]">{isAr ? 'منتجات أصلية 100%' : 'All Products Original'}</h4>
+                  <p className="text-[11px] text-slate-300">{isAr ? 'ضمان ذهبي سنتين على الخياطة' : '2-Year golden warranty'}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center mx-auto border border-white/20 text-blue-400">
+                    <Truck className="w-6 h-6" />
+                  </div>
+                  <h4 className="font-black text-sm text-[#f6c344]">{isAr ? 'شحن سريع 3-5 أيام' : 'Fast Shipping 3-5 Days'}</h4>
+                  <p className="text-[11px] text-slate-300">{isAr ? 'تغطية شاملة لكافة مدن المملكة' : 'Express door-to-door delivery'}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center mx-auto border border-white/20 text-[#d5a027]">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <h4 className="font-black text-sm text-[#f6c344]">{isAr ? 'تقسيط 4-6 دفعات' : '4-6 Installments'}</h4>
+                  <p className="text-[11px] text-slate-300">{isAr ? 'بدون فوائد عبر تمارا وتابي' : 'Zero interest with Tamara/Tabby'}</p>
+                </div>
+              </div>
+            </section>
+
+            {/* ========================================================
+                SECTION 6: FREQUENTLY ASKED QUESTIONS (01 TO 09)
+                ======================================================== */}
+            <section id="faq-section" className="space-y-6">
+              <div className="text-center space-y-1.5 max-w-2xl mx-auto">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-[#3e0f77] text-xs font-bold">
+                  <HelpCircle className="w-3.5 h-3.5 text-[#3e0f77]" />
+                  <span>{isAr ? 'إجابات واضحة لجميع استفساراتك' : 'Frequently Asked Questions'}</span>
+                </div>
+                <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  {isAr ? 'الأسئلة الشائعة (Frequently Asked Questions)' : 'Frequently Asked Questions'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isAr 
+                    ? 'تعرف على معايير الأمان، الضمان الذهبي، وخدمات التوصيل والتقسيط في متجر السعيدي' 
+                    : 'Everything you need to know about safety, warranty, installments, and shipping'}
+                </p>
+              </div>
+
+              {/* Numbered FAQ Accordion 01 to 09 */}
+              <div className="max-w-4xl mx-auto space-y-3">
+                {BLECO_FAQ.map((faq, idx) => {
+                  const isOpen = openFaqIndex === idx;
+                  return (
+                    <div 
+                      key={idx}
+                      className={`rounded-2xl border transition-all overflow-hidden ${
+                        isOpen 
+                          ? 'bg-white border-[#3e0f77] shadow-md ring-1 ring-[#3e0f77]/10' 
+                          : 'bg-white/80 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <button
+                        onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
+                        className="w-full p-4 sm:p-5 flex items-center justify-between gap-4 text-right cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3.5">
+                          <span className={`w-8 h-8 rounded-xl font-mono font-black text-xs flex items-center justify-center shrink-0 transition-colors ${
+                            isOpen ? 'bg-[#3e0f77] text-white' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {faq.number}
+                          </span>
+                          <h4 className="font-bold text-xs sm:text-sm text-slate-900">
+                            {isAr ? faq.qAr : faq.qEn}
+                          </h4>
+                        </div>
+                        <div className={`p-1 rounded-full shrink-0 transition-transform ${isOpen ? 'rotate-180 text-[#3e0f77]' : 'text-slate-400'}`}>
+                          <ChevronDown className="w-4 h-4" />
+                        </div>
+                      </button>
+
+                      {isOpen && (
+                        <div className="px-5 pb-5 pt-1 text-xs text-slate-600 leading-relaxed border-t border-slate-100/80 animate-fadeIn">
+                          <p>{isAr ? faq.aAr : faq.aEn}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* ========================================================
+                SECTION 7: BLOG POSTS (مدونة متجر السعيدي - 3 مقالات كاملة)
+                ======================================================== */}
+            <section id="blog-section" className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-slate-200 pb-3">
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-[#3e0f77]" />
+                    <span>{isAr ? 'مدونة تنجيد مكة وعناية السيارات' : 'Car Upholstery & Care Blog'}</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {isAr ? 'أدلة إرشادية ونصائح متخصصة لحماية سيارتك في الأجواء الحارة' : 'Expert guides and maintenance tips for Saudi driving conditions'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {BLECO_BLOG_POSTS.map(post => (
+                  <div 
+                    key={post.id}
+                    onClick={() => setSelectedBlogPost(post)}
+                    className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between group"
+                  >
+                    <div className="aspect-[16/10] overflow-hidden bg-slate-100 relative">
+                      <img 
+                        src={post.image} 
+                        alt={post.titleAr} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <span className="absolute top-3 right-3 bg-[#3e0f77]/90 text-[#f6c344] text-[10px] font-bold px-2.5 py-0.5 rounded-full backdrop-blur-xs">
+                        {isAr ? post.categoryAr : post.categoryEn}
+                      </span>
+                    </div>
+
+                    <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
+                      <div>
+                        <div className="flex items-center gap-3 text-[10px] text-slate-400 mb-2">
+                          <span>{post.date}</span>
+                          <span>·</span>
+                          <span>{isAr ? post.readTimeAr : post.readTimeEn}</span>
+                        </div>
+                        <h4 className="font-bold text-sm text-slate-900 group-hover:text-[#3e0f77] transition-colors line-clamp-2 leading-snug">
+                          {isAr ? post.titleAr : post.titleEn}
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed">
+                          {isAr ? post.summaryAr : post.summaryEn}
+                        </p>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#3e0f77]">
+                        <span>{isAr ? 'اقرأ المقال بالكامل' : 'Read Full Article'}</span>
+                        {isAr ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* ========================================================
+                SECTION 8: VERIFIED CUSTOMER REVIEWS (6 REAL REVIEWS)
+                ======================================================== */}
+            <section id="reviews-section" className="space-y-6">
+              <div className="text-center space-y-1">
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900">
+                  {isAr ? 'آراء وتجارب عملائنا في المملكة' : 'Customer Reviews'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isAr ? 'تقييمات موثقة لعملاء قاموا بتركيب التلابيس والأرضيات بمكة والرياض وجدة والشرقية' : 'Verified customer ratings across Saudi Arabia'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {BLECO_TESTIMONIALS.map((rev, idx) => (
+                  <div key={idx} className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <img src={rev.avatar} alt="User" className="w-9 h-9 rounded-full object-cover border border-slate-100" />
+                        <div>
+                          <h5 className="font-bold text-xs text-slate-900">{isAr ? rev.name : rev.nameEn}</h5>
+                          <span className="text-[10px] text-slate-400">{isAr ? rev.city : rev.cityEn} · {isAr ? rev.car : rev.carEn}</span>
+                        </div>
+                      </div>
+                      <div className="flex text-amber-400">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className="w-3 h-3 fill-current" />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed italic">
+                      "{isAr ? rev.text : rev.textEn}"
+                    </p>
+                    <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-bold">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>{isAr ? 'شراء مؤكد ومطابق للمقاس' : 'Verified Purchase'}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </main>
+        </>
+      )}
+
+      {/* VIEW 2: ADVANCE SEARCH & 400+ CATALOG VIEW */}
+      {viewMode === 'catalog' && (
+        <main id="catalog-view-top" className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+            <button
+              onClick={() => handleResetFilter()}
+              className="text-xs font-bold text-[#3e0f77] flex items-center gap-1.5 hover:underline cursor-pointer"
+            >
+              {isAr ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              <span>{isAr ? 'العودة للرئيسية' : 'Back to Home'}</span>
+            </button>
+
+            <span className="text-xs text-slate-500 font-mono">
+              {isAr ? `وجدنا ${fullFilteredProducts.length} منتج متوافق` : `Found ${fullFilteredProducts.length} matching products`}
+            </span>
+          </div>
+
+          {/* Filter Bar */}
+          <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3 text-xs">
+            <div>
+              <label className="block text-slate-600 font-bold mb-1">{isAr ? 'الماركة:' : 'Make:'}</label>
+              <select 
+                value={formMake} 
+                onChange={e => { setFormMake(e.target.value); setFormModel('all'); }}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-bold cursor-pointer"
+              >
+                <option value="all">{isAr ? 'الكل' : 'All'}</option>
+                {CAR_BRANDS.map(b => (
+                  <option key={b.id} value={b.nameEn.toLowerCase()}>{isAr ? b.nameAr : b.nameEn}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-slate-600 font-bold mb-1">{isAr ? 'الموديل:' : 'Model:'}</label>
+              <select 
+                value={formModel} 
+                onChange={e => setFormModel(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-bold cursor-pointer"
+              >
+                <option value="all">{isAr ? 'الكل' : 'All'}</option>
+                {availableModels.map((m, idx) => (
+                  <option key={idx} value={m.modelEn}>{isAr ? m.modelAr : m.modelEn}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-slate-600 font-bold mb-1">{isAr ? 'اللون:' : 'Color:'}</label>
+              <select 
+                value={formColor} 
+                onChange={e => setFormColor(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-bold cursor-pointer"
+              >
+                <option value="all">{isAr ? 'الكل' : 'All'}</option>
+                {SEAT_COLORS.map(c => (
+                  <option key={c.id} value={c.nameAr}>{isAr ? c.nameAr : c.nameEn}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-slate-600 font-bold mb-1">{isAr ? 'الترتيب:' : 'Sort By:'}</label>
+              <select 
+                value={catalogSort} 
+                onChange={e => setCatalogSort(e.target.value as any)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-bold cursor-pointer"
+              >
+                <option value="featured">{isAr ? 'الموصى به' : 'Featured'}</option>
+                <option value="price-asc">{isAr ? 'الأقل سعراً' : 'Price: Low'}</option>
+                <option value="price-desc">{isAr ? 'الأعلى سعراً' : 'Price: High'}</option>
+              </select>
+            </div>
+
+            <div className="col-span-2 sm:col-span-1 flex items-end">
+              <button 
+                onClick={handleResetFilter}
+                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                {isAr ? 'إعادة ضبط' : 'Reset'}
+              </button>
+            </div>
+          </div>
+
+          {/* Full Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+            {fullFilteredProducts.slice(0, catalogPageLimit).map(prod => {
+              const activeColor = cardSelectedColors[prod.id] || SEAT_COLORS[0];
+              const cardImg = prod.type === 'seat-cover' ? activeColor.image : prod.image;
+
+              return (
+                <div key={prod.id} className="alsaeedi-product-card group">
+                  <div 
+                    className="relative aspect-square overflow-hidden bg-slate-100 cursor-pointer"
+                    onClick={() => { 
+                      if (prod.type === 'floor-mat') {
+                        setSelectedFloorMatModal(prod);
+                      } else {
+                        setSelectedProduct(prod); 
+                        setDetailColor(activeColor); 
+                      }
+                    }}
+                  >
+                    <img src={cardImg} alt={prod.name} className="w-full h-full object-cover img-zoom" />
+                    <span className="absolute top-2.5 right-2.5 bg-[#3e0f77]/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {prod.brand}
+                    </span>
+                    {prod.type === 'floor-mat' && (
+                      <span className="absolute top-2.5 left-2.5 bg-emerald-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
+                        5D OEM
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3 text-xs">
+                    <div>
+                      <h4 
+                        onClick={() => { 
+                          if (prod.type === 'floor-mat') {
+                            setSelectedFloorMatModal(prod);
+                          } else {
+                            setSelectedProduct(prod); 
+                            setDetailColor(activeColor); 
+                          }
+                        }}
+                        className="font-bold text-slate-900 line-clamp-2 hover:text-[#3e0f77] cursor-pointer"
+                      >
+                        {isAr ? prod.nameAr : prod.nameEn}
+                      </h4>
+
+                      {prod.type === 'seat-cover' && (
+                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400">{isAr ? activeColor.nameAr : activeColor.nameEn}</span>
+                          <div className="flex gap-1">
+                            {SEAT_COLORS.map(c => (
+                              <button
+                                key={c.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCardSelectedColors(prev => ({ ...prev, [prod.id]: c }));
+                                }}
+                                className={`color-swatch-dot ${activeColor.id === c.id ? 'active' : ''}`}
+                                style={{ backgroundColor: c.hex }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {prod.type === 'floor-mat' && (
+                        <p className="mt-1.5 text-[10px] text-emerald-700 font-semibold">
+                          {isAr ? '12 لون تطريز · جلد صناعي صديق للبيئة' : '12 Stitching colors · Eco leather'}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                      <span className="font-black text-sm text-slate-900">{prod.price} {isAr ? 'ر.س' : 'SAR'}</span>
+                      <button 
+                        onClick={() => {
+                          if (prod.type === 'floor-mat') {
+                            setSelectedFloorMatModal(prod);
+                          } else {
+                            addToCart(prod, 1, activeColor);
+                          }
+                        }}
+                        className="px-3 py-1.5 btn-bashayer-gold font-bold text-xs cursor-pointer flex items-center gap-1"
+                      >
+                        {prod.type === 'floor-mat' ? (
+                          <>
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>{isAr ? 'تخصيص' : 'Customize'}</span>
+                          </>
+                        ) : (
+                          <span>{isAr ? 'أضف' : 'Add'}</span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {catalogPageLimit < fullFilteredProducts.length && (
+            <div className="pt-6 text-center">
+              <button 
+                onClick={() => setCatalogPageLimit(prev => prev + 24)}
+                className="px-6 py-2.5 btn-bashayer-purple text-xs font-black cursor-pointer shadow"
+              >
+                {isAr ? `عرض المزيد (${fullFilteredProducts.length - catalogPageLimit} متبقية)` : `Load More (${fullFilteredProducts.length - catalogPageLimit} left)`}
+              </button>
+            </div>
+          )}
+        </main>
+      )}
+
+      {/* ========================================================
+          MODAL 1: HIGH-RES FLOOR MAT SWATCH ZOOM MODAL
+          ======================================================== */}
+      {selectedFloorMatPreview && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-xl rounded-3xl overflow-hidden shadow-2xl border border-slate-200 animate-fadeIn text-xs">
+            <div className="p-4 bg-[#3e0f77] text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-black text-sm text-[#f6c344]">
+                  {isAr ? selectedFloorMatPreview.nameAr : selectedFloorMatPreview.nameEn}
+                </h3>
+                <span className="text-[10px] text-slate-300">Eco-friendly synthetic leather</span>
+              </div>
+              <button onClick={() => setSelectedFloorMatPreview(null)} className="p-1 rounded-full bg-white/10 cursor-pointer hover:bg-white/20">
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shadow-inner">
+                <img 
+                  src={selectedFloorMatPreview.image} 
+                  alt={selectedFloorMatPreview.name} 
+                  className="w-full h-full object-cover" 
+                />
+              </div>
+
+              <div className="p-3 bg-purple-50/70 rounded-2xl border border-[#d5a027]/30 flex items-center justify-between">
+                <div>
+                  <span className="text-slate-500 block text-[10px]">{isAr ? 'سعر الطقم الكامل:' : 'Full Set Price:'}</span>
+                  <span className="text-xl font-black text-[#3e0f77]">{selectedFloorMatPreview.price} {isAr ? 'ر.س' : 'SAR'}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      addToCart(selectedFloorMatPreview, 1);
+                      setSelectedFloorMatPreview(null);
+                    }}
+                    className="px-4 py-2 btn-bashayer-gold font-black text-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ShoppingCart className="w-3.5 h-3.5" />
+                    <span>{isAr ? 'أضف للسلة' : 'Add to Cart'}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      openWhatsAppOrder(selectedFloorMatPreview);
+                      setSelectedFloorMatPreview(null);
+                    }}
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <WhatsAppGlyph className="w-3.5 h-3.5" />
+                    <span>{isAr ? 'طلب واتساب' : 'WhatsApp'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL 2: BLOG POST READING MODAL
+          ======================================================== */}
+      {selectedBlogPost && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl border border-slate-200 animate-fadeIn text-xs max-h-[85vh] flex flex-col justify-between">
+            <div className="p-4 bg-[#3e0f77] text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-[#f6c344]" />
+                <h3 className="font-black text-sm text-[#f6c344] line-clamp-1">
+                  {isAr ? selectedBlogPost.titleAr : selectedBlogPost.titleEn}
+                </h3>
+              </div>
+              <button onClick={() => setSelectedBlogPost(null)} className="p-1 rounded-full bg-white/10 cursor-pointer hover:bg-white/20">
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 leading-relaxed text-slate-700">
+              <div className="aspect-[16/9] rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
+                <img src={selectedBlogPost.image} alt={selectedBlogPost.titleAr} className="w-full h-full object-cover" />
+              </div>
+
+              <div className="flex items-center gap-3 text-[11px] text-slate-400 border-b border-slate-100 pb-2">
+                <span className="font-bold text-[#3e0f77]">{isAr ? selectedBlogPost.categoryAr : selectedBlogPost.categoryEn}</span>
+                <span>·</span>
+                <span>{selectedBlogPost.date}</span>
+                <span>·</span>
+                <span>{isAr ? selectedBlogPost.readTimeAr : selectedBlogPost.readTimeEn}</span>
+              </div>
+
+              <h2 className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                {isAr ? selectedBlogPost.titleAr : selectedBlogPost.titleEn}
+              </h2>
+
+              <div className="space-y-3 text-slate-600 text-xs sm:text-sm">
+                {(isAr ? selectedBlogPost.contentAr : selectedBlogPost.contentEn).map((para, pIdx) => (
+                  <p key={pIdx} className="leading-relaxed bg-slate-50/70 p-3 rounded-xl border border-slate-100">
+                    {para}
+                  </p>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+              <span className="text-[11px] text-slate-500 font-bold">
+                {isAr ? 'هل لديك استفسار حول تفصيل سيارتك؟' : 'Need custom tailoring guidance?'}
+              </span>
+              <button
+                onClick={() => {
+                  openWhatsAppOrder();
+                  setSelectedBlogPost(null);
+                }}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow"
+              >
+                <WhatsAppGlyph className="w-4 h-4" />
+                <span>{isAr ? 'استشارة مجانية بالواتساب' : 'Free WhatsApp Consultation'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL 3: PRODUCT CUSTOMIZER & DETAIL MODAL
+          ======================================================== */}
+      {selectedProduct && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-3xl rounded-3xl overflow-hidden shadow-2xl border border-slate-200 animate-fadeIn">
+            <div className="p-4 bg-[#3e0f77] text-white flex items-center justify-between">
+              <h3 className="font-black text-sm line-clamp-1">
+                {isAr ? (selectedProduct.nameAr || selectedProduct.name) : (selectedProduct.nameEn || selectedProduct.name)}
+              </h3>
+              <button onClick={() => setSelectedProduct(null)} className="p-1 rounded-full bg-white/10 cursor-pointer hover:bg-white/20">
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5 text-xs max-h-[75vh] overflow-y-auto">
+              <div className="space-y-3">
+                <div className="aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
+                  <img 
+                    src={selectedProduct.type === 'seat-cover' ? detailColor.image : selectedProduct.image} 
+                    alt={selectedProduct.name} 
+                    className="w-full h-full object-cover transition-all"
+                  />
+                </div>
+                <div className="text-center">
+                  <span className="font-bold text-[#3e0f77]">
+                    {isAr ? `اللون المعروض: ${detailColor.nameAr}` : `Displaying: ${detailColor.nameEn}`}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-4 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="p-3 bg-purple-50/60 rounded-xl flex items-center justify-between">
+                    <span className="text-slate-600 font-bold">{isAr ? 'السعر الإجمالي:' : 'Total Price:'}</span>
+                    <span className="text-xl font-black text-[#3e0f77]">{computedDetailPrice * detailQuantity} {isAr ? 'ر.س' : 'SAR'}</span>
+                  </div>
+
+                  {selectedProduct.type === 'seat-cover' && (
+                    <div className="space-y-1.5">
+                      <label className="block text-slate-700 font-bold">{isAr ? 'اختر اللون:' : 'Select Color:'}</label>
+                      <div className="flex gap-2">
+                        {SEAT_COLORS.map(c => (
+                          <button
+                            key={c.id}
+                            onClick={() => setDetailColor(c)}
+                            className={`p-1.5 rounded-xl border flex flex-col items-center gap-1 cursor-pointer transition-all ${
+                              detailColor.id === c.id ? 'border-[#3e0f77] bg-purple-50 scale-105' : 'border-slate-200'
+                            }`}
+                          >
+                            <span className="w-5 h-5 rounded-full border border-black/20" style={{ backgroundColor: c.hex }} />
+                            <span className="text-[9px] font-bold text-slate-700">{isAr ? c.nameAr : c.nameEn}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedProduct.type === 'seat-cover' && (
+                    <div className="space-y-1.5">
+                      <label className="block text-slate-700 font-bold">{isAr ? 'نوع الخامة:' : 'Material:'}</label>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button
+                          onClick={() => setDetailMaterial('fabric')}
+                          className={`p-2 rounded-xl border text-center cursor-pointer ${
+                            detailMaterial === 'fabric' ? 'border-[#3e0f77] bg-purple-50 font-bold text-[#3e0f77]' : 'border-slate-200'
+                          }`}
+                        >
+                          {isAr ? 'قماش أصلي بارد' : 'Cooling Fabric'}
+                        </button>
+                        <button
+                          onClick={() => setDetailMaterial('leather')}
+                          className={`p-2 rounded-xl border text-center cursor-pointer ${
+                            detailMaterial === 'leather' ? 'border-[#3e0f77] bg-purple-50 font-bold text-[#3e0f77]' : 'border-slate-200'
+                          }`}
+                        >
+                          {isAr ? 'جلد ألماني فاخر' : 'German Leather'}
+                        </button>
+                        <button
+                          onClick={() => setDetailMaterial('diamond')}
+                          className={`p-2 rounded-xl border text-center cursor-pointer ${
+                            detailMaterial === 'diamond' ? 'border-[#3e0f77] bg-purple-50 font-bold text-[#3e0f77]' : 'border-slate-200'
+                          }`}
+                        >
+                          {isAr ? 'جلد دايموند VIP' : 'VIP Diamond'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedProduct.type === 'seat-cover' && (
+                    <div className="space-y-1.5">
+                      <label className="block text-slate-700 font-bold">{isAr ? 'عدد المقاعد:' : 'Rows:'}</label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          onClick={() => setDetailCoverage('full')}
+                          className={`p-2 rounded-xl border text-center cursor-pointer ${
+                            detailCoverage === 'full' ? 'border-[#3e0f77] bg-purple-50 font-bold text-[#3e0f77]' : 'border-slate-200'
+                          }`}
+                        >
+                          {isAr ? 'طقم كامل لجميع المقاعد' : 'Full Set (All Rows)'}
+                        </button>
+                        <button
+                          onClick={() => setDetailCoverage('front_only')}
+                          className={`p-2 rounded-xl border text-center cursor-pointer ${
+                            detailCoverage === 'front_only' ? 'border-[#3e0f77] bg-purple-50 font-bold text-[#3e0f77]' : 'border-slate-200'
+                          }`}
+                        >
+                          {isAr ? 'مقاعد أمامية فقط (-110 ر.س)' : 'Front Only (-110 SAR)'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <button 
+                    onClick={() => {
+                      addToCart(
+                        selectedProduct, 
+                        detailQuantity, 
+                        detailColor, 
+                        detailMaterial === 'fabric' ? 'قماش ياباني بارد' : detailMaterial === 'diamond' ? 'جلد دايموند VIP' : 'جلد ألماني فاخر',
+                        detailCoverage === 'front_only' ? 'مقاعد أمامية فقط' : 'طقم كامل',
+                        computedDetailPrice
+                      );
+                      setSelectedProduct(null);
+                    }}
+                    className="w-full py-3 btn-bashayer-gold font-black text-xs cursor-pointer shadow"
+                  >
+                    {isAr ? 'أضف للسلة بالمواصفات المختارة' : 'Add to Cart with Selected Specs'}
+                  </button>
+
+                  <button 
+                    onClick={() => openWhatsAppOrder(selectedProduct, detailColor, computedDetailPrice)}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-full flex items-center justify-center gap-1.5 cursor-pointer shadow"
+                  >
+                    <WhatsAppGlyph className="w-4 h-4" />
+                    <span>{isAr ? 'طلب فوري بالواتساب' : '1-Click WhatsApp Order'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL 4: CART DRAWER
+          ======================================================== */}
+      {cartDrawerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end">
+          <div className="bg-white w-full max-w-sm h-full flex flex-col justify-between shadow-2xl text-xs">
+            <div className="p-4 bg-[#3e0f77] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4 text-[#f6c344]" />
+                <h4 className="font-black text-sm">{isAr ? `السلة (${cartCount})` : `Cart (${cartCount})`}</h4>
+              </div>
+              <button onClick={() => setCartDrawerOpen(false)} className="p-1 rounded-full bg-white/10 cursor-pointer">
+                <X className="w-4 h-4 text-white" />
+              </button>
+            </div>
+
+            <div className="p-4 flex-1 overflow-y-auto space-y-2.5">
+              {cart.length === 0 ? (
+                <div className="py-16 text-center space-y-2 text-slate-400">
+                  <ShoppingBag className="w-10 h-10 mx-auto text-slate-300" />
+                  <p>{isAr ? 'السلة فارغة' : 'Your cart is empty'}</p>
+                </div>
+              ) : (
+                cart.map((item, idx) => (
+                  <div key={idx} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                    <img src={item.selectedColor?.image || item.product.image} alt="cart item" className="w-12 h-12 rounded-lg object-cover" />
+                    <div className="flex-1 min-w-0">
+                      <h5 className="font-bold text-slate-900 line-clamp-1">{isAr ? item.product.nameAr : item.product.nameEn}</h5>
+                      <span className="text-[10px] text-[#3e0f77]">{item.selectedColor?.nameAr || 'بيج'} · {item.unitPrice * item.quantity} {isAr ? 'ر.س' : 'SAR'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => updateQuantity(idx, item.quantity - 1)} className="p-1 rounded bg-white border border-slate-200 cursor-pointer">
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="font-bold text-xs">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(idx, item.quantity + 1)} className="p-1 rounded bg-white border border-slate-200 cursor-pointer">
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {cart.length > 0 && (
+              <div className="p-4 bg-slate-50 border-t border-slate-200 space-y-2.5">
+                <div className="flex items-center justify-between font-black text-sm text-slate-900">
+                  <span>{isAr ? 'الإجمالي:' : 'Total:'}</span>
+                  <span className="text-[#3e0f77]">{cartTotal} {isAr ? 'ر.س' : 'SAR'}</span>
+                </div>
+                <button 
+                  onClick={() => { setCartDrawerOpen(false); setCheckoutOpen(true); }}
+                  className="w-full py-3 btn-bashayer-gold font-black text-xs cursor-pointer shadow"
+                >
+                  {isAr ? 'إتمام الطلب' : 'Checkout'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL 5: FAST CHECKOUT MODAL
+          ======================================================== */}
+      {checkoutOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-slate-200 text-xs">
+            <div className="p-4 bg-[#3e0f77] text-white flex items-center justify-between">
+              <h4 className="font-black text-sm">{isAr ? 'إتمام الطلب' : 'Checkout'}</h4>
+              <button onClick={() => setCheckoutOpen(false)} className="p-1 rounded-full bg-white/10 cursor-pointer">
+                <X className="w-4 h-4 text-white" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCheckoutSubmit} className="p-5 space-y-3">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">{isAr ? 'الاسم:' : 'Name:'}</label>
+                <input 
+                  type="text" 
+                  required
+                  value={checkoutForm.name}
+                  onChange={e => setCheckoutForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">{isAr ? 'الجوال (واتساب):' : 'Phone:'}</label>
+                <input 
+                  type="tel" 
+                  required
+                  value={checkoutForm.phone}
+                  onChange={e => setCheckoutForm(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="05XXXXXXXX"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">{isAr ? 'العنوان / الحي والشارع:' : 'Address:'}</label>
+                <input 
+                  type="text" 
+                  required
+                  value={checkoutForm.address}
+                  onChange={e => setCheckoutForm(prev => ({ ...prev, address: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between font-black text-sm">
+                <span>{isAr ? 'المجموع:' : 'Total:'}</span>
+                <span className="text-[#3e0f77]">{cartTotal} {isAr ? 'ر.س' : 'SAR'}</span>
+              </div>
+
+              <button 
+                type="submit"
+                className="w-full py-3 btn-bashayer-gold font-black text-xs cursor-pointer shadow"
+              >
+                {isAr ? 'تأكيد وإرسال الطلب' : 'Confirm Order'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL 6: ORDER COMPLETE MODAL
+          ======================================================== */}
+      {orderCompleteData && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 text-center space-y-3 shadow-2xl text-xs">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+            <h4 className="text-base font-black text-slate-900">{isAr ? 'تم استلام طلبك بنجاح!' : 'Order Received!'}</h4>
+            <p className="text-slate-600 font-mono">{isAr ? 'رقم الطلب:' : 'Order ID:'} <strong className="text-[#3e0f77]">{orderCompleteData.orderNumber}</strong></p>
+            <p className="text-slate-500">{isAr ? 'سيتواصل معك فريق خدمة العملاء لتأكيد المقاس وموعد الشحن.' : 'Our team will contact you to verify fitment and dispatch.'}</p>
+            <button 
+              onClick={() => setOrderCompleteData(null)}
+              className="px-5 py-2 btn-bashayer-gold font-black cursor-pointer"
+            >
+              {isAr ? 'حسناً' : 'OK'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          ADVANCE LUXURY FOOTER & FLOATING ACTIONS
+          ======================================================== */}
+      <AlsaeediLuxuryFooter
+        isAr={isAr}
+        storeDisplayName={storeDisplayName}
+        onNavigateHome={() => {
+          setViewMode('home');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onNavigateCatalog={() => {
+          setViewMode('catalog');
+          const el = document.getElementById('catalog-view-top');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+        onSelectCategory={(cat) => {
+          setActiveCategory(cat);
+          setViewMode('catalog');
+          const el = document.getElementById('catalog-view-top');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+        onOpenBlog={(post) => setSelectedBlogPost(post)}
+        onOpenFaq={(idx) => {
+          setOpenFaqIndex(typeof idx === 'number' ? idx : 0);
+          const el = document.getElementById('faq-section');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+        onOpenReviews={() => {
+          const el = document.getElementById('reviews-section');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
+    </div>
+  );
+};

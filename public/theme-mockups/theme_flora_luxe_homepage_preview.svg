@@ -1,0 +1,223 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600" width="1200" height="1600">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0b1712"/>
+      <stop offset="50%" stop-color="#0f231b"/>
+      <stop offset="100%" stop-color="#08100c"/>
+    </linearGradient>
+    <linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#064e3b"/>
+      <stop offset="50%" stop-color="#047857"/>
+      <stop offset="100%" stop-color="#022c22"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#162e24"/>
+      <stop offset="100%" stop-color="#10231b"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+    <filter id="glow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="1200" height="1600" fill="url(#bgGrad)"/>
+
+  <!-- Top Announcement Bar -->
+  <rect width="1200" height="42" fill="#047857"/>
+  <text x="600" y="26" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="bold" text-anchor="middle">
+    🌸 توصيل سريع خلال ساعتين لجميع فنادق وأحياء مكة المكرمة · شحن مجاني للطلبات فوق ٢٥٠ ر.س · Express 2-Hour Haram Delivery
+  </text>
+
+  <!-- Main Store Header -->
+  <rect y="42" width="1200" height="84" fill="#0c1e16" stroke="#1d4333" stroke-width="1"/>
+  
+  <!-- Store Logo -->
+  <circle cx="90" cy="84" r="24" fill="url(#goldGrad)"/>
+  <text x="90" y="90" fill="#064e3b" font-family="system-ui, sans-serif" font-size="20" font-weight="900" text-anchor="middle">🌸</text>
+  <text x="126" y="78" fill="#ffffff" font-family="system-ui, sans-serif" font-size="18" font-weight="900">هدايا مكة الفاخرة</text>
+  <text x="126" y="96" fill="#10b981" font-family="system-ui, sans-serif" font-size="11" font-weight="600">MECCA LUXURY GIFTS &amp; FLOWERS</text>
+
+  <!-- Header Search Bar Mockup -->
+  <rect x="420" y="62" width="420" height="44" rx="22" fill="#143126" stroke="#235340" stroke-width="1.5"/>
+  <text x="450" y="88" fill="#6ee7b7" font-family="system-ui, sans-serif" font-size="13">🔍 ابحث عن باقة ورد، شوكولاتة، هدايا العيد والزواج...</text>
+
+  <!-- Header Actions (Account, Wishlist, Cart) -->
+  <rect x="880" y="66" width="110" height="36" rx="18" fill="#143126" stroke="#235340" stroke-width="1"/>
+  <text x="935" y="89" fill="#ffffff" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" text-anchor="middle">👤 تسجيل الدخول</text>
+  
+  <rect x="1005" y="66" width="110" height="36" rx="18" fill="url(#goldGrad)"/>
+  <text x="1060" y="89" fill="#064e3b" font-family="system-ui, sans-serif" font-size="12" font-weight="900" text-anchor="middle">🛒 السلة (٣ قطع)</text>
+
+  <!-- Navigation Bar -->
+  <rect y="126" width="1200" height="48" fill="#0e231b" stroke="#1d4333" stroke-width="1"/>
+  <text x="120" y="156" fill="#34d399" font-family="system-ui, sans-serif" font-size="13" font-weight="bold">الرئيسية (Home)</text>
+  <text x="260" y="156" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="13">باقات الزهور الطبيعية</text>
+  <text x="430" y="156" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="13">شوكولاتة باتشي وبستاني</text>
+  <text x="610" y="156" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="13">كيك ومناسبات خاصة</text>
+  <text x="770" y="156" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="13">هدايا الحرم والمواليد</text>
+  <text x="940" y="156" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="13" font-weight="bold">🔥 عروض اليوم الوطني</text>
+
+  <!-- HERO SECTION 3D SLIDER (MOCKUP) -->
+  <g filter="url(#shadow)">
+    <rect x="50" y="194" width="1100" height="380" rx="28" fill="url(#heroGrad)" stroke="#10b981" stroke-width="2"/>
+    
+    <!-- Decorative patterns -->
+    <circle cx="950" cy="384" r="160" fill="#059669" opacity="0.25"/>
+    <circle cx="1020" cy="340" r="110" fill="#34d399" opacity="0.15"/>
+
+    <!-- Hero Badge -->
+    <rect x="100" y="240" width="220" height="32" rx="16" fill="url(#goldGrad)"/>
+    <text x="210" y="261" fill="#064e3b" font-family="system-ui, sans-serif" font-size="12" font-weight="900" text-anchor="middle">⭐ باقات الزهور الملكية الفاخرة</text>
+
+    <!-- Hero Titles -->
+    <text x="100" y="325" fill="#ffffff" font-family="system-ui, sans-serif" font-size="34" font-weight="900">أجمل باقات الورد والهدايا بمكة المكرمة</text>
+    <text x="100" y="365" fill="#a7f3d0" font-family="system-ui, sans-serif" font-size="16" font-weight="500">ورد هولندي طبيعي قطف يومي مع أرقى أنواع الشوكولاتة السويسرية والفرنسية</text>
+    
+    <!-- Hero CTA Buttons -->
+    <rect x="100" y="410" width="170" height="48" rx="24" fill="url(#goldGrad)" filter="url(#shadow)"/>
+    <text x="185" y="440" fill="#064e3b" font-family="system-ui, sans-serif" font-size="15" font-weight="900" text-anchor="middle">تسوق الآن 🛍️</text>
+
+    <rect x="290" y="410" width="180" height="48" rx="24" fill="#062e22" stroke="#34d399" stroke-width="1.5"/>
+    <text x="380" y="440" fill="#34d399" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" text-anchor="middle">طلب فوري واتساب 💬</text>
+
+    <!-- 3D Slider Preview Visual Container -->
+    <rect x="760" y="230" width="340" height="308" rx="20" fill="#022c22" stroke="#34d399" stroke-width="2"/>
+    <rect x="780" y="250" width="300" height="200" rx="14" fill="#143e2e"/>
+    <text x="930" y="360" fill="#a7f3d0" font-family="system-ui, sans-serif" font-size="48" text-anchor="middle">🌹💐🎁</text>
+    <text x="930" y="475" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" text-anchor="middle">باقة السلطانة الملكية · ٢٤٩ ر.س</text>
+    <text x="930" y="500" fill="#6ee7b7" font-family="system-ui, sans-serif" font-size="11" text-anchor="middle">توصيل فنادق الحرم خلال ساعتين ⚡</text>
+  </g>
+
+  <!-- QUICK CATEGORIES CIRCLES -->
+  <text x="600" y="620" fill="#ffffff" font-family="system-ui, sans-serif" font-size="20" font-weight="900" text-anchor="middle">الأقسام المميزة والتصنيفات السريعة</text>
+  
+  <g transform="translate(100, 645)">
+    <!-- Cat 1 -->
+    <circle cx="80" cy="50" r="42" fill="#143829" stroke="#10b981" stroke-width="2"/>
+    <text x="80" y="58" font-size="28" text-anchor="middle">🌹</text>
+    <text x="80" y="112" fill="#ffffff" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" text-anchor="middle">باقات طبيعية</text>
+
+    <!-- Cat 2 -->
+    <circle cx="280" cy="50" r="42" fill="#143829" stroke="#10b981" stroke-width="2"/>
+    <text x="280" y="58" font-size="28" text-anchor="middle">🍫</text>
+    <text x="280" y="112" fill="#ffffff" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" text-anchor="middle">شوكولاتة فاخرة</text>
+
+    <!-- Cat 3 -->
+    <circle cx="480" cy="50" r="42" fill="#143829" stroke="#10b981" stroke-width="2"/>
+    <text x="480" y="58" font-size="28" text-anchor="middle">🎂</text>
+    <text x="480" y="112" fill="#ffffff" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" text-anchor="middle">كيك احتفالات</text>
+
+    <!-- Cat 4 -->
+    <circle cx="680" cy="50" r="42" fill="#143829" stroke="#10b981" stroke-width="2"/>
+    <text x="680" y="58" font-size="28" text-anchor="middle">🎁</text>
+    <text x="680" y="112" fill="#ffffff" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" text-anchor="middle">صناديق VIP</text>
+
+    <!-- Cat 5 -->
+    <circle cx="880" cy="50" r="42" fill="#143829" stroke="#10b981" stroke-width="2"/>
+    <text x="880" y="58" font-size="28" text-anchor="middle">🕌</text>
+    <text x="880" y="112" fill="#ffffff" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" text-anchor="middle">هدايا الحرم</text>
+  </g>
+
+  <!-- PRODUCT BENTO GRID (TOP PICKS) -->
+  <text x="100" y="810" fill="#ffffff" font-family="system-ui, sans-serif" font-size="22" font-weight="900">✨ الأكثر طلباً ومبيعاً اليوم</text>
+  <text x="1100" y="810" fill="#34d399" font-family="system-ui, sans-serif" font-size="13" font-weight="bold" text-anchor="end">عرض الكل (٢٤ منتج) ←</text>
+
+  <!-- Product Card 1 -->
+  <g transform="translate(100, 830)" filter="url(#shadow)">
+    <rect width="230" height="340" rx="18" fill="url(#cardGrad)" stroke="#1d4333" stroke-width="1"/>
+    <rect x="15" y="15" width="200" height="180" rx="12" fill="#0a1a13"/>
+    <text x="115" y="115" font-size="52" text-anchor="middle">💐</text>
+    <rect x="25" y="25" width="60" height="22" rx="11" fill="#ef4444"/>
+    <text x="55" y="40" fill="#ffffff" font-family="system-ui, sans-serif" font-size="10" font-weight="bold" text-anchor="middle">خصم 20%</text>
+    
+    <text x="20" y="225" fill="#ffffff" font-family="system-ui, sans-serif" font-size="13" font-weight="bold">باقة الجوري الأحمر الفاخر</text>
+    <text x="20" y="245" fill="#a7f3d0" font-family="system-ui, sans-serif" font-size="11">٥٠ جورية هولندية مع تغليف ملكي</text>
+    <text x="20" y="278" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="16" font-weight="900">١٩٩ ر.س</text>
+    <text x="100" y="278" fill="#64748b" font-family="system-ui, sans-serif" font-size="12" text-decoration="line-through">٢٤٩ ر.س</text>
+    
+    <rect x="20" y="295" width="190" height="32" rx="16" fill="#047857"/>
+    <text x="115" y="316" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="bold" text-anchor="middle">أضف للسلة 🛒</text>
+  </g>
+
+  <!-- Product Card 2 -->
+  <g transform="translate(360, 830)" filter="url(#shadow)">
+    <rect width="230" height="340" rx="18" fill="url(#cardGrad)" stroke="#1d4333" stroke-width="1"/>
+    <rect x="15" y="15" width="200" height="180" rx="12" fill="#0a1a13"/>
+    <text x="115" y="115" font-size="52" text-anchor="middle">🍫</text>
+    <rect x="25" y="25" width="70" height="22" rx="11" fill="#d97706"/>
+    <text x="60" y="40" fill="#ffffff" font-family="system-ui, sans-serif" font-size="10" font-weight="bold" text-anchor="middle">الأكثر مبيعاً</text>
+
+    <text x="20" y="225" fill="#ffffff" font-family="system-ui, sans-serif" font-size="13" font-weight="bold">صندوق باتشي وشوكولاتة VIP</text>
+    <text x="20" y="245" fill="#a7f3d0" font-family="system-ui, sans-serif" font-size="11">١ كغ تشكيلة فاخرة مع ورد جوري</text>
+    <text x="20" y="278" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="16" font-weight="900">٢٨٥ ر.س</text>
+    
+    <rect x="20" y="295" width="190" height="32" rx="16" fill="#047857"/>
+    <text x="115" y="316" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="bold" text-anchor="middle">أضف للسلة 🛒</text>
+  </g>
+
+  <!-- Product Card 3 -->
+  <g transform="translate(620, 830)" filter="url(#shadow)">
+    <rect width="230" height="340" rx="18" fill="url(#cardGrad)" stroke="#1d4333" stroke-width="1"/>
+    <rect x="15" y="15" width="200" height="180" rx="12" fill="#0a1a13"/>
+    <text x="115" y="115" font-size="52" text-anchor="middle">🌸</text>
+    <rect x="25" y="25" width="60" height="22" rx="11" fill="#8b5cf6"/>
+    <text x="55" y="40" fill="#ffffff" font-family="system-ui, sans-serif" font-size="10" font-weight="bold" text-anchor="middle">حصري جديد</text>
+
+    <text x="20" y="225" fill="#ffffff" font-family="system-ui, sans-serif" font-size="13" font-weight="bold">فازة الأوركيد الملكية البيضاء</text>
+    <text x="20" y="245" fill="#a7f3d0" font-family="system-ui, sans-serif" font-size="11">أوركيد طبيعي مع فازة كريستال فاخرة</text>
+    <text x="20" y="278" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="16" font-weight="900">٣٤٠ ر.س</text>
+    
+    <rect x="20" y="295" width="190" height="32" rx="16" fill="#047857"/>
+    <text x="115" y="316" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="bold" text-anchor="middle">أضف للسلة 🛒</text>
+  </g>
+
+  <!-- Product Card 4 -->
+  <g transform="translate(880, 830)" filter="url(#shadow)">
+    <rect width="230" height="340" rx="18" fill="url(#cardGrad)" stroke="#1d4333" stroke-width="1"/>
+    <rect x="15" y="15" width="200" height="180" rx="12" fill="#0a1a13"/>
+    <text x="115" y="115" font-size="52" text-anchor="middle">🎂</text>
+    <rect x="25" y="25" width="60" height="22" rx="11" fill="#ec4899"/>
+    <text x="55" y="40" fill="#ffffff" font-family="system-ui, sans-serif" font-size="10" font-weight="bold" text-anchor="middle">طازج يومياً</text>
+
+    <text x="20" y="225" fill="#ffffff" font-family="system-ui, sans-serif" font-size="13" font-weight="bold">كيكة المخمل الأحمر الريد فيلفيت</text>
+    <text x="20" y="245" fill="#a7f3d0" font-family="system-ui, sans-serif" font-size="11">تكفي ٨ إلى ١٠ أشخاص مع بطاقة إهداء</text>
+    <text x="20" y="278" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="16" font-weight="900">١٦٠ ر.س</text>
+    
+    <rect x="20" y="295" width="190" height="32" rx="16" fill="#047857"/>
+    <text x="115" y="316" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="bold" text-anchor="middle">أضف للسلة 🛒</text>
+  </g>
+
+  <!-- SPECIAL FLASH DEAL COUNTDOWN STRIP -->
+  <g transform="translate(100, 1200)" filter="url(#shadow)">
+    <rect width="1000" height="110" rx="20" fill="url(#heroGrad)" stroke="#34d399" stroke-width="1.5"/>
+    <text x="40" y="50" fill="#ffffff" font-family="system-ui, sans-serif" font-size="20" font-weight="900">⚡ عرض خاص ينتهي قريباً (ساعة الحظ بمكة)</text>
+    <text x="40" y="78" fill="#a7f3d0" font-family="system-ui, sans-serif" font-size="13">احصل على خصم إضافي ١٥٪ عند الطلب عبر الموقع باستخدام كود: MAKKAH15</text>
+    
+    <!-- Countdown Box -->
+    <rect x="740" y="25" width="220" height="60" rx="12" fill="#062e22" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="850" y="60" fill="#fbbf24" font-family="monospace" font-size="22" font-weight="900" text-anchor="middle">04 : 28 : 15</text>
+  </g>
+
+  <!-- TRUST BADGES BAR -->
+  <g transform="translate(100, 1340)">
+    <rect width="1000" height="70" rx="16" fill="#0f231b" stroke="#1d4333" stroke-width="1"/>
+    <text x="130" y="42" fill="#34d399" font-family="system-ui, sans-serif" font-size="13" font-weight="bold">🚚 توصيل خلال ساعتين بمكة</text>
+    <text x="390" y="42" fill="#34d399" font-family="system-ui, sans-serif" font-size="13" font-weight="bold">🌿 ورد هولندي طبيعي 100%</text>
+    <text x="640" y="42" fill="#34d399" font-family="system-ui, sans-serif" font-size="13" font-weight="bold">🔒 دفع إلكتروني آمن ومعتمد</text>
+    <text x="880" y="42" fill="#34d399" font-family="system-ui, sans-serif" font-size="13" font-weight="bold">💬 دعم واتساب مباشر 24/7</text>
+  </g>
+
+  <!-- FOOTER -->
+  <rect y="1440" width="1200" height="160" fill="#06120d" stroke="#1d4333" stroke-width="1"/>
+  <text x="600" y="1490" fill="#ffffff" font-family="system-ui, sans-serif" font-size="16" font-weight="900" text-anchor="middle">متجر هدايا مكة الفاخرة — منصة التجارة الإلكترونية المعتمدة</text>
+  <text x="600" y="1525" fill="#6ee7b7" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle">مدى · فيزا · ماستركارد · أبل باي · تمارا · تابي | الرقم الضريبي المعتمد: 30045678900003</text>
+  <text x="600" y="1555" fill="#475569" font-family="system-ui, sans-serif" font-size="11" text-anchor="middle">جميع الحقوق محفوظة © 2026 هدايا مكة الفاخرة · يعمل بنظام Unityteck Multi-Store SaaS</text>
+</svg>

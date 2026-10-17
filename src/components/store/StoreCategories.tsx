@@ -14,6 +14,9 @@ import {
   type AdvancedTableColumn,
 } from '../common/AdvancedDataTable';
 import { MediaUploadField } from '../common/MediaUploadField';
+import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
+import { COFFEE_CATEGORIES_SEED } from '../../data/coffeeStoreData';
+import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
 
 type FormState = {
   name: string;
@@ -53,7 +56,7 @@ function formFrom(c: StoreCategory): FormState {
   };
 }
 
-const MECCA_CATEGORIES_SEED: StoreCategory[] = [
+export const MECCA_CATEGORIES_SEED: StoreCategory[] = [
   // --- 11 Main Store Categories ---
   {
     id: 'c-1',
@@ -305,57 +308,83 @@ const MECCA_CATEGORIES_SEED: StoreCategory[] = [
   },
 ];
 
-const COFFEE_CATEGORIES_SEED: StoreCategory[] = [
+const BLECO_CATEGORIES_SEED: StoreCategory[] = [
   {
-    id: 'cat-cof-1',
-    storeId: 'store-coffee',
+    id: 'cat-blc-1',
+    storeId: 'store-bleco',
     parentId: null,
-    name: 'Specialty Coffee Beans',
-    nameAr: 'حبوب القهوة المختصة',
-    slug: 'specialty-beans',
-    imageUrl: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80',
+    name: 'Custom Tailored Seat Covers',
+    nameAr: 'تنجيد وتلابيس المقاعد',
+    slug: 'seat-covers',
+    imageUrl: '/images/categories/vip-luxury-seat-covers.jpg',
     sortOrder: 10,
-    metaTitle: 'حبوب القهوة المختصة | متجر القهوة',
-    metaDescription: 'محاصيل بن مختصة طازجة التحميص من إثيوبيا وكولومبيا والبرازيل.',
+    metaTitle: 'تنجيد وتلابيس المقاعد | متجر السعيدي',
+    metaDescription: 'تفصيل وتنجيد مقاعد كامل بأفخر أنواع الجلود الألمانية والأصلية مع تطريز ليزري فائق الدقة مطابق للوكالة.',
     isActive: true,
   },
   {
-    id: 'cat-cof-2',
-    storeId: 'store-coffee',
+    id: 'cat-blc-2',
+    storeId: 'store-bleco',
     parentId: null,
-    name: 'Manual Pour-Over Brewing',
-    nameAr: 'أدوات التحضير المقطرة (V60 & كيمكس)',
-    slug: 'manual-brewing',
-    imageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80',
+    name: '5D Diamond & Laser Floor Mats',
+    nameAr: 'أرضيات ودعاسات السيارات 5D',
+    slug: 'floor-mats',
+    imageUrl: '/images/categories/vip-5d-laser-mats.jpg',
     sortOrder: 20,
-    metaTitle: 'أدوات تحضير القهوة المقطرة V60',
-    metaDescription: 'أقماع وسيرفرات وفلاتر وموازين تحضير القهوة المختصة.',
+    metaTitle: 'أرضيات ودعاسات 5D ليزر ودايموند | متجر السعيدي',
+    metaDescription: 'أرضيات تفصيل ليزري تغطي كامل مساحة السيارة مع حماية متعددة الطبقات وعازل تام للسوائل والأتربة.',
     isActive: true,
   },
   {
-    id: 'cat-cof-3',
-    storeId: 'store-coffee',
+    id: 'cat-blc-3',
+    storeId: 'store-bleco',
     parentId: null,
-    name: 'Espresso Equipment & Accessories',
-    nameAr: 'معدات وإكسسوارات الإسبريسو',
-    slug: 'espresso-gear',
-    imageUrl: 'https://images.unsplash.com/photo-1509785307050-d4066910ec1e?auto=format&fit=crop&w=800&q=80',
+    name: 'Car Air Fresheners & Diffusers',
+    nameAr: 'معطرات وفواحات السيارة',
+    slug: 'car-perfumes',
+    imageUrl: 'https://cdn.salla.sa/form-builder/IVTOvvJou4NZ9Q3cEmXACGOBbO8BoyoEsFVAOCcF.png',
     sortOrder: 30,
-    metaTitle: 'معدات وإكسسوارات الإسبريسو',
-    metaDescription: 'بورتافلتر وتامبر وموزعات ومطاحن إسبريسو احترافية.',
+    metaTitle: 'معطرات وفواحات السيارة الذكية | متجر السعيدي',
+    metaDescription: 'فواحات إلكترونية ذكية وزيوت عطرية فرنسية تدوم طويلاً صممت خصيصاً لأجواء الخليج.',
     isActive: true,
   },
   {
-    id: 'cat-cof-4',
-    storeId: 'store-coffee',
+    id: 'cat-blc-4',
+    storeId: 'store-bleco',
     parentId: null,
-    name: 'Cold Brew Reserve',
-    nameAr: 'القهوة الباردة (كولد برو)',
-    slug: 'cold-brew',
-    imageUrl: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?auto=format&fit=crop&w=800&q=80',
+    name: 'Car Care & Detailing',
+    nameAr: 'منتجات العناية والتلميع',
+    slug: 'car-care',
+    imageUrl: 'https://cdn.salla.sa/form-builder/0xGu1lj6oQ9nIXWfxRFbittuB7rSuKTCmXoE6Z7q.png',
     sortOrder: 40,
-    metaTitle: 'قهوة كولد برو مركزة',
-    metaDescription: 'منقوع القهوة الباردة المنعشة بدون مرارة.',
+    metaTitle: 'منتجات العناية بالسيارات والتلميع | متجر السعيدي',
+    metaDescription: 'شامبوهات نانو وملمعات جلد وطبلون وكفرات احترافية تحافظ على لمعان الوكالة.',
+    isActive: true,
+  },
+  {
+    id: 'cat-blc-5',
+    storeId: 'store-bleco',
+    parentId: null,
+    name: 'Accessories & Styling',
+    nameAr: 'زينة واكسسوارات السيارات',
+    slug: 'car-accessories',
+    imageUrl: 'https://cdn.salla.sa/form-builder/372cyi5v5BTgsLSjPKuqdfKVNWAXPPyz8ewDjjL1.png',
+    sortOrder: 50,
+    metaTitle: 'زينة واكسسوارات السيارات الفاخرة | متجر السعيدي',
+    metaDescription: 'ستائر تظليل ليزر، شماسات عازلة للشمس، قواعد جوال، ومبردات متنقلة.',
+    isActive: true,
+  },
+  {
+    id: 'cat-blc-6',
+    storeId: 'store-bleco',
+    parentId: null,
+    name: 'Upholstery Supplies & Hardware',
+    nameAr: 'أدوات ومستلزمات التنجيد',
+    slug: 'upholstery-tools',
+    imageUrl: 'https://cdn.salla.sa/form-builder/mNJjSTAsIGTtdLFZPSFU11iZvndiKha2mxuG9HJp.png',
+    sortOrder: 60,
+    metaTitle: 'أدوات ومستلزمات التنجيد والتركيب | متجر السعيدي',
+    metaDescription: 'مبارم وكلبسات ومشدات تثبيت مراتب أصلية مع أدوات الفك والتركيب بدون خدوش.',
     isActive: true,
   },
 ];
@@ -396,8 +425,32 @@ export const StoreCategories: React.FC = () => {
         const list = await tenantApi.fetchCategories(activeStore.id, { all: true });
         setRows(list);
       } else {
-        const seed = activeStore.id === 'store-coffee' ? COFFEE_CATEGORIES_SEED : MECCA_CATEGORIES_SEED;
-        setRows(seed.map((c) => ({ ...c, storeId: activeStore.id })));
+        const savedKey = `unityteck_store_categories_${activeStore.id}`;
+        let savedList: StoreCategory[] | null = null;
+        try {
+          const raw = localStorage.getItem(savedKey);
+          if (raw) savedList = JSON.parse(raw);
+        } catch {}
+        if (savedList && Array.isArray(savedList) && savedList.length > 0) {
+          if (activeStore.id === 'store-coffee' && (savedList.length < 5 || savedList.some((c) => c.id === 'cat-cof-1'))) {
+            savedList = null;
+          }
+        }
+        if (savedList && Array.isArray(savedList) && savedList.length > 0) {
+          setRows(savedList);
+        } else {
+          const seed =
+            activeStore.id === 'store-coffee'
+              ? COFFEE_CATEGORIES_SEED
+              : activeStore.id === 'store-bleco'
+              ? BLECO_CATEGORIES_SEED
+              : MECCA_CATEGORIES_SEED;
+          const mapped = seed.map((c) => ({ ...c, storeId: activeStore.id }));
+          setRows(mapped);
+          try {
+            localStorage.setItem(savedKey, JSON.stringify(mapped));
+          } catch {}
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load categories');
@@ -563,25 +616,26 @@ export const StoreCategories: React.FC = () => {
           toast('Category created', 'success');
         }
       } else {
+        const savedKey = `unityteck_store_categories_${activeStore.id}`;
         if (editingId) {
-          setRows((prev) =>
-            prev.map((r) =>
-              r.id === editingId
-                ? {
-                    ...r,
-                    name: payload.name,
-                    nameAr: payload.name_ar ?? null,
-                    slug: payload.slug || r.slug,
-                    parentId: payload.parent_id ?? null,
-                    imageUrl: payload.image_url ?? null,
-                    sortOrder: payload.sort_order ?? 0,
-                    metaTitle: payload.meta_title ?? null,
-                    metaDescription: payload.meta_description ?? null,
-                    isActive: payload.is_active ?? true,
-                  }
-                : r,
-            ),
+          const next = rows.map((r) =>
+            r.id === editingId
+              ? {
+                  ...r,
+                  name: payload.name,
+                  nameAr: payload.name_ar ?? null,
+                  slug: payload.slug || r.slug,
+                  parentId: payload.parent_id ?? null,
+                  imageUrl: payload.image_url ?? null,
+                  sortOrder: payload.sort_order ?? 0,
+                  metaTitle: payload.meta_title ?? null,
+                  metaDescription: payload.meta_description ?? null,
+                  isActive: payload.is_active ?? true,
+                }
+              : r,
           );
+          setRows(next);
+          try { localStorage.setItem(savedKey, JSON.stringify(next)); } catch {}
           toast('Category updated', 'success');
         } else {
           const created: StoreCategory = {
@@ -597,7 +651,9 @@ export const StoreCategories: React.FC = () => {
             metaDescription: payload.meta_description ?? null,
             isActive: payload.is_active ?? true,
           };
-          setRows((prev) => [...prev, created]);
+          const next = [...rows, created];
+          setRows(next);
+          try { localStorage.setItem(savedKey, JSON.stringify(next)); } catch {}
           toast('Category created', 'success');
         }
       }
@@ -621,11 +677,13 @@ export const StoreCategories: React.FC = () => {
       if (isApiEnabled()) {
         await tenantApi.deleteCategory(activeStore.id, id);
       }
-      setRows((prev) =>
-        prev
-          .filter((r) => r.id !== id)
-          .map((r) => (r.parentId === id ? { ...r, parentId: null } : r)),
-      );
+      const next = rows
+        .filter((r) => r.id !== id)
+        .map((r) => (r.parentId === id ? { ...r, parentId: null } : r));
+      setRows(next);
+      if (!isApiEnabled()) {
+        try { localStorage.setItem(`unityteck_store_categories_${activeStore.id}`, JSON.stringify(next)); } catch {}
+      }
       bumpStore(activeStore.id, 'categories');
       setConfirmDeleteId(null);
       toast('Category deleted', 'success');
@@ -646,6 +704,7 @@ export const StoreCategories: React.FC = () => {
             <img
               src={c.imageUrl}
               alt={c.name}
+              onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
               className="w-10 h-10 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shrink-0"
             />
           ) : (
@@ -654,12 +713,22 @@ export const StoreCategories: React.FC = () => {
             </span>
           )}
           <div className="min-w-0">
-            <span className="font-bold text-slate-900 dark:text-white block truncate">{c.name}</span>
-            {c.nameAr ? (
-              <span className="text-[10px] text-slate-400 block truncate" dir="rtl">
-                {c.nameAr}
-              </span>
-            ) : null}
+            <span className="font-bold text-slate-900 dark:text-white block truncate">
+              {isAr ? (c.nameAr || c.name) : (c.name || c.nameAr)}
+            </span>
+            {isAr ? (
+              c.name && c.name !== c.nameAr ? (
+                <span className="text-[10px] text-slate-400 block truncate" dir="ltr">
+                  {c.name}
+                </span>
+              ) : null
+            ) : (
+              c.nameAr ? (
+                <span className="text-[10px] text-slate-400 block truncate" dir="rtl">
+                  {c.nameAr}
+                </span>
+              ) : null
+            )}
           </div>
         </div>
       ),
@@ -779,6 +848,9 @@ export const StoreCategories: React.FC = () => {
           {isAr ? 'إضافة تصنيف' : 'Add Category'}
         </button>
       </div>
+
+      {/* ── Connected Local Project Workspace Banner ── */}
+      <ConnectedWorkspaceBanner page="categories" />
 
       {/* 4 Soft Pastel KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

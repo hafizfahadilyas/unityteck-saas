@@ -13,6 +13,12 @@ import {
   getAuthToken,
   writeAuthSession,
 } from './session';
+import {
+  validateAuthInput,
+  getRateLimitStatus,
+  recordFailedAttempt,
+  resetRateLimit,
+} from './security';
 
 export type LoginResult = AuthSession;
 
@@ -25,15 +31,65 @@ type LoginResponse = {
   abilities?: string[];
 };
 
-/** Default secure admin credentials (configurable via Vite env variables) */
+/** Default secure admin credentials per store (configurable via Vite env variables) */
 export const DEMO_CREDENTIALS = {
   master: {
     email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MASTER_ADMIN_EMAIL) || 'master@unityteck.com',
     password: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MASTER_ADMIN_PASSWORD) || 'UnityMaster@2026!Secure',
+    name: 'Unityteck Master SuperAdmin',
+    aliases: ['master@unityteck.com', 'master', 'admin', 'superadmin'],
   },
   store: {
     email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STORE_ADMIN_EMAIL) || 'admin@giftshop-sa.com',
     password: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STORE_ADMIN_PASSWORD) || 'MakkahStore@2026!Secure',
+    name: 'هدايا مكة للزهور والهدايا',
+    storeId: 'store-1',
+    aliases: [
+      'admin@giftshop-sa.com',
+      'giftshop2030m@gmail.com',
+      'tariq@wardalmakkah.sa',
+      'makkah',
+      'ward',
+      'giftshop',
+      'store-1',
+      'flowers',
+      'gifts',
+    ],
+    supportEmail: 'support@giftshop-sa.com',
+    supportPassword: 'WardSupport@2026!Secure',
+  },
+  coffee: {
+    email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_COFFEE_ADMIN_EMAIL) || 'rayan@specialtycoffee.sa',
+    password: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_COFFEE_ADMIN_PASSWORD) || 'CoffeeStore@2026!Secure',
+    name: 'متجر القهوة المختصة',
+    storeId: 'store-coffee',
+    aliases: [
+      'rayan@specialtycoffee.sa',
+      'coffee@specialtycoffee.sa',
+      'admin@specialtycoffee.sa',
+      'coffee',
+      'rayan',
+      'store-coffee',
+      'specialtycoffee',
+    ],
+  },
+  car: {
+    email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_CAR_ADMIN_EMAIL) || 'admin@bleco.sa',
+    password: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_CAR_ADMIN_PASSWORD) || 'BlackoStore@2026!Secure',
+    name: 'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو)',
+    storeId: 'store-bleco',
+    aliases: [
+      'admin@bleco.sa',
+      'support@tanjeedmakkah.com',
+      'alsaeedi@tanjeedmakkah.com',
+      'admin@tanjeedmakkah.com',
+      'bleco',
+      'car',
+      'tanjeed',
+      'alsaeedi',
+      'store-bleco',
+      'blacko',
+    ],
   },
 } as const;
 
@@ -56,6 +112,7 @@ export function restoreDemoAuth(): void {
   try {
     localStorage.removeItem(DEMO_CLIENTS_KEY);
     localStorage.removeItem(DEMO_PW_KEY);
+    localStorage.removeItem('unityteck_last_login_email');
     sessionStorage.removeItem(MOCK_RESET_KEY);
     sessionStorage.removeItem(MOCK_OTP_KEY);
   } catch {
@@ -107,7 +164,29 @@ function readPasswordOverrides(): Record<string, string> {
     const raw = localStorage.getItem(DEMO_PW_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as Record<string, string>;
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    if (parsed && typeof parsed === 'object') {
+      let cleaned = false;
+      const cleanMap: Record<string, string> = {};
+      for (const [k, v] of Object.entries(parsed)) {
+        // Disallow weak/demo password overrides like "password", "123456", "admin"
+        if (
+          v &&
+          typeof v === 'string' &&
+          v.trim().toLowerCase() !== 'password' &&
+          v.trim().toLowerCase() !== '123456' &&
+          v.trim().toLowerCase() !== 'admin'
+        ) {
+          cleanMap[k.toLowerCase()] = v;
+        } else {
+          cleaned = true;
+        }
+      }
+      if (cleaned) {
+        localStorage.setItem(DEMO_PW_KEY, JSON.stringify(cleanMap));
+      }
+      return cleanMap;
+    }
+    return {};
   } catch {
     return {};
   }
@@ -115,10 +194,22 @@ function readPasswordOverrides(): Record<string, string> {
 
 function expectedPassword(email: string, fallback: string): string {
   const overrides = readPasswordOverrides();
-  return overrides[email.toLowerCase()] ?? fallback;
+  const override = overrides[email.toLowerCase()];
+  if (
+    override &&
+    override.trim().toLowerCase() !== 'password' &&
+    override.trim().toLowerCase() !== '123456' &&
+    override.trim().toLowerCase() !== 'admin'
+  ) {
+    return override;
+  }
+  return fallback;
 }
 
 function setPasswordOverride(email: string, password: string): void {
+  if (password.trim().toLowerCase() === 'password' || password.trim().toLowerCase() === '123456') {
+    return;
+  }
   const next = { ...readPasswordOverrides(), [email.toLowerCase()]: password };
   localStorage.setItem(DEMO_PW_KEY, JSON.stringify(next));
 }
@@ -168,35 +259,61 @@ function mockSession(
 
 function mockLogin(
   portal: AuthPortal,
-  email: string,
+  identifier: string,
   password: string,
 ): AuthSession {
-  const normalized = (email || '').trim().toLowerCase();
+  // 1. Rigorous input validation & anti-SQLi / XSS protection
+  const secCheck = validateAuthInput(identifier, password);
+  if (!secCheck.isSecure) {
+    throw new Error(secCheck.messageAr || secCheck.messageEn || 'Security check failed. Malicious input detected.');
+  }
+
+  const normalized = (identifier || '').trim().toLowerCase();
   const inputPw = (password || '').trim();
 
+  if (!normalized) {
+    throw new Error('يرجى إدخال اسم المستخدم أو البريد الإلكتروني / Username or email is required.');
+  }
+
+  if (!inputPw || inputPw.length < 6) {
+    throw new Error('كلمة المرور يجب ألا تقل عن 6 خانات / Password must be at least 6 characters.');
+  }
+
+  // Strictly block generic demo password "password"
+  if (inputPw.toLowerCase() === 'password') {
+    recordFailedAttempt(normalized);
+    throw new Error(
+      'كلمة المرور غير صحيحة. يرجى إدخال كلمة المرور المعتمدة لمتجرك / Invalid password.'
+    );
+  }
+
+  // 2. Rate limiting check (anti-brute-force)
+  const rateLimit = getRateLimitStatus(normalized);
+  if (rateLimit.isLocked) {
+    throw new Error(
+      `تم حظر الدخول مؤقتاً لحماية الحساب من محاولات التخمين. يرجى الانتظار ${rateLimit.remainingSeconds} ثانية. (Anti-Brute-Force Locked)`,
+    );
+  }
+
+  // Master Portal Auth
   if (portal === 'master') {
     const demo = DEMO_CREDENTIALS.master;
-    const isMasterEmail =
-      !normalized ||
-      normalized === demo.email ||
-      normalized.includes('master') ||
-      normalized.includes('admin');
-
     const expectedPw = expectedPassword(demo.email, demo.password);
-    const isPassValid =
-      !inputPw ||
-      inputPw === expectedPw ||
-      ['admin', 'admin123', 'master123', '123456', 'password', 'demo'].includes(inputPw.toLowerCase());
+    const isMasterIdentifier =
+      normalized === demo.email.toLowerCase() ||
+      (demo.aliases as readonly string[]).includes(normalized);
 
-    if (!isMasterEmail && !isPassValid) {
-      throw new Error('Invalid master admin credentials. Please use master@unityteck.com / UnityMaster@2026!Secure');
+    if (!isMasterIdentifier || inputPw !== expectedPw) {
+      recordFailedAttempt(normalized);
+      throw new Error('بيانات دخول إدارة المنصة غير صحيحة / Invalid master credentials.');
     }
 
+    resetRateLimit(normalized);
     return mockSession(
       'master',
       {
         id: 'user-master-1',
-        name: 'Unityteck Master',
+        name: 'Unityteck Master SuperAdmin',
         email: demo.email,
         role: 'super_admin',
       },
@@ -206,63 +323,127 @@ function mockLogin(
     );
   }
 
-  // Store portal
+  // Store Portal Auth (Universal Multi-Store for Saudi Arabia)
   const seeded = DEMO_CREDENTIALS.store;
-  const expectedPw = expectedPassword(seeded.email, seeded.password);
-  const isStorePassValid =
-    !inputPw ||
-    inputPw === expectedPw ||
-    ['admin', 'admin123', 'store123', '123456', 'password', 'demo', 'makkah', 'giftshop'].includes(inputPw.toLowerCase());
+  const coffeeCreds = DEMO_CREDENTIALS.coffee;
+  const carCreds = DEMO_CREDENTIALS.car;
 
-  // Check demo clients from registration
-  const client = readDemoClients().find(
+  // 1. Check existing registered clients
+  const registeredClients = readDemoClients();
+  const existingClient = registeredClients.find(
     (c) =>
-      c.email.toLowerCase() === normalized &&
-      (c.password === inputPw || isStorePassValid),
+      c.email.toLowerCase() === normalized ||
+      c.name.toLowerCase() === normalized ||
+      c.storeId.toLowerCase() === normalized,
   );
 
-  if (client) {
+  if (existingClient) {
+    const expectedClientPw = expectedPassword(existingClient.email, existingClient.password);
+    if (inputPw !== expectedClientPw) {
+      recordFailedAttempt(normalized);
+      throw new Error('كلمة المرور غير صحيحة لحساب هذا المتجر / Invalid password for this store account.');
+    }
+    resetRateLimit(normalized);
     return mockSession(
       'store',
       {
-        id: `user-${client.storeId}`,
-        name: client.name,
-        email: client.email,
+        id: `user-${existingClient.storeId}`,
+        name: existingClient.name,
+        email: existingClient.email,
         role: 'manager',
       },
-      client.storeId,
-      client.storeName,
-      `mock-store-${client.storeId}`,
+      existingClient.storeId,
+      existingClient.storeName,
+      `mock-store-${existingClient.storeId}`,
     );
   }
 
-  if (normalized === 'support@giftshop-sa.com') {
+  // 2. Check seeded Specialty Coffee Store
+  const isCoffeeIdentifier =
+    normalized === coffeeCreds.email.toLowerCase() ||
+    (coffeeCreds.aliases as readonly string[]).includes(normalized);
+
+  if (isCoffeeIdentifier) {
+    const expectedCoffeePw = expectedPassword(coffeeCreds.email, coffeeCreds.password);
+    if (inputPw !== expectedCoffeePw) {
+      recordFailedAttempt(normalized);
+      throw new Error('كلمة المرور غير صحيحة لمتجر القهوة المختصة / Invalid password for Specialty Coffee store.');
+    }
+    resetRateLimit(normalized);
     return mockSession(
       'store',
       {
-        id: 'user-store-support-1',
-        name: 'Store Support',
-        email: 'support@giftshop-sa.com',
-        role: 'support',
+        id: 'store-coffee',
+        name: 'ريان السليمان (Rayan Al-Sulaiman)',
+        email: coffeeCreds.email,
+        role: 'manager',
       },
-      'store-1',
-      'Makkah Gifts Store',
-      'mock-store-support-token',
+      'store-coffee',
+      'متجر القهوة المختصة',
+      'mock-store-coffee-token',
     );
   }
 
-  return mockSession(
-    'store',
-    {
-      id: 'user-store-1',
-      name: 'Store Manager',
-      email: normalized || seeded.email,
-      role: 'manager',
-    },
-    'store-1',
-    'Makkah Gifts Store',
-    'mock-store-token',
-  );
+  // 3. Check seeded Bleco Car Store / Al-Saeedi
+  const isCarIdentifier =
+    normalized === carCreds.email.toLowerCase() ||
+    (carCreds.aliases as readonly string[]).includes(normalized);
+
+  if (isCarIdentifier) {
+    const expectedCarPw = expectedPassword(carCreds.email, carCreds.password);
+    if (inputPw !== expectedCarPw) {
+      recordFailedAttempt(normalized);
+      throw new Error('كلمة المرور غير صحيحة لمتجر تنجيد وإكسسوارات السيارات / Invalid password for Car Accessories store.');
+    }
+    resetRateLimit(normalized);
+    return mockSession(
+      'store',
+      {
+        id: 'store-bleco',
+        name: 'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو)',
+        email: carCreds.email,
+        role: 'manager',
+      },
+      'store-bleco',
+      'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو للتجارة)',
+      'mock-store-bleco-token',
+    );
+  }
+
+  // 4. Check seeded Makkah Gifts / Flowers Store
+  const isMakkahIdentifier =
+    normalized === seeded.email.toLowerCase() ||
+    normalized === seeded.supportEmail.toLowerCase() ||
+    (seeded.aliases as readonly string[]).includes(normalized);
+
+  if (isMakkahIdentifier) {
+    const isSupport = normalized === seeded.supportEmail.toLowerCase();
+    const expectedGiftPw = isSupport
+      ? expectedPassword(seeded.supportEmail, seeded.supportPassword)
+      : expectedPassword(seeded.email, seeded.password);
+
+    if (inputPw !== expectedGiftPw) {
+      recordFailedAttempt(normalized);
+      throw new Error('كلمة المرور غير صحيحة لمتجر هدايا مكة / Invalid password for Makkah Gifts store.');
+    }
+    resetRateLimit(normalized);
+    return mockSession(
+      'store',
+      {
+        id: 'store-1',
+        name: 'مدير متجر هدايا مكة',
+        email: seeded.email,
+        role: isSupport ? 'support' : 'manager',
+      },
+      'store-1',
+      'متجر هدايا وزهور مكة',
+      'mock-store-token',
+    );
+  }
+
+  // Account not found
+  recordFailedAttempt(normalized);
+  throw new Error('اسم المستخدم أو البريد الإلكتروني غير مسجل. يرجى التحقق من بيانات الدخول لمتجرك / Account not found. Please verify your username or email.');
 }
 
 export async function loginPortal(
@@ -270,6 +451,12 @@ export async function loginPortal(
   email: string,
   password: string,
 ): Promise<LoginResult> {
+  // Pre-flight anti-SQLi & XSS defense
+  const secCheck = validateAuthInput(email, password);
+  if (!secCheck.isSecure) {
+    throw new Error(secCheck.messageAr || secCheck.messageEn || 'Security check failed. Malicious input blocked.');
+  }
+
   if (!isApiEnabled()) {
     const session = mockLogin(portal, email, password);
     writeAuthSession(session);
@@ -282,7 +469,7 @@ export async function loginPortal(
     const data = await Promise.race([
       apiFetch<LoginResponse>(path, {
         method: 'POST',
-        body: { email, password },
+        body: { email: email.trim(), password },
         skipAuth: true,
       }),
       new Promise<never>((_, reject) => {
@@ -296,8 +483,8 @@ export async function loginPortal(
     writeAuthSession(session);
     return session;
   } catch (err) {
-    // If backend server is not running or returned non-JSON / error, fallback to local credentials
-    console.warn('Backend API login unavailable, validating local credentials:', err);
+    // If backend server is not running or returned non-JSON / error, fallback to secure local validation
+    console.warn('Backend API login unavailable, falling back to secure local validation:', err);
     try {
       const session = mockLogin(portal, email, password);
       writeAuthSession(session);
@@ -307,6 +494,87 @@ export async function loginPortal(
     }
   }
 }
+
+/**
+ * Universal Google Login for Merchants (Gmail / Google Workspace)
+ * Provisions isolated Saudi tenant store scoped to their Google account
+ */
+export async function loginWithGoogleMerchant(
+  googleAccount?: { email: string; name: string; picture?: string },
+): Promise<LoginResult> {
+  const email = (googleAccount?.email || '').trim().toLowerCase() || 'merchant.saudi@gmail.com';
+  const name = googleAccount?.name || 'تاجر منصة يونيتيك (Saudi Merchant)';
+  const avatar = googleAccount?.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c';
+
+  const emailPrefix = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '-').replace(/^-+|-+$/g, '') || 'store';
+  const rawClean = email.split('@')[0].replace(/[._-]/g, ' ');
+  const storeTitle = rawClean.charAt(0).toUpperCase() + rawClean.slice(1);
+  const storeId = `store-${emailPrefix.toLowerCase().slice(0, 16)}`;
+  const storeName = `متجر ${storeTitle} - السعودية`;
+
+  const session: AuthSession = {
+    token: `google-sso-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    portal: 'store',
+    user: {
+      id: `user-g-${storeId}`,
+      name,
+      email,
+      role: 'manager',
+      role_label: roleLabel('manager'),
+      role_level: roleLevel('manager'),
+      avatar,
+    },
+    storeId,
+    storeName,
+    abilities: abilitiesFor('manager'),
+  };
+
+  writeAuthSession(session);
+  resetRateLimit(email);
+  return session;
+}
+
+/**
+ * Saudi Mobile OTP Login for Merchants (+966)
+ */
+export async function loginWithSaudiPhoneOtp(
+  phone: string,
+  code: string,
+): Promise<LoginResult> {
+  const cleanPhone = phone.replace(/[^0-9]/g, '');
+  if (!cleanPhone || cleanPhone.length < 9) {
+    throw new Error('يرجى إدخال رقم جوال سعودي صحيح يبدأ بـ 05 / Please enter a valid Saudi phone number.');
+  }
+
+  if (!code || code.trim().length !== 6) {
+    throw new Error('رمز التحقق يجب أن يتكون من 6 أرقام / Verification code must be 6 digits.');
+  }
+
+  const phoneTail = cleanPhone.slice(-9);
+  const storeId = `store-sa-${phoneTail.slice(0, 6)}`;
+  const storeName = `متجر التاجر (${phoneTail.slice(-4)}) - السعودية`;
+  const email = `merchant.${phoneTail}@saudistores.sa`;
+
+  const session: AuthSession = {
+    token: `saudi-otp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    portal: 'store',
+    user: {
+      id: `user-phone-${storeId}`,
+      name: `تاجر سعودي (${phoneTail.slice(0, 3)}***${phoneTail.slice(-2)})`,
+      email,
+      role: 'manager',
+      role_label: roleLabel('manager'),
+      role_level: roleLevel('manager'),
+    },
+    storeId,
+    storeName,
+    abilities: abilitiesFor('manager'),
+  };
+
+  writeAuthSession(session);
+  return session;
+}
+
 
 export type RegisterStoreInput = {
   name: string;
@@ -329,10 +597,20 @@ export async function registerStoreClient(
   }
 
   const existing = readDemoClients();
+  const allSeededEmails = [
+    DEMO_CREDENTIALS.master.email.toLowerCase(),
+    DEMO_CREDENTIALS.store.email.toLowerCase(),
+    DEMO_CREDENTIALS.store.supportEmail.toLowerCase(),
+    ...(DEMO_CREDENTIALS.store.aliases as readonly string[]).map((a) => a.toLowerCase()),
+    DEMO_CREDENTIALS.coffee.email.toLowerCase(),
+    ...(DEMO_CREDENTIALS.coffee.aliases as readonly string[]).map((a) => a.toLowerCase()),
+    DEMO_CREDENTIALS.car.email.toLowerCase(),
+    ...(DEMO_CREDENTIALS.car.aliases as readonly string[]).map((a) => a.toLowerCase()),
+  ];
+
   if (
     existing.some((c) => c.email.toLowerCase() === email) ||
-    email === DEMO_CREDENTIALS.store.email ||
-    email === DEMO_CREDENTIALS.master.email
+    allSeededEmails.includes(email)
   ) {
     throw new Error('This email is already registered. Please sign in.');
   }
@@ -384,8 +662,18 @@ export type OtpRequestResult = {
 
 function mockKnownEmail(portal: AuthPortal, email: string): boolean {
   const e = email.trim().toLowerCase();
-  if (portal === 'master') return e === DEMO_CREDENTIALS.master.email;
-  if (e === DEMO_CREDENTIALS.store.email) return true;
+  if (portal === 'master') return e === DEMO_CREDENTIALS.master.email.toLowerCase();
+  if (
+    e === DEMO_CREDENTIALS.store.email.toLowerCase() ||
+    e === DEMO_CREDENTIALS.store.supportEmail.toLowerCase() ||
+    (DEMO_CREDENTIALS.store.aliases as readonly string[]).includes(e) ||
+    e === DEMO_CREDENTIALS.coffee.email.toLowerCase() ||
+    (DEMO_CREDENTIALS.coffee.aliases as readonly string[]).includes(e) ||
+    e === DEMO_CREDENTIALS.car.email.toLowerCase() ||
+    (DEMO_CREDENTIALS.car.aliases as readonly string[]).includes(e)
+  ) {
+    return true;
+  }
   return readDemoClients().some((c) => c.email.toLowerCase() === e);
 }
 

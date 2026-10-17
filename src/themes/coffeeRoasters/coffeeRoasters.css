@@ -1,0 +1,290 @@
+/* --------------------------------------------------------------------------
+   HONOR Sans Arabic & HONOR Sans World (HiBrew KSA Official Typography)
+   -------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'HONOR Sans Arabic';
+  src: url('/fonts/HONORSansArabic-R.woff2') format('woff2'),
+       url('./fonts/HONORSansArabic-R.woff2') format('woff2'),
+       url('https://www-file.honor.com/content/dam/honor/common/font/honorsans/honor-sans-arabic/HONORSansArabic-R.woff2') format('woff2');
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'HONOR Sans Arabic';
+  src: url('/fonts/HONORSansArabic-DB.woff2') format('woff2'),
+       url('./fonts/HONORSansArabic-DB.woff2') format('woff2'),
+       url('https://www-file.honor.com/content/dam/honor/common/font/honorsans/honor-sans-arabic/HONORSansArabic-DB.woff2') format('woff2');
+  font-weight: 600 700 800 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'HONOR Sans World';
+  src: url('/fonts/HONORSansWorld-Regular.woff2') format('woff2'),
+       url('./fonts/HONORSansWorld-Regular.woff2') format('woff2'),
+       url('https://www-file.honor.com/content/dam/honor/common/font/honorsans/honor-sans-world/HONORSansWorld-Regular.woff2') format('woff2');
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'HONOR Sans World';
+  src: url('/fonts/HONORSansWorld-Demibold.woff2') format('woff2'),
+       url('./fonts/HONORSansWorld-Demibold.woff2') format('woff2'),
+       url('https://www-file.honor.com/content/dam/honor/common/font/honorsans/honor-sans-world/HONORSansWorld-Demibold.woff2') format('woff2');
+  font-weight: 600 700 800 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+.hibrew-theme-root {
+  --font-ar: 'HONOR Sans Arabic', 'HONOR Sans World', 'Honor Sans Custom', 'PingFang SC', Arial, sans-serif;
+  --font-en: 'HONOR Sans World', 'HONOR Sans Arabic', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --coffee-obsidian: #0c0a09;
+  --coffee-deep: #14110e;
+  --coffee-card: #1c1815;
+  --coffee-gold: #d4af37;
+  --coffee-brass: #c5a059;
+  --coffee-amber: #b87333;
+  --coffee-ivory: #faf7f2;
+  --coffee-sand: #e6ded3;
+  font-family: 'HONOR Sans Arabic', 'HONOR Sans World', 'Honor Sans Custom', 'PingFang SC', Arial, sans-serif;
+  background-color: #FFFFFF;
+  color: #0F172A;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Honor-Style Typography: Clean Geometric Sans per language */
+.hibrew-theme-root[dir="ltr"],
+.hibrew-theme-root[dir="ltr"] * {
+  font-family: 'HONOR Sans World', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+.hibrew-theme-root[dir="rtl"],
+.hibrew-theme-root[dir="rtl"] * {
+  font-family: 'HONOR Sans Arabic', 'HONOR Sans World', 'Honor Sans Custom', 'PingFang SC', Arial, sans-serif !important;
+}
+
+.hibrew-theme-root[dir="rtl"] h1,
+.hibrew-theme-root[dir="rtl"] h2,
+.hibrew-theme-root[dir="rtl"] h3,
+.hibrew-theme-root[dir="rtl"] h4,
+.hibrew-theme-root[dir="rtl"] h5,
+.hibrew-theme-root[dir="rtl"] h6,
+.hibrew-theme-root[dir="rtl"] .honor-heading,
+.hibrew-theme-root[dir="rtl"] h1.honor-title,
+.hibrew-theme-root[dir="rtl"] h2.honor-title {
+  font-family: 'HONOR Sans Arabic', 'HONOR Sans World', 'Honor Sans Custom', 'PingFang SC', Arial, sans-serif !important;
+  line-height: 1.42 !important;
+  letter-spacing: 0.01em !important;
+  word-spacing: 0.04em;
+}
+
+.hibrew-theme-root[dir="ltr"] h1,
+.hibrew-theme-root[dir="ltr"] h2,
+.hibrew-theme-root[dir="ltr"] h3,
+.hibrew-theme-root[dir="ltr"] h4,
+.hibrew-theme-root[dir="ltr"] h5,
+.hibrew-theme-root[dir="ltr"] h6,
+.hibrew-theme-root[dir="ltr"] .honor-heading,
+.hibrew-theme-root[dir="ltr"] h1.honor-title,
+.hibrew-theme-root[dir="ltr"] h2.honor-title {
+  font-family: 'HONOR Sans World', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  line-height: 1.25 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.hibrew-theme-root p {
+  line-height: 1.7 !important;
+  letter-spacing: 0.005em !important;
+  word-spacing: 0.025em;
+}
+
+/* Nullify destructive negative tracking in Arabic so utility classes never crush Arabic cursive text */
+.hibrew-theme-root[dir="rtl"] .tracking-tight,
+.hibrew-theme-root[dir="rtl"] .tracking-tighter,
+.hibrew-theme-root [dir="rtl"] .tracking-tight,
+.hibrew-theme-root [dir="rtl"] .tracking-tighter {
+  letter-spacing: 0.01em !important;
+}
+
+/* Override excessively tight leading classes in Arabic so ascenders and descenders never touch */
+.hibrew-theme-root[dir="rtl"] .leading-none,
+.hibrew-theme-root[dir="rtl"] .leading-tight,
+.hibrew-theme-root[dir="rtl"] .leading-\[1\.15\],
+.hibrew-theme-root [dir="rtl"] .leading-none,
+.hibrew-theme-root [dir="rtl"] .leading-tight,
+.hibrew-theme-root [dir="rtl"] .leading-\[1\.15\] {
+  line-height: 1.4 !important;
+}
+
+/* 3D Perspective and Transitions */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.perspective-1400 {
+  perspective: 1400px;
+}
+
+.perspective-2000 {
+  perspective: 2000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+/* Hide scrollbar for clean horizontal swipeable pill rows on mobile */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Luxury Gold Gradients */
+.gold-gradient-text {
+  background: linear-gradient(135deg, #fbf7ee 0%, #d4af37 50%, #c5a059 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Smooth keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(2deg); }
+}
+
+@keyframes floatReverse {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(12px) rotate(-2deg); }
+}
+
+.animate-float-slow {
+  animation: floatSlow 5s ease-in-out infinite;
+}
+
+.animate-float-reverse {
+  animation: floatReverse 6s ease-in-out infinite;
+}
+
+.font-staatliches {
+  font-family: 'Staatliches', Impact, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Mega Menu & Honor-Style Slow Silky Smooth Slide Transitions */
+@keyframes honorMegaSlideDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes honorProductSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes honorMobileSlideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes honorMobileSlideInLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-honor-mega {
+  animation: honorMegaSlideDown 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-honor-card-1 {
+  animation: honorProductSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.04s both;
+}
+.animate-honor-card-2 {
+  animation: honorProductSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.10s both;
+}
+.animate-honor-card-3 {
+  animation: honorProductSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.16s both;
+}
+.animate-honor-card-4 {
+  animation: honorProductSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.22s both;
+}
+.animate-honor-card-5 {
+  animation: honorProductSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.28s both;
+}
+
+.animate-mobile-subnav-ltr {
+  animation: honorMobileSlideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.animate-mobile-subnav-rtl {
+  animation: honorMobileSlideInLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-mega-menu {
+  animation: honorMegaSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-mega-item {
+  animation: honorProductSlideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom sleek clean scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

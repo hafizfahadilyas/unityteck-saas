@@ -65,15 +65,23 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({ isOpen, onCl
       return;
     }
 
+    const isNameAr = /[\u0600-\u06FF]/.test(name);
+    const selectedCat = CATEGORY_OPTIONS.find((c) => c.value === category);
     const slug =
       name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') ||
       `store-${Date.now().toString(36)}`;
 
     createNewStore({
       name,
+      nameAr: isNameAr ? name : undefined,
+      nameEn: !isNameAr ? name : undefined,
       slug,
-      category,
+      category: selectedCat?.label || category,
+      categoryAr: selectedCat?.labelAr || category,
+      categoryEn: selectedCat?.label || category,
       owner,
+      ownerAr: isAr ? owner : undefined,
+      ownerEn: !isAr ? owner : undefined,
       ownerEmail: ownerEmail || `${owner.toLowerCase().replace(/\s+/g, '')}@store.sa`,
       plan,
       masterGrantedPro,

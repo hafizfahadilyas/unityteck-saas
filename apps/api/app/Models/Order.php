@@ -45,6 +45,16 @@ class Order extends Model
         'awb_number',
         'tracking_number',
         'shipping_cost',
+        'cod_status',
+        'cod_collected_at',
+        'cod_remitted_at',
+        'cod_notes',
+        'refund_status',
+        'refund_amount',
+        'return_reason',
+        'return_notes',
+        'returned_at',
+        'restocked_at',
         'order_date',
     ];
 
@@ -54,7 +64,12 @@ class Order extends Model
             'items_count' => 'integer',
             'total_amount' => 'decimal:2',
             'shipping_cost' => 'decimal:2',
+            'refund_amount' => 'decimal:2',
             'order_date' => 'datetime',
+            'cod_collected_at' => 'datetime',
+            'cod_remitted_at' => 'datetime',
+            'returned_at' => 'datetime',
+            'restocked_at' => 'datetime',
         ];
     }
 
@@ -81,5 +96,10 @@ class Order extends Model
     public function transactions(): HasMany
     {
         return $this->hasMany(PaymentTransaction::class);
+    }
+
+    public function returns(): HasMany
+    {
+        return $this->hasMany(OrderReturn::class);
     }
 }

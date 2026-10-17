@@ -37,10 +37,11 @@ export const CustomerJourneyFunnel: React.FC<CustomerJourneyFunnelProps> = ({
 
   const storeOrders = (allOrders && allOrders[activeStore.id]) || [];
   const completedOrders = storeOrders.length;
-  const visits = completedOrders > 0 ? completedOrders * 22 : 0;
-  const productViews = completedOrders > 0 ? completedOrders * 12 : 0;
-  const addToCart = completedOrders > 0 ? completedOrders * 4 : 0;
-  const checkouts = completedOrders > 0 ? completedOrders * 2 : 0;
+  const storeVisitors = Number(activeStore.visitorsCount) || (completedOrders > 0 ? completedOrders * 22 : 0);
+  const visits = storeVisitors;
+  const productViews = completedOrders > 0 ? Math.min(visits, completedOrders * 12) : 0;
+  const addToCart = completedOrders > 0 ? Math.min(productViews, completedOrders * 4) : 0;
+  const checkouts = completedOrders > 0 ? Math.min(addToCart, completedOrders * 2) : 0;
 
   const dynamicStages: FunnelStage[] = [
     {

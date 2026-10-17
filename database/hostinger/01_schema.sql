@@ -275,6 +275,9 @@ CREATE TABLE IF NOT EXISTS `products` (
   UNIQUE KEY `products_store_id_sku_unique` (`store_id`,`sku`),
   KEY `products_store_id_status_index` (`store_id`,`status`),
   KEY `products_store_id_is_active_index` (`store_id`,`is_active`),
+  KEY `products_store_id_category_id_index` (`store_id`,`category_id`),
+  KEY `products_store_id_status_created_at_index` (`store_id`,`status`,`created_at`),
+  KEY `products_store_id_created_at_index` (`store_id`,`created_at`),
   CONSTRAINT `products_store_id_foreign` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE,
   CONSTRAINT `products_category_id_foreign` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -370,8 +373,19 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `source` ENUM('WhatsApp','Instagram','Google Ads','Facebook','Snapchat','Direct') NOT NULL DEFAULT 'Direct',
   `source_details` VARCHAR(255) NULL DEFAULT NULL,
   `delivery_location` VARCHAR(255) NOT NULL,
-  `status` ENUM('pending','processing','completed','cancelled') NOT NULL DEFAULT 'pending',
-  `payment_method` ENUM('Mada','Visa/MC','Apple Pay','COD') NOT NULL DEFAULT 'Mada',
+  `status` VARCHAR(64) NOT NULL DEFAULT 'pending',
+  `payment_method` VARCHAR(64) NOT NULL DEFAULT 'Mada',
+  `payment_status` VARCHAR(64) NOT NULL DEFAULT 'pending',
+  `cod_status` VARCHAR(64) NOT NULL DEFAULT 'not_cod',
+  `cod_collected_at` DATETIME NULL DEFAULT NULL,
+  `cod_remitted_at` DATETIME NULL DEFAULT NULL,
+  `cod_notes` VARCHAR(255) NULL DEFAULT NULL,
+  `refund_status` VARCHAR(64) NOT NULL DEFAULT 'none',
+  `refund_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `return_reason` VARCHAR(255) NULL DEFAULT NULL,
+  `return_notes` TEXT NULL DEFAULT NULL,
+  `returned_at` DATETIME NULL DEFAULT NULL,
+  `restocked_at` DATETIME NULL DEFAULT NULL,
   `order_date` DATETIME NOT NULL,
   `created_at` TIMESTAMP NULL DEFAULT NULL,
   `updated_at` TIMESTAMP NULL DEFAULT NULL,
@@ -380,8 +394,35 @@ CREATE TABLE IF NOT EXISTS `orders` (
   KEY `orders_store_id_status_index` (`store_id`,`status`),
   KEY `orders_store_id_source_index` (`store_id`,`source`),
   KEY `orders_store_id_order_date_index` (`store_id`,`order_date`),
+  KEY `orders_store_id_status_created_at_index` (`store_id`,`status`,`created_at`),
+  KEY `orders_store_id_created_at_index` (`store_id`,`created_at`),
+  KEY `orders_store_id_cod_status_index` (`store_id`,`cod_status`),
   CONSTRAINT `orders_store_id_foreign` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE,
   CONSTRAINT `orders_customer_id_foreign` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `order_returns` (
+  `id` VARCHAR(64) NOT NULL,
+  `store_id` VARCHAR(64) NOT NULL,
+  `order_id` VARCHAR(64) NOT NULL,
+  `return_number` VARCHAR(64) NOT NULL,
+  `customer_name` VARCHAR(255) NOT NULL,
+  `reason` VARCHAR(100) NOT NULL,
+  `reason_details` TEXT NULL DEFAULT NULL,
+  `status` VARCHAR(64) NOT NULL DEFAULT 'requested',
+  `refund_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `restock_inventory` TINYINT(1) NOT NULL DEFAULT 1,
+  `items` JSON NULL DEFAULT NULL,
+  `admin_notes` TEXT NULL DEFAULT NULL,
+  `requested_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `processed_at` TIMESTAMP NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT NULL,
+  `updated_at` TIMESTAMP NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `order_returns_store_id_status_index` (`store_id`,`status`),
+  KEY `order_returns_store_id_order_id_index` (`store_id`,`order_id`),
+  CONSTRAINT `order_returns_store_id_foreign` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `order_returns_order_id_foreign` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `order_items` (
@@ -533,6 +574,57 @@ CREATE TABLE IF NOT EXISTS `zatca_invoices` (
   KEY `zatca_invoices_store_id_index` (`store_id`),
   CONSTRAINT `zatca_invoices_store_id_foreign` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE,
   CONSTRAINT `zatca_invoices_order_id_foreign` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `payment_gateways` (
+  `id` VARCHAR(64) NOT NULL,
+  `store_id` VARCHAR(64) NOT NULL,
+  `provider` VARCHAR(64) NOT NULL,
+  `title` VARCHAR(191) NOT NULL,
+  `title_ar` VARCHAR(191) NULL DEFAULT NULL,
+  `is_enabled` TINYINT(1) NOT NULL DEFAULT 1,
+  `is_sandbox` TINYINT(1) NOT NULL DEFAULT 1,
+  `api_key` TEXT NULL DEFAULT NULL,
+  `secret_key` TEXT NULL DEFAULT NULL,
+  `public_key` TEXT NULL DEFAULT NULL,
+  `webhook_secret` TEXT NULL DEFAULT NULL,
+  `supported_methods` JSON NULL DEFAULT NULL,
+  `transaction_fee_percent` DECIMAL(5,2) NOT NULL DEFAULT 1.50,
+  `transaction_fee_fixed` DECIMAL(8,2) NOT NULL DEFAULT 1.00,
+  `status` ENUM('connected','disconnected','error') NOT NULL DEFAULT 'connected',
+  `last_tested_at` DATETIME NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT NULL,
+  `updated_at` TIMESTAMP NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `payment_gateways_store_id_provider_index` (`store_id`, `provider`),
+  CONSTRAINT `payment_gateways_store_id_foreign` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `payment_transactions` (
+  `id` VARCHAR(64) NOT NULL,
+  `store_id` VARCHAR(64) NOT NULL,
+  `order_id` VARCHAR(64) NULL DEFAULT NULL,
+  `gateway_provider` VARCHAR(64) NOT NULL,
+  `payment_method` VARCHAR(64) NOT NULL,
+  `transaction_reference` VARCHAR(100) NOT NULL,
+  `gateway_transaction_id` VARCHAR(191) NULL DEFAULT NULL,
+  `amount` DECIMAL(12,2) NOT NULL,
+  `currency` VARCHAR(10) NOT NULL DEFAULT 'SAR',
+  `fee_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `net_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `status` ENUM('pending','authorized','paid','failed','cancelled','refunded','partially_refunded') NOT NULL DEFAULT 'pending',
+  `card_brand` VARCHAR(50) NULL DEFAULT NULL,
+  `card_last_four` VARCHAR(10) NULL DEFAULT NULL,
+  `payer_email` VARCHAR(191) NULL DEFAULT NULL,
+  `payer_name` VARCHAR(191) NULL DEFAULT NULL,
+  `raw_response` JSON NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT NULL,
+  `updated_at` TIMESTAMP NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `payment_transactions_transaction_reference_unique` (`transaction_reference`),
+  KEY `payment_transactions_store_id_status_index` (`store_id`, `status`),
+  KEY `payment_transactions_store_id_payment_method_index` (`store_id`, `payment_method`),
+  CONSTRAINT `payment_transactions_store_id_foreign` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------------------

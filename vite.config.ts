@@ -17,7 +17,7 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {
-        ignored: ['**/apps/api/**', '**/storage/**', '**/bootstrap/cache/**', '**/dist/**'],
+        ignored: ['**/apps/api/**', '**/storage/**', '**/bootstrap/cache/**', '**/dist/**', '**/.git/**', '**/public/**'],
       },
       // Soft SPA routes (/master/login, /store/login) must serve index.html
       // Proxy /api → Laravel artisan serve (see npm run api:serve)

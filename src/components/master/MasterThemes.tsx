@@ -12,27 +12,45 @@ import {
   Layers
 } from 'lucide-react';
 import { useToast } from '../common/ToastProvider';
+import { usePrefs } from '../../i18n/PrefsContext';
+import { getStoreDisplayName } from '../../utils/storeLocalization';
 
 export const MasterThemes: React.FC = () => {
-  const { themes, stores, setStoreTheme, setStoreHomepageStyle, storeActiveTheme } = useTenant();
+  const { stores, allStoreThemes, setStoreTheme, setStoreHomepageStyle, storeActiveTheme } = useTenant();
   const { toast } = useToast();
+  const { locale } = usePrefs();
 
-  const [selectedThemeId, setSelectedThemeId] = useState<string>(themes[0]?.id ?? '');
-  const [assignStoreId, setAssignStoreId] = useState<string>(stores[0]?.id ?? '');
-  const [selectedStyle, setSelectedStyle] = useState<string>(themes[0]?.homepageStyles[0] ?? 'Default Commerce');
+  const [selectedStoreId, setSelectedStoreId] = useState<string>(stores[0]?.id ?? 'store-1');
+  const targetStore = useMemo(() => stores.find((s) => s.id === selectedStoreId) || stores[0], [stores, selectedStoreId]);
+  
+  const currentStoreThemes = useMemo(() => {
+    return allStoreThemes[selectedStoreId] || (targetStore ? [allStoreThemes['store-1'][0]] : []);
+  }, [allStoreThemes, selectedStoreId, targetStore]);
+
+  const [selectedThemeId, setSelectedThemeId] = useState<string>(() => currentStoreThemes[0]?.id ?? '');
+  const [selectedStyle, setSelectedStyle] = useState<string>(() => currentStoreThemes[0]?.homepageStyles[0] ?? 'Default Commerce');
+
+  // Update selected theme when switching selected store
+  React.useEffect(() => {
+    if (currentStoreThemes.length > 0) {
+      const activeId = storeActiveTheme[selectedStoreId] || currentStoreThemes[0].id;
+      setSelectedThemeId(activeId);
+      const themeObj = currentStoreThemes.find((t) => t.id === activeId) || currentStoreThemes[0];
+      setSelectedStyle(themeObj.homepageStyles[0] || 'Default Commerce');
+    }
+  }, [selectedStoreId, currentStoreThemes, storeActiveTheme]);
 
   const selectedTheme = useMemo(
-    () => themes.find((t) => t.id === selectedThemeId) || themes[0],
-    [themes, selectedThemeId],
+    () => currentStoreThemes.find((t) => t.id === selectedThemeId) || currentStoreThemes[0],
+    [currentStoreThemes, selectedThemeId],
   );
 
   const handleApplyThemeToStore = () => {
-    if (!selectedTheme || !assignStoreId) return;
-    setStoreTheme(assignStoreId, selectedTheme.id);
-    setStoreHomepageStyle(assignStoreId, selectedStyle);
-    const storeObj = stores.find((s) => s.id === assignStoreId);
+    if (!selectedTheme || !selectedStoreId) return;
+    setStoreTheme(selectedStoreId, selectedTheme.id);
+    setStoreHomepageStyle(selectedStoreId, selectedStyle);
     toast(
-      `Theme "${selectedTheme.name}" (${selectedStyle}) activated for ${storeObj?.name || assignStoreId}`,
+      `Theme "${selectedTheme.name}" (${selectedStyle}) activated for ${getStoreDisplayName(targetStore, locale) || selectedStoreId}`,
       'success',
     );
   };
@@ -58,9 +76,35 @@ export const MasterThemes: React.FC = () => {
         </div>
       </div>
 
+      {/* Store Filter & Isolation Notice */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-white rounded-2xl border border-slate-200/90 shadow-2xs">
+        <div>
+          <span className="text-xs font-bold text-slate-800 block">
+            Select Store to View & Manage Private Themes:
+          </span>
+          <p className="text-[11px] text-slate-500">
+            Tenant Isolation: Each store manages its own themes. Store portals only see their own themes.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Store className="w-4 h-4 text-teal-600" />
+          <select
+            value={selectedStoreId}
+            onChange={(e) => setSelectedStoreId(e.target.value)}
+            className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-xl text-slate-900 bg-white"
+          >
+            {stores.map((s) => (
+              <option key={s.id} value={s.id}>
+                {getStoreDisplayName(s, locale)} ({s.id})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* Theme Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {themes.map((theme) => {
+        {currentStoreThemes.map((theme) => {
           const isSelected = theme.id === selectedThemeId;
 
           return (
@@ -102,7 +146,7 @@ export const MasterThemes: React.FC = () => {
                     </h3>
                     <div className="flex items-center gap-1 text-[11px] text-teal-200 mt-0.5" style={{ color: '#99f6e4' }}>
                       <Star className="w-3 h-3 fill-amber-300 text-amber-300" />
-                      <span>{theme.rating} rating · {theme.activeStoresCount} stores live</span>
+                      <span>{theme.rating} rating · Isolated to {getStoreDisplayName(targetStore, locale)}</span>
                     </div>
                   </div>
                 </div>
@@ -152,7 +196,7 @@ export const MasterThemes: React.FC = () => {
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div>
             <h2 className="font-bold text-sm text-slate-900">
-              Activate Selected Theme on Store
+              Activate Selected Theme on {getStoreDisplayName(targetStore, locale)}
             </h2>
             <p className="text-xs text-slate-500">
               Selected Theme: <strong className="text-teal-700">{selectedTheme.name}</strong> ({selectedTheme.category})
@@ -163,18 +207,10 @@ export const MasterThemes: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
           <div className="sm:col-span-4">
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Target Client Store</label>
-            <select
-              value={assignStoreId}
-              onChange={(e) => setAssignStoreId(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg text-slate-900 bg-white"
-            >
-              {stores.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.name} (Current: {themes.find(t => t.id === storeActiveTheme[s.id])?.name || 'Default'})
-                </option>
-              ))}
-            </select>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Selected Store</label>
+            <div className="px-3 py-2 text-xs border border-slate-300 rounded-lg text-slate-900 bg-slate-50 font-bold">
+              {getStoreDisplayName(targetStore, locale)} ({selectedStoreId})
+            </div>
           </div>
 
           <div className="sm:col-span-4">

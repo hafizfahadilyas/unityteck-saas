@@ -1,53 +1,38 @@
 <!doctype html>
-<html lang="en">
+<html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
+    <meta name="theme-color" content="#3e0f77" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
     <script>
       (function() {
         try {
           var _origFetch = typeof window !== 'undefined' ? window.fetch : null;
           var _currentFetch = _origFetch;
-          
-          // Make window.fetch writable with getter and setter
           try {
             Object.defineProperty(window, 'fetch', {
-              get: function() {
-                return _currentFetch;
-              },
-              set: function(val) {
-                _currentFetch = val;
-              },
+              get: function() { return _currentFetch; },
+              set: function(val) { _currentFetch = val; },
               configurable: true,
               enumerable: true
             });
           } catch (e1) {}
-
-          // Also patch Window.prototype if applicable
           try {
             if (typeof Window !== 'undefined' && Window.prototype) {
               Object.defineProperty(Window.prototype, 'fetch', {
-                get: function() {
-                  return _currentFetch;
-                },
-                set: function(val) {
-                  _currentFetch = val;
-                },
+                get: function() { return _currentFetch; },
+                set: function(val) { _currentFetch = val; },
                 configurable: true,
                 enumerable: true
               });
             }
           } catch (e2) {}
-
-          // Also patch globalThis if distinct
           try {
             if (typeof globalThis !== 'undefined' && globalThis !== window) {
               Object.defineProperty(globalThis, 'fetch', {
-                get: function() {
-                  return _currentFetch;
-                },
-                set: function(val) {
-                  _currentFetch = val;
-                },
+                get: function() { return _currentFetch; },
+                set: function(val) { _currentFetch = val; },
                 configurable: true,
                 enumerable: true
               });
@@ -56,51 +41,282 @@
         } catch (err) {}
       })();
     </script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <script>
+      /* Hard wipe stale CMS / Firebase caches BEFORE React or Firestore boot. */
+      (function () {
+        var BUILD = '20261016a';
+        var BUILD_KEY = 'bashayer-app-build';
+        try {
+          if (localStorage.getItem(BUILD_KEY) === BUILD) return;
+          var keep = {
+            language: 1,
+            rafiq_theme: 1,
+            bashayer_admin_session: 1,
+            bashayer_cart: 1,
+            bashayer_remember_email: 1,
+            bashayer_chat_guest_id: 1,
+            rafiq_branding: 1,
+            rafiq_branding_at: 1,
+            unityteck_prefs: 1,
+            unityteck_tenant_state: 1,
+            unityteck_auth_session: 1,
+          };
+          var i, key;
+          for (i = localStorage.length - 1; i >= 0; i -= 1) {
+            key = localStorage.key(i);
+            if (!key || keep[key]) continue;
+            if (key.indexOf('clerk') === 0 || key.indexOf('__clerk') === 0) continue;
+            if (
+              key.indexOf('bashayer') === 0
+              || key.indexOf('rafiq_') === 0
+              || key.indexOf('firebase') === 0
+              || key.indexOf('unityteck_cache') === 0
+            ) {
+              localStorage.removeItem(key);
+            }
+          }
+          try { sessionStorage.removeItem('bashayer-seed-once'); } catch (e) { /* ignore */ }
+          localStorage.setItem('bashayer-site-content-dirty', String(Date.now()));
+          localStorage.setItem(BUILD_KEY, BUILD);
+          if (typeof caches !== 'undefined') {
+            caches.keys().then(function (keys) {
+              keys.forEach(function (k) { caches.delete(k); });
+            }).catch(function () {});
+          }
+          if (typeof indexedDB !== 'undefined' && indexedDB.databases) {
+            indexedDB.databases().then(function (list) {
+              (list || []).forEach(function (db) {
+                if (db && db.name && /firebase|firestore|bashayer|rafiq/i.test(db.name)) {
+                  try { indexedDB.deleteDatabase(db.name); } catch (e) { /* ignore */ }
+                }
+              });
+            }).catch(function () {});
+          }
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+              regs.forEach(function (r) { r.unregister(); });
+            }).catch(function () {});
+          }
+        } catch (e) { /* ignore */ }
+      })();
+    </script>
+
     <script>
       (function () {
-        try {
-          var raw = localStorage.getItem('unityteck_prefs');
-          if (!raw) return;
-          var p = JSON.parse(raw);
-          var root = document.documentElement;
-          if (p.locale === 'ar' || p.locale === 'ur') {
-            root.setAttribute('dir', 'rtl');
-            root.setAttribute('lang', p.locale);
+        var lang = localStorage.getItem('language');
+        if (!lang) {
+          try {
+            var rawPrefs = localStorage.getItem('unityteck_prefs');
+            if (rawPrefs) {
+              var p = JSON.parse(rawPrefs);
+              if (p && p.locale) lang = p.locale;
+            }
+          } catch (e) {}
+        }
+        if (lang !== 'en' && lang !== 'ar' && lang !== 'ur') lang = 'ar';
+        var html = document.documentElement;
+        html.lang = lang;
+        html.dir = (lang === 'ar' || lang === 'ur') ? 'rtl' : 'ltr';
+
+        function hexToRgb(hex) {
+          var h = String(hex || '').replace('#', '');
+          if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+          if (h.length !== 6) return null;
+          var n = parseInt(h, 16);
+          if (Number.isNaN(n)) return null;
+          return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+        }
+
+        function mix(hex1, hex2, weight) {
+          var a = hexToRgb(hex1);
+          var b = hexToRgb(hex2);
+          if (!a || !b) return hex1;
+          var w = weight / 100;
+          function ch(x, y) {
+            return Math.max(0, Math.min(255, Math.round(x * (1 - w) + y * w))).toString(16).padStart(2, '0');
+          }
+          return '#' + ch(a.r, b.r) + ch(a.g, b.g) + ch(a.b, b.b);
+        }
+
+        function applySplashBranding() {
+          // Last live branding for instant splash (same visit profile). Server revalidates in React.
+          var primary = '#3e0f77';
+          var secondary = '#d5a027';
+          var logoUrl = '';
+          try {
+            var raw = localStorage.getItem('rafiq_branding');
+            if (raw) {
+              var data = JSON.parse(raw);
+              if (data && data.data && typeof data.data === 'object' && !data.primaryColor) data = data.data;
+              if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(data.primaryColor || '')) primary = data.primaryColor;
+              if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(data.secondaryColor || '')) secondary = data.secondaryColor;
+              if (typeof data.logoUrl === 'string') logoUrl = data.logoUrl.trim();
+            }
+          } catch (e) {}
+
+          var brandDark = mix(primary, '#000000', 24);
+          var brandDeep = mix(primary, '#000000', 52);
+          var goldLight = mix(secondary, '#ffffff', 24);
+          var goldRgb = hexToRgb(secondary);
+          var root = html.style;
+          root.setProperty('--color-brand', primary);
+          root.setProperty('--color-brand-dark', brandDark);
+          root.setProperty('--color-primary-900', brandDeep);
+          root.setProperty('--color-gold', secondary);
+          root.setProperty('--color-gold-light', goldLight);
+          if (goldRgb) root.setProperty('--color-gold-rgb', goldRgb.r + ', ' + goldRgb.g + ', ' + goldRgb.b);
+
+          var themeMeta = document.querySelector('meta[name="theme-color"]');
+          if (themeMeta) themeMeta.setAttribute('content', primary);
+
+          if (logoUrl) {
+            document.addEventListener('DOMContentLoaded', function () {
+              var logo = document.querySelector('.splash-logo');
+              if (logo) logo.src = logoUrl;
+            });
+          }
+        }
+
+        applySplashBranding();
+
+        // Live branding ASAP — new Google profiles / devices have no localStorage.
+        // Must finish before splash hides so visitors never see default purple then jump.
+        (function fetchLiveBrandingEarly() {
+          var urls = [];
+          var isLocalHost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/.test(location.hostname);
+          // On localhost, only call /api if API mode is explicitly configured
+          if (isLocalHost) {
+            try {
+              if (localStorage.getItem('unityteck_data_source') === 'api' || localStorage.getItem('unityteck_use_api') === 'true') {
+                urls.push('/api/index.php?action=settings&id=branding');
+              }
+            } catch (e) {}
           } else {
-            root.setAttribute('dir', 'ltr');
-            root.setAttribute('lang', 'en');
+            urls.push('/api/index.php?action=settings&id=branding');
+            urls.push('https://bashayer-logistics.com/api/index.php?action=settings&id=branding');
           }
-          if (p.theme === 'dark' || p.theme === 'light') {
-            root.setAttribute('data-theme', p.theme);
+          var done = false;
+          function applyLive(data) {
+            if (done || !data || typeof data !== 'object') return;
+            var payload = data.data && typeof data.data === 'object' ? data.data : data;
+            if (!payload.primaryColor && !payload.secondaryColor) return;
+            done = true;
+            try {
+              window.__bashayerLiveBranding = payload;
+              localStorage.setItem('rafiq_branding', JSON.stringify(payload));
+              localStorage.setItem('rafiq_branding_at', String(Date.now()));
+            } catch (e) {}
+            if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(payload.primaryColor || '')) {
+              try {
+                localStorage.setItem('rafiq_branding', JSON.stringify(payload));
+              } catch (e2) {}
+              applySplashBranding();
+            }
+            if (typeof window.__bashayerOnBrandingReady === 'function') {
+              window.__bashayerOnBrandingReady();
+            }
+            window.__bashayerBrandingReady = true;
           }
-          if (p.brand && p.brand.font) {
-            root.setAttribute('data-font', p.brand.font);
+
+          function tryUrl(i) {
+            if (i >= urls.length || done) {
+              window.__bashayerBrandingReady = true;
+              if (typeof window.__bashayerOnBrandingReady === 'function') {
+                window.__bashayerOnBrandingReady();
+              }
+              return;
+            }
+            fetch(urls[i], { credentials: 'omit', cache: 'no-store' })
+              .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+              .then(function (json) {
+                if (json && json.ok === false) throw new Error('api');
+                applyLive(json);
+                if (!done) tryUrl(i + 1);
+              })
+              .catch(function () { tryUrl(i + 1); });
           }
-          if (p.brand && p.brand.palette) {
-            root.setAttribute('data-brand', p.brand.palette);
+          tryUrl(0);
+        })();
+
+        var fonts = {
+          ar: ['lang-font-ar', 'https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&family=Cairo:wght@400;600;700;800&display=swap'],
+          en: ['lang-font-en', 'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@400;600;700&display=swap'],
+        };
+
+        function injectFont(pair, defer) {
+          if (document.getElementById(pair[0])) return;
+          var link = document.createElement('link');
+          link.id = pair[0];
+          link.rel = 'stylesheet';
+          link.href = pair[1];
+          if (defer) {
+            link.media = 'print';
+            link.onload = function () { link.media = 'all'; };
+          }
+          document.head.appendChild(link);
+        }
+
+        // Critical: active language font only — other language loads idle so LCP stays free
+        injectFont(fonts[lang], false);
+        var other = lang === 'ar' ? fonts.en : fonts.ar;
+        var idle = window.requestIdleCallback || function (cb) { return setTimeout(cb, 1200); };
+        idle(function () { injectFont(other, true); }, { timeout: 2500 });
+      })();
+    </script>
+
+    <script>
+      (function() {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          var s = (params.get('store') || params.get('storeId') || localStorage.getItem('unityteck_active_store_id') || '').toLowerCase();
+          if (s === 'coffee' || s === 'store-coffee' || s === 'roasters') {
+            document.title = 'HiBrew KSA | Official Coffee Store متجر مكائن ومستلزمات القهوة';
+            var metaDesc = document.querySelector('meta[name="description"]');
+            var desc = 'متخصصون في بيع مكائن القهوة و مستلزماتها ذات جودة عالية و بسعر مناسب ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية';
+            if (metaDesc) metaDesc.setAttribute('content', desc);
+            var ogTitle = document.querySelector('meta[property="og:title"]');
+            if (ogTitle) ogTitle.setAttribute('content', 'HiBrew KSA | Official Coffee Store متجر مكائن ومستلزمات القهوة');
+            var ogDesc = document.querySelector('meta[property="og:description"]');
+            if (ogDesc) ogDesc.setAttribute('content', desc);
           }
         } catch (e) {}
       })();
     </script>
-    <title>Unityteck | Multi-Store E-Commerce SaaS</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="description" content="Multi-tenant e-commerce SaaS with unified Master Admin and isolated Store Admin workspaces, channel analytics, customer management, and store data isolation." />
-    <meta property="og:title" content="Unityteck | Multi-Store E-Commerce SaaS" />
-    <meta property="og:description" content="Multi-tenant e-commerce SaaS with unified Master Admin and isolated Store Admin workspaces, channel analytics, customer management, and store data isolation." />
+
+    <title>HiBrew KSA | Official Coffee Store متجر مكائن ومستلزمات القهوة</title>
+    <meta name="description" content="متخصصون في بيع مكائن القهوة و مستلزماتها ذات جودة عالية و بسعر مناسب ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية" />
+    <meta name="keywords" content="هاي برو,مكائن قهوة,مطاحن,باريستا,20 بار,دبل بويلر,السعودية,HiBrew,قهوة مختصة,أركان قهوة" />
+    <meta property="og:title" content="HiBrew KSA | Official Coffee Store متجر مكائن ومستلزمات القهوة" />
+    <meta property="og:description" content="متخصصون في بيع مكائن القهوة و مستلزماتها ذات جودة عالية و بسعر مناسب ☕️" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" type="image/png" href="/images/brand-logo.png" />
+    <link rel="shortcut icon" href="/images/brand-logo.png" />
+    <link rel="apple-touch-icon" href="/images/brand-logo.png" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="dns-prefetch" href="https://images.unsplash.com" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&family=Outfit:wght@400;600;700&display=swap" media="print" onload="this.media='all'" />
-    <noscript>
-      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&family=Outfit:wght@400;600;700&display=swap" />
-    </noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Staatliches&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Readex+Pro:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
+    <link rel="dns-prefetch" href="https://firebase.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+
+    <style>
+      :root {
+        --color-brand: #3e0f77;
+        --color-brand-dark: #2a0a52;
+        --color-primary-900: #18062f;
+        --color-gold: #d5a027;
+        --color-gold-light: #e8b84a;
+        --color-gold-rgb: 213, 160, 39;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
