@@ -263,9 +263,13 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
 
 interface ThemeSettingsMasterProps {
   onOpenStorefront?: () => void;
+  onOpenCustomizer?: (sectionId?: string) => void;
 }
 
-export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({ onOpenStorefront }) => {
+export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
+  onOpenStorefront,
+  onOpenCustomizer,
+}) => {
   const { activeStore } = useTenant();
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
@@ -346,6 +350,22 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({ onOpen
                   </option>
                 ))}
               </select>
+
+              {onOpenCustomizer && (
+                <button
+                  type="button"
+                  onClick={() => onOpenCustomizer(activeSection.id)}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer text-white shadow-xs hover:opacity-90 transition-opacity"
+                  style={{
+                    background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
+                    borderColor: '#10b981',
+                  }}
+                  title={isAr ? 'فتح هذا القسم داخل محرر التخصيص المباشر مثل ووردبريس' : 'Open in WordPress-Style Live Customizer'}
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>{isAr ? 'تخصيص حي (WP Style)' : 'Live Customizer'}</span>
+                </button>
+              )}
 
               <button
                 type="button"
