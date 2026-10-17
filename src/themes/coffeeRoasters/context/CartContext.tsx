@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { Product, CartItem, ProductColor, StorageOption, WarrantyOption, BundleOption, CustomCornerOrderSpecs } from '../types';
 import { PRODUCTS } from '../data/products';
 import { usePrefs } from '../../../i18n/PrefsContext';
