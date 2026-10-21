@@ -5,7 +5,8 @@ import type {
   InvoiceLineItem,
   DocumentPartyDetails,
 } from '../../../types/invoices';
-import { invoiceService } from '../../../services/invoiceService';
+import { invoiceService, getStoreInvoiceProfile } from '../../../services/invoiceService';
+import { getCustomerDisplayName, getLocalizedAddress } from '../../../utils/storeLocalization';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
@@ -65,30 +66,51 @@ export const InvoiceCreateModal: React.FC<InvoiceCreateModalProps> = ({
   // Special Fields
   const [cancellationReason, setCancellationReason] = useState('');
   const [creditReason, setCreditReason] = useState('');
-  const [refundMethod, setRefundMethod] = useState('Mada / Card Reversal');
+  const [refundMethod, setRefundMethod] = useState(isAr ? 'إعادة إلى البطاقة البنكية' : 'Card Reversal');
   const [refundStatus, setRefundStatus] = useState<'succeeded' | 'pending'>('succeeded');
-  const [paymentMethod, setPaymentMethod] = useState('Apple Pay / Mada');
-  const [courierCompany, setCourierCompany] = useState('Express Logistics');
+  const [paymentMethod, setPaymentMethod] = useState(isAr ? 'مدى / دفع إلكتروني' : 'Mada / Card');
+  const [courierCompany, setCourierCompany] = useState(isAr ? 'شركة الشحن السريع' : 'Express Logistics');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [validDays, setValidDays] = useState(15);
   const [notes, setNotes] = useState('');
-  const [paymentTerms, setPaymentTerms] = useState('Net 15 Days');
+  const [paymentTerms, setPaymentTerms] = useState(isAr ? 'السداد خلال 15 يوماً' : 'Net 15 Days');
 
   // Items State
-  const [items, setItems] = useState<InvoiceLineItem[]>([
-    {
-      id: 'item-1',
-      name: 'Luxury Dutch Floral Arrangement',
-      nameAr: 'تنسيق زهور هولندية فاخرة',
-      sku: 'FLW-001',
-      quantity: 1,
-      unitPrice: 350,
-      discount: 0,
-      taxRate: 15,
-      taxAmount: 52.5,
-      total: 402.5,
-    },
-  ]);
+  const [items, setItems] = useState<InvoiceLineItem[]>(() => {
+    const firstProd = currentProducts && currentProducts.length > 0 ? currentProducts[0] : null;
+    if (firstProd) {
+      const price = Number(firstProd.price) || 100;
+      const vat = Math.round(price * 0.15 * 100) / 100;
+      return [
+        {
+          id: 'item-1',
+          name: firstProd.name,
+          nameAr: (firstProd as any).nameAr || firstProd.name,
+          sku: firstProd.sku || 'SKU-001',
+          quantity: 1,
+          unitPrice: price,
+          discount: 0,
+          taxRate: 15,
+          taxAmount: vat,
+          total: price + vat,
+        },
+      ];
+    }
+    return [
+      {
+        id: 'item-1',
+        name: isAr ? 'باقة منتجات المتجر' : 'Store Product Item',
+        nameAr: 'باقة منتجات المتجر',
+        sku: 'SKU-001',
+        quantity: 1,
+        unitPrice: 150,
+        discount: 0,
+        taxRate: 15,
+        taxAmount: 22.5,
+        total: 172.5,
+      },
+    ];
+  });
 
   const [shippingFee, setShippingFee] = useState<number>(35);
   const [discountAmount, setDiscountAmount] = useState<number>(0);
@@ -202,27 +224,38 @@ export const InvoiceCreateModal: React.FC<InvoiceCreateModalProps> = ({
     const docNumber = invoiceService.getNextDocumentNumber(activeStore.id, documentType);
     const now = new Date().toISOString();
 
+    const profile = getStoreInvoiceProfile(activeStore.id, activeStore);
     const sellerParty: DocumentPartyDetails = {
-      name: activeStore.name || 'Makkah Gifts & Luxury Flowers Est.',
-      nameAr: activeStore.nameAr || 'مؤسسة هدايا مكة والزهور الفاخرة',
-      email: 'billing@makkah-gifts.sa',
-      phone: '+966 12 555 8899',
-      address: 'Ibrahim Al-Khalil Road, Jabal Omar District',
-      addressAr: 'طريق إبراهيم الخليل، منطقة جبل عمر',
-      city: 'Makkah',
-      cityAr: 'مكة المكرمة',
-      country: 'Saudi Arabia',
-      vatNumber: '300948215600003',
-      crNumber: '1010892341',
+      name: profile.nameEn,
+      nameAr: profile.nameAr,
+      nameEn: profile.nameEn,
+      companyName: profile.companyNameEn,
+      companyNameAr: profile.companyNameAr,
+      companyNameEn: profile.companyNameEn,
+      email: profile.email,
+      phone: profile.phone,
+      address: profile.addressEn,
+      addressAr: profile.addressAr,
+      addressEn: profile.addressEn,
+      city: profile.cityEn,
+      cityAr: profile.cityAr,
+      country: profile.countryEn,
+      vatNumber: profile.vatNumber,
+      crNumber: profile.crNumber,
     };
 
     const buyerParty: DocumentPartyDetails = {
       name: buyerName,
+      nameAr: buyerName,
+      nameEn: getCustomerDisplayName(buyerName, 'en'),
       email: buyerEmail,
       phone: buyerPhone,
       address: buyerAddress,
-      city: 'Makkah',
-      country: 'Saudi Arabia',
+      addressAr: buyerAddress,
+      addressEn: getLocalizedAddress(buyerAddress, 'en'),
+      city: profile.cityEn,
+      cityAr: profile.cityAr,
+      country: profile.countryEn,
       vatNumber: buyerVat || undefined,
     };
 

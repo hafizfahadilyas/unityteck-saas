@@ -1047,16 +1047,22 @@ export const Header: React.FC<HeaderProps> = ({
                       <span>{isAr ? 'الزهور والورود الطبيعية' : 'Fresh Flowers'}</span>
                     </h4>
                     <ul className="space-y-2 text-xs text-[#555]">
-                      {['باقات الورود الطبيعية', 'ورد أحمر', 'ورد أبيض', 'باقات ورود طبيعية مخفضة', 'فازات ورود طبيعية'].map((name) => (
-                        <li key={name}>
+                      {[
+                        { ar: 'باقات الورود الطبيعية', en: 'Natural Flower Bouquets' },
+                        { ar: 'ورد أحمر', en: 'Red Roses' },
+                        { ar: 'ورد أبيض', en: 'White Roses' },
+                        { ar: 'باقات ورود طبيعية مخفضة', en: 'Discounted Bouquets' },
+                        { ar: 'فازات ورود طبيعية', en: 'Natural Flower Vases' }
+                      ].map((item) => (
+                        <li key={item.ar}>
                           <button
                             onClick={() => {
-                              navigateToCategory(name);
+                              navigateToCategory(isAr ? item.ar : item.en);
                               setMegaMenuOpen(false);
                             }}
                             className="hover:text-[#102a1c] hover:font-bold transition-all text-start cursor-pointer"
                           >
-                            {name}
+                            {isAr ? item.ar : item.en}
                           </button>
                         </li>
                       ))}
@@ -1070,16 +1076,21 @@ export const Header: React.FC<HeaderProps> = ({
                       <span>{isAr ? 'الحلا والشوكولاتة والضيافة' : 'Sweets & Chocolates'}</span>
                     </h4>
                     <ul className="space-y-2 text-xs text-[#555]">
-                      {['ورد وشوكولاتة بلجيكية فاخرة', 'ورد و كيك', 'ورد و قهوة و حلا', 'ورود مع أسماك وعصافير'].map((name) => (
-                        <li key={name}>
+                      {[
+                        { ar: 'ورد وشوكولاتة بلجيكية فاخرة', en: 'Roses & Belgian Chocolate' },
+                        { ar: 'ورد و كيك', en: 'Roses & Cake' },
+                        { ar: 'ورد و قهوة و حلا', en: 'Roses, Coffee & Sweets' },
+                        { ar: 'ورود مع أسماك وعصافير', en: 'Roses with Fish & Birds' }
+                      ].map((item) => (
+                        <li key={item.ar}>
                           <button
                             onClick={() => {
-                              navigateToCategory(name);
+                              navigateToCategory(isAr ? item.ar : item.en);
                               setMegaMenuOpen(false);
                             }}
                             className="hover:text-[#102a1c] hover:font-bold transition-all text-start cursor-pointer"
                           >
-                            {name}
+                            {isAr ? item.ar : item.en}
                           </button>
                         </li>
                       ))}
@@ -1093,16 +1104,23 @@ export const Header: React.FC<HeaderProps> = ({
                       <span>{isAr ? 'المناسبات والاحتفالات' : 'Special Occasions'}</span>
                     </h4>
                     <ul className="space-y-2 text-xs text-[#555]">
-                      {['هدايا عيد ميلاد', 'هدايا الزواج', 'ذكرى زواج وحب', 'هدايا المواليد', 'هدايا التخرج', 'لوحات مواجيب'].map((name) => (
-                        <li key={name}>
+                      {[
+                        { ar: 'هدايا عيد ميلاد', en: 'Birthday Gifts' },
+                        { ar: 'هدايا الزواج', en: 'Wedding Gifts' },
+                        { ar: 'ذكرى زواج وحب', en: 'Anniversary & Romance' },
+                        { ar: 'هدايا المواليد', en: 'Newborn Welcome Gifts' },
+                        { ar: 'هدايا التخرج', en: 'Graduation Milestones' },
+                        { ar: 'لوحات مواجيب', en: 'Mawajib Wooden Plaques' }
+                      ].map((item) => (
+                        <li key={item.ar}>
                           <button
                             onClick={() => {
-                              navigateToCategory(name);
+                              navigateToCategory(isAr ? item.ar : item.en);
                               setMegaMenuOpen(false);
                             }}
                             className="hover:text-[#102a1c] hover:font-bold transition-all text-start cursor-pointer"
                           >
-                            {name}
+                            {isAr ? item.ar : item.en}
                           </button>
                         </li>
                       ))}

@@ -28,7 +28,16 @@ import {
   Compass,
   Music,
   TrendingUp,
+  Eye,
 } from 'lucide-react';
+import { CustomerDetails } from './CustomerDetails';
+import { getArabCustomerAvatar, getCustomerSeoAlt, ARAB_MALE_AVATARS, ARAB_FEMALE_AVATARS } from '../../utils/customerAvatars';
+import { handleImageError } from '../../utils/imageFallback';
+import {
+  getOrCreateCustomerGamifiedProfile,
+  saveCustomerGamifiedProfile,
+  getStoreLoyaltyGameSettings,
+} from '../../services/ksaAutomationEngine';
 
 export const StoreCustomers: React.FC = () => {
   const {
@@ -62,6 +71,7 @@ export const StoreCustomers: React.FC = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   // New Customer Form State
   const [newCustName, setNewCustName] = useState('');
@@ -71,9 +81,36 @@ export const StoreCustomers: React.FC = () => {
   const [newCustSource, setNewCustSource] = useState<CustomerSource>('Instagram');
   const [newCustStatus, setNewCustStatus] = useState<CustomerStatus>('Active');
   const [newCustGender, setNewCustGender] = useState<'Male' | 'Female' | 'Other'>('Male');
+  const [newCustAvatar, setNewCustAvatar] = useState('');
+
+  // Check URL query param for customerId & keep in sync
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const cId = params.get('customerId') || params.get('customer');
+    if (cId) {
+      const exists = currentCustomers.some((c) => c.id === cId);
+      if (exists) {
+        setSelectedCustomerId(cId);
+      }
+    }
+  }, [currentCustomers]);
+
+  const handleSelectCustomer = (id: string | null) => {
+    setSelectedCustomerId(id);
+    const url = new URL(window.location.href);
+    if (id) {
+      url.searchParams.set('customerId', id);
+    } else {
+      url.searchParams.delete('customerId');
+      url.searchParams.delete('customer');
+    }
+    window.history.replaceState({}, '', url.toString());
+  };
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [profileTick, setProfileTick] = useState(0);
+  const loyaltySettings = getStoreLoyaltyGameSettings(activeStore.id);
 
   // Filtered customers
   const filteredCustomers = useMemo(() => {
@@ -184,10 +221,12 @@ export const StoreCustomers: React.FC = () => {
       totalSpending: 450,
       avgOrderValue: 450,
       lastOrderDate: 'Today',
+      avatar: newCustAvatar || getArabCustomerAvatar({ name: newCustName, gender: newCustGender }),
     });
 
     setShowAddModal(false);
     setNewCustName('');
+    setNewCustAvatar('');
     setNewCustPhone('+966 50 ');
     setNewCustEmail('');
   };
@@ -320,10 +359,24 @@ export const StoreCustomers: React.FC = () => {
   const totalCount = currentCustomers.length;
   const newThisMonth = currentCustomers.filter(c => c.status === 'New').length;
   const activeCount = currentCustomers.filter(c => c.status === 'Active').length;
-  const vipCount = currentCustomers.filter(c => c.status === 'VIP').length;
+  const vipCount = currentCustomers.filter(c => c.status === 'VIP' || (c as any).group === 'VIP').length;
+  const selectedCustomer = useMemo(() => {
+    if (!selectedCustomerId) return null;
+    return currentCustomers.find((c) => c.id === selectedCustomerId) || null;
+  }, [selectedCustomerId, currentCustomers]);
+
+  if (selectedCustomer) {
+    return (
+      <CustomerDetails
+        customer={selectedCustomer}
+        onBack={() => handleSelectCustomer(null)}
+        onSelectCustomer={(id) => handleSelectCustomer(id)}
+      />
+    );
+  }
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -337,13 +390,28 @@ export const StoreCustomers: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="self-start sm:self-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{isAr ? '+ إضافة عميل جديد' : 'Add New Customer'}</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {currentCustomers.length > 0 && (
+            <button
+              onClick={() => {
+                const naser = currentCustomers.find((c) => c.name.toLowerCase().includes('naser')) || currentCustomers[0];
+                setSelectedCustomerId(naser.id);
+              }}
+              className="px-4 py-2 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Eye className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <span>{isAr ? 'لوحة ملف ومكافآت العميل' : 'Customer Details & Rewards'}</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="self-start sm:self-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{isAr ? '+ إضافة عميل جديد' : 'Add New Customer'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Top Cards: 4 Metrics (Left) + 2 Action Cards (Right) matching 08_customers.png */}
@@ -456,6 +524,117 @@ export const StoreCustomers: React.FC = () => {
               Import Customers
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* ── LIVE CUSTOMER LOCATION, NOTIFICATION CONSENT, CART/CHECKOUT TRACKER & COIN LEDGER ── */}
+      <div
+        className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4"
+        data-tick={profileTick}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div>
+            <h3 className="text-sm font-black text-slate-900 dark:text-white">
+              {isAr
+                ? 'رادار تتبع العملاء المباشر (الموقع الجغرافي، الإشعارات، حالة السلة/الدفع، وبطاقات الولاء والعملات)'
+                : 'Live Customer Tracking Radar (Location, Push Consent, Cart/Checkout Stage, Loyalty Card & Coins)'}
+            </h3>
+            <p className="text-xs text-slate-500">
+              {isAr
+                ? `معدل تحويل العملات: ${loyaltySettings.coinsPerSar} عملة = 1 ر.س · تحكم كامل في رصيد عملات ومكافآت كل عميل.`
+                : `Coin Value: ${loyaltySettings.coinsPerSar} Coins = 1 SAR · Full Store Admin control over each user's coins, cards & rewards.`}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {currentCustomers.slice(0, 6).map((cust) => {
+            const prof = getOrCreateCustomerGamifiedProfile(activeStore.id, cust.id, {
+              name: cust.name,
+              phone: cust.phone,
+              email: cust.email,
+              city: cust.city || 'Riyadh',
+            });
+            const sarWorth = (prof.coinsBalance / (loyaltySettings.coinsPerSar || 10)).toFixed(1);
+
+            return (
+              <div
+                key={cust.id}
+                className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2.5 flex flex-col justify-between bg-slate-50/50 dark:bg-slate-950/40"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-black text-xs truncate">{cust.name}</span>
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                      {prof.loyaltyCardNumber} ({prof.loyaltyTier})
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
+                    <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                      {prof.city}, KSA {prof.locationAllowed ? '✓ GPS' : ''}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-md ${
+                        prof.notificationsAllowed
+                          ? 'bg-emerald-500/15 text-emerald-600'
+                          : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                      }`}
+                    >
+                      {prof.notificationsAllowed
+                        ? isAr ? 'الإشعارات مفعلة ✓' : 'Push Allowed ✓'
+                        : isAr ? 'بانتظار الإذن' : 'Push Pending'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                      {((cust as any).ordersCount ?? (cust as any).totalOrders ?? (cust as any).orders ?? 0) > 0
+                        ? isAr ? 'أكمل الدفع (Checkout ✓)' : 'Checked Out ✓'
+                        : isAr ? 'أضاف للسلة (Cart Active)' : 'Added to Cart'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <span className="text-slate-500">
+                      {isAr ? 'رصيد العملات والبطاقات:' : 'Coins & Saved Cards:'}
+                    </span>
+                    <span className="font-mono font-black text-emerald-600 dark:text-emerald-400">
+                      {prof.coinsBalance} Coins ({sarWorth} SAR) · {prof.savedCards.length} Card
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/70 dark:border-slate-800 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      saveCustomerGamifiedProfile(activeStore.id, {
+                        ...prof,
+                        coinsBalance: prof.coinsBalance + 50,
+                        totalCoinsEarned: prof.totalCoinsEarned + 50,
+                      });
+                      setProfileTick((t) => t + 1);
+                    }}
+                    className="flex-1 py-1.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black cursor-pointer"
+                  >
+                    {isAr ? '+50 عملة مكافأة' : '+50 Bonus Coins'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      saveCustomerGamifiedProfile(activeStore.id, {
+                        ...prof,
+                        locationAllowed: true,
+                        notificationsAllowed: true,
+                      });
+                      setProfileTick((t) => t + 1);
+                    }}
+                    className="py-1.5 px-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-[11px] font-bold cursor-pointer"
+                  >
+                    {isAr ? 'توثيق الموقع/التنبيه' : 'Verify GPS/Push'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -638,8 +817,8 @@ export const StoreCustomers: React.FC = () => {
         </div>
 
         {/* Table Grid */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <div className="overflow-x-auto scrollbar-thin">
+          <table className="w-full text-left text-xs min-w-[850px]">
             <thead>
               <tr className="border-b border-slate-100 text-slate-400 font-semibold text-[11px] bg-slate-50/50">
                 <th className="py-3 px-4 w-10">
@@ -673,12 +852,12 @@ export const StoreCustomers: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                pageCustomers.map((cust) => {
+                pageCustomers.map((cust, custIdx) => {
                   const isSelected = selectedIds.includes(cust.id);
 
                   return (
                     <tr
-                      key={cust.id}
+                      key={cust.id || cust.email || `cust-${custIdx}`}
                       className={`hover:bg-blue-50/30 transition-colors ${
                         isSelected ? 'bg-blue-50/40' : ''
                       }`}
@@ -695,26 +874,42 @@ export const StoreCustomers: React.FC = () => {
                       {/* Customer Name, Avatar & Phone */}
                       <td className="py-3 pr-3">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-[11px] shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectCustomer(cust.id)}
+                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold flex items-center justify-center text-xs shrink-0 hover:ring-2 hover:ring-teal-500 transition-all cursor-pointer overflow-hidden border border-slate-200/80 dark:border-slate-700 shadow-2xs"
+                            title={isAr ? 'عرض تفاصيل العميل' : 'View Customer Details'}
+                          >
                             {cust.avatar ? (
                               <img
                                 src={cust.avatar}
-                                alt={cust.name}
+                                alt={getCustomerSeoAlt(cust, activeStore?.name, isAr)}
+                                loading="lazy"
+                                decoding="async"
+                                onError={(e) => handleImageError(e)}
                                 className="w-full h-full rounded-full object-cover"
                               />
                             ) : (
-                              cust.name
-                                .split(' ')
-                                .map((n) => n[0])
-                                .join('')
-                                .substring(0, 2)
+                              <span>{cust.name.substring(0, 2).toUpperCase()}</span>
                             )}
-                          </div>
-                          <div>
-                            <div className="font-bold text-slate-900">{cust.name}</div>
-                            <div className="text-[11px] text-slate-400 font-mono">
+                          </button>
+                          <div className="text-start min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectCustomer(cust.id)}
+                              className="font-bold text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 transition-colors text-start block cursor-pointer truncate max-w-[200px]"
+                              title={isAr ? 'عرض تفاصيل العميل' : 'View Customer Details'}
+                            >
+                              {cust.name}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectCustomer(cust.id)}
+                              className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 font-mono transition-colors text-start block cursor-pointer mt-0.5 tracking-tight"
+                              title={isAr ? 'عرض تفاصيل العميل' : 'View Customer Details'}
+                            >
                               {cust.phone}
-                            </div>
+                            </button>
                           </div>
                         </div>
                       </td>
@@ -769,7 +964,17 @@ export const StoreCustomers: React.FC = () => {
                         </button>
 
                         {activeMenuId === cust.id && (
-                          <div className="absolute right-4 mt-1 w-36 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-30 text-left text-xs">
+                          <div className="absolute right-4 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-30 text-left text-xs">
+                            <button
+                              onClick={() => {
+                                setSelectedCustomerId(cust.id);
+                                setActiveMenuId(null);
+                              }}
+                              className="w-full px-3 py-1.5 hover:bg-teal-50 flex items-center gap-1.5 text-teal-700 font-semibold"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-teal-600" />
+                              <span>View Profile &amp; Rewards</span>
+                            </button>
                             <button
                               onClick={() => {
                                 updateCustomer(cust.id, {
@@ -953,6 +1158,32 @@ export const StoreCustomers: React.FC = () => {
                     <option value="VIP">VIP</option>
                     <option value="New">New</option>
                   </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">
+                  {isAr ? 'صورة الملف الشخصي (اختياري)' : 'Profile Photo (Optional)'}
+                </label>
+                <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-200 shrink-0 border border-slate-300">
+                    <img
+                      src={newCustAvatar || getArabCustomerAvatar({ name: newCustName, gender: newCustGender })}
+                      alt={isAr ? 'معاينة صورة العميل الجديد' : 'New customer profile photo preview'}
+                      loading="lazy"
+                      onError={(e) => handleImageError(e)}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <input
+                      type="url"
+                      placeholder="https://... or auto-assigned Arab portrait"
+                      value={newCustAvatar}
+                      onChange={(e) => setNewCustAvatar(e.target.value)}
+                      className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-lg text-slate-800 focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 

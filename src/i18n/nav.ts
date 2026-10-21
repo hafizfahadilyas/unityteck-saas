@@ -4,6 +4,7 @@ import type { DictKey } from './dict';
 export const MASTER_NAV_KEYS: Record<string, DictKey> = {
   dashboard: 'navDashboard',
   stores: 'navClientStores',
+  'control-center': 'navControlCenter',
   onboarding: 'navOnboarding',
   domains: 'navDomains',
   database: 'navDatabase',
@@ -50,6 +51,9 @@ export const STORE_NAV_KEYS: Record<string, DictKey> = {
   backup: 'navBackup',
   themes: 'navThemesStore',
   pages: 'navPages',
+  blog: 'navBlog',
+  'commerce-tools': 'navCommerceTools',
+  commerceTools: 'navCommerceTools',
   appstore: 'navAppStore',
   payments: 'navPayments',
   settings: 'navSettings',

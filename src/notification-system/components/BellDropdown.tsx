@@ -90,7 +90,7 @@ export const BellDropdown: React.FC<BellDropdownProps> = ({
               borderColor: 'var(--surface)',
             }}
           >
-            {totalCount > 9 ? '9+' : totalCount}
+            {totalCount > 99 ? '99+' : totalCount}
           </span>
         )}
       </button>

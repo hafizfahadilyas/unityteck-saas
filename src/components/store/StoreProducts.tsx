@@ -45,6 +45,10 @@ import {
   Palette,
   Sparkles,
   Wand2,
+  GripVertical,
+  ArrowUpDown,
+  Sliders,
+  LayoutGrid,
 } from 'lucide-react';
 import { useToast } from '../common/ToastProvider';
 import { canAddProduct, planInfoForStore } from '../../auth/plans';
@@ -55,10 +59,14 @@ import { MediaPickerModal } from '../common/MediaPickerModal';
 import { BulkProductUploadModal } from './BulkProductUploadModal';
 import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
 import { WindowedPagination } from '../common/WindowedPagination';
+import { ProductVariationsPanel } from './ProductVariationsPanel';
 import type { ProductColorOption } from '../../types';
 import { SEAT_COLORS, getProductColors } from '../../data/blecoStoreData';
 import { getProductDisplayName, getProductDisplayCategory } from '../../utils/storeLocalization';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
+import { StoreProductEditorView } from './StoreProductEditorView';
+import { ProductEditDrawer } from './ProductEditDrawer';
+import { ProductFiltersPanel, type ProductFilterCriteria } from './ProductFiltersPanel';
 
 /**
  * StoreProducts — Store Admin Products & Catalog Directory & Editor
@@ -84,6 +92,8 @@ export const StoreProducts: React.FC = () => {
 
   // Navigation / View State: 'list' | 'edit' | 'type-picker' | 'brands' | 'filters'
   const [currentView, setCurrentView] = useState<'list' | 'edit' | 'type-picker' | 'brands' | 'filters'>('list');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isSideDrawerOpen, setIsSideDrawerOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
   // List View Controls
@@ -94,9 +104,39 @@ export const StoreProducts: React.FC = () => {
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(12);
 
-  // Advanced Filters & Deleted Products (Mockup / Screenshot 4)
+  // Makdah Flowers Catalog Table & Inline Edit State (Spec Section 6 & 9)
+  const [isInlineEdit, setIsInlineEdit] = useState(false);
+  const [showColumnsPopover, setShowColumnsPopover] = useState(false);
+  const [columnSearch, setColumnSearch] = useState('');
+  const [sortBy, setSortBy] = useState<string>('date-desc');
+  const [bulkAction, setBulkAction] = useState<string>('');
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
+    image: true,
+    name: true,
+    sku: true,
+    price: true,
+    salePrice: true,
+    stock: true,
+    category: true,
+    status: true,
+    weight: true,
+    shippingClass: true,
+    date: true,
+    salesCount: false,
+    actions: true,
+  });
+
+  // Advanced Filters & Deleted Products (Mockup / Screenshot 4 & Filters Panel)
+  const [filterCriteria, setFilterCriteria] = useState<ProductFilterCriteria>({
+    channel: 'All',
+    brand: 'All',
+    search: '',
+    productType: 'All',
+    category: 'All',
+    status: 'All',
+  });
   const [filterBrand, setFilterBrand] = useState('All');
   const [filterChannel, setFilterChannel] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
@@ -160,9 +200,61 @@ export const StoreProducts: React.FC = () => {
   // Filtered products list
   const filteredProducts = useMemo(() => {
     return currentProducts.filter((p) => {
-      if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
-      if (search.trim()) {
-        const q = search.toLowerCase();
+      // 1. Category filter
+      const cat = filterCriteria.category !== 'All' ? filterCriteria.category : (selectedCategory !== 'all' ? selectedCategory : 'all');
+      if (cat !== 'all') {
+        const catLower = cat.toLowerCase();
+        const pCat = (p.category || '').toLowerCase();
+        const pCatAr = (p.categoryAr || '').toLowerCase();
+        const pCatEn = (p.categoryEn || '').toLowerCase();
+        if (pCat !== catLower && !pCat.includes(catLower) && !pCatAr.includes(catLower) && !pCatEn.includes(catLower)) {
+          return false;
+        }
+      }
+
+      // 2. Brand filter
+      if (filterCriteria.brand !== 'All') {
+        const pBrand = ((p as any).brand || (p as any).brandName || '').toLowerCase();
+        if (!pBrand.includes(filterCriteria.brand.toLowerCase())) return false;
+      }
+
+      // 3. Status filter
+      if (filterCriteria.status !== 'All') {
+        if (filterCriteria.status === 'Active') {
+          const isActive = (p.status === 'published' || (p as any).status === 'active') && (p.stock > 0 || (p as any).trackInventory === false);
+          if (!isActive) return false;
+        } else if (filterCriteria.status === 'Out of Stock') {
+          if (p.stock > 0) return false;
+        } else if (filterCriteria.status === 'Low Stock') {
+          if (p.stock <= 0 || p.stock > 5) return false;
+        } else if (filterCriteria.status === 'Draft') {
+          if (p.status !== 'draft') return false;
+        } else if (filterCriteria.status === 'Archived') {
+          if (p.status !== 'archived') return false;
+        }
+      }
+
+      // 4. Product Type filter
+      if (filterCriteria.productType !== 'All') {
+        const pType = ((p as any).type || (p as any).productType || 'physical').toLowerCase();
+        const targetType = filterCriteria.productType.toLowerCase();
+        if (targetType.includes('physical') && !pType.includes('physical') && pType !== 'standard') return false;
+        if (targetType.includes('service') && !pType.includes('service') && !pType.includes('custom')) return false;
+        if (targetType.includes('digital') && !pType.includes('digital')) return false;
+        if (targetType.includes('bundle') && !pType.includes('bundle')) return false;
+      }
+
+      // 5. Sales Channel filter
+      if (filterCriteria.channel !== 'All') {
+        const channels = (p as any).channels || (p as any).salesChannels || ['Online Store'];
+        if (Array.isArray(channels)) {
+          if (!channels.some((c: string) => c.toLowerCase().includes(filterCriteria.channel.toLowerCase()))) return false;
+        }
+      }
+
+      // 6. Search query filter (combines top search input and filter panel search input)
+      const q = (filterCriteria.search.trim() || search.trim()).toLowerCase();
+      if (q) {
         const matchName =
           p.name?.toLowerCase().includes(q) ||
           p.nameAr?.toLowerCase().includes(q) ||
@@ -178,16 +270,84 @@ export const StoreProducts: React.FC = () => {
       }
       return true;
     });
-  }, [currentProducts, selectedCategory, search, locale]);
+  }, [currentProducts, selectedCategory, filterCriteria, search, locale]);
+
+  // Sorting according to selected criteria (Spec Section 10)
+  const sortedProducts = useMemo(() => {
+    const list = [...filteredProducts];
+    if (sortBy === 'name-asc') {
+      list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    } else if (sortBy === 'name-desc') {
+      list.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
+    } else if (sortBy === 'price-asc') {
+      list.sort((a, b) => a.price - b.price);
+    } else if (sortBy === 'price-desc') {
+      list.sort((a, b) => b.price - a.price);
+    } else if (sortBy === 'stock-asc') {
+      list.sort((a, b) => a.stock - b.stock);
+    } else if (sortBy === 'stock-desc') {
+      list.sort((a, b) => b.stock - a.stock);
+    } else if (sortBy === 'date-desc') {
+      list.sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
+    }
+    return list;
+  }, [filteredProducts, sortBy]);
 
   // Pagination
-  const totalCount = filteredProducts.length;
+  const totalCount = sortedProducts.length;
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
   const safePage = Math.min(page, pageCount);
   const pagedProducts = useMemo(() => {
     const start = (safePage - 1) * pageSize;
-    return filteredProducts.slice(start, start + pageSize);
-  }, [filteredProducts, safePage, pageSize]);
+    return sortedProducts.slice(start, start + pageSize);
+  }, [sortedProducts, safePage, pageSize]);
+
+  // Bulk Actions Execution (Spec Section 11)
+  const handleApplyBulkAction = async () => {
+    if (selectedProductIds.length === 0) {
+      toast(isAr ? 'يرجى تحديد منتجات أولاً' : 'Please select products first', 'info');
+      return;
+    }
+    if (!bulkAction) {
+      toast(isAr ? 'يرجى اختيار إجراء من القائمة' : 'Please select an action from the dropdown', 'info');
+      return;
+    }
+
+    if (bulkAction === 'publish') {
+      selectedProductIds.forEach((id) => {
+        updateProduct(id, { status: 'published', isActive: true }, activeStore.id);
+      });
+      toast(isAr ? `تم نشر ${selectedProductIds.length} منتج بنجاح` : `Published ${selectedProductIds.length} products successfully`, 'success');
+      setSelectedProductIds([]);
+    } else if (bulkAction === 'draft') {
+      selectedProductIds.forEach((id) => {
+        updateProduct(id, { status: 'draft', isActive: false }, activeStore.id);
+      });
+      toast(isAr ? `تم تحويل ${selectedProductIds.length} منتج إلى مسودة` : `Moved ${selectedProductIds.length} products to draft`, 'success');
+      setSelectedProductIds([]);
+    } else if (bulkAction === 'delete') {
+      const ok = await confirm({
+        title: isAr ? 'حذف المنتجات المحددة' : 'Delete Selected Products',
+        message: isAr
+          ? `هل أنت متأكد من حذف ${selectedProductIds.length} منتج محدد نهائياً؟`
+          : `Are you sure you want to permanently delete ${selectedProductIds.length} selected products?`,
+        confirmLabel: isAr ? 'حذف المنتجات' : 'Delete Products',
+        danger: true,
+      });
+      if (ok) {
+        selectedProductIds.forEach((id) => {
+          deleteProduct(id, activeStore.id);
+        });
+        toast(isAr ? `تم حذف ${selectedProductIds.length} منتج` : `Deleted ${selectedProductIds.length} products`, 'success');
+        setSelectedProductIds([]);
+      }
+    }
+  };
+
+  // Inline field update handler (Spec Section 8)
+  const handleInlineFieldChange = (productId: string, field: keyof Product, value: any) => {
+    updateProduct(productId, { [field]: value }, activeStore.id);
+  };
 
   // Checkbox handlers
   const toggleSelectAll = () => {
@@ -204,10 +364,15 @@ export const StoreProducts: React.FC = () => {
     );
   };
 
-  // Open Edit Mode
-  const handleOpenEdit = (product: Product) => {
+  // Open Edit Mode (Side Drawer or Full View)
+  const handleOpenEdit = (product: Product, openAsFullPage = false) => {
     setEditingProductId(product.id);
-    setCurrentView('edit');
+    if (openAsFullPage) {
+      setCurrentView('edit');
+      setIsSideDrawerOpen(false);
+    } else {
+      setIsSideDrawerOpen(true);
+    }
   };
 
   // Open New Product
@@ -252,12 +417,8 @@ export const StoreProducts: React.FC = () => {
       isActive: true,
       isStale: false,
       publishedAt: new Date().toISOString(),
-      image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80',
-      galleryUrls: [
-        'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=600&q=80',
-      ],
+      image: FALLBACK_PRODUCT_IMAGE,
+      galleryUrls: [FALLBACK_PRODUCT_IMAGE],
       description: isAr
         ? 'يوفر هذا المنتج أعلى معايير الجودة والتصميم العصري مع ضمان شامل وراحة لا مثيل لها.'
         : 'Delivers all-day comfort with a modern aesthetic, crafted with top-tier materials.',
@@ -368,7 +529,10 @@ export const StoreProducts: React.FC = () => {
         product={editingProduct}
         storeName={activeStore.name}
         storeSlug={activeStore.slug}
+        storeId={activeStore.id}
+        canMutate={sub.writable}
         categories={categories}
+        availableBrands={availableStoreBrands.map((b: any) => (typeof b === 'string' ? b : (b.nameEn || b.nameAr || '')))}
         onBack={() => {
           setCurrentView('list');
           setEditingProductId(null);
@@ -378,6 +542,21 @@ export const StoreProducts: React.FC = () => {
           toast(t('productSavedSuccess'), 'success');
         }}
         onDelete={() => handleDeleteProduct(editingProduct)}
+        onDuplicate={(prod) => {
+          const duplicateId = `prod_${Date.now()}`;
+          const duplicateProduct: Product = {
+            ...prod,
+            id: duplicateId,
+            storeId: activeStore.id,
+            name: `${prod.name} (Copy)`,
+            sku: `${prod.sku}-COPY`,
+            publishedAt: new Date().toISOString(),
+            isStale: false,
+          };
+          addProduct(duplicateProduct, activeStore.id);
+          setEditingProductId(duplicateId);
+          toast(isAr ? 'تم نسخ المنتج بنجاح' : 'Product duplicated successfully', 'success');
+        }}
       />
     );
   }
@@ -472,7 +651,7 @@ export const StoreProducts: React.FC = () => {
       <AdminPageShell className="pb-16 max-w-[1600px] mx-auto space-y-6">
         {/* ── Subnav Tabs Bar ── */}
         <div
-          className="flex items-center gap-1.5 p-1.5 rounded-2xl border shadow-xs overflow-x-auto custom-scroll"
+          className="flex items-center gap-1.5 p-1.5 rounded-2xl border shadow-xs overflow-x-auto no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
         >
           <button
@@ -528,235 +707,32 @@ export const StoreProducts: React.FC = () => {
           </button>
         </div>
 
-        {/* ── Breadcrumb & Page Header ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-1">
-              <button
-                type="button"
-                onClick={() => setCurrentView('list')}
-                className="hover:underline flex items-center gap-1 text-blue-600 font-bold cursor-pointer"
-              >
-                <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
-                <span>Products</span>
-              </button>
-              <span>&gt;</span>
-              <span className="font-bold text-slate-800">Filters</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              Filters
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Filter your products and save filters for quick access.
-            </p>
-          </div>
+        {/* ── 1. The Exact Filters Header & Card (100% Pixel-Perfect to Reference Screenshot) ── */}
+        <ProductFiltersPanel
+          storeId={activeStore.id}
+          criteria={filterCriteria}
+          onCriteriaChange={setFilterCriteria}
+          onApply={() => {
+            setCurrentView('list');
+            toast(isAr ? 'تم تطبيق الفلاتر على قائمة المنتجات' : 'Filters applied to catalog', 'success');
+          }}
+          onClear={() => {
+            setFilterCriteria({
+              channel: 'All',
+              brand: 'All',
+              search: '',
+              productType: 'All',
+              category: 'All',
+              status: 'All',
+            });
+            setSelectedCategory('all');
+          }}
+          availableBrands={availableStoreBrands}
+          availableCategories={categories}
+          showHeader={true}
+          onNavigateBack={() => setCurrentView('list')}
+        />
 
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => toast('Saved filter preset template created', 'info')}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 shadow-2xs cursor-pointer"
-            >
-              <Bookmark className="w-3.5 h-3.5 text-slate-500" />
-              <span>Saved Filters</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => toast('Create custom filter preset modal opened', 'info')}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Create New Filter</span>
-            </button>
-          </div>
-        </div>
-
-        {/* ── CARD 1: Filter Products ── */}
-        <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold shrink-0">
-                <Filter className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-extrabold text-slate-900">
-                  Filter Products
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  Use the filters below to find specific products in your store.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 self-end sm:self-auto">
-              <button
-                type="button"
-                onClick={() => {
-                  setFilterBrand('All');
-                  setFilterChannel('All');
-                  setFilterStatus('All');
-                  setFilterCat('All');
-                  setFilterType('All');
-                  toast('Filters cleared', 'info');
-                }}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-                <span>Clear All</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => toast('Filters applied to catalog', 'success')}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-              >
-                <Filter className="w-3.5 h-3.5" />
-                <span>Apply Filters</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Inputs Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1">
-            {/* Search Products */}
-            <div className="lg:col-span-2">
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">Search Products</label>
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search by product name, SKU, or keywords..."
-                  className="w-full ps-9 pe-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Brand */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                {isAr ? 'العلامة التجارية' : 'Brand'}
-              </label>
-              <select
-                value={filterBrand}
-                onChange={(e) => setFilterBrand(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none"
-              >
-                <option value="All">{isAr ? 'جميع العلامات التجارية' : 'All Brands'}</option>
-                {availableStoreBrands.map((b) => (
-                  <option key={b.id} value={b.name}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Product Channels */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">Product Channels</label>
-              <select
-                value={filterChannel}
-                onChange={(e) => setFilterChannel(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none"
-              >
-                <option value="All">All Channels</option>
-                <option value="Online Store">Online Storefront</option>
-                <option value="POS">Point of Sale (POS)</option>
-                <option value="Instagram">Instagram Shopping</option>
-              </select>
-            </div>
-
-            {/* Product Status */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">Product Status</label>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none"
-              >
-                <option value="All">All Statuses</option>
-                <option value="Active">Active</option>
-                <option value="Out of Stock">Out of Stock</option>
-                <option value="Draft">Draft</option>
-              </select>
-            </div>
-
-            {/* Category */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">Category</label>
-              <select
-                value={filterCat}
-                onChange={(e) => setFilterCat(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none"
-              >
-                <option value="All">All Categories</option>
-                <option value="Luxury Hand Bouquets">Luxury Hand Bouquets</option>
-                <option value="Luxury Vases">Luxury Vases</option>
-                <option value="Haram & Hotel Gifts">Haram & Hotel Gifts</option>
-                <option value="Seasonal Specials">Seasonal Specials</option>
-                <option value="Chocolates & Flowers">Chocolates & Flowers</option>
-                <option value="Bridal Bouquets">Bridal Bouquets</option>
-              </select>
-            </div>
-
-            {/* Product Type */}
-            <div className="lg:col-span-2">
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">Product Type</label>
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none"
-              >
-                <option value="All">All Product Types</option>
-                <option value="Physical Product">Physical Product (Ready Delivery)</option>
-                <option value="Custom Service">Custom Service (Bouquet Styling)</option>
-                <option value="Digital Product">Digital Gift Voucher</option>
-                <option value="Product Bundle">Luxury Combo Bundle</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Saved Filters Chips Row */}
-          <div className="pt-3 border-t border-slate-100 flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 me-2">
-              <Bookmark className="w-3.5 h-3.5 text-slate-400" />
-              <span>Saved Filters:</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => toast('Filter preset: Low Stock applied', 'info')}
-              className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
-            >
-              Low Stock
-            </button>
-            <button
-              type="button"
-              onClick={() => toast('Filter preset: Out of Stock applied', 'info')}
-              className="px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
-            >
-              Out of Stock
-            </button>
-            <button
-              type="button"
-              onClick={() => toast('Filter preset: Luxury Flowers applied', 'info')}
-              className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors cursor-pointer"
-            >
-              Luxury Flowers
-            </button>
-            <button
-              type="button"
-              onClick={() => toast('Filter preset: Active Products applied', 'info')}
-              className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
-            >
-              Active Products
-            </button>
-            <button
-              type="button"
-              onClick={() => toast('Current filter saved to favorites', 'success')}
-              className="px-3 py-1 rounded-full text-xs font-bold border border-dashed border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors cursor-pointer"
-            >
-              + Save Current Filter
-            </button>
-          </div>
-        </div>
 
         {/* ── CARD 2: Deleted Products ── */}
         <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
@@ -860,6 +836,9 @@ export const StoreProducts: React.FC = () => {
                               <img
                                 src={item.image}
                                 alt={item.name}
+                                loading="lazy"
+                                decoding="async"
+                                onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                                 className="w-9 h-9 rounded-xl object-cover border border-slate-200 shrink-0"
                               />
                             ) : (
@@ -933,7 +912,7 @@ export const StoreProducts: React.FC = () => {
     <AdminPageShell className="pb-16 max-w-[1600px] mx-auto space-y-5">
       {/* ── SUBNAV TABS: All Products · Add Product (Types) · Brands & Custom Fields ── */}
       <div
-        className="flex items-center gap-1.5 p-1.5 rounded-2xl border shadow-xs overflow-x-auto custom-scroll"
+        className="flex items-center gap-1.5 p-1.5 rounded-2xl border shadow-xs overflow-x-auto no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
       >
         <button
@@ -1089,44 +1068,29 @@ export const StoreProducts: React.FC = () => {
         </div>
       </div>
 
-      {/* ── EXPANDABLE CATEGORY FILTER BAR ── */}
+      {/* ── EXPANDABLE PRODUCT FILTERS PANEL (100% Matching Reference Screenshot) ── */}
       {showFilterDrawer && (
-        <div className="bg-white dark:bg-[#071E26] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-3 flex-wrap text-xs animate-in fade-in duration-100">
-          <span className="font-bold text-slate-500">{t('categoryLabel')}:</span>
-          <button
-            type="button"
-            onClick={() => setSelectedCategory('all')}
-            className={`px-3 py-1 rounded-lg font-bold cursor-pointer transition-colors ${
-              selectedCategory === 'all'
-                ? 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-400'
-                : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-            }`}
-          >
-            {isAr ? 'الكل' : 'All'}
-          </button>
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1 rounded-lg font-bold cursor-pointer transition-colors ${
-                selectedCategory === cat
-                  ? 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-400'
-                  : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-              }`}
-            >
-              {getProductDisplayCategory(cat, locale)}
-            </button>
-          ))}
-          {selectedCategory !== 'all' && (
-            <button
-              type="button"
-              onClick={() => setSelectedCategory('all')}
-              className="text-rose-500 font-bold hover:underline ms-auto cursor-pointer"
-            >
-              {isAr ? 'إعادة ضبط' : 'Reset'}
-            </button>
-          )}
+        <div className="animate-in fade-in slide-in-from-top-2 duration-150">
+          <ProductFiltersPanel
+            storeId={activeStore.id}
+            criteria={filterCriteria}
+            onCriteriaChange={setFilterCriteria}
+            onApply={() => toast(isAr ? 'تم تطبيق الفلاتر على قائمة المنتجات' : 'Filters applied to catalog', 'success')}
+            onClear={() => {
+              setFilterCriteria({
+                channel: 'All',
+                brand: 'All',
+                search: '',
+                productType: 'All',
+                category: 'All',
+                status: 'All',
+              });
+              setSelectedCategory('all');
+            }}
+            availableBrands={availableStoreBrands}
+            availableCategories={categories}
+            showHeader={false}
+          />
         </div>
       )}
 
@@ -1216,220 +1180,990 @@ export const StoreProducts: React.FC = () => {
         </div>
       </div>
 
-      {/* ── PRODUCTS TABLE CARD CONTAINER (Mockup 06) ── */}
-      <div className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-start text-xs border-separate border-spacing-0">
-            <thead>
-              <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
-                <th className="py-4 px-4 w-10 text-start" style={{ borderBottom: '1px solid var(--border)' }}>
+      {/* ── CATALOG CONTAINER (TABLE OR GRID) + SIDE DRAWER (Screenshot 2 Exact) ── */}
+      <div className={isSideDrawerOpen && editingProduct ? 'grid grid-cols-1 lg:grid-cols-12 gap-5 items-start' : 'w-full'}>
+        {/* Main Catalog View (Left Column if Drawer Open) */}
+        <div className={isSideDrawerOpen && editingProduct ? 'lg:col-span-7 xl:col-span-8 min-w-0' : 'w-full'}>
+          {/* ── PRODUCTS TABLE / GRID CARD CONTAINER (Makdah Flowers Spec & Mockup 06 Exact) ── */}
+          <div className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+            {/* ── TABLE TOOLBAR (Spec Section 6 & 9) ── */}
+            <div className="p-3 border-b border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/40">
+              {/* Left: Bulk Selection & Actions & Grid/List View Toggles */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={pagedProducts.length > 0 && selectedProductIds.length === pagedProducts.length}
                     onChange={toggleSelectAll}
                     className="rounded cursor-pointer"
                   />
-                </th>
-                <th className="py-4 px-3 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  {t('product')}
-                </th>
-                <th className="py-4 px-3 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  {t('categoryLabel')}
-                </th>
-                <th className="py-4 px-3 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  {isAr ? 'السعر (ر.س)' : 'Price (SAR)'}
-                </th>
-                <th className="py-4 px-3 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  {t('stockCount')}
-                </th>
-                <th className="py-4 px-3 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  {isAr ? 'الحالة' : 'Status'}
-                </th>
-                <th className="py-4 px-3 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  {t('salesCount')}
-                </th>
-                <th className="py-4 px-4 text-center font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  {isAr ? 'إجراءات' : 'Actions'}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagedProducts.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-xs" style={{ color: 'var(--muted)' }}>
+                  <span>{isAr ? 'تحديد الكل' : 'Select All'}</span>
+                </label>
+                <select
+                  value={bulkAction}
+                  onChange={(e) => setBulkAction(e.target.value)}
+                  className="px-2.5 py-1.5 text-xs font-medium rounded-xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none"
+                >
+                  <option value="">{isAr ? 'إجراءات جماعية' : 'Bulk actions'}</option>
+                  <option value="publish">{isAr ? 'نشر المنتجات' : 'Publish'}</option>
+                  <option value="draft">{isAr ? 'تحويل لمسودة' : 'Move to Draft'}</option>
+                  <option value="delete">{isAr ? 'حذف المحدد' : 'Delete Selected'}</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={handleApplyBulkAction}
+                  disabled={selectedProductIds.length === 0}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 disabled:opacity-40 transition-colors cursor-pointer"
+                >
+                  {isAr ? 'تطبيق' : 'Apply'}
+                </button>
+
+                {/* View Mode Switcher: Grid View & List View (matching Screenshot 2 & 3) */}
+                <div className="flex items-center p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs ms-1">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('grid')}
+                    className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                      viewMode === 'grid'
+                        ? 'bg-[#0D7482] text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                    title={isAr ? 'عرض شبكي' : 'Grid View'}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('list')}
+                    className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                      viewMode === 'list'
+                        ? 'bg-[#0D7482] text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                    title={isAr ? 'عرض جدولي' : 'List View'}
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {selectedProductIds.length > 0 && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+                    {selectedProductIds.length} {isAr ? 'محدد' : 'selected'}
+                  </span>
+                )}
+              </div>
+
+              {/* Right: Inline Edit Switch (only in list view), Columns Popover, Sort & Page Size */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Inline Edit Switch (Spec Section 6 & 8) - only in table list view */}
+                {viewMode === 'list' && (
+                  <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {isAr ? 'تعديل مباشر' : 'Inline Edit'}
+                    </span>
+                    <div className="relative inline-flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={isInlineEdit}
+                        onChange={(e) => setIsInlineEdit(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-teal-600"></div>
+                    </div>
+                    <div title={isAr ? 'تعديل حقول المنتجات مباشرة في الجدول مع الحفظ التلقائي' : 'Edit catalog fields inline with automatic persistence'} className="cursor-help">
+                      <Info className="w-3.5 h-3.5 text-slate-400" />
+                    </div>
+                  </label>
+                )}
+
+                {/* Columns Customization Button & Popover (Spec Section 9) */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowColumnsPopover(!showColumnsPopover)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors ${
+                      showColumnsPopover
+                        ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>{isAr ? 'الأعمدة' : 'Columns'}</span>
+                  </button>
+
+                  {showColumnsPopover && (
+                    <div className="absolute end-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-3 z-50 animate-in fade-in duration-100 space-y-2.5">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                        <span className="font-bold text-xs text-slate-900 dark:text-white">
+                          {isAr ? 'تخصيص الأعمدة' : 'Customize Columns'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowColumnsPopover(false)}
+                          className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Column Search */}
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute start-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder={isAr ? 'بحث في الأعمدة...' : 'Search columns...'}
+                          value={columnSearch}
+                          onChange={(e) => setColumnSearch(e.target.value)}
+                          className="w-full ps-8 pe-2.5 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none"
+                        />
+                      </div>
+
+                      {/* Checkbox list */}
+                      <div className="max-h-52 overflow-y-auto space-y-1.5 custom-scroll pe-1">
+                        {[
+                          { id: 'image', label: isAr ? 'الصورة' : 'Image' },
+                          { id: 'name', label: isAr ? 'اسم المنتج' : 'Product Name' },
+                          { id: 'sku', label: isAr ? 'رمز المنتج (SKU)' : 'SKU' },
+                          { id: 'price', label: isAr ? 'السعر (ر.س)' : 'Price (SAR)' },
+                          { id: 'salePrice', label: isAr ? 'سعر التخفيض' : 'Sale Price (SAR)' },
+                          { id: 'stock', label: isAr ? 'المخزون' : 'Stock' },
+                          { id: 'category', label: isAr ? 'التصنيف' : 'Category' },
+                          { id: 'status', label: isAr ? 'الحالة' : 'Status' },
+                          { id: 'weight', label: isAr ? 'الوزن (كجم)' : 'Weight (kg)' },
+                          { id: 'shippingClass', label: isAr ? 'فئة الشحن' : 'Shipping Class' },
+                          { id: 'date', label: isAr ? 'التاريخ' : 'Date' },
+                          { id: 'salesCount', label: isAr ? 'المبيعات' : 'Sales Count' },
+                          { id: 'actions', label: isAr ? 'إجراءات' : 'Actions' },
+                        ]
+                          .filter((c) => c.label.toLowerCase().includes(columnSearch.toLowerCase()))
+                          .map((col) => (
+                            <label
+                              key={col.id}
+                              className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs"
+                            >
+                              <span className="text-slate-700 dark:text-slate-300 font-medium">{col.label}</span>
+                              <input
+                                type="checkbox"
+                                checked={visibleColumns[col.id] !== false}
+                                onChange={(e) =>
+                                  setVisibleColumns((prev) => ({
+                                    ...prev,
+                                    [col.id]: e.target.checked,
+                                  }))
+                                }
+                                className="rounded cursor-pointer"
+                              />
+                            </label>
+                          ))}
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVisibleColumns({
+                              image: true,
+                              name: true,
+                              sku: true,
+                              price: true,
+                              salePrice: true,
+                              stock: true,
+                              category: true,
+                              status: true,
+                              weight: true,
+                              shippingClass: true,
+                              date: true,
+                              salesCount: false,
+                              actions: true,
+                            });
+                            setColumnSearch('');
+                          }}
+                          className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                        >
+                          {isAr ? 'إعادة ضبط للافتراضي' : 'Reset to Default'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sort Selector (Spec Section 10) */}
+                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="text-xs font-semibold bg-transparent border-0 text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+                  >
+                    <option value="date-desc">{isAr ? 'التاريخ: الأحدث' : 'Date: Newest'}</option>
+                    <option value="name-asc">{isAr ? 'الاسم: أ-ي' : 'Name: A-Z'}</option>
+                    <option value="name-desc">{isAr ? 'الاسم: ي-أ' : 'Name: Z-A'}</option>
+                    <option value="price-asc">{isAr ? 'السعر: الأقل' : 'Price: Low-High'}</option>
+                    <option value="price-desc">{isAr ? 'السعر: الأعلى' : 'Price: High-Low'}</option>
+                    <option value="stock-asc">{isAr ? 'المخزون: الأقل' : 'Stock: Low-High'}</option>
+                  </select>
+                </div>
+
+                {/* Page Size Selector (Spec Section 14) */}
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="px-2.5 py-1.5 text-xs font-semibold rounded-xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer shadow-2xs"
+                >
+                  <option value={12}>12 {isAr ? 'لكل صفحة' : 'per page'}</option>
+                  <option value={20}>20 {isAr ? 'لكل صفحة' : 'per page'}</option>
+                  <option value={50}>50 {isAr ? 'لكل صفحة' : 'per page'}</option>
+                  <option value={100}>100 {isAr ? 'لكل صفحة' : 'per page'}</option>
+                </select>
+              </div>
+            </div>
+
+            {/* ── CONDITIONAL VIEW: GRID OR TABLE ── */}
+            {viewMode === 'grid' ? (
+              /* ── 1. GRID VIEW (Mockup 06 & Screenshot 2 Exact) ── */
+              <div className="p-4 sm:p-5">
+                {pagedProducts.length === 0 ? (
+                  <div className="py-16 text-center text-xs" style={{ color: 'var(--muted)' }}>
                     {isAr ? 'لا توجد منتجات مطابقة لخيارات البحث.' : 'No products found matching your criteria.'}
-                  </td>
-                </tr>
-              ) : (
-                pagedProducts.map((prod) => {
-                  const isChecked = selectedProductIds.includes(prod.id);
-                  return (
-                    <tr
-                      key={prod.id}
-                      className="border-b hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition-colors"
-                      style={{ borderColor: 'var(--border)' }}
-                    >
-                      {/* Checkbox */}
-                      <td className="py-3.5 px-4" style={{ borderBottom: '1px solid var(--border)' }}>
+                  </div>
+                ) : (
+                  <div
+                    className={`grid gap-4 sm:gap-5 ${
+                      isSideDrawerOpen && editingProduct
+                        ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
+                        : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4'
+                    }`}
+                  >
+                    {pagedProducts.map((prod) => {
+                      const isChecked = selectedProductIds.includes(prod.id);
+                      const isPublished = prod.status === 'published' || (prod as any).status === 'active';
+                      const isEditing = editingProductId === prod.id && isSideDrawerOpen;
+
+                      return (
+                        <div
+                          key={prod.id}
+                          className={`rounded-2xl border transition-all duration-150 p-3.5 flex flex-col justify-between group relative ${
+                            isEditing
+                              ? 'border-teal-500 ring-2 ring-teal-500/20 bg-teal-50/10 dark:bg-teal-950/20 shadow-sm'
+                              : 'border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#071E26] hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-xs'
+                          }`}
+                        >
+                          {/* Top Controls Row inside Card */}
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            {/* Checkbox */}
+                            <label className="cursor-pointer p-0.5">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleSelectProduct(prod.id)}
+                                className="rounded cursor-pointer w-4 h-4 text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-slate-700"
+                              />
+                            </label>
+
+                            {/* Top-Right Action Buttons (Edit, Copy, Trash, More) */}
+                            <div className="flex items-center gap-1 bg-white/90 dark:bg-slate-800/90 p-0.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                              {/* Edit Pencil */}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEdit(prod)}
+                                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-teal-600 cursor-pointer transition-colors"
+                                title={t('editProduct')}
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Copy Duplicate */}
+                              <button
+                                type="button"
+                                onClick={() => handleDuplicateProduct(prod)}
+                                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-blue-600 cursor-pointer transition-colors"
+                                title={isAr ? 'نسخ المنتج' : 'Duplicate'}
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Delete Trash */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteProduct(prod)}
+                                className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-300 hover:text-rose-600 cursor-pointer transition-colors"
+                                title={t('deleteProduct')}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* More 3-dots */}
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveActionMenuId(activeActionMenuId === prod.id ? null : prod.id)}
+                                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 cursor-pointer transition-colors"
+                                  title="More"
+                                >
+                                  <MoreHorizontal className="w-3.5 h-3.5" />
+                                </button>
+
+                                {activeActionMenuId === prod.id && (
+                                  <div
+                                    className="absolute end-0 top-full mt-1 z-50 w-40 rounded-xl border p-1 shadow-lg text-xs font-semibold bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 animate-in fade-in duration-100"
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleOpenEdit(prod, true);
+                                        setActiveActionMenuId(null);
+                                      }}
+                                      className="w-full text-start px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <Eye className="w-3.5 h-3.5 text-blue-500" />
+                                      <span>{t('viewProduct')}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        togglePublishProduct(prod.id);
+                                        setActiveActionMenuId(null);
+                                        toast(isAr ? 'تم تغيير حالة نشر المنتج' : 'Product status updated', 'success');
+                                      }}
+                                      className="w-full text-start px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                      <span>{isAr ? 'تبديل النشر' : 'Toggle Status'}</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Product Image */}
+                          <div
+                            onClick={() => handleOpenEdit(prod)}
+                            className="aspect-square w-full rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80 flex items-center justify-center p-3 cursor-pointer group-hover:scale-[1.01] transition-transform overflow-hidden mb-3"
+                          >
+                            <img
+                              src={prod.image || FALLBACK_PRODUCT_IMAGE}
+                              alt={getProductDisplayName(prod, locale)}
+                              loading="lazy"
+                              decoding="async"
+                              onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
+                              className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
+                            />
+                          </div>
+
+                          {/* Product Info */}
+                          <div className="flex-1 flex flex-col justify-between">
+                            <div>
+                              <h4
+                                onClick={() => handleOpenEdit(prod)}
+                                title={getProductDisplayName(prod, locale)}
+                                className="font-bold text-sm text-slate-900 dark:text-white line-clamp-2 leading-snug cursor-pointer hover:text-teal-600 dark:hover:text-teal-400 mb-1"
+                              >
+                                {getProductDisplayName(prod, locale)}
+                              </h4>
+                              <p className="text-xs text-slate-400 dark:text-slate-500 font-mono font-medium mb-3">
+                                SKU: {prod.sku}
+                              </p>
+                            </div>
+
+                            {/* Bottom Row: Price, Stock, Status */}
+                            <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 dark:border-slate-800/80 mt-auto gap-2">
+                              <div className="flex flex-col">
+                                <span className="font-extrabold text-sm text-slate-900 dark:text-white">
+                                  {money(prod.price)}
+                                </span>
+                                <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                      prod.stock === 0
+                                        ? 'bg-rose-500'
+                                        : prod.stock < 10
+                                        ? 'bg-amber-500'
+                                        : 'bg-emerald-500'
+                                    }`}
+                                  />
+                                  <span>
+                                    {prod.stock} {isAr ? 'في المخزون' : 'in stock'}
+                                  </span>
+                                </span>
+                              </div>
+
+                              <div>
+                                {isPublished ? (
+                                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 whitespace-nowrap">
+                                    Published
+                                  </span>
+                                ) : (
+                                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 whitespace-nowrap">
+                                    Draft
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* ── 2. TABLE VIEW (Spec Section 7 & 8 - Responsive 2-Line Title & Crisp Gaps) ── */
+              <div className="overflow-x-auto no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <table className="w-full text-start text-xs border-separate border-spacing-0">
+                  <thead>
+                    <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
+                      {/* Selection Checkbox */}
+                      <th className="py-3 px-2 w-8 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
                         <input
                           type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleSelectProduct(prod.id)}
+                          checked={pagedProducts.length > 0 && selectedProductIds.length === pagedProducts.length}
+                          onChange={toggleSelectAll}
                           className="rounded cursor-pointer"
                         />
-                      </td>
+                      </th>
 
-                      {/* Product Thumbnail + Name + SKU */}
-                      <td className="py-3.5 px-3" style={{ borderBottom: '1px solid var(--border)' }}>
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={prod.image || FALLBACK_PRODUCT_IMAGE}
-                            alt={getProductDisplayName(prod, locale)}
-                            onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
-                            className="w-11 h-11 rounded-xl object-cover border shrink-0 bg-slate-100 dark:bg-slate-800"
-                            style={{ borderColor: 'var(--border)' }}
-                          />
-                          <div className="min-w-0">
-                            <span
-                              onClick={() => handleOpenEdit(prod)}
-                              className="font-bold block truncate max-w-[220px] cursor-pointer hover:underline"
-                              style={{ color: 'var(--text)' }}
-                            >
-                              {getProductDisplayName(prod, locale)}
-                            </span>
-                            <span className="text-[11px] font-mono block text-slate-400">
-                              SKU: {prod.sku}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
+                      {/* Drag Handle Column when Inline Edit is Active */}
+                      {isInlineEdit && (
+                        <th className="py-3 px-1.5 w-6 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
+                          <span className="sr-only">Reorder</span>
+                        </th>
+                      )}
 
-                      {/* Category */}
-                      <td className="py-3.5 px-3 whitespace-nowrap font-medium" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
-                        {getProductDisplayCategory(prod, locale)}
-                      </td>
+                      {/* Image */}
+                      {visibleColumns.image && (
+                        <th className="py-3 px-1.5 w-10 text-center font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {isAr ? 'الصورة' : 'Image'}
+                        </th>
+                      )}
+
+                      {/* Product Name */}
+                      {visibleColumns.name && (
+                        <th className="py-3 px-2 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {t('product')}
+                        </th>
+                      )}
+
+                      {/* SKU */}
+                      {visibleColumns.sku && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden sm:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          SKU
+                        </th>
+                      )}
 
                       {/* Price */}
-                      <td className="py-3.5 px-3 whitespace-nowrap font-bold" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
-                        {money(prod.price)}
-                      </td>
+                      {visibleColumns.price && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {isAr ? 'السعر (ر.س)' : 'Price (SAR)'}
+                        </th>
+                      )}
+
+                      {/* Sale Price */}
+                      {visibleColumns.salePrice && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden md:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {isAr ? 'سعر التخفيض' : 'Sale Price (SAR)'}
+                        </th>
+                      )}
 
                       {/* Stock */}
-                      <td className="py-3.5 px-3 whitespace-nowrap font-medium" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
-                        {prod.stock}
-                      </td>
+                      {visibleColumns.stock && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {t('stockCount')}
+                        </th>
+                      )}
 
-                      {/* Status Chip */}
-                      <td className="py-3.5 px-3 whitespace-nowrap" style={{ borderBottom: '1px solid var(--border)' }}>
-                        {getStatusChip(prod.status, prod.stock)}
-                      </td>
+                      {/* Category */}
+                      {visibleColumns.category && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {t('categoryLabel')}
+                        </th>
+                      )}
+
+                      {/* Status */}
+                      {visibleColumns.status && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {isAr ? 'الحالة' : 'Status'}
+                        </th>
+                      )}
+
+                      {/* Weight */}
+                      {visibleColumns.weight && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden lg:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {isAr ? 'الوزن (كجم)' : 'Weight (kg)'}
+                        </th>
+                      )}
+
+                      {/* Shipping Class */}
+                      {visibleColumns.shippingClass && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {isAr ? 'فئة الشحن' : 'Shipping Class'}
+                        </th>
+                      )}
+
+                      {/* Date */}
+                      {visibleColumns.date && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden 2xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {isAr ? 'التاريخ' : 'Date'}
+                        </th>
+                      )}
 
                       {/* Sales Count */}
-                      <td className="py-3.5 px-3 whitespace-nowrap font-medium font-mono" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
-                        {(prod.salesCount ?? (prod.price > 100 ? 1200 : 450)).toLocaleString()}
-                      </td>
+                      {visibleColumns.salesCount && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden 2xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {t('salesCount')}
+                        </th>
+                      )}
 
-                      {/* Actions: Eye & Popover */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap relative" style={{ borderBottom: '1px solid var(--border)' }}>
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(prod)}
-                            className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors"
-                            style={{ borderColor: 'var(--border)', color: 'var(--accent)' }}
-                            title="Edit Product"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={() => setActiveActionMenuId(activeActionMenuId === prod.id ? null : prod.id)}
-                              className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors"
-                              style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
-                              title="More Options"
-                            >
-                              <MoreHorizontal className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* Dropdown Action Popover */}
-                            {activeActionMenuId === prod.id && (
-                              <div
-                                className="absolute end-0 top-8 z-50 w-44 rounded-xl border p-1 shadow-lg text-xs font-semibold animate-in fade-in duration-100"
-                                style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleOpenEdit(prod);
-                                    setActiveActionMenuId(null);
-                                  }}
-                                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-                                >
-                                  <Edit className="w-3.5 h-3.5 text-blue-500" />
-                                  <span>{t('editProduct')}</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleDuplicateProduct(prod);
-                                    setActiveActionMenuId(null);
-                                  }}
-                                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-                                >
-                                  <Copy className="w-3.5 h-3.5 text-slate-400" />
-                                  <span>{isAr ? 'نسخ المنتج' : 'Duplicate Product'}</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    togglePublishProduct(prod.id);
-                                    setActiveActionMenuId(null);
-                                    toast(isAr ? 'تم تغيير حالة نشر المنتج' : 'Product status updated', 'success');
-                                  }}
-                                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-                                >
-                                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                                  <span>{isAr ? 'تبديل النشر' : 'Toggle Status'}</span>
-                                </button>
-                                <div className="h-[1px] my-1" style={{ background: 'var(--border)' }} />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveActionMenuId(null);
-                                    handleDeleteProduct(prod);
-                                  }}
-                                  className="w-full text-start px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  <span>{t('deleteProduct')}</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
+                      {/* Actions */}
+                      {visibleColumns.actions && (
+                        <th className="py-3 px-2 text-center font-bold text-[11px] w-36 min-w-[136px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {isAr ? 'إجراءات' : 'Actions'}
+                        </th>
+                      )}
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                  </thead>
+                  <tbody>
+                    {pagedProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan={14} className="py-12 text-center text-xs" style={{ color: 'var(--muted)' }}>
+                          {isAr ? 'لا توجد منتجات مطابقة لخيارات البحث.' : 'No products found matching your criteria.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      pagedProducts.map((prod) => {
+                        const isChecked = selectedProductIds.includes(prod.id);
+                        const formattedDate = (prod.publishedAt
+                          ? new Date(prod.publishedAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+                          : 'Oct 12, 2026'
+                        );
+                        const shippingClassVal = (prod as any).shippingClass || (prod.category === 'Shoes' ? 'Shoes' : prod.price > 1000 ? 'Electronics' : 'Small Items');
+
+                        return (
+                          <tr
+                            key={prod.id}
+                            className="border-b hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition-colors"
+                            style={{ borderColor: 'var(--border)' }}
+                          >
+                            {/* Checkbox */}
+                            <td className="py-2.5 px-2 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleSelectProduct(prod.id)}
+                                className="rounded cursor-pointer"
+                              />
+                            </td>
+
+                            {/* Drag Handle if Inline Edit is ON */}
+                            {isInlineEdit && (
+                              <td className="py-2.5 px-1.5 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
+                                <GripVertical className="w-3.5 h-3.5 text-slate-400 mx-auto cursor-grab" />
+                              </td>
+                            )}
+
+                            {/* Image Thumbnail */}
+                            {visibleColumns.image && (
+                              <td className="py-2 px-1.5 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
+                                <img
+                                  src={prod.image || FALLBACK_PRODUCT_IMAGE}
+                                  alt={getProductDisplayName(prod, locale)}
+                                  loading="lazy"
+                                  decoding="async"
+                                  onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
+                                  className="w-8 h-8 rounded-lg object-contain border mx-auto bg-slate-50 dark:bg-slate-800 p-0.5"
+                                  style={{ borderColor: 'var(--border)' }}
+                                />
+                              </td>
+                            )}
+
+                            {/* Product Name (2 to 3 Lines Responsive Wrap) */}
+                            {visibleColumns.name && (
+                              <td className="py-2.5 px-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                                {isInlineEdit ? (
+                                  <input
+                                    type="text"
+                                    defaultValue={getProductDisplayName(prod, locale)}
+                                    onBlur={(e) => handleInlineFieldChange(prod.id, 'name', e.target.value)}
+                                    className="w-full min-w-[120px] max-w-[200px] px-2 py-1 text-xs font-semibold rounded-lg border bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                                  />
+                                ) : (
+                                  <div className="min-w-0 max-w-[130px] md:max-w-[170px] xl:max-w-[210px]">
+                                    <span
+                                      onClick={() => handleOpenEdit(prod)}
+                                      title={getProductDisplayName(prod, locale)}
+                                      className="font-bold text-xs line-clamp-2 sm:line-clamp-3 leading-snug break-words cursor-pointer hover:underline hover:text-teal-600 dark:hover:text-teal-400 block"
+                                      style={{ color: 'var(--text)' }}
+                                    >
+                                      {getProductDisplayName(prod, locale)}
+                                    </span>
+                                  </div>
+                                )}
+                              </td>
+                            )}
+
+                            {/* SKU */}
+                            {visibleColumns.sku && (
+                              <td className="py-2.5 px-1.5 xl:px-2 hidden sm:table-cell" style={{ borderBottom: '1px solid var(--border)' }}>
+                                {isInlineEdit ? (
+                                  <input
+                                    type="text"
+                                    defaultValue={prod.sku}
+                                    onBlur={(e) => handleInlineFieldChange(prod.id, 'sku', e.target.value)}
+                                    className="w-20 px-1.5 py-1 text-xs font-mono font-bold rounded-lg border bg-white dark:bg-slate-900 uppercase focus:outline-none"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                                  />
+                                ) : (
+                                  <span className="text-[11px] font-mono text-slate-400 font-bold break-all leading-tight block max-w-[85px] xl:max-w-[105px]" title={prod.sku}>
+                                    {prod.sku}
+                                  </span>
+                                )}
+                              </td>
+                            )}
+
+                            {/* Price */}
+                            {visibleColumns.price && (
+                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap font-bold text-xs" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                                {isInlineEdit ? (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    defaultValue={prod.price}
+                                    onBlur={(e) => handleInlineFieldChange(prod.id, 'price', Number(e.target.value))}
+                                    className="w-18 px-1.5 py-1 text-xs font-bold font-mono rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                                  />
+                                ) : (
+                                  money(prod.price)
+                                )}
+                              </td>
+                            )}
+
+                            {/* Sale Price */}
+                            {visibleColumns.salePrice && (
+                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap font-bold text-xs hidden md:table-cell" style={{ borderBottom: '1px solid var(--border)' }}>
+                                {isInlineEdit ? (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    defaultValue={prod.discountedPrice ?? ''}
+                                    placeholder="-"
+                                    onBlur={(e) =>
+                                      handleInlineFieldChange(
+                                        prod.id,
+                                        'discountedPrice',
+                                        e.target.value ? Number(e.target.value) : null
+                                      )
+                                    }
+                                    className="w-18 px-1.5 py-1 text-xs font-bold font-mono rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                                  />
+                                ) : prod.discountedPrice ? (
+                                  <span className="text-emerald-600 dark:text-emerald-400">
+                                    {money(prod.discountedPrice)}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">-</span>
+                                )}
+                              </td>
+                            )}
+
+                            {/* Stock with colored dot */}
+                            {visibleColumns.stock && (
+                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className={`w-2 h-2 rounded-full shrink-0 ${
+                                      prod.stock === 0
+                                        ? 'bg-rose-500'
+                                        : prod.stock < 10
+                                          ? 'bg-amber-500'
+                                          : 'bg-emerald-500'
+                                    }`}
+                                    title={
+                                      prod.stock === 0
+                                        ? 'Out of stock'
+                                        : prod.stock < 10
+                                          ? 'Low stock'
+                                          : 'In stock'
+                                    }
+                                  />
+                                  {isInlineEdit ? (
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      defaultValue={prod.stock}
+                                      onBlur={(e) => handleInlineFieldChange(prod.id, 'stock', Number(e.target.value))}
+                                      className="w-14 px-1.5 py-1 text-xs font-mono font-bold rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
+                                      style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                                    />
+                                  ) : (
+                                    <span className="font-medium font-mono">{prod.stock}</span>
+                                  )}
+                                </div>
+                              </td>
+                            )}
+
+                            {/* Category */}
+                            {visibleColumns.category && (
+                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap font-medium text-xs" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                                {isInlineEdit ? (
+                                  <select
+                                    defaultValue={prod.category}
+                                    onChange={(e) => handleInlineFieldChange(prod.id, 'category', e.target.value)}
+                                    className="px-2 py-1 text-xs rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                                  >
+                                    {categories.map((c) => (
+                                      <option key={c} value={c}>
+                                        {c}
+                                      </option>
+                                    ))}
+                                    <option value="Shoes">Shoes</option>
+                                    <option value="Flowers">Flowers</option>
+                                    <option value="Home Decor">Home Decor</option>
+                                    <option value="Kitchen">Kitchen</option>
+                                    <option value="Toys">Toys</option>
+                                    <option value="Electronics">Electronics</option>
+                                    <option value="Gifts">Gifts</option>
+                                  </select>
+                                ) : (
+                                  <div className="line-clamp-2 break-words leading-tight text-xs max-w-[100px] xl:max-w-[130px]" title={getProductDisplayCategory(prod, locale)}>
+                                    {getProductDisplayCategory(prod, locale)}
+                                  </div>
+                                )}
+                              </td>
+                            )}
+
+                            {/* Status */}
+                            {visibleColumns.status && (
+                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs" style={{ borderBottom: '1px solid var(--border)' }}>
+                                {isInlineEdit ? (
+                                  <select
+                                    defaultValue={prod.status}
+                                    onChange={(e) => handleInlineFieldChange(prod.id, 'status', e.target.value as any)}
+                                    className="px-2 py-1 text-xs font-bold rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                                  >
+                                    <option value="published">Published</option>
+                                    <option value="draft">Draft</option>
+                                  </select>
+                                ) : (
+                                  getStatusChip(prod.status, prod.stock)
+                                )}
+                              </td>
+                            )}
+
+                            {/* Weight (kg) */}
+                            {visibleColumns.weight && (
+                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs hidden lg:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                                {isInlineEdit ? (
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    defaultValue={prod.weightKg ?? 0.8}
+                                    onBlur={(e) => handleInlineFieldChange(prod.id, 'weightKg', Number(e.target.value))}
+                                    className="w-14 px-1.5 py-1 text-xs font-mono rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                                  />
+                                ) : (
+                                  <span className="font-mono text-slate-500">
+                                    {prod.weightKg ?? 0.8} kg
+                                  </span>
+                                )}
+                              </td>
+                            )}
+
+                            {/* Shipping Class */}
+                            {visibleColumns.shippingClass && (
+                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs hidden xl:table-cell" style={{ borderBottom: '1px solid var(--border)' }}>
+                                {isInlineEdit ? (
+                                  <select
+                                    defaultValue={shippingClassVal}
+                                    onChange={(e) => handleInlineFieldChange(prod.id, 'shippingClass' as any, e.target.value)}
+                                    className="px-2 py-1 text-xs rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                                  >
+                                    <option value="Shoes">Shoes</option>
+                                    <option value="Small Items">Small Items</option>
+                                    <option value="Medium Item">Medium Item</option>
+                                    <option value="Electronics">Electronics</option>
+                                    <option value="Flowers">Flowers</option>
+                                  </select>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 max-w-[85px] truncate block" title={shippingClassVal}>
+                                    {shippingClassVal}
+                                  </span>
+                                )}
+                              </td>
+                            )}
+
+                            {/* Date */}
+                            {visibleColumns.date && (
+                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap font-mono text-[11px] text-slate-500 hidden 2xl:table-cell" style={{ borderBottom: '1px solid var(--border)' }}>
+                                {formattedDate}
+                              </td>
+                            )}
+
+                            {/* Sales Count */}
+                            {visibleColumns.salesCount && (
+                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap font-medium font-mono text-xs hidden 2xl:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                                {(prod.salesCount ?? (prod.price > 100 ? 1200 : 450)).toLocaleString()}
+                              </td>
+                            )}
+
+                            {/* Actions */}
+                            {visibleColumns.actions && (
+                              <td className="py-2.5 px-2 text-center whitespace-nowrap relative w-36 min-w-[136px]" style={{ borderBottom: '1px solid var(--border)' }}>
+                                <div className="inline-flex items-center justify-center gap-1.5 w-full">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEdit(prod)}
+                                    className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--accent)' }}
+                                    title={t('editProduct')}
+                                  >
+                                    <Edit className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDuplicateProduct(prod)}
+                                    className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+                                    title={isAr ? 'نسخ المنتج' : 'Duplicate Product'}
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteProduct(prod)}
+                                    className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer shadow-xs transition-colors"
+                                    title={t('deleteProduct')}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <div className="relative">
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveActionMenuId(activeActionMenuId === prod.id ? null : prod.id)}
+                                      className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors"
+                                      style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+                                      title="More Options"
+                                    >
+                                      <MoreHorizontal className="w-3.5 h-3.5" />
+                                    </button>
+
+                                    {/* Dropdown Action Popover */}
+                                    {activeActionMenuId === prod.id && (
+                                      <div
+                                        className="absolute end-0 top-8 z-50 w-44 rounded-xl border p-1 shadow-lg text-xs font-semibold animate-in fade-in duration-100"
+                                        style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            handleOpenEdit(prod, true);
+                                            setActiveActionMenuId(null);
+                                          }}
+                                          className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                        >
+                                          <Eye className="w-3.5 h-3.5 text-blue-500" />
+                                          <span>{t('viewProduct')}</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            togglePublishProduct(prod.id);
+                                            setActiveActionMenuId(null);
+                                            toast(isAr ? 'تم تغيير حالة نشر المنتج' : 'Product status updated', 'success');
+                                          }}
+                                          className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                        >
+                                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                          <span>{isAr ? 'تبديل النشر' : 'Toggle Status'}</span>
+                                        </button>
+                                        <div className="h-[1px] my-1" style={{ background: 'var(--border)' }} />
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setActiveActionMenuId(null);
+                                            handleDeleteProduct(prod);
+                                          }}
+                                          className="w-full text-start px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                          <span>{t('deleteProduct')}</span>
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* ── PAGINATION CONTROLS MATCHING MOCKUP 06 ── */}
+            <WindowedPagination
+              currentPage={safePage}
+              totalPages={pageCount}
+              totalCount={totalCount}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              isAr={isAr}
+              itemLabel={isAr ? 'منتج' : 'products'}
+              pageSizeOptions={[12, 20, 50, 100]}
+            />
+          </div>
         </div>
 
-        {/* ── PAGINATION CONTROLS MATCHING MOCKUP 06 ── */}
-        <WindowedPagination
-          currentPage={safePage}
-          totalPages={pageCount}
-          totalCount={totalCount}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-          isAr={isAr}
-          itemLabel={isAr ? 'منتج' : 'products'}
-          pageSizeOptions={[10, 20, 50, 100]}
-        />
+        {/* ── RIGHT COLUMN: PRODUCT EDIT DRAWER (MATCHING SCREENSHOT 2) ── */}
+        {isSideDrawerOpen && editingProduct && (
+          <div className="lg:col-span-5 xl:col-span-4 min-w-0">
+            <ProductEditDrawer
+              isOpen={isSideDrawerOpen}
+              product={editingProduct}
+              storeId={activeStore.id}
+              categories={categories}
+              availableBrands={availableStoreBrands}
+              onClose={() => {
+                setIsSideDrawerOpen(false);
+                setEditingProductId(null);
+              }}
+              onSave={(updatedData) => {
+                updateProduct(editingProduct.id, updatedData, activeStore.id);
+                toast(t('productSavedSuccess'), 'success');
+                setIsSideDrawerOpen(false);
+                setEditingProductId(null);
+              }}
+              onExpandFullView={() => {
+                setIsSideDrawerOpen(false);
+                setCurrentView('edit');
+              }}
+              onDelete={() => {
+                setIsSideDrawerOpen(false);
+                handleDeleteProduct(editingProduct);
+              }}
+              onDuplicate={() => {
+                handleDuplicateProduct(editingProduct);
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* ── BULK PRODUCT UPLOAD & EXPORT MODAL ── */}
@@ -1444,1239 +2178,3 @@ export const StoreProducts: React.FC = () => {
   );
 };
 
-/**
- * ────────────────────────────────────────────────
- *  3-COLUMN STORE PRODUCT EDITOR (Mockup 07 Pixel Perfect)
- * ────────────────────────────────────────────────
- */
-interface StoreProductEditorViewProps {
-  product: Product;
-  storeName: string;
-  storeSlug?: string;
-  categories: string[];
-  onBack: () => void;
-  onSave: (updatedData: Partial<Product>) => void;
-  onDelete: () => void;
-}
-
-const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
-  product,
-  storeName,
-  storeSlug,
-  categories,
-  onBack,
-  onSave,
-  onDelete,
-}) => {
-  const { t, locale, currency, money } = usePrefs();
-  const isAr = locale === 'ar';
-
-  // Form State initialized from product
-  const [name, setName] = useState(product.name || '');
-  const [subtitle, setSubtitle] = useState(product.subtitle || '');
-  const [description, setDescription] = useState(product.description || '');
-  const [productType, setProductType] = useState(product.productType || 'Physical Product');
-  const [brand, setBrand] = useState(product.brand || storeName);
-  const [category, setCategory] = useState(product.category || 'Bouquets');
-
-  // Inventory & Shipping
-  const [stock, setStock] = useState(product.stock ?? 25);
-  const [sku, setSku] = useState(product.sku || 'SKU-001');
-  const [weightKg, setWeightKg] = useState(product.weightKg ?? 1.5);
-  const [countryOfOrigin, setCountryOfOrigin] = useState(product.countryOfOrigin || 'Saudi Arabia');
-  const [requiresShipping, setRequiresShipping] = useState(product.requiresShipping !== false);
-  const [trackInventory, setTrackInventory] = useState(product.trackInventory !== false);
-
-  // Pricing
-  const [price, setPrice] = useState(product.price ?? 199);
-  const [discountedPrice, setDiscountedPrice] = useState(product.discountedPrice ?? 149);
-  const [costPrice, setCostPrice] = useState(product.costPrice ?? 85);
-  const [taxRate, setTaxRate] = useState(product.taxRate ?? 15);
-
-  // SEO Settings
-  const [pageTitle, setPageTitle] = useState(
-    product.seoTitle || `${name} | ${storeName}`
-  );
-  const [customUrl, setCustomUrl] = useState(product.customUrl || 'product-item');
-  const [seoDescription, setSeoDescription] = useState(
-    product.seoDescription ||
-      'Experience premium quality, fresh selection and guaranteed satisfaction.'
-  );
-
-  // Gallery images
-  const [gallery, setGallery] = useState<string[]>(
-    product.galleryUrls && product.galleryUrls.length > 0
-      ? product.galleryUrls
-      : product.additionalImages && product.additionalImages.length > 0
-        ? [product.image, ...product.additionalImages].filter(Boolean)
-        : [
-            product.image || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
-            'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?auto=format&fit=crop&w=600&q=80',
-            'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=600&q=80',
-            'https://images.unsplash.com/photo-1582794543139-8ac9cb0f7b11?auto=format&fit=crop&w=600&q=80',
-          ]
-  );
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
-  const [pickerMode, setPickerMode] = useState<'main' | 'gallery' | 'color' | 'comparison'>('gallery');
-  const [colorPickerTargetIdx, setColorPickerTargetIdx] = useState<number | null>(null);
-  const [showAiColorPopover, setShowAiColorPopover] = useState(false);
-
-  // Specifications & Model Comparison Infographic Image (per product)
-  const [specComparisonImage, setSpecComparisonImage] = useState(product.specComparisonImage || '');
-  const [specComparisonImageAr, setSpecComparisonImageAr] = useState(product.specComparisonImageAr || '');
-
-  // Dynamic Product Colors (3 by default, expandable/editable by admin with AI assistant)
-  const [colors, setColors] = useState<ProductColorOption[]>(() => {
-    if (product.colors && Array.isArray(product.colors) && product.colors.length > 0) {
-      return product.colors;
-    }
-    return getProductColors(product);
-  });
-
-  const handleSelectMedia = (selected: any) => {
-    const assets = Array.isArray(selected) ? selected : [selected];
-    const newUrls = assets.map((a: any) => a.optimizedUrl || a.webpUrl || a.originalUrl).filter(Boolean);
-    if (newUrls.length === 0) return;
-    if (pickerMode === 'main') {
-      const copy = [...gallery];
-      copy[selectedImageIndex] = newUrls[0];
-      setGallery(copy);
-    } else if (pickerMode === 'gallery') {
-      setGallery((prev) => [...prev, ...newUrls]);
-      setSelectedImageIndex(gallery.length);
-    } else if (pickerMode === 'color' && colorPickerTargetIdx !== null) {
-      const updated = [...colors];
-      if (updated[colorPickerTargetIdx]) {
-        updated[colorPickerTargetIdx] = {
-          ...updated[colorPickerTargetIdx],
-          image: newUrls[0]
-        };
-        setColors(updated);
-      }
-      setColorPickerTargetIdx(null);
-    } else if (pickerMode === 'comparison') {
-      setSpecComparisonImage(newUrls[0]);
-    }
-  };
-
-  // Profit calculation
-  const calculatedProfit = useMemo(() => {
-    const effPrice = discountedPrice > 0 ? discountedPrice : price;
-    return Math.max(0, effPrice - costPrice);
-  }, [price, discountedPrice, costPrice]);
-
-  // AI Smart Automotive Seat Palettes
-  const AI_SEAT_PALETTES = [
-    {
-      id: 'oem_triad',
-      titleAr: 'طقم الوكالة الثلاثي المعتمد (3 ألوان)',
-      titleEn: 'Triple OEM Certified Palette (3 Colors)',
-      descAr: 'بيج وكالة، جملي رويال، رمادي ألماني',
-      colors: [
-        {
-          id: 'beige',
-          nameAr: 'بيج وكالة',
-          nameEn: 'OEM Beige',
-          hex: '#d8c8b4',
-          image: 'https://cdn.salla.sa/wYYVD/abf29eff-f124-4ceb-80f1-dca55d161546-750x1000-oUBcGKNNeCBsZcKewMV0170NkVrlqXwTYbVPQRMn.jpg',
-        },
-        {
-          id: 'camel',
-          nameAr: 'جملي رويال',
-          nameEn: 'Royal Camel',
-          hex: '#b87b44',
-          image: 'https://cdn.salla.sa/wYYVD/cVdD2fv4M7tFxKEr2Qolzcq9zgQXE4UhGUEOuvAF.png',
-        },
-        {
-          id: 'grey',
-          nameAr: 'رمادي ألماني',
-          nameEn: 'German Grey',
-          hex: '#7e848d',
-          image: 'https://cdn.salla.sa/wYYVD/zYsjiTRpFRCgzbPdxlwaBsYZhpPR5oUFlr9EmDov.png',
-        },
-      ]
-    },
-    {
-      id: 'vip_luxury',
-      titleAr: 'طقم VIP كبار الشخصيات (3 ألوان)',
-      titleEn: 'VIP Luxury Interior Palette (3 Colors)',
-      descAr: 'أسود ملكي، عنابي فاخر، جملي رويال',
-      colors: [
-        {
-          id: 'black',
-          nameAr: 'أسود ملكي',
-          nameEn: 'Royal Black',
-          hex: '#1e2124',
-          image: 'https://cdn.salla.sa/wYYVD/eb50919f-da35-472e-820f-1319588bde31-750x1000-u2z52ESAtM9kL2R62p0rVycVUA7RhJQe4jwOsVtR.jpg',
-        },
-        {
-          id: 'maroon',
-          nameAr: 'عنابي فاخر',
-          nameEn: 'Luxury Maroon',
-          hex: '#641525',
-          image: 'https://cdn.salla.sa/wYYVD/mxvpwbKs7HgjOvroP6zPnwVB6cO56TkZrasW0GPv.png',
-        },
-        {
-          id: 'camel',
-          nameAr: 'جملي رويال',
-          nameEn: 'Royal Camel',
-          hex: '#b87b44',
-          image: 'https://cdn.salla.sa/wYYVD/cVdD2fv4M7tFxKEr2Qolzcq9zgQXE4UhGUEOuvAF.png',
-        },
-      ]
-    },
-    {
-      id: 'sport_cruise',
-      titleAr: 'طقم سبورت وأناقة عصرية (3 ألوان)',
-      titleEn: 'Modern Sport Cruise (3 Colors)',
-      descAr: 'كحلي داكن، رمادي ألماني، أسود ملكي',
-      colors: [
-        {
-          id: 'navy',
-          nameAr: 'كحلي داكن',
-          nameEn: 'Navy Blue',
-          hex: '#18273d',
-          image: 'https://cdn.salla.sa/wYYVD/533e5580-b807-4d5d-8cdc-c88113841be2-750x1000-cusHPAMBUcXmtMSKkL7sqO6fPXmDqp4Vw5NtTOAy.jpg',
-        },
-        {
-          id: 'grey',
-          nameAr: 'رمادي ألماني',
-          nameEn: 'German Grey',
-          hex: '#7e848d',
-          image: 'https://cdn.salla.sa/wYYVD/zYsjiTRpFRCgzbPdxlwaBsYZhpPR5oUFlr9EmDov.png',
-        },
-        {
-          id: 'black',
-          nameAr: 'أسود ملكي',
-          nameEn: 'Royal Black',
-          hex: '#1e2124',
-          image: 'https://cdn.salla.sa/wYYVD/eb50919f-da35-472e-820f-1319588bde31-750x1000-u2z52ESAtM9kL2R62p0rVycVUA7RhJQe4jwOsVtR.jpg',
-        },
-      ]
-    },
-    {
-      id: 'desert_safari',
-      titleAr: 'طقم صحراوي وسفاري (3 ألوان)',
-      titleEn: 'Desert & Safari Edition (3 Colors)',
-      descAr: 'زيتوني صحراوي، بيج وكالة، جملي رويال',
-      colors: [
-        {
-          id: 'olive',
-          nameAr: 'زيتوني صحراوي',
-          nameEn: 'Desert Olive',
-          hex: '#556b2f',
-          image: 'https://cdn.salla.sa/wYYVD/Upqo30iNth6s16xuqENbWsTXwgkffli1i49LHjHs.png',
-        },
-        {
-          id: 'beige',
-          nameAr: 'بيج وكالة',
-          nameEn: 'OEM Beige',
-          hex: '#d8c8b4',
-          image: 'https://cdn.salla.sa/wYYVD/abf29eff-f124-4ceb-80f1-dca55d161546-750x1000-oUBcGKNNeCBsZcKewMV0170NkVrlqXwTYbVPQRMn.jpg',
-        },
-        {
-          id: 'camel',
-          nameAr: 'جملي رويال',
-          nameEn: 'Royal Camel',
-          hex: '#b87b44',
-          image: 'https://cdn.salla.sa/wYYVD/cVdD2fv4M7tFxKEr2Qolzcq9zgQXE4UhGUEOuvAF.png',
-        },
-      ]
-    }
-  ];
-
-  const handleApplyAiPalette = (pal: typeof AI_SEAT_PALETTES[0]) => {
-    setColors(pal.colors);
-    setShowAiColorPopover(false);
-  };
-
-  const handleSmartAiAutoSuggest = () => {
-    const text = (name + ' ' + (brand || '') + ' ' + (description || '')).toLowerCase();
-    let selectedPalette = AI_SEAT_PALETTES[0]; // default OEM
-    if (text.includes('يوكن') || text.includes('yukon') || text.includes('لاندكروزر') || text.includes('land cruiser') || text.includes('safari') || text.includes('باترول')) {
-      selectedPalette = AI_SEAT_PALETTES[3]; // Desert
-    } else if (text.includes('vip') || text.includes('لكزس') || text.includes('lexus') || text.includes('فاخر')) {
-      selectedPalette = AI_SEAT_PALETTES[1]; // VIP
-    } else if (text.includes('سبورت') || text.includes('sport') || text.includes('كحلي') || text.includes('تورس')) {
-      selectedPalette = AI_SEAT_PALETTES[2]; // Sport
-    }
-    setColors(selectedPalette.colors);
-    setShowAiColorPopover(false);
-  };
-
-  const handleAddColor = () => {
-    const newIdx = colors.length + 1;
-    const defaultAvailable = SEAT_COLORS.find(sc => !colors.some(c => c.id === sc.id)) || {
-      id: `custom-color-${Date.now()}`,
-      nameAr: `لون إضافي ${newIdx}`,
-      nameEn: `Custom Color ${newIdx}`,
-      hex: '#3e0f77',
-      image: gallery[0] || 'https://cdn.salla.sa/wYYVD/cVdD2fv4M7tFxKEr2Qolzcq9zgQXE4UhGUEOuvAF.png',
-    };
-    setColors([...colors, {
-      id: defaultAvailable.id,
-      nameAr: defaultAvailable.nameAr,
-      nameEn: defaultAvailable.nameEn,
-      hex: defaultAvailable.hex,
-      image: defaultAvailable.image,
-    }]);
-  };
-
-  const handleRemoveColor = (idx: number) => {
-    if (colors.length <= 1) return;
-    setColors(colors.filter((_, i) => i !== idx));
-  };
-
-  const handleUpdateColor = (idx: number, patch: Partial<ProductColorOption>) => {
-    setColors(colors.map((c, i) => i === idx ? { ...c, ...patch } : c));
-  };
-
-  const handleSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    onSave({
-      name,
-      subtitle,
-      description,
-      productType,
-      brand,
-      category,
-      stock: Number(stock),
-      sku,
-      weightKg: Number(weightKg),
-      countryOfOrigin,
-      requiresShipping,
-      trackInventory,
-      price: Number(price),
-      discountedPrice: Number(discountedPrice),
-      costPrice: Number(costPrice),
-      taxRate: Number(taxRate),
-      image: gallery[selectedImageIndex] || gallery[0],
-      galleryUrls: gallery,
-      additionalImages: gallery.slice(1),
-      seoTitle: pageTitle,
-      customUrl,
-      seoDescription,
-      colors,
-      specComparisonImage,
-      specComparisonImageAr,
-    });
-    if (typeof window !== 'undefined' && product.id) {
-      if (specComparisonImage) {
-        localStorage.setItem(`unityteck_coffee_spec_img_${product.id}`, specComparisonImage);
-      } else {
-        localStorage.removeItem(`unityteck_coffee_spec_img_${product.id}`);
-      }
-    }
-  };
-
-  return (
-    <AdminPageShell className="pb-16 max-w-[1600px] mx-auto space-y-5">
-      {/* ── BREADCRUMBS & TOP HEADER ROW ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          {/* Breadcrumbs matching mockup 07: < Products > Edit Product */}
-          <div className="flex items-center gap-2 text-xs mb-1 font-semibold" style={{ color: 'var(--muted)' }}>
-            <button
-              type="button"
-              onClick={onBack}
-              className="hover:underline flex items-center gap-1 cursor-pointer transition-colors"
-              style={{ color: 'var(--accent)' }}
-            >
-              <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
-              <span>{t('productsTitle')}</span>
-            </button>
-            <span>/</span>
-            <span className="font-bold" style={{ color: 'var(--text)' }}>
-              {t('editProduct')}
-            </span>
-          </div>
-
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
-            {t('editProduct')}
-          </h1>
-          <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--muted)' }}>
-            {isAr ? `حدّث معلومات المنتج، الصور، التسعير، وإعدادات السيو لمتجر ${storeName}.` : `Update your product information, images, pricing, and more for ${storeName}.`}
-          </p>
-        </div>
-
-        {/* Action buttons matching mockup 07 (View, Delete, Save) */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            type="button"
-            onClick={() => window.open(gallery[selectedImageIndex] || '#', '_blank')}
-            className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 flex items-center gap-2 cursor-pointer shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-          >
-            <Eye className="w-4 h-4 text-slate-500" />
-            <span>{t('viewProduct')}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onDelete}
-            className="px-4 py-2 text-xs font-bold rounded-xl border border-rose-200 text-rose-600 bg-rose-50/60 dark:bg-rose-950/30 dark:border-rose-900 dark:text-rose-400 flex items-center gap-1.5 cursor-pointer shadow-xs hover:bg-rose-100 transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>{t('deleteProduct')}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSubmit()}
-            className="px-5 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-all hover:opacity-95"
-            style={{ background: 'var(--portal-cta, #0284c7)' }}
-          >
-            <Save className="w-4 h-4 shrink-0" />
-            <span>{t('saveChanges')}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── 3-COLUMN LAYOUT MATCHING MOCKUP 07 ── */}
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* ── COLUMN 1: PRODUCT IMAGES (approx 3 cols / 26% width) ── */}
-        <div className="lg:col-span-3 space-y-5">
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-            <div>
-              <h3 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
-                <Box className="w-4 h-4 text-cyan-600" />
-                <span>{t('productImages')}</span>
-              </h3>
-              <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
-                {t('productImagesSub')}
-              </p>
-            </div>
-
-            {/* Main Image Box */}
-            <div className="relative rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-900/50 aspect-square flex items-center justify-center">
-              <span className="absolute top-3 start-3 px-2.5 py-1 rounded-md text-[10px] font-bold bg-blue-600 text-white z-10 shadow-xs">
-                {t('mainImage')}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (gallery.length > 1) {
-                    const next = gallery.filter((_, idx) => idx !== selectedImageIndex);
-                    setGallery(next);
-                    setSelectedImageIndex(0);
-                  }
-                }}
-                className="absolute top-3 end-3 p-1.5 rounded-lg bg-white/80 dark:bg-slate-800/80 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 z-10 cursor-pointer shadow-xs"
-                title="Remove image"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPickerMode('main');
-                  setIsMediaPickerOpen(true);
-                }}
-                className="absolute bottom-3 end-3 px-2.5 py-1 rounded-lg bg-black/60 hover:bg-black/80 text-white text-[10px] font-bold z-10 cursor-pointer shadow-xs flex items-center gap-1 backdrop-blur-xs"
-                title={isAr ? 'تغيير الصورة من مكتبة الوسائط' : 'Change image from Media Library'}
-              >
-                <FolderSearch className="w-3 h-3" />
-                <span>{isAr ? 'تغيير' : 'Change'}</span>
-              </button>
-              <img
-                src={gallery[selectedImageIndex] || gallery[0] || FALLBACK_PRODUCT_IMAGE}
-                alt="Product Preview"
-                onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
-                className="w-full h-full object-contain p-4"
-              />
-            </div>
-
-            {/* 4 Thumbnails Strip */}
-            <div className="grid grid-cols-4 gap-2">
-              {gallery.slice(0, 4).map((url, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setSelectedImageIndex(idx)}
-                  className={`aspect-square rounded-xl border overflow-hidden p-1 transition-all cursor-pointer bg-slate-50 dark:bg-slate-900/50 ${
-                    selectedImageIndex === idx
-                      ? 'border-blue-600 ring-2 ring-blue-600/30'
-                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-400'
-                  }`}
-                >
-                  <img
-                    src={url || FALLBACK_PRODUCT_IMAGE}
-                    alt={`thumb-${idx}`}
-                    onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
-                    className="w-full h-full object-contain"
-                  />
-                </button>
-              ))}
-            </div>
-
-            {/* Dropzone Upload Box */}
-            <div
-              onClick={() => {
-                setPickerMode('gallery');
-                setIsMediaPickerOpen(true);
-              }}
-              className="p-5 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 text-center cursor-pointer transition-colors"
-            >
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400 flex items-center justify-center mx-auto mb-2">
-                <UploadCloud className="w-5 h-5" />
-              </div>
-              <div className="font-bold text-xs" style={{ color: 'var(--text)' }}>
-                {isAr ? 'إضافة صور من مكتبة الوسائط' : 'Add Images from Media Library'}
-              </div>
-              <p className="text-[10px] mt-1" style={{ color: 'var(--muted)' }}>
-                {isAr
-                  ? 'رفع ملفات جديدة، الاختيار من المكتبة، أو الاستيراد من Google Drive'
-                  : 'Upload new, choose from Media Library, or import from Google Drive'}
-              </p>
-            </div>
-
-            {/* Specifications & Model Comparison Infographic Card */}
-            <div className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#071E26] shadow-xs space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-xs flex items-center gap-1.5" style={{ color: 'var(--text)' }}>
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" />
-                    <span>{isAr ? 'مخطط مقارنة المواصفات' : 'Specifications & Comparison Image'}</span>
-                  </h4>
-                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'صورة جدول مقارنة المواصفات الفنية المعتمدة لهذا المنتج' : 'Comparison infographic image displayed on product page'}
-                  </p>
-                </div>
-              </div>
-
-              {specComparisonImage ? (
-                <div className="relative rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-900 group">
-                  <img
-                    src={specComparisonImage}
-                    alt="Specs Comparison"
-                    onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
-                    className="w-full h-36 object-contain p-2"
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSpecComparisonImage('')}
-                      className="px-2.5 py-1 rounded-lg bg-rose-600 text-white text-[10px] font-bold cursor-pointer"
-                    >
-                      {isAr ? 'حذف' : 'Remove'}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={specComparisonImage}
-                  onChange={(e) => setSpecComparisonImage(e.target.value)}
-                  placeholder={isAr ? 'رابط صورة المقارنة...' : 'Comparison image URL...'}
-                  className="flex-1 px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPickerMode('comparison');
-                    setIsMediaPickerOpen(true);
-                  }}
-                  className="px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900 text-xs font-bold shrink-0 hover:bg-blue-100 cursor-pointer"
-                >
-                  {isAr ? 'المكتبة' : 'Media'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── COLUMN 2: BASIC INFO + INVENTORY & SHIPPING (approx 5 cols / 42% width) ── */}
-        <div className="lg:col-span-5 space-y-5">
-          {/* Card 1: Basic Information */}
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-            <div>
-              <h3 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
-                <Box className="w-4 h-4 text-blue-600" />
-                <span>{t('basicInformation')}</span>
-              </h3>
-              <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
-                {t('basicInfoSub')}
-              </p>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                {t('productName')} *
-              </label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Luxury Hand Bouquet"
-                className="w-full px-3.5 py-2.5 rounded-xl border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                {t('productSubtitle')}
-              </label>
-              <input
-                type="text"
-                value={subtitle}
-                onChange={(e) => setSubtitle(e.target.value)}
-                placeholder="e.g. Fresh Dutch Roses with Eucalyptus"
-                className="w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none"
-                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                {t('productDescription')} *
-              </label>
-              {/* Rich text mock toolbar */}
-              <div className="flex items-center gap-1 p-1.5 rounded-t-xl border border-b-0 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-                <button type="button" className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  <Bold className="w-3.5 h-3.5" />
-                </button>
-                <button type="button" className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  <Italic className="w-3.5 h-3.5" />
-                </button>
-                <button type="button" className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  <Underline className="w-3.5 h-3.5" />
-                </button>
-                <div className="w-[1px] h-3.5 bg-slate-300 dark:bg-slate-700 mx-1" />
-                <button type="button" className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  <List className="w-3.5 h-3.5" />
-                </button>
-                <button type="button" className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  <ListOrdered className="w-3.5 h-3.5" />
-                </button>
-                <button type="button" className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  <Link2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <textarea
-                rows={4}
-                required
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full p-3.5 rounded-b-xl border text-xs focus:outline-none leading-relaxed"
-                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-              />
-            </div>
-
-            {/* 3-Column Select Row: Type, Brand, Category */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-              <div>
-                <label className="text-[11px] font-bold block mb-1 text-slate-500">
-                  {t('productType')}
-                </label>
-                <select
-                  value={productType}
-                  onChange={(e) => setProductType(e.target.value)}
-                  className="w-full px-2.5 py-2 rounded-xl border text-xs font-semibold cursor-pointer"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                >
-                  <option value="Physical Product">Physical Product</option>
-                  <option value="Digital Product">Digital Product</option>
-                  <option value="Service">Service</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold block mb-1 text-slate-500">
-                  {t('brandLabel')}
-                </label>
-                <select
-                  value={brand}
-                  onChange={(e) => setBrand(e.target.value)}
-                  className="w-full px-2.5 py-2 rounded-xl border text-xs font-semibold cursor-pointer"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                >
-                  <option value={storeName}>{storeName}</option>
-                  <option value="Artisan">Artisan</option>
-                  <option value="Imported">Imported</option>
-                  <option value="Custom Made">Custom Made</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold block mb-1 text-slate-500">
-                  {t('categoryLabel')}
-                </label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-2.5 py-2 rounded-xl border text-xs font-semibold cursor-pointer"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                >
-                  {categories.map((c) => (
-                    <option key={c} value={c}>{getProductDisplayCategory(c, locale)}</option>
-                  ))}
-                  <option value="Bouquets">{isAr ? 'باقات' : 'Bouquets'}</option>
-                  <option value="Vases">{isAr ? 'فازات' : 'Vases'}</option>
-                  <option value="Gifts">{isAr ? 'هدايا' : 'Gifts'}</option>
-                  <option value="Chocolates">{isAr ? 'شوكولاتة' : 'Chocolates'}</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: Inventory & Shipping */}
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-            <div>
-              <h3 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
-                <Box className="w-4 h-4 text-blue-600" />
-                <span>{t('inventoryShipping')}</span>
-              </h3>
-              <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
-                {t('inventoryShippingSub')}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                  {t('currentQuantity')} *
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  required
-                  value={stock}
-                  onChange={(e) => setStock(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border text-xs font-bold font-mono"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                  {t('sku')} *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={sku}
-                  onChange={(e) => setSku(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border text-xs font-mono font-bold uppercase"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                  {t('weightKgLabel')}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={weightKg}
-                  onChange={(e) => setWeightKg(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border text-xs font-mono"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                  {t('countryOfOrigin')}
-                </label>
-                <select
-                  value={countryOfOrigin}
-                  onChange={(e) => setCountryOfOrigin(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border text-xs font-semibold cursor-pointer"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                >
-                  <option value="Saudi Arabia">Saudi Arabia</option>
-                  <option value="Netherlands">Netherlands (Holland)</option>
-                  <option value="Ecuador">Ecuador</option>
-                  <option value="Kenya">Kenya</option>
-                  <option value="UAE">United Arab Emirates</option>
-                </select>
-              </div>
-            </div>
-
-            {/* 2 Toggle Switches */}
-            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <label className="flex items-center justify-between cursor-pointer">
-                <div>
-                  <span className="text-xs font-bold block" style={{ color: 'var(--text)' }}>
-                    {t('requiresShipping')}
-                  </span>
-                  <span className="text-[11px] block" style={{ color: 'var(--muted)' }}>
-                    {t('requiresShippingSub')}
-                  </span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={requiresShipping}
-                  onChange={(e) => setRequiresShipping(e.target.checked)}
-                  className="w-5 h-5 rounded cursor-pointer accent-blue-600"
-                />
-              </label>
-
-              <label className="flex items-center justify-between cursor-pointer">
-                <div>
-                  <span className="text-xs font-bold block" style={{ color: 'var(--text)' }}>
-                    {t('trackInventory')}
-                  </span>
-                  <span className="text-[11px] block" style={{ color: 'var(--muted)' }}>
-                    {t('trackInventorySub')}
-                  </span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={trackInventory}
-                  onChange={(e) => setTrackInventory(e.target.checked)}
-                  className="w-5 h-5 rounded cursor-pointer accent-blue-600"
-                />
-              </label>
-            </div>
-          </div>
-
-          {/* Card 3: Dynamic Product Colors & AI Assistant (خارطة ألوان المنتج والذكاء الاصطناعي) */}
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
-                  <Palette className="w-4 h-4 text-purple-600" />
-                  <span>{isAr ? 'ألوان وخيارات المقاعد والتلابيس' : 'Seat Colors & Variants'}</span>
-                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300">
-                    {colors.length} {isAr ? 'ألوان' : 'Colors'}
-                  </span>
-                </h3>
-                <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
-                  {isAr 
-                    ? '3 خيارات ألوان افتراضية لكل منتج مع صور حقيقية. أضف أو عدل الألوان لتتحدث فوراً في المتجر.' 
-                    : 'Exactly 3 real colors per product by default. Add or edit to update the storefront dynamically.'}
-                </p>
-              </div>
-
-              {/* Action Buttons: AI Assistant + Add Color */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowAiColorPopover(!showAiColorPopover)}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white flex items-center gap-1.5 cursor-pointer shadow-xs hover:opacity-95 transition-opacity"
-                    title={isAr ? 'مساعد الذكاء الاصطناعي لاختيار الألوان' : 'AI Color Assistant'}
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>{isAr ? '✨ مساعد الألوان الذكي' : '✨ AI Colors'}</span>
-                  </button>
-
-                  {/* AI Palettes Popover */}
-                  {showAiColorPopover && (
-                    <div className="absolute end-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-3 z-30 space-y-2.5 animate-fadeIn">
-                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-                        <div className="flex items-center gap-1.5">
-                          <Wand2 className="w-4 h-4 text-purple-600" />
-                          <span className="font-bold text-xs" style={{ color: 'var(--text)' }}>
-                            {isAr ? 'توليد ألوان ذكية للمقاعد' : 'Generate Seat Colors'}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowAiColorPopover(false)}
-                          className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      {/* Smart Auto-Suggest Button */}
-                      <button
-                        type="button"
-                        onClick={handleSmartAiAutoSuggest}
-                        className="w-full p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 font-bold text-xs flex items-center justify-between cursor-pointer hover:bg-purple-100 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-purple-600" />
-                          <div className="text-start">
-                            <span className="block font-black">{isAr ? 'اقتراح ذكي حسب السيارة' : 'Auto-Match by Car Model'}</span>
-                            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-normal">
-                              {isAr ? `توليد 3 ألوان متناسقة لـ "${brand || 'السيارة'}"` : `Best 3 colors for ${brand || 'Vehicle'}`}
-                            </span>
-                          </div>
-                        </div>
-                      </button>
-
-                      {/* Curated AI Palettes */}
-                      <div className="space-y-1.5">
-                        <span className="text-[10px] font-bold text-slate-400 block px-1">
-                          {isAr ? 'أو اختر باقة ألوان معتمدة (3 ألوان):' : 'Or select a curated 3-color palette:'}
-                        </span>
-                        {AI_SEAT_PALETTES.map(pal => (
-                          <div
-                            key={pal.id}
-                            onClick={() => handleApplyAiPalette(pal)}
-                            className="p-2 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all flex items-center justify-between"
-                          >
-                            <div>
-                              <div className="text-xs font-bold" style={{ color: 'var(--text)' }}>
-                                {isAr ? pal.titleAr : pal.titleEn}
-                              </div>
-                              <div className="text-[10px] text-slate-500">
-                                {isAr ? pal.descAr : pal.titleEn}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              {pal.colors.map((c, ci) => (
-                                <span
-                                  key={ci}
-                                  className="w-4 h-4 rounded-full border border-black/20 shadow-xs"
-                                  style={{ backgroundColor: c.hex }}
-                                  title={c.nameAr}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleAddColor}
-                  className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{isAr ? 'إضافة لون' : 'Add Color'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* List of Colors */}
-            <div className="space-y-2.5">
-              {colors.map((col, idx) => (
-                <div
-                  key={col.id || idx}
-                  className="p-3 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-2.5"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] font-bold flex items-center justify-center text-slate-600 dark:text-slate-300">
-                        {idx + 1}
-                      </span>
-                      {/* Color Preview & Native Color Picker */}
-                      <label className="relative cursor-pointer flex items-center gap-2">
-                        <span
-                          className="w-7 h-7 rounded-full border-2 border-white dark:border-slate-800 shadow-md inline-block shrink-0"
-                          style={{ backgroundColor: col.hex }}
-                        />
-                        <input
-                          type="color"
-                          value={col.hex}
-                          onChange={(e) => handleUpdateColor(idx, { hex: e.target.value })}
-                          className="sr-only"
-                        />
-                        <input
-                          type="text"
-                          value={col.hex}
-                          onChange={(e) => handleUpdateColor(idx, { hex: e.target.value })}
-                          className="w-20 px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
-                        />
-                      </label>
-                    </div>
-
-                    {/* Delete button if more than 1 color */}
-                    {colors.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveColor(idx)}
-                        className="p-1 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors"
-                        title={isAr ? 'حذف هذا اللون' : 'Delete Color'}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Names & Image Row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 block mb-0.5">
-                        {isAr ? 'الاسم بالعربية:' : 'Arabic Name:'}
-                      </label>
-                      <input
-                        type="text"
-                        value={col.nameAr}
-                        onChange={(e) => handleUpdateColor(idx, { nameAr: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
-                        placeholder="مثال: بيج وكالة"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 block mb-0.5">
-                        {isAr ? 'الاسم بالإنجليزية:' : 'English Name:'}
-                      </label>
-                      <input
-                        type="text"
-                        value={col.nameEn}
-                        onChange={(e) => handleUpdateColor(idx, { nameEn: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
-                        placeholder="e.g. OEM Beige"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 block mb-0.5">
-                        {isAr ? 'صورة المقعد الحقيقية:' : 'Real Seat Image:'}
-                      </label>
-                      <div className="flex items-center gap-1.5">
-                        <img
-                          src={col.image || gallery[0]}
-                          alt={col.nameAr}
-                          className="w-7 h-7 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shrink-0 bg-white"
-                        />
-                        <input
-                          type="text"
-                          value={col.image}
-                          onChange={(e) => handleUpdateColor(idx, { image: e.target.value })}
-                          className="flex-1 px-2 py-1.5 text-[11px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl truncate"
-                          placeholder="https://..."
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setColorPickerTargetIdx(idx);
-                            setPickerMode('color');
-                            setIsMediaPickerOpen(true);
-                          }}
-                          className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 cursor-pointer shrink-0"
-                          title={isAr ? 'اختيار من مكتبة الوسائط' : 'Pick from Media Library'}
-                        >
-                          <FolderSearch className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Hint Notice */}
-            <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 flex items-start gap-2 text-[11px] text-blue-900 dark:text-blue-300">
-              <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-              <span>
-                {isAr
-                  ? 'يتم عرض أول 3 ألوان كخيارات أساسية في بطاقة المنتج ومتجر السعيدي، مع تحديث صورة المقعد فوراً عند نقر المستهلك على اللون.'
-                  : 'The top 3 colors are displayed as primary swatches in the storefront, dynamically updating the car seat photo on click.'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* ── COLUMN 3: PRICING + SEO SETTINGS (approx 4 cols / 32% width) ── */}
-        <div className="lg:col-span-4 space-y-5">
-          {/* Card 1: Pricing */}
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-            <div>
-              <h3 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
-                <Info className="w-4 h-4 text-blue-600" />
-                <span>{t('pricing')}</span>
-              </h3>
-              <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
-                {t('pricingSub')}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                  {t('priceLabel')} *
-                </label>
-                <div className="relative">
-                  <span className="absolute start-3 top-1/2 -translate-y-1/2 font-bold text-xs text-slate-400 font-mono">
-                    {currency}
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={price}
-                    onChange={(e) => setPrice(Number(e.target.value))}
-                    className="w-full ps-14 pe-3 py-2.5 rounded-xl border text-xs font-bold font-mono"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                  {t('discountedPriceLabel')}
-                </label>
-                <div className="relative">
-                  <span className="absolute start-3 top-1/2 -translate-y-1/2 font-bold text-xs text-slate-400 font-mono">
-                    {currency}
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={discountedPrice}
-                    onChange={(e) => setDiscountedPrice(Number(e.target.value))}
-                    className="w-full ps-14 pe-3 py-2.5 rounded-xl border text-xs font-bold font-mono"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                  {t('costPriceLabel')}
-                </label>
-                <div className="relative">
-                  <span className="absolute start-3 top-1/2 -translate-y-1/2 font-bold text-xs text-slate-400 font-mono">
-                    {currency}
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={costPrice}
-                    onChange={(e) => setCostPrice(Number(e.target.value))}
-                    className="w-full ps-14 pe-3 py-2.5 rounded-xl border text-xs font-bold font-mono"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                  {t('taxLabel')}
-                </label>
-                <select
-                  value={taxRate}
-                  onChange={(e) => setTaxRate(Number(e.target.value))}
-                  className="w-full px-3 py-2.5 rounded-xl border text-xs font-semibold cursor-pointer"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                >
-                  <option value={15}>15% (KSA Standard VAT)</option>
-                  <option value={5}>5% (Reduced Tax)</option>
-                  <option value={0}>0% (Tax Exempt)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Profit Per Item Callout matching Mockup 07 */}
-            <div className="p-3.5 rounded-xl bg-blue-50/80 text-blue-900 border border-blue-200/80 dark:bg-blue-950/40 dark:text-blue-200 dark:border-blue-900/60 flex items-start gap-2.5">
-              <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-              <div>
-                <div className="text-xs font-black">
-                  {t('profitPerItem')}: {money(calculatedProfit)}
-                </div>
-                <div className="text-[11px] opacity-80 mt-0.5">
-                  {t('profitBasedOn')}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: SEO Settings */}
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-            <div>
-              <h3 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
-                <Search className="w-4 h-4 text-blue-600" />
-                <span>{t('seoSettings')}</span>
-              </h3>
-              <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
-                {t('seoSettingsSub')}
-              </p>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold" style={{ color: 'var(--text)' }}>
-                  {t('pageTitleLabel')}
-                </label>
-                <span className="text-[10px] font-mono text-slate-400">
-                  {pageTitle.length}/70
-                </span>
-              </div>
-              <input
-                type="text"
-                maxLength={70}
-                value={pageTitle}
-                onChange={(e) => setPageTitle(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none font-medium"
-                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold" style={{ color: 'var(--text)' }}>
-                  {t('customUrlLabel')}
-                </label>
-                <span className="text-[10px] font-mono text-slate-400">
-                  {customUrl.length}/100
-                </span>
-              </div>
-              <div className="flex items-center rounded-xl border overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20" style={{ borderColor: 'var(--border)' }}>
-                <span className="px-3 py-2 text-[11px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0 border-e border-slate-200 dark:border-slate-700">
-                  {storeSlug || 'my-store'}.com/products/
-                </span>
-                <input
-                  type="text"
-                  maxLength={100}
-                  value={customUrl}
-                  onChange={(e) => setCustomUrl(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                  className="w-full px-3 py-2 text-xs font-mono focus:outline-none"
-                  style={{ background: 'var(--input-bg)', color: 'var(--input-fg)' }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold" style={{ color: 'var(--text)' }}>
-                  {t('pageDescriptionLabel')}
-                </label>
-                <span className="text-[10px] font-mono text-slate-400">
-                  {seoDescription.length}/160
-                </span>
-              </div>
-              <textarea
-                rows={3}
-                maxLength={160}
-                value={seoDescription}
-                onChange={(e) => setSeoDescription(e.target.value)}
-                className="w-full p-3 rounded-xl border text-xs focus:outline-none leading-relaxed"
-                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Central Media Picker Modal for Product */}
-        <MediaPickerModal
-          isOpen={isMediaPickerOpen}
-          onClose={() => setIsMediaPickerOpen(false)}
-          onSelect={handleSelectMedia}
-          multiple={pickerMode === 'gallery'}
-          allowedTypes={['image', 'gif']}
-          initialFolder="products"
-          title={
-            pickerMode === 'main'
-              ? isAr
-                ? 'اختيار الصورة الرئيسية للمنتج'
-                : 'Choose Main Product Image'
-              : isAr
-                ? 'إضافة صور إلى معرض المنتج'
-                : 'Add Images to Product Gallery'
-          }
-        />
-      </form>
-    </AdminPageShell>
-  );
-};

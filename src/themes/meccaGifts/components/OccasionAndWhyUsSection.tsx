@@ -3,11 +3,29 @@ import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
 import { Sparkles, Truck, ShieldCheck, Headphones, ArrowLeft, ArrowRight, Coffee, Zap, Award } from 'lucide-react';
 
-export const OccasionAndWhyUsSection: React.FC = () => {
+export interface OccasionAndWhyUsSectionProps {
+  settings?: Record<string, any>;
+  isBuilderMode?: boolean;
+}
+
+export const OccasionAndWhyUsSection: React.FC<OccasionAndWhyUsSectionProps> = ({
+  settings,
+  isBuilderMode = false,
+}) => {
   const { language, navigateToCategory, setCurrentPage, setSelectedCategory } = useApp();
   const { activeStore } = useTenant();
   const isAr = language === 'ar';
+  const s = settings || {};
   const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
+  const isCarStore =
+    activeStore?.id?.includes('transport') ||
+    activeStore?.id?.includes('car') ||
+    Boolean(
+      activeStore?.category &&
+        (activeStore.category.includes('سيارات') ||
+          activeStore.category.toLowerCase().includes('car') ||
+          activeStore.category.toLowerCase().includes('transport'))
+    );
 
   const flowerOccasions = [
     {
@@ -186,7 +204,9 @@ export const OccasionAndWhyUsSection: React.FC = () => {
         <div className="lg:col-span-7 space-y-6">
           <div className="flex items-center justify-between pb-3 border-b border-[#ece7de]">
             <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c]">
-              {isAr ? 'تسوق حسب المناسبة' : 'Shop by Occasion'}
+              {isAr
+                ? s.titleAr || (isCoffee ? 'تسوق حسب طريقة التحضير' : isCarStore ? 'تسوق حسب نوع سيارتك' : 'تسوق حسب المناسبة')
+                : s.titleEn || (isCoffee ? 'Shop By Brew Method' : isCarStore ? 'Shop By Vehicle Type' : 'Shop by Occasion')}
             </h2>
 
             <button
@@ -220,7 +240,7 @@ export const OccasionAndWhyUsSection: React.FC = () => {
                     src={occ.image}
                     alt={isAr ? occ.titleAr : occ.title}
                     className="w-full h-full object-cover"
-                    loading="lazy"
+                    loading="lazy" decoding="async"
                   />
                 </div>
 
@@ -243,7 +263,7 @@ export const OccasionAndWhyUsSection: React.FC = () => {
         <div className="lg:col-span-5 bg-white rounded-3xl p-6 sm:p-7 border border-[#eee8df] shadow-xs space-y-5">
           <div className="pb-3 border-b border-[#ece7de]">
             <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c]">
-              {isAr ? 'لماذا تختارنا' : 'Why Choose Us'}
+              {isAr ? s.whyUsTitleAr || 'لماذا تختارنا' : s.whyUsTitleEn || 'Why Choose Us'}
             </h2>
           </div>
 
@@ -273,3 +293,4 @@ export const OccasionAndWhyUsSection: React.FC = () => {
     </section>
   );
 };
+

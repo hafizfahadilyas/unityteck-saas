@@ -422,39 +422,30 @@ export const StoreCategories: React.FC = () => {
     setError(null);
     try {
       if (isApiEnabled()) {
-        const list = await tenantApi.fetchCategories(activeStore.id, { all: true });
-        setRows(list);
-      } else {
-        const savedKey = `unityteck_store_categories_${activeStore.id}`;
-        let savedList: StoreCategory[] | null = null;
         try {
-          const raw = localStorage.getItem(savedKey);
-          if (raw) savedList = JSON.parse(raw);
-        } catch {}
-        if (savedList && Array.isArray(savedList) && savedList.length > 0) {
-          if (activeStore.id === 'store-coffee' && (savedList.length < 5 || savedList.some((c) => c.id === 'cat-cof-1'))) {
-            savedList = null;
+          const list = await tenantApi.fetchCategories(activeStore.id, { all: true });
+          if (Array.isArray(list)) {
+            setRows(list);
+            return;
           }
+        } catch (apiErr) {
+          console.warn('[StoreCategories] Live API categories fetch notice:', apiErr);
         }
-        if (savedList && Array.isArray(savedList) && savedList.length > 0) {
-          setRows(savedList);
-        } else {
-          const seed =
-            activeStore.id === 'store-coffee'
-              ? COFFEE_CATEGORIES_SEED
-              : activeStore.id === 'store-bleco'
-              ? BLECO_CATEGORIES_SEED
-              : MECCA_CATEGORIES_SEED;
-          const mapped = seed.map((c) => ({ ...c, storeId: activeStore.id }));
-          setRows(mapped);
-          try {
-            localStorage.setItem(savedKey, JSON.stringify(mapped));
-          } catch {}
-        }
+      }
+
+      const savedKey = `unityteck_store_categories_${activeStore.id}`;
+      let savedList: StoreCategory[] | null = null;
+      try {
+        const raw = localStorage.getItem(savedKey);
+        if (raw) savedList = JSON.parse(raw);
+      } catch {}
+      if (savedList && Array.isArray(savedList)) {
+        setRows(savedList);
+      } else {
+        setRows([]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load categories');
-      if (isApiEnabled()) setRows([]);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -608,12 +599,12 @@ export const StoreCategories: React.FC = () => {
           const updated = await tenantApi.updateCategory(activeStore.id, editingId, payload);
           setRows((prev) => prev.map((r) => (r.id === editingId ? updated : r)));
           bumpStore(activeStore.id, 'categories');
-          toast('Category updated', 'success');
+          toast(isAr ? 'تم تحديث التصنيف بنجاح' : 'Category updated successfully', 'success');
         } else {
           const created = await tenantApi.createCategory(activeStore.id, payload);
           setRows((prev) => [...prev, created]);
           bumpStore(activeStore.id, 'categories');
-          toast('Category created', 'success');
+          toast(isAr ? 'تم إنشاء التصنيف بنجاح' : 'Category created successfully', 'success');
         }
       } else {
         const savedKey = `unityteck_store_categories_${activeStore.id}`;
@@ -635,8 +626,12 @@ export const StoreCategories: React.FC = () => {
               : r,
           );
           setRows(next);
-          try { localStorage.setItem(savedKey, JSON.stringify(next)); } catch {}
-          toast('Category updated', 'success');
+          try {
+            localStorage.setItem(savedKey, JSON.stringify(next));
+            window.dispatchEvent(new CustomEvent('unityteck-categories-updated', { detail: { storeId: activeStore.id, categories: next } }));
+          } catch {}
+          bumpStore(activeStore.id, 'categories');
+          toast(isAr ? 'تم تحديث التصنيف بنجاح' : 'Category updated successfully', 'success');
         } else {
           const created: StoreCategory = {
             id: `cat-${Date.now()}`,
@@ -653,14 +648,18 @@ export const StoreCategories: React.FC = () => {
           };
           const next = [...rows, created];
           setRows(next);
-          try { localStorage.setItem(savedKey, JSON.stringify(next)); } catch {}
-          toast('Category created', 'success');
+          try {
+            localStorage.setItem(savedKey, JSON.stringify(next));
+            window.dispatchEvent(new CustomEvent('unityteck-categories-updated', { detail: { storeId: activeStore.id, categories: next } }));
+          } catch {}
+          bumpStore(activeStore.id, 'categories');
+          toast(isAr ? 'تم إنشاء التصنيف بنجاح' : 'Category created successfully', 'success');
         }
       }
       setShowModal(false);
       setEditingId(null);
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Save category failed', 'error');
+      toast(err instanceof Error ? err.message : (isAr ? 'فشل حفظ التصنيف' : 'Save category failed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -670,7 +669,7 @@ export const StoreCategories: React.FC = () => {
     if (denyMutate()) return;
     if (confirmDeleteId !== id) {
       setConfirmDeleteId(id);
-      toast('Click delete again to confirm', 'info');
+      toast(isAr ? 'اضغط على زر الحذف مرة أخرى للتأكيد' : 'Click delete again to confirm', 'info');
       return;
     }
     try {
@@ -686,9 +685,9 @@ export const StoreCategories: React.FC = () => {
       }
       bumpStore(activeStore.id, 'categories');
       setConfirmDeleteId(null);
-      toast('Category deleted', 'success');
+      toast(isAr ? 'تم حذف التصنيف بنجاح' : 'Category deleted successfully', 'success');
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Delete failed', 'error');
+      toast(err instanceof Error ? err.message : (isAr ? 'فشل الحذف' : 'Delete failed'), 'error');
     }
   };
 
@@ -704,6 +703,8 @@ export const StoreCategories: React.FC = () => {
             <img
               src={c.imageUrl}
               alt={c.name}
+              loading="lazy"
+              decoding="async"
               onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
               className="w-10 h-10 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shrink-0"
             />
@@ -821,7 +822,7 @@ export const StoreCategories: React.FC = () => {
   const parentOptionsForForm = rows.filter((r) => r.id !== editingId && !r.parentId);
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-200">
+    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-200">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">

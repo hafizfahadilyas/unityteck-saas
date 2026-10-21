@@ -28,7 +28,6 @@ import {
 } from 'lucide-react';
 import type { DomainRecord } from '../../types';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
-import { DomainRoutingTester } from './domains/DomainRoutingTester';
 
 export const StoreHostingDomain: React.FC = () => {
   const {
@@ -46,7 +45,7 @@ export const StoreHostingDomain: React.FC = () => {
   const isAr = locale === 'ar';
 
   const [copiedUrl, setCopiedUrl] = useState(false);
-  const [customDomainInput, setCustomDomainInput] = useState(activeStore.custom_domain || 'giftshop-sa.com');
+  const [customDomainInput, setCustomDomainInput] = useState(activeStore.custom_domain || (activeStore.slug ? `${activeStore.slug}.sa` : ''));
   const [selectedHostingTier, setSelectedHostingTier] = useState<DomainRecord['hostingTier']>(
     'Hostinger Shared Business',
   );
@@ -245,9 +244,6 @@ export const StoreHostingDomain: React.FC = () => {
           </a>
         </div>
       </div>
-
-      {/* Multi-Domain Dynamic Routing Tester (Phase 6.1) */}
-      <DomainRoutingTester embeddedIn="store" />
 
       {/* Hostinger Backup & Migration Quick Card Banner */}
       <div

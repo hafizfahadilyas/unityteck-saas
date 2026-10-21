@@ -1,6 +1,8 @@
 import React from 'react';
 import type { InvoiceDocument, InvoiceTemplateConfig, InvoiceLineItem } from '../../../../types/invoices';
 import { RefreshCw, FileText, CheckCircle, ShieldCheck, MapPin, Phone, Mail, Building } from 'lucide-react';
+import { getLocalizedItemName, getCustomerDisplayName, getLocalizedAddress } from '../../../../utils/storeLocalization';
+import { formatInvoiceDate } from '../../../../utils/zatca';
 
 interface TemplateProps {
   document: InvoiceDocument;
@@ -15,7 +17,7 @@ export const CreditNoteTemplate: React.FC<TemplateProps> = ({ document, config, 
     <div
       className="bg-white text-slate-900 w-full min-h-[1050px] p-8 sm:p-12 flex flex-col justify-between select-text"
       style={{
-        fontFamily: isAr ? 'Tajawal, Cairo, sans-serif' : 'Inter, sans-serif',
+        fontFamily: isAr ? "'Cairo', 'Tajawal', sans-serif" : 'Inter, sans-serif',
       }}
       dir={isAr ? 'rtl' : 'ltr'}
     >
@@ -28,7 +30,7 @@ export const CreditNoteTemplate: React.FC<TemplateProps> = ({ document, config, 
             </div>
             <div>
               <h2 className="text-base font-black">
-                {isAr ? 'إشعار دائن ضريبي معتمد (Credit Note)' : 'OFFICIAL TAX CREDIT ADJUSTMENT NOTE'}
+                {isAr ? 'إشعار دائن ضريبي معتمد' : 'OFFICIAL TAX CREDIT ADJUSTMENT NOTE'}
               </h2>
               <p className="text-xs text-purple-800">
                 {isAr
@@ -48,10 +50,10 @@ export const CreditNoteTemplate: React.FC<TemplateProps> = ({ document, config, 
         <div className="flex items-start justify-between border-b pb-6" style={{ borderColor: '#e2e8f0' }}>
           <div className="space-y-1">
             <h1 className="text-xl font-black text-slate-900">
-              {isAr ? document.seller.nameAr || document.seller.name : document.seller.name}
+              {isAr ? document.seller.nameAr || document.seller.name : document.seller.nameEn || document.seller.name}
             </h1>
             <p className="text-xs text-slate-500">
-              {isAr ? document.seller.addressAr || document.seller.address : document.seller.address}
+              {isAr ? document.seller.addressAr || document.seller.address : document.seller.addressEn || getLocalizedAddress(document.seller.address, 'en')}
             </p>
             <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 pt-1">
               {document.seller.vatNumber && (
@@ -93,12 +95,8 @@ export const CreditNoteTemplate: React.FC<TemplateProps> = ({ document, config, 
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
               {isAr ? 'تاريخ إصدار الإشعار' : 'Credit Note Date'}
             </span>
-            <p className="text-sm font-semibold text-slate-800 mt-1">
-              {new Date(document.issueDate).toLocaleDateString(isAr ? 'ar-SA' : 'en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
+            <p className="text-sm font-semibold text-slate-800 mt-1 whitespace-nowrap" dir={isAr ? 'rtl' : 'ltr'}>
+              {formatInvoiceDate(document.issueDate, locale)}
             </p>
           </div>
 
@@ -107,9 +105,13 @@ export const CreditNoteTemplate: React.FC<TemplateProps> = ({ document, config, 
               {isAr ? 'العميل المستفيد' : 'Credited Customer'}
             </span>
             <p className="text-sm font-bold text-slate-900 mt-1">
-              {isAr ? document.buyer.nameAr || document.buyer.name : document.buyer.name}
+              {isAr ? document.buyer.nameAr || document.buyer.name : document.buyer.nameEn || getCustomerDisplayName(document.buyer.name, 'en')}
             </p>
-            {document.buyer.phone && <p className="text-xs text-slate-600 dir-ltr">{document.buyer.phone}</p>}
+            {document.buyer.phone && (
+              <p className="text-xs text-slate-600 font-mono text-start mt-0.5">
+                <span dir="ltr" className="inline-block">{document.buyer.phone}</span>
+              </p>
+            )}
           </div>
 
           <div>
@@ -133,10 +135,9 @@ export const CreditNoteTemplate: React.FC<TemplateProps> = ({ document, config, 
             {isAr ? 'سبب إصدار الإشعار الدائن:' : 'Reason for Credit Note Issuance:'}
           </span>
           <p className="text-sm font-semibold text-slate-900">
-            {document.creditReason ||
-              (isAr
-                ? 'تسوية وتعديل أسعار ترويجي بعد إتمام عملية الشراء.'
-                : 'Post-purchase price adjustment and promotional account credit.')}
+            {isAr
+              ? document.creditReasonAr || document.creditReason || 'تسوية وتعديل أسعار ترويجي بعد إتمام عملية الشراء.'
+              : document.creditReasonEn || document.creditReason || 'Post-purchase price adjustment and promotional account credit.'}
           </p>
         </div>
 
@@ -159,7 +160,7 @@ export const CreditNoteTemplate: React.FC<TemplateProps> = ({ document, config, 
                 <tr key={item.id || idx}>
                   <td className="py-3 px-2 font-mono text-slate-400">{idx + 1}</td>
                   <td className="py-3 px-2 font-medium text-slate-900">
-                    <div>{isAr ? item.nameAr || item.name : item.name}</div>
+                    <div>{getLocalizedItemName(item, locale)}</div>
                   </td>
                   {config.columns.sku && <td className="py-3 px-2 font-mono text-slate-500">{item.sku || '—'}</td>}
                   <td className="py-3 px-2 text-center font-bold text-slate-900">{item.quantity}</td>
@@ -207,7 +208,7 @@ export const CreditNoteTemplate: React.FC<TemplateProps> = ({ document, config, 
             : 'NOTE: Issuing a Credit Note constitutes an accounting balance adjustment against the tax invoice and does not automatically imply cash refund without an authoritative refund voucher.'}
         </p>
         <div className="flex items-center justify-between text-[10px] text-slate-400">
-          <span>{document.seller.name} · {isAr ? 'إشعار دائن رسمي' : 'Official Credit Note Ledger'}</span>
+          <span>{isAr ? document.seller.nameAr || document.seller.name : document.seller.nameEn || document.seller.name} · {isAr ? 'إشعار دائن رسمي' : 'Official Credit Note Ledger'}</span>
           <span>{isAr ? 'الصفحة 1 من 1' : 'Page 1 of 1'}</span>
         </div>
       </div>

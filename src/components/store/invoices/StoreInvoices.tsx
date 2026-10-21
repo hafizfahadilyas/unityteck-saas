@@ -9,6 +9,8 @@ import type {
   InvoiceTemplateConfig,
 } from '../../../types/invoices';
 import { invoiceService } from '../../../services/invoiceService';
+import { getCustomerDisplayName } from '../../../utils/storeLocalization';
+import { formatInvoiceDate } from '../../../utils/zatca';
 import { InvoicePreviewModal } from './InvoicePreviewModal';
 import { InvoiceCreateModal } from './InvoiceCreateModal';
 import { InvoiceTemplateDesigner } from './InvoiceTemplateDesigner';
@@ -50,26 +52,34 @@ interface StoreInvoicesProps {
 }
 
 export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) => {
-  const { activeStore, addOrder } = useTenant();
+  const { activeStore, currentOrders, addOrder } = useTenant();
   const storeId = activeStore?.id || 'store-1';
   const { t, locale, money } = usePrefs();
   const { toast, confirm } = useToast();
   const isAr = locale === 'ar';
 
   // State
-  const [documents, setDocuments] = useState<InvoiceDocument[]>(() =>
-    invoiceService.getDocuments(storeId)
-  );
+  const [documents, setDocuments] = useState<InvoiceDocument[]>(() => {
+    if (currentOrders && currentOrders.length > 0) {
+      return invoiceService.syncWithStoreOrders(storeId, currentOrders, activeStore);
+    }
+    return invoiceService.getDocuments(storeId, activeStore);
+  });
 
   const [templateConfig, setTemplateConfig] = useState<InvoiceTemplateConfig>(() =>
-    invoiceService.getTemplateConfig(storeId)
+    invoiceService.getTemplateConfig(storeId, activeStore)
   );
 
-  // Reload documents when active store changes or when custom events fire
+  // Reload documents when active store changes or real orders update
   useEffect(() => {
     const load = () => {
-      setDocuments(invoiceService.getDocuments(storeId));
-      setTemplateConfig(invoiceService.getTemplateConfig(storeId));
+      if (currentOrders && currentOrders.length > 0) {
+        const synced = invoiceService.syncWithStoreOrders(storeId, currentOrders, activeStore);
+        setDocuments(synced);
+      } else {
+        setDocuments(invoiceService.getDocuments(storeId, activeStore));
+      }
+      setTemplateConfig(invoiceService.getTemplateConfig(storeId, activeStore));
     };
     load();
 
@@ -85,7 +95,7 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
       window.removeEventListener('unityteck-invoices-updated', handleUpdate);
       window.removeEventListener('unityteck-template-updated', handleUpdate);
     };
-  }, [storeId]);
+  }, [storeId, currentOrders, activeStore]);
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -199,7 +209,7 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
       case 'order_invoice':
         return { label: isAr ? 'فاتورة مبيعات' : 'Order Invoice', color: 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/30', icon: FileText };
       case 'tax_invoice':
-        return { label: isAr ? 'فاتورة ضريبية (ZATCA)' : 'Tax Invoice', color: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30', icon: ShieldCheck };
+        return { label: isAr ? 'فاتورة ضريبية معتمدة' : 'Tax Invoice', color: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30', icon: ShieldCheck };
       case 'quotation':
         return { label: isAr ? 'عرض أسعار' : 'Quotation', color: 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30', icon: Sparkles };
       case 'proforma_invoice':
@@ -293,8 +303,8 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {isAr
-                  ? 'إصدار ومعاينة وطباعة 10 نماذج فواتير ومستندات تجارية وضريبية متوافقة مع هيئة الزكاة (ZATCA)'
-                  : 'Manage, issue, print & export 10 dedicated invoice & document types with ZATCA Phase 2 compliance'}
+                  ? 'إصدار ومعاينة وطباعة نماذج الفواتير والمستندات التجارية والضريبية المعتمدة'
+                  : 'Manage, issue, print & export dedicated commercial & tax invoices'}
               </p>
             </div>
           </div>
@@ -354,10 +364,10 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
           <p className="text-[11px] text-emerald-600 dark:text-emerald-500/80 mt-1">{isAr ? 'مدفوعات مؤكدة بنكياً' : 'Verified settlements'}</p>
         </div>
 
-        {/* Tax Liability (ZATCA VAT 15%) */}
+        {/* Tax Liability */}
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{isAr ? 'ضريبة القيمة المضافة (ZATCA)' : 'ZATCA VAT (15%)'}</span>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{isAr ? 'ضريبة القيمة المضافة (15%)' : 'Value Added Tax (15%)'}</span>
             <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
               <ShieldCheck className="w-4 h-4" />
             </div>
@@ -390,7 +400,7 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
           {[
             { id: 'all', labelEn: 'All Documents', labelAr: 'جميع المستندات' },
             { id: 'order_invoice', labelEn: 'Sales Invoices', labelAr: 'فواتير المبيعات' },
-            { id: 'tax_invoice', labelEn: 'Tax Invoices (ZATCA)', labelAr: 'الفواتير الضريبية' },
+            { id: 'tax_invoice', labelEn: 'Tax Invoices', labelAr: 'الفواتير الضريبية' },
             { id: 'quotation', labelEn: 'Quotations', labelAr: 'عروض الأسعار' },
             { id: 'proforma_invoice', labelEn: 'Proforma', labelAr: 'الفواتير الأولية' },
             { id: 'payment_receipt', labelEn: 'Payment Receipts', labelAr: 'سندات القبض' },
@@ -525,7 +535,9 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
                       {/* Customer / Party */}
                       <td className="py-3.5 px-3">
                         <div className="font-semibold text-slate-900 dark:text-white">
-                          {isAr ? doc.buyer.nameAr || doc.buyer.name : doc.buyer.name}
+                          {isAr
+                            ? doc.buyer.nameAr || doc.buyer.name
+                            : doc.buyer.nameEn || getCustomerDisplayName(doc.buyer.name, 'en')}
                         </div>
                         {doc.buyer.phone && (
                           <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono dir-ltr">{doc.buyer.phone}</div>
@@ -544,8 +556,8 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
                       </td>
 
                       {/* Date */}
-                      <td className="py-3.5 px-3 text-slate-500 dark:text-slate-400 font-mono text-[11px]">
-                        {new Date(doc.issueDate).toLocaleDateString(isAr ? 'ar-SA' : 'en-US', {
+                      <td className="py-3.5 px-3 text-slate-500 dark:text-slate-400 font-mono text-[11px] whitespace-nowrap">
+                        {formatInvoiceDate(doc.issueDate, isAr ? 'ar' : 'en', {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric',

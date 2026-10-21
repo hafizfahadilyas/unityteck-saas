@@ -7,7 +7,7 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 export const ProductGrid: React.FC = () => {
   const { language, setCurrentPage, setSelectedCategory, products } = useApp();
   const isAr = language === 'ar';
-  const allProds = products && products.length > 0 ? products : PRODUCTS;
+  const allProds = products || [];
 
   const [activeTab, setActiveTab] = useState<string>('all');
 

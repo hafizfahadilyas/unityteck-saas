@@ -273,4 +273,79 @@ class CourierController extends Controller
             'message' => 'No active shipment record found with this tracking number for this store.',
         ], 404);
     }
+
+    /**
+     * List all shipments for current store (isolated by store_id)
+     */
+    public function shipments(Request $request): JsonResponse
+    {
+        $storeId = $this->requireStoreId($request);
+        if ($storeId instanceof JsonResponse) {
+            return $storeId;
+        }
+
+        $query = Shipment::query()
+            ->forStore($storeId)
+            ->with('order')
+            ->orderByDesc('created_at');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->query('status'));
+        }
+
+        if ($request->filled('provider')) {
+            $query->where('provider', $request->query('provider'));
+        }
+
+        $shipments = $query->get();
+
+        return response()->json([
+            'data' => $shipments,
+            'store_id' => $storeId,
+            'meta' => ['total' => $shipments->count()],
+        ]);
+    }
+
+    /**
+     * Update shipment status and record tracking event (isolated by store_id)
+     */
+    public function updateShipmentStatus(Request $request, string $id): JsonResponse
+    {
+        $storeId = $this->requireStoreId($request);
+        if ($storeId instanceof JsonResponse) {
+            return $storeId;
+        }
+
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(['pending', 'created', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered', 'failed', 'cancelled', 'returned'])],
+            'note' => ['nullable', 'string'],
+        ]);
+
+        $shipment = Shipment::query()->forStore($storeId)->where('id', $id)->firstOrFail();
+        $shipment->status = $validated['status'];
+        if ($validated['status'] === 'delivered') {
+            $shipment->delivered_at = now();
+        }
+        $events = $shipment->tracking_events ?? [];
+        $events[] = [
+            'time' => now()->toIso8601String(),
+            'status' => ucfirst(str_replace('_', ' ', $validated['status'])),
+            'description' => $validated['note'] ?? ("Status updated to " . ucfirst(str_replace('_', ' ', $validated['status']))),
+        ];
+        $shipment->tracking_events = $events;
+        $shipment->save();
+
+        if ($shipment->order) {
+            $shipment->order->shipping_status = $shipment->status;
+            if ($shipment->status === 'delivered') {
+                $shipment->order->status = 'delivered';
+            }
+            $shipment->order->save();
+        }
+
+        return response()->json([
+            'data' => $shipment,
+            'message' => 'Shipment status updated successfully',
+        ]);
+    }
 }

@@ -1,0 +1,34 @@
+2. Agla Step (Next Module)
+
+Module 3: Orders & Management (C:\Users\fahad\Downloads\مجلد جديد (8)\مجلد جديد (8)\Orders)
+
+Zero Mock / Dummy Data: Koi fake array ya dummy json nahi hogi. Real backend API + Hostinger MySQL database se real data aayega. Empty hone par genuine empty state (No records found).
+Strict Multi-Tenant Isolation: Har record store_id se isolated hoga taake ek store ka data doosre me na jaye.
+100% Pixel-Perfect UI/UX: Reference images ke mutabiq exact colors, spacing, borders, cards aur Lucide icons.
+Dual Themes & Dual Direction: Dark Mode + Light Mode aur RTL (Arabic) + LTR (English) dono 100% flawless.
+
+
+
+
+Orders list, order status pills, filters, order creation modal, invoice preview, aur shipping label actions ko reference DOCX & images ke mutabiq verify aur update karenge.
+
+Bataiye, Module 3 (Orders) shuru karein?
+
+Zero Mock Data & Multi-Tenant Safety:
+Koi bhi fake local state ya dummy array inject nahi kiya gaya; active storeId tenant boundary 100% locked hai.
+
+
+2. Zero Mock Data & Multi-Tenant Guarantees
+Zero Dummy Arrays / Fake State:
+Har customer ka data live activeStore.id tenant context aur API se load hoga.
+Agar customer ke paas order ya coupon na ho, toh authentic empty state ("No orders found", genuine SVG illustration, "Create Order" button) render hoga jaise screenshot mein hai.
+Multi-Tenant Protection:
+Sabhi queries aur mutations strictly store_id boundary ke andar isolated rahengi.
+Dual Theme & Bilingual (RTL/LTR):
+Arabic (dir="rtl") aur English (dir="ltr") dono ke liye pixel-perfect layout.
+Dark Mode aur Light Mode dono par clean Lucide icons aur high contrast contrast matching.
+
+
+
+SB KA ORDER NUMBER FULLY SERAIL WISE HOGAH MENUAL B ORDER CHECKOUT BOTH OR SB STORE KA APNA PANA HOGAH DYNAMIC 001 SE START HOAGH START 2 LEETER STORE NAME ..   ORDEER NAUMBER B SETTING SE CHANG KRNE KA OTPION DENA ..http://localhost:3010/admin?tab=invoices   
+

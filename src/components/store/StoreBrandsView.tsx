@@ -27,11 +27,16 @@ import { usePrefs } from '../../i18n/PrefsContext';
 import { AdminPageShell } from '../common/AdminPageHeader';
 import { useToast } from '../common/ToastProvider';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
+import { bumpStore } from '../../api/cacheTags';
 
 export interface BrandItem {
   id: string;
   name: string;
+  nameAr?: string;
+  nameEn?: string;
   description: string;
+  descriptionAr?: string;
+  descriptionEn?: string;
   logo: string;
   productsCount: number;
   showInChannels: boolean;
@@ -41,8 +46,12 @@ export interface BrandItem {
 export interface CustomFieldItem {
   id: string;
   name: string;
+  nameAr?: string;
+  nameEn?: string;
   type: 'Text' | 'File' | 'Number' | 'Date' | 'Single Select';
   appliedTo: string;
+  appliedToAr?: string;
+  appliedToEn?: string;
   showToCustomer: boolean;
   status: 'active' | 'inactive';
 }
@@ -50,31 +59,55 @@ export interface CustomFieldItem {
 import { useTenant } from '../../context/TenantContext';
 import { CAR_BRANDS } from '../../data/blecoStoreData';
 
-export interface BrandItem {
-  id: string;
-  name: string;
-  description: string;
+/**
+ * Resilient Brand Logo Image with automatic fallback to monogram badge
+ * Prevents broken image icons and overflowing jagged text
+ */
+export const BrandLogoImage: React.FC<{
   logo: string;
-  productsCount: number;
-  showInChannels: boolean;
-  status: 'active' | 'inactive';
-}
-
-export interface CustomFieldItem {
-  id: string;
   name: string;
-  type: 'Text' | 'File' | 'Number' | 'Date' | 'Single Select';
-  appliedTo: string;
-  showToCustomer: boolean;
-  status: 'active' | 'inactive';
-}
+  className?: string;
+}> = ({ logo, name, className = 'w-full h-full object-contain' }) => {
+  const [hasError, setHasError] = useState(false);
+  const initials = useMemo(() => {
+    return (name || '')
+      .replace(/[\(\)\[\]]/g, '')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase())
+      .join('');
+  }, [name]);
+
+  if (hasError || !logo || logo.includes('unsplash.com')) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-500/10 via-orange-500/15 to-amber-600/20 text-amber-800 dark:text-amber-300 font-black text-xs rounded-lg select-none p-1 text-center border border-amber-500/20">
+        {initials || <Tag className="w-4 h-4" />}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={logo}
+      alt={name ? `${name} logo` : 'Brand logo'}
+      loading="lazy"
+      onError={() => setHasError(true)}
+      className={className}
+    />
+  );
+};
 
 // ── FLOWER STORE SEED (store-1: Hadaya Mecca Flowers) ─────────────────────────
 export const FLOWER_STORE_BRANDS: BrandItem[] = [
   {
     id: 'b1',
-    name: 'Hadaya Mecca Signature (هدايا مكة سيغنتشر)',
-    description: 'تشكيلات الزهور الحصرية وباقات البيوني والجوري الهولندي الملكي…',
+    name: 'Hadaya Mecca Signature',
+    nameEn: 'Hadaya Mecca Signature',
+    nameAr: 'هدايا مكة سيغنتشر',
+    description: 'Exclusive flower collections, Dutch royal peonies and premium red roses.',
+    descriptionEn: 'Exclusive flower collections, Dutch royal peonies and premium red roses.',
+    descriptionAr: 'تشكيلات الزهور الحصرية وباقات البيوني والجوري الهولندي الملكي…',
     logo: 'https://cdn.salla.sa/form-builder/tWCbNfZyZC271qgyhdROpC6ZdS6rCXbqmtvPD8hx.png',
     productsCount: 12,
     showInChannels: true,
@@ -82,8 +115,12 @@ export const FLOWER_STORE_BRANDS: BrandItem[] = [
   },
   {
     id: 'b2',
-    name: 'Patchi & Mecca Blooms (باتشي وهدايا مكة)',
-    description: 'تنسيقات الشوكولاتة اللبنانية الفاخرة المعتمدة مع ورود مكة الطبيعية…',
+    name: 'Patchi & Mecca Blooms',
+    nameEn: 'Patchi & Mecca Blooms',
+    nameAr: 'باتشي وهدايا مكة',
+    description: 'Official luxury Lebanese chocolates crafted with natural Makkah roses.',
+    descriptionEn: 'Official luxury Lebanese chocolates crafted with natural Makkah roses.',
+    descriptionAr: 'تنسيقات الشوكولاتة اللبنانية الفاخرة المعتمدة مع ورود مكة الطبيعية…',
     logo: 'https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png',
     productsCount: 8,
     showInChannels: true,
@@ -91,8 +128,12 @@ export const FLOWER_STORE_BRANDS: BrandItem[] = [
   },
   {
     id: 'b3',
-    name: 'Bostani & Mecca Blooms (بستاني وهدايا مكة)',
-    description: 'أرقى أنواع الشوكولاتة البلجيكية والترافل الفاخر مع بوكسات الورد…',
+    name: 'Bostani & Mecca Blooms',
+    nameEn: 'Bostani & Mecca Blooms',
+    nameAr: 'بستاني وهدايا مكة',
+    description: 'Premium Belgian chocolate and luxury truffles paired with fresh floral boxes.',
+    descriptionEn: 'Premium Belgian chocolate and luxury truffles paired with fresh floral boxes.',
+    descriptionAr: 'أرقى أنواع الشوكولاتة البلجيكية والترافل الفاخر مع بوكسات الورد…',
     logo: 'https://cdn.salla.sa/form-builder/JEDxluyY7LbYdo5So7sLrPqqupntM3LUhIxV3gXD.png',
     productsCount: 6,
     showInChannels: true,
@@ -100,8 +141,12 @@ export const FLOWER_STORE_BRANDS: BrandItem[] = [
   },
   {
     id: 'b4',
-    name: 'Hadaya Mecca Bakery & Florist (كيك وزهور هدايا مكة)',
-    description: 'كيك كوري خاص وكعكات الريد فيلفت والمناسبات مع باقات اليد…',
+    name: 'Hadaya Mecca Bakery & Florist',
+    nameEn: 'Hadaya Mecca Bakery & Florist',
+    nameAr: 'كيك وزهور هدايا مكة',
+    description: 'Artisan Korean lunchbox cakes and red velvet event cakes with hand bouquets.',
+    descriptionEn: 'Artisan Korean lunchbox cakes and red velvet event cakes with hand bouquets.',
+    descriptionAr: 'كيك كوري خاص وكعكات الريد فيلفت والمناسبات مع باقات اليد…',
     logo: 'https://cdn.salla.sa/form-builder/JnIWUYX47T9XyXPQlFx76ihWwhqD2N3xXKcYBMbh.png',
     productsCount: 5,
     showInChannels: true,
@@ -109,8 +154,12 @@ export const FLOWER_STORE_BRANDS: BrandItem[] = [
   },
   {
     id: 'b5',
-    name: 'Hadaya Mecca Crystal (كريستال وفازات هدايا مكة)',
-    description: 'فازات كريستال بوهيمي وأواني السيراميك المضلعة العصرية مع الورد…',
+    name: 'Hadaya Mecca Crystal',
+    nameEn: 'Hadaya Mecca Crystal',
+    nameAr: 'كريستال وفازات هدايا مكة',
+    description: 'Bohemian crystal vases and modern fluted ceramic vessels with fresh flowers.',
+    descriptionEn: 'Bohemian crystal vases and modern fluted ceramic vessels with fresh flowers.',
+    descriptionAr: 'فازات كريستال بوهيمي وأواني السيراميك المضلعة العصرية مع الورد…',
     logo: 'https://cdn.salla.sa/form-builder/vMIFvv8ErCIt8W4npNMOB0Oj6Secf5lLWWByluvd.png',
     productsCount: 6,
     showInChannels: true,
@@ -118,8 +167,12 @@ export const FLOWER_STORE_BRANDS: BrandItem[] = [
   },
   {
     id: 'b6',
-    name: 'Hadaya Mecca Heritage (تراث ومواجيب هدايا مكة)',
-    description: 'لوحات مواجيب خشبية محفورة، دلال القهوة العربية والتمور المحشوة…',
+    name: 'Hadaya Mecca Heritage',
+    nameEn: 'Hadaya Mecca Heritage',
+    nameAr: 'تراث ومواجيب هدايا مكة',
+    description: 'Handcrafted wooden Mawajeeb plaques, Arabic coffee pots and stuffed dates.',
+    descriptionEn: 'Handcrafted wooden Mawajeeb plaques, Arabic coffee pots and stuffed dates.',
+    descriptionAr: 'لوحات مواجيب خشبية محفورة، دلال القهوة العربية والتمور المحشوة…',
     logo: 'https://cdn.files.salla.network/products/246985580/539625c7-703f-4c13-aa4c-24d982e20865-original.webp',
     productsCount: 4,
     showInChannels: true,
@@ -127,8 +180,12 @@ export const FLOWER_STORE_BRANDS: BrandItem[] = [
   },
   {
     id: 'b7',
-    name: 'Hadaya Mecca Executive (أطقم هدايا مكة الملكية)',
-    description: 'أطقم الهدايا الفاخرة للرجال والسيدات مع العطور والمجوهرات والساعات…',
+    name: 'Hadaya Mecca Executive',
+    nameEn: 'Hadaya Mecca Executive',
+    nameAr: 'أطقم هدايا مكة الملكية',
+    description: 'VIP royal gift hampers for men and women with perfumes, jewelry and watches.',
+    descriptionEn: 'VIP royal gift hampers for men and women with perfumes, jewelry and watches.',
+    descriptionAr: 'أطقم الهدايا الفاخرة للرجال والسيدات مع العطور والمجوهرات والساعات…',
     logo: '/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg',
     productsCount: 4,
     showInChannels: true,
@@ -139,49 +196,73 @@ export const FLOWER_STORE_BRANDS: BrandItem[] = [
 export const FLOWER_CUSTOM_FIELDS: CustomFieldItem[] = [
   {
     id: 'cf-flw-1',
-    name: 'Greeting Card Message (رسالة كرت الإهداء)',
+    name: 'Greeting Card Message',
+    nameEn: 'Greeting Card Message',
+    nameAr: 'رسالة كرت الإهداء',
     type: 'Text',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-flw-2',
-    name: 'Preferred Flower Color (لون الورد المفضل)',
+    name: 'Preferred Flower Color',
+    nameEn: 'Preferred Flower Color',
+    nameAr: 'لون الورد المفضل',
     type: 'Single Select',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-flw-3',
-    name: 'Delivery Time Slot (فترة التوصيل)',
+    name: 'Delivery Time Slot',
+    nameEn: 'Delivery Time Slot',
+    nameAr: 'فترة التوصيل',
     type: 'Single Select',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-flw-4',
-    name: 'Ribbon Color (لون شريط الساتان)',
+    name: 'Ribbon Color',
+    nameEn: 'Ribbon Color',
+    nameAr: 'لون شريط الساتان',
     type: 'Single Select',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-flw-5',
-    name: 'Delivery Date (تاريخ المناسبة)',
+    name: 'Delivery Date',
+    nameEn: 'Delivery Date',
+    nameAr: 'تاريخ المناسبة',
     type: 'Date',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-flw-6',
-    name: 'Custom Attachment (صورة أو بطاقة خاصة)',
+    name: 'Custom Attachment Card',
+    nameEn: 'Custom Attachment Card',
+    nameAr: 'صورة أو بطاقة خاصة',
     type: 'File',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
@@ -190,8 +271,12 @@ export const FLOWER_CUSTOM_FIELDS: CustomFieldItem[] = [
 // ── CAR STORE SEED (store-bleco: Al-Saeedi Car Services / Saudia Transport) ──
 export const CAR_STORE_BRANDS: BrandItem[] = CAR_BRANDS.map((cb) => ({
   id: `brand-car-${cb.id}`,
-  name: `${cb.nameAr} (${cb.nameEn})`,
-  description: `وكالة وماركة ${cb.nameAr} الرسمية — تفصيل وتلبيس مقاعد ليزري وأرضيات 5D لجميع الموديلات والفئات.`,
+  name: cb.nameEn,
+  nameEn: cb.nameEn,
+  nameAr: cb.nameAr,
+  description: `Official ${cb.nameEn} agency — precision laser upholstery & 5D floor mats for all models.`,
+  descriptionEn: `Official ${cb.nameEn} agency — precision laser upholstery & 5D floor mats for all models.`,
+  descriptionAr: `وكالة وماركة ${cb.nameAr} الرسمية — تفصيل وتلبيس مقاعد ليزري وأرضيات 5D لجميع الموديلات والفئات.`,
   logo: cb.logo,
   productsCount: cb.productCount || 4,
   showInChannels: true,
@@ -201,49 +286,73 @@ export const CAR_STORE_BRANDS: BrandItem[] = CAR_BRANDS.map((cb) => ({
 export const CAR_CUSTOM_FIELDS: CustomFieldItem[] = [
   {
     id: 'cf-car-1',
-    name: 'Vehicle Make & Brand (ماركة وصانع السيارة)',
+    name: 'Vehicle Make & Brand',
+    nameEn: 'Vehicle Make & Brand',
+    nameAr: 'ماركة وصانع السيارة',
     type: 'Single Select',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-car-2',
-    name: 'Model & Production Year (موديل وسنة الصنع)',
+    name: 'Model & Production Year',
+    nameEn: 'Model & Production Year',
+    nameAr: 'موديل وسنة الصنع',
     type: 'Text',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-car-3',
-    name: 'Leather Grade (نوع وجودة الجلد)',
+    name: 'Leather Grade',
+    nameEn: 'Leather Grade',
+    nameAr: 'نوع وجودة الجلد',
     type: 'Single Select',
-    appliedTo: 'تنجيد وتلابيس المقاعد',
+    appliedTo: 'Seat Upholstery & Covers',
+    appliedToEn: 'Seat Upholstery & Covers',
+    appliedToAr: 'تنجيد وتلابيس المقاعد',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-car-4',
-    name: 'Laser Stitching Color (لون خياطة وتطريز الليزر)',
+    name: 'Laser Stitching Color',
+    nameEn: 'Laser Stitching Color',
+    nameAr: 'لون خياطة وتطريز الليزر',
     type: 'Single Select',
-    appliedTo: 'تنجيد وتلابيس المقاعد',
+    appliedTo: 'Seat Upholstery & Covers',
+    appliedToEn: 'Seat Upholstery & Covers',
+    appliedToAr: 'تنجيد وتلابيس المقاعد',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-car-5',
-    name: 'Custom Logo/Name Embroidery (تطريز اسم أو شعار خاص)',
+    name: 'Custom Logo/Name Embroidery',
+    nameEn: 'Custom Logo/Name Embroidery',
+    nameAr: 'تطريز اسم أو شعار خاص',
     type: 'Text',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-car-6',
-    name: 'Current Interior Photo (صورة مقاعد السيارة من الداخل)',
+    name: 'Current Interior Photo',
+    nameEn: 'Current Interior Photo',
+    nameAr: 'صورة مقاعد السيارة من الداخل',
     type: 'File',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
@@ -253,54 +362,78 @@ export const CAR_CUSTOM_FIELDS: CustomFieldItem[] = [
 export const COFFEE_STORE_BRANDS: BrandItem[] = [
   {
     id: 'b-cof-1',
-    name: 'Hario Japan (هاريو اليابان)',
-    description: 'أدوات تقطير V60 وفلاتر وسيرفرات زجاجية مقاومة للحرارة مصنوعة في اليابان.',
-    logo: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=300&q=80',
+    name: 'Hario Japan',
+    nameEn: 'Hario Japan',
+    nameAr: 'هاريو اليابان',
+    description: 'V60 heat-resistant drip equipment, filters, and glass servers crafted in Japan.',
+    descriptionEn: 'V60 heat-resistant drip equipment, filters, and glass servers crafted in Japan.',
+    descriptionAr: 'أدوات تقطير V60 وفلاتر وسيرفرات زجاجية مقاومة للحرارة مصنوعة في اليابان.',
+    logo: '/images/coffee-brands/hario.svg',
     productsCount: 5,
     showInChannels: true,
     status: 'active',
   },
   {
     id: 'b-cof-2',
-    name: 'Chemex USA (كيمكس الأمريكية)',
-    description: 'أدوات تحضير القهوة المقطرة الكلاسيكية بتصميم فني زجاجي أيقوني.',
-    logo: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=300&q=80',
+    name: 'Chemex USA',
+    nameEn: 'Chemex USA',
+    nameAr: 'كيمكس الأمريكية',
+    description: 'Iconic hourglass pour-over glass brewers with wood collar and rawhide tie.',
+    descriptionEn: 'Iconic hourglass pour-over glass brewers with wood collar and rawhide tie.',
+    descriptionAr: 'أدوات تحضير القهوة المقطرة الكلاسيكية بتصميم فني زجاجي أيقوني.',
+    logo: '/images/coffee-brands/chemex.svg',
     productsCount: 4,
     showInChannels: true,
     status: 'active',
   },
   {
     id: 'b-cof-3',
-    name: 'Fellow Products (فيلو برودكتس)',
-    description: 'غلايات ستاج الذكية ومطاحن القهوة الأود الفاخرة للقهوة المختصة.',
-    logo: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?auto=format&fit=crop&w=300&q=80',
+    name: 'Fellow Products',
+    nameEn: 'Fellow Products',
+    nameAr: 'فيلو برودكتس',
+    description: 'Precision Stagg EKG smart kettles and Ode Gen 2 burr grinders for specialty coffee.',
+    descriptionEn: 'Precision Stagg EKG smart kettles and Ode Gen 2 burr grinders for specialty coffee.',
+    descriptionAr: 'غلايات ستاج الذكية ومطاحن القهوة الأود الفاخرة للقهوة المختصة.',
+    logo: '/images/coffee-brands/fellow.svg',
     productsCount: 4,
     showInChannels: true,
     status: 'active',
   },
   {
     id: 'b-cof-4',
-    name: 'AeroPress (آيروبرس)',
-    description: 'أداة الضغط الهوائي السريعة لاستخلاص القهوة المركزة في السفر والمنزل.',
-    logo: 'https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=300&q=80',
+    name: 'AeroPress',
+    nameEn: 'AeroPress',
+    nameAr: 'آيروبرس',
+    description: 'Rapid air-pressure immersion coffee press for smooth, rich espresso-style brews.',
+    descriptionEn: 'Rapid air-pressure immersion coffee press for smooth, rich espresso-style brews.',
+    descriptionAr: 'أداة الضغط الهوائي السريعة لاستخلاص القهوة المركزة في السفر والمنزل.',
+    logo: '/images/coffee-brands/aeropress.svg',
     productsCount: 3,
     showInChannels: true,
     status: 'active',
   },
   {
     id: 'b-cof-5',
-    name: 'Comandante (كوماندانتي)',
-    description: 'مطاحن يدوية دقيقة بحجر طحن نيترو بليد ألماني فائق الحدة.',
-    logo: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=300&q=80',
+    name: 'Comandante',
+    nameEn: 'Comandante',
+    nameAr: 'كوماندانتي',
+    description: 'Ultra-precise German hand grinders engineered with Nitro Blade conical burrs.',
+    descriptionEn: 'Ultra-precise German hand grinders engineered with Nitro Blade conical burrs.',
+    descriptionAr: 'مطاحن يدوية دقيقة بحجر طحن نيترو بليد ألماني فائق الحدة.',
+    logo: '/images/coffee-brands/comandante.svg',
     productsCount: 3,
     showInChannels: true,
     status: 'active',
   },
   {
     id: 'b-cof-6',
-    name: 'La Marzocco (لامارزوكو الإيطالية)',
-    description: 'مكائن الإسبريسو الإيطالية التجارية الفاخرة للمقاهي والمحترفين.',
-    logo: 'https://images.unsplash.com/photo-1509785307050-d4066910ec1e?auto=format&fit=crop&w=300&q=80',
+    name: 'La Marzocco',
+    nameEn: 'La Marzocco',
+    nameAr: 'لامارزوكو الإيطالية',
+    description: 'Florentine handcrafted commercial & home espresso machines with dual boilers.',
+    descriptionEn: 'Florentine handcrafted commercial & home espresso machines with dual boilers.',
+    descriptionAr: 'مكائن الإسبريسو الإيطالية التجارية الفاخرة للمقاهي والمحترفين.',
+    logo: '/images/coffee-brands/lamarzocco.svg',
     productsCount: 2,
     showInChannels: true,
     status: 'active',
@@ -310,49 +443,73 @@ export const COFFEE_STORE_BRANDS: BrandItem[] = [
 export const COFFEE_CUSTOM_FIELDS: CustomFieldItem[] = [
   {
     id: 'cf-cof-1',
-    name: 'Bean Origin (بلد منشأ البن)',
+    name: 'Bean Origin',
+    nameEn: 'Bean Origin',
+    nameAr: 'بلد منشأ البن',
     type: 'Single Select',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-cof-2',
-    name: 'Roast Level (درجة التحميص)',
+    name: 'Roast Level',
+    nameEn: 'Roast Level',
+    nameAr: 'درجة التحميص',
     type: 'Single Select',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-cof-3',
-    name: 'Grind Size (نوع الطحن)',
+    name: 'Grind Size',
+    nameEn: 'Grind Size',
+    nameAr: 'نوع الطحن',
     type: 'Single Select',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-cof-4',
-    name: 'Processing Method (المعالجة)',
+    name: 'Processing Method',
+    nameEn: 'Processing Method',
+    nameAr: 'المعالجة',
     type: 'Single Select',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-cof-5',
-    name: 'Roast Date (تاريخ التحميص)',
+    name: 'Roast Date',
+    nameEn: 'Roast Date',
+    nameAr: 'تاريخ التحميص',
     type: 'Date',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
   {
     id: 'cf-cof-6',
-    name: 'Altitude MASL (الارتفاع بالمتر)',
+    name: 'Altitude MASL',
+    nameEn: 'Altitude MASL',
+    nameAr: 'الارتفاع بالمتر',
     type: 'Number',
     appliedTo: 'All Products',
+    appliedToEn: 'All Products',
+    appliedToAr: 'جميع المنتجات',
     showToCustomer: true,
     status: 'active',
   },
@@ -362,30 +519,63 @@ export const COFFEE_CUSTOM_FIELDS: CustomFieldItem[] = [
 export const INITIAL_BRANDS = FLOWER_STORE_BRANDS;
 export const INITIAL_CUSTOM_FIELDS = FLOWER_CUSTOM_FIELDS;
 
-export function getStoreBrands(storeId: string): BrandItem[] {
+export function getStoreBrands(storeId: string, storeSlug?: string, category?: string): BrandItem[] {
   try {
     const saved = localStorage.getItem(`unityteck_store_brands_${storeId}`);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Upgrade stale unsplash links or unlocalized records
+        const hasBrokenUnsplash = parsed.some((p: any) => p.logo && (p.logo.includes('unsplash.com') || !p.nameEn));
+        if (!hasBrokenUnsplash) return parsed;
+      }
     }
   } catch {}
-  if (storeId === 'store-bleco') return CAR_STORE_BRANDS;
-  if (storeId === 'store-coffee') return COFFEE_STORE_BRANDS;
-  return FLOWER_STORE_BRANDS;
+
+  const sid = (storeId || '').toLowerCase();
+  const slug = (storeSlug || '').toLowerCase();
+  const cat = (category || '').toLowerCase();
+
+  if (sid === 'store-bleco' || slug.includes('bleco') || slug.includes('car') || cat.includes('car') || cat.includes('auto')) {
+    return CAR_STORE_BRANDS;
+  }
+  if (sid === 'store-coffee' || slug.includes('coffee') || slug.includes('hibrew') || cat.includes('coffee')) {
+    return COFFEE_STORE_BRANDS;
+  }
+  if (sid === 'store-1' || slug.includes('flower') || slug.includes('hadaya') || cat.includes('flower') || cat.includes('gift')) {
+    return FLOWER_STORE_BRANDS;
+  }
+  // Rule 1: Genuine empty state for any other store — never force mock flowers!
+  return [];
 }
 
-export function getStoreCustomFields(storeId: string): CustomFieldItem[] {
+export function getStoreCustomFields(storeId: string, storeSlug?: string, category?: string): CustomFieldItem[] {
   try {
     const saved = localStorage.getItem(`unityteck_store_custom_fields_${storeId}`);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const hasUnlocalized = parsed.some((p: any) => !p.nameEn || p.name.includes('('));
+        if (!hasUnlocalized) return parsed;
+      }
     }
   } catch {}
-  if (storeId === 'store-bleco') return CAR_CUSTOM_FIELDS;
-  if (storeId === 'store-coffee') return COFFEE_CUSTOM_FIELDS;
-  return FLOWER_CUSTOM_FIELDS;
+
+  const sid = (storeId || '').toLowerCase();
+  const slug = (storeSlug || '').toLowerCase();
+  const cat = (category || '').toLowerCase();
+
+  if (sid === 'store-bleco' || slug.includes('bleco') || slug.includes('car') || cat.includes('car') || cat.includes('auto')) {
+    return CAR_CUSTOM_FIELDS;
+  }
+  if (sid === 'store-coffee' || slug.includes('coffee') || slug.includes('hibrew') || cat.includes('coffee')) {
+    return COFFEE_CUSTOM_FIELDS;
+  }
+  if (sid === 'store-1' || slug.includes('flower') || slug.includes('hadaya') || cat.includes('flower') || cat.includes('gift')) {
+    return FLOWER_CUSTOM_FIELDS;
+  }
+  // Rule 1: Genuine empty state for any other store
+  return [];
 }
 
 interface StoreBrandsViewProps {
@@ -402,16 +592,20 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
   const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   // Store-isolated Brands State with lifetime persistence
-  const [brands, setBrands] = useState<BrandItem[]>(() => getStoreBrands(activeStore.id));
+  const [brands, setBrands] = useState<BrandItem[]>(() =>
+    getStoreBrands(activeStore.id, activeStore.slug, activeStore.category)
+  );
 
   // Store-isolated Custom Fields State with lifetime persistence
-  const [customFields, setCustomFields] = useState<CustomFieldItem[]>(() => getStoreCustomFields(activeStore.id));
+  const [customFields, setCustomFields] = useState<CustomFieldItem[]>(() =>
+    getStoreCustomFields(activeStore.id, activeStore.slug, activeStore.category)
+  );
 
   // Sync state whenever activeStore changes
   React.useEffect(() => {
-    setBrands(getStoreBrands(activeStore.id));
-    setCustomFields(getStoreCustomFields(activeStore.id));
-  }, [activeStore.id]);
+    setBrands(getStoreBrands(activeStore.id, activeStore.slug, activeStore.category));
+    setCustomFields(getStoreCustomFields(activeStore.id, activeStore.slug, activeStore.category));
+  }, [activeStore.id, activeStore.slug, activeStore.category]);
 
   // Filters for Brands
   const [searchBrand, setSearchBrand] = useState('');
@@ -461,6 +655,8 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
       localStorage.setItem(`unityteck_store_brands_${activeStore.id}`, JSON.stringify(next));
       window.dispatchEvent(new CustomEvent('unityteck-brands-updated', { detail: { storeId: activeStore.id, brands: next } }));
     } catch {}
+    bumpStore(activeStore.id, 'settings');
+    bumpStore(activeStore.id, 'theme');
   };
 
   const saveCustomFields = (next: CustomFieldItem[]) => {
@@ -563,9 +759,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
       id: `b-${Date.now()}`,
       name: newBrandName.trim(),
       description: newBrandDesc.trim() || 'Brand description…',
-      logo:
-        newBrandLogo.trim() ||
-        'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=80&q=80',
+      logo: newBrandLogo.trim() || '',
       productsCount: 0,
       showInChannels: true,
       status: 'active',
@@ -646,18 +840,24 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
       if (statusFilter !== 'all' && b.status !== statusFilter) return false;
       if (searchBrand.trim()) {
         const q = searchBrand.toLowerCase();
-        return b.name.toLowerCase().includes(q) || b.description.toLowerCase().includes(q);
+        const bName = ((isAr ? b.nameAr : b.nameEn) || b.name || '').toLowerCase();
+        const bDesc = ((isAr ? b.descriptionAr : b.descriptionEn) || b.description || '').toLowerCase();
+        return bName.includes(q) || bDesc.includes(q) || (b.nameEn || '').toLowerCase().includes(q) || (b.nameAr || '').includes(q);
       }
       return true;
     });
 
     if (sortBy === 'name') {
-      list.sort((a, b) => a.name.localeCompare(b.name));
+      list.sort((a, b) => {
+        const na = (isAr ? a.nameAr : a.nameEn) || a.name || '';
+        const nb = (isAr ? b.nameAr : b.nameEn) || b.name || '';
+        return na.localeCompare(nb);
+      });
     } else if (sortBy === 'products') {
       list.sort((a, b) => b.productsCount - a.productsCount);
     }
     return list;
-  }, [brands, statusFilter, searchBrand, sortBy]);
+  }, [brands, statusFilter, searchBrand, sortBy, isAr]);
 
   const renderFieldTypeIcon = (type: CustomFieldItem['type']) => {
     switch (type) {
@@ -803,106 +1003,125 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                     <input type="checkbox" className="rounded" />
                   </th>
                   <th className="py-3 px-3 text-start font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    Logo
+                    {isAr ? 'الشعار' : 'Logo'}
                   </th>
                   <th className="py-3 px-3 text-start font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    Brand Name
+                    {isAr ? 'اسم العلامة التجارية' : 'Brand Name'}
                   </th>
                   <th className="py-3 px-3 text-start font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    Description
+                    {isAr ? 'الوصف' : 'Description'}
                   </th>
                   <th className="py-3 px-3 text-center font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    Products
+                    {isAr ? 'المنتجات' : 'Products'}
                   </th>
                   <th className="py-3 px-3 text-center font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    Show in Sales Channels
+                    {isAr ? 'الظهور في قنوات البيع' : 'Show in Sales Channels'}
                   </th>
                   <th className="py-3 px-3 text-center font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    Status
+                    {isAr ? 'الحالة' : 'Status'}
                   </th>
                   <th className="py-3 px-3 text-end font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    Actions
+                    {isAr ? 'الإجراءات' : 'Actions'}
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
-                {filteredBrands.map((b) => (
-                  <tr key={b.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3 px-3">
-                      <input type="checkbox" className="rounded" />
-                    </td>
-                    <td className="py-3 px-3">
-                      <div
-                        className="w-10 h-10 rounded-xl border flex items-center justify-center p-1 overflow-hidden shadow-2xs relative group cursor-pointer"
-                        style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
-                        onClick={() => openEditBrandModal(b)}
-                        title={isAr ? 'انقر لتعديل الشعار' : 'Click to edit logo'}
-                      >
-                        <img src={b.logo} alt={b.name} className="w-full h-full object-contain" />
-                      </div>
-                    </td>
-                    <td className="py-3 px-3 font-bold" style={{ color: 'var(--text)' }}>
-                      {b.name}
-                    </td>
-                    <td className="py-3 px-3 max-w-xs truncate" style={{ color: 'var(--muted)' }}>
-                      {b.description}
-                    </td>
-                    <td className="py-3 px-3 text-center font-mono font-bold" style={{ color: 'var(--text)' }}>
-                      {b.productsCount}
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleBrandChannel(b.id)}
-                        className="cursor-pointer inline-flex items-center"
-                      >
-                        {b.showInChannels ? (
-                          <ToggleRight className="w-7 h-7 text-blue-500" />
-                        ) : (
-                          <ToggleLeft className="w-7 h-7 text-slate-400" />
-                        )}
-                      </button>
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleBrandStatus(b.id)}
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
-                          b.status === 'active'
-                            ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                        }`}
-                      >
-                        ● {b.status === 'active' ? (isAr ? 'نشط' : 'Active') : isAr ? 'غير نشط' : 'Inactive'}
-                      </button>
-                    </td>
-                    <td className="py-3 px-3 text-end">
-                      <div className="inline-flex items-center gap-1.5">
-                        {/* Edit Button with Full Functional Modal */}
-                        <button
-                          type="button"
-                          onClick={() => openEditBrandModal(b)}
-                          className="p-1.5 rounded-lg border hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-600 transition-colors cursor-pointer"
-                          style={{ borderColor: 'var(--border)' }}
-                          title={isAr ? 'تعديل العلامة التجارية' : 'Edit Brand'}
-                        >
-                          <Edit className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
-                        </button>
-
-                        {/* Delete Brand */}
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteBrand(b.id, b.name)}
-                          className="p-1.5 rounded-lg border hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:text-rose-600 transition-colors cursor-pointer"
-                          style={{ borderColor: 'var(--border)' }}
-                          title={isAr ? 'حذف العلامة التجارية' : 'Delete Brand'}
-                        >
-                          <Trash2 className="w-3.5 h-3.5 text-slate-500 hover:text-rose-600" />
-                        </button>
+                {filteredBrands.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Tag className="w-8 h-8 text-slate-400 opacity-50" />
+                        <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
+                          {isAr ? 'لا توجد علامات تجارية مسجلة لهذا المتجر' : 'No brands registered for this store'}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                          {isAr ? 'أضف علامات تجارية حقيقية باستخدام زر "إضافة علامة تجارية" أعلاه' : 'Add genuine brands using the "Add Brand" button above'}
+                        </p>
                       </div>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredBrands.map((b) => (
+                    <tr key={b.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3 px-3">
+                        <input type="checkbox" className="rounded" />
+                      </td>
+                      <td className="py-3 px-3">
+                        <div
+                          className="w-10 h-10 rounded-xl border flex items-center justify-center p-1 overflow-hidden shadow-2xs relative group cursor-pointer"
+                          style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
+                          onClick={() => openEditBrandModal(b)}
+                          title={isAr ? 'انقر لتعديل الشعار' : 'Click to edit logo'}
+                        >
+                          <BrandLogoImage
+                            logo={b.logo}
+                            name={(isAr ? b.nameAr : b.nameEn) || b.name}
+                          />
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 font-bold" style={{ color: 'var(--text)' }}>
+                        {(isAr ? b.nameAr : b.nameEn) || b.name}
+                      </td>
+                      <td className="py-3 px-3 max-w-xs truncate" style={{ color: 'var(--muted)' }}>
+                        {(isAr ? b.descriptionAr : b.descriptionEn) || b.description}
+                      </td>
+                      <td className="py-3 px-3 text-center font-mono font-bold" style={{ color: 'var(--text)' }}>
+                        {b.productsCount}
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleBrandChannel(b.id)}
+                          className="cursor-pointer inline-flex items-center"
+                        >
+                          {b.showInChannels ? (
+                            <ToggleRight className="w-7 h-7 text-blue-500" />
+                          ) : (
+                            <ToggleLeft className="w-7 h-7 text-slate-400" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleBrandStatus(b.id)}
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
+                            b.status === 'active'
+                              ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          ● {b.status === 'active' ? (isAr ? 'نشط' : 'Active') : isAr ? 'غير نشط' : 'Inactive'}
+                        </button>
+                      </td>
+                      <td className="py-3 px-3 text-end">
+                        <div className="inline-flex items-center gap-1.5">
+                          {/* Edit Button with Full Functional Modal */}
+                          <button
+                            type="button"
+                            onClick={() => openEditBrandModal(b)}
+                            className="p-1.5 rounded-lg border hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-600 transition-colors cursor-pointer"
+                            style={{ borderColor: 'var(--border)' }}
+                            title={isAr ? 'تعديل العلامة التجارية' : 'Edit Brand'}
+                          >
+                            <Edit className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
+                          </button>
+
+                          {/* Delete Brand */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBrand(b.id, b.name)}
+                            className="p-1.5 rounded-lg border hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:text-rose-600 transition-colors cursor-pointer"
+                            style={{ borderColor: 'var(--border)' }}
+                            title={isAr ? 'حذف العلامة التجارية' : 'Delete Brand'}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-slate-500 hover:text-rose-600" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -997,93 +1216,109 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                     <input type="checkbox" className="rounded" />
                   </th>
                   <th className="py-3 px-3 text-start font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    Field Name
+                    {isAr ? 'اسم الحقل' : 'Field Name'}
                   </th>
                   <th className="py-3 px-3 text-start font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    Field Type
+                    {isAr ? 'نوع الحقل' : 'Field Type'}
                   </th>
                   <th className="py-3 px-3 text-start font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    Applied To
+                    {isAr ? 'يطبق على' : 'Applied To'}
                   </th>
                   <th className="py-3 px-3 text-center font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    Show to Customer
+                    {isAr ? 'الظهور للعميل' : 'Show to Customer'}
                   </th>
                   <th className="py-3 px-3 text-center font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    Status
+                    {isAr ? 'الحالة' : 'Status'}
                   </th>
                   <th className="py-3 px-3 text-end font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    Actions
+                    {isAr ? 'الإجراءات' : 'Actions'}
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
-                {customFields.map((f) => (
-                  <tr key={f.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3 px-3">
-                      <input type="checkbox" className="rounded" />
-                    </td>
-                    <td className="py-3 px-3 font-bold" style={{ color: 'var(--text)' }}>
-                      {f.name}
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="inline-flex items-center gap-1.5 font-medium px-2 py-0.5 rounded-lg border text-[11px]" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-                        {renderFieldTypeIcon(f.type)}
-                        <span>{f.type}</span>
-                      </span>
-                    </td>
-                    <td className="py-3 px-3" style={{ color: 'var(--muted)' }}>
-                      {f.appliedTo}
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleFieldCustomer(f.id)}
-                        className="cursor-pointer inline-flex items-center"
-                      >
-                        {f.showToCustomer ? (
-                          <ToggleRight className="w-7 h-7 text-blue-500" />
-                        ) : (
-                          <ToggleLeft className="w-7 h-7 text-slate-400" />
-                        )}
-                      </button>
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleFieldStatus(f.id)}
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
-                          f.status === 'active'
-                            ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                        }`}
-                      >
-                        ● {f.status === 'active' ? (isAr ? 'نشط' : 'Active') : isAr ? 'غير نشط' : 'Inactive'}
-                      </button>
-                    </td>
-                    <td className="py-3 px-3 text-end">
-                      <div className="inline-flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openEditFieldModal(f)}
-                          className="p-1.5 rounded-lg border hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-600 transition-colors cursor-pointer"
-                          style={{ borderColor: 'var(--border)' }}
-                          title={isAr ? 'تعديل الحقل' : 'Edit Field'}
-                        >
-                          <Edit className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteField(f.id, f.name)}
-                          className="p-1.5 rounded-lg border hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:text-rose-600 transition-colors cursor-pointer"
-                          style={{ borderColor: 'var(--border)' }}
-                          title={isAr ? 'حذف الحقل' : 'Delete Field'}
-                        >
-                          <Trash2 className="w-3.5 h-3.5 text-slate-500 hover:text-rose-600" />
-                        </button>
+                {customFields.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Boxes className="w-8 h-8 text-slate-400 opacity-50" />
+                        <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
+                          {isAr ? 'لا توجد حقول مخصصة مسجلة لهذا المتجر' : 'No custom fields registered for this store'}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                          {isAr ? 'أضف حقول مخصصة جديدة بالنقر على "إضافة حقل جديد" أعلاه' : 'Add new custom fields using the "Add New Field" button above'}
+                        </p>
                       </div>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  customFields.map((f) => (
+                    <tr key={f.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3 px-3">
+                        <input type="checkbox" className="rounded" />
+                      </td>
+                      <td className="py-3 px-3 font-bold" style={{ color: 'var(--text)' }}>
+                        {(isAr ? f.nameAr : f.nameEn) || f.name}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="inline-flex items-center gap-1.5 font-medium px-2 py-0.5 rounded-lg border text-[11px]" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+                          {renderFieldTypeIcon(f.type)}
+                          <span>{isAr ? (f.type === 'Text' ? 'نص' : f.type === 'File' ? 'ملف' : f.type === 'Number' ? 'رقم' : f.type === 'Date' ? 'تاريخ' : 'اختيار فردي') : f.type}</span>
+                        </span>
+                      </td>
+                      <td className="py-3 px-3" style={{ color: 'var(--muted)' }}>
+                        {(isAr ? f.appliedToAr : f.appliedToEn) || f.appliedTo}
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleFieldCustomer(f.id)}
+                          className="cursor-pointer inline-flex items-center"
+                        >
+                          {f.showToCustomer ? (
+                            <ToggleRight className="w-7 h-7 text-blue-500" />
+                          ) : (
+                            <ToggleLeft className="w-7 h-7 text-slate-400" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleFieldStatus(f.id)}
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
+                            f.status === 'active'
+                              ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          ● {f.status === 'active' ? (isAr ? 'نشط' : 'Active') : isAr ? 'غير نشط' : 'Inactive'}
+                        </button>
+                      </td>
+                      <td className="py-3 px-3 text-end">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openEditFieldModal(f)}
+                            className="p-1.5 rounded-lg border hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-600 transition-colors cursor-pointer"
+                            style={{ borderColor: 'var(--border)' }}
+                            title={isAr ? 'تعديل الحقل' : 'Edit Field'}
+                          >
+                            <Edit className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteField(f.id, f.name)}
+                            className="p-1.5 rounded-lg border hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:text-rose-600 transition-colors cursor-pointer"
+                            style={{ borderColor: 'var(--border)' }}
+                            title={isAr ? 'حذف الحقل' : 'Delete Field'}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-slate-500 hover:text-rose-600" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -1120,13 +1355,13 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
             <form onSubmit={handleAddBrandSubmit} className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
-                  Brand Name *
+                  {isAr ? 'اسم العلامة التجارية *' : 'Brand Name *'}
                 </label>
                 <input
                   type="text"
                   value={newBrandName}
                   onChange={(e) => setNewBrandName(e.target.value)}
-                  placeholder="e.g. Royal Florist, Apple, Nike..."
+                  placeholder={isAr ? 'مثال: هاريو، كيمكس، فيلو...' : 'e.g. Hario, Chemex, Fellow...'}
                   required
                   className="w-full px-3 py-2 rounded-xl border focus:outline-none"
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
@@ -1135,13 +1370,13 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
 
               <div>
                 <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
-                  Description
+                  {isAr ? 'الوصف' : 'Description'}
                 </label>
                 <textarea
                   rows={2}
                   value={newBrandDesc}
                   onChange={(e) => setNewBrandDesc(e.target.value)}
-                  placeholder="Short brand summary…"
+                  placeholder={isAr ? 'نبذة مختصرة عن العلامة التجارية...' : 'Short brand summary…'}
                   className="w-full px-3 py-2 rounded-xl border focus:outline-none"
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                 />
@@ -1150,7 +1385,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
               {/* Media Upload Section for Logo */}
               <div className="space-y-2">
                 <label className="block font-bold" style={{ color: 'var(--text)' }}>
-                  Brand Logo Media Upload *
+                  {isAr ? 'رفع شعار العلامة التجارية *' : 'Brand Logo Media Upload *'}
                 </label>
                 
                 {/* Drag and Drop Zone */}
@@ -1179,7 +1414,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                   {newBrandLogo ? (
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-16 h-16 rounded-xl border overflow-hidden p-1 bg-white shadow-xs">
-                        <img src={newBrandLogo} alt="Preview" className="w-full h-full object-contain" />
+                        <BrandLogoImage logo={newBrandLogo} name={newBrandName || 'New Brand'} />
                       </div>
                       <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
                         ✓ {isAr ? 'تم تحديد الشعار بنجاح (انقر للتغيير)' : 'Logo uploaded! Click to change'}
@@ -1207,7 +1442,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                     type="url"
                     value={newBrandLogo}
                     onChange={(e) => setNewBrandLogo(e.target.value)}
-                    placeholder="https://images.unsplash.com/..."
+                    placeholder="https://... or /images/coffee-brands/..."
                     className="w-full px-3 py-1.5 text-[11px] rounded-xl border focus:outline-none font-mono"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
@@ -1221,14 +1456,14 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                   className="px-4 py-2 rounded-xl border font-bold cursor-pointer"
                   style={{ borderColor: 'var(--border)' }}
                 >
-                  Cancel
+                  {isAr ? 'إلغاء' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl text-white font-bold cursor-pointer"
                   style={{ background: 'var(--portal-cta)' }}
                 >
-                  Save Brand
+                  {isAr ? 'حفظ العلامة' : 'Save Brand'}
                 </button>
               </div>
             </form>
@@ -1251,7 +1486,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                   {isAr ? 'تعديل العلامة التجارية' : 'Edit Brand'}
                 </h3>
                 <p className="text-[11px] opacity-70">
-                  {editingBrand.name} · ID: {editingBrand.id}
+                  {(isAr ? editingBrand.nameAr : editingBrand.nameEn) || editingBrand.name} · ID: {editingBrand.id}
                 </p>
               </div>
               <button
@@ -1266,7 +1501,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
             <form onSubmit={handleEditBrandSubmit} className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
-                  Brand Name *
+                  {isAr ? 'اسم العلامة التجارية *' : 'Brand Name *'}
                 </label>
                 <input
                   type="text"
@@ -1280,7 +1515,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
 
               <div>
                 <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
-                  Description
+                  {isAr ? 'الوصف' : 'Description'}
                 </label>
                 <textarea
                   rows={2}
@@ -1294,7 +1529,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
               {/* Logo Media Upload */}
               <div className="space-y-2">
                 <label className="block font-bold" style={{ color: 'var(--text)' }}>
-                  Brand Logo Media Upload
+                  {isAr ? 'رفع شعار العلامة التجارية' : 'Brand Logo Media Upload'}
                 </label>
 
                 <div
@@ -1321,7 +1556,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
 
                   <div className="flex flex-col items-center gap-2">
                     <div className="w-16 h-16 rounded-xl border overflow-hidden p-1 bg-white shadow-xs">
-                      <img src={editBrandLogo} alt="Logo" className="w-full h-full object-contain" />
+                      <BrandLogoImage logo={editBrandLogo} name={editBrandName || 'Brand'} />
                     </div>
                     <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400">
                       {isAr ? 'انقر لتغيير أو رفع شعار جديد' : 'Click to replace logo or browse files'}
@@ -1333,7 +1568,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                   type="url"
                   value={editBrandLogo}
                   onChange={(e) => setEditBrandLogo(e.target.value)}
-                  placeholder="https://..."
+                  placeholder="https://... or /images/coffee-brands/..."
                   className="w-full px-3 py-1.5 text-[11px] rounded-xl border focus:outline-none font-mono"
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                 />
@@ -1343,7 +1578,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
                   <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
-                    Status
+                    {isAr ? 'الحالة' : 'Status'}
                   </label>
                   <select
                     value={editBrandStatus}
@@ -1351,14 +1586,14 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                     className="w-full px-3 py-2 rounded-xl border focus:outline-none"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   >
-                    <option value="active">Active (نشط)</option>
-                    <option value="inactive">Inactive (غير نشط)</option>
+                    <option value="active">{isAr ? 'نشط' : 'Active'}</option>
+                    <option value="inactive">{isAr ? 'غير نشط' : 'Inactive'}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
-                    Show in Sales Channels
+                    {isAr ? 'الظهور في قنوات البيع' : 'Show in Sales Channels'}
                   </label>
                   <select
                     value={editBrandChannels ? 'yes' : 'no'}
@@ -1366,8 +1601,8 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                     className="w-full px-3 py-2 rounded-xl border focus:outline-none"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   >
-                    <option value="yes">Visible (ظاهر)</option>
-                    <option value="no">Hidden (مخفي)</option>
+                    <option value="yes">{isAr ? 'ظاهر' : 'Visible'}</option>
+                    <option value="no">{isAr ? 'مخفي' : 'Hidden'}</option>
                   </select>
                 </div>
               </div>
@@ -1379,14 +1614,14 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                   className="px-4 py-2 rounded-xl border font-bold cursor-pointer"
                   style={{ borderColor: 'var(--border)' }}
                 >
-                  Cancel
+                  {isAr ? 'إلغاء' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl text-white font-bold cursor-pointer"
                   style={{ background: 'var(--portal-cta)' }}
                 >
-                  Save Changes
+                  {isAr ? 'حفظ التعديلات' : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -1415,13 +1650,13 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
             <form onSubmit={handleAddFieldSubmit} className="space-y-3.5 text-xs">
               <div>
                 <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                  Field Name *
+                  {isAr ? 'اسم الحقل *' : 'Field Name *'}
                 </label>
                 <input
                   type="text"
                   value={newFieldName}
                   onChange={(e) => setNewFieldName(e.target.value)}
-                  placeholder="e.g. Material, Battery Life..."
+                  placeholder={isAr ? 'مثال: الخامة، بلد المنشأ، درجة الطحن...' : 'e.g. Material, Origin, Grind Size...'}
                   required
                   className="w-full px-3 py-2 rounded-xl border focus:outline-none"
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
@@ -1430,7 +1665,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
 
               <div>
                 <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                  Field Type
+                  {isAr ? 'نوع الحقل' : 'Field Type'}
                 </label>
                 <select
                   value={newFieldType}
@@ -1438,23 +1673,23 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                   className="w-full px-3 py-2 rounded-xl border focus:outline-none"
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                 >
-                  <option value="Text">Text</option>
-                  <option value="File">File</option>
-                  <option value="Number">Number</option>
-                  <option value="Date">Date</option>
-                  <option value="Single Select">Single Select</option>
+                  <option value="Text">{isAr ? 'نص' : 'Text'}</option>
+                  <option value="File">{isAr ? 'ملف / صورة' : 'File'}</option>
+                  <option value="Number">{isAr ? 'رقم' : 'Number'}</option>
+                  <option value="Date">{isAr ? 'تاريخ' : 'Date'}</option>
+                  <option value="Single Select">{isAr ? 'اختيار فردي' : 'Single Select'}</option>
                 </select>
               </div>
 
               <div>
                 <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                  Applied To
+                  {isAr ? 'يطبق على' : 'Applied To'}
                 </label>
                 <input
                   type="text"
                   value={newFieldAppliedTo}
                   onChange={(e) => setNewFieldAppliedTo(e.target.value)}
-                  placeholder="e.g. All Products, Clothing..."
+                  placeholder={isAr ? 'مثال: جميع المنتجات، مستلزمات الباريستا...' : 'e.g. All Products, Barista Gear...'}
                   className="w-full px-3 py-2 rounded-xl border focus:outline-none"
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                 />
@@ -1467,14 +1702,14 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                   className="px-4 py-2 rounded-xl border font-bold"
                   style={{ borderColor: 'var(--border)' }}
                 >
-                  Cancel
+                  {isAr ? 'إلغاء' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl text-white font-bold"
                   style={{ background: 'var(--portal-cta)' }}
                 >
-                  Save Field
+                  {isAr ? 'حفظ الحقل' : 'Save Field'}
                 </button>
               </div>
             </form>
@@ -1503,7 +1738,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
             <form onSubmit={handleEditFieldSubmit} className="space-y-3.5 text-xs">
               <div>
                 <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                  Field Name *
+                  {isAr ? 'اسم الحقل *' : 'Field Name *'}
                 </label>
                 <input
                   type="text"
@@ -1517,7 +1752,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
 
               <div>
                 <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                  Field Type
+                  {isAr ? 'نوع الحقل' : 'Field Type'}
                 </label>
                 <select
                   value={editFieldType}
@@ -1525,17 +1760,17 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                   className="w-full px-3 py-2 rounded-xl border focus:outline-none"
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                 >
-                  <option value="Text">Text</option>
-                  <option value="File">File</option>
-                  <option value="Number">Number</option>
-                  <option value="Date">Date</option>
-                  <option value="Single Select">Single Select</option>
+                  <option value="Text">{isAr ? 'نص' : 'Text'}</option>
+                  <option value="File">{isAr ? 'ملف / صورة' : 'File'}</option>
+                  <option value="Number">{isAr ? 'رقم' : 'Number'}</option>
+                  <option value="Date">{isAr ? 'تاريخ' : 'Date'}</option>
+                  <option value="Single Select">{isAr ? 'اختيار فردي' : 'Single Select'}</option>
                 </select>
               </div>
 
               <div>
                 <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                  Applied To
+                  {isAr ? 'يطبق على' : 'Applied To'}
                 </label>
                 <input
                   type="text"
@@ -1549,7 +1784,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                    Show to Customer
+                    {isAr ? 'الظهور للعميل' : 'Show to Customer'}
                   </label>
                   <select
                     value={editFieldShowToCust ? 'yes' : 'no'}
@@ -1557,14 +1792,14 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                     className="w-full px-3 py-2 rounded-xl border focus:outline-none"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   >
-                    <option value="yes">Yes (نعم)</option>
-                    <option value="no">No (لا)</option>
+                    <option value="yes">{isAr ? 'نعم' : 'Yes'}</option>
+                    <option value="no">{isAr ? 'لا' : 'No'}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                    Status
+                    {isAr ? 'الحالة' : 'Status'}
                   </label>
                   <select
                     value={editFieldStatus}
@@ -1572,8 +1807,8 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                     className="w-full px-3 py-2 rounded-xl border focus:outline-none"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   >
-                    <option value="active">Active (نشط)</option>
-                    <option value="inactive">Inactive (غير نشط)</option>
+                    <option value="active">{isAr ? 'نشط' : 'Active'}</option>
+                    <option value="inactive">{isAr ? 'غير نشط' : 'Inactive'}</option>
                   </select>
                 </div>
               </div>
@@ -1585,14 +1820,14 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                   className="px-4 py-2 rounded-xl border font-bold"
                   style={{ borderColor: 'var(--border)' }}
                 >
-                  Cancel
+                  {isAr ? 'إلغاء' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl text-white font-bold"
                   style={{ background: 'var(--portal-cta)' }}
                 >
-                  Save Changes
+                  {isAr ? 'حفظ التعديلات' : 'Save Changes'}
                 </button>
               </div>
             </form>

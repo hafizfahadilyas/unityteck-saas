@@ -1,0 +1,42 @@
+---
+description: Strict Production Rules — 100% Pixel-Perfect UI/UX, Zero Dummy/Mock Data, Overlap-Free Responsive, RTL/LTR Arabic/English, Dark/Light Mode, Hostinger MySQL & GitHub Sync
+alwaysApply: true
+---
+
+# STRICT PRODUCTION & PIXEL-PERFECT UI/UX RULES (LOCKED)
+
+## 1. Zero Dummy / Mock Data Policy (MANDATORY)
+- **NO FAKE / DUMMY / HARDCODED DATA**: Never create fake arrays or mock objects to simulate features.
+- **NO FAKE LOCAL CACHE**: Do not bypass real APIs by saving fake states to localStorage or static mocks.
+- **REAL HOSTINGER MYSQL & API ONLY**: All data must flow directly through the live Hostinger database schema (`srv1422.hstgr.io` / `u920689430_giftshop`) and Laravel backend APIs with strict `store_id` multi-tenant isolation.
+- **ERROR HANDLING**: If an API or database field is missing or empty, render genuine empty states or handle null gracefully; NEVER inject artificial dummy placeholders.
+
+## 2. 100% Pixel-Perfect UI/UX Alignment
+- Reference mockups and design docs in `C:\Users\fahad\Downloads\مجلد جديد (8)\مجلد جديد (8)` are the **absolute visual truth**:
+  - `Home/`
+  - `Products/`
+  - `Orders/`
+  - `Customers/`
+  - `Shipping/`
+  - `Reports/`
+  - `Marketing Tools/`
+  - `Messaging Channels/`
+- Every component must match the layout, typography, colors, padding, borders, responsive behavior, and visual hierarchy 1:1.
+- No invented layouts, missing cards, or substituted UI elements.
+
+## 3. Responsive, Overlap-Free, Speed & Optimization
+- **Zero Layout Overlaps**: Strict container boundary control, flex/grid wrapping, and overflow prevention on all screen sizes.
+- **Full Responsiveness**: 100% adaptive across Mobile, Tablet, Laptop, and Desktop.
+- **Performance**: High frame rate, minimal re-renders, fast asset loading, optimized CSS.
+
+## 4. Dark & Light Mode + Arabic (RTL) & English (LTR)
+- **High Contrast Dark & Light Themes**: Ensure full readability in both themes without washed-out text or background bleed.
+- **Bilingual RTL/LTR**: Proper bidirectional flow for Arabic (`rtl`) and English (`ltr`), keeping spacing and icons properly oriented.
+
+## 5. Database & Backend Integrity Protection
+- Existing database tables, foreign keys, migrations (`apps/api/database/migrations/`), and SQL scripts (`database/hostinger/`) are **strictly protected**.
+- Never alter API response structures or database columns without explicit architectural requirement.
+- Multi-tenant tenant boundary (`store_id`) must remain untouched and strictly enforced across all queries and payload requests.
+
+## 6. Mandatory Module Testing & Production Build Validation
+- Every module must pass comprehensive testing and `npm run build` with zero TypeScript or bundling errors before proceeding.

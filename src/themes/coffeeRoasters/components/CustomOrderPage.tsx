@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
+import { useTenant } from '../../../context/TenantContext';
 import { CustomCornerOrderSpecs } from '../types';
+import { readAllThemeSettings } from '../../settings/themeSettingsStore';
 import {
   Ruler,
   Layers,
@@ -431,7 +433,37 @@ const ACCESSORIES_LIST: AccessoryItem[] = [
 ];
 
 export const CustomOrderPage: React.FC = () => {
-  const { language, addCustomCornerToCart, navigateTo, showToast } = useCart();
+  const { language, addCustomCornerToCart, navigateTo, showToast, storeIdentity } = useCart();
+  const { activeStore } = useTenant();
+  const isAr = language === 'AR';
+
+  useEffect(() => {
+    try {
+      const s = readAllThemeSettings(activeStore?.id, activeStore);
+      if (!s?.customOrder?.enabled) {
+        navigateTo('home');
+      }
+    } catch {}
+  }, [activeStore, navigateTo]);
+
+  // Dynamic WhatsApp details from store owner settings
+  const rawWhatsAppPhone =
+    storeIdentity?.whatsapp ||
+    (activeStore as any)?.whatsapp ||
+    storeIdentity?.phone ||
+    activeStore?.phone ||
+    '+966549876543';
+
+  let cleanWhatsAppPhone = rawWhatsAppPhone.replace(/\D/g, '') || '966549876543';
+  if (cleanWhatsAppPhone.startsWith('05')) {
+    cleanWhatsAppPhone = '966' + cleanWhatsAppPhone.substring(1);
+  } else if (cleanWhatsAppPhone.startsWith('5') && cleanWhatsAppPhone.length === 9) {
+    cleanWhatsAppPhone = '966' + cleanWhatsAppPhone;
+  }
+
+  const dynamicStoreName = isAr
+    ? storeIdentity?.storeName || activeStore?.nameAr || activeStore?.name || 'متجر القهوة'
+    : storeIdentity?.storeName || activeStore?.nameEn || activeStore?.name || 'Coffee Store';
 
   // Mode Selection: 'direct' (Automatic price & Add to Cart) vs 'quotation' (Quotation Request / RFQ)
   const [orderMode, setOrderMode] = useState<'direct' | 'quotation'>('direct');
@@ -732,11 +764,17 @@ export const CustomOrderPage: React.FC = () => {
         ? `تم رفع طلب عرض السعر برقم مرجعي: ${quoteId}`
         : `Quotation Request submitted: Ref #${quoteId}`
     );
+    // Directly launch WhatsApp with the quotation request sent to the store owner's WhatsApp!
+    setTimeout(() => {
+      if (whatsappUrl) {
+        window.open(whatsappUrl, '_blank');
+      }
+    }, 400);
   };
 
   // Pre-filled WhatsApp link with full technical specifications
   const whatsappUrl = useMemo(() => {
-    const textAr = `مرحباً متجر هايبرو HiBrew KSA ☕️
+    const textAr = `مرحباً ${dynamicStoreName} ☕️
 أرغب في الحصول على استشارة وعرض سعر لتفصيل ركن قهوة مخصص بالمواصفات التالية:
 • رقم الطلب: ${generatedRfqId || 'طلب جديد'}
 • المقاسات: العرض ${width} سم × العمق ${depth} سم × الارتفاع ${height} سم
@@ -749,13 +787,32 @@ export const CustomOrderPage: React.FC = () => {
 • التقسيم الداخلي: ${currentSpecs.internalDivision.nameAr}
 • ملاحظات التقسيم: ${divisionNotes || 'لا توجد'}
 • الإضافات والإكسسوارات: ${currentSpecs.accessories.map(a => `${a.nameAr} (x${a.quantity})`).join(', ') || 'بدون إضافات'}
-• العميل: ${rfqName} - ${rfqPhone} (${rfqCity})
+• العميل: ${rfqName || 'عميل المتجر'} - ${rfqPhone || ''} (${rfqCity || ''})
 ${pricingBreakdown.total ? `• التقدير المبدئي: ${pricingBreakdown.total.toLocaleString()} ر.س` : ''}
 
 يرجى التواصل معي لتأكيد التفاصيل وموعد المعاينة والتنفيذ. شكراً لكم!`;
 
-    return `https://wa.me/9668008440443?text=${encodeURIComponent(textAr)}`;
+    const textEn = `Hello ${dynamicStoreName} ☕️
+I would like to request a consultation and quote for a custom coffee station with the following specs:
+• Order Ref: ${generatedRfqId || 'New Custom Order'}
+• Dimensions: Width ${width} cm × Depth ${depth} cm × Height ${height} cm
+• Structure Wood: ${currentSpecs.woodTypeName}
+• Color: ${currentSpecs.structureColor.name}
+• Top Surface: ${currentSpecs.surfaceTypeName} (${currentSpecs.surfaceColor.name})
+• Handles: ${currentSpecs.handleType.name}
+• Internal Division: ${currentSpecs.internalDivision.name}
+• Accessories: ${currentSpecs.accessories.map(a => `${a.name} (x${a.quantity})`).join(', ') || 'None'}
+• Customer: ${rfqName || 'Store Customer'} - ${rfqPhone || ''} (${rfqCity || ''})
+${pricingBreakdown.total ? `• Estimated Total: ${pricingBreakdown.total.toLocaleString()} SAR` : ''}
+
+Please contact me to confirm the details. Thank you!`;
+
+    const message = isAr ? textAr : textEn;
+    return `https://wa.me/${cleanWhatsAppPhone}?text=${encodeURIComponent(message)}`;
   }, [
+    dynamicStoreName,
+    cleanWhatsAppPhone,
+    isAr,
     width,
     depth,
     height,

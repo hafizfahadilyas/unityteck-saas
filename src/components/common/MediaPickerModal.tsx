@@ -75,7 +75,7 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
   selectedUrls = [],
   initialTab = 'library',
 }) => {
-  const { currentMedia, addMediaAsset, activeStore } = useTenant();
+  const { currentMedia, addMediaAsset, activeStore, syncProductImagesToMedia } = useTenant();
   const { locale, t } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
@@ -83,15 +83,22 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
   React.useEffect(() => {
-    if (isOpen && initialTab) {
-      setActiveTab(initialTab);
+    if (isOpen) {
+      if (initialTab) setActiveTab(initialTab);
+      syncProductImagesToMedia(activeStore.id);
     }
-  }, [isOpen, initialTab]);
+  }, [isOpen, initialTab, activeStore.id, syncProductImagesToMedia]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedFolder, setSelectedFolder] = useState<string>(initialFolder);
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [focusedAsset, setFocusedAsset] = useState<MediaAsset | null>(null);
+  const [displayLimit, setDisplayLimit] = useState(24);
+
+  // Reset pagination on filter or open change
+  React.useEffect(() => {
+    setDisplayLimit(24);
+  }, [searchQuery, selectedType, selectedFolder, isOpen]);
 
   // Uploading state
   const [uploadQueue, setUploadQueue] = useState<
@@ -250,6 +257,7 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
             ),
           );
 
+          const objectUrl = URL.createObjectURL(optimizedResult.file || file);
           const newAsset = addMediaAsset({
             fileName: file.name,
             title: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
@@ -258,10 +266,10 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
             fileSize: optimizedResult.compressedSize,
             width: optimizedResult.width,
             height: optimizedResult.height,
-            originalUrl: optimizedResult.dataUrl,
-            optimizedUrl: optimizedResult.webpUrl,
-            webpUrl: optimizedResult.webpUrl,
-            thumbnailUrl: optimizedResult.thumbnailDataUrl,
+            originalUrl: objectUrl,
+            optimizedUrl: objectUrl,
+            webpUrl: objectUrl,
+            thumbnailUrl: objectUrl,
             folder: selectedFolder !== 'all' ? selectedFolder : 'general',
             tags: [type, activeStore.category?.toLowerCase() || 'general'],
             processingStatus: 'ready',
@@ -645,7 +653,7 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
-                    {filteredMedia.map((asset) => {
+                    {filteredMedia.slice(0, displayLimit).map((asset) => {
                       const isSelected = selectedAssetIds.includes(asset.id);
                       const isFocused = focusedAsset?.id === asset.id;
 
@@ -737,6 +745,20 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
                         </div>
                       );
                     })}
+
+                    {filteredMedia.length > displayLimit && (
+                      <div className="col-span-full py-4 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() => setDisplayLimit((prev) => prev + 24)}
+                          className="px-5 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          {isAr
+                            ? `عرض المزيد (${filteredMedia.length - displayLimit} متبقي)`
+                            : `Load More (${filteredMedia.length - displayLimit} remaining)`}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

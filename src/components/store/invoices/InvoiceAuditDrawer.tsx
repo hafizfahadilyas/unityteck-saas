@@ -1,6 +1,7 @@
 import React from 'react';
 import type { InvoiceDocument } from '../../../types/invoices';
 import { usePrefs } from '../../../i18n/PrefsContext';
+import { formatInvoiceDate } from '../../../utils/zatca';
 import { X, History, Clock, User, ShieldCheck, Printer, Download, RefreshCw, Plus, Check } from 'lucide-react';
 
 interface InvoiceAuditDrawerProps {
@@ -91,8 +92,8 @@ export const InvoiceAuditDrawer: React.FC<InvoiceAuditDrawerProps> = ({ isOpen, 
                         <User className="w-3 h-3" />
                         <span>{entry.actorName}</span>
                       </span>
-                      <span className="font-mono">
-                        {new Date(entry.timestamp).toLocaleDateString(isAr ? 'ar-SA' : 'en-US', {
+                      <span className="font-mono whitespace-nowrap">
+                        {formatInvoiceDate(entry.timestamp, isAr ? 'ar' : 'en', {
                           month: 'short',
                           day: 'numeric',
                         })}

@@ -24,15 +24,15 @@ const SAUDI_CITIES = [
 ];
 
 export const CheckoutPage: React.FC = () => {
-  const { cart, cartTotal, clearCart, navigateTo, language, setLastOrder } = useCart();
-  const { addOrder } = useTenant();
+  const { cart, cartTotal, clearCart, navigateTo, language, setLastOrder, user } = useCart();
+  const { addOrder, activeStore } = useTenant();
 
-  const [name, setName] = useState(language === 'AR' ? 'فهد العتيبي' : 'Fahad Al-Otaibi');
-  const [phone, setPhone] = useState('0501234567');
+  const [name, setName] = useState(user?.name || '');
+  const [phone, setPhone] = useState(user?.phone || '');
   const [city, setCity] = useState(language === 'AR' ? 'الرياض' : 'Riyadh');
-  const [district, setDistrict] = useState(language === 'AR' ? 'حي النرجس' : 'An Narjis');
-  const [street, setStreet] = useState(language === 'AR' ? 'طريق أنس بن مالك' : 'Anas Ibn Malik Street');
-  const [paymentMethod, setPaymentMethod] = useState<'tabby' | 'tamara' | 'mada' | 'apple_pay' | 'card' | 'cod'>('tabby');
+  const [district, setDistrict] = useState('');
+  const [street, setStreet] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'tabby' | 'tamara' | 'mada' | 'apple_pay' | 'card' | 'cod'>('mada');
   const [isProcessing, setIsProcessing] = useState(false);
 
   const installmentSAR = Math.round(cartTotal / 4);
@@ -102,7 +102,7 @@ export const CheckoutPage: React.FC = () => {
             source: 'Coffee Store Online' as any,
             customerNotes: `City: ${city}, District: ${district}, Street: ${street}`,
           },
-          'store-coffee'
+          activeStore?.id || 'store-coffee'
         );
       }
 
@@ -112,23 +112,61 @@ export const CheckoutPage: React.FC = () => {
     }, 1000);
   };
 
-
+  if (cart.length === 0) {
+    return (
+      <div
+        dir={language === 'AR' ? 'rtl' : 'ltr'}
+        className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center bg-white text-neutral-900 selection:bg-neutral-900 selection:text-white"
+      >
+        <div className="w-20 h-20 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-800 mb-4">
+          <Truck className="w-10 h-10" />
+        </div>
+        <h2 className="text-2xl font-bold text-neutral-900 mb-2">
+          {language === 'AR' ? 'سلة التسوق فارغة' : 'Your Shopping Bag is Empty'}
+        </h2>
+        <p className="text-sm text-neutral-500 max-w-sm mb-6">
+          {language === 'AR'
+            ? 'يرجى إضافة منتجات إلى السلة قبل إتمام عملية الدفع.'
+            : 'Please add equipment to your shopping bag before proceeding to checkout.'}
+        </p>
+        <button
+          onClick={() => navigateTo('products')}
+          className="px-8 py-3 bg-black hover:bg-neutral-800 text-white font-bold text-xs rounded-full transition-all flex items-center gap-2 cursor-pointer shadow-md"
+        >
+          <span>{language === 'AR' ? 'استكشف المنتجات' : 'Explore Products'}</span>
+          <ArrowRight className={`w-4 h-4 shrink-0 ${language === 'AR' ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-white py-10 text-start text-neutral-900 selection:bg-neutral-900 selection:text-white">
+    <div
+      dir={language === 'AR' ? 'rtl' : 'ltr'}
+      className="min-h-screen bg-white py-6 sm:py-10 text-start text-neutral-900 selection:bg-neutral-900 selection:text-white"
+    >
       <div className="max-w-[1360px] mx-auto px-4 lg:px-8">
-        <h1 className={`honor-heading text-2xl sm:text-3xl font-bold text-black mb-8 ${
+        <button
+          type="button"
+          onClick={() => navigateTo('cart')}
+          className="inline-flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-900 mb-4 sm:mb-6 transition-colors cursor-pointer"
+        >
+          <ArrowLeft className={`w-3.5 h-3.5 shrink-0 ${language === 'AR' ? 'rotate-180' : ''}`} />
+          <span>{language === 'AR' ? 'العودة إلى سلة المشتريات' : 'Back to Shopping Bag'}</span>
+        </button>
+
+        <h1 className={`honor-heading text-2xl sm:text-3xl font-bold text-black mb-6 sm:mb-8 ${
           language === 'AR' ? 'leading-[1.38] tracking-normal' : 'leading-tight tracking-[-0.01em]'
         }`}>
           {language === 'AR' ? 'إتمام الشراء والدفع الآمن' : 'Express Secure Checkout'}
         </h1>
 
-        <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           {/* Left Form: Shipping + Payment (8 cols) */}
           <div className="lg:col-span-8 space-y-6">
             {/* 1. Delivery Address */}
-            <div className="bg-[#F8F9FA] rounded-3xl p-6 sm:p-8 space-y-5">
-              <h3 className="font-extrabold text-base text-neutral-900 flex items-center gap-2 pb-3">
+            <div className="bg-[#F8F9FA] rounded-3xl p-5 sm:p-8 space-y-5">
+              <h3 className="font-extrabold text-base text-neutral-900 flex items-center gap-2 pb-3 border-b border-neutral-200/50">
                 <MapPin className="w-4 h-4 text-neutral-700" />
                 <span>{language === 'AR' ? 'بيانات الشحن والتوصيل بالمملكة' : 'Shipping & Delivery Address'}</span>
               </h3>
@@ -143,7 +181,7 @@ export const CheckoutPage: React.FC = () => {
                     required
                     value={name}
                     onChange={e => setName(e.target.value)}
-                    className="w-full bg-white rounded-xl p-3 text-neutral-900 focus:outline-hidden"
+                    className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
                   />
                 </div>
 
@@ -156,7 +194,7 @@ export const CheckoutPage: React.FC = () => {
                     required
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
-                    className="w-full bg-white rounded-xl p-3 text-neutral-900 font-mono focus:outline-hidden"
+                    className="w-full bg-white rounded-xl p-3 text-neutral-900 font-mono border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
                   />
                 </div>
 
@@ -167,7 +205,7 @@ export const CheckoutPage: React.FC = () => {
                   <select
                     value={city}
                     onChange={e => setCity(e.target.value)}
-                    className="w-full bg-white rounded-xl p-3 text-neutral-900 focus:outline-hidden cursor-pointer"
+                    className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden cursor-pointer"
                   >
                     {SAUDI_CITIES.map(c => (
                       <option key={c.en} value={language === 'AR' ? c.ar : c.en} className="bg-white text-neutral-900">
@@ -186,7 +224,7 @@ export const CheckoutPage: React.FC = () => {
                     required
                     value={district}
                     onChange={e => setDistrict(e.target.value)}
-                    className="w-full bg-white rounded-xl p-3 text-neutral-900 focus:outline-hidden"
+                    className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
                   />
                 </div>
 
@@ -199,16 +237,16 @@ export const CheckoutPage: React.FC = () => {
                     required
                     value={street}
                     onChange={e => setStreet(e.target.value)}
-                    className="w-full bg-white rounded-xl p-3 text-neutral-900 focus:outline-hidden"
+                    className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
                   />
                 </div>
               </div>
             </div>
 
             {/* 2. Saudi Authorized Payment Gateways */}
-            <div className="bg-[#F8F9FA] rounded-3xl p-6 sm:p-8">
+            <div className="bg-[#F8F9FA] rounded-3xl p-5 sm:p-8">
               <PaymentGatewaySelector
-                storeId="store-coffee"
+                storeId={activeStore?.id || 'store-coffee'}
                 totalAmount={cartTotal}
                 selectedMethod={paymentMethod as PaymentMethodId}
                 onMethodChange={(m) => setPaymentMethod(m)}
@@ -221,8 +259,8 @@ export const CheckoutPage: React.FC = () => {
 
           {/* Right Summary Box (4 cols) */}
           <div className="lg:col-span-4 space-y-6">
-            <div className="p-6 rounded-3xl bg-[#F8F9FA] space-y-5">
-              <h2 className="text-lg font-bold text-neutral-900 pb-3">
+            <div className="p-5 sm:p-6 rounded-3xl bg-[#F8F9FA] space-y-5">
+              <h2 className="text-base sm:text-lg font-bold text-neutral-900 pb-2 sm:pb-3 border-b border-neutral-200/50">
                 {language === 'AR' ? 'ملخص ومحتويات الطلب' : 'Order Summary'}
               </h2>
 
@@ -245,27 +283,27 @@ export const CheckoutPage: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <span className="font-bold font-sans text-neutral-900">
+                    <span className="font-bold font-sans text-neutral-900 shrink-0">
                       {language === 'AR' ? `${(item.unitPrice * item.quantity).toLocaleString()}.00 ر.س` : `SAR ${(item.unitPrice * item.quantity).toLocaleString()}.00`}
                     </span>
                   </div>
                 ))}
               </div>
 
-              <div className="pt-3 space-y-2 text-xs text-neutral-600">
-                <div className="flex justify-between">
+              <div className="pt-3 space-y-2 text-xs text-neutral-600 border-t border-neutral-200/60">
+                <div className="flex justify-between items-center">
                   <span>{language === 'AR' ? 'المجموع' : 'Subtotal'}</span>
                   <span className="font-sans font-semibold text-neutral-900">
                     {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ر.س` : `SAR ${cartTotal.toLocaleString()}.00`}
                   </span>
                 </div>
-                <div className="flex justify-between text-emerald-700 font-medium">
+                <div className="flex justify-between items-center text-emerald-700 font-medium">
                   <span>{language === 'AR' ? 'الشحن السريع لكافة المدن' : 'Express Delivery'}</span>
                   <span>{language === 'AR' ? 'مجاني' : 'FREE'}</span>
                 </div>
-                <div className="flex justify-between text-base font-black text-neutral-900 pt-2">
+                <div className="flex justify-between items-center text-sm sm:text-base font-black text-neutral-900 pt-2 border-t border-neutral-200/60">
                   <span>{language === 'AR' ? 'المبلغ المطلوب سداده' : 'Total Amount'}</span>
-                  <span className="font-sans text-lg text-neutral-900">
+                  <span className="font-sans text-base sm:text-lg text-neutral-900">
                     {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ر.س` : `SAR ${cartTotal.toLocaleString()}.00`}
                   </span>
                 </div>
@@ -274,14 +312,14 @@ export const CheckoutPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={isProcessing}
-                className="w-full py-4 bg-black hover:bg-neutral-800 disabled:bg-neutral-400 text-white font-extrabold text-sm rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3.5 sm:py-4 bg-black hover:bg-neutral-800 disabled:bg-neutral-400 text-white font-extrabold text-xs sm:text-sm rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
               >
                 {isProcessing ? (
                   <span>{language === 'AR' ? 'جاري تأكيد ومعالجة الطلب...' : 'Processing order...'}</span>
                 ) : (
                   <>
                     <span>{language === 'AR' ? 'تأكيد الطلب الآن' : 'Place Order Now'}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className={`w-4 h-4 shrink-0 ${language === 'AR' ? 'rotate-180' : ''}`} />
                   </>
                 )}
               </button>

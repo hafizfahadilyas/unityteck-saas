@@ -21,6 +21,8 @@ import {
   Sparkles,
   ThermometerSnowflake,
   ShieldCheck,
+  Printer,
+  RotateCcw,
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
@@ -28,6 +30,12 @@ import {
   AdvancedDataTable,
   type AdvancedTableColumn,
 } from '../common/AdvancedDataTable';
+import { CourierShippingLabelModal } from './orders/CourierShippingLabelModal';
+import type { ShippingLabelData, CourierCarrierCode } from '../../utils/courierBarcode';
+import { ShipmentsTrackingView } from './shipping/ShipmentsTrackingView';
+import { ShippingLabelsStudioView } from './shipping/ShippingLabelsStudioView';
+import { ShippingZonesRatesView } from './shipping/ShippingZonesRatesView';
+import { ReturnsExceptionsView } from './shipping/ReturnsExceptionsView';
 
 const REGIONS = [
   'All',
@@ -38,6 +46,8 @@ const REGIONS = [
   'Asir Region',
   'Other',
 ] as const;
+
+export type ShippingTab = 'shipments' | 'labels' | 'zones' | 'returns' | 'carriers' | 'methods';
 
 interface CarrierItem {
   id: string;
@@ -71,10 +81,23 @@ export const StoreShipping: React.FC = () => {
   const isAr = locale === 'ar';
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'carriers' | 'zones' | 'methods'>('carriers');
-  const [dateRange, setDateRange] = useState('Jan 1, 2026 - Jan 31, 2026');
+  const [activeTab, setActiveTab] = useState<ShippingTab>('shipments');
+  const [dateRange, setDateRange] = useState(isAr ? '١ يناير - ٣١ يناير ٢٠٢٦' : 'Jan 1, 2026 - Jan 31, 2026');
   const [search, setSearch] = useState('');
   const [carrierSearch, setCarrierSearch] = useState('');
+
+  useEffect(() => {
+    const handleShippingView = (e: any) => {
+      if (e?.detail) setActiveTab(e.detail);
+    };
+    window.addEventListener('unityteck-shipping-view', handleShippingView);
+    const saved = sessionStorage.getItem('unityteck-shipping-view');
+    if (saved) {
+      setActiveTab(saved as any);
+      sessionStorage.removeItem('unityteck-shipping-view');
+    }
+    return () => window.removeEventListener('unityteck-shipping-view', handleShippingView);
+  }, []);
 
   // Real Computed KPIs from store shipments, orders & couriers
   const connectedCouriersCount = useMemo(() => {
@@ -158,6 +181,7 @@ export const StoreShipping: React.FC = () => {
   const [courierAccountNumber, setCourierAccountNumber] = useState('');
   const [courierIsSandbox, setCourierIsSandbox] = useState(false);
   const [isTestingCourier, setIsTestingCourier] = useState(false);
+  const [previewLabelData, setPreviewLabelData] = useState<ShippingLabelData | null>(null);
 
   // Add Shipping Method Modal States
   const [showAddMethod, setShowAddMethod] = useState(false);
@@ -327,135 +351,106 @@ export const StoreShipping: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
-      {/* Header bar matching 13_shipping.png */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-xl">
-              <Truck className="w-5 h-5" />
-            </span>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              {isAr ? 'الشحن والتوصيل' : 'Shipping & Logistics'}
-            </h1>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            {isAr ? 'إدارة شركات وأسعار ومناطق التوصيل لمتجر ' : 'Manage shipping companies rates and zones for '}
-            <strong className="text-teal-700 dark:text-teal-300">{(isAr ? activeStore.nameAr : activeStore.nameEn) || activeStore.name}</strong>
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
-          {/* Date Picker */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-semibold shadow-2xs">
-            <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="bg-transparent text-slate-800 dark:text-slate-200 font-bold outline-none cursor-pointer"
-            >
-              <option value="Jan 1, 2026 - Jan 31, 2026">Jan 1, 2026 - Jan 31, 2026</option>
-              <option value="Last 30 Days">Last 30 Days</option>
-              <option value="Year 2026">Year 2026</option>
-            </select>
-          </div>
-
-          {/* Add Actions */}
-          <button
-            type="button"
-            onClick={() => setShowConnectCourierModal(true)}
-            className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-700/20 transition-all cursor-pointer"
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Connect Courier</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowAddMethod(true)}
-            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-blue-600/20 transition-all cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Shipping Method</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Row 1: 4 KPI Cards from 13_shipping.png */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpis.map((kpi) => {
-          const Icon = kpi.icon;
-          return (
-            <div
-              key={kpi.id}
-              className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex items-center gap-4"
-            >
-              <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                  kpi.color === 'blue'
-                    ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
-                    : kpi.color === 'amber'
-                      ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400'
-                      : kpi.color === 'purple'
-                        ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400'
-                        : 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'
-                }`}
-              >
-                <Icon className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-slate-400 dark:text-slate-500 block">
-                  {kpi.title}
-                </span>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tabular-nums">
-                    {kpi.value}
-                  </span>
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                    {kpi.change}
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Tab Switcher */}
-      <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl text-xs font-bold w-fit flex-wrap">
+      {/* ── Main Module Navigation Bar ── */}
+      <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl text-xs font-bold w-full overflow-x-auto">
         <button
           type="button"
-          onClick={() => setActiveTab('carriers')}
-          className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
-            activeTab === 'carriers'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+          onClick={() => setActiveTab('shipments')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+            activeTab === 'shipments'
+              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
-          Official Courier Integrations ({connectedCouriersCount} Connected)
+          <Truck className="w-4 h-4 rtl:rotate-180" />
+          <span>{isAr ? 'الشحنات والتتبع' : 'Shipments & Tracking'}</span>
         </button>
+
         <button
           type="button"
-          onClick={() => setActiveTab('methods')}
-          className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
-            activeTab === 'methods'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+          onClick={() => setActiveTab('labels')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+            activeTab === 'labels'
+              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
-          Configured Shipping Methods ({currentShippingMethods.length})
+          <Printer className="w-4 h-4" />
+          <span>{isAr ? 'بوالص الشحن والعمليات' : 'Shipping Labels'}</span>
         </button>
+
         <button
           type="button"
           onClick={() => setActiveTab('zones')}
-          className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'zones'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
-          Saudi Shipping Zones &amp; Rates ({currentShipping.length} Cities)
+          <MapPin className="w-4 h-4" />
+          <span>{isAr ? 'مناطق الشحن والأسعار' : `Zones & Rates (${currentShipping.length})`}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('returns')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+            activeTab === 'returns'
+              ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+          }`}
+        >
+          <RotateCcw className="w-4 h-4" />
+          <span>{isAr ? 'المرتجعات والحالات الخاصة' : 'Returns & Exceptions'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('carriers')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+            activeTab === 'carriers'
+              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>{isAr ? 'شركات الشحن (APIs)' : `Couriers (${connectedCouriersCount})`}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('methods')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+            activeTab === 'methods'
+              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          <span>{isAr ? 'طرق الشحن' : `Methods (${currentShippingMethods.length})`}</span>
         </button>
       </div>
+
+      {/* ── Active Tab 1: Shipments & Tracking (Pixel-Perfect Image 1 Top) ── */}
+      {activeTab === 'shipments' && (
+        <ShipmentsTrackingView onNavigateToLabels={() => setActiveTab('labels')} />
+      )}
+
+      {/* ── Active Tab 2: Shipping Labels & Operations (Pixel-Perfect Image 1 Bottom) ── */}
+      {activeTab === 'labels' && (
+        <ShippingLabelsStudioView />
+      )}
+
+      {/* ── Active Tab 3: Shipping Zones & Rates (Pixel-Perfect Image 2 Top) ── */}
+      {activeTab === 'zones' && (
+        <ShippingZonesRatesView />
+      )}
+
+      {/* ── Active Tab 4: Returns & Exceptions (Pixel-Perfect Image 2 Bottom) ── */}
+      {activeTab === 'returns' && (
+        <ReturnsExceptionsView />
+      )}
 
       {/* ─────────────────────────────────────────────────────────────
           TAB 1: Official Courier Integrations (APIs & AWB Dispatch)
@@ -588,6 +583,67 @@ export const StoreShipping: React.FC = () => {
                           className="px-2.5 py-1 text-[11px] font-bold bg-white dark:bg-slate-800 hover:bg-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
                         >
                           Test API
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const realOrder = currentOrders[0];
+                            if (!realOrder) {
+                              toast(isAr ? 'لا توجد طلبات في المتجر لإصدار بوليصة لها' : 'No store orders available to generate waybill', 'info');
+                              return;
+                            }
+                            const anyOrder = realOrder as any;
+                            const anyStore = activeStore as any;
+                            const orderCity = anyOrder.city || (typeof realOrder.shippingAddress === 'string' ? realOrder.shippingAddress : anyOrder.shippingAddress?.city) || realOrder.deliveryLocation || 'Riyadh';
+                            const orderAddress = typeof realOrder.shippingAddress === 'string' ? realOrder.shippingAddress : anyOrder.shippingAddress?.address || realOrder.deliveryLocation || 'Saudi Arabia';
+                            const orderTotal = Number(realOrder.total ?? anyOrder.totalAmount ?? 0);
+
+                            setPreviewLabelData({
+                              carrier: prov.code as CourierCarrierCode,
+                              carrierName: prov.name,
+                              carrierNameAr: prov.name,
+                              trackingNumber: realOrder.trackingNumber || `${prov.code.toUpperCase()}-TRK-${realOrder.id.slice(-6)}`,
+                              awbNumber: anyOrder.awbNumber || realOrder.shippingLabelNumber || `${prov.code.toUpperCase()}-AWB-${realOrder.id.slice(-6)}`,
+                              orderNumber: realOrder.orderNumber || `#${realOrder.id.slice(-8)}`,
+                              orderDate: realOrder.createdAt ? realOrder.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+                              sender: {
+                                name: activeStore.name || 'Store Merchant',
+                                nameAr: activeStore.nameAr || 'تاجر المتجر',
+                                phone: anyStore.phone || '+966 11 000 0000',
+                                address: anyStore.address || 'Saudi Arabia',
+                                city: anyStore.city || 'Riyadh',
+                                country: 'Saudi Arabia',
+                              },
+                              recipient: {
+                                name: realOrder.customerName || 'Customer',
+                                phone: realOrder.customerPhone || '+966 500 000 000',
+                                address: orderAddress,
+                                city: orderCity,
+                                country: 'Saudi Arabia',
+                              },
+                              packageDetails: {
+                                weightKg: 1.5,
+                                pieces: realOrder.items?.length || 1,
+                                contentDescription: 'Store Parcel',
+                                contentDescriptionAr: 'طرد متجر',
+                                declaredValueSar: orderTotal || 100,
+                              },
+                              payment: {
+                                method: realOrder.paymentMethod === 'COD' ? 'cod' : 'prepaid',
+                                codAmountSar: realOrder.paymentMethod === 'COD' ? orderTotal : undefined,
+                                currency: 'SAR',
+                              },
+                              routing: {
+                                hubCode: `${orderCity.slice(0, 3).toUpperCase()}-HUB`,
+                                serviceType: 'Standard Delivery',
+                                routeCode: `KSA-${prov.code.toUpperCase()}`,
+                              },
+                            });
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-bold bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 hover:bg-sky-100 border border-sky-200 dark:border-sky-800 rounded-lg cursor-pointer"
+                          title={isAr ? 'طباعة / معاينة باركود البوليصة' : 'Print / View Waybill Barcode'}
+                        >
+                          {isAr ? 'طباعة البوليصة' : 'Print AWB'}
                         </button>
                         <button
                           type="button"
@@ -729,106 +785,6 @@ export const StoreShipping: React.FC = () => {
                         className="px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 bg-slate-100 dark:bg-slate-800 rounded-lg cursor-pointer"
                       >
                         Edit Rate
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ─────────────────────────────────────────────────────────────
-          TAB 3: City & Weight Rates Matrix (Detailed Saudi Zones)
-      ───────────────────────────────────────────────────────────── */}
-      {activeTab === 'zones' && (
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 absolute start-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search city, area, or province..."
-                className="w-full ps-10 pe-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200"
-              />
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <select
-                value={regionFilter}
-                onChange={(e) => setRegionFilter(e.target.value)}
-                className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200"
-              >
-                {REGIONS.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                onClick={() => setShowAddCityModal(true)}
-                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add City / Zone</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 text-start">
-                  <th className="py-2.5 px-3 font-medium text-start">City / Area</th>
-                  <th className="py-2.5 px-3 font-medium text-start">Region</th>
-                  <th className="py-2.5 px-3 font-medium text-start">ETA</th>
-                  <th className="py-2.5 px-3 font-medium text-end">Base Rate</th>
-                  <th className="py-2.5 px-3 font-medium text-end">Per Kg</th>
-                  <th className="py-2.5 px-3 font-medium text-end">Free Above</th>
-                  <th className="py-2.5 px-3 font-medium text-center">Status</th>
-                  <th className="py-2.5 px-3 font-medium text-end">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
-                {pageZoneRows.map((z) => (
-                  <tr key={z.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                        <div>
-                          <span className="font-bold text-slate-900 dark:text-white block">{z.cityName}</span>
-                          <span className="text-[10px] text-slate-400">{z.region || z.province}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">{z.region || z.province}</td>
-                    <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">{z.estimatedDelivery}</td>
-                    <td className="py-2.5 px-3 text-end font-bold text-slate-900 dark:text-white">{money(z.rate)}</td>
-                    <td className="py-2.5 px-3 text-end text-slate-600 dark:text-slate-400">{money(z.ratePerKg ?? 0)}/kg</td>
-                    <td className="py-2.5 px-3 text-end font-bold text-emerald-600 dark:text-emerald-400">{money(z.freeShippingAbove)}</td>
-                    <td className="py-2.5 px-3 text-center">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                        {z.status}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-end">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newRate = window.prompt(`Base delivery fee for ${z.cityName} (SAR):`, z.rate.toString());
-                          if (newRate !== null) {
-                            updateShippingRate(z.id, parseFloat(newRate) || z.rate, z.freeShippingAbove);
-                            toast(`Shipping rate for ${z.cityName} updated!`, 'success');
-                          }
-                        }}
-                        className="px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 bg-slate-100 dark:bg-slate-800 rounded-lg cursor-pointer"
-                      >
-                        Edit
                       </button>
                     </td>
                   </tr>
@@ -1188,6 +1144,15 @@ export const StoreShipping: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Printable Courier Shipping Label Barcode Modal */}
+      {previewLabelData && (
+        <CourierShippingLabelModal
+          isOpen={Boolean(previewLabelData)}
+          onClose={() => setPreviewLabelData(null)}
+          labelData={previewLabelData}
+        />
       )}
     </div>
   );

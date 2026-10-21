@@ -48,6 +48,13 @@ import {
 import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
 import { isApiEnabled } from '../../api/client';
 import { uploadMediaFile, replaceMediaWithFile } from '../../api/tenantApi';
+import { CanvaImageStudioModal } from './CanvaImageStudioModal';
+import { getStudioQuota } from '../../services/ksaAutomationEngine';
+import { AdvanceFeatureComingSoonModal } from '../common/AdvanceFeatureComingSoonModal';
+import {
+  useAdvanceFeatures,
+  type AdvanceFeatureConfig,
+} from '../../services/advanceFeaturesService';
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'newest' | 'oldest' | 'largest' | 'smallest' | 'most_used' | 'name';
@@ -79,6 +86,21 @@ export const StoreMediaLibrary: React.FC = () => {
   // Active Inspector / Drawer Asset
   const [selectedAsset, setSelectedAsset] = useState<MediaAsset | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+  // Canva-Style AI Image Studio Modal State
+  const [isCanvaStudioOpen, setIsCanvaStudioOpen] = useState(false);
+  const [canvaTargetAsset, setCanvaTargetAsset] = useState<MediaAsset | null>(null);
+  const [comingSoonModalFeature, setComingSoonModalFeature] = useState<AdvanceFeatureConfig | null>(null);
+  const { getFeature } = useAdvanceFeatures();
+  const canvaFeat = getFeature('canva_editing');
+  const isCanvaHidden = canvaFeat?.mode === 'hidden';
+  const isCanvaSoon = canvaFeat?.mode === 'coming_soon';
+  const studioQuota = getStudioQuota(activeStore.id);
+
+  // Sync product catalog images once when Media Library opens
+  React.useEffect(() => {
+    syncProductImagesToMedia(activeStore.id);
+  }, [activeStore.id, syncProductImagesToMedia]);
 
   // Replace Asset State
   const [replaceTargetAsset, setReplaceTargetAsset] = useState<MediaAsset | null>(null);
@@ -630,6 +652,34 @@ export const StoreMediaLibrary: React.FC = () => {
 
         {/* Top Action Buttons */}
         <div className="flex items-center gap-2.5 flex-wrap">
+          {!isCanvaHidden && (
+            <button
+              type="button"
+              onClick={() => {
+                if (isCanvaSoon && canvaFeat) {
+                  setComingSoonModalFeature(canvaFeat);
+                } else {
+                  setCanvaTargetAsset(selectedAsset || processedMedia.find((m) => m.fileType === 'image') || null);
+                  setIsCanvaStudioOpen(true);
+                }
+              }}
+              className="px-4 py-2.5 rounded-xl text-xs font-black text-white shadow-md flex items-center gap-2 cursor-pointer transition-all hover:opacity-95"
+              style={{ background: isCanvaSoon ? 'linear-gradient(135deg, #d97706, #b45309)' : 'linear-gradient(135deg, #059669, #0d9488)' }}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>
+                {isAr
+                  ? `استوديو Canva AI وإزالة الخلفية (${studioQuota.usedToday}/${studioQuota.dailyLimit})`
+                  : `Canva AI Studio & BG Remover (${studioQuota.usedToday}/${studioQuota.dailyLimit})`}
+              </span>
+              {isCanvaSoon && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/25 text-white border border-white/30 shrink-0">
+                  {isAr ? canvaFeat?.comingSoonTagAr : canvaFeat?.comingSoonTagEn}
+                </span>
+              )}
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleSyncProductImages}
@@ -1013,6 +1063,31 @@ export const StoreMediaLibrary: React.FC = () => {
 
                   {/* Quick Action Overlay Buttons */}
                   <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-between">
+                    {asset.fileType === 'image' && !isCanvaHidden && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isCanvaSoon && canvaFeat) {
+                            setComingSoonModalFeature(canvaFeat);
+                          } else {
+                            setCanvaTargetAsset(asset);
+                            setIsCanvaStudioOpen(true);
+                          }
+                        }}
+                        className={`p-1.5 rounded-lg text-white transition-colors shadow-xs ${
+                          isCanvaSoon ? 'bg-amber-600/90 hover:bg-amber-500' : 'bg-emerald-500/90 hover:bg-emerald-500'
+                        }`}
+                        title={
+                          isCanvaSoon
+                            ? `${isAr ? canvaFeat?.nameAr : canvaFeat?.nameEn} (${isAr ? canvaFeat?.comingSoonTagAr : canvaFeat?.comingSoonTagEn})`
+                            : isAr ? 'تعديل وإزالة الخلفية (Canva AI)' : 'Edit & Remove BG (Canva AI)'
+                        }
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={(e) => {
@@ -1413,7 +1488,31 @@ export const StoreMediaLibrary: React.FC = () => {
             </div>
 
             {/* Bottom Actions */}
-            <div className="pt-4 border-t flex items-center justify-between gap-3" style={{ borderColor: 'var(--border)' }}>
+            <div className="pt-4 border-t flex items-center justify-between gap-2 flex-wrap" style={{ borderColor: 'var(--border)' }}>
+              {selectedAsset.fileType === 'image' && !isCanvaHidden && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isCanvaSoon && canvaFeat) {
+                      setComingSoonModalFeature(canvaFeat);
+                    } else {
+                      setCanvaTargetAsset(selectedAsset);
+                      setIsCanvaStudioOpen(true);
+                    }
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-xs font-black text-white shadow-md flex items-center gap-1.5 cursor-pointer"
+                  style={{ background: isCanvaSoon ? 'linear-gradient(135deg, #d97706, #b45309)' : 'linear-gradient(135deg, #059669, #0d9488)' }}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{isAr ? 'تعديل وعزل الخلفية (Canva AI)' : 'Edit & Remove BG (Canva AI)'}</span>
+                  {isCanvaSoon && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/25 text-white border border-white/30 shrink-0">
+                      {isAr ? canvaFeat?.comingSoonTagAr : canvaFeat?.comingSoonTagEn}
+                    </span>
+                  )}
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => handleTriggerReplace(selectedAsset)}
@@ -1436,6 +1535,68 @@ export const StoreMediaLibrary: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ── Canva-Style AI Image Studio & BG Remover Modal ── */}
+      <CanvaImageStudioModal
+        isOpen={isCanvaStudioOpen}
+        onClose={() => setIsCanvaStudioOpen(false)}
+        initialAsset={canvaTargetAsset}
+        onSaveNewAsset={(dataUrl, title, width, height) => {
+          addMediaAsset({
+            fileName: `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'studio-design'}.webp`,
+            originalUrl: dataUrl,
+            optimizedUrl: dataUrl,
+            webpUrl: dataUrl,
+            thumbnailUrl: dataUrl,
+            fileType: 'image',
+            mimeType: 'image/webp',
+            fileSize: Math.round(dataUrl.length * 0.72),
+            width,
+            height,
+            title,
+            altText: `${title} - ${activeStore.name}`,
+            caption: `Created in Canva AI Studio for ${activeStore.name}`,
+            folder: 'marketing',
+            tags: ['canva-ai', 'studio', activeStore.slug],
+            processingStatus: 'ready',
+            optimizationStatus: 'optimized',
+            source: 'upload',
+          });
+          toast(
+            isAr
+              ? 'تم حفظ التصميم الجديد في مكتبة وسائط المتجر بنجاح!'
+              : 'New AI Studio design saved to your store Media Library!',
+            'success',
+          );
+        }}
+        onReplaceAsset={(assetId, dataUrl, width, height) => {
+          replaceMediaAsset(assetId, {
+            url: dataUrl,
+            optimizedUrl: dataUrl,
+            webpUrl: dataUrl,
+            thumbnailUrl: dataUrl,
+            fileName: `edited-${Date.now()}.webp`,
+            fileSize: Math.round(dataUrl.length * 0.72),
+            width,
+            height,
+            mimeType: 'image/webp',
+            fileType: 'image',
+          });
+          toast(
+            isAr
+              ? 'تم تحديث الصورة وتطبيق التعديلات فوراً!'
+              : 'Image updated with Canva AI Studio changes!',
+            'success',
+          );
+        }}
+      />
+
+      {/* Advance Feature Coming Soon Modal */}
+      <AdvanceFeatureComingSoonModal
+        isOpen={!!comingSoonModalFeature}
+        onClose={() => setComingSoonModalFeature(null)}
+        feature={comingSoonModalFeature}
+      />
 
       {/* ── Google Drive Import Modal ── */}
       {isGdriveModalOpen && (

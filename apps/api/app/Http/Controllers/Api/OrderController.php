@@ -10,9 +10,11 @@ use App\Models\OrderReturn;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\Store;
+use App\Services\Notification\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -371,6 +373,13 @@ class OrderController extends Controller
                 $store->save();
             }
 
+            // Trigger instant WhatsApp / SMS notification for new order (+966 Saudi)
+            try {
+                (new NotificationService())->sendOrderNotification('order_placed', $order);
+            } catch (\Throwable $e) {
+                Log::warning('Order notification error (order_placed): ' . $e->getMessage());
+            }
+
             return response()->json([
                 'data' => $order->fresh(['items', 'customer']),
                 'customer' => $customer->fresh(),
@@ -509,6 +518,22 @@ class OrderController extends Controller
 
             $order->save();
         });
+
+        // Trigger transactional WhatsApp / SMS alerts on order status change (+966 Saudi)
+        if ($newStatus !== $prevStatus) {
+            try {
+                $notificationService = new NotificationService();
+                if ($newStatus === 'shipped') {
+                    $notificationService->sendOrderNotification('order_shipped', $order);
+                } elseif (in_array($newStatus, ['delivered', 'completed'], true)) {
+                    $notificationService->sendOrderNotification('order_delivered', $order);
+                } elseif (in_array($newStatus, ['cancelled', 'cancellation_requested'], true)) {
+                    $notificationService->sendOrderNotification('order_cancelled', $order);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Order status notification error (' . $newStatus . '): ' . $e->getMessage());
+            }
+        }
 
         return response()->json(['data' => $order->fresh(['items', 'customer', 'returns'])]);
     }

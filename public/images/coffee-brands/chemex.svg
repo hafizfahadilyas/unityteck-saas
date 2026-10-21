@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120" fill="none">
+  <rect width="300" height="120" rx="16" fill="#FFFFFF"/>
+  <g transform="translate(24, 20)">
+    <!-- Chemex iconic hourglass flask with wooden collar and tie -->
+    <path d="M16 10 L54 10 L44 42 L48 48 L44 54 L56 75 C58 78, 52 80, 48 80 L22 80 C18 80, 12 78, 14 75 L26 54 L22 48 L26 42 Z" stroke="#1C1917" stroke-width="3" fill="#F5F5F4" stroke-linejoin="round"/>
+    <rect x="23" y="44" width="24" height="10" rx="2" fill="#B45309" stroke="#78350F" stroke-width="1.5"/>
+    <circle cx="35" cy="49" r="2.5" fill="#DC2626"/>
+    <!-- Chemex wordmark -->
+    <text x="76" y="48" font-family="system-ui, -apple-system, sans-serif" font-size="30" font-weight="800" fill="#1C1917" letter-spacing="4">CHEMEX</text>
+    <text x="78" y="68" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="700" fill="#B45309" letter-spacing="3">COFFEE MAKER · USA</text>
+  </g>
+</svg>

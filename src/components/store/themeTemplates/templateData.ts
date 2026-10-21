@@ -47,7 +47,7 @@ export const HOMEPAGE_TEMPLATES: HomepageTemplateItem[] = [
       'تذييل متكامل مع النشرة البريدية وروابط التواصل',
     ],
     bannerGradient: 'linear-gradient(135deg, #059669 0%, #064e3b 100%)',
-    thumbnail: '/theme-mockups/real_storefront_hero.png',
+    thumbnail: '/theme-mockups/real_storefront_hero.webp',
   },
   {
     id: 'hp-eid',
@@ -75,7 +75,7 @@ export const HOMEPAGE_TEMPLATES: HomepageTemplateItem[] = [
       'زر طلب سريع عبر واتساب للباقات المخصصة',
     ],
     bannerGradient: 'linear-gradient(135deg, #0d9488 0%, #134e4a 100%)',
-    thumbnail: '/theme-mockups/real_storefront_3d_slider.png',
+    thumbnail: '/theme-mockups/real_storefront_3d_slider.webp',
   },
   {
     id: 'hp-ramadan',
@@ -103,7 +103,7 @@ export const HOMEPAGE_TEMPLATES: HomepageTemplateItem[] = [
       'باقة الورد الأبيض مع العود والبخور الفاخر',
     ],
     bannerGradient: 'linear-gradient(135deg, #b45309 0%, #1e1b4b 100%)',
-    thumbnail: '/theme-mockups/real_storefront_products.png',
+    thumbnail: '/theme-mockups/real_storefront_products.webp',
   },
   {
     id: 'hp-valentine',
@@ -131,7 +131,7 @@ export const HOMEPAGE_TEMPLATES: HomepageTemplateItem[] = [
       'تقييمات وصور تجارب العملاء في المناسبات السعيدة',
     ],
     bannerGradient: 'linear-gradient(135deg, #e11d48 0%, #881337 100%)',
-    thumbnail: '/theme-mockups/real_storefront_hero.png',
+    thumbnail: '/theme-mockups/real_storefront_hero.webp',
   },
   {
     id: 'hp-coffee-boutique',
@@ -927,3 +927,4 @@ export function setStoreActivePageTemplate(storeId: string, pageKey: string, var
   }
   return current;
 }
+

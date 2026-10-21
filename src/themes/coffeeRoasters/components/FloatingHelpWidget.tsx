@@ -5,7 +5,7 @@ import { useCart } from '../context/CartContext';
 export const FloatingHelpWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const { cartCount, setIsMiniCartOpen, language, currentRoute } = useCart();
+  const { cartCount, setIsMiniCartOpen, isMiniCartOpen, language, currentRoute } = useCart();
   const widgetRef = useRef<HTMLDivElement>(null);
 
   // Monitor scroll position: only show bottom scroll-to-top button when user scrolls down
@@ -40,6 +40,9 @@ export const FloatingHelpWidget: React.FC = () => {
 
   // Cart icon is shown ONLY on the Learn More page (product-detail)
   const isLearnMorePage = currentRoute === 'product-detail';
+
+  // Do not render floating buttons over the cart drawer when open
+  if (isMiniCartOpen) return null;
 
   return (
     <aside

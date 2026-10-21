@@ -6,6 +6,12 @@
 
 export const DEFAULT_COMMERCE_THEME_ID = 'theme-flora-luxe';
 
+export const getDefaultStoreTheme = (storeId?: string): string => {
+  if (storeId === 'store-coffee' || storeId?.includes('coffee')) return 'theme-coffee';
+  if (storeId === 'store-bleco' || storeId?.includes('bleco') || storeId?.includes('car')) return 'theme-saudia-transport';
+  return 'theme-mecca-gifts';
+};
+
 export type ThemeMode = 'basic' | 'full';
 
 export type DefaultThemeSettings = {

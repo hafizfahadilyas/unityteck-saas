@@ -69,6 +69,64 @@ export const PRESET_SIMULATED_DOMAINS: SimulatedDomain[] = [
 ];
 
 /**
+ * Dynamically builds active domain records from real store data (Tenant isolation compliant).
+ * When filterStoreId is set, strictly limits records to the given tenant store.
+ */
+export function buildLiveStoreDomains(
+  stores: Store[],
+  domains?: DomainRecord[],
+  filterStoreId?: string
+): SimulatedDomain[] {
+  const result: SimulatedDomain[] = [];
+  const targetStores = filterStoreId ? stores.filter((s) => s.id === filterStoreId) : stores;
+
+  for (const st of targetStores) {
+    const storeDomains = domains ? domains.filter((d) => d.storeId === st.id) : [];
+
+    // Custom domain from domains table or store entity
+    const customDom =
+      storeDomains.find((d) => d.domainType === 'custom')?.domainName ||
+      (st as any).custom_domain ||
+      (st as any).domain;
+
+    if (customDom && customDom.includes('.')) {
+      result.push({
+        domain: customDom,
+        expectedStoreId: st.id,
+        expectedThemeId: resolveStoreActiveTheme(st),
+        labelAr: `${st.name} (نطاق رسمي مخصص)`,
+        labelEn: `${st.name} (Official Custom Domain)`,
+        type: 'custom',
+      });
+    }
+
+    // Subdomain / Demo domain
+    const subDom =
+      (st as any).demo_domain ||
+      storeDomains.find((d) => d.domainType === 'demo')?.domainName ||
+      (st.slug ? `${st.slug}.unityteck.com` : null);
+
+    if (subDom && subDom !== customDom) {
+      result.push({
+        domain: subDom,
+        expectedStoreId: st.id,
+        expectedThemeId: resolveStoreActiveTheme(st),
+        labelAr: `${st.name} (نطاق سحابي فرعي)`,
+        labelEn: `${st.name} (Cloud Subdomain)`,
+        type: 'subdomain',
+      });
+    }
+  }
+
+  // If no dynamic store domains found and not filtered to a single store, use preset defaults as fallback
+  if (result.length === 0 && !filterStoreId) {
+    return PRESET_SIMULATED_DOMAINS;
+  }
+
+  return result;
+}
+
+/**
  * Normalizes incoming hostname by stripping port, protocol, path, and www.
  */
 export function normalizeHostname(raw: string): string {

@@ -258,19 +258,59 @@ export const StoreColorsForm: React.FC = () => {
                   />
                 </div>
 
-                {/* Preloader Subtitle Text Option */}
+                {/* Preloader Company Tagline Option (1-Line English) */}
                 <div>
                   <label className="text-[11px] font-bold uppercase text-muted block mb-1">
-                    {isAr ? 'النص الفرعي / الوصف (Subtitle / Tagline)' : 'Preloader Subtitle / Tagline'}
+                    {isAr ? 'شعار المتجر الإنجليزي باللودر (1-Line English Company Tagline)' : 'Preloader English Company Tagline (1 Line)'}
                   </label>
                   <input
                     type="text"
                     value={settings.loadingSubtitle || ''}
                     onChange={(e) => setVal('loadingSubtitle', e.target.value)}
-                    placeholder="Luxury Flowers & Gifts · زهور وهدايا فاخرة"
-                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none"
+                    placeholder={
+                      activeStore.id === 'store-coffee'
+                        ? 'HiBrew KSA · Specialty Coffee Machines & Barista Essentials'
+                        : activeStore.id === 'store-bleco'
+                        ? 'Al-Saeedi VIP · Precision Automotive Styling & Custom Upholstery'
+                        : `${activeStore.nameEn || activeStore.name} · Luxury Flowers & Gifts`
+                    }
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none font-sans"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
                   />
+                  <span className="text-[10px] text-muted block mt-1">
+                    {isAr
+                      ? 'يظهر اللودر الشعار وسطر واحد فقط لشعار الشركة باللغة الإنجليزية بدون نصوص إضافية'
+                      : 'The page loader displays only the store logo and this single-line English company tagline'}
+                  </span>
+                </div>
+
+                {/* Live Mini Preview of the 1-Line Loader */}
+                <div className="p-3.5 rounded-xl border bg-slate-900 text-white flex flex-col items-center justify-center text-center">
+                  <span className="text-[9px] uppercase tracking-wider text-emerald-400 font-bold mb-2">
+                    {isAr ? 'معاينة حية للمؤشر (Logo + 1 Line English Tagline)' : 'Live Loader Preview (Logo + 1 Line Tagline)'}
+                  </span>
+                  <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 p-1.5 flex items-center justify-center mb-2 shadow-sm">
+                    {settings.loadingLogoUrl || activeStore.logo ? (
+                      <img
+                        src={settings.loadingLogoUrl || activeStore.logo}
+                        alt="Logo"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <Palette className="w-5 h-5 text-emerald-400" />
+                    )}
+                  </div>
+                  <div className="w-24 h-1 bg-white/20 rounded-full overflow-hidden mb-2">
+                    <div className="h-full w-full bg-emerald-400 rounded-full animate-pulse" />
+                  </div>
+                  <p className="text-[11px] font-semibold text-slate-200 font-sans tracking-wide truncate max-w-full">
+                    {settings.loadingSubtitle ||
+                      (activeStore.id === 'store-coffee'
+                        ? 'HiBrew KSA · Specialty Coffee Machines & Barista Essentials'
+                        : activeStore.id === 'store-bleco'
+                        ? 'Al-Saeedi VIP · Precision Automotive Styling & Custom Upholstery'
+                        : `${activeStore.nameEn || activeStore.name} · Luxury Flowers & Gifts`)}
+                  </p>
                 </div>
 
                 {/* Checkboxes */}

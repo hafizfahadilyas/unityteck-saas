@@ -139,54 +139,61 @@ async function deploy() {
   try {
     await connectClient(client);
 
-    // List remote directory
-    console.log(`🔍 Examining remote directory structure...`);
-    const remoteList = await client.list();
-    console.log(`📂 Remote items found: ${remoteList.map((i) => i.name).join(', ') || '(empty)'}\n`);
+    const TARGET_DIRS = ['/', '/public_html'];
 
-    // Clean old assets folder if it exists to purge outdated js/css bundles
-    const hasAssetsDir = remoteList.some((item) => item.name === 'assets' && item.isDirectory);
-    if (hasAssetsDir) {
-      console.log('🧹 Purging outdated remote /assets directory to eliminate stale bundles...');
-      try {
-        await client.removeDir('assets');
-        console.log('✅ Remote /assets directory purged cleanly.');
-      } catch (rmErr) {
-        console.warn(`⚠️ Could not remove remote assets dir (${rmErr.message}), will overwrite files.`);
+    for (const targetDir of TARGET_DIRS) {
+      console.log(`\n====================================================`);
+      console.log(`📂 Deploying to target directory: ${targetDir} ...`);
+      console.log(`====================================================`);
+      await client.cd(targetDir);
+      const remoteList = await client.list();
+      console.log(`📂 Found in ${targetDir}: ${remoteList.map((i) => i.name).join(', ') || '(empty)'}`);
+
+      // Clean old assets folder if it exists to purge outdated js/css bundles
+      const hasAssetsDir = remoteList.some((item) => item.name === 'assets' && item.isDirectory);
+      if (hasAssetsDir) {
+        console.log(`🧹 Purging outdated ${targetDir}/assets directory...`);
+        try {
+          await client.removeDir('assets');
+          console.log(`✅ ${targetDir}/assets purged cleanly.`);
+        } catch (rmErr) {
+          console.warn(`⚠️ Could not remove remote assets dir (${rmErr.message}), will overwrite files.`);
+        }
       }
-    }
 
-    console.log('🚀 Uploading fresh dist/ bundle using batch stream transfer...');
-    client.trackProgress((info) => {
-      console.log(`📤 Uploading: ${info.name} (${(info.bytesOverall / 1024 / 1024).toFixed(2)} MB total)`);
-    });
-
-    let uploaded = false;
-    let attempts = 0;
-    while (!uploaded && attempts < 3) {
-      try {
-        attempts++;
-        await client.uploadFromDir(distDir);
-        uploaded = true;
-      } catch (uploadErr) {
-        console.warn(`⚠️ Batch upload attempt ${attempts} interrupted: ${uploadErr.message}`);
-        if (attempts >= 3) throw uploadErr;
-        console.log('🔄 Reconnecting FTP client and resuming upload...');
-        client.close();
-        client = new ftp.Client(120000);
-        await connectClient(client);
+      console.log(`🚀 Uploading fresh dist/ bundle to ${targetDir} ...`);
+      let uploaded = false;
+      let attempts = 0;
+      while (!uploaded && attempts < 3) {
+        try {
+          attempts++;
+          await client.uploadFromDir(distDir);
+          uploaded = true;
+          console.log(`✅ Files uploaded to ${targetDir} successfully!`);
+        } catch (uploadErr) {
+          console.warn(`⚠️ Upload attempt ${attempts} to ${targetDir} interrupted: ${uploadErr.message}`);
+          if (attempts >= 3) throw uploadErr;
+          console.log('🔄 Reconnecting FTP client and resuming upload...');
+          client.close();
+          client = new ftp.Client(120000);
+          await connectClient(client);
+          await client.cd(targetDir);
+        }
       }
     }
 
     console.log('\n====================================================');
     console.log(`🎉 ALL FILES DEPLOYED TO HOSTINGER SUCCESSFULLY!`);
-    console.log(`🌐 LIVE STORE URL   : ${TARGET_URL}`);
-    console.log(`👑 MASTER ADMIN URL : ${TARGET_URL}master`);
-    console.log(`🏪 STOREFRONT URL   : ${TARGET_URL}storefront`);
+    console.log(`🌐 ROOT STORE (FLOWERS/HADAYA) : https://giftshop-sa.com/`);
+    console.log(`🌐 COFFEE STORE (PUBLIC_HTML)  : https://giftshop-sa.com/public_html/`);
+    console.log(`👑 ADMIN DASHBOARD             : https://giftshop-sa.com/admin`);
+    console.log(`☕ COFFEE ADMIN                : https://giftshop-sa.com/admin?store=coffee`);
     console.log('====================================================');
 
-    // Run live verification check
-    await verifyLiveSite(TARGET_URL);
+    // Run live verification checks
+    await verifyLiveSite('https://giftshop-sa.com/');
+    await verifyLiveSite('https://giftshop-sa.com/public_html/');
+    await verifyLiveSite('https://giftshop-sa.com/admin');
 
   } catch (err) {
     console.error('\n❌ Deployment failed:');

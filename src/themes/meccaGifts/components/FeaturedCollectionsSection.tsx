@@ -2,10 +2,19 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
 
-export const FeaturedCollectionsSection: React.FC = () => {
+export interface FeaturedCollectionsSectionProps {
+  settings?: Record<string, any>;
+  isBuilderMode?: boolean;
+}
+
+export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProps> = ({
+  settings,
+  isBuilderMode = false,
+}) => {
   const { language, builderDevice } = useApp();
   const { activeStore } = useTenant();
   const isAr = language === 'ar';
+  const s = settings || {};
   const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
 
   const [hasAnimated, setHasAnimated] = useState(false);
@@ -148,7 +157,7 @@ export const FeaturedCollectionsSection: React.FC = () => {
                 src={item.image}
                 alt={item.label}
                 className="w-full h-full object-cover group-hover:scale-106 transition-transform duration-500"
-                loading="lazy"
+                loading="lazy" decoding="async"
               />
             </div>
 
@@ -173,3 +182,4 @@ export const FeaturedCollectionsSection: React.FC = () => {
     </section>
   );
 };
+

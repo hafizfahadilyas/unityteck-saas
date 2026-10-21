@@ -108,7 +108,6 @@ export const coffeeRoastersThemeConfig: ThemeManifest = {
     { id: 'catalog', slug: 'catalog', title: 'Equipment & Beans', titleAr: 'المكائن والمستلزمات', isSystem: true },
     { id: 'product', slug: 'product', title: 'Product Details (Learn More)', titleAr: 'تفاصيل المنتج (اعرف المزيد)', isSystem: true },
     { id: 'product-buy', slug: 'buy', title: 'Buy Now Configurator', titleAr: 'الشراء الفوري وتخصيص الماكينة', isSystem: true },
-    { id: 'custom-order', slug: 'custom-order', title: 'Custom Coffee Corner Builder', titleAr: 'تفصيل أركان ودواليب القهوة', isSystem: true },
     { id: 'cart', slug: 'cart', title: 'Shopping Cart', titleAr: 'سلة المشتريات', isSystem: true },
     { id: 'checkout', slug: 'checkout', title: 'Express Checkout', titleAr: 'إتمام الطلب السريع', isSystem: true },
     { id: 'profile', slug: 'profile', title: 'Customer Profile & Orders', titleAr: 'حساب العميل والطلبات', isSystem: true },

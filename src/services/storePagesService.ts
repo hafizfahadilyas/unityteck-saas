@@ -8,6 +8,8 @@
  */
 
 import { Store } from '../types';
+import { bumpStore } from '../api/cacheTags';
+import { readStoreIdentity } from '../themes/settings/storeIdentity';
 
 export interface StoreCustomPage {
   id: string;
@@ -414,12 +416,13 @@ function getStorageKey(storeId: string): string {
 
 export function replacePlaceholders(text: string, store?: Partial<Store>): string {
   if (!text) return '';
-  const storeName = store?.nameAr || store?.name || 'HiBrew KSA | متجر مكائن القهوة';
-  const phone = store?.contactPhone || store?.phone || '0501234567';
-  const email = store?.email || store?.ownerEmail || 'sa.support@hibrew.com';
-  const cr = store?.crNumber || '1010754462';
-  const vat = store?.taxNumber || '311123479500003';
-  const city = 'الرياض (المملكة العربية السعودية)';
+  const identity = store?.id ? readStoreIdentity(store.id, store as any) : null;
+  const storeName = identity?.storeName || store?.nameAr || store?.name || 'Store';
+  const phone = identity?.phone || (store as any)?.contactPhone || store?.phone || '+966 50 442 8819';
+  const email = identity?.email || (store as any)?.email || store?.ownerEmail || 'giftshop2030m@gmail.com';
+  const cr = identity?.commercialReg || (store as any)?.crNumber || '4031099241';
+  const vat = identity?.vatNumber || (store as any)?.taxNumber || '30048821900003';
+  const city = identity?.city || (identity?.addressAr ? `${identity.addressAr}` : 'مكة المكرمة (المملكة العربية السعودية)');
 
   return text
     .replace(/{STORE_NAME}/g, storeName)
@@ -513,7 +516,9 @@ export function saveStorePage(storeId: string, page: StoreCustomPage): void {
     }
 
     localStorage.setItem(getStorageKey(storeId), JSON.stringify(updated));
+    bumpStore(storeId, 'settings');
     window.dispatchEvent(new CustomEvent('unityteck-pages-changed', { detail: { storeId } }));
+    window.dispatchEvent(new CustomEvent('unityteck-data', { detail: { tag: `store:${storeId}:pages`, version: Date.now() } }));
   } catch (err) {
     console.error('Failed to save store page:', err);
   }
@@ -553,7 +558,9 @@ export function deleteStorePage(storeId: string, pageId: string): boolean {
 
     const filtered = current.filter((p) => p.id !== pageId);
     localStorage.setItem(getStorageKey(storeId), JSON.stringify(filtered));
+    bumpStore(storeId, 'settings');
     window.dispatchEvent(new CustomEvent('unityteck-pages-changed', { detail: { storeId } }));
+    window.dispatchEvent(new CustomEvent('unityteck-data', { detail: { tag: `store:${storeId}:pages`, version: Date.now() } }));
     return true;
   } catch (err) {
     console.error('Failed to delete store page:', err);
@@ -567,7 +574,9 @@ export function deleteStorePage(storeId: string, pageId: string): boolean {
 export function resetStorePagesToDefault(storeId: string): void {
   try {
     localStorage.setItem(getStorageKey(storeId), JSON.stringify(MASTER_DEFAULT_PAGES));
+    bumpStore(storeId, 'settings');
     window.dispatchEvent(new CustomEvent('unityteck-pages-changed', { detail: { storeId } }));
+    window.dispatchEvent(new CustomEvent('unityteck-data', { detail: { tag: `store:${storeId}:pages`, version: Date.now() } }));
   } catch (err) {
     console.error('Failed to reset store pages:', err);
   }

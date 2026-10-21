@@ -62,9 +62,10 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
 
   // Card details state
   const [cardNumber, setCardNumber] = useState('');
-  const [cardHolder, setCardHolder] = useState(customerName || (isAr ? 'فهد السبيعي' : 'Fahad Al-Subaie'));
-  const [cardExpiry, setCardExpiry] = useState('08/28');
-  const [cardCvv, setCardCvv] = useState('321');
+  const [cardHolder, setCardHolder] = useState(customerName || '');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [saveCard, setSaveCard] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationFeedback, setVerificationFeedback] = useState<{
     success: boolean;

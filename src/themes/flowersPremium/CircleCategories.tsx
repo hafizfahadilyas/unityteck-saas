@@ -119,7 +119,7 @@ export const CircleCategories: React.FC<Props> = ({
                     src={cat.image}
                     alt={isAr ? cat.nameAr : cat.nameEn}
                     className="w-full h-full object-cover rounded-full group-hover:scale-110 transition-transform duration-500"
-                    loading="lazy"
+                    loading="lazy" decoding="async"
                   />
                 </div>
 
@@ -157,3 +157,4 @@ export const CircleCategories: React.FC<Props> = ({
     </div>
   );
 };
+

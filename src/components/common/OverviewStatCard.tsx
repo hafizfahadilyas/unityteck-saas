@@ -27,7 +27,7 @@ export type OverviewStatCardProps = {
   compact?: boolean;
 };
 
-export const OverviewStatCard: React.FC<OverviewStatCardProps> = ({
+export const OverviewStatCard: React.FC<OverviewStatCardProps> = React.memo(({
   label,
   value,
   icon: Icon,
@@ -75,7 +75,7 @@ export const OverviewStatCard: React.FC<OverviewStatCardProps> = ({
       {footer ? <div className="u-overview-card__footer mt-1">{footer}</div> : null}
     </article>
   );
-};
+});
 
 export type OverviewWideStatProps = {
   label: string;
@@ -88,7 +88,7 @@ export type OverviewWideStatProps = {
 };
 
 /** Horizontal KPI strip (pending orders / promotions style). */
-export const OverviewWideStat: React.FC<OverviewWideStatProps> = ({
+export const OverviewWideStat: React.FC<OverviewWideStatProps> = React.memo(({
   label,
   value,
   icon: Icon,
@@ -125,7 +125,11 @@ export const OverviewWideStat: React.FC<OverviewWideStatProps> = ({
       ) : null}
     </article>
   );
-};
+});
+
+OverviewWideStat.displayName = 'OverviewWideStat';
+
+OverviewStatCard.displayName = 'OverviewStatCard';
 
 export const ChartPanel: React.FC<{
   title: string;
@@ -133,7 +137,7 @@ export const ChartPanel: React.FC<{
   action?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
-}> = ({ title, subtitle, action, children, className = '' }) => (
+}> = React.memo(({ title, subtitle, action, children, className = '' }) => (
   <section className={`u-chart-panel ${className}`.trim()}>
     <header className="u-chart-panel__head">
       <div className="min-w-0">
@@ -144,4 +148,6 @@ export const ChartPanel: React.FC<{
     </header>
     <div className="u-chart-panel__body">{children}</div>
   </section>
-);
+));
+
+ChartPanel.displayName = 'ChartPanel';

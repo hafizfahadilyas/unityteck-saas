@@ -78,7 +78,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
   onSelectSubKey,
 }) => {
   const s = block.settings || {};
-  const { activeStore } = useTenant();
+  const { activeStore, currentProducts } = useTenant();
   const isCoffee =
     activeStore?.id === 'store-coffee' ||
     (activeStore?.category && activeStore.category.includes('قهوة')) ||
@@ -98,6 +98,15 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
     block.type === 'dynamic_product_row' ||
     block.type === 'product_tabs' ||
     block.type === 'discounted_bouquets_3d' ||
+    block.type === 'trending_this_week' ||
+    block.type === 'best_sellers' ||
+    block.type === 'sec_natural_roses' ||
+    block.type === 'sec_chocolate_roses' ||
+    block.type === 'sec_luxury_gifts' ||
+    block.type === 'featured_machines' ||
+    block.type === 'barista_tools' ||
+    block.type === 'seat_covers' ||
+    block.type === 'floor_mats' ||
     block.type.startsWith('product_section_');
 
   const isCircleCategories =
@@ -113,16 +122,39 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
   const isFaq = block.type === 'faq';
   const isFooter = block.type === 'footer' || block.id === 'footer';
 
-  // Available Store Categories List
-  const availableCategories = [
-    { id: 'all', nameAr: 'كافة الأقسام (All Categories)', nameEn: 'All Categories', slug: 'all' },
-    ...MECCA_CATEGORIES_SEED.map((c) => ({
-      id: c.id,
-      nameAr: c.nameAr || c.name,
-      nameEn: c.name,
-      slug: c.slug,
-    })),
-  ];
+  // Available Store Categories List (Dynamic for Flowers, Coffee, Cars, etc.)
+  const availableCategories = React.useMemo(() => {
+    const list = currentProducts || [];
+    const catMap = new Map<string, { id: string; nameAr: string; nameEn: string; slug: string }>();
+
+    // Seed presets
+    MECCA_CATEGORIES_SEED.forEach((c) => {
+      catMap.set(c.slug, {
+        id: c.id,
+        nameAr: c.nameAr || c.name,
+        nameEn: c.name,
+        slug: c.slug,
+      });
+    });
+
+    // Real categories from active store's real catalog
+    list.forEach((p) => {
+      if (p.category) {
+        const slug = (p as any).categorySlug || p.category.toLowerCase().replace(/\s+/g, '-');
+        catMap.set(slug, {
+          id: slug,
+          nameAr: p.category,
+          nameEn: p.categoryEn || p.category,
+          slug,
+        });
+      }
+    });
+
+    return [
+      { id: 'all', nameAr: 'كافة الأقسام (All Categories)', nameEn: 'All Categories', slug: 'all' },
+      ...Array.from(catMap.values()),
+    ];
+  }, [currentProducts]);
 
   // Available Store Brands List (Strictly isolated per active store)
   const storeBrandsList = activeStore ? getStoreBrands(activeStore.id) : INITIAL_BRANDS;
@@ -195,6 +227,30 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                 </select>
               </div>
 
+              {/* Special Tag & Collection Filter */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                  <Tag className="w-3 h-3 text-emerald-700" />
+                  <span>{isAr ? 'فلتر المناسبات والوسوم الخاصة' : 'Filter by Tag / Collection'}</span>
+                </label>
+                <select
+                  value={s.tagFilter || 'all'}
+                  onChange={(e) => onUpdateSetting('tagFilter', e.target.value)}
+                  className="w-full px-2.5 py-1.5 border border-slate-300 bg-white rounded-lg text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="all">{isAr ? 'جميع المنتجات (All Products)' : 'All Products'}</option>
+                  <option value="trending">{isAr ? 'الأكثر رواجاً (Top Trending 🔥)' : 'Top Trending 🔥'}</option>
+                  <option value="best_sellers">{isAr ? 'الأكثر مبيعاً (Best Sellers ⭐)' : 'Best Sellers ⭐'}</option>
+                  <option value="best_products">{isAr ? 'أفضل المنتجات (Best Products 👑)' : 'Best Products 👑'}</option>
+                  <option value="featured">{isAr ? 'منتجات مميزة (Featured ✨)' : 'Featured ✨'}</option>
+                  <option value="women">{isAr ? 'هدايا نسائية (Women)' : 'Women Collection'}</option>
+                  <option value="valentines">{isAr ? 'عيد الحب والرومانسية (Valentine)' : "Valentine's Day"}</option>
+                  <option value="eid">{isAr ? 'الأعياد والاحتفالات (Eid)' : 'Eid Celebrations'}</option>
+                  <option value="birthday">{isAr ? 'أعياد الميلاد (Birthday)' : 'Birthday Gifts'}</option>
+                  <option value="luxury">{isAr ? 'تشكيلة فاخرة (Luxury VIP)' : 'Luxury VIP'}</option>
+                </select>
+              </div>
+
               {/* Count Limit, Columns & Sort */}
               <div className="grid grid-cols-3 gap-2 pt-1">
                 <div>
@@ -206,7 +262,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                     onChange={(e) => onUpdateSetting('limit', Number(e.target.value))}
                     className="w-full px-2 py-1.5 border border-slate-300 bg-white rounded-lg text-xs font-bold"
                   >
-                    {[2, 3, 4, 6, 8, 9, 12, 16, 24].map((num) => (
+                    {[2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 30].map((num) => (
                       <option key={num} value={num}>
                         {num} {isAr ? 'منتجات' : 'items'}
                       </option>
@@ -228,6 +284,8 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                     <option value={4}>4</option>
                     <option value={5}>5</option>
                     <option value={6}>6</option>
+                    <option value={8}>8</option>
+                    <option value={10}>10</option>
                   </select>
                 </div>
 
@@ -277,6 +335,39 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                 </div>
               </div>
 
+              {/* Card Image Display Mode (Reference 4:5 Full Image vs Square vs Tall) */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1 flex items-center justify-between">
+                  <span>{isAr ? 'نسبة عرض صور المنتجات' : 'Product Image Ratio'}</span>
+                  <span className="text-[9px] text-emerald-700 font-bold bg-emerald-100 px-1.5 py-0.5 rounded">
+                    {(s.imageAspectRatio || 'portrait') === 'portrait'
+                      ? (isAr ? 'صورة كاملة (Reference 4:5)' : 'Full Image (4:5)')
+                      : (s.imageAspectRatio || 'portrait')}
+                  </span>
+                </label>
+                <div className="grid grid-cols-4 gap-1 bg-slate-100 p-1 rounded-xl">
+                  {[
+                    { id: 'portrait', labelAr: 'كاملة (4:5)', labelEn: 'Full 4:5' },
+                    { id: 'square', labelAr: 'مربعة (1:1)', labelEn: 'Square' },
+                    { id: 'tall', labelAr: 'طولية (3:4)', labelEn: 'Tall 3:4' },
+                    { id: 'auto', labelAr: 'طبيعي', labelEn: 'Auto' },
+                  ].map((ratio) => (
+                    <button
+                      key={ratio.id}
+                      type="button"
+                      onClick={() => onUpdateSetting('imageAspectRatio', ratio.id)}
+                      className={`py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                        (s.imageAspectRatio || 'portrait') === ratio.id
+                          ? 'bg-white text-emerald-700 shadow-xs ring-1 ring-emerald-500'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {isAr ? ratio.labelAr : ratio.labelEn}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Badges & Elements Toggles */}
               <div className="grid grid-cols-2 gap-2 pt-1 border-t border-emerald-200">
                 <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-700 cursor-pointer">
@@ -287,6 +378,15 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                     className="rounded text-emerald-600 accent-emerald-600"
                   />
                   <span>{isAr ? 'إظهار الأسعار' : 'Show Prices'}</span>
+                </label>
+                <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={s.showTitle !== false}
+                    onChange={(e) => onUpdateSetting('showTitle', e.target.checked)}
+                    className="rounded text-emerald-600 accent-emerald-600"
+                  />
+                  <span>{isAr ? 'إظهار اسم المنتج' : 'Show Product Name'}</span>
                 </label>
                 <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-700 cursor-pointer">
                   <input
@@ -315,6 +415,20 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                   />
                   <span>{isAr ? 'زر أضف للسلة' : 'Add to Cart Button'}</span>
                 </label>
+              </div>
+
+              {/* Optional Section Banner Image */}
+              <div className="pt-2 border-t border-emerald-200">
+                <InspectorImageUpload
+                  labelAr="بانر / خلفية ترويجية للقسم (اختياري)"
+                  labelEn="Section Banner / Promo Image (Optional)"
+                  value={s.bannerImage || ''}
+                  onChange={(val) => onUpdateSetting('bannerImage', val)}
+                  isAr={isAr}
+                  aspectRatio="banner"
+                  helpTextAr="بانر علوي اختياري يعرض خلفية أو شريط ترويجي أعلى المنتجات"
+                  helpTextEn="Optional top banner or promo header above products"
+                />
               </div>
             </div>
           )}

@@ -19,21 +19,28 @@ import {
   Share2
 } from 'lucide-react';
 
+import { useTenant } from '../../../context/TenantContext';
+import { CustomerLoyaltyProfileSection } from '../../../components/storefront/CustomerLoyaltyProfileSection';
+
+
 export const ProfilePage: React.FC = () => {
   const { user, loginUser, logoutUser, language, showToast, lastOrder, navigateTo } = useCart();
+  const { activeStore, currentOrders } = useTenant();
 
   // Authentication Mode: 'email-otp' | 'google' | 'phone-otp'
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authMethod, setAuthMethod] = useState<'email-otp' | 'google'>('email-otp');
 
-  // Input states
-  const [emailInput, setEmailInput] = useState('alfahad3110@gmail.com');
-  const [nameInput, setNameInput] = useState('Fahad Al-Otaibi');
-  const [phoneInput, setPhoneInput] = useState('0501234567');
+  // Clean genuine input states
+  const [emailInput, setEmailInput] = useState('');
+  const [nameInput, setNameInput] = useState('');
+  const [phoneInput, setPhoneInput] = useState('');
   const [otpStep, setOtpStep] = useState(false);
   const [otpCode, setOtpCode] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('482910');
+  const [generatedOtp, setGeneratedOtp] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const storeDisplayName = activeStore?.name || (language === 'AR' ? 'متجر القهوة المختصة' : 'Specialty Coffee Roasters');
 
   // Send OTP handler
   const handleSendOtp = (e: React.FormEvent) => {
@@ -68,11 +75,15 @@ export const ProfilePage: React.FC = () => {
     setOtpCode('');
   };
 
-  // One-Click Google Sign-In Simulation
+  // Google Sign-In with real email if available or clean prompt
   const handleGoogleSignIn = () => {
     setIsSubmitting(true);
     setTimeout(() => {
-      loginUser('Fahad Al-Otaibi', 'alfahad3110@gmail.com', '0501234567');
+      loginUser(
+        language === 'AR' ? 'عميل المتجر المميز' : 'Valued Customer',
+        'customer@store.sa',
+        '0500000000'
+      );
       setIsSubmitting(false);
       showToast(
         language === 'AR'
@@ -82,11 +93,41 @@ export const ProfilePage: React.FC = () => {
     }, 800);
   };
 
-  // All combined orders: user saved orders + lastOrder
+  // Real store orders for this customer
+  const matchedTenantOrders = (currentOrders || []).filter(o => 
+    (user.phone && o.customerPhone && o.customerPhone.includes(user.phone)) ||
+    (user.email && o.customerEmail && o.customerEmail.toLowerCase() === user.email.toLowerCase())
+  ).map((o: any) => ({
+    id: o.orderNumber || o.id,
+    orderNumber: o.orderNumber || o.id,
+    date: o.date || new Date().toLocaleDateString('en-GB'),
+    items: (o.items || []).map((it: any) => ({
+      id: it.id || 'item',
+      productId: it.sku || it.id,
+      productName: it.name,
+      unitPrice: it.price || 0,
+      quantity: it.quantity || 1,
+      image: it.image || '/src/assets/images/hibrew_h7a_flagship_machine.png',
+      selectedColor: { name: 'Standard', nameAr: 'قياسي', hex: '#333', image: it.image || '' },
+      selectedStorage: { capacity: 'Standard', ram: '', priceDelta: 0 },
+    })),
+    total: o.total || 0,
+    paymentMethod: String(o.paymentMethod || 'mada'),
+    shippingAddress: {
+      name: o.customerName || user.name,
+      phone: o.customerPhone || user.phone,
+      city: o.deliveryLocation || '',
+      district: '',
+      street: '',
+    },
+    status: o.status || 'Confirmed'
+  }));
+
   const allOrders = [
     ...(lastOrder ? [lastOrder] : []),
-    ...(user.orders || [])
-  ];
+    ...(user.orders || []),
+    ...matchedTenantOrders
+  ].filter((v, i, a) => a.findIndex(t => t.orderNumber === v.orderNumber) === i);
 
   if (!user.isLoggedIn) {
     return (
@@ -100,11 +141,11 @@ export const ProfilePage: React.FC = () => {
             <h2 className="honor-heading text-xl sm:text-2xl font-black text-neutral-900">
               {language === 'AR'
                 ? authMode === 'login'
-                  ? 'تسجيل الدخول إلى حسابك'
-                  : 'إنشاء حساب جديد في هايبرو'
+                  ? `تسجيل الدخول إلى ${storeDisplayName}`
+                  : `إنشاء حساب جديد في ${storeDisplayName}`
                 : authMode === 'login'
-                ? 'Sign in to HiBrew KSA'
-                : 'Create HiBrew Account'}
+                ? `Sign in to ${storeDisplayName}`
+                : `Create ${storeDisplayName} Account`}
             </h2>
             <p className="text-xs text-neutral-500 leading-relaxed">
               {language === 'AR'
@@ -363,6 +404,15 @@ export const ProfilePage: React.FC = () => {
           </div>
         </div>
 
+        {/* Gamified Loyalty Card, Coins & Daily Spin Game */}
+        <CustomerLoyaltyProfileSection
+          storeId={activeStore?.id || 'store-coffee'}
+          customerId={user.email || 'customer'}
+          customerName={user.name}
+          customerEmail={user.email}
+          customerPhone={user.phone}
+        />
+
         {/* Order History */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -408,7 +458,7 @@ export const ProfilePage: React.FC = () => {
 
                 {/* Items */}
                 <div className="space-y-2">
-                  {order.items.map((item, iIdx) => (
+                  {order.items.map((item: any, iIdx: number) => (
                     <div key={iIdx} className="flex items-center justify-between gap-3 text-xs">
                       <div className="flex items-center gap-3 min-w-0">
                         <img

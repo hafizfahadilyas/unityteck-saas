@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowRight,
   MapPin,
@@ -26,6 +26,17 @@ type Props = {
 export const FlowersStaticPage: React.FC<Props> = ({ page, lang, onBack }) => {
   const isAr = lang === 'ar';
   const [formSent, setFormSent] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual';
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, [page]);
 
   return (
     <div className="p-4 sm:p-10 max-w-4xl mx-auto space-y-8 min-h-[450px]" dir={isAr ? 'rtl' : 'ltr'}>

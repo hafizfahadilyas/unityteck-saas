@@ -594,7 +594,7 @@ export const StorePayments: React.FC = () => {
             className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer self-start sm:self-auto"
           >
             <Zap className="w-3.5 h-3.5" />
-            <span>+ Connect Provider</span>
+            <span>{isAr ? '+ ربط مزود دفع' : '+ Connect Provider'}</span>
           </button>
         </div>
 

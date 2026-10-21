@@ -79,6 +79,7 @@ export interface Product {
   bundles?: BundleOption[];
   specs: { label: string; value: string; labelAr?: string; valueAr?: string }[];
   images: string[];
+  image?: string;
   overview: string;
   overviewAr?: string;
   partsShowcase?: ProductPartShowcase[];

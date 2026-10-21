@@ -38,13 +38,13 @@ const SaudiSkyline: React.FC = () => (
   </svg>
 );
 
-export const SaudiSidebarFooter: React.FC = () => {
+export const SaudiSidebarFooter: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
   const { t, locale } = usePrefs();
   const isEn = locale === 'en';
 
   return (
     <div
-      className="m-2.5 p-2.5 rounded-2xl border text-center relative overflow-hidden shrink-0"
+      className={`${compact ? 'm-0 p-2 rounded-xl' : 'm-2.5 p-2.5 rounded-2xl'} border text-center relative overflow-hidden shrink-0`}
       style={{
         background: 'linear-gradient(165deg, var(--portal-900), var(--portal-950))',
         borderColor: 'color-mix(in srgb, var(--portal-400) 28%, transparent)',

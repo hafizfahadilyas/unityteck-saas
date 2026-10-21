@@ -22,7 +22,7 @@ export const InvoiceTemplateRenderer: React.FC<InvoiceTemplateRendererProps> = (
   config,
   locale = 'ar',
 }) => {
-  const resolvedLocale = config.direction === 'ltr' ? 'en' : config.direction === 'rtl' ? 'ar' : locale;
+  const resolvedLocale = locale || (config.direction === 'ltr' ? 'en' : config.direction === 'rtl' ? 'ar' : 'ar');
 
   // Render appropriate dedicated template
   switch (document.documentType) {

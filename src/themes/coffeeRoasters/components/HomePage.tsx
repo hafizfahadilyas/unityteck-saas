@@ -1,10 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
+import { useTenant } from '../../../context/TenantContext';
+import { readAllThemeSettings } from '../../settings/themeSettingsStore';
 import { PRODUCTS, CATEGORIES, HONOR_EVENTS } from '../data/products';
 import { HeroSlider3D } from './HeroSlider3D';
 import { FlagshipThreeJsSection, HonorAiSparkle } from './FlagshipThreeJsSection';
 import { InteractiveBannerCard } from './InteractiveBannerCard';
-import { ChevronRight, ChevronLeft, Sparkles, Truck, RotateCcw, ShieldCheck, Headphones, Palette } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Sparkles, Truck, RotateCcw, ShieldCheck, Headphones, Palette, MessageCircle } from 'lucide-react';
+
+// Authentic, high-resolution original coffee category images
+import flagshipFullMachine from '../assets/images/hibrew_flagship_full_machine.jpg';
+import heroHibrewEspresso from '../assets/images/hero_hibrew_espresso_1791217182679.jpg';
+import grinderMillBanner from '../assets/images/coffee_grinder_mill_banner_1791218928342.jpg';
+import saudiNationalDayHero from '../assets/images/saudi_national_day_coffee_hero_1791364192381.jpg';
+import coffeeCornerCabinet from '../assets/images/hero_coffee_corner_cabinet_1791217199146.jpg';
+import baristaAccessoriesSet from '../assets/images/coffee_barista_accessories_set_1791219198302.jpg';
 
 interface CategoryShowcase {
   featured: {
@@ -24,7 +34,7 @@ const CATEGORY_SHOWCASE_MAP: Record<string, CategoryShowcase> = {
   all: {
     featured: {
       productId: 'hb-h10a-dualboiler',
-      image: './src/assets/images/hibrew_flagship_full_machine.jpg',
+      image: flagshipFullMachine,
       titleEn: 'HiBrew Barista Pro™ H7A',
       titleAr: 'هايبرو بارستا برو H7A دبل بويلر',
       taglineEn: 'AI✦ | Smarter, Slimmer & Stronger',
@@ -37,7 +47,7 @@ const CATEGORY_SHOWCASE_MAP: Record<string, CategoryShowcase> = {
   machines: {
     featured: {
       productId: 'hb-h10a-dualboiler',
-      image: './src/assets/images/hero_hibrew_espresso_1791217182679.jpg',
+      image: heroHibrewEspresso,
       titleEn: 'HiBrew Barista Pro™ H7A Dual-Boiler',
       titleAr: 'هايبرو بارستا برو H7A دبل بويلر ٢٠ بار',
       taglineEn: 'AI✦ | Dual Independent PID & 20-Bar Commercial Group',
@@ -50,7 +60,7 @@ const CATEGORY_SHOWCASE_MAP: Record<string, CategoryShowcase> = {
   mills: {
     featured: {
       productId: 'hb-mill-g5-pro',
-      image: './src/assets/images/coffee_grinder_mill_banner_1791218928342.jpg',
+      image: grinderMillBanner,
       titleEn: 'HiBrew Conical Burr Coffee Mill G5',
       titleAr: 'مطحنة هايبرو المخروطية G5 الاحترافية',
       taglineEn: 'AI✦ | Titanium CNC 40mm Burrs & Stepless Dial',
@@ -63,7 +73,7 @@ const CATEGORY_SHOWCASE_MAP: Record<string, CategoryShowcase> = {
   offers: {
     featured: {
       productId: 'hb-h4a-portable-travel',
-      image: './src/assets/images/saudi_national_day_coffee_hero_1791364192381.jpg',
+      image: saudiNationalDayHero,
       titleEn: 'HiBrew H4A 4-in-1 Portable Espresso Maker',
       titleAr: 'هايبرو H4A ماكينة الإسبريسو المتنقلة 4 في 1',
       taglineEn: 'AI✦ | 15-Bar Rich Crema · Car, USB & AC Triple Power',
@@ -76,7 +86,7 @@ const CATEGORY_SHOWCASE_MAP: Record<string, CategoryShowcase> = {
   cabinets: {
     featured: {
       productId: 'hb-nordic-cabinet',
-      image: './src/assets/images/hero_coffee_corner_cabinet_1791217199146.jpg',
+      image: coffeeCornerCabinet,
       titleEn: 'HiBrew Nordic Fluted Oak Coffee Cabinet',
       titleAr: 'دولاب ركن القهوة نورديك خشب البلوط المضلع',
       taglineEn: 'AI✦ | Built-in Cable Routing & Sintered Stone Top',
@@ -89,7 +99,7 @@ const CATEGORY_SHOWCASE_MAP: Record<string, CategoryShowcase> = {
   accessories: {
     featured: {
       productId: 'hb-barista-accessories-kit',
-      image: './src/assets/images/coffee_barista_accessories_set_1791219198302.jpg',
+      image: baristaAccessoriesSet,
       titleEn: 'HiBrew Master Barista 58mm Tool Kit (7 Pcs)',
       titleAr: 'طقم أدوات باريستا الاحترافي 58مم (7 قطع)',
       taglineEn: 'AI✦ | Calibrated Constant-Force Tamper & WDT 0.4mm',
@@ -102,17 +112,75 @@ const CATEGORY_SHOWCASE_MAP: Record<string, CategoryShowcase> = {
 };
 
 export const HomePage: React.FC = () => {
-  const { navigateTo, language } = useCart();
+  const { navigateTo, language, products, storeIdentity } = useCart();
+  const { activeStore } = useTenant();
   const [activeCategoryTab, setActiveCategoryTab] = useState('all');
   const tabsContainerRef = React.useRef<HTMLDivElement>(null);
   const mobileCarouselRef = React.useRef<HTMLDivElement>(null);
   const [activeMobileSlide, setActiveMobileSlide] = useState(0);
 
-  // Active category configuration: featured banner card + 4 companion products
-  const currentShowcase = CATEGORY_SHOWCASE_MAP[activeCategoryTab] || CATEGORY_SHOWCASE_MAP.all;
-  const companionProducts = currentShowcase.companionIds
-    .map(id => PRODUCTS.find(p => p.id === id))
-    .filter(Boolean) as typeof PRODUCTS;
+  const [settingsVersion, setSettingsVersion] = useState(0);
+
+  useEffect(() => {
+    const handleSync = () => setSettingsVersion((v) => v + 1);
+    window.addEventListener('unityteck-theme-settings', handleSync);
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === 'UNITYTECK_PREVIEW_SYNC') handleSync();
+    });
+    return () => {
+      window.removeEventListener('unityteck-theme-settings', handleSync);
+    };
+  }, []);
+
+  const themeSettings = useMemo(() => {
+    try {
+      return readAllThemeSettings(activeStore?.id, activeStore);
+    } catch {
+      return null;
+    }
+  }, [activeStore, settingsVersion]);
+
+  // Dynamic products for selected category
+  const filteredCategoryProducts = useMemo(() => {
+    if (!products || products.length === 0) return [];
+    if (activeCategoryTab === 'all') return products;
+    return products.filter((p) => {
+      const cat = (p.category || '').toLowerCase();
+      const tab = activeCategoryTab.toLowerCase();
+      return cat === tab || cat.includes(tab) || ((p as any).tags && (p as any).tags.some((t: string) => t.toLowerCase().includes(tab)));
+    });
+  }, [products, activeCategoryTab]);
+
+  const defaultShowcase = CATEGORY_SHOWCASE_MAP[activeCategoryTab] || CATEGORY_SHOWCASE_MAP.all;
+
+  const currentShowcase = useMemo(() => {
+    if (filteredCategoryProducts.length > 0) {
+      const first = filteredCategoryProducts[0];
+      return {
+        featured: {
+          productId: first.id,
+          image: first.colors?.[0]?.image || first.images?.[0] || (first as any).image || defaultShowcase.featured.image,
+          titleEn: first.name,
+          titleAr: first.nameAr || first.name,
+          taglineEn: first.tagline || 'Specialty Coffee Gear',
+          taglineAr: first.taglineAr || 'معدات القهوة المختصة والتحضير الاحترافي',
+          price: first.basePrice,
+          originalPrice: first.originalPrice,
+        },
+        companionIds: filteredCategoryProducts.slice(1, 5).map(p => p.id),
+      };
+    }
+    return defaultShowcase;
+  }, [filteredCategoryProducts, defaultShowcase]);
+
+  const companionProducts = useMemo(() => {
+    if (filteredCategoryProducts.length > 1) {
+      return filteredCategoryProducts.slice(1, 5);
+    }
+    return currentShowcase.companionIds
+      .map(id => (products && products.length > 0 ? products : PRODUCTS).find(p => p.id === id))
+      .filter(Boolean) as typeof PRODUCTS;
+  }, [filteredCategoryProducts, currentShowcase, products]);
 
   const totalMobileSlides = Math.max(1 + companionProducts.length + 1, 1); // 1 featured + 4 companions + 1 explore card
   const safeActiveSlide = Math.min(Math.max(activeMobileSlide ?? 0, 0), Math.max(totalMobileSlides - 1, 0));
@@ -193,7 +261,7 @@ export const HomePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white text-neutral-900 pb-20 selection:bg-neutral-900 selection:text-white w-full max-w-full overflow-x-clip">
       {/* 1. Fast & Smooth Hero Slider (Honor KV Carousel Style) */}
-      <HeroSlider3D />
+      <HeroSlider3D variant="home" />
 
       {/* 2. Key Products Showcase: 3 Large Banners with Equal-Size Images and Scroll Motion (Honor Magic 8 Pro Style) */}
       <FlagshipThreeJsSection />
@@ -265,7 +333,7 @@ export const HomePage: React.FC = () => {
                   alt={currentShowcase.featured.titleEn}
                   className="w-full h-full object-cover object-[center_10%] group-hover:scale-104 transition-transform duration-700 ease-out"
                   referrerPolicy="no-referrer"
-                  loading="lazy"
+                  loading="lazy" decoding="async"
                 />
                 {/* Bottom Shade / Gradient: smooth fade from transparent down to white */}
                 <div className="absolute inset-x-0 bottom-0 h-[62%] sm:h-[58%] bg-gradient-to-t from-white via-white/95 via-white/70 to-transparent pointer-events-none" />
@@ -282,7 +350,7 @@ export const HomePage: React.FC = () => {
                   {language === 'AR' ? currentShowcase.featured.titleAr : currentShowcase.featured.titleEn}
                 </h3>
                 <p className="text-[13px] text-neutral-600 flex items-center justify-center gap-1 font-normal mt-1">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-600 inline shrink-0" />
+                  <Sparkles className="w-3.5 h-3.5 text-amber-700 inline shrink-0" />
                   <span>
                     {language === 'AR' ? currentShowcase.featured.taglineAr : currentShowcase.featured.taglineEn}
                   </span>
@@ -337,7 +405,7 @@ export const HomePage: React.FC = () => {
                         alt={prod.name}
                         className="h-full w-full max-h-[160px] object-contain group-hover:scale-104 transition-transform duration-500 ease-out"
                         referrerPolicy="no-referrer"
-                        loading="lazy"
+                        loading="lazy" decoding="async"
                       />
                     </div>
 
@@ -428,7 +496,7 @@ export const HomePage: React.FC = () => {
               {/* Slide 1: Featured Flagship Card */}
               <div
                 data-slide-index={0}
-                className="w-[82vw] xs:w-[84vw] max-w-[320px] shrink-0 snap-center bg-white rounded-[26px] relative overflow-hidden flex flex-col justify-end text-center min-h-[460px] border border-neutral-200/60 shadow-xs group select-none"
+                className="w-[82vw] xs:w-[84vw] max-w-[320px] shrink-0 snap-center bg-white rounded-[26px] relative overflow-hidden flex flex-col justify-end text-center min-h-[460px] border-0 shadow-xs group select-none"
               >
                 <div
                   onClick={() => navigateTo('product-detail', currentShowcase.featured.productId)}
@@ -440,12 +508,12 @@ export const HomePage: React.FC = () => {
                     draggable={false}
                     className="w-full h-full object-cover object-[center_12%] group-hover:scale-104 transition-transform duration-700 ease-out select-none pointer-events-none"
                     referrerPolicy="no-referrer"
-                    loading="lazy"
+                    loading="lazy" decoding="async"
                   />
                   {/* Top Badge: Flagship Highlight */}
                   <div className="absolute top-4 start-4 z-10">
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-black bg-white/95 backdrop-blur-md px-3 py-1 rounded-full shadow-sm">
-                      <Sparkles className="w-3 h-3 text-blue-600" />
+                      <Sparkles className="w-3 h-3 text-amber-700" />
                       <span>{language === 'AR' ? 'الفئة الرائدة ✦' : 'Flagship ✦'}</span>
                     </span>
                   </div>
@@ -501,7 +569,7 @@ export const HomePage: React.FC = () => {
                 <div
                   key={prod.id}
                   data-slide-index={pIdx + 1}
-                  className="w-[82vw] xs:w-[84vw] max-w-[320px] shrink-0 snap-center bg-white rounded-[26px] p-5 flex flex-col justify-between text-center min-h-[460px] border border-neutral-200/60 shadow-xs group select-none"
+                  className="w-[82vw] xs:w-[84vw] max-w-[320px] shrink-0 snap-center bg-white rounded-[26px] p-5 flex flex-col justify-between text-center min-h-[460px] border-0 shadow-xs group select-none"
                 >
                   <div>
                     {/* Top Tag */}
@@ -510,7 +578,7 @@ export const HomePage: React.FC = () => {
                         {language === 'AR' ? `منتج 0${pIdx + 2}` : `ITEM 0${pIdx + 2}`}
                       </span>
                       {prod.badge && (
-                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full">
+                        <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full">
                           {language === 'AR' && prod.badgeAr ? prod.badgeAr : prod.badge}
                         </span>
                       )}
@@ -527,7 +595,7 @@ export const HomePage: React.FC = () => {
                         draggable={false}
                         className="h-full w-full max-h-[160px] object-contain group-hover:scale-106 transition-transform duration-500 ease-out select-none pointer-events-none"
                         referrerPolicy="no-referrer"
-                        loading="lazy"
+                        loading="lazy" decoding="async"
                       />
                     </div>
 
@@ -555,7 +623,7 @@ export const HomePage: React.FC = () => {
                   </div>
 
                   {/* Clean Links */}
-                  <div className="flex items-center justify-center gap-5 pt-4 border-t border-neutral-100">
+                  <div className="flex items-center justify-center gap-5 pt-4 border-0">
                     <button
                       onClick={() => navigateTo('product-buy', prod.id)}
                       className="px-5 py-2 bg-black hover:bg-neutral-800 text-white font-medium text-xs rounded-full transition-transform active:scale-95 cursor-pointer shadow-none"
@@ -646,42 +714,58 @@ export const HomePage: React.FC = () => {
         </div>
 
         {/* 1 Large Main Banner + 2 Companion Cards Layout */}
-        <div className="space-y-4 sm:space-y-6 w-full max-w-full">
-          {/* Main Full-Width Featured Event Banner */}
-          <InteractiveBannerCard
-            title={language === 'AR' && HONOR_EVENTS[0].titleAr ? HONOR_EVENTS[0].titleAr : HONOR_EVENTS[0].title}
-            subtitle={language === 'AR' && HONOR_EVENTS[0].subtitleAr ? HONOR_EVENTS[0].subtitleAr : HONOR_EVENTS[0].subtitle}
-            image={HONOR_EVENTS[0].image}
-            videoUrl="https://assets.mixkit.co/videos/preview/mixkit-coffee-being-poured-into-a-cup-from-a-coffee-machine-42861-large.mp4"
-            size="large"
-            badge={language === 'AR' ? 'ورشة الرياض ٢٠٢٦' : 'Riyadh Masterclass 2026'}
-            onClick={() => navigateTo('products')}
-            ctaText={language === 'AR' ? 'حجز المقعد واستكشاف الورشة' : 'Reserve & Learn More'}
-          />
+        {(() => {
+          const dynamicLinks = themeSettings?.customLinks?.links;
+          const link0 = dynamicLinks?.[0];
+          const link1 = dynamicLinks?.[1];
+          const link2 = dynamicLinks?.[2];
 
-          {/* 2 Companion Half-Width Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 w-full">
-            <InteractiveBannerCard
-              title={language === 'AR' && HONOR_EVENTS[1].titleAr ? HONOR_EVENTS[1].titleAr : HONOR_EVENTS[1].title}
-              subtitle={language === 'AR' && HONOR_EVENTS[1].subtitleAr ? HONOR_EVENTS[1].subtitleAr : HONOR_EVENTS[1].subtitle}
-              image={HONOR_EVENTS[1].image}
-              size="half"
-              badge={language === 'AR' ? 'استعراض الاستخلاص' : 'Extraction Demo'}
-              onClick={() => navigateTo('products')}
-              ctaText={language === 'AR' ? 'تفاصيل الورشة' : 'Learn More'}
-            />
+          const resolveLinkImage = (img: string | undefined, fallback: string) => {
+            if (!img) return fallback;
+            const lower = img.toLowerCase();
+            if (lower.startsWith('http') || lower.startsWith('data:') || lower.startsWith('/')) return img;
+            return fallback;
+          };
 
-            <InteractiveBannerCard
-              title={language === 'AR' && HONOR_EVENTS[2].titleAr ? HONOR_EVENTS[2].titleAr : HONOR_EVENTS[2].title}
-              subtitle={language === 'AR' && HONOR_EVENTS[2].subtitleAr ? HONOR_EVENTS[2].subtitleAr : HONOR_EVENTS[2].subtitle}
-              image={HONOR_EVENTS[2].image}
-              size="half"
-              badge={language === 'AR' ? 'شراكات المحامص' : 'Roastery Partners'}
-              onClick={() => navigateTo('products')}
-              ctaText={language === 'AR' ? 'تفاصيل المعرض' : 'Explore Event'}
-            />
-          </div>
-        </div>
+          return (
+            <div className="space-y-4 sm:space-y-6 w-full max-w-full">
+              {/* Main Full-Width Featured Event Banner */}
+              <InteractiveBannerCard
+                title={link0?.title || (language === 'AR' && HONOR_EVENTS[0].titleAr ? HONOR_EVENTS[0].titleAr : HONOR_EVENTS[0].title)}
+                subtitle={link0?.subtitle || (language === 'AR' && HONOR_EVENTS[0].subtitleAr ? HONOR_EVENTS[0].subtitleAr : HONOR_EVENTS[0].subtitle)}
+                image={resolveLinkImage(link0?.image, HONOR_EVENTS[0].image)}
+                videoUrl="https://assets.mixkit.co/videos/preview/mixkit-coffee-being-poured-into-a-cup-from-a-coffee-machine-42861-large.mp4"
+                size="large"
+                badge={link0?.category || (language === 'AR' ? 'ورشة الرياض ٢٠٢٦' : 'Riyadh Masterclass 2026')}
+                onClick={() => navigateTo('products')}
+                ctaText={link0?.buttonText || (language === 'AR' ? 'حجز المقعد واستكشاف الورشة' : 'Reserve & Learn More')}
+              />
+
+              {/* 2 Companion Half-Width Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 w-full">
+                <InteractiveBannerCard
+                  title={link1?.title || (language === 'AR' && HONOR_EVENTS[1].titleAr ? HONOR_EVENTS[1].titleAr : HONOR_EVENTS[1].title)}
+                  subtitle={link1?.subtitle || (language === 'AR' && HONOR_EVENTS[1].subtitleAr ? HONOR_EVENTS[1].subtitleAr : HONOR_EVENTS[1].subtitle)}
+                  image={resolveLinkImage(link1?.image, HONOR_EVENTS[1].image)}
+                  size="half"
+                  badge={link1?.category || (language === 'AR' ? 'استعراض الاستخلاص' : 'Extraction Demo')}
+                  onClick={() => navigateTo('products')}
+                  ctaText={link1?.buttonText || (language === 'AR' ? 'تفاصيل الورشة' : 'Learn More')}
+                />
+
+                <InteractiveBannerCard
+                  title={link2?.title || (language === 'AR' && HONOR_EVENTS[2].titleAr ? HONOR_EVENTS[2].titleAr : HONOR_EVENTS[2].title)}
+                  subtitle={link2?.subtitle || (language === 'AR' && HONOR_EVENTS[2].subtitleAr ? HONOR_EVENTS[2].subtitleAr : HONOR_EVENTS[2].subtitle)}
+                  image={resolveLinkImage(link2?.image, HONOR_EVENTS[2].image)}
+                  size="half"
+                  badge={link2?.category || (language === 'AR' ? 'شراكات المحامص' : 'Roastery Partners')}
+                  onClick={() => navigateTo('products')}
+                  ctaText={link2?.buttonText || (language === 'AR' ? 'تفاصيل المعرض' : 'Explore Event')}
+                />
+              </div>
+            </div>
+          );
+        })()}
       </section>
 
       {/* 6. Honor Official Store Trust Bar (Clean Light Theme) */}
@@ -745,19 +829,36 @@ export const HomePage: React.FC = () => {
             </div>
 
             <div
-              onClick={() => navigateTo('custom-order')}
+              onClick={() => {
+                const rawPhone =
+                  storeIdentity?.whatsapp ||
+                  (activeStore as any)?.whatsapp ||
+                  storeIdentity?.phone ||
+                  activeStore?.phone ||
+                  '+966549876543';
+                let cleanPhone = rawPhone.replace(/\D/g, '') || '966549876543';
+                if (cleanPhone.startsWith('05')) cleanPhone = '966' + cleanPhone.substring(1);
+                else if (cleanPhone.startsWith('5') && cleanPhone.length === 9) cleanPhone = '966' + cleanPhone;
+                const msg = language === 'AR'
+                  ? 'السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم'
+                  : 'Hello, I would like to inquire about placing a custom coffee corner order.';
+                window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+              }}
               className="col-span-2 sm:col-span-1 flex items-center sm:items-start gap-3 sm:gap-4 cursor-pointer group/custom transition-all duration-200 active:scale-95 hover:opacity-90"
-              title={language === 'AR' ? 'الانتقال إلى تفصيل حسب الطلب' : 'Go to Custom Made to Order'}
+              title={language === 'AR' ? 'تواصل عبر واتساب لطلب تفصيل مخصص' : 'Chat via WhatsApp for Custom Order'}
             >
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white flex items-center justify-center text-neutral-900 shrink-0 shadow-xs group-hover/custom:shadow-sm transition-shadow">
-                <Palette className="w-5 h-5 sm:w-6 sm:h-6 group-hover/custom:scale-110 transition-transform duration-200 text-amber-700" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-[#25D366]/10 flex items-center justify-center text-[#25D366] shrink-0 shadow-xs group-hover/custom:shadow-sm transition-shadow">
+                <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 group-hover/custom:scale-110 transition-transform duration-200 fill-[#25D366]" />
               </div>
               <div className="space-y-0.5 sm:space-y-1 min-w-0">
-                <h4 className="font-bold text-xs sm:text-sm text-neutral-900 truncate group-hover/custom:underline underline-offset-2">
-                  {language === 'AR' ? 'تصميم وتنفيذ حسب الطلب' : 'Custom Made to Order'}
+                <h4 className="font-bold text-xs sm:text-sm text-neutral-900 truncate group-hover/custom:text-[#25D366] transition-colors flex items-center gap-1.5">
+                  <span>{language === 'AR' ? 'تصميم وتنفيذ حسب الطلب' : 'Custom Made to Order'}</span>
+                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#25D366]/15 text-[#20ba59]">
+                    {language === 'AR' ? 'واتساب' : 'WhatsApp'}
+                  </span>
                 </h4>
                 <p className="text-[11px] sm:text-xs text-neutral-500 line-clamp-2">
-                  {language === 'AR' ? 'تصاميم حصرية وتنفيذ متقن' : 'Design and Executions'}
+                  {language === 'AR' ? 'تواصل مباشرة عبر واتساب لتفصيل ركنك' : 'Direct WhatsApp chat for custom coffee station'}
                 </p>
               </div>
             </div>
@@ -767,3 +868,4 @@ export const HomePage: React.FC = () => {
     </div>
   );
 };
+

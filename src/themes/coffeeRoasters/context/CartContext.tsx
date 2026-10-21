@@ -3,8 +3,11 @@ import { Product, CartItem, ProductColor, StorageOption, WarrantyOption, BundleO
 import { PRODUCTS } from '../data/products';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
+import type { CouponItem } from '../../../types';
 
 import { FlyingCartOverlay, FlyingCartItem } from '../components/FlyingCartOverlay';
+import { readStoreIdentity, type StoreIdentitySettings } from '../../settings/storeIdentity';
+import { readAllThemeSettings } from '../../settings/themeSettingsStore';
 
 export type RouteType =
   | 'home'
@@ -74,6 +77,8 @@ interface CartContextType {
   goBack: () => void;
   selectedProductId: string;
   selectedProduct: Product;
+  products: Product[];
+  storeIdentity?: StoreIdentitySettings;
   selectedPageSlug?: string;
   countryNoticeVisible: boolean;
   dismissCountryNotice: () => void;
@@ -104,35 +109,94 @@ interface CartContextType {
   navigateTo: (route: string, productId?: string, pageSlug?: string) => void;
   showToast: (msg: string) => void;
   toastMessage: string | null;
+  appliedCoupon: CouponItem | null;
+  couponDiscount: number;
+  applyCoupon: (code: string) => { success: boolean; message: string };
+  removeCoupon: () => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [cart, setCart] = useState<CartItem[]>(() => {
-    // Initial sample item: HiBrew Dual-Boiler 20-Bar Barista Pro
-    const sampleProduct = PRODUCTS[0];
-    return [
-      {
-        id: `cart_${Date.now()}`,
-        productId: sampleProduct.id,
-        productName: sampleProduct.name,
-        unitPrice: sampleProduct.basePrice,
-        quantity: 1,
-        image: sampleProduct.colors[0].image,
-        selectedColor: sampleProduct.colors[0],
-        selectedStorage: sampleProduct.storageOptions[0]
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('unityteck_coffee_cart');
+        return saved ? JSON.parse(saved) : [];
       }
-    ];
+    } catch {}
+    return [];
   });
 
   const [isMiniCartOpen, setIsMiniCartOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [currentRoute, setCurrentRoute] = useState<RouteType>('home');
+  const [currentRoute, setCurrentRoute] = useState<RouteType>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const search = new URLSearchParams(window.location.search);
+        const p = (search.get('page') || search.get('preview_page') || '').toLowerCase().trim();
+        const validRoutes: RouteType[] = [
+          'home', 'products', 'product-detail', 'product-buy', 'custom-order',
+          'cart', 'checkout', 'profile', 'reviews', 'thankyou', 'privacy',
+          'return', 'terms', 'shipping', 'warranty', 'locator', 'track-order',
+          'about', 'contact', 'faq', 'page'
+        ];
+        if (p) {
+          if (p === 'catalog' || p === 'shop' || p === 'products') return 'products';
+          if (p === 'detail' || p === 'product' || p === 'product-detail') return 'product-detail';
+          if (p === 'buy' || p === 'product-buy') return 'product-buy';
+          if (validRoutes.includes(p as RouteType)) return p as RouteType;
+        }
+        const pathname = window.location.pathname.toLowerCase().replace(/\/$/, '') || '/';
+        if (pathname === '/cart') return 'cart';
+        if (pathname === '/checkout') return 'checkout';
+        if (pathname === '/products' || pathname === '/shop' || pathname === '/catalog') return 'products';
+        if (pathname === '/product' || pathname.startsWith('/product/')) return 'product-detail';
+        if (pathname === '/profile' || pathname === '/crm' || pathname === '/account') return 'profile';
+        if (pathname === '/thankyou') return 'thankyou';
+        if (pathname === '/reviews') return 'reviews';
+        if (pathname === '/faq') return 'faq';
+        if (pathname === '/about') return 'about';
+        if (pathname === '/contact') return 'contact';
+        if (pathname === '/privacy') return 'privacy';
+        if (pathname === '/terms') return 'terms';
+        if (pathname === '/return') return 'return';
+        if (pathname === '/shipping') return 'shipping';
+        if (pathname === '/warranty') return 'warranty';
+        if (pathname === '/locator') return 'locator';
+        if (pathname === '/track-order') return 'track-order';
+
+        const saved = sessionStorage.getItem('unityteck_coffee_current_route');
+        if (saved && validRoutes.includes(saved as RouteType)) {
+          return saved as RouteType;
+        }
+      }
+    } catch {}
+    return 'home';
+  });
   const [previousRoute, setPreviousRoute] = useState<RouteType>('home');
   const [routeHistory, setRouteHistory] = useState<RouteType[]>(['home']);
-  const [selectedProductId, setSelectedProductId] = useState<string>('hb-h10a-dualboiler');
-  const [selectedPageSlug, setSelectedPageSlug] = useState<string>('privacy-policy');
+  const [selectedProductId, setSelectedProductId] = useState<string>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const search = new URLSearchParams(window.location.search);
+        const pId = search.get('product') || search.get('id') || search.get('productId');
+        if (pId) return pId;
+        const saved = sessionStorage.getItem('unityteck_coffee_selected_product');
+        if (saved) return saved;
+      }
+    } catch {}
+    return 'hb-h10a-dualboiler';
+  });
+  const [selectedPageSlug, setSelectedPageSlug] = useState<string>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = sessionStorage.getItem('unityteck_coffee_selected_slug');
+        if (saved) return saved;
+      }
+    } catch {}
+    return 'privacy-policy';
+  });
   const [countryNoticeVisible, setCountryNoticeVisible] = useState(true);
 
   let prefs: ReturnType<typeof usePrefs> | null = null;
@@ -140,6 +204,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     prefs = usePrefs();
   } catch {
     prefs = null;
+  }
+
+  let tenant: ReturnType<typeof useTenant> | null = null;
+  try {
+    tenant = useTenant();
+  } catch {
+    tenant = null;
   }
 
   const [localLanguage, setLocalLanguage] = useState<'EN' | 'AR'>(() => {
@@ -199,64 +270,102 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [lastOrder, setLastOrder] = useState<OrderItemRecord | null>(null);
 
-  const [user, setUser] = useState<UserState>({
-    isLoggedIn: true,
-    name: 'Fahad Al-Otaibi',
-    email: 'alfahad3110@gmail.com',
-    phone: '0501234567',
-    points: 1250,
-    orders: [
-      {
-        id: 'HB-892104',
-        orderNumber: 'HB-892104',
-        date: '28 Sep 2026',
-        items: [
-          {
-            id: 'sample-1',
-            productId: 'hb-h10a-dualboiler',
-            productName: 'HiBrew Barista Pro H7A Dual-Boiler 20-Bar',
-            unitPrice: 1899,
-            quantity: 1,
-            image: './src/assets/images/hibrew_espresso_isolated.jpg',
-            selectedColor: {
-              name: 'Brushed Steel',
-              nameAr: 'ستانلس ستيل مصقول',
-              hex: '#D1D5DB',
-              image: './src/assets/images/hibrew_espresso_isolated.jpg'
-            },
-            selectedStorage: {
-              capacity: 'Standard 58mm Kit',
-              ram: 'Single & Double Baskets',
-              priceDelta: 0
-            }
-          }
-        ],
-        total: 1899,
-        paymentMethod: 'tabby',
-        shippingAddress: {
-          name: 'Fahad Al-Otaibi',
-          phone: '0501234567',
-          city: 'Riyadh (الرياض)',
-          district: 'An Narjis',
-          street: 'Anas Ibn Malik Street'
-        },
-        status: 'Delivered'
+  const [user, setUser] = useState<UserState>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('unityteck_coffee_customer');
+        if (saved) return JSON.parse(saved);
       }
-    ]
+    } catch {}
+    return {
+      isLoggedIn: false,
+      name: '',
+      email: '',
+      phone: '',
+      points: 0,
+      orders: [],
+    };
   });
 
-  // Reset to Home page at top on every page load/refresh
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('unityteck_coffee_cart', JSON.stringify(cart));
+      }
+    } catch {}
+  }, [cart]);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('unityteck_coffee_customer', JSON.stringify(user));
+      }
+    } catch {}
+  }, [user]);
+
+  // Maintain active page across refreshes and ensure header is at top on load
   useEffect(() => {
     if ('scrollRestoration' in window.history) {
       window.history.scrollRestoration = 'manual';
     }
-    setCurrentRoute('home');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
 
     // Clean hash so browser doesn't anchor-scroll (preserve search params)
     if (window.location.hash) {
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
     }
+  }, []);
+
+  // Enforce scroll to top (header) and sync route with URL and storage on every route change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem('unityteck_coffee_current_route', currentRoute);
+        const url = new URL(window.location.href);
+        if (currentRoute === 'home') {
+          url.searchParams.delete('page');
+        } else {
+          url.searchParams.set('page', currentRoute);
+        }
+        window.history.replaceState({ page: currentRoute }, '', url.toString());
+      } catch {}
+
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual';
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      const t = setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  }, [currentRoute]);
+
+  // Synchronize browser back/forward history navigation seamlessly
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      try {
+        const search = new URLSearchParams(window.location.search);
+        const p = (search.get('page') || search.get('preview_page') || '').toLowerCase().trim();
+        if (p) {
+          setCurrentRoute(p as RouteType);
+          return;
+        }
+        if (e.state && e.state.page) {
+          setCurrentRoute(e.state.page as RouteType);
+          return;
+        }
+        setCurrentRoute('home');
+      } catch {}
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   useEffect(() => {
@@ -274,11 +383,47 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const navigateTo = useCallback((route: string, productId?: string, pageSlug?: string) => {
+    if (route === 'custom-order') {
+      try {
+        const storeId = tenant?.activeStore?.id || 'store-coffee';
+        const fallbackStore = tenant?.activeStore || { name: 'HiBrew Store' };
+        const storeSettings = readAllThemeSettings(storeId, fallbackStore);
+        if (!storeSettings?.customOrder?.enabled) {
+          const rawPhone =
+            storeSettings?.customOrder?.whatsappNumber ||
+            (tenant?.activeStore as any)?.whatsapp ||
+            (tenant?.activeStore as any)?.phone ||
+            '+966549876543';
+          let cleanPhone = rawPhone.replace(/\D/g, '') || '966549876543';
+          if (cleanPhone.startsWith('05')) cleanPhone = '966' + cleanPhone.substring(1);
+          else if (cleanPhone.startsWith('5') && cleanPhone.length === 9) cleanPhone = '966' + cleanPhone;
+          const msg =
+            language === 'AR'
+              ? (storeSettings?.customOrder?.whatsappMessageAr ||
+                  'السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم')
+              : (storeSettings?.customOrder?.whatsappMessageEn ||
+                  'Hello, I would like to inquire about placing a custom coffee corner order.');
+          window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+          return;
+        }
+      } catch {}
+    }
+
     if (productId) {
       setSelectedProductId((prev) => (prev !== productId ? productId : prev));
+      try {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('unityteck_coffee_selected_product', productId);
+        }
+      } catch {}
     }
     if (pageSlug) {
       setSelectedPageSlug(pageSlug);
+      try {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('unityteck_coffee_selected_slug', pageSlug);
+        }
+      } catch {}
     } else if (
       route === 'privacy' ||
       route === 'return' ||
@@ -291,27 +436,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       route === 'contact' ||
       route === 'faq'
     ) {
-      setSelectedPageSlug(
-        route === 'privacy'
-          ? 'privacy-policy'
-          : route === 'return'
-          ? 'return-policy'
-          : route === 'terms'
-          ? 'terms-and-conditions'
-          : route === 'shipping'
-          ? 'shipping-policy'
-          : route === 'warranty'
-          ? 'warranty-policy'
-          : route === 'locator'
-          ? 'store-locator'
-          : route === 'track-order'
-          ? 'order-tracking'
-          : route === 'about'
-          ? 'about-us'
-          : route === 'contact'
-          ? 'contact-us'
-          : 'faq'
-      );
+      const slugMap: Record<string, string> = {
+        privacy: 'privacy-policy',
+        return: 'return-policy',
+        terms: 'terms-and-conditions',
+        shipping: 'shipping-policy',
+        warranty: 'warranty-policy',
+        locator: 'store-locator',
+        'track-order': 'order-tracking',
+        about: 'about-us',
+        contact: 'contact-us',
+        faq: 'faq',
+      };
+      setSelectedPageSlug(slugMap[route] || 'faq');
     }
     const targetRoute = route as RouteType;
     setCurrentRoute((prev) => {
@@ -320,10 +457,38 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (h.length > 0 && h[h.length - 1] === targetRoute) return h;
         return [...h, targetRoute];
       });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
       return targetRoute;
     });
-  }, []);
+
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('unityteck_coffee_current_route', targetRoute);
+        const url = new URL(window.location.href);
+        if (targetRoute === 'home') {
+          url.searchParams.delete('page');
+        } else {
+          url.searchParams.set('page', targetRoute);
+        }
+        if (productId) {
+          url.searchParams.set('product', productId);
+        } else if (targetRoute !== 'product-detail' && targetRoute !== 'product-buy') {
+          url.searchParams.delete('product');
+        }
+        window.history.pushState({ page: targetRoute, product: productId }, '', url.toString());
+      }
+    } catch {}
+
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }, 50);
+    }
+  }, [tenant?.activeStore, language]);
 
   const goBack = useCallback(() => {
     setRouteHistory((prevHistory) => {
@@ -444,8 +609,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isLoggedIn: true,
       name,
       email,
-      phone: phone || prev.phone || '0501234567',
-      points: prev.points > 0 ? prev.points : 500
+      phone: phone || prev.phone || '',
+      points: prev.points || 0
     }));
     showToast(`Welcome, ${name}!`);
   };
@@ -465,37 +630,183 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const cartTotal = cart.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
   const cartVat = Math.round(cartTotal * 0.15 / 1.15); // 15% inclusive VAT
 
-  let tenant: ReturnType<typeof useTenant> | null = null;
-  try {
-    tenant = useTenant();
-  } catch {
-    tenant = null;
-  }
+  const [syncTick, setSyncTick] = useState(0);
+
+  useEffect(() => {
+    const handleSync = () => setSyncTick((t) => t + 1);
+    window.addEventListener('unityteck-product-updated', handleSync);
+    window.addEventListener('unityteck-categories-updated', handleSync);
+    window.addEventListener('unityteck-brands-updated', handleSync);
+    window.addEventListener('unityteck-theme-settings', handleSync);
+    window.addEventListener('unityteck-theme-identity', handleSync);
+    window.addEventListener('unityteck-store-updated', handleSync);
+    window.addEventListener('unityteck-pages-changed', handleSync);
+    window.addEventListener('unityteck-data', handleSync);
+    window.addEventListener('storage', handleSync);
+    const handleMsg = (e: MessageEvent) => {
+      if (e.data?.type === 'UNITYTECK_PREVIEW_SYNC' || e.data?.type === 'UNITYTECK_THEME_SYNC') {
+        setSyncTick((t) => t + 1);
+      }
+    };
+    window.addEventListener('message', handleMsg);
+    return () => {
+      window.removeEventListener('unityteck-product-updated', handleSync);
+      window.removeEventListener('unityteck-categories-updated', handleSync);
+      window.removeEventListener('unityteck-brands-updated', handleSync);
+      window.removeEventListener('unityteck-theme-settings', handleSync);
+      window.removeEventListener('unityteck-theme-identity', handleSync);
+      window.removeEventListener('unityteck-store-updated', handleSync);
+      window.removeEventListener('unityteck-pages-changed', handleSync);
+      window.removeEventListener('unityteck-data', handleSync);
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('message', handleMsg);
+    };
+  }, []);
+
+  // ── Unified Coupon Engine (real store coupons from TenantContext) ──
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponItem | null>(null);
+
+  const couponDiscount = useMemo(() => {
+    if (!appliedCoupon || appliedCoupon.status !== 'active') return 0;
+    if (appliedCoupon.minOrderValue && cartTotal < appliedCoupon.minOrderValue) return 0;
+    if (appliedCoupon.discountType === 'percentage') {
+      return Math.round(cartTotal * (appliedCoupon.discountValue / 100));
+    }
+    return Math.min(cartTotal, appliedCoupon.discountValue);
+  }, [appliedCoupon, cartTotal]);
+
+  const applyCoupon = (rawCode: string): { success: boolean; message: string } => {
+    const isAr = language === 'AR';
+    const code = (rawCode || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!code) return { success: false, message: isAr ? 'يرجى إدخال كود الخصم' : 'Please enter a coupon code' };
+    const list: CouponItem[] = (tenant?.currentCoupons as CouponItem[]) || [];
+    const found = list.find((c) => c.code.toUpperCase() === code);
+    if (!found) return { success: false, message: isAr ? 'كود الخصم غير صحيح' : 'Invalid coupon code' };
+    if (found.status !== 'active') return { success: false, message: isAr ? 'الكود غير نشط أو منتهي' : 'Coupon is inactive or expired' };
+    if (found.validUntil && !found.noExpiry && new Date().toISOString().split('T')[0] > found.validUntil) {
+      return { success: false, message: isAr ? 'انتهت صلاحية الكود' : 'Coupon has expired' };
+    }
+    if (found.maxUsage && (found.usageCount || 0) >= found.maxUsage) {
+      return { success: false, message: isAr ? 'تم بلوغ الحد الأقصى لاستخدام الكود' : 'Coupon usage limit reached' };
+    }
+    if (found.minOrderValue && cartTotal < found.minOrderValue) {
+      return {
+        success: false,
+        message: isAr ? `الحد الأدنى للطلب ${found.minOrderValue} ر.س` : `Minimum order is SAR ${found.minOrderValue}`
+      };
+    }
+    setAppliedCoupon(found);
+    return { success: true, message: isAr ? `تم تطبيق الكود ${found.code}` : `Coupon ${found.code} applied` };
+  };
+
+  const removeCoupon = () => setAppliedCoupon(null);
 
   // Merge database/API products reactively with theme catalog
   const mergedProducts = useMemo(() => {
-    const dbProducts = tenant?.currentProducts || [];
-    if (!dbProducts.length) return PRODUCTS;
+    const activeStoreId = tenant?.activeStore?.id || 'store-coffee';
+    let dbProducts: any[] = [];
+    if (tenant?.allProducts && tenant.allProducts[activeStoreId] && tenant.allProducts[activeStoreId].length > 0) {
+      dbProducts = tenant.allProducts[activeStoreId];
+    } else if (tenant?.currentProducts && tenant.activeStore?.id === activeStoreId && tenant.currentProducts.length > 0) {
+      dbProducts = tenant.currentProducts;
+    } else {
+      try {
+        const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('unityteck_products_map') : null;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed[activeStoreId]) && parsed[activeStoreId].length > 0) {
+            dbProducts = parsed[activeStoreId];
+          }
+        }
+      } catch {}
+    }
 
-    return PRODUCTS.map(p => {
-      const match = dbProducts.find(
-        dp => dp.id === p.id || dp.sku === p.id || dp.name.toLowerCase() === p.name.toLowerCase()
+    if (!dbProducts.length) {
+      // Flagship store initial seed or empty
+      return activeStoreId === 'store-coffee' || activeStoreId.includes('coffee') ? PRODUCTS : [];
+    }
+
+    // Dynamic resolution based strictly on current database/TenantContext products
+    const resolvedList: Product[] = [];
+
+    dbProducts.forEach((dp: any) => {
+      const match = PRODUCTS.find(
+        (p) =>
+          p.id === dp.id ||
+          p.id === dp.sku ||
+          p.id?.toLowerCase() === dp.id?.toLowerCase() ||
+          p.id?.toLowerCase() === dp.sku?.toLowerCase() ||
+          p.name?.toLowerCase() === dp.name?.toLowerCase(),
       );
-      if (!match) return p;
-      return {
-        ...p,
-        name: match.name || p.name,
-        nameAr: match.nameAr || p.nameAr,
-        basePrice: match.price || p.basePrice,
-        originalPrice: match.originalPrice ?? p.originalPrice,
-        specComparisonImage: match.specComparisonImage || p.specComparisonImage,
-        specComparisonImageAr: match.specComparisonImageAr || p.specComparisonImageAr,
-        images: match.image ? [match.image, ...(match.galleryUrls || [])] : p.images,
-      };
+
+      const primaryImg =
+        dp.image ||
+        (dp.galleryUrls && dp.galleryUrls[0]) ||
+        match?.colors?.[0]?.image ||
+        match?.images?.[0] ||
+        '/src/assets/images/hibrew_h7a_flagship_machine.png';
+
+      if (match) {
+        const updatedColors = primaryImg
+          ? (match.colors && match.colors.length > 0
+              ? [{ ...match.colors[0], image: primaryImg }, ...match.colors.slice(1)]
+              : [{ name: 'Default', hex: '#1c1917', image: primaryImg }])
+          : match.colors;
+        const updatedImages = primaryImg
+          ? [primaryImg, ...(dp.galleryUrls || match.images || []).filter((u: string) => u !== primaryImg)]
+          : match.images;
+
+        resolvedList.push({
+          ...match,
+          id: dp.id,
+          name: dp.name || match.name,
+          nameAr: dp.nameAr || match.nameAr || dp.name,
+          basePrice: typeof dp.price === 'number' ? dp.price : (dp.basePrice ?? match.basePrice),
+          originalPrice: dp.originalPrice ?? match.originalPrice,
+          category: dp.category || match.category,
+          specComparisonImage: dp.specComparisonImage || match.specComparisonImage,
+          specComparisonImageAr: dp.specComparisonImageAr || match.specComparisonImageAr,
+          image: primaryImg,
+          images: updatedImages,
+          colors: updatedColors,
+          tagline: dp.subtitle || dp.description || match.tagline,
+          taglineAr: dp.subtitleAr || dp.descriptionAr || match.taglineAr,
+        });
+      } else {
+        resolvedList.push({
+          id: dp.id,
+          name: dp.name,
+          nameAr: dp.nameAr || dp.name,
+          tagline: dp.subtitle || dp.description || 'Specialty Coffee Gear',
+          taglineAr: dp.subtitleAr || dp.descriptionAr || 'معدات القهوة المختصة والتحضير الاحترافي',
+          category: (dp.category as any) || 'machines',
+          basePrice: typeof dp.price === 'number' ? dp.price : (dp.basePrice ?? 0),
+          originalPrice: dp.originalPrice || undefined,
+          badge: dp.tags?.[0] || undefined,
+          badgeAr: dp.tags?.[0] || undefined,
+          reviewCount: dp.reviewsCount || 12,
+          rating: dp.rating || 4.9,
+          colors: [{ name: 'Default', hex: '#1c1917', image: primaryImg }],
+          storageOptions: [{ capacity: 'Standard', ram: 'Default', priceDelta: 0 }],
+          specs: dp.specs || [],
+          images: [primaryImg, ...(dp.galleryUrls || []).filter((u: string) => u !== primaryImg)],
+          overview: dp.description || '',
+          overviewAr: dp.descriptionAr || '',
+        });
+      }
     });
-  }, [tenant?.currentProducts]);
+
+    return resolvedList;
+  }, [tenant?.currentProducts, tenant?.allProducts, tenant?.cacheEpoch, tenant?.activeStore?.id, syncTick]);
 
   const selectedProduct = mergedProducts.find(p => p.id === selectedProductId) || mergedProducts[0];
+
+  const storeIdentity = useMemo(() => {
+    return readStoreIdentity(
+      tenant?.activeStore?.id || 'store-coffee',
+      tenant?.activeStore || { name: 'HiBrew KSA' }
+    );
+  }, [tenant?.activeStore?.id, tenant?.activeStore?.name, tenant?.activeStore?.logo, syncTick]);
 
   return (
     <CartContext.Provider
@@ -515,6 +826,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         goBack,
         selectedProductId,
         selectedProduct,
+        products: mergedProducts,
+        storeIdentity,
         selectedPageSlug,
         countryNoticeVisible,
         dismissCountryNotice,
@@ -533,7 +846,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearCart,
         navigateTo,
         showToast,
-        toastMessage
+        toastMessage,
+        appliedCoupon,
+        couponDiscount,
+        applyCoupon,
+        removeCoupon
       }}
     >
       {children}

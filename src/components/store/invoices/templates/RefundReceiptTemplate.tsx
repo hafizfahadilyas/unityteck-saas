@@ -1,6 +1,12 @@
 import React from 'react';
 import type { InvoiceDocument, InvoiceTemplateConfig, InvoiceLineItem } from '../../../../types/invoices';
 import { RotateCcw, CheckCircle2, Clock, AlertTriangle, ShieldCheck, Phone, Mail, Building } from 'lucide-react';
+import {
+  getLocalizedItemName,
+  getCustomerDisplayName,
+  getLocalizedAddress,
+} from '../../../../utils/storeLocalization';
+import { formatInvoiceDate } from '../../../../utils/zatca';
 
 interface TemplateProps {
   document: InvoiceDocument;
@@ -17,7 +23,7 @@ export const RefundReceiptTemplate: React.FC<TemplateProps> = ({ document, confi
     <div
       className="bg-white text-slate-900 w-full min-h-[1050px] p-8 sm:p-12 flex flex-col justify-between select-text"
       style={{
-        fontFamily: isAr ? 'Tajawal, Cairo, sans-serif' : 'Inter, sans-serif',
+        fontFamily: isAr ? "'Cairo', 'Tajawal', sans-serif" : 'Inter, sans-serif',
       }}
       dir={isAr ? 'rtl' : 'ltr'}
     >
@@ -89,10 +95,12 @@ export const RefundReceiptTemplate: React.FC<TemplateProps> = ({ document, confi
         <div className="flex items-start justify-between border-b pb-6" style={{ borderColor: '#e2e8f0' }}>
           <div className="space-y-1">
             <h1 className="text-xl font-black text-slate-900">
-              {isAr ? document.seller.nameAr || document.seller.name : document.seller.name}
+              {isAr ? document.seller.nameAr || document.seller.name : document.seller.nameEn || document.seller.name}
             </h1>
             <p className="text-xs text-slate-500">
-              {isAr ? document.seller.addressAr || document.seller.address : document.seller.address}
+              {isAr
+                ? document.seller.addressAr || document.seller.address
+                : document.seller.addressEn || getLocalizedAddress(document.seller.address, 'en')}
             </p>
             <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 pt-1">
               {document.seller.vatNumber && (
@@ -134,8 +142,8 @@ export const RefundReceiptTemplate: React.FC<TemplateProps> = ({ document, confi
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
               {isAr ? 'تاريخ الاسترجاع' : 'Refund Date'}
             </span>
-            <p className="text-sm font-semibold text-slate-800 mt-1">
-              {new Date(document.refundDate || document.issueDate).toLocaleDateString(isAr ? 'ar-SA' : 'en-US', {
+            <p className="text-sm font-semibold text-slate-800 mt-1 whitespace-nowrap" dir={isAr ? 'rtl' : 'ltr'}>
+              {formatInvoiceDate(document.refundDate || document.issueDate, locale, {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric',
@@ -147,10 +155,12 @@ export const RefundReceiptTemplate: React.FC<TemplateProps> = ({ document, confi
 
           <div>
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-              {isAr ? 'المستفيد / العميل' : 'Beneficiary Customer'}
+              {isAr ? 'العميل المستفيد' : 'Beneficiary Customer'}
             </span>
             <p className="text-sm font-bold text-slate-900 mt-1">
-              {isAr ? document.buyer.nameAr || document.buyer.name : document.buyer.name}
+              {isAr
+                ? document.buyer.nameAr || document.buyer.name
+                : document.buyer.nameEn || getCustomerDisplayName(document.buyer.name, 'en')}
             </p>
             {document.buyer.phone && <p className="text-xs text-slate-600 dir-ltr">{document.buyer.phone}</p>}
           </div>
@@ -177,8 +187,8 @@ export const RefundReceiptTemplate: React.FC<TemplateProps> = ({ document, confi
             <thead>
               <tr className="border-b-2 text-[11px] font-black uppercase text-slate-700" style={{ borderColor: '#cbd5e1' }}>
                 <th className="py-2.5 px-2 text-start">#</th>
-                <th className="py-2.5 px-2 text-start">{isAr ? 'المنتج / السبب' : 'Refunded Item & Reason'}</th>
-                <th className="py-2.5 px-2 text-start">{isAr ? 'الرمز SKU' : 'SKU'}</th>
+                <th className="py-2.5 px-2 text-start">{isAr ? 'المنتج وسبب الاسترجاع' : 'Refunded Item & Reason'}</th>
+                <th className="py-2.5 px-2 text-start">{isAr ? 'رمز الصنف' : 'SKU'}</th>
                 <th className="py-2.5 px-2 text-center">{isAr ? 'الكمية المسترجعة' : 'Refunded Qty'}</th>
                 <th className="py-2.5 px-2 text-end">{isAr ? 'المبلغ المسترجع' : 'Refunded Amount'}</th>
               </tr>
@@ -188,7 +198,7 @@ export const RefundReceiptTemplate: React.FC<TemplateProps> = ({ document, confi
                 <tr key={item.id || idx}>
                   <td className="py-3 px-2 font-mono text-slate-400">{idx + 1}</td>
                   <td className="py-3 px-2 font-medium text-slate-900">
-                    <div>{isAr ? item.nameAr || item.name : item.name}</div>
+                    <div>{isAr ? item.nameAr || item.name : item.nameEn || getLocalizedItemName(item, 'en')}</div>
                   </td>
                   <td className="py-3 px-2 font-mono text-slate-500">{item.sku || '—'}</td>
                   <td className="py-3 px-2 text-center font-bold text-slate-900">{item.quantity}</td>

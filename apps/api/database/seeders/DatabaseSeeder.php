@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Category;
 use App\Models\Coupon;
 use App\Models\Customer;
+use App\Models\Domain;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Plan;
@@ -176,7 +177,9 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Makkah Fresh Flowers',
                 'slug' => 'makkah-fresh-flowers',
-                'domain' => 'wardalmakkah.sa',
+                'domain' => 'giftshop-sa.com',
+                'custom_domain' => 'giftshop-sa.com',
+                'demo_domain' => 'giftshop-sa.com',
                 'status' => 'active',
                 'plan' => 'pro',
                 'master_granted_pro' => true,
@@ -184,9 +187,9 @@ class DatabaseSeeder extends Seeder
                 'locale' => 'ar',
                 'text_direction' => 'rtl',
                 'timezone' => 'Asia/Riyadh',
-                'phone' => '+966500000001',
-                'email' => 'tariq@wardalmakkah.sa',
-                'owner_name' => 'Tariq Al-Makki',
+                'phone' => '+966 50 442 8819',
+                'email' => 'giftshop2030m@gmail.com',
+                'owner_name' => 'متجر هدايا',
                 'city' => 'Makkah',
                 'country' => 'Saudi Arabia',
                 'category' => 'Real Fresh Flowers & Luxury Gifts',
@@ -198,6 +201,26 @@ class DatabaseSeeder extends Seeder
                 'orders_count' => 3,
                 'revenue' => 1610,
                 'visitors_count' => 1420,
+            ]
+        );
+
+        Domain::query()->updateOrCreate(
+            ['id' => 'dom-1'],
+            [
+                'store_id' => $store->id,
+                'domain_name' => 'giftshop-sa.com',
+                'is_primary' => true,
+                'ssl_status' => 'active',
+                'dns_configured' => true,
+                'dns_verified' => true,
+                'hosting_tier' => 'Hostinger Shared Premium',
+                'monthly_fee' => 49.00,
+                'payment_received' => true,
+                'status' => 'active',
+                'nameservers' => json_encode(['ns1.dns-parking.com', 'ns2.dns-parking.com']),
+                'registered_date' => '2024-01-10',
+                'hostinger_plan' => 'Premium Shared Hosting',
+                'server_ip' => '145.79.26.23',
             ]
         );
 
@@ -216,10 +239,10 @@ class DatabaseSeeder extends Seeder
         );
 
         $storeOwner = User::query()->updateOrCreate(
-            ['email' => 'tariq@wardalmakkah.sa'],
+            ['email' => 'giftshop2030m@gmail.com'],
             [
                 'id' => 'user-store-1',
-                'name' => 'Tariq Al-Makki',
+                'name' => 'متجر هدايا',
                 'password' => Hash::make(env('ADMIN_STORE_PASSWORD', 'MakkahStore@2026!Secure')),
                 'role' => 'manager',
             ]

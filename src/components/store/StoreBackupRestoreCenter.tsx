@@ -63,44 +63,21 @@ export const StoreBackupRestoreCenter: React.FC = () => {
   const [migrationMode, setMigrationMode] = useState<'local' | 'migrate_2nd'>('migrate_2nd');
 
   // Snapshots list
-  const [snapshots, setSnapshots] = useState<SnapshotItem[]>([
-    {
-      id: 'snap-1',
-      type: 'daily',
-      date: 'Today, Oct 8, 2026',
-      time: '02:00 AM UTC',
-      size: '14.8 MB',
-      recordsCount: 2450,
-      tablesCount: 28,
-      status: 'healthy',
-      fileName: 'hostinger_daily_giftshop_sa_20261008.sql',
-    },
-    {
-      id: 'snap-2',
-      type: 'weekly',
-      date: 'Oct 1, 2026',
-      time: '12:00 AM UTC',
-      size: '14.1 MB',
-      recordsCount: 2210,
-      tablesCount: 28,
-      status: 'verified',
-      fileName: 'hostinger_weekly_giftshop_sa_20261001.sql',
-    },
-    {
-      id: 'snap-3',
-      type: 'monthly',
-      date: 'Sep 1, 2026',
-      time: '00:00 AM UTC',
-      size: '12.5 MB',
-      recordsCount: 1890,
-      tablesCount: 28,
-      status: 'verified',
-      fileName: 'hostinger_monthly_giftshop_sa_20260901.sql',
-    },
-  ]);
+  const storeSlug = activeStore?.slug || activeStore?.id || 'store';
+  const storeDomain = (activeStore as any)?.domain || `${storeSlug}.sa`;
+
+  const [snapshots, setSnapshots] = useState<SnapshotItem[]>(() => {
+    try {
+      if (typeof window !== 'undefined' && activeStore?.id) {
+        const saved = localStorage.getItem(`unityteck_snapshots_${activeStore.id}`);
+        if (saved) return JSON.parse(saved);
+      }
+    } catch {}
+    return [];
+  });
 
   // Migration / Restore Form State
-  const [destHostingerDomain, setDestHostingerDomain] = useState('giftshop-sa.com');
+  const [destHostingerDomain, setDestHostingerDomain] = useState(() => storeDomain);
   const [destDbHost, setDestDbHost] = useState('srv1422.hstgr.io');
   const [destDbName, setDestDbName] = useState('u920689430_giftshop');
   const [destDbUser, setDestDbUser] = useState('u920689430_giftshop');
@@ -124,20 +101,20 @@ export const StoreBackupRestoreCenter: React.FC = () => {
 
   // Generate synthetic full backup ZIP and download
   const handleDownloadFullZip = () => {
-    const products = allProducts[activeStore.id] || [];
-    const orders = allOrders[activeStore.id] || [];
-    const customers = allStoreCustomers[activeStore.id] || [];
+    const products = allProducts[activeStore?.id] || [];
+    const orders = allOrders[activeStore?.id] || [];
+    const customers = allStoreCustomers[activeStore?.id] || [];
 
     const manifest = {
       platform: 'UnityTeck Multi-Store SaaS',
       version: '2.5.0-hostinger',
       store: {
-        id: activeStore.id,
-        name: activeStore.name,
-        slug: 'giftshop-sa',
-        domain: 'giftshop-sa.com',
-        adminUrl: 'https://giftshop-sa.com/admin',
-        storefrontUrl: 'https://giftshop-sa.com/',
+        id: activeStore?.id,
+        name: activeStore?.name,
+        slug: storeSlug,
+        domain: storeDomain,
+        adminUrl: `https://${storeDomain}/admin`,
+        storefrontUrl: `https://${storeDomain}/`,
       },
       backup_timestamp: new Date().toISOString(),
       database: {
@@ -189,7 +166,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `unityteck_full_hostinger_backup_${activeStore.slug}_${Date.now()}.zip`;
+    a.download = `unityteck_full_hostinger_backup_${storeSlug}_${Date.now()}.zip`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -205,18 +182,27 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
 
   // Create Instant Manual Snapshot
   const handleCreateSnapshot = () => {
+    const productsCount = allProducts[activeStore?.id]?.length || 0;
+    const ordersCount = allOrders[activeStore?.id]?.length || 0;
+    const customersCount = allStoreCustomers[activeStore?.id]?.length || 0;
     const newSnap: SnapshotItem = {
       id: `snap-${Date.now()}`,
       type: 'manual',
-      date: 'Just now',
+      date: isAr ? 'الآن' : 'Just now',
       time: new Date().toLocaleTimeString(),
-      size: '14.5 MB',
-      recordsCount: (allProducts[activeStore.id]?.length || 10) + (allOrders[activeStore.id]?.length || 15) + 80,
+      size: `${Math.max(1.2, Math.round(((productsCount * 3 + ordersCount * 4 + 50) / 1024) * 10) / 10)} MB`,
+      recordsCount: productsCount + ordersCount + customersCount,
       tablesCount: 24,
       status: 'healthy',
-      fileName: `hostinger_manual_${activeStore.slug}_${Date.now()}.sql`,
+      fileName: `hostinger_manual_${storeSlug}_${Date.now()}.sql`,
     };
-    setSnapshots([newSnap, ...snapshots]);
+    const nextList = [newSnap, ...snapshots];
+    setSnapshots(nextList);
+    try {
+      if (typeof window !== 'undefined' && activeStore?.id) {
+        localStorage.setItem(`unityteck_snapshots_${activeStore.id}`, JSON.stringify(nextList));
+      }
+    } catch {}
     toast(
       isAr
         ? 'تم إنشاء نسخة احتياطية فورية لقاعدة البيانات بنجاح!'
@@ -312,7 +298,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                 {isAr ? 'سحابة واستضافة Hostinger مع MySQL 8' : 'Hostinger MySQL 8 & Shared Cloud'}
               </span>
               <span className="text-[10px] opacity-50 font-mono">
-                ({isAr ? (activeStore.nameAr || activeStore.name) : (activeStore.nameEn || activeStore.name)})
+                ({isAr ? (activeStore?.nameAr || activeStore?.name || 'المتجر') : (activeStore?.nameEn || activeStore?.name || 'Store')})
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight mt-0.5">
@@ -858,8 +844,27 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                   </tr>
                 </thead>
                 <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
-                  {snapshots.map((snap) => (
-                    <tr key={snap.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                  {snapshots.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 px-4 text-center">
+                        <div className="flex flex-col items-center justify-center space-y-2">
+                          <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                            <Database className="w-5 h-5" />
+                          </div>
+                          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                            {isAr ? 'لا توجد نقاط نسخ احتياطي مسجلة لهذا المتجر بعد' : 'No restore points recorded for this store yet'}
+                          </p>
+                          <p className="text-[11px] text-slate-400 max-w-sm">
+                            {isAr
+                              ? 'اضغط على زر "+ إنشاء نسخة فورية يدوياً" أعلاه لإنشاء نسخة احتياطية من بيانات المتجر.'
+                              : 'Click "+ Create Instant Snapshot" above to create an on-demand database backup.'}
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    snapshots.map((snap) => (
+                      <tr key={snap.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="py-3 px-3">
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
@@ -932,7 +937,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )))}
                 </tbody>
               </table>
             </div>

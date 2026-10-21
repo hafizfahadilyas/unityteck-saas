@@ -185,7 +185,7 @@ export const MasterOnboarding: React.FC = () => {
     'w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-teal-500';
 
   return (
-    <div className="p-6 space-y-6 max-w-[1400px] mx-auto text-slate-800">
+    <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto text-slate-800">
       <div>
         <div className="flex items-center gap-2">
           <UserPlus className="w-5 h-5 text-teal-600 dark:text-teal-400" />

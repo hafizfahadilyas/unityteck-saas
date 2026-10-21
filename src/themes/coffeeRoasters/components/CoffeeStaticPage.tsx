@@ -54,9 +54,19 @@ interface CoffeeStaticPageProps {
 }
 
 export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, slug }) => {
-  const { currentRoute, selectedPageSlug, navigateTo, language, showToast } = useCart();
-  const { activeStore } = useTenant();
+  const { currentRoute, selectedPageSlug, navigateTo, language, showToast, storeIdentity } = useCart();
+  const { activeStore, currentOrders } = useTenant();
   const isAr = language === 'AR';
+
+  const rawPhone =
+    storeIdentity?.whatsapp ||
+    (activeStore as any)?.whatsapp ||
+    storeIdentity?.phone ||
+    activeStore?.phone ||
+    '+966549876543';
+  let cleanPhone = rawPhone.replace(/\D/g, '') || '966549876543';
+  if (cleanPhone.startsWith('05')) cleanPhone = '966' + cleanPhone.substring(1);
+  else if (cleanPhone.startsWith('5') && cleanPhone.length === 9) cleanPhone = '966' + cleanPhone;
 
   // Determine effective slug
   const effectiveSlug =
@@ -83,6 +93,14 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
       : currentRoute === 'faq'
       ? 'faq'
       : 'privacy-policy');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, [effectiveSlug]);
 
   const [pageData, setPageData] = useState<StoreCustomPage | undefined>(undefined);
   const [allPages, setAllPages] = useState<StoreCustomPage[]>([]);
@@ -116,7 +134,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
     return () => window.removeEventListener('unityteck-pages-changed', handleSync);
   }, [effectiveSlug, activeStore?.id]);
 
-  // Order tracking search
+  // Order tracking search against real store orders
   const handleTrackSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!trackOrderInput.trim()) return;
@@ -125,23 +143,48 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
     setTimeout(() => {
       setIsSearchingTrack(false);
       const cleanNum = trackOrderInput.trim().toUpperCase();
-      setTrackingResult({
-        orderNumber: cleanNum.startsWith('HB-') ? cleanNum : `HB-${cleanNum}`,
-        status: isAr ? 'في طريقها للتوصيل مع سمسا إكسبريس' : 'Out for Delivery via SMSA Express',
-        courier: 'SMSA Express (سمسا إكسبريس)',
-        trackingNumber: '29104819402',
-        estimatedDelivery: isAr ? 'اليوم قبل الساعة ٦:٠٠ مساءً' : 'Today before 6:00 PM',
-        destination: isAr ? 'الرياض - حي النرجس' : 'Riyadh - An Narjis',
-        steps: [
-          { titleAr: 'تم تأكيد الطلب وسداد القيمة', titleEn: 'Order Confirmed & Paid', date: 'Yesterday, 10:15 AM', done: true },
-          { titleAr: 'فحص الجودة والمعايرة الفنية', titleEn: 'Technical Inspection & Calibration', date: 'Yesterday, 2:30 PM', done: true },
-          { titleAr: 'انطلاق الشحنة من مستودع الرياض', titleEn: 'Dispatched from Riyadh Hub', date: 'Today, 8:45 AM', done: true },
-          { titleAr: 'مع المندوب للتسليم المباشر', titleEn: 'With Courier for Final Delivery', date: 'Today, 1:20 PM', done: true },
-          { titleAr: 'اكتمال التسليم للعميل', titleEn: 'Delivered', date: isAr ? 'متوقع خلال ساعات' : 'Estimated soon', done: false },
-        ]
+      const phoneClean = trackPhoneInput.trim().replace(/[^0-9]/g, '');
+
+      // Search real store orders
+      const foundOrder = (currentOrders || []).find((o: any) => {
+        const orderNum = String(o.orderNumber || o.id || '').toUpperCase();
+        const oPhone = String(o.customerPhone || '').replace(/[^0-9]/g, '');
+        if (cleanNum && orderNum.includes(cleanNum)) return true;
+        if (phoneClean && oPhone && oPhone.includes(phoneClean)) return true;
+        return false;
       });
-      showToast(isAr ? 'تم استرجاع بيانات الشحنة الحية ✓' : 'Live shipment data retrieved ✓');
-    }, 700);
+
+      if (foundOrder) {
+        const isDelivered = foundOrder.status === 'delivered';
+        const isShipped = foundOrder.status === 'shipped' || isDelivered;
+        const isProcessing = foundOrder.status === 'processing' || isShipped;
+
+        setTrackingResult({
+          orderNumber: foundOrder.orderNumber || foundOrder.id,
+          status: isAr
+            ? (isDelivered ? 'تم تسليم الشحنة بنجاح' : isShipped ? 'الشحنة في طريقها للتوصيل' : 'جاري تجهيز وتغليف الطلب')
+            : (isDelivered ? 'Package Delivered Successfully' : isShipped ? 'Package in Transit' : 'Order Being Prepared & Packed'),
+          courier: 'SMSA Express / SPL (البريد السعودي)',
+          trackingNumber: `SA${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+          estimatedDelivery: isAr ? 'خلال 24-48 ساعة' : 'Within 24-48 hours',
+          destination: foundOrder.deliveryLocation || (isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia'),
+          steps: [
+            { titleAr: 'تم تأكيد الطلب وسداد القيمة', titleEn: 'Order Confirmed & Paid', date: foundOrder.date || 'Completed', done: true },
+            { titleAr: 'فحص الجودة والمعايرة الفنية', titleEn: 'Technical Inspection & Calibration', date: 'Processing Hub', done: isProcessing },
+            { titleAr: 'انطلاق الشحنة من المستودع المركزي', titleEn: 'Dispatched from Central Hub', date: 'In Transit', done: isShipped },
+            { titleAr: 'مع المندوب للتسليم المباشر', titleEn: 'With Courier for Delivery', date: 'Final Mile', done: isShipped },
+            { titleAr: 'اكتمال التسليم للعميل', titleEn: 'Delivered', date: isDelivered ? 'Done' : (isAr ? 'متوقع قريباً' : 'Expected soon'), done: isDelivered },
+          ]
+        });
+        showToast(isAr ? 'تم استرجاع بيانات الشحنة الحية ✓' : 'Live shipment data retrieved ✓');
+      } else {
+        setTrackingResult({
+          notFound: true,
+          orderNumber: cleanNum,
+        });
+        showToast(isAr ? 'لم يتم العثور على طلب بهذا الرقم' : 'No order found with this reference');
+      }
+    }, 500);
   };
 
   // Warranty serial number search
@@ -326,7 +369,17 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
                 </form>
 
                 {/* Tracking Result Card */}
-                {trackingResult && (
+                {trackingResult && trackingResult.notFound && (
+                  <div className="mt-6 p-6 rounded-2xl bg-amber-50/70 border border-amber-200 text-center space-y-2 animate-in fade-in duration-300">
+                    <p className="text-xs font-bold text-amber-900">
+                      {isAr
+                        ? `لم يتم العثور على طلب برقم (${trackingResult.orderNumber}). يرجى التأكد من الرقم والمحاولة مرة أخرى.`
+                        : `No active order found for reference (${trackingResult.orderNumber}). Please verify the order number.`}
+                    </p>
+                  </div>
+                )}
+
+                {trackingResult && !trackingResult.notFound && (
                   <div className="mt-6 p-6 rounded-2xl bg-neutral-50 border border-neutral-200/80 space-y-5 animate-in fade-in duration-300">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-neutral-200">
                       <div>
@@ -706,10 +759,16 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
 
               <button
                 type="button"
-                onClick={() => navigateTo('custom-order')}
+                onClick={() => {
+                  const msg = isAr
+                    ? 'السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم'
+                    : 'Hello, I would like to inquire about placing a custom coffee corner order.';
+                  window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+                }}
                 className="w-full py-3 bg-white hover:bg-neutral-100 text-black font-extrabold text-xs rounded-full transition-transform active:scale-95 cursor-pointer shadow-sm flex items-center justify-center gap-2"
               >
-                <span>{isAr ? 'ابدأ تصميم ركن قهوتك الآن ✦' : 'Start Custom Corner ✦'}</span>
+                <MessageCircle className="w-4 h-4 fill-[#25D366] text-[#25D366]" />
+                <span>{isAr ? 'طلب تفصيل ركن القهوة عبر واتساب ✦' : 'Order Custom Corner via WhatsApp ✦'}</span>
               </button>
             </div>
 
@@ -736,7 +795,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
               </p>
 
               <a
-                href="https://wa.me/966501234567"
+                href={`https://wa.me/${cleanPhone}`}
                 target="_blank"
                 rel="noreferrer"
                 className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"

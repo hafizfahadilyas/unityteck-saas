@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120" fill="none">
+  <rect width="300" height="120" rx="16" fill="#FFFFFF"/>
+  <g transform="translate(24, 25)">
+    <!-- Fellow minimalist geometric kettle icon -->
+    <rect x="14" y="24" width="42" height="38" rx="8" fill="#18181B"/>
+    <path d="M56 34 Q68 20, 64 54" stroke="#18181B" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M14 36 L4 36" stroke="#18181B" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="35" cy="18" r="4" fill="#D97706"/>
+    <!-- Fellow wordmark -->
+    <text x="80" y="47" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="900" fill="#18181B" letter-spacing="4">FELLOW</text>
+    <text x="82" y="66" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="700" fill="#71717A" letter-spacing="3">SAN FRANCISCO</text>
+  </g>
+</svg>

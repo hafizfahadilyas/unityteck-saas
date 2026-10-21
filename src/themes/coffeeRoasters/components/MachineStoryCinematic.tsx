@@ -94,7 +94,7 @@ export const MachineStoryCinematic: React.FC = () => {
             alt="HiBrew Commercial Engineering Cutaway"
             className="w-full h-full object-cover object-center group-hover:scale-103 transition-transform duration-700 ease-out"
             referrerPolicy="no-referrer"
-            loading="lazy"
+            loading="lazy" decoding="async"
           />
 
           {/* Floating Badges */}
@@ -175,3 +175,4 @@ export const MachineStoryCinematic: React.FC = () => {
     </section>
   );
 };
+

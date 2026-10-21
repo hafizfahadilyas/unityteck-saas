@@ -16,13 +16,13 @@ interface DonutChartProps {
   showLegend?: boolean;
 }
 
-export const DonutChart: React.FC<DonutChartProps> = ({
+export const DonutChart: React.FC<DonutChartProps> = React.memo(({
   segments,
   centerLabel,
   centerValue,
   size = 180,
-  strokeWidth = 24,
-  showLegend = true,
+  strokeWidth = 22,
+  showLegend = false,
 }) => {
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
 
@@ -34,18 +34,19 @@ export const DonutChart: React.FC<DonutChartProps> = ({
   let accumulatedPercent = 0;
 
   return (
-    <div className="flex flex-col sm:flex-row items-center gap-6">
+    <div className={`flex ${showLegend ? 'flex-col sm:flex-row items-center gap-6' : 'items-center justify-center'}`}>
       {/* SVG Ring */}
       <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="transform -rotate-90">
+        <svg width={size} height={size} className="transform -rotate-90 overflow-visible">
+          {/* Background Ring */}
           <circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
             fill="transparent"
-            stroke="var(--border)"
+            stroke="currentColor"
             strokeWidth={strokeWidth}
-            opacity={0.4}
+            className="text-slate-100 dark:text-slate-800 transition-colors"
           />
           {segments.map((seg, idx) => {
             const percent = total > 0 ? seg.value / total : 0;
@@ -63,7 +64,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                 r={radius}
                 fill="transparent"
                 stroke={seg.color}
-                strokeWidth={isHovered ? strokeWidth + 4 : strokeWidth}
+                strokeWidth={isHovered ? strokeWidth + 3 : strokeWidth}
                 strokeDasharray={strokeDasharray}
                 strokeDashoffset={strokeDashoffset}
                 strokeLinecap="round"
@@ -76,11 +77,11 @@ export const DonutChart: React.FC<DonutChartProps> = ({
         </svg>
 
         {/* Center Text */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-4">
-          <span className="text-xl font-bold tracking-tight leading-tight" style={{ color: 'var(--text)' }}>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-3 select-none">
+          <span className="text-sm sm:text-base font-black tracking-tight leading-tight text-slate-900 dark:text-white">
             {activeIdx !== null ? (segments[activeIdx].formattedValue || `${segments[activeIdx].value}%`) : centerValue}
           </span>
-          <span className="text-[11px] font-medium uppercase tracking-wide mt-0.5" style={{ color: 'var(--muted)' }}>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mt-0.5 max-w-[90px] truncate">
             {activeIdx !== null ? segments[activeIdx].label : centerLabel}
           </span>
         </div>
@@ -94,10 +95,9 @@ export const DonutChart: React.FC<DonutChartProps> = ({
             return (
               <div
                 key={idx}
-                className="flex items-center justify-between py-1 px-1.5 rounded-lg cursor-pointer transition-colors"
-                style={{
-                  background: isHovered ? 'var(--hover-bg)' : 'transparent',
-                }}
+                className={`flex items-center justify-between py-1 px-1.5 rounded-lg cursor-pointer transition-colors ${
+                  isHovered ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                }`}
                 onMouseEnter={() => setActiveIdx(idx)}
                 onMouseLeave={() => setActiveIdx(null)}
               >
@@ -106,9 +106,11 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                     className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: seg.color }}
                   />
-                  <span className="truncate" style={{ color: isHovered ? 'var(--text)' : 'var(--muted)' }}>{seg.label}</span>
+                  <span className={`truncate ${isHovered ? 'text-slate-900 dark:text-white font-bold' : 'text-slate-600 dark:text-slate-400'}`}>
+                    {seg.label}
+                  </span>
                 </div>
-                <span className="font-semibold tabular-nums shrink-0" style={{ color: 'var(--text)' }}>
+                <span className="font-semibold tabular-nums shrink-0 text-slate-900 dark:text-white">
                   {seg.formattedValue || `${seg.value}%`}
                 </span>
               </div>
@@ -118,4 +120,6 @@ export const DonutChart: React.FC<DonutChartProps> = ({
       )}
     </div>
   );
-};
+});
+
+DonutChart.displayName = 'DonutChart';

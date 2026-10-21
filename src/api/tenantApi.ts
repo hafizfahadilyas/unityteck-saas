@@ -37,12 +37,38 @@ import type {
   StorefrontPaymentSession,
   PaymentVerifyResponse,
 } from '../types';
+import type {
+  BlogApiResponse,
+  BlogArticleItem,
+  BlogPostSettings,
+  BlogSeoSettings,
+  ArticleCommerceToolsConfig,
+} from '../types/blog';
 
 type ListResponse<T> = { data: T[] };
 type ItemResponse<T> = { data: T };
 
 export async function fetchHealth(): Promise<Record<string, unknown>> {
   return apiFetch<Record<string, unknown>>('/health');
+}
+
+export type AuthMeResponse = {
+  portal: 'master' | 'store';
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    role_label?: string;
+    role_level?: number;
+  };
+  store_id: string | null;
+  store_name: string | null;
+  abilities: string[];
+};
+
+export async function fetchAuthMe(): Promise<AuthMeResponse> {
+  return apiFetch<AuthMeResponse>('/auth/me');
 }
 
 export async function fetchStores(): Promise<Store[]> {
@@ -160,16 +186,20 @@ export async function fetchProductsPage(
 
 export type CreateProductPayload = {
   name: string;
+  name_ar?: string | null;
   price: number;
   sku: string;
   stock?: number;
   category?: string;
+  category_ar?: string | null;
   image_url?: string;
   original_price?: number | null;
   description?: string | null;
   gallery_urls?: string[];
   video_url?: string | null;
   tags?: string[];
+  badge?: string | null;
+  badge_en?: string | null;
   seo_title?: string | null;
   seo_description?: string | null;
   seo_keywords?: string | null;
@@ -525,6 +555,13 @@ export async function processOrderReturn(
     order: mapOrder(res.order),
     returnRecord: res.return,
   };
+}
+
+export async function fetchOrderReturns(storeId: string): Promise<any[]> {
+  const res = await apiFetch<any>('/orders-returns', { storeId });
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  return [];
 }
 
 export async function updateOrderCodStatus(
@@ -999,6 +1036,15 @@ export async function createShippingZone(storeId: string, payload: Record<string
   return res.data;
 }
 
+export async function updateShippingZone(storeId: string, id: string, payload: Record<string, unknown>): Promise<any> {
+  const res = await apiFetch<ItemResponse<any>>(`/shipping/${id}`, {
+    method: 'PATCH',
+    storeId,
+    body: payload,
+  });
+  return res.data;
+}
+
 export async function deleteShippingZone(storeId: string, id: string): Promise<void> {
   await apiFetch(`/shipping/${id}`, {
     method: 'DELETE',
@@ -1061,6 +1107,49 @@ export async function createCourierShipment(
     storeId,
     body: payload,
   });
+}
+
+export async function fetchCourierShipments(storeId: string, params?: { status?: string; provider?: string }): Promise<any[]> {
+  const query = new URLSearchParams();
+  if (params?.status) query.set('status', params.status);
+  if (params?.provider) query.set('provider', params.provider);
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  const res = await apiFetch<ListResponse<any>>(`/couriers/shipments${qs}`, { storeId });
+  const raw = res.data ?? [];
+  return raw.map((item: any) => ({
+    id: String(item.id),
+    storeId: String(item.store_id || storeId),
+    orderId: String(item.order_id),
+    courierId: item.courier_id ? String(item.courier_id) : undefined,
+    provider: String(item.provider || 'spl'),
+    awbNumber: String(item.awb_number || item.tracking_number || ''),
+    trackingNumber: String(item.tracking_number || item.awb_number || ''),
+    labelUrl: item.label_url,
+    status: item.status || 'created',
+    shippingCost: Number(item.shipping_cost || 0),
+    codAmount: Number(item.cod_amount || 0),
+    pickupRequestedAt: item.pickup_requested_at,
+    deliveredAt: item.delivered_at,
+    createdAt: item.created_at,
+    updatedAt: item.updated_at,
+    originAddress: item.origin_address,
+    destinationAddress: item.destination_address || (item.order ? { location: item.order.delivery_location, city: item.order.city } : undefined),
+    trackingEvents: item.tracking_events || [],
+    order: item.order,
+  }));
+}
+
+export async function updateCourierShipmentStatus(
+  storeId: string,
+  shipmentId: string,
+  payload: { status: string; note?: string }
+): Promise<any> {
+  const res = await apiFetch<ItemResponse<any>>(`/couriers/shipments/${encodeURIComponent(shipmentId)}/status`, {
+    method: 'PATCH',
+    storeId,
+    body: payload,
+  });
+  return res.data;
 }
 
 export async function trackCourierShipment(storeId: string, trackingNumber: string): Promise<any> {
@@ -1164,6 +1253,18 @@ export async function verifyStorefrontPaymentApi(payload: {
 
 // ── Real Analytics Reports (Database Aggregated) ──
 
+export async function fetchOverviewReportsApi(
+  storeId: string,
+  params?: { range?: string; from?: string; to?: string },
+): Promise<any> {
+  const query = new URLSearchParams();
+  if (params?.range) query.set('range', params.range);
+  if (params?.from) query.set('from', params.from);
+  if (params?.to) query.set('to', params.to);
+  const qStr = query.toString();
+  return apiFetch(`/analytics/overview${qStr ? `?${qStr}` : ''}`, { storeId });
+}
+
 export async function fetchPaymentReportsApi(storeId: string): Promise<any> {
   return apiFetch('/analytics/payments', { storeId });
 }
@@ -1171,6 +1272,83 @@ export async function fetchPaymentReportsApi(storeId: string): Promise<any> {
 export async function fetchShippingReportsApi(storeId: string): Promise<any> {
   return apiFetch('/analytics/shipping', { storeId });
 }
+
+export async function fetchSalesRevenueReportsApi(
+  storeId: string,
+  params?: { range?: string; from?: string; to?: string },
+): Promise<any> {
+  const query = new URLSearchParams();
+  if (params?.range) query.set('range', params.range);
+  if (params?.from) query.set('from', params.from);
+  if (params?.to) query.set('to', params.to);
+  const qStr = query.toString();
+  return apiFetch(`/analytics/sales-revenue${qStr ? `?${qStr}` : ''}`, { storeId });
+}
+
+export async function fetchCampaignAnalyticsReportsApi(
+  storeId: string,
+  params?: { range?: string; from?: string; to?: string },
+): Promise<any> {
+  const query = new URLSearchParams();
+  if (params?.range) query.set('range', params.range);
+  if (params?.from) query.set('from', params.from);
+  if (params?.to) query.set('to', params.to);
+  const qStr = query.toString();
+  return apiFetch(`/analytics/campaigns${qStr ? `?${qStr}` : ''}`, { storeId });
+}
+
+export async function fetchAiInsightsReportsApi(
+  storeId: string,
+  params?: { range?: string; from?: string; to?: string },
+): Promise<any> {
+  const query = new URLSearchParams();
+  if (params?.range) query.set('range', params.range);
+  if (params?.from) query.set('from', params.from);
+  if (params?.to) query.set('to', params.to);
+  const qStr = query.toString();
+  return apiFetch(`/analytics/ai-insights${qStr ? `?${qStr}` : ''}`, { storeId });
+}
+
+export async function askAiStoreApi(
+  storeId: string,
+  question: string,
+): Promise<any> {
+  return apiFetch('/analytics/ai-insights/ask', {
+    method: 'POST',
+    body: { question },
+    storeId,
+  });
+}
+
+export async function fetchBehaviorAnalyticsReportsApi(
+  storeId: string,
+  params?: { range?: string; from?: string; to?: string },
+): Promise<any> {
+  const query = new URLSearchParams();
+  if (params?.range) query.set('range', params.range);
+  if (params?.from) query.set('from', params.from);
+  if (params?.to) query.set('to', params.to);
+  const qStr = query.toString();
+  return apiFetch(`/analytics/behavior${qStr ? `?${qStr}` : ''}`, { storeId });
+}
+
+export async function fetchCustomerAnalyticsReportsApi(storeId: string): Promise<any> {
+  return apiFetch('/analytics/customers', { storeId });
+}
+
+export async function fetchProductAnalyticsReportsApi(storeId: string): Promise<any> {
+  return apiFetch('/analytics/products', { storeId });
+}
+
+export async function fetchChannelAnalyticsReportsApi(storeId: string): Promise<any> {
+  return apiFetch('/analytics/channels', { storeId });
+}
+
+export async function fetchSearchQueriesReportsApi(storeId: string): Promise<any> {
+  return apiFetch('/analytics/search-queries', { storeId });
+}
+
+
 
 // ── Real Theme Settings & Page Builder Persistence (Phase 2.2 / 2.3) ──
 
@@ -1334,6 +1512,697 @@ export async function deleteDomainApi(id: string, storeId?: string): Promise<voi
   });
 }
 
+/**
+ * Fetch store notification configuration and bilingual templates (Phase 6.4)
+ */
+export async function fetchNotificationSettingsApi(
+  storeId?: string
+): Promise<{ success: boolean; data: any }> {
+  return apiFetch<{ success: boolean; data: any }>('/notifications/settings', {
+    storeId,
+  });
+}
 
+/**
+ * Update store notification channels and custom templates (Phase 6.4)
+ */
+export async function updateNotificationSettingsApi(
+  payload: { channels: any; templates: any; merchant_alert_phones?: string[] },
+  storeId?: string
+): Promise<{ success: boolean; message: string; data?: any }> {
+  return apiFetch<{ success: boolean; message: string; data?: any }>('/notifications/settings', {
+    method: 'PUT',
+    body: payload,
+    storeId,
+  });
+}
 
+/**
+ * Send simulated test WhatsApp / SMS alert (Phase 6.4)
+ */
+export async function sendTestNotificationApi(
+  payload: { event: string; recipient_phone: string; channel: 'whatsapp' | 'sms' | 'both'; order_id?: string },
+  storeId?: string
+): Promise<{ success: boolean; data: any; message?: string }> {
+  return apiFetch<{ success: boolean; data: any; message?: string }>('/notifications/test', {
+    method: 'POST',
+    body: payload,
+    storeId,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Blog Articles, Settings & Article Commerce Tools APIs (Store-isolated)
+// ---------------------------------------------------------------------------
+
+export async function fetchBlogDataApi(
+  storeId: string,
+  params?: { q?: string; category?: string; status?: string; sort?: string; dir?: string }
+): Promise<BlogApiResponse> {
+  const query = new URLSearchParams();
+  if (params?.q) query.set('q', params.q);
+  if (params?.category) query.set('category', params.category);
+  if (params?.status) query.set('status', params.status);
+  if (params?.sort) query.set('sort', params.sort);
+  if (params?.dir) query.set('dir', params.dir);
+  const qStr = query.toString() ? `?${query.toString()}` : '';
+
+  return apiFetch<BlogApiResponse>(`/stores/${storeId}/blog/articles${qStr}`, {
+    storeId,
+  });
+}
+
+export async function createBlogArticleApi(
+  storeId: string,
+  payload: Partial<BlogArticleItem>
+): Promise<{ success: boolean; data: BlogArticleItem; message: string }> {
+  return apiFetch<{ success: boolean; data: BlogArticleItem; message: string }>(
+    `/stores/${storeId}/blog/articles`,
+    {
+      method: 'POST',
+      body: payload,
+      storeId,
+    }
+  );
+}
+
+export async function updateBlogArticleApi(
+  storeId: string,
+  articleId: string,
+  payload: Partial<BlogArticleItem>
+): Promise<{ success: boolean; data: BlogArticleItem; message: string }> {
+  return apiFetch<{ success: boolean; data: BlogArticleItem; message: string }>(
+    `/stores/${storeId}/blog/articles/${articleId}`,
+    {
+      method: 'PUT',
+      body: payload,
+      storeId,
+    }
+  );
+}
+
+export async function deleteBlogArticleApi(
+  storeId: string,
+  articleId: string
+): Promise<{ success: boolean; message: string }> {
+  return apiFetch<{ success: boolean; message: string }>(
+    `/stores/${storeId}/blog/articles/${articleId}`,
+    {
+      method: 'DELETE',
+      storeId,
+    }
+  );
+}
+
+export async function bulkBlogArticlesActionApi(
+  storeId: string,
+  action: 'publish' | 'draft' | 'delete',
+  ids: string[]
+): Promise<{ success: boolean; message: string; count: number }> {
+  return apiFetch<{ success: boolean; message: string; count: number }>(
+    `/stores/${storeId}/blog/articles/bulk`,
+    {
+      method: 'POST',
+      body: { action, ids },
+      storeId,
+    }
+  );
+}
+
+export async function updateBlogSettingsApi(
+  storeId: string,
+  payload: {
+    post_settings?: Partial<BlogPostSettings>;
+    seo_settings?: Partial<BlogSeoSettings>;
+    featured_article_id?: string;
+  }
+): Promise<{
+  success: boolean;
+  message: string;
+  post_settings: BlogPostSettings;
+  seo_settings: BlogSeoSettings;
+  featured_article_id: string;
+}> {
+  return apiFetch<{
+    success: boolean;
+    message: string;
+    post_settings: BlogPostSettings;
+    seo_settings: BlogSeoSettings;
+    featured_article_id: string;
+  }>(`/stores/${storeId}/blog/settings`, {
+    method: 'PUT',
+    body: payload,
+    storeId,
+  });
+}
+
+export async function fetchArticleCommerceToolsApi(
+  storeId: string,
+  articleId: string
+): Promise<{ success: boolean; data: ArticleCommerceToolsConfig; article_id: string }> {
+  return apiFetch<{ success: boolean; data: ArticleCommerceToolsConfig; article_id: string }>(
+    `/stores/${storeId}/blog/commerce-tools/${articleId}`,
+    {
+      storeId,
+    }
+  );
+}
+
+export async function saveArticleCommerceToolsApi(
+  storeId: string,
+  articleId: string,
+  config: ArticleCommerceToolsConfig
+): Promise<{ success: boolean; message: string; data: ArticleCommerceToolsConfig }> {
+  return apiFetch<{ success: boolean; message: string; data: ArticleCommerceToolsConfig }>(
+    `/stores/${storeId}/blog/commerce-tools/${articleId}`,
+    {
+      method: 'PUT',
+      body: { config },
+      storeId,
+    }
+  );
+}
+
+// ── Real Affiliate Marketing (Hostinger MySQL / Laravel API) ──
+
+export interface AffiliateOverviewData {
+  summary: {
+    totalSales: number;
+    totalOrders: number;
+    totalCommission: number;
+    affiliatesCount: number;
+    affiliateVisits: number;
+    conversionRate: number;
+    salesGrowth: string;
+    ordersGrowth: string;
+    commissionGrowth: string;
+    affiliatesGrowth: string;
+    visitsGrowth: string;
+    conversionGrowth: string;
+  };
+  performance_series: Array<{ date: string; sales: number; orders: number }>;
+  sales_by_offer: Array<{ name: string; percentage: number; amount: number }>;
+  latest_updates: Array<{ id: string; label: string; time: string; status: string }>;
+  opportunities: any[];
+  partners: any[];
+  orders: any[];
+  payments: any[];
+  program_settings: {
+    enableProgram: boolean;
+    enableMarketingMaterials: boolean;
+    enableUniqueLinks: boolean;
+  };
+}
+
+export async function fetchAffiliateOverviewApi(storeId: string): Promise<AffiliateOverviewData> {
+  const res = await apiFetch<{ success: boolean; data: AffiliateOverviewData }>(
+    `/stores/${storeId}/affiliate/overview`,
+    { storeId }
+  );
+  return res.data;
+}
+
+export async function createAffiliateOpportunityApi(
+  storeId: string,
+  payload: {
+    name: string;
+    commissionType: 'fixed' | 'percentage';
+    commissionValue: number;
+    startDate?: string;
+    endDate?: string;
+    products?: string;
+  }
+): Promise<any> {
+  const res = await apiFetch<{ success: boolean; data: any; message: string }>(
+    `/stores/${storeId}/affiliate/opportunities`,
+    {
+      method: 'POST',
+      body: payload,
+      storeId,
+    }
+  );
+  return res.data;
+}
+
+export async function updateAffiliateOpportunityApi(
+  storeId: string,
+  id: string,
+  payload: Record<string, any>
+): Promise<any> {
+  const res = await apiFetch<{ success: boolean; data: any; message: string }>(
+    `/stores/${storeId}/affiliate/opportunities/${id}`,
+    {
+      method: 'PATCH',
+      body: payload,
+      storeId,
+    }
+  );
+  return res.data;
+}
+
+export async function deleteAffiliateOpportunityApi(
+  storeId: string,
+  id: string
+): Promise<void> {
+  await apiFetch(`/stores/${storeId}/affiliate/opportunities/${id}`, {
+    method: 'DELETE',
+    storeId,
+  });
+}
+
+export async function createAffiliatePartnerApi(
+  storeId: string,
+  payload: { name: string; location?: string; avatar?: string }
+): Promise<any> {
+  const res = await apiFetch<{ success: boolean; data: any; message: string }>(
+    `/stores/${storeId}/affiliate/partners`,
+    {
+      method: 'POST',
+      body: payload,
+      storeId,
+    }
+  );
+  return res.data;
+}
+
+export async function createAffiliatePaymentApi(
+  storeId: string,
+  payload: { amount: number; status: 'Paid' | 'Under Review' }
+): Promise<any> {
+  const res = await apiFetch<{ success: boolean; data: any; message: string }>(
+    `/stores/${storeId}/affiliate/payments`,
+    {
+      method: 'POST',
+      body: payload,
+      storeId,
+    }
+  );
+  return res.data;
+}
+
+export async function updateAffiliateSettingsApi(
+  storeId: string,
+  settings: Record<string, any>
+): Promise<any> {
+  const res = await apiFetch<{ success: boolean; data: any; message: string }>(
+    `/stores/${storeId}/affiliate/settings`,
+    {
+      method: 'PUT',
+      body: settings,
+      storeId,
+    }
+  );
+  return res.data;
+}
+
+// ── Real Customer Loyalty Program (Hostinger MySQL / Laravel API) ──
+
+export interface LoyaltyOverviewData {
+  summary: {
+    contributionToSales: string;
+    ordersFromPoints: number;
+    totalRedeemed: number;
+    pointsIssued: number;
+    registeredCustomers: number;
+    salesGrowth: string;
+    ordersGrowth: string;
+    redeemedGrowth: string;
+    pointsGrowth: string;
+    customersStatus: string;
+  };
+  earn_rules: Array<{ id: string; methodAr: string; methodEn: string; points: number; active: boolean }>;
+  rewards: Array<{ id: string; nameAr: string; nameEn: string; points: number; rewardType: string; status: string }>;
+  redemptions: any[];
+  activities: Array<{ id: string; label: string; time: string; status: string }>;
+  performance_series: Array<{ date: string; sales: number; orders: number }>;
+  usage_by_type: Array<{ name: string; percentage: number }>;
+  settings: {
+    enableLoyalty: boolean;
+    appNotifications: boolean;
+    emailNotifications: boolean;
+    pointsExpiration: boolean;
+  };
+}
+
+export async function fetchLoyaltyOverviewApi(storeId: string): Promise<LoyaltyOverviewData> {
+  const res = await apiFetch<{ success: boolean; data: LoyaltyOverviewData }>(
+    `/stores/${storeId}/loyalty/overview`,
+    { storeId }
+  );
+  return res.data;
+}
+
+export async function createLoyaltyRewardApi(
+  storeId: string,
+  payload: { name: string; points: number; rewardType?: string }
+): Promise<any> {
+  const res = await apiFetch<{ success: boolean; data: any; message: string }>(
+    `/stores/${storeId}/loyalty/rewards`,
+    {
+      method: 'POST',
+      body: payload,
+      storeId,
+    }
+  );
+  return res.data;
+}
+
+export async function deleteLoyaltyRewardApi(
+  storeId: string,
+  id: string
+): Promise<void> {
+  await apiFetch(`/stores/${storeId}/loyalty/rewards/${id}`, {
+    method: 'DELETE',
+    storeId,
+  });
+}
+
+export async function updateLoyaltyEarnRuleApi(
+  storeId: string,
+  id: string,
+  payload: { active?: boolean; points?: number }
+): Promise<any> {
+  const res = await apiFetch<{ success: boolean; data: any; message: string }>(
+    `/stores/${storeId}/loyalty/earn-rules/${id}`,
+    {
+      method: 'PATCH',
+      body: payload,
+      storeId,
+    }
+  );
+  return res.data;
+}
+
+export async function updateLoyaltySettingsApi(
+  storeId: string,
+  settings: Record<string, any>
+): Promise<any> {
+  const res = await apiFetch<{ success: boolean; data: any; message: string }>(
+    `/stores/${storeId}/loyalty/settings`,
+    {
+      method: 'PUT',
+      body: settings,
+      storeId,
+    }
+  );
+  return res.data;
+}
+
+// ── Real Marketing Channels & Campaigns Performance APIs ──
+
+export interface MarketingChannelItem {
+  id: string;
+  key: string;
+  name: string;
+  name_ar: string;
+  type: string;
+  type_ar: string;
+  icon: string;
+  color: string;
+  visits: number;
+  add_to_cart: number;
+  completed_orders: number;
+  conversion_rate: number;
+  revenue: number;
+  aov: number;
+  growth: number;
+  trend_sparkline: number[];
+  roas: number | null;
+  is_connected: boolean;
+}
+
+export interface MarketingChannelsOverviewData {
+  store_id: string;
+  period: {
+    from: string;
+    to: string;
+    label: string;
+  };
+  kpis: {
+    completed_orders: { value: number; growth: string; growth_value: number; label: string };
+    revenue: { value: number; growth: string; growth_value: number; label: string };
+    total_visits: { value: number; growth: string; growth_value: number; label: string };
+    conversion_rate: { value: number; formatted: string; growth: string; growth_value: number; label: string };
+    add_to_cart: { value: number; growth: string; growth_value: number; label: string };
+    average_order_value: { value: number; growth: string; growth_value: number; label: string };
+  };
+  channels: MarketingChannelItem[];
+  totals: {
+    visits: number;
+    add_to_cart: number;
+    completed_orders: number;
+    conversion_rate: number;
+    revenue: number;
+    aov: number;
+    growth: number;
+  };
+  visits_trend: {
+    current: Array<{ label: string; value: number }>;
+    previous: Array<{ label: string; value: number }>;
+  };
+  orders_by_channel: Array<{
+    name: string;
+    name_ar: string;
+    orders: number;
+    color: string;
+  }>;
+  integrations: Array<{
+    id: string;
+    name: string;
+    icon: string;
+    last_synced: string;
+    status: string;
+    connected: boolean;
+  }>;
+}
+
+export async function fetchChannelPerformanceOverviewApi(
+  storeId: string,
+  params?: { period?: string; from?: string; to?: string }
+): Promise<MarketingChannelsOverviewData> {
+  const query = new URLSearchParams();
+  if (params?.period) query.set('period', params.period);
+  if (params?.from) query.set('from', params.from);
+  if (params?.to) query.set('to', params.to);
+  const qStr = query.toString();
+  const res = await apiFetch<any>(
+    `/stores/${storeId}/marketing/channels/overview${qStr ? `?${qStr}` : ''}`,
+    { storeId }
+  );
+  return res;
+}
+
+// ── Smart Cart Intercept (Flowers Store 1st-Click Popups & Live Tracking - Hostinger MySQL) ──
+
+export interface CartInterceptConfig {
+  enabled: boolean;
+  active_modal: 'loyalty' | 'gift' | 'save_cart' | 'disabled';
+  loyalty_points: number;
+  discount_percent: number;
+  coupon_code: string;
+  title_en: string;
+  title_ar: string;
+  subtitle_en: string;
+  subtitle_ar: string;
+  gift_title_en?: string;
+  gift_title_ar?: string;
+  gift_subtitle_en?: string;
+  gift_subtitle_ar?: string;
+  save_cart_title_en?: string;
+  save_cart_title_ar?: string;
+  save_cart_subtitle_en?: string;
+  save_cart_subtitle_ar?: string;
+}
+
+export interface CartInterceptTrackingLog {
+  id: string;
+  visitor_id: string;
+  customer_id?: string | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  modal_type: 'loyalty' | 'gift' | 'save_cart';
+  action: 'impression' | 'collect_points' | 'get_code' | 'save_cart' | 'continue_as_guest' | 'later' | 'dismissed';
+  product_id?: string | null;
+  product_name?: string | null;
+  product_price?: number | null;
+  product_image?: string | null;
+  status: 'viewed' | 'converted' | 'guest_continued' | 'dismissed';
+  created_at: string;
+  ip?: string;
+  user_agent?: string;
+}
+
+export interface CartInterceptTrackingData {
+  logs: CartInterceptTrackingLog[];
+  metrics: {
+    total_impressions: number;
+    total_converted: number;
+    total_guest_continued: number;
+    total_dismissed: number;
+    conversion_rate: number;
+    by_modal: Record<string, { impressions: number; conversions: number }>;
+  };
+}
+
+export interface CartInterceptCustomerRewards {
+  loyalty_points: number;
+  claimed_coupons: Array<{
+    code: string;
+    discount_percent: number;
+    claimed_at: string;
+    is_used: boolean;
+  }>;
+  saved_carts: Array<{
+    id: string;
+    items: any[];
+    product_preview?: string;
+    saved_at: string;
+  }>;
+  points_history?: Array<{
+    points: number;
+    reason: string;
+    reason_ar: string;
+    date: string;
+  }>;
+}
+
+export async function fetchCartInterceptSettingsApi(storeId: string): Promise<CartInterceptConfig> {
+  const res = await apiFetch<{ success: boolean; data: CartInterceptConfig }>(
+    `/storefront/cart-intercept/${storeId}/settings`,
+    { storeId, skipAuth: true }
+  );
+  return res.data;
+}
+
+export async function updateCartInterceptSettingsApi(
+  storeId: string,
+  payload: Partial<CartInterceptConfig>
+): Promise<CartInterceptConfig> {
+  const res = await apiFetch<{ success: boolean; data: CartInterceptConfig }>(
+    `/stores/${storeId}/cart-intercept/settings`,
+    {
+      method: 'PUT',
+      storeId,
+      body: payload,
+    }
+  );
+  return res.data;
+}
+
+export async function fetchCartInterceptTrackingApi(storeId: string): Promise<CartInterceptTrackingData> {
+  const res = await apiFetch<{ success: boolean; data: CartInterceptTrackingData }>(
+    `/stores/${storeId}/cart-intercept/tracking`,
+    { storeId }
+  );
+  return res.data;
+}
+
+export async function trackCartInterceptActionApi(
+  storeId: string,
+  payload: {
+    visitor_id: string;
+    customer_id?: string | null;
+    customer_name?: string | null;
+    customer_email?: string | null;
+    modal_type: 'loyalty' | 'gift' | 'save_cart';
+    action: 'impression' | 'collect_points' | 'get_code' | 'save_cart' | 'continue_as_guest' | 'later' | 'dismissed';
+    product_id?: string | null;
+    product_name?: string | null;
+    product_price?: number | null;
+    product_image?: string | null;
+    cart_items?: any[];
+  }
+): Promise<{ success: boolean; entry?: CartInterceptTrackingLog }> {
+  return await apiFetch<{ success: boolean; entry?: CartInterceptTrackingLog }>(
+    `/storefront/cart-intercept/${storeId}/track`,
+    {
+      method: 'POST',
+      storeId,
+      body: payload,
+      skipAuth: true,
+    }
+  );
+}
+
+export async function fetchCartInterceptCustomerProfileApi(
+  storeId: string,
+  customerId: string
+): Promise<CartInterceptCustomerRewards> {
+  const res = await apiFetch<{ success: boolean; data: CartInterceptCustomerRewards }>(
+    `/storefront/cart-intercept/${storeId}/customer/${encodeURIComponent(customerId)}`,
+    { storeId, skipAuth: true }
+  );
+  return res.data;
+}
+
+export interface GiftingCardItem {
+  id: string;
+  titleEn: string;
+  titleAr: string;
+  category: string;
+  imageUrl?: string;
+}
+
+export interface GiftingBoxItem {
+  id: string;
+  nameEn: string;
+  nameAr: string;
+  price: number;
+  selected?: boolean;
+  imageUrl?: string;
+}
+
+export interface GiftingOrderRecord {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  customer_phone: string;
+  delivery_location: string;
+  status: string;
+  total_amount: number;
+  is_gift: boolean;
+  gift_message: string;
+  recipient_name: string;
+  date: string;
+}
+
+export interface GiftingSettingsData {
+  enabled: boolean;
+  allow_anonymous: boolean;
+  max_message_length: number;
+  cards: GiftingCardItem[];
+  boxes: GiftingBoxItem[];
+  sample_message: {
+    en: string;
+    ar: string;
+  };
+  real_orders: GiftingOrderRecord[];
+}
+
+export async function fetchGiftingSettingsApi(storeId: string): Promise<GiftingSettingsData> {
+  const res = await apiFetch<{
+    success: boolean;
+    store_id: string;
+    store_name: string;
+    data: GiftingSettingsData;
+  }>(`/stores/${storeId}/gifting/settings`, { storeId });
+  return res.data;
+}
+
+export async function updateGiftingSettingsApi(
+  storeId: string,
+  payload: Partial<GiftingSettingsData>
+): Promise<GiftingSettingsData> {
+  const res = await apiFetch<{
+    success: boolean;
+    message: string;
+    store_id: string;
+    data: GiftingSettingsData;
+  }>(`/stores/${storeId}/gifting/settings`, {
+    method: 'PUT',
+    storeId,
+    body: payload,
+  });
+  return res.data;
+}
 

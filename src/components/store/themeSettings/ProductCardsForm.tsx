@@ -11,6 +11,10 @@ import {
   Clock,
   Bell,
   CheckCircle2,
+  Flower2,
+  ShieldCheck,
+  Truck,
+  MessageCircle,
 } from 'lucide-react';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
@@ -147,72 +151,105 @@ export const ProductCardsForm: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* Card 1: Standard Hover Quick Actions */}
-          <div className="group rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden shadow-xs hover:shadow-lg transition-all p-3 flex flex-col justify-between" style={{ borderColor: settings.addBorder ? settings.borderColor : 'transparent' }}>
-            <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800">
-              <img src={sampleProd.image} alt={sampleProd.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-              <span className="absolute top-2.5 start-2.5 px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-600 text-white">
-                {isAr ? 'جديد' : 'New'}
-              </span>
-              <button
-                type="button"
-                title={isAr ? 'أضف إلى المفضلة' : 'Add to wishlist'}
-                aria-label={isAr ? 'أضف إلى المفضلة' : 'Add to wishlist'}
-                onClick={() => {
-                  const next = !wishlisted;
-                  setWishlisted(next);
-                  toast(
-                    next
-                      ? (isAr ? 'تمت الإضافة إلى المفضلة (معاينة)' : 'Added to wishlist (preview)')
-                      : (isAr ? 'تمت الإزالة من المفضلة (معاينة)' : 'Removed from wishlist (preview)'),
-                    'info',
-                  );
-                }}
-                className={`absolute top-2.5 end-2.5 w-7 h-7 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs flex items-center justify-center hover:text-rose-500 ${
-                  wishlisted ? 'text-rose-500' : 'text-slate-600 dark:text-slate-300'
-                }`}
-              >
-                <Heart className={`w-3.5 h-3.5 ${wishlisted ? 'fill-rose-500' : ''}`} />
-              </button>
-
-              {/* Hover Quick Action Buttons */}
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                <button
-                  type="button"
-                  title={isAr ? 'أضف إلى السلة' : 'Add to cart'}
-                  aria-label={isAr ? 'أضف إلى السلة' : 'Add to cart'}
-                  onClick={() => toast(isAr ? 'تمت الإضافة إلى السلة (معاينة)' : 'Added to cart (preview)', 'success')}
-                  className="w-8 h-8 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-md hover:scale-110 transition-transform"
-                >
-                  <ShoppingCart className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  title={isAr ? 'عرض سريع' : 'Quick view'}
-                  aria-label={isAr ? 'عرض سريع' : 'Quick view'}
-                  onClick={() => toast(isAr ? 'العرض السريع يفتح نافذة تفاصيل المنتج في المتجر' : 'Quick view opens the product details popup in your store', 'info')}
-                  className="w-8 h-8 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-md hover:scale-110 transition-transform"
-                >
-                  <Eye className="w-4 h-4" />
-                </button>
+          {/* Card 1: Royal Elegance Bouquet (Reference UI matching Image 1) */}
+          <div
+            className="group rounded-[28px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-lg shadow-slate-200/50 dark:shadow-black/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col justify-between"
+            style={{
+              borderColor: settings.addBorder ? settings.borderColor : undefined,
+              borderRadius: settings.roundedCards ? '28px' : '8px',
+            }}
+          >
+            {/* Image Area with 20% OFF Badge */}
+            <div className="relative aspect-[4/4.8] overflow-hidden bg-slate-50 dark:bg-slate-950">
+              <img
+                src={sampleProd.image}
+                alt={sampleProd.name}
+                className="w-full h-full object-cover group-hover:scale-106 transition-transform duration-700 ease-out"
+              />
+              <div className="absolute top-3.5 start-3.5 z-10">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide bg-[#0e4e3e] text-white shadow-md shadow-emerald-950/20">
+                  {isAr ? 'خصم 20%' : '20% OFF'}
+                </span>
               </div>
             </div>
 
-            <div className="pt-3 space-y-1.5">
-              <div className="flex items-center gap-1 text-[10px] text-amber-500">
-                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                <span className="font-bold">4.9 (124)</span>
-              </div>
-              <h4 className="text-xs font-bold truncate">{sampleProd.name}</h4>
-              <p className="text-[11px] text-muted">{isAr ? 'نضارة طبيعية عالية' : 'High natural freshness'}</p>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-sm font-black text-slate-900 dark:text-white">{money(sampleProd.price)}</span>
-                {/* Color swatches */}
-                <div className="flex gap-1">
-                  <span className="w-3 h-3 rounded-full bg-rose-500 border border-white shadow-xs" />
-                  <span className="w-3 h-3 rounded-full bg-amber-200 border border-white shadow-xs" />
-                  <span className="w-3 h-3 rounded-full bg-emerald-700 border border-white shadow-xs" />
+            {/* Content Area */}
+            <div className="p-4 flex-1 flex flex-col justify-between space-y-2.5">
+              {/* Title & Circular Wishlist */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white leading-snug line-clamp-2 min-h-[2.25rem]">
+                    {sampleProd.name}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
+                    {isAr ? 'زهور سعودية طبيعية فاخرة' : 'Premium Saudi Fresh Flowers'}
+                  </p>
                 </div>
+
+                <button
+                  type="button"
+                  title={isAr ? 'أضف إلى المفضلة' : 'Add to wishlist'}
+                  aria-label={isAr ? 'أضف إلى المفضلة' : 'Add to wishlist'}
+                  onClick={() => {
+                    const next = !wishlisted;
+                    setWishlisted(next);
+                    toast(
+                      next
+                        ? (isAr ? 'تمت الإضافة إلى المفضلة (معاينة)' : 'Added to wishlist (preview)')
+                        : (isAr ? 'تمت الإزالة من المفضلة (معاينة)' : 'Removed from wishlist (preview)'),
+                      'info',
+                    );
+                  }}
+                  className={`w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:text-rose-500 transition-transform hover:scale-110 shrink-0 ${
+                    wishlisted ? 'text-rose-500' : 'text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  <Heart className={`w-3.5 h-3.5 ${wishlisted ? 'fill-rose-500' : ''}`} />
+                </button>
+              </div>
+
+              {/* Price Row: Emerald bold price + strikethrough compare price */}
+              <div className="flex items-baseline gap-1.5 pt-0.5">
+                <span className="text-base font-extrabold text-[#0e4e3e] dark:text-emerald-400 font-mono">
+                  {money(sampleProd.price)}
+                </span>
+                <span className="text-xs text-slate-400 line-through font-semibold font-mono">
+                  {money(Math.round(sampleProd.price * 1.25))}
+                </span>
+              </div>
+
+              {/* 3 Trust Badges (Clean Text without Icons for 100% Readability) */}
+              <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-semibold bg-[#eaf4ef] dark:bg-emerald-950/40 text-[#0e4e3e] dark:text-emerald-300 border border-[#d2e8dd]/60 dark:border-emerald-800/30 whitespace-nowrap">
+                  {isAr ? 'زهور طبيعية' : 'Fresh Flowers'}
+                </span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-semibold bg-[#eaf4ef] dark:bg-emerald-950/40 text-[#0e4e3e] dark:text-emerald-300 border border-[#d2e8dd]/60 dark:border-emerald-800/30 whitespace-nowrap">
+                  {isAr ? 'جودة فاخرة' : 'Premium Quality'}
+                </span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-semibold bg-[#eaf4ef] dark:bg-emerald-950/40 text-[#0e4e3e] dark:text-emerald-300 border border-[#d2e8dd]/60 dark:border-emerald-800/30 whitespace-nowrap">
+                  {isAr ? 'توصيل سريع' : 'Fast Delivery'}
+                </span>
+              </div>
+
+              {/* Dual Action Buttons Row: Add to Cart + WhatsApp (Fully Readable Text, No Truncation) */}
+              <div className="grid grid-cols-2 gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => toast(isAr ? 'تمت الإضافة إلى السلة (معاينة)' : 'Added to cart (preview)', 'success')}
+                  className="w-full py-2 px-1.5 rounded-full bg-[#0e4e3e] hover:bg-[#0a382c] text-white text-[11px] font-bold flex items-center justify-center gap-1 shadow-sm transition-transform active:scale-95 cursor-pointer whitespace-nowrap"
+                >
+                  <ShoppingCart className="w-3 h-3 shrink-0" />
+                  <span>{isAr ? 'إضافة للسلة' : 'Add to Cart'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => toast(isAr ? 'فتح المحادثة عبر واتساب (معاينة)' : 'Opens WhatsApp ordering chat (preview)', 'info')}
+                  className="w-full py-2 px-1.5 rounded-full bg-[#0e4e3e] hover:bg-[#0a382c] text-white text-[11px] font-bold flex items-center justify-center gap-1 shadow-sm transition-transform active:scale-95 cursor-pointer whitespace-nowrap"
+                >
+                  <MessageCircle className="w-3 h-3 shrink-0 fill-white" />
+                  <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
+                </button>
               </div>
             </div>
           </div>
@@ -296,9 +333,31 @@ export const ProductCardsForm: React.FC = () => {
         {/* 1. Layout & Size */}
         <div className="rounded-xl border p-4 space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <h3 className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400">
-            {isAr ? '1. التخطيط والحجم' : '1. Layout & Size'}
+            {isAr ? '1. التخطيط والنمط' : '1. Layout & Preset'}
           </h3>
           <div className="space-y-2.5">
+            <div>
+              <span className="text-[10px] font-bold uppercase text-muted block mb-1">
+                {isAr ? 'نمط وتصميم البطاقة' : 'Card Design Preset'}
+              </span>
+              <select
+                value={settings.cardDesignPreset || 'royal-luxury'}
+                onChange={(e) => setVal('cardDesignPreset', e.target.value as any)}
+                className="w-full px-2.5 py-1.5 text-xs rounded-xl border outline-none font-bold"
+                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
+              >
+                <option value="royal-luxury">
+                  {isAr ? 'تصميم باقات الزهور الملكية (المرجعي)' : 'Royal Elegance Florist (Reference UI)'}
+                </option>
+                <option value="classic">
+                  {isAr ? 'كلاسيكي تفاعلي مع تحويم' : 'Classic Interactive Hover'}
+                </option>
+                <option value="minimal">
+                  {isAr ? 'تصميم مبسط أنيق' : 'Minimal Clean'}
+                </option>
+              </select>
+            </div>
+
             <div>
               <span className="text-[10px] font-bold uppercase text-muted block mb-1">
                 {isAr ? 'عدد المنتجات في الصف' : 'Products Per Row'}
@@ -410,6 +469,17 @@ export const ProductCardsForm: React.FC = () => {
                 ))}
               </select>
             </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold">{isAr ? 'زر الطلب المباشر عبر واتساب' : 'Direct Order on WhatsApp'}</span>
+              <button
+                type="button"
+                onClick={() => toggle('showWhatsAppButton' as any)}
+                className={toggleCls(settings.showWhatsAppButton !== false)}
+              >
+                <span className="bg-white w-4 h-4 rounded-full shadow-md" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -419,6 +489,16 @@ export const ProductCardsForm: React.FC = () => {
             {isAr ? '4. الشارات والتقييم' : '4. Badges & Rating'}
           </h3>
           <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold">{isAr ? 'شارات الميزات (طبيعية، جودة، توصيل)' : 'Trust Feature Badges'}</span>
+              <button
+                type="button"
+                onClick={() => toggle('showFeatureBadges' as any)}
+                className={toggleCls(settings.showFeatureBadges !== false)}
+              >
+                <span className="bg-white w-4 h-4 rounded-full shadow-md" />
+              </button>
+            </div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold">{isAr ? 'إظهار نسبة الخصم' : 'Show Discount Percentage'}</span>
               <button

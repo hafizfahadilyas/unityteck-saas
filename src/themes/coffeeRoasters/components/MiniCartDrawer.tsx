@@ -18,17 +18,20 @@ export const MiniCartDrawer: React.FC = () => {
   if (!isMiniCartOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden selection:bg-neutral-900 selection:text-white">
+    <div className="fixed inset-0 z-[80] overflow-hidden selection:bg-neutral-900 selection:text-white">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
         onClick={() => setIsMiniCartOpen(false)}
       />
 
-      <div className={`fixed inset-y-0 ${language === 'AR' ? 'left-0 pl-0 pr-10' : 'right-0 pl-10 pr-0'} max-w-full flex`}>
-        <div className="w-screen max-w-md bg-white flex flex-col text-start text-neutral-900">
+      <div className={`fixed inset-y-0 ${language === 'AR' ? 'left-0 sm:pr-10' : 'right-0 sm:pl-10'} max-w-full flex w-full sm:w-auto`}>
+        <div
+          dir={language === 'AR' ? 'rtl' : 'ltr'}
+          className="w-full sm:w-[420px] max-w-full bg-white flex flex-col text-start text-neutral-900 shadow-2xl h-full overflow-hidden"
+        >
           {/* Header */}
-          <div className="p-5 flex items-center justify-between bg-neutral-50/80">
+          <div className="p-4 sm:p-5 flex items-center justify-between bg-neutral-50/80 border-b border-neutral-100">
             <div className="flex items-center gap-2">
               <ShoppingBag className="w-5 h-5 text-neutral-900" />
               <h2 className="text-base font-bold text-neutral-900">
@@ -38,6 +41,7 @@ export const MiniCartDrawer: React.FC = () => {
             <button
               onClick={() => setIsMiniCartOpen(false)}
               className="p-1.5 hover:bg-neutral-200 rounded-full text-neutral-500 hover:text-neutral-900 transition-colors cursor-pointer"
+              aria-label={language === 'AR' ? 'إغلاق السلة' : 'Close cart'}
             >
               <X className="w-5 h-5" />
             </button>
@@ -56,7 +60,7 @@ export const MiniCartDrawer: React.FC = () => {
           </div>
 
           {/* Cart Items List */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5">
             {cart.length === 0 ? (
               <div className="text-center py-16 space-y-4">
                 <Coffee className="w-12 h-12 text-neutral-300 mx-auto" />
@@ -77,28 +81,29 @@ export const MiniCartDrawer: React.FC = () => {
               cart.map((item) => (
                 <div
                   key={item.id}
-                  className="p-4 rounded-2xl bg-neutral-100/70 flex gap-4 items-center"
+                  className="p-3.5 sm:p-4 rounded-2xl bg-neutral-100/70 flex gap-3 sm:gap-4 items-center"
                 >
                   <img
                     src={item.image}
                     alt={item.productName}
-                    className="w-16 h-16 object-contain rounded-xl bg-white p-1 shrink-0"
+                    className="w-14 h-14 sm:w-16 sm:h-16 object-contain rounded-xl bg-white p-1 shrink-0"
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-bold text-xs text-neutral-900 truncate">
+                    <div className="flex items-start justify-between gap-1.5">
+                      <h4 className="font-bold text-xs sm:text-sm text-neutral-900 truncate">
                         {item.productName}
                       </h4>
                       <button
                         onClick={() => removeFromCart(item.id)}
-                        className="text-neutral-400 hover:text-red-500 transition-colors p-1"
-                        title="Remove"
+                        className="text-neutral-400 hover:text-red-500 transition-colors p-1 shrink-0"
+                        aria-label={language === 'AR' ? 'حذف المنتج' : 'Remove item'}
+                        title={language === 'AR' ? 'حذف المنتج' : 'Remove item'}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    <div className="text-[11px] text-neutral-500 mt-0.5 flex items-center gap-2">
+                    <div className="text-[11px] text-neutral-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
                       <span>{language === 'AR' && item.selectedColor.nameAr ? item.selectedColor.nameAr : item.selectedColor.name}</span>
                       <span>·</span>
                       <span>{item.selectedStorage.capacity}</span>
@@ -117,12 +122,13 @@ export const MiniCartDrawer: React.FC = () => {
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between mt-2.5 pt-2">
+                    <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-neutral-200/50">
                       {/* Quantity Stepper */}
                       <div className="flex items-center rounded-lg bg-neutral-200/80">
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-300 rounded-l-lg cursor-pointer"
+                          className="px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-300 rounded-l-lg cursor-pointer transition-colors"
+                          aria-label="Decrease quantity"
                         >
                           -
                         </button>
@@ -131,13 +137,14 @@ export const MiniCartDrawer: React.FC = () => {
                         </span>
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-300 rounded-r-lg cursor-pointer"
+                          className="px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-300 rounded-r-lg cursor-pointer transition-colors"
+                          aria-label="Increase quantity"
                         >
                           +
                         </button>
                       </div>
 
-                      <div className="font-bold text-xs text-neutral-900 font-mono">
+                      <div className="font-bold text-xs sm:text-sm text-neutral-900 font-mono text-end shrink-0">
                         {language === 'AR' ? `${(item.unitPrice * item.quantity).toLocaleString()}.00 ر.س` : `SAR ${(item.unitPrice * item.quantity).toLocaleString()}.00`}
                       </div>
                     </div>
@@ -149,19 +156,19 @@ export const MiniCartDrawer: React.FC = () => {
 
           {/* Footer with Checkout Actions */}
           {cart.length > 0 && (
-            <div className="p-5 bg-neutral-100/80 space-y-3">
+            <div className="p-4 sm:p-5 bg-neutral-100/90 border-t border-neutral-200/60 space-y-3">
               <div className="space-y-1.5 text-xs text-neutral-600">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span>{language === 'AR' ? 'المجموع (شامل 15% ضريبة)' : 'Subtotal (Incl. 15% VAT)'}</span>
                   <span className="font-semibold text-neutral-900 font-mono">
                     {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ر.س` : `SAR ${cartTotal.toLocaleString()}.00`}
                   </span>
                 </div>
-                <div className="flex justify-between text-emerald-700 font-medium">
+                <div className="flex justify-between items-center text-emerald-700 font-medium">
                   <span>{language === 'AR' ? 'الشحن والتوصيل' : 'Shipping'}</span>
                   <span>{language === 'AR' ? 'مجاني' : 'FREE'}</span>
                 </div>
-                <div className="flex justify-between text-sm font-bold text-neutral-900 pt-2">
+                <div className="flex justify-between items-center text-sm font-bold text-neutral-900 pt-2 border-t border-neutral-200/60">
                   <span>{language === 'AR' ? 'المبلغ الإجمالي' : 'Total Amount'}</span>
                   <span className="font-mono text-base text-neutral-900">
                     {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ر.س` : `SAR ${cartTotal.toLocaleString()}.00`}
@@ -175,7 +182,7 @@ export const MiniCartDrawer: React.FC = () => {
                     setIsMiniCartOpen(false);
                     navigateTo('cart');
                   }}
-                  className="w-full py-2.5 px-4 bg-neutral-200 text-neutral-800 hover:bg-neutral-300 font-semibold text-xs rounded-full transition-colors text-center cursor-pointer"
+                  className="w-full py-2.5 px-3 bg-neutral-200 text-neutral-800 hover:bg-neutral-300 font-semibold text-xs rounded-full transition-colors text-center cursor-pointer truncate"
                 >
                   {language === 'AR' ? 'عرض السلة' : 'View Cart'}
                 </button>
@@ -184,10 +191,10 @@ export const MiniCartDrawer: React.FC = () => {
                     setIsMiniCartOpen(false);
                     navigateTo('checkout');
                   }}
-                  className="w-full py-2.5 px-4 bg-black hover:bg-neutral-800 text-white font-bold text-xs rounded-full transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full py-2.5 px-3 bg-black hover:bg-neutral-800 text-white font-bold text-xs rounded-full transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer shadow-md truncate"
                 >
                   <span>{language === 'AR' ? 'الدفع الآمن' : 'Check Out'}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className={`w-3.5 h-3.5 shrink-0 ${language === 'AR' ? 'rotate-180' : ''}`} />
                 </button>
               </div>
             </div>

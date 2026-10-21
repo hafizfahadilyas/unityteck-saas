@@ -2,6 +2,8 @@ import React from 'react';
 import { LogOut, Package, User } from 'lucide-react';
 import type { Order } from '../../types';
 import type { SfCustomerSession } from './sfCustomerSession';
+import { CustomerLoyaltyProfileSection } from '../../components/storefront/CustomerLoyaltyProfileSection';
+
 
 type Props = {
   lang: string;
@@ -82,6 +84,15 @@ export const CustomerProfile: React.FC<Props> = ({
             : 'Customers & orders are managed from the store CRM. Here you only see orders linked to your account.'}
         </p>
       </div>
+
+      {/* Gamified Loyalty Card & Coins Section */}
+      <CustomerLoyaltyProfileSection
+        storeId="store-1"
+        customerId={session.phone || session.email || 'customer'}
+        customerName={session.name}
+        customerEmail={session.email}
+        customerPhone={session.phone}
+      />
 
       <div>
         <h3 className="text-sm font-bold mb-3 flex items-center gap-1.5">

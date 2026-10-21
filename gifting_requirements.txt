@@ -1,0 +1,156 @@
+
+Souq – Complete Gift-Giving System
+Final Developer Requirements
+
+Purpose: Build a complete gifting experience for an e-commerce store. A buyer purchases a product as a gift, enters the recipient’s delivery details, optionally personalizes the gift, and chooses whether their identity is shown or hidden from the recipient. The store fulfills and delivers the gift. This specification covers Admin Gift Settings, the customer purchase journey, and gift-order management.
+1. Scope and Core Rules
+Implement three connected areas: (A) Admin Gift Settings, (B) Customer Gift Purchase Experience, and (C) Gift Order Management.
+The buyer and recipient are different roles and must have separate data fields.
+The buyer pays for the order; the recipient receives the gift at the delivery address supplied by the buyer.
+The buyer chooses whether their name is shown to the recipient or the gift is sent anonymously.
+Anonymous mode hides the buyer’s identity from recipient-facing content, but not from authorized staff, payment records, invoices, fraud controls, or legally required records.
+Gift options, prices, availability, and delivery promises must come from real backend configuration, not hard-coded UI values.
+2. Admin Page: Gift Settings
+2.1 Gift Images
+Enable or disable customer selection of a gift-card image.
+Allow authorized staff to upload, preview, replace, reorder, activate/deactivate, and delete gift-card designs.
+Validate file type, file size, dimensions, and aspect ratio. The reference suggests a 3:4 ratio and at least 1080 × 1440 pixels; make these configurable if store requirements differ.
+Store files in approved storage and persist image URLs, status, display order, and optional language/occasion tags.
+Show only active designs to customers. Preserve a historical image reference for existing orders if a design is later changed or removed.
+2.2 Gift Messages
+Provide a master enable/disable setting for gift messages.
+Allow buyers to choose a predefined message or write a custom message.
+Support Arabic and English when those storefront languages are enabled.
+Allow staff to add, edit, delete, activate/deactivate, and categorize templates by occasion (birthday, anniversary, wedding, graduation, thank-you).
+Configure a maximum message length and validate it on client and server.
+Store the exact message and language with the order so later template edits do not change existing orders.
+2.3 Gift Box and Premium Packaging
+Provide independent toggles for Gift Box and Premium Packaging.
+For each option, configure name, description, price, currency, product image or custom image, and product eligibility.
+Support free options with a zero price.
+Show the additional price before checkout and include it in order totals and invoices.
+Do not charge for disabled or unselected options. Revalidate prices on the server.
+2.4 Gift Availability Rules
+Allow gift functionality for all products or selected products/categories, with exclusions where needed.
+Enable each option (gift image, message, gift box, premium packaging) independently.
+Define behavior for ineligible products, out-of-stock products, and mixed carts.
+Use existing product and category IDs rather than duplicating catalog records.
+2.5 Delivery Settings
+Configure whether recipient delivery details are required for gift orders.
+Integrate with existing shipping zones, rates, serviceability checks, and delivery methods.
+If scheduled delivery is supported, show only valid dates/time slots provided by the shipping system.
+Do not promise a delivery date/time the shipping service cannot fulfill.
+Use recipient contact details for fulfillment and permitted delivery updates, not unrelated marketing without appropriate consent.
+2.6 Identity and Privacy Settings
+Provide a buyer-facing choice: “Show my name to the recipient” or “Send as an anonymous gift.”
+Configure the default selection explicitly; never reveal the buyer’s name if anonymous mode was selected.
+When anonymous, omit the buyer’s name from the gift card, message attribution, recipient-facing packing slip, and recipient notifications.
+Authorized staff can still access buyer/order details for fulfillment, support, security, and legal requirements.
+Do not expose buyer email, phone, payment details, or billing address to the recipient unless specifically required and approved.
+2.7 Save and Validation
+Save Changes persists settings and displays success/failure feedback.
+Reload saved settings when the page is reopened.
+Warn before leaving with unsaved changes.
+Apply role-based permissions to settings changes.
+Handle loading, empty, invalid-file, validation, and server-error states.
+3. Customer Experience: Product Page and Cart
+3.1 Gift Selection
+On eligible product pages, provide a clearly labeled “Add as a Gift” option.
+When selected, show available gift-card designs, message controls, and configured packaging options.
+Allow the buyer to preview the card and message before adding the item to cart.
+Show only active options valid for the selected product and current store configuration.
+Define whether a single cart can contain gifts for multiple recipients; if supported, keep recipient details separate per gift/shipment.
+3.2 Recipient Details
+Collect recipient full name and delivery address, including the fields required by the shipping provider and destination country.
+Collect recipient phone number when required for delivery or service updates.
+Validate the address and shipping serviceability before payment where possible.
+Keep buyer billing/contact details separate from recipient delivery details.
+If multiple recipients are supported in one checkout, store recipient details per gift/order item or shipment, not as one global address.
+3.3 Gift Message and Identity Choice
+Let the buyer choose a predefined message or enter a custom message when enabled.
+Provide a clear choice to show the buyer’s name or send anonymously.
+If the name is shown, reveal only the configured display name, not other account information.
+If anonymous, ensure recipient-facing cards and notifications do not reveal buyer identity.
+Show a gift summary before checkout.
+3.4 Packaging, Pricing, and Checkout
+Display the price of each selected paid option and update the cart total.
+Include product price, packaging, shipping, applicable taxes, and discounts according to store pricing rules.
+Recalculate and validate prices on the server at checkout; never trust prices sent by the browser.
+Show recipient delivery details and gift selections in checkout review without unnecessarily exposing private buyer details.
+Do not place buyer price/payment information on recipient-facing gift cards or packing slips.
+4. Order Data and Fulfillment
+4.1 Gift Order Details
+Persist a stable snapshot of gift choices with the order. At minimum, capture:
+Buyer/customer ID and order ID.
+Recipient name, delivery address, and required contact details.
+Gift product IDs and quantities.
+Gift-card design reference and image snapshot/reference.
+Gift message text and language.
+Identity preference: visible name or anonymous.
+Selected packaging options and their prices at purchase time.
+Shipping method, delivery date/time if supported, and tracking reference.
+Gift fulfillment status and timestamps.
+4.2 Admin Order Management
+Add a clearly labeled Gift Details section to order details.
+Show recipient information, gift card, message, identity preference, packaging, and delivery instructions to authorized staff.
+Provide a print/packing view showing recipient and gift message but omitting prices and buyer identity when anonymous mode is selected.
+Allow staff to update fulfillment status using existing order/shipping workflows.
+Preserve the original gift snapshot if admin templates or images change later.
+4.3 Notifications and Tracking
+Send order and delivery updates to the buyer through existing notification channels.
+Send recipient notifications only when supported and appropriate; do not reveal buyer identity in anonymous mode.
+Use existing shipping integration for tracking.
+Do not send marketing messages to the recipient merely because their delivery details were supplied.
+5. Suggested Data Model
+GiftSettings: global enablement, defaults, supported languages, message limits, and delivery/privacy settings.
+GiftCardDesign: image URL, active status, display order, language/occasion tags, and validation metadata.
+GiftMessageTemplate: message text, language, occasion/category, active status, and sort order.
+GiftPackagingOption: type, name, description, price, currency, image, active status, and eligibility rules.
+GiftOrderDetails: order/item reference, buyer reference, recipient delivery data, gift selections, identity preference, price snapshots, and fulfillment status.
+Reuse existing order, customer, product, address, storage, and shipping services where practical. Protect recipient personal data with appropriate access controls and retention rules.
+6. Business Rules and Edge Cases
+Anonymous mode hides buyer identity from the recipient, not from authorized store systems.
+A gift cannot be placed if the product is unavailable or the destination is not serviceable.
+If a selected design or packaging option becomes unavailable before checkout, request a new selection and recalculate the total.
+Validate all prices and eligibility on the server.
+Prevent lost or duplicated gift details during payment retries and duplicate order events.
+Define cancellation, refund, partial refund, and failed-delivery handling for gift products and paid packaging.
+Define gift return handling and ensure refund communications do not expose unnecessary buyer details.
+If one order contains multiple recipients, maintain separate shipment and gift details for each recipient.
+7. Security and Privacy
+Apply role-based access to recipient addresses, phone numbers, and gift order details.
+Validate and sanitize custom messages and uploaded image files.
+Use secure file storage and authorized upload/download access.
+Keep payment data out of gift settings and gift-card content.
+Log important admin changes where audit logging is supported.
+Use recipient contact details only for fulfillment and permitted communications.
+Enforce anonymous mode across emails, SMS, packing slips, public order pages, and gift cards.
+8. Acceptance Criteria
+8. Acceptance Criteria
+Staff can manage gift images, message templates, packaging options/pricing, availability, and identity settings.
+A buyer can mark an eligible product as a gift and enter recipient delivery details.
+The buyer can choose a gift-card design and message when enabled.
+The buyer can select paid packaging and see its price before paying.
+The buyer can reveal their name or send anonymously.
+The store can fulfill and deliver the gift using recipient details.
+Gift selections and recipient details are saved against the correct order/item/shipment.
+Authorized staff can access the information needed for fulfillment.
+Recipient-facing content hides the buyer’s identity in anonymous mode.
+Prices, availability, and shipping eligibility are validated on the server.
+Retries, cancellations, and refunds do not corrupt gift details or totals.
+The feature is responsive and follows the existing store design system.
+9. Implementation Plan
+Review current product, cart, checkout, order, customer, file upload, shipping, and notification systems.
+Implement Gift Settings backend and admin UI.
+Implement gift selection and recipient details on eligible product pages, cart, and checkout.
+Integrate packaging prices and gift choices into server-side order calculation.
+Add Gift Details to order management and the packing/fulfillment view.
+Enforce anonymous identity handling across every recipient-facing output.
+Test regular orders, gift orders, unavailable products, failed payments, cancellations, refunds, and delivery updates.
+10. Items to Confirm Before Development
+Whether a single checkout may contain gifts for multiple recipients.
+Supported shipping providers and destination countries.
+Whether scheduled delivery dates/time slots are supported by the current shipping system.
+Whether packaging prices vary by product, branch, or destination.
+Whether recipient notifications are required and which channels are supported.
+Whether the store needs a separate gift order number or gift receipt.

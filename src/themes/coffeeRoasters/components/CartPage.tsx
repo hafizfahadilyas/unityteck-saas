@@ -11,24 +11,22 @@ export const CartPage: React.FC = () => {
     updateQuantity,
     navigateTo,
     showToast,
+    applyCoupon,
+    removeCoupon,
+    appliedCoupon: appliedCouponObj,
+    couponDiscount,
     language
   } = useCart();
 
   const [couponCode, setCouponCode] = useState('');
-  const [discountAmount, setDiscountAmount] = useState(0);
-  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const discountAmount = couponDiscount;
+  const appliedCoupon = appliedCouponObj?.code || null;
 
   const handleApplyCoupon = (e: React.FormEvent) => {
     e.preventDefault();
-    const normalized = couponCode.trim().toUpperCase();
-    if (normalized === 'HIBREW100' || normalized === 'هايبرو100' || normalized === 'BARISTA2026') {
-      setDiscountAmount(100);
-      setAppliedCoupon(language === 'AR' ? 'هايبرو100' : 'HIBREW100');
-      showToast(language === 'AR' ? 'تم تفعيل خصم 100 ر.س بنجاح!' : 'Coupon applied: SAR 100 discount!');
-    } else {
-      showToast(language === 'AR' ? 'كود غير صحيح. جرّب "هايبرو100"' : 'Invalid promo code. Try "HIBREW100"');
-    }
-    setCouponCode('');
+    const res = applyCoupon(couponCode);
+    showToast(res.message);
+    if (res.success) setCouponCode('');
   };
 
   const finalTotal = Math.max(0, cartTotal - discountAmount);
@@ -52,16 +50,19 @@ export const CartPage: React.FC = () => {
           className="px-8 py-3 bg-black hover:bg-neutral-800 text-white font-bold text-xs rounded-full transition-all flex items-center gap-2 cursor-pointer"
         >
           <span>{language === 'AR' ? 'استكشف المنتجات' : 'Explore Products'}</span>
-          <ArrowRight className="w-4 h-4" />
+          <ArrowRight className={`w-4 h-4 shrink-0 ${language === 'AR' ? 'rotate-180' : ''}`} />
         </button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white py-10 text-start text-neutral-900 selection:bg-neutral-900 selection:text-white">
-      <div className="max-w-[1360px] mx-auto px-4 lg:px-8 space-y-8">
-        <div className="pb-4">
+    <div
+      dir={language === 'AR' ? 'rtl' : 'ltr'}
+      className="min-h-screen bg-white py-6 sm:py-10 text-start text-neutral-900 selection:bg-neutral-900 selection:text-white"
+    >
+      <div className="max-w-[1360px] mx-auto px-4 lg:px-8 space-y-6 sm:space-y-8">
+        <div className="pb-2 sm:pb-4">
           <h1 className={`honor-heading text-2xl sm:text-3xl font-bold text-black ${
             language === 'AR' ? 'leading-[1.38] tracking-normal' : 'leading-tight tracking-[-0.01em]'
           }`}>
@@ -72,22 +73,22 @@ export const CartPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           {/* Items List (8 cols) */}
           <div className="lg:col-span-8 space-y-4">
             {cart.map((item) => (
               <div
                 key={item.id}
-                className="p-5 sm:p-6 rounded-3xl bg-[#F8F9FA] flex flex-col sm:flex-row gap-5 items-start sm:items-center justify-between"
+                className="p-4 sm:p-6 rounded-3xl bg-[#F8F9FA] flex flex-col sm:flex-row gap-4 sm:gap-5 items-start sm:items-center justify-between"
               >
-                <div className="flex gap-4 items-center flex-1">
+                <div className="flex gap-3 sm:gap-4 items-start sm:items-center flex-1 min-w-0 w-full">
                   <img
                     src={item.image}
                     alt={item.productName}
-                    className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-2xl bg-white p-2 shrink-0"
+                    className="w-16 h-16 sm:w-24 sm:h-24 object-contain rounded-2xl bg-white p-2 shrink-0"
                   />
-                  <div className="space-y-1">
-                    <h3 className="font-bold text-sm sm:text-base text-neutral-900">
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <h3 className="font-bold text-sm sm:text-base text-neutral-900 truncate sm:whitespace-normal">
                       {item.productName}
                     </h3>
                     <div className="text-xs text-neutral-500 flex items-center gap-2">
@@ -151,12 +152,13 @@ export const CartPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto pt-3 sm:pt-0">
+                <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 w-full sm:w-auto pt-3 sm:pt-0 border-t border-neutral-200/60 sm:border-t-0">
                   {/* Quantity Stepper */}
                   <div className="flex items-center rounded-xl bg-neutral-200/80">
                     <button
                       onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      className="px-3 py-1.5 text-xs text-neutral-700 hover:bg-neutral-300 rounded-l-xl cursor-pointer"
+                      className="px-3 py-1.5 text-xs text-neutral-700 hover:bg-neutral-300 rounded-l-xl cursor-pointer transition-colors"
+                      aria-label="Decrease quantity"
                     >
                       -
                     </button>
@@ -165,22 +167,24 @@ export const CartPage: React.FC = () => {
                     </span>
                     <button
                       onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      className="px-3 py-1.5 text-xs text-neutral-700 hover:bg-neutral-300 rounded-r-xl cursor-pointer"
+                      className="px-3 py-1.5 text-xs text-neutral-700 hover:bg-neutral-300 rounded-r-xl cursor-pointer transition-colors"
+                      aria-label="Increase quantity"
                     >
                       +
                     </button>
                   </div>
 
                   <div className="text-right">
-                    <div className="text-base font-black text-neutral-900 font-sans">
+                    <div className="text-sm sm:text-base font-black text-neutral-900 font-sans">
                       {language === 'AR' ? `${(item.unitPrice * item.quantity).toLocaleString()}.00 ر.س` : `SAR ${(item.unitPrice * item.quantity).toLocaleString()}.00`}
                     </div>
                   </div>
 
                   <button
                     onClick={() => removeFromCart(item.id)}
-                    className="p-2 text-neutral-400 hover:text-red-500 transition-colors rounded-lg cursor-pointer"
-                    title="Remove item"
+                    className="p-2 text-neutral-400 hover:text-red-500 transition-colors rounded-lg cursor-pointer shrink-0"
+                    aria-label={language === 'AR' ? 'حذف المنتج' : 'Remove item'}
+                    title={language === 'AR' ? 'حذف المنتج' : 'Remove item'}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -191,41 +195,46 @@ export const CartPage: React.FC = () => {
 
           {/* Order Summary (4 cols) */}
           <div className="lg:col-span-4 space-y-6">
-            <div className="p-6 rounded-3xl bg-[#F8F9FA] space-y-5">
-              <h2 className="text-lg font-bold text-neutral-900 pb-3">
+            <div className="p-5 sm:p-6 rounded-3xl bg-[#F8F9FA] space-y-5">
+              <h2 className="text-base sm:text-lg font-bold text-neutral-900 pb-2 sm:pb-3 border-b border-neutral-200/50">
                 {language === 'AR' ? 'ملخص الطلب' : 'Order Summary'}
               </h2>
 
               <div className="space-y-3 text-xs text-neutral-600">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span>{language === 'AR' ? 'المجموع الفرعي' : 'Subtotal'}</span>
                   <span className="font-sans text-neutral-900 font-semibold">
                     {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ر.س` : `SAR ${cartTotal.toLocaleString()}.00`}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span>{language === 'AR' ? 'ضريبة القيمة المضافة (15% مشمولة)' : 'VAT (15% inclusive)'}</span>
                   <span className="font-sans text-neutral-900 font-semibold">
                     {language === 'AR' ? `${cartVat.toLocaleString()}.00 ر.س` : `SAR ${cartVat.toLocaleString()}.00`}
                   </span>
                 </div>
-                <div className="flex justify-between text-emerald-700 font-medium">
+                <div className="flex justify-between items-center text-emerald-700 font-medium">
                   <span>{language === 'AR' ? 'الشحن والتوصيل لكافة مدن المملكة' : 'Shipping'}</span>
                   <span>{language === 'AR' ? 'مجاني' : 'FREE'}</span>
                 </div>
 
                 {discountAmount > 0 && (
-                  <div className="flex justify-between text-emerald-700 font-semibold">
-                    <span>{language === 'AR' ? `خصم القسيمة (${appliedCoupon})` : `Discount (${appliedCoupon})`}</span>
+                  <div className="flex justify-between items-center text-emerald-700 font-semibold">
+                    <span className="flex items-center gap-2">
+                      {language === 'AR' ? `خصم القسيمة (${appliedCoupon})` : `Discount (${appliedCoupon})`}
+                      <button type="button" onClick={removeCoupon} className="text-[10px] underline text-neutral-500 cursor-pointer">
+                        {language === 'AR' ? 'إزالة' : 'Remove'}
+                      </button>
+                    </span>
                     <span className="font-sans">
                       {language === 'AR' ? `-${discountAmount.toLocaleString()}.00 ر.س` : `-SAR ${discountAmount.toLocaleString()}.00`}
                     </span>
                   </div>
                 )}
 
-                <div className="flex justify-between text-base font-black text-neutral-900 pt-3">
+                <div className="flex justify-between items-center text-sm sm:text-base font-black text-neutral-900 pt-3 border-t border-neutral-200/60">
                   <span>{language === 'AR' ? 'الإجمالي النهائي' : 'Total Amount'}</span>
-                  <span className="font-sans text-lg text-neutral-900">
+                  <span className="font-sans text-base sm:text-lg text-neutral-900">
                     {language === 'AR' ? `${finalTotal.toLocaleString()}.00 ر.س` : `SAR ${finalTotal.toLocaleString()}.00`}
                   </span>
                 </div>
@@ -234,19 +243,19 @@ export const CartPage: React.FC = () => {
               {/* Promo Code Form */}
               <form onSubmit={handleApplyCoupon} className="pt-2">
                 <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Tag className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
+                  <div className="relative flex-1 min-w-0">
+                    <Tag className={`w-4 h-4 text-neutral-400 absolute ${language === 'AR' ? 'right-3' : 'left-3'} top-3`} />
                     <input
                       type="text"
                       value={couponCode}
                       onChange={e => setCouponCode(e.target.value)}
-                      placeholder={language === 'AR' ? 'كود الخصم (هايبرو100)' : 'Promo Code (HIBREW100)'}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-neutral-200/70 text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-hidden uppercase font-mono"
+                      placeholder={language === 'AR' ? 'كود الخصم' : 'Promo Code'}
+                      className={`w-full ${language === 'AR' ? 'pr-9 pl-3 text-right' : 'pl-9 pr-3 text-left'} py-2.5 rounded-xl bg-neutral-200/70 text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-hidden uppercase font-mono`}
                     />
                   </div>
                   <button
                     type="submit"
-                    className="px-4 py-2.5 rounded-xl bg-neutral-900 hover:bg-black text-white text-xs font-bold transition-colors cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl bg-neutral-900 hover:bg-black text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
                   >
                     {language === 'AR' ? 'تطبيق' : 'Apply'}
                   </button>
@@ -256,10 +265,10 @@ export const CartPage: React.FC = () => {
               {/* Checkout Button */}
               <button
                 onClick={() => navigateTo('checkout')}
-                className="w-full py-4 bg-black hover:bg-neutral-800 text-white font-extrabold text-sm rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3.5 sm:py-4 bg-black hover:bg-neutral-800 text-white font-extrabold text-xs sm:text-sm rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
               >
                 <span>{language === 'AR' ? 'متابعة الدفع وإنهاء الطلب' : 'Proceed to Checkout'}</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className={`w-4 h-4 shrink-0 ${language === 'AR' ? 'rotate-180' : ''}`} />
               </button>
             </div>
           </div>

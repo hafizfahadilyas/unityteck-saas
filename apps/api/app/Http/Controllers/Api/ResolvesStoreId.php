@@ -10,6 +10,8 @@ trait ResolvesStoreId
     protected function requireStoreId(Request $request): string|JsonResponse
     {
         $storeId = $request->attributes->get('store_id')
+            ?? $request->route('storeId')
+            ?? $request->query('store_id')
             ?? $request->header('X-Store-Id');
 
         if (! is_string($storeId) || trim($storeId) === '') {

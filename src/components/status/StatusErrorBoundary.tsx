@@ -1,5 +1,8 @@
 import React from 'react';
-import { StatusPage } from './StatusPage';
+
+const StatusPage = React.lazy(() =>
+  import('./StatusPage').then((m) => ({ default: m.StatusPage })),
+);
 
 type Props = {
   children: React.ReactNode;
@@ -35,19 +38,21 @@ export class StatusErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.crashed) {
       return (
-        <StatusPage
-          kind="500"
-          error={this.state.error}
-          errorInfo={this.state.errorInfo}
-          onHome={() => {
-            this.setState({ crashed: false, error: undefined, errorInfo: undefined });
-            this.props.onHome();
-          }}
-          onNavigate={(path) => {
-            this.setState({ crashed: false, error: undefined, errorInfo: undefined });
-            this.props.onNavigate(path);
-          }}
-        />
+        <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm font-bold text-slate-500">Error loading page</div>}>
+          <StatusPage
+            kind="500"
+            error={this.state.error}
+            errorInfo={this.state.errorInfo}
+            onHome={() => {
+              this.setState({ crashed: false, error: undefined, errorInfo: undefined });
+              this.props.onHome();
+            }}
+            onNavigate={(path) => {
+              this.setState({ crashed: false, error: undefined, errorInfo: undefined });
+              this.props.onNavigate(path);
+            }}
+          />
+        </React.Suspense>
       );
     }
     return this.props.children;

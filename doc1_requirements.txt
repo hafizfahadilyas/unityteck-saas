@@ -1,0 +1,394 @@
+
+WHATSAPP MESSAGE CENTER
+Message Management, Composer &amp; Templates — Developer Requirements
+Complete English functional specification based on the supplied reference image
+1. Objective and Scope
+Implement the WhatsApp Message Center for the store. The interface must allow staff to monitor message performance and delivery, browse and filter message records, send messages, compose personalized messages, manage approved WhatsApp templates, attach media, preview messages on mobile/web, and insert dynamic template variables. Connect every operational control to real backend services and the WhatsApp Business API integration. Values shown in the screenshot are illustrative examples, not production defaults.
+2. Main Views in the Reference
+View A — WhatsApp Message Center: connection status, daily usage, message metrics, message-category tabs, filters, message table, per-message actions, and pagination.
+View B — Compose Message &amp; Templates: tabs for Compose Message, Message Templates, and Media Library; approved-template list; message composer; recipient/order selection; media attachment; preview; template variables; and send/save actions.
+Use the same dark navy sidebar, white/light content background, blue/teal/green accents, compact data cards, and rounded panels shown in the screenshot.
+The original screenshot contains both views in one image and is embedded at the end of this document.
+3. Global Sidebar and Header
+Implement the navigation shown in both portions of the reference image:
+Home
+Orders (example badge: 247)
+Products
+Customers
+Marketing
+Discounts
+Apps
+Reports &amp; Analytics
+WhatsApp (expanded)
+Message Center
+Compose Message
+Templates
+Automations
+Campaigns
+Contacts &amp; Segments
+Settings
+Store Owner/account area at the bottom.
+Highlight the active WhatsApp subpage. The top header includes Help Guide and a date-range selector. Help Guide must open relevant contextual documentation.
+4. WhatsApp Message Center — Header and Date Range
+Page title: WhatsApp Message Center.
+Subtitle: “Send and manage WhatsApp messages for your customers. Track delivery status, view conversations, and manage templates.”
+Display a date-range selector. The example shows Oct 15, 2026 – Oct 14, 2026; verify the intended date ordering and do not reproduce a reversed range without confirming its meaning.
+Date-range changes should refresh period-based metrics and message results consistently.
+5. WhatsApp Business Connection and Daily Usage
+Card
+Reference Example
+Required Behavior
+
+WhatsApp Business
+Connected; +966 512 345 678; Meta Cloud Business API; last synced Oct 14, 2026, 10:42 AM; Manage button.
+Show actual connection status, connected number, provider, last sync time, and a Manage action that opens WhatsApp settings/phone-number management.
+
+Daily Usage
+8/20; 8 messages remaining; resets today at 2:00 AM.
+Show messages used versus daily allowance, remaining messages, and the next reset time in the configured business timezone.
+
+Do not hard-code connection status, number, quotas, or reset time. Fetch them from the connection and billing/usage services.
+6. Message Performance Metrics
+Metric
+Reference Example
+Requirements
+
+Total Messages
+1,248; +12% vs previous period
+Count messages in the selected reporting period and calculate change against the previous comparable period.
+
+Delivered
+1,120; 89.7%; +5.2%
+Show delivered count, delivery rate, and trend if available.
+
+Read
+820; 65.8%; +5.2%
+Show read count/rate and trend if provider data supports read receipts.
+
+Failed
+28; 2.2%; down 1.3%
+Show failed count/rate and trend. Define the denominator consistently.
+
+All metrics must derive from actual message records and provider status updates. Clearly define whether percentages use all sent messages or a subset.
+7. Message Category Tabs
+All Messages (1,248)
+Order Messages (843)
+Marketing Messages (286)
+Custom Messages (119)
+Tabs filter the message table by category and update counts/results. Counts are dynamic and must reflect the selected reporting period or the agreed count definition.
+8. Search and Filters
+Control
+Required Behavior
+
+Search
+Placeholder: “Search by customer name, phone number, order number...”. Search supported message/contact/order fields.
+
+Date Range
+Filter by sent/received time within a selected period.
+
+Message Type
+Filter by message category/type, including order, marketing, and custom messages where supported.
+
+Status
+Filter by actual statuses such as Sent, Delivered, Read, and Failed.
+
+All Templates
+Filter messages by associated template; include an all-templates option.
+
+All Agents
+Filter by staff/agent responsible for sending or managing the message.
+
+Reset
+Clear active search and filter criteria and restore default results.
+
+Filters must combine correctly. Updating filters/search must refresh rows and counts, retain valid state, and reset pagination if the current page is no longer valid.
+9. Send Message Action
+Provide a prominent Send Message button. It opens the Compose Message workflow and should preserve relevant context such as selected customer/order when initiated from a specific record.
+10. Message Table
+The reference table columns are:
+Column
+Requirements
+
+Row selection
+Checkbox for selecting messages for supported bulk operations.
+
+Time
+Time and date, with timezone. Example rows show Oct 14–15, 2026.
+
+Customer
+Customer name and avatar/initial.
+
+Phone Number
+Recipient/sender number in international format.
+
+Order #
+Associated order number where applicable; support a dash when no order is associated.
+
+Message Content
+Message body or a safe preview of it.
+
+Type
+Message-type badge, such as Order Update, Order Confirmation, Marketing, Delivery Update, Payment Update, or Return Update.
+
+Status
+Status badge, including Sent, Delivered, Read, and Failed.
+
+Agent
+Initials/name of the staff member responsible for the message.
+
+Actions
+Per-message action menu for supported actions.
+
+Example message content visible in the screenshot includes order dispatch/tracking updates, order confirmations, promotional/marketing text, delivery updates, VIP offers, return updates, payment updates, and abandoned-order follow-ups. Use actual message content in production.
+11. Example Message Records from the Screenshot
+Time
+Customer
+Phone
+Order #
+Type
+Status
+Agent
+
+10:30 AM, Oct 15, 2026
+Ahmed Ali
++966 512 345 678
+#10284
+Order Update
+Sent
+MA
+
+09:15 AM, Oct 15, 2026
+Sara Mohammed
++966 543 987 555
+#10283
+Order Confirmation
+Delivered
+SA
+
+08:45 AM, Oct 15, 2026
+Mohammed Abdullah
++966 222 111 333
+-
+Marketing
+Read
+MA
+
+07:30 AM, Oct 15, 2026
+Nora Khaled
++966 444 333 555
+#10280
+Delivery Update
+Delivered
+FA
+
+06:20 AM, Oct 15, 2026
+Ali Hassan
++966 666 555 555
+-
+Marketing
+Failed
+SA
+
+05:10 AM, Oct 15, 2026
+Reem Fahad
++966 777 123 456
+#10278
+Order Confirmation
+Delivered
+MA
+
+12:40 AM, Oct 15, 2026
+Khaled Saad
++966 888 987 654
+#10279
+Payment Update
+Read
+FA
+
+11:25 PM, Oct 14, 2026
+Lama Abdullah
++966 333 222 111
+-
+Marketing
+Sent
+SA
+
+10:12 PM, Oct 14, 2026
+Faisal Ahmed
++966 999 888 777
+#10276
+Return Update
+Delivered
+MA
+
+09:05 PM, Oct 14, 2026
+Mona Al-Qahtani
++966 123 456 789
+-
+Marketing
+Sent
+FA
+
+08:30 PM, Oct 14, 2026
+Yara Salem
++966 555 666 999
+#10275
+Delivery Update
+Read
+SA
+
+07:10 PM, Oct 14, 2026
+Omar Al-Enzi
++966 444 777 123
+-
+Marketing
+Failed
+MA
+
+These rows transcribe visible examples and are not a substitute for live data. The footer example reads “Showing 1 to 12 of 1,248 messages” and pagination shows pages 1–5, ellipsis, page 104, plus previous/next controls.
+12. Message Row Actions
+Provide a per-row ellipsis menu.
+Supported actions may include view details/conversation, view delivery events, retry/resend failed messages where policy permits, and open the associated customer/order.
+Do not resend automatically without checking WhatsApp policy, message-window rules, template requirements, and duplicate-send safeguards.
+Actions must be permission-controlled and show success/failure feedback.
+13. Compose Message &amp; Templates — Page Structure
+Page title: Compose Message &amp; Templates.
+Subtitle: “Create and send WhatsApp messages using approved templates or custom messages. Personalize with customer data and preview before sending.”
+Tabs: Compose Message, Message Templates, and Media Library.
+Help Guide button opens relevant instructions.
+Use a three-column layout similar to the screenshot: Approved Templates list on the left, Compose Message editor in the center, and Message Preview/Template Variables on the right.
+14. Approved Templates List
+The left panel is titled Approved Templates (24) and includes New Template, a search field, category filter, status filter, and template cards.
+Search templates by name or supported content.
+Filter by All Categories and All Status, using the actual template categories/statuses.
+Each template card displays icon, template name, short description, approval status (example: Approved), and a per-template menu.
+Reference templates shown: Order Confirmation, Shipping Update, Delivery Update, Order Delivered, Return Update, Payment Reminder, Abandoned Cart, New Collection, Special Offer, and Customer Feedback.
+New Template opens the template creation/submission workflow supported by the WhatsApp Business API.
+Template status must reflect provider approval state; do not mark a template Approved until confirmed by the provider.
+15. Compose Message — Template and Recipient
+Control
+Requirements
+
+Template
+Dropdown to choose an approved template. Example: Order Confirmation.
+
+To — Customer
+Send to a selected customer contact.
+
+To — Order
+Choose an order and use its customer/recipient details.
+
+To — Custom Number
+Enter a phone number manually, with international-format validation and permissions.
+
+Customer search
+Search by customer name or phone number; selecting a customer displays the name, number, and View Profile action.
+
+Order Number
+Display or enter the associated order number. The example shows #10284.
+
+Load Order
+Load the selected order’s details and supported variables into the message context.
+
+Validate that the recipient is eligible for the selected message type and that marketing consent and WhatsApp policy rules are enforced. Do not send to an invalid, opted-out, or otherwise ineligible marketing recipient.
+16. Message Content Editor
+Provide a rich-text/message editor with the formatting controls shown: bold, italic, lists, link, emoji, and Variables dropdown, where supported by WhatsApp message/template capabilities.
+Support template placeholders such as {{customer_name}}, {{order_id}}, {{tracking_link}}, and {{store_name}}.
+Show a character counter; the screenshot example shows 210/1000. Enforce the actual maximum for the selected message type and provider API.
+Allow editing only in ways permitted for the selected template. Approved WhatsApp templates may have fixed structure and variable slots; do not allow unauthorized edits that invalidate provider-approved templates.
+Validate required variables before preview or send. Highlight missing values and prevent accidental sending with unresolved placeholders.
+Sanitize content and validate links and supported formatting.
+17. Template Variables
+The preview panel includes a Template Variables list. Support the variables shown in the reference:
+Variable
+Meaning
+
+{{customer_name}}
+Customer name
+
+{{order_id}}
+Order number/ID
+
+{{tracking_number}}
+Tracking number
+
+{{tracking_link}}
+Tracking link
+
+{{order_status}}
+Order status
+
+{{store_name}}
+Store name
+
+Provide a copy control beside each variable. Variables must be populated from trusted customer/order/store data. Escape values appropriately and validate that each variable maps to the correct approved template parameter.
+18. Attach Media
+Provide an optional Attach Media area with the media types visible in the screenshot:
+Image
+Document (PDF)
+Video
+Product
+The screenshot states a maximum file size of 16 MB. Treat this as a reference value and enforce the actual supported limits for the selected media type and provider. Validate file type/size, upload progress, and failure states. Product attachments should reference a valid product and use the supported product-sharing format.
+19. Message Preview
+Display a live preview panel with WhatsApp (Mobile) and WhatsApp (Web) tabs.
+Mobile preview should resemble a WhatsApp conversation, showing recipient name/status, date separator, rendered message body, links, variables, media, and timestamp/check marks where appropriate.
+Web preview should represent the message in the supported WhatsApp Web layout.
+Preview must update as the user changes template, recipient, variables, message content, or media.
+Preview data must be clearly distinguished from an actual sent message. Do not create real message records or send API requests merely by previewing.
+20. Composer Actions
+Action
+Required Behavior
+
+Save as Draft
+Save the current composition, selected template, recipient/order context, variables, and media references as a draft without sending.
+
+Send Test Message
+Send a test to an explicitly selected test recipient or configured test destination, with confirmation and a clear test indicator.
+
+Send Message
+Validate all fields and policy requirements, show a final confirmation where appropriate, then send through the connected WhatsApp service and report the resulting status.
+
+Prevent double-click duplicate sends. Record message IDs/provider responses and handle queued, sent, delivered, read, and failed states as separate lifecycle states where supported.
+21. Template Management Requirements
+Support creating, editing, viewing, submitting, and managing templates according to provider capabilities.
+Display template name, category, language, status, content, variable definitions, and approval/rejection information where available.
+Approved templates must follow the provider-approved content structure. Changes requiring reapproval must be handled as a new version or submission according to provider rules.
+Support template search and filtering by category/status.
+Template deletion/archive must be permission-controlled and must not break historical message logs.
+22. Message Delivery, Policy, and Error Handling
+Integrate message sending and status updates with the configured WhatsApp Business API provider.
+Respect WhatsApp conversation-window and template rules, recipient consent, rate limits, and provider restrictions.
+Handle failed sends with mapped provider error codes and readable explanations.
+Retry only where appropriate, with bounded backoff and idempotency safeguards.
+Persist timestamps, sender/agent, recipient, message type, template, order/customer association, provider message ID, delivery events, and error details.
+Never expose API secrets in the UI, logs, or client-side code.
+23. Security, Permissions, and Privacy
+Apply role-based access to viewing messages, composing/sending, sending tests, managing templates, accessing media, and viewing customer/order information.
+Restrict custom-number sending to authorized users and validate number format and eligibility.
+Protect customer phone numbers, message content, order details, and media references.
+Log sensitive actions such as sending, template changes, and retries in an audit trail where supported.
+Prevent unauthorized exports or disclosure of customer information.
+24. Suggested Data Model
+Integrate with existing application structures. If missing, provide entities for messages, recipients, message categories/types, delivery/status events, customer/order associations, agents, approved templates and versions, template variables, drafts, media attachments, provider message IDs, send attempts, error records, and usage counters.
+Ensure message metrics, category counts, daily usage, table filters, pagination, preview content, and delivery states are calculated from real data and remain synchronized with provider callbacks.
+25. Acceptance Criteria
+Message Center displays connection status, daily usage, total/delivered/read/failed metrics, message-category tabs, filters, table, actions, and pagination.
+Search, date range, message type, status, template, and agent filters work together.
+Message rows show correct timestamps, customer, phone, order, content, type, status, and agent.
+Compose Message supports customer/order/custom-number recipients, template selection, variable insertion, media attachment, and live preview.
+Template Variables can be copied and resolve correctly from customer/order/store data.
+Save as Draft persists a draft without sending; Send Test Message sends only to the intended test destination; Send Message sends through the configured provider.
+Approved Templates supports search, category/status filters, template creation, and accurate provider approval states.
+Message lifecycle updates and failures are reflected accurately in metrics and logs.
+The UI is responsive, respects permissions, protects customer data, and prevents duplicate sends.
+26. Reference Image
+The complete original screenshot provided with this request is embedded below. It shows the WhatsApp Message Center in the upper section and Compose Message &amp; Templates in the lower section, including metrics, message table, template library, composer, attachment controls, mobile preview, and template variables.
+
+27. Implementation Decisions to Confirm
+Confirm the intended date-range order shown in the screenshot.
+Confirm exact daily message limits, timezone, media size limits, and usage/billing source.
+Confirm whether template content is editable in the composer or only variable values can be edited after approval.
+Confirm allowed message types, categories, and bulk actions for messages.
+Confirm whether Send Test Message uses a fixed test number or a user-entered destination.
+Confirm exact permissions for sending marketing messages and access to customer/order details.
+Before release, provide a completed-feature checklist and identify any items requiring store-owner approval.

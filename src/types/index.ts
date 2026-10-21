@@ -120,6 +120,21 @@ export interface Customer {
   avgOrderValue: number;
   registeredDate: string;
   lastOrderDate: string;
+  firstName?: string;
+  lastName?: string;
+  state?: string;
+  stateAr?: string;
+  dob?: string;
+  language?: string;
+  tags?: string[];
+  marketingEmails?: boolean;
+  whatsappMessages?: boolean;
+  smsNotifications?: boolean;
+  loyaltyPoints?: number;
+  cashbackBalance?: number;
+  availableCoupons?: number;
+  expiringSoonCount?: number;
+  aiInsights?: string[];
 }
 
 export interface ChannelPerformance {
@@ -195,6 +210,50 @@ export interface Product {
   /** Specifications & Model Comparison Infographic Image (Per-Product) */
   specComparisonImage?: string;
   specComparisonImageAr?: string;
+  lowStockAlert?: number;
+  stockStatus?: 'in_stock' | 'low_stock' | 'out_of_stock' | string;
+  shippingClass?: string;
+  dimensions?: { length?: number; width?: number; height?: number } | string;
+  customFields?: ProductCustomField[];
+  productOptions?: ProductOptionDefinition[];
+  conditionalRules?: ProductConditionalRuleDefinition[] | any;
+  conditionalRule?: ProductConditionalRuleDefinition | null | any;
+  storageOptions?: any[];
+  specs?: any[];
+}
+
+export interface ProductCustomField {
+  id: string;
+  name: string;
+  type?: 'Text' | 'File Upload' | 'Date' | 'Dropdown' | 'Number' | 'Time' | 'Multiple Choice' | string;
+  required?: boolean;
+  conditionalRule?: string;
+  extraPrice?: number;
+  options?: string[];
+  value?: string;
+}
+
+export interface ProductOptionValueItem {
+  id: string;
+  label: string;
+  colorHex?: string;
+  selected?: boolean;
+}
+
+export interface ProductOptionDefinition {
+  id: string;
+  name: string;
+  type?: 'color' | 'select' | 'text' | string;
+  values: string[] | ProductOptionValueItem[];
+}
+
+export interface ProductConditionalRuleDefinition {
+  id: string;
+  optionName: string;
+  operator: string;
+  value: string;
+  action: 'show' | 'hide';
+  targetFieldNames: string[];
 }
 
 export interface ProductColorOption {
@@ -348,6 +407,7 @@ export interface Order {
   paymentDate?: string;
   date: string;
   time?: string;
+  createdAt?: string;
   shippingCompany?: string;
   shippingCompanyLogo?: string;
   trackingNumber?: string;
@@ -373,6 +433,11 @@ export interface Order {
   returnedAt?: string;
   restockedAt?: string;
   returns?: OrderReturn[];
+  shippingLabelNumber?: string;
+  shippingTrackingUrl?: string;
+  assignedEmployee?: string;
+  assignedEmployeeAvatar?: string;
+  customStatusId?: string;
   isArchived?: boolean;
   archivedAt?: string;
 }
@@ -536,13 +601,30 @@ export interface CouponItem {
   id: string;
   storeId: string;
   code: string;
+  name?: string;
+  description?: string;
   discountType: 'percentage' | 'fixed';
   discountValue: number;
   minOrderValue: number;
   usageCount: number;
   maxUsage: number;
+  usageLimitPerCustomer?: number;
   status: 'active' | 'expired' | 'scheduled';
+  startDate?: string;
   validUntil: string;
+  expiryTime?: string;
+  noExpiry?: boolean;
+  couponColor?: string;
+  backgroundStyle?: 'solid' | 'gradient' | 'image' | 'transparent';
+  imageUrl?: string;
+  applicableTo?: 'all' | 'categories' | 'products';
+  selectedCategoryIds?: string[];
+  selectedProductIds?: string[];
+  allowWithOtherDiscounts?: boolean;
+  showOnStore?: boolean;
+  showInSpecialOffers?: boolean;
+  highlightAsFeatured?: boolean;
+  sendNotification?: boolean;
 }
 
 export interface ShippingZone {
@@ -784,4 +866,34 @@ export interface ShippingAnalyticsReport {
   zones_performance: { zone: string; orders: number; shipping_cost: number }[];
 }
 
+export interface NotificationChannelConfig {
+  enabled: boolean;
+  provider: string;
+  sender_phone?: string;
+  sender_id?: string;
+  auto_notify_customer: boolean;
+  auto_notify_merchant: boolean;
+}
+
+export interface NotificationTemplateItem {
+  event: string;
+  name_en: string;
+  name_ar: string;
+  sms_template_ar: string;
+  sms_template_en: string;
+  whatsapp_template_ar: string;
+  whatsapp_template_en: string;
+}
+
+export interface StoreNotificationSettings {
+  store_id: string;
+  channels: {
+    whatsapp: NotificationChannelConfig;
+    sms: NotificationChannelConfig;
+  };
+  templates: Record<string, NotificationTemplateItem>;
+  merchant_alert_phones: string[];
+}
+
 export * from './media';
+

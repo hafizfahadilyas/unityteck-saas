@@ -98,7 +98,7 @@ export const InteractiveBannerCard: React.FC<InteractiveBannerProps> = ({
           alt={title}
           className="w-full h-full object-cover object-center group-hover:scale-102 transition-transform duration-300 ease-out opacity-100"
           referrerPolicy="no-referrer"
-          loading="lazy"
+          loading="lazy" decoding="async"
         />
       )}
 
@@ -129,7 +129,7 @@ export const InteractiveBannerCard: React.FC<InteractiveBannerProps> = ({
       {/* Top Badge (if provided) */}
       {badge && (
         <div className="absolute top-4 sm:top-6 start-4 sm:start-6 z-10 pointer-events-none">
-          <span className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-white bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 shadow-md">
+          <span className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-white bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border-0 shadow-md">
             <Sparkles className="w-3 h-3 text-amber-400" />
             <span>{badge}</span>
           </span>
@@ -161,3 +161,4 @@ export const InteractiveBannerCard: React.FC<InteractiveBannerProps> = ({
     </div>
   );
 };
+

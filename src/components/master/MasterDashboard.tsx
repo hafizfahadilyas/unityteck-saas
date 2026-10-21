@@ -6,6 +6,7 @@ import { DonutChart } from '../common/DonutChart';
 import { CylinderBarChart } from '../common/CylinderBarChart';
 import { OverviewStatCard } from '../common/OverviewStatCard';
 import { MasterHealthAlertsHub } from './MasterHealthAlertsHub';
+import { MasterAdvanceFeaturesCard } from './MasterAdvanceFeaturesCard';
 import { AdminPageShell } from '../common/AdminPageHeader';
 import {
   Crown,
@@ -49,6 +50,7 @@ import {
   getProductDisplayName,
   getProductDisplayCategory,
 } from '../../utils/storeLocalization';
+import { formatRelativeTime } from '../../notification-system/utils/dateFilters';
 
 interface MasterDashboardProps {
   onOpenCreateStore: () => void;
@@ -65,7 +67,63 @@ function seriesDelta(series: { value: number }[]): number | null {
   return Math.round(((last - first) / first) * 100);
 }
 
-export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateStore }) => {
+const MasterLiveClockBadge: React.FC<{ locale: string; isAr: boolean }> = React.memo(({ locale, isAr }) => {
+  const [clock, setClock] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setClock(new Date());
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formattedLiveTime = clock.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
+
+  const formattedLiveDate = clock.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border shadow-2xs select-none shrink-0"
+      style={{
+        background: 'var(--surface)',
+        borderColor: 'var(--border)',
+        color: 'var(--text)',
+      }}
+      title={`${formattedLiveDate} · ${formattedLiveTime}`}
+    >
+      <span className="relative flex h-2 w-2 shrink-0">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+      </span>
+      <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden />
+      <span className="font-mono text-[11px] sm:text-xs font-bold tracking-tight">
+        {formattedLiveTime}
+      </span>
+      <span
+        className="text-[10px] font-bold px-1.5 py-0.5 rounded-md hidden xs:inline"
+        style={{
+          background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+          color: 'var(--accent)',
+        }}
+      >
+        {isAr ? 'مباشر' : 'Live'}
+      </span>
+    </div>
+  );
+});
+MasterLiveClockBadge.displayName = 'MasterLiveClockBadge';
+
+export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onOpenCreateStore }) => {
   const {
     stores,
     platformMetrics,
@@ -85,14 +143,6 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
   const [dateRange, setDateRange] = useState<DateRangeKey>('month');
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const dateDropdownRef = useRef<HTMLDivElement>(null);
-  const [liveClock, setLiveClock] = useState<Date>(() => new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setLiveClock(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     if (!showDateDropdown) return;
@@ -348,24 +398,6 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
     return `${fmt(bounds.start)} – ${fmt(bounds.end)}`;
   }, [dateRange, locale]);
 
-  const formattedLiveTime = useMemo(() => {
-    return liveClock.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-    });
-  }, [liveClock, locale]);
-
-  const formattedLiveDate = useMemo(() => {
-    return liveClock.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
-      weekday: 'long',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  }, [liveClock, locale]);
-
   const loc = locale === 'ar' ? 'ar-SA' : 'en-US';
   const vsLastMonth = t('vsLastMonth') || 'vs last month';
   const vsLastWeek = locale === 'ar' ? 'مقارنة بالأسبوع الماضي' : 'vs last week';
@@ -386,72 +418,49 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
     setPage(0);
   };
 
-  // Mock timeline activities if recentActivities is empty or minimal
+  // Authentic timeline activities from real store, order, customer and activity events (zero mock fallback)
   const timelineActivities = useMemo(() => {
-    if (recentActivities && recentActivities.length >= 6) {
+    if (recentActivities && recentActivities.length > 0) {
       return recentActivities.slice(0, 8);
     }
-    const firstStoreName = getStoreDisplayName(stores[0], locale) || (isAr ? 'متجر هدايا مكة' : 'Makkah Flowers');
-    const firstProdName = getProductDisplayName(flatProducts[0], locale) || (isAr ? 'عقد ذهب عيار 18' : 'Gold Necklace 18K');
-    return [
-      {
-        id: 'act-1',
-        title: isAr ? 'تم إنشاء متجر جديد' : 'New store created',
-        subtitle: firstStoreName,
-        timeAgo: isAr ? 'منذ دقيقتين' : '2 minutes ago',
-        icon: StoreIcon,
-      },
-      {
-        id: 'act-2',
-        title: isAr ? 'تم استلام طلب جديد' : 'New order received',
-        subtitle: flatOrders[0]?.orderNumber ? `${flatOrders[0].orderNumber} · ${money(flatOrders[0].total)}` : (isAr ? 'طلب #ORD-4587' : 'Order #ORD-4587'),
-        timeAgo: isAr ? 'منذ 5 دقائق' : '5 minutes ago',
-        icon: ShoppingCart,
-      },
-      {
-        id: 'act-3',
-        title: isAr ? 'تمت إضافة منتج جديد' : 'New product added',
-        subtitle: firstProdName,
-        timeAgo: isAr ? 'منذ 12 دقيقة' : '12 minutes ago',
-        icon: Package,
-      },
-      {
-        id: 'act-4',
-        title: isAr ? 'تسجيل عميل جديد' : 'New customer registered',
-        subtitle: flatCustomers[0]?.name || (isAr ? 'أحمد القحطاني' : 'Ahmed Al Qahtani'),
-        timeAgo: isAr ? 'منذ 18 دقيقة' : '18 minutes ago',
-        icon: Users,
-      },
-      {
-        id: 'act-5',
-        title: isAr ? 'تم استلام دفعة مالية' : 'Payment received',
-        subtitle: money(flatOrders[0]?.total || 2450),
-        timeAgo: isAr ? 'منذ 25 دقيقة' : '25 minutes ago',
-        icon: Coins,
-      },
-      {
-        id: 'act-6',
-        title: isAr ? 'عرض ترويجي نشط' : 'Promotion active',
-        subtitle: flatCoupons[0]?.code || (isAr ? 'عرض رمضان الخاص' : 'Ramadan Special Offer'),
-        timeAgo: isAr ? 'منذ 32 دقيقة' : '32 minutes ago',
-        icon: Tag,
-      },
-      {
-        id: 'act-7',
-        title: isAr ? 'تحديث قالب المتجر' : 'Theme updated',
-        subtitle: isAr ? 'القالب الحديث v2.1' : 'Modern Theme v2.1',
-        timeAgo: isAr ? 'منذ 45 دقيقة' : '45 minutes ago',
-        icon: Palette,
-      },
-      {
-        id: 'act-8',
-        title: isAr ? 'حالة المنصة نشطة' : 'Platform active',
-        subtitle: isAr ? `${stores.length} متاجر نشطة قيد التشغيل` : `${stores.length} active stores running`,
-        timeAgo: isAr ? 'منذ ساعة' : '1 hour ago',
-        icon: BookOpen,
-      },
-    ];
-  }, [recentActivities, stores, flatOrders, flatProducts, flatCustomers, flatCoupons, money, locale, isAr]);
+    const events: any[] = [];
+    if (Array.isArray(stores)) {
+      stores.slice(0, 3).forEach((s) => {
+        events.push({
+          id: `store-reg-${s.id}`,
+          title: isAr ? 'تم تسجيل متجر جديد' : 'New store registered',
+          subtitle: getStoreDisplayName(s, locale),
+          timeAgo: s.createdAt ? formatRelativeTime(s.createdAt, locale) : (isAr ? 'حديثاً' : 'Recent'),
+          icon: StoreIcon,
+        });
+      });
+    }
+    if (Array.isArray(flatOrders)) {
+      flatOrders.slice(0, 4).forEach((o) => {
+        events.push({
+          id: `order-rec-${o.id}`,
+          title: isAr ? 'تم استلام طلب جديد' : 'New order received',
+          subtitle: `${o.orderNumber || o.id} · ${money(o.total)}`,
+          timeAgo: o.createdAt || o.date ? formatRelativeTime(o.createdAt || o.date, locale) : (isAr ? 'حديثاً' : 'Recent'),
+          icon: ShoppingCart,
+        });
+      });
+    }
+    if (Array.isArray(flatCustomers)) {
+      flatCustomers.slice(0, 3).forEach((c) => {
+        if (c.registeredDate) {
+          events.push({
+            id: `cust-reg-${c.id}`,
+            title: isAr ? 'تسجيل عميل جديد' : 'New customer registered',
+            subtitle: c.name,
+            timeAgo: formatRelativeTime(c.registeredDate, locale),
+            icon: Users,
+          });
+        }
+      });
+    }
+    return events.slice(0, 8);
+  }, [recentActivities, stores, flatOrders, flatCustomers, money, locale, isAr]);
 
   return (
     <AdminPageShell className="pb-12">
@@ -484,33 +493,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
         {/* Right: Real-time Live Clock Badge + Interactive Date Range Filter Dropdown */}
         <div className="flex items-center flex-wrap sm:flex-nowrap gap-2 sm:gap-2.5 w-full md:w-auto justify-between sm:justify-end shrink-0">
           {/* Live Real-time Clock Badge */}
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border shadow-2xs select-none shrink-0"
-            style={{
-              background: 'var(--surface)',
-              borderColor: 'var(--border)',
-              color: 'var(--text)',
-            }}
-            title={`${formattedLiveDate} · ${formattedLiveTime}`}
-          >
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden />
-            <span className="font-mono text-[11px] sm:text-xs font-bold tracking-tight">
-              {formattedLiveTime}
-            </span>
-            <span
-              className="text-[10px] font-bold px-1.5 py-0.5 rounded-md hidden xs:inline"
-              style={{
-                background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
-                color: 'var(--accent)',
-              }}
-            >
-              {isAr ? 'مباشر' : 'Live'}
-            </span>
-          </div>
+          <MasterLiveClockBadge locale={locale} isAr={isAr} />
 
           {/* Interactive Date Range Filter Dropdown */}
           <div className="relative shrink-0" ref={dateDropdownRef}>
@@ -561,7 +544,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
                     <span>{isAr ? 'تصفية بيانات المنصة حسب التاريخ' : 'Filter Platform Date Range'}</span>
                   </div>
                   <span className="text-[10px] font-mono opacity-70">
-                    {liveClock.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { month: 'short', day: 'numeric' })}
+                    {new Date().toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { month: 'short', day: 'numeric' })}
                   </span>
                 </div>
 
@@ -653,6 +636,9 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
 
       {/* ── Central Platform Health, Diagnostics & Multi-Store Alerts ── */}
       <MasterHealthAlertsHub />
+
+      {/* Advance Functions & Coming Soon Governance */}
+      <MasterAdvanceFeaturesCard />
 
       {/* ─── 2-Column Main Layout: Main Area (9 cols) + Right Rail (3 cols) ─── */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start min-w-0">
@@ -1397,48 +1383,56 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({ onOpenCreateSt
               </button>
             </div>
 
-            {/* Vertical timeline with connected line */}
-            <div className="relative">
-              {/* Vertical line connecting the timeline dots */}
-              <div
-                className="absolute start-4 top-3 bottom-5 w-px"
-                style={{ background: 'var(--border)' }}
-              />
+            {/* Vertical timeline or clean empty state */}
+            {timelineActivities.length === 0 ? (
+              <div className="py-8 text-center text-xs" style={{ color: 'var(--muted)' }}>
+                {isAr ? 'لا يوجد نشاط حديث للمنصة' : 'No recent platform activity'}
+              </div>
+            ) : (
+              <div className="relative">
+                {/* Vertical line connecting the timeline dots */}
+                <div
+                  className="absolute start-4 top-3 bottom-5 w-px"
+                  style={{ background: 'var(--border)' }}
+                />
 
-              <div className="space-y-4 relative">
-                {timelineActivities.map((act) => {
-                  const ItemIcon = (act as any).icon || Clock;
-                  return (
-                    <div key={act.id} className="flex items-start gap-3 relative">
-                      <span
-                        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 shadow-xs"
-                        style={{
-                          background: 'color-mix(in srgb, var(--accent) 14%, var(--surface))',
-                          color: 'var(--accent)',
-                          border: '2px solid var(--surface)',
-                        }}
-                      >
-                        <ItemIcon className="w-3.5 h-3.5" strokeWidth={2.2} />
-                      </span>
-                      <div className="min-w-0 flex-1 pt-0.5">
-                        <div className="text-xs font-bold truncate leading-tight" style={{ color: 'var(--text)' }}>
-                          {act.title}
-                        </div>
-                        <div className="text-[11px] font-medium truncate mt-0.5" style={{ color: 'var(--muted)' }}>
-                          {act.subtitle}
-                        </div>
-                        <div className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
-                          {act.timeAgo}
+                <div className="space-y-4 relative">
+                  {timelineActivities.map((act) => {
+                    const ItemIcon = (act as any).icon || Clock;
+                    return (
+                      <div key={act.id} className="flex items-start gap-3 relative">
+                        <span
+                          className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 shadow-xs"
+                          style={{
+                            background: 'color-mix(in srgb, var(--accent) 14%, var(--surface))',
+                            color: 'var(--accent)',
+                            border: '2px solid var(--surface)',
+                          }}
+                        >
+                          <ItemIcon className="w-3.5 h-3.5" strokeWidth={2.2} />
+                        </span>
+                        <div className="min-w-0 flex-1 pt-0.5">
+                          <div className="text-xs font-bold truncate leading-tight" style={{ color: 'var(--text)' }}>
+                            {act.title}
+                          </div>
+                          <div className="text-[11px] font-medium truncate mt-0.5" style={{ color: 'var(--muted)' }}>
+                            {act.subtitle}
+                          </div>
+                          <div className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                            {act.timeAgo}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
     </AdminPageShell>
   );
-};
+});
+
+MasterDashboard.displayName = 'MasterDashboard';

@@ -61,29 +61,51 @@ export function formatRelativeTime(
   locale: string = 'en',
 ): string {
   try {
-    const date = parseISO(timestamp);
+    let date = parseISO(timestamp);
+    if (isNaN(date.getTime())) {
+      date = new Date(timestamp.includes(' ') ? timestamp.replace(' ', 'T') : timestamp);
+    }
     if (isNaN(date.getTime())) return timestamp;
 
     const isAr = locale === 'ar';
     const now = new Date();
-    const diffMinutes = Math.round((now.getTime() - date.getTime()) / (1000 * 60));
+    const diffMs = now.getTime() - date.getTime();
+    if (diffMs < 0) {
+      return isAr ? 'الآن' : 'Just now';
+    }
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
     if (diffMinutes < 1) {
       return isAr ? 'الآن' : 'Just now';
     }
+    if (diffMinutes === 1) {
+      return isAr ? 'منذ دقيقة' : '1 minute ago';
+    }
+    if (diffMinutes === 2) {
+      return isAr ? 'منذ دقيقتين' : '2 minutes ago';
+    }
     if (diffMinutes < 60) {
-      return isAr ? `منذ ${diffMinutes} دقيقة` : `${diffMinutes}m ago`;
+      return isAr ? `منذ ${diffMinutes} دقيقة` : `${diffMinutes} minutes ago`;
     }
     const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours === 1) {
+      return isAr ? 'منذ ساعة' : '1 hour ago';
+    }
+    if (diffHours === 2) {
+      return isAr ? 'منذ ساعتين' : '2 hours ago';
+    }
     if (diffHours < 24) {
-      return isAr ? `منذ ${diffHours} ساعة` : `${diffHours}h ago`;
+      return isAr ? `منذ ${diffHours} ساعات` : `${diffHours} hours ago`;
     }
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays === 1) {
       return isAr ? 'أمس' : 'Yesterday';
     }
+    if (diffDays === 2) {
+      return isAr ? 'منذ يومين' : '2 days ago';
+    }
     if (diffDays < 7) {
-      return isAr ? `منذ ${diffDays} أيام` : `${diffDays}d ago`;
+      return isAr ? `منذ ${diffDays} أيام` : `${diffDays} days ago`;
     }
 
     return format(date, 'MMM d, yyyy');

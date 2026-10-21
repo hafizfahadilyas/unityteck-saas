@@ -61,14 +61,9 @@ export function PrefsProvider({
   );
 
   const allowedLocales = useMemo<AppLocale[]>(() => {
-    if (portal === 'master' || !activeStoreLanguages) {
-      return ['en', 'ar'];
-    }
-    const allowed: AppLocale[] = [];
-    if (activeStoreLanguages.english !== false) allowed.push('en');
-    if (activeStoreLanguages.arabic !== false) allowed.push('ar');
-    return allowed.length > 0 ? allowed : ['en', 'ar'];
-  }, [portal, activeStoreLanguages]);
+    // Both English and Arabic are always fully available in both Store and Master portals
+    return ['en', 'ar'];
+  }, []);
 
   useEffect(() => {
     applyDocumentPrefs(prefs, portal);

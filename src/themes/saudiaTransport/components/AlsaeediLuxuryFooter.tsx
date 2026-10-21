@@ -149,8 +149,11 @@ const scrollToTop = () => {
   if (typeof window !== 'undefined') {
     window.scrollTo({
       top: 0,
-      behavior: 'smooth'
+      left: 0,
+      behavior: 'instant' as ScrollBehavior,
     });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   }
 };
 
@@ -525,8 +528,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                     type="button"
                     onClick={() => {
                       onNavigateCatalog?.();
-                      const el = document.getElementById('catalog-view-top');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      scrollToTop();
                     }}
                     className="hover:text-[#f6c344] transition-colors cursor-pointer flex items-center gap-1.5"
                   >

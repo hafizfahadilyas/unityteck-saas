@@ -1,0 +1,139 @@
+name: Production CI/CD Pipeline & Hostinger Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deployment regardless of branch'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # JOB 1: Validation, Quality Gates, Automated Tests & Build
+  # ─────────────────────────────────────────────────────────────
+  validate_and_build:
+    name: 🧪 Quality Gates, Tests & Production Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install Frontend Dependencies
+        run: npm ci || npm install
+
+      - name: 🔍 TypeScript Strict Typecheck (Zero Error Policy)
+        run: npm run lint
+
+      - name: 🧪 Run ZATCA E-Invoicing & Barcode Automated Tests
+        run: npx tsx tests/invoices.test.ts
+
+      - name: 📱 Run Saudi (+966) Notifications Automated Tests
+        run: npx tsx tests/notifications.test.ts
+
+      - name: 🐘 Setup PHP 8.2 for Backend Syntax Verification
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, ctype, iconv, mysql, pdo_mysql
+
+      - name: 🛡️ Verify Laravel Backend Syntax
+        run: |
+          php -l apps/api/app/Services/Notification/NotificationService.php
+          php -l apps/api/app/Http/Controllers/Api/NotificationSettingsController.php
+          php -l apps/api/app/Http/Controllers/Api/OrderController.php
+          php -l apps/api/routes/api.php
+
+      - name: 🚀 Compile Production Vite Bundle
+        run: npm run build
+
+      - name: 📄 Verify Hostinger .htaccess SPA Routing File
+        run: |
+          if [ -f "dist/.htaccess" ]; then
+            echo "✅ dist/.htaccess verified and present."
+          else
+            echo "⚠️ Copying public/.htaccess to dist/..."
+            cp public/.htaccess dist/.htaccess
+          fi
+
+      - name: 📦 Archive Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-production-bundle
+          path: dist/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 2: Automated Deployment to Hostinger
+  # ─────────────────────────────────────────────────────────────
+  deploy_to_hostinger:
+    name: 🌐 Automated Hostinger Deployment
+    needs: validate_and_build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.event.inputs.force_deploy == 'true'
+
+    steps:
+      - name: 📥 Check out repository for deployment scripts
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install Runner Dependencies
+        run: npm ci || npm install
+
+      - name: 📥 Download Production Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-production-bundle
+          path: dist/
+
+      - name: 🚀 Deploy Fresh Bundle to Hostinger (FTPS / Secure FTP)
+        env:
+          FTP_HOST: ${{ secrets.HOSTINGER_FTP_HOST || secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.HOSTINGER_FTP_USER || secrets.FTP_USER }}
+          FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD || secrets.FTP_PASSWORD }}
+          FTP_REMOTE_DIR: ${{ secrets.HOSTINGER_FTP_REMOTE_DIR || secrets.FTP_REMOTE_DIR || 'public_html' }}
+          FTP_TARGET_URL: ${{ secrets.TARGET_URL || 'https://giftshop-sa.com/' }}
+        run: |
+          if [ -z "$FTP_HOST" ] || [ -z "$FTP_USER" ] || [ -z "$FTP_PASSWORD" ]; then
+            echo "::warning::Missing Hostinger FTP credentials in GitHub Secrets. Skipping actual file transfer. Please add HOSTINGER_FTP_HOST, HOSTINGER_FTP_USER, and HOSTINGER_FTP_PASSWORD to your repository secrets."
+          else
+            node scripts/deploy-hostinger.js
+          fi
+
+      - name: 🔎 Post-Deployment Health Check
+        env:
+          TARGET_URL: ${{ secrets.TARGET_URL || 'https://giftshop-sa.com/' }}
+        run: |
+          echo "Verifying live endpoint at $TARGET_URL ..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -L "$TARGET_URL" || echo "000")
+          echo "HTTP Response Status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
+            echo "✅ Live deployment verified! Storefront returned HTTP $HTTP_STATUS."
+          else
+            echo "⚠️ Notice: Target endpoint returned HTTP $HTTP_STATUS. Please verify DNS and SSL certificate."
+          fi

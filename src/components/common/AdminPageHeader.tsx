@@ -44,9 +44,10 @@ export const AdminPageShell: React.FC<{
   className?: string;
 }> = ({ children, className = '' }) => (
   <div
-    className={`u-page p-4 sm:p-6 space-y-5 sm:space-y-6 max-w-[1600px] mx-auto ${className}`.trim()}
+    className={`u-page p-4 sm:p-6 lg:p-6 space-y-4 max-w-[1650px] mx-auto ${className}`.trim()}
     style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
   >
     {children}
   </div>
 );
+

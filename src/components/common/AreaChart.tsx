@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 
 interface AreaChartProps {
   data: { label: string; value: number }[];
@@ -10,7 +10,7 @@ interface AreaChartProps {
   showTooltip?: boolean;
 }
 
-export const AreaChart: React.FC<AreaChartProps> = ({
+export const AreaChart: React.FC<AreaChartProps> = React.memo(({
   data,
   color = '#00C9A7',
   fillGradient = ['#00C9A7', '#00C9A7'],
@@ -20,6 +20,8 @@ export const AreaChart: React.FC<AreaChartProps> = ({
   showTooltip = true,
 }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const reactId = useId();
+  const gradId = `area-grad-${reactId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
   if (!data || data.length < 2) return null;
 
@@ -57,7 +59,6 @@ export const AreaChart: React.FC<AreaChartProps> = ({
   }
 
   const areaD = `${pathD} L ${points[points.length - 1].x},${height} L ${points[0].x},${height} Z`;
-  const gradId = `area-grad-${Math.random().toString(36).substring(2, 8)}`;
 
   return (
     <div className="relative w-full min-w-0 overflow-hidden select-none touch-pan-y">
@@ -135,4 +136,6 @@ export const AreaChart: React.FC<AreaChartProps> = ({
       )}
     </div>
   );
-};
+});
+
+AreaChart.displayName = 'AreaChart';

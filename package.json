@@ -10,7 +10,11 @@
     "deploy:hostinger": "vite build && node scripts/deploy-hostinger.js",
     "preview": "vite preview --port=3010",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "backup": "node scripts/backup-database.js",
+    "backup:store": "node scripts/backup-database.js --scope=store",
+    "restore": "node scripts/restore-database.js",
+    "restore:confirm": "node scripts/restore-database.js --confirm"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

@@ -1,6 +1,8 @@
 import React from 'react';
 import type { InvoiceDocument, InvoiceTemplateConfig, InvoiceLineItem } from '../../../../types/invoices';
 import { Truck, CheckCircle, Clock, Building, ShieldCheck, Phone, Mail, MapPin } from 'lucide-react';
+import { getLocalizedItemName, getCustomerDisplayName, getLocalizedAddress } from '../../../../utils/storeLocalization';
+import { formatInvoiceDate } from '../../../../utils/zatca';
 
 interface TemplateProps {
   document: InvoiceDocument;
@@ -15,7 +17,7 @@ export const PurchaseInvoiceTemplate: React.FC<TemplateProps> = ({ document, con
     <div
       className="bg-white text-slate-900 w-full min-h-[1050px] p-8 sm:p-12 flex flex-col justify-between select-text"
       style={{
-        fontFamily: isAr ? 'Tajawal, Cairo, sans-serif' : 'Inter, sans-serif',
+        fontFamily: isAr ? "'Cairo', 'Tajawal', sans-serif" : 'Inter, sans-serif',
       }}
       dir={isAr ? 'rtl' : 'ltr'}
     >
@@ -30,7 +32,7 @@ export const PurchaseInvoiceTemplate: React.FC<TemplateProps> = ({ document, con
               </div>
               <div>
                 <h1 className="text-xl font-black text-slate-900">
-                  {isAr ? document.seller.nameAr || document.seller.name : document.seller.name}
+                  {isAr ? document.seller.nameAr || document.seller.name : document.seller.nameEn || document.seller.name}
                 </h1>
                 <p className="text-xs text-indigo-700 font-semibold">
                   {isAr ? 'فاتورة توريد ومشتريات من المورد' : 'Supplier Purchase & Procurement Invoice'}
@@ -41,7 +43,11 @@ export const PurchaseInvoiceTemplate: React.FC<TemplateProps> = ({ document, con
             <div className="text-xs text-slate-600 space-y-0.5 pt-1">
               <p className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span>{isAr ? document.seller.addressAr || document.seller.address : document.seller.address}</span>
+                <span>
+                  {isAr
+                    ? document.seller.addressAr || document.seller.address
+                    : document.seller.addressEn || getLocalizedAddress(document.seller.address, 'en')}
+                </span>
               </p>
               <div className="flex items-center gap-4 text-slate-500 pt-0.5">
                 {document.seller.phone && <span dir="ltr">{document.seller.phone}</span>}
@@ -88,12 +94,8 @@ export const PurchaseInvoiceTemplate: React.FC<TemplateProps> = ({ document, con
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
               {isAr ? 'تاريخ الشراء والاستلام' : 'Purchase Date'}
             </span>
-            <p className="text-sm font-semibold text-slate-800 mt-1">
-              {new Date(document.issueDate).toLocaleDateString(isAr ? 'ar-SA' : 'en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
+            <p className="text-sm font-semibold text-slate-800 mt-1 whitespace-nowrap" dir={isAr ? 'rtl' : 'ltr'}>
+              {formatInvoiceDate(document.issueDate, locale)}
             </p>
           </div>
 
@@ -126,7 +128,7 @@ export const PurchaseInvoiceTemplate: React.FC<TemplateProps> = ({ document, con
               {isAr ? 'المتجر المشتري (المستلم)' : 'Procured By (Buyer Store)'}
             </span>
             <p className="text-sm font-extrabold text-slate-900 mt-1">
-              {isAr ? document.buyer.nameAr || document.buyer.name : document.buyer.name}
+              {isAr ? document.buyer.nameAr || document.buyer.name : document.buyer.nameEn || document.buyer.name}
             </p>
             {document.buyer.vatNumber && (
               <p className="text-xs text-slate-500 font-mono">
@@ -155,7 +157,7 @@ export const PurchaseInvoiceTemplate: React.FC<TemplateProps> = ({ document, con
                 <tr key={item.id || idx}>
                   <td className="py-3.5 px-2 text-slate-400 font-mono">{idx + 1}</td>
                   <td className="py-3.5 px-2 font-medium text-slate-900">
-                    <div>{isAr ? item.nameAr || item.name : item.name}</div>
+                    <div>{getLocalizedItemName(item, locale)}</div>
                   </td>
                   {config.columns.sku && <td className="py-3.5 px-2 text-slate-500 font-mono">{item.sku || '—'}</td>}
                   <td className="py-3.5 px-2 text-center font-bold text-slate-800">{item.quantity}</td>
@@ -216,9 +218,10 @@ export const PurchaseInvoiceTemplate: React.FC<TemplateProps> = ({ document, con
 
       {/* Footer Notes */}
       <div className="pt-8 border-t mt-8 text-xs text-slate-500 space-y-2" style={{ borderColor: '#e2e8f0' }}>
-        {document.paymentTerms && (
+        {(document.paymentTerms || document.paymentTermsEn || document.paymentTermsAr) && (
           <p className="text-slate-600">
-            <strong>{isAr ? 'شروط السداد للمورد:' : 'Supplier Payment Terms:'}</strong> {document.paymentTerms}
+            <strong>{isAr ? 'شروط السداد للمورد:' : 'Supplier Payment Terms:'}</strong>{' '}
+            {isAr ? document.paymentTermsAr || document.paymentTerms : document.paymentTermsEn || document.paymentTerms}
           </p>
         )}
         <div className="flex items-center justify-between text-[10px] text-slate-400 pt-2">

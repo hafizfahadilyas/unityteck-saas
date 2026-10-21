@@ -12,62 +12,28 @@ export interface UseManualOrderFormOptions {
   initialShippingFee?: number;
   taxRate?: number; // 0.15 for 15% VAT
   defaultCountryCode?: string;
+  initialCustomerName?: string;
+  initialCustomerPhone?: string;
+  initialItems?: ManualOrderItem[];
 }
-
-const DEFAULT_SAMPLE_PRODUCTS: ManualOrderItem[] = [
-  {
-    id: 'prod-earbuds-01',
-    name: 'Wireless Earbuds',
-    sku: 'WH-001',
-    price: 180.0,
-    quantity: 1,
-    total: 180.0,
-    image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=120&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'prod-smartwatch-02',
-    name: 'Smart Fitness Watch Series 7',
-    sku: 'SW-002',
-    price: 320.0,
-    quantity: 1,
-    total: 320.0,
-    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=120&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'prod-leather-case-03',
-    name: 'MagSafe Leather Case',
-    sku: 'CS-003',
-    price: 95.0,
-    quantity: 1,
-    total: 95.0,
-    image: 'https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=120&auto=format&fit=crop&q=80',
-  },
-];
 
 export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
   const {
     initialShippingFee = 15.0,
     taxRate = 0.15,
     defaultCountryCode = '+966',
+    initialCustomerName = '',
+    initialCustomerPhone = '',
+    initialItems = [],
   } = options;
 
   // SECTION 1: Customer Info
   const [countryCode, setCountryCode] = useState(defaultCountryCode);
-  const [customerPhone, setCustomerPhone] = useState('4567 123 50 966');
-  const [customerName, setCustomerName] = useState('Ahmed Al-Qahtani');
+  const [customerPhone, setCustomerPhone] = useState(initialCustomerPhone);
+  const [customerName, setCustomerName] = useState(initialCustomerName);
 
   // SECTION 2: Products
-  const [items, setItems] = useState<ManualOrderItem[]>([
-    {
-      id: 'prod-earbuds-01',
-      name: 'Wireless Earbuds',
-      sku: 'WH-001',
-      price: 180.0,
-      quantity: 1,
-      total: 180.0,
-      image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=120&auto=format&fit=crop&q=80',
-    },
-  ]);
+  const [items, setItems] = useState<ManualOrderItem[]>(initialItems);
 
   // SECTION 3: Payment
   const [paymentMethod, setPaymentMethod] = useState<string>('mada');
@@ -120,23 +86,16 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
       return;
     }
 
-    // If no specific item supplied, pick next sample or create customized product
+    // If no specific item supplied, create new manual item
     setItems((prev) => {
-      const existingIds = new Set(prev.map((i) => i.id));
-      const nextSample = DEFAULT_SAMPLE_PRODUCTS.find((p) => !existingIds.has(p.id));
-
-      if (nextSample) {
-        return [...prev, { ...nextSample }];
-      }
-
       const randomNum = Math.floor(100 + Math.random() * 900);
       const newCustomItem: ManualOrderItem = {
         id: `custom-prod-${Date.now()}`,
-        name: `Special Store Item #${randomNum}`,
+        name: `Item #${randomNum}`,
         sku: `SKU-${randomNum}`,
-        price: 150.0,
+        price: 100.0,
         quantity: 1,
-        total: 150.0,
+        total: 100.0,
       };
       return [...prev, newCustomItem];
     });

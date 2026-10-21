@@ -1,0 +1,431 @@
+
+WHATSAPP STORE MANAGEMENT
+Developer Requirements — Contacts, Segments, Settings &amp; Logs
+Complete English functional specification based on the supplied reference image
+1. Objective and Scope
+Build a WhatsApp management module for an online store, based on the attached reference image. The module must manage WhatsApp contacts and customer segments, track engagement, configure the WhatsApp Business API connection, manage phone numbers and webhooks, configure message behavior, monitor message/error logs, and display usage limits and billing information. All controls must be connected to real backend services and persisted settings; do not implement static mock values as production behavior.
+The screenshot contains two major views: (A) Contacts &amp; Segments, including contact metrics, a searchable contacts table, selected-contact details, and segment analytics; and (B) Settings &amp; Logs, including API configuration, phone numbers, business profile, webhook configuration, message settings, recent message logs, and error logs.
+2. Global Sidebar and Navigation
+The left navigation is shown in both views. Implement the following visible menu items and navigation behavior:
+Home
+Orders (the screenshot shows a badge of 247)
+Products
+Customers
+Marketing
+Discounts
+Apps
+Reports &amp; Analytics
+WhatsApp (expanded group)
+Message Center
+Compose Message
+Templates
+Automations
+Campaigns
+Contacts &amp; Segments
+Settings
+Store identity/profile area at the bottom, showing Store Owner and account email where available.
+Within WhatsApp, highlight the active subpage. The screenshot shows Contacts &amp; Segments active in the upper view and Settings active in the lower view. Avoid duplicate or ambiguous Settings navigation labels; follow the existing information architecture while preserving the required WhatsApp Settings destination.
+3. Contacts &amp; Segments — Page Header
+Page title: Contacts &amp; Segments.
+Subtitle: “Manage your WhatsApp contacts, create audience segments, and track customer engagement.”
+Date range selector at the top-right. The example shows Oct 15, 2026 – Oct 14, 2026. Use the configured reporting date range and validate that start/end dates are correct; the sample order appears reversed and should not be copied without confirming intended date logic.
+Help Guide button opens relevant documentation or an in-app guide.
+4. Contact Summary Metrics
+Display the five summary cards shown in the reference. Metrics must be calculated from actual contact/subscription records and respond to the selected date range where applicable.
+Metric
+Example in Screenshot
+Requirements
+
+Total Contacts
+12,460; +12.8% vs 11,040
+Count all contact records according to the defined deduplication policy. Show change percentage and comparison-period value.
+
+Subscribed (Opt-in)
+10,230; 82.1%
+Count contacts with valid marketing opt-in. Show share of total contacts.
+
+Unsubscribed (Opt-out)
+640; 5.1%
+Count contacts who opted out. They must be excluded from marketing sends.
+
+Blocked Numbers
+220; 1.8%
+Count blocked/invalid/unusable numbers according to the system’s definitions.
+
+New Contacts
+1,480; +18.6% vs 1,248
+Count contacts newly added during the selected period and compare with the previous period.
+
+5. Contacts, Segments, Tags, and Import/Export Tabs
+Provide tabs: All Contacts (12,460), Segments, Tags, and Import / Export.
+All Contacts displays the contact table and selection controls.
+Segments opens audience segment management.
+Tags opens tag creation, editing, assignment, and removal.
+Import / Export supports importing contacts from an approved file format and exporting permitted contact data. Validate file structure, duplicates, consent fields, and permissions.
+6. Contact Search and Filters
+Provide the search field and filter controls visible above the contact table:
+Control
+Requirements
+
+Search
+Placeholder: “Search by name, phone number, email, or order number...”. Search across supported fields.
+
+All Status
+Filter by contact status, such as Active or Inactive.
+
+All Tags
+Filter by one or more tags.
+
+All Segments
+Filter by assigned segment.
+
+Customer Type
+Filter by supported customer classifications.
+
+Reset
+Clear search and filter selections and restore the default view.
+
+Edit
+Open contact editing or enable edit mode according to the page design.
+
+Filters must be combinable. Updating search/filter values must refresh rows and counts, preserve valid state, and reset pagination if the current page is no longer valid.
+7. Contacts Table
+The reference table columns are:
+Column
+Requirements
+
+Row selection
+Checkbox for selecting contacts for permitted bulk operations.
+
+Customer
+Contact name, with a small avatar/initial icon.
+
+Phone Number
+Phone number in international format, such as +966...
+
+Email
+Email address when available.
+
+Orders
+Number of orders associated with the contact.
+
+Total Spent
+Total customer spend, displayed in SAR in the example.
+
+Last Order
+Date of the most recent order.
+
+Status
+Contact/customer status badge, such as Active or Inactive.
+
+Subscription
+Marketing subscription state, such as Subscribed or Unsubscribed.
+
+Tags
+Assigned tags, such as VIP, Regular, Repeat, New, or Interested.
+
+Actions
+Per-contact menu for supported actions.
+
+The screenshot shows eight visible example rows and a footer reading “Showing 1 to 8 of 12,460 contacts”. The table must use real records, with dynamic pagination and accurate summaries.
+8. Contact Details Side Panel
+When a contact is selected, display a Contact Details panel on the right. The reference shows a close control and the following details:
+Customer name and avatar/initial.
+Contact status badge (example: Active).
+Customer-since date (example: Aug 12, 2025).
+Phone Number with copy-to-clipboard control.
+Email with copy-to-clipboard control.
+Total Orders.
+Total Spent (SAR).
+Last Order date.
+Subscription state (example: Subscribed (Marketing)).
+Tags with add/remove controls (example tags: VIP, Regular, plus button).
+Segments with add/remove controls (example: High Value Customers, Perfume Lovers, plus button).
+Notes text area (example: “VIP customer, prefers perfume sets. Send special offers.”).
+Save button to persist changes to editable fields such as notes, tags, and segments, according to permissions.
+Copy actions must provide success/failure feedback. The panel must show the currently selected contact and update correctly when selection changes.
+9. Customer Segments
+Provide a Customer Segments summary card with a New Segment button and the segment examples visible in the screenshot:
+Segment
+Example Count
+Description / Rule
+
+All Customers
+12,460
+All store customers.
+
+VIP Customers
+2,840
+Customers with high spending.
+
+Recent Customers
+3,120
+Ordered in the last 30 days.
+
+At Risk Customers
+980
+No order in 60+ days.
+
+Cart Abandoners
+1,560
+Added to cart but did not check out.
+
+Marketing Opt-in
+10,230
+Subscribed to marketing.
+
+New Segment opens a segment builder.
+Allow users to define segment rules using supported customer attributes and behaviors, such as order history, spend, last order date, cart activity, tags, subscription state, and contact status.
+Support segment membership counts and refresh them when underlying customer data changes.
+Provide a per-segment action menu for edit, duplicate, delete, and view members where permitted.
+Ensure segment rules are evaluated consistently and documented so the counts are explainable.
+10. Contacts by Status Chart
+Display a donut chart titled Contacts by Status, with total contacts in the center. The screenshot’s example center value is 12,460.
+Status
+Example Value
+
+Subscribed
+82.1% (10,230)
+
+Unsubscribed
+5.1% (640)
+
+Blocked
+1.8% (220)
+
+Inactive
+11.0% (1,370)
+
+The values are examples and may not sum consistently with all other displayed categories because of overlapping/defined statuses; confirm the status taxonomy and make chart segments mutually exclusive if the visualization is intended to represent a complete distribution. Include labels/legend and accessible text, not color alone.
+11. Top Customer Segments by Revenue
+Display a ranked list/card titled Top Customer Segments by Revenue with a View all link. The screenshot examples are:
+Rank
+Segment
+Revenue (SAR)
+
+1
+VIP Customers
+86,420
+
+2
+Repeat Customers
+54,310
+
+3
+Perfume Lovers
+42,650
+
+4
+New Customers
+28,460
+
+5
+Gift Set Interested
+18,920
+
+Calculate revenue from the selected period or clearly defined lifetime totals. The View all link must open the full ranking/report.
+12. Settings &amp; Logs — Tabs
+The Settings &amp; Logs view has these tabs:
+API Configuration
+Phone Numbers
+Webhooks
+Message Logs
+Error Logs
+Usage &amp; Billing
+Team Access
+Each tab must load its relevant settings/data and provide role-based access controls. The screenshot shows API Configuration selected.
+13. API Connection Status
+Display Connection Status card with a status such as Connected.
+Show provider name: Meta Cloud Business API.
+Show Last synced timestamp (example: Oct 14, 2026, 10:42 AM).
+Provide a Test Connection button that performs a real API health/authentication test and reports the result.
+Never show Connected unless the backend confirms a valid connection. Handle token expiry, permission failures, rate limits, and network errors.
+14. Business Account Details
+Field
+Example / Requirements
+
+Business Name
+My Store; display connected business name.
+
+Business ID
+Example numeric ID; provide copy control.
+
+Phone Number ID
+Example numeric ID; provide copy control.
+
+WABA ID
+WhatsApp Business Account ID; provide copy control.
+
+IDs must come from the connected provider configuration, not hard-coded sample data. Copy controls must copy the exact value and show feedback.
+15. Usage Limits and Billing
+Display a Message Limits card with Daily Limit and Monthly Usage progress indicators.
+Metric
+Screenshot Example
+Requirements
+
+Daily Limit
+8 / 20 messages
+Show messages sent today versus configured daily allowance; indicate reset time.
+
+Monthly Usage
+1,248 / 6,000; 21%
+Show monthly usage against the configured allowance and percentage.
+
+Daily reset
+Resets today at 12:00 AM
+Use the configured business/account timezone.
+
+Renewal
+Renews on Nov 1, 2026
+Show the actual billing-cycle renewal date.
+
+Do not hard-code the example quotas. Load usage and billing data from the applicable provider or subscription service.
+16. Phone Numbers
+The Phone Numbers card shows one configured number and an Add Phone Number button.
+Display each connected WhatsApp phone number, status (example: Active), Primary badge where applicable, and last-synced timestamp.
+Add Phone Number starts a secure provider-authorized connection/registration flow.
+Provide a per-number actions menu for supported operations such as setting primary, testing, reconnecting, or removing a number.
+Validate phone-number ownership and provider registration before marking a number active.
+Support multiple phone numbers if allowed by the connected WhatsApp Business Account and plan.
+17. Business Profile
+Display a Business Profile card with an Edit button and these fields:
+Field
+Example
+
+Business Name
+My Store
+
+Logo
+Store logo/image
+
+Category
+Shopping &amp; Retail
+
+Address
+Riyadh, Saudi Arabia
+
+Website
+https://mystore.com
+
+Description
+Premium perfumes, oud, and gifts.
+
+Allow authorized users to edit supported profile fields and save them through the provider’s approved APIs or the application’s profile service. Clearly show validation/provider errors.
+18. Webhook Configuration
+Provide an editable Webhook URL field. Screenshot example: https://yourstore.com/api/whatsapp/webhook.
+Provide a Verify Token field with masked display, show/hide control, copy control, and regenerate/refresh control where supported.
+Provide an Edit button for webhook configuration.
+Provide webhook event subscriptions with toggles for Messages (Incoming &amp; Status), Message Status Updates, Template Status Updates, Reaction Updates, and Phone Number Updates.
+Validate webhook URL format and use secure transport (HTTPS) in production.
+Implement provider verification handshake and verify webhook signatures/tokens according to the provider’s current requirements.
+Handle retries and duplicate webhook deliveries safely, and log webhook processing errors.
+19. Message Settings
+Provide a Message Settings card with an Edit button and the following controls:
+Setting
+Screenshot Example / Requirement
+
+Default Message Window
+Dropdown showing 24 hours. Use supported policy options and enforce WhatsApp messaging-window rules.
+
+Time Zone
+Dropdown showing (GMT+3) Riyadh. Use the selected timezone for scheduling, resets, and displayed timestamps.
+
+Business Display Name
+Dropdown showing My Store.
+
+Default Language
+Dropdown showing English (US).
+
+Fallback Number
+Phone number shown as +966 512 345 678, with copy control.
+
+Enable Read Receipts
+Toggle.
+
+Auto-retry Failed Messages
+Toggle.
+
+Notify on Errors
+Toggle.
+
+Settings must be saved and applied by the message service. Auto-retry must use safe retry limits/backoff and must not create duplicate sends. Read-receipt and notification behavior must respect provider capabilities and customer/privacy requirements.
+20. Recent Message Logs
+Display a Recent Message Logs table and a View all link. Visible columns:
+Column
+Requirements
+
+Time
+Timestamp with timezone. Examples are around Oct 14, 2026, 10:38–10:42 AM.
+
+Direction
+Outgoing or Incoming.
+
+Phone Number
+Contact/recipient phone number.
+
+Message Type
+Examples: Template or Text.
+
+Status
+Examples: Delivered, Sent, Received, Failed.
+
+Error Message
+Show reason where available; use “-” when no error applies.
+
+View all opens the full message-log page with search, filtering, sorting, pagination, and appropriate access controls. Logs should be generated from actual provider callbacks and message-service events.
+21. Error Logs
+Display an Error Logs table and a View all link. Visible columns:
+Column
+Requirements
+
+Time
+Timestamp with timezone.
+
+Phone Number
+Affected phone number.
+
+Error Code
+Provider/application error code.
+
+Error Message
+Readable error description.
+
+Screenshot examples include error codes 131009, 470, 131047, 132026, and 100, with messages such as Template not approved, Invalid phone number, Message rate limit exceeded, User has blocked the number, and Unknown error occurred. These are illustrative; map actual provider error codes to accurate descriptions and provide troubleshooting guidance where possible.
+22. Help Guide
+Provide a Help Guide button on both Contacts &amp; Segments and Settings &amp; Logs screens.
+Open relevant documentation, contextual help, or an in-app guide for the current view.
+Ensure the help destination is valid and accessible to the current user.
+23. Data, Security, Consent, and Permissions
+Use role-based access control for contacts, phone numbers, API credentials, templates, segments, message logs, billing data, and settings.
+Protect access tokens and verification secrets; never expose full secrets in ordinary page responses or logs.
+Enforce marketing opt-in/opt-out status. Unsubscribed contacts must be excluded from marketing campaigns unless a legally permitted and policy-compliant message category applies.
+Provide a reliable unsubscribe/opt-out update path and ensure changes propagate to campaign targeting promptly.
+Normalize phone numbers to international format and handle duplicates using a documented deduplication policy.
+Protect personally identifiable information and restrict exports to authorized roles.
+Validate all input on the server, sanitize text fields, and audit sensitive configuration changes.
+Use idempotency/deduplication for message sends and webhook processing to prevent duplicate messages or records.
+24. Suggested Data Model
+Integrate with existing application tables/services. If missing, model at least: contacts, contact identifiers and consent history, tags, segments and segment rules, contact-segment membership, customer/order aggregates, WhatsApp Business Account configuration, phone numbers, API credentials/secrets, webhook configuration and event subscriptions, message settings, message records, provider status events, error logs, usage/billing counters, team roles/permissions, and audit logs.
+Keep contact metrics, segment counts, charts, revenue rankings, message limits, phone-number status, and logs derived from real source data. Define timezone, date-range semantics, revenue calculation, contact deduplication, and status taxonomy consistently.
+25. Acceptance Criteria
+Contacts &amp; Segments shows the five contact metrics, tabs, search/filter controls, contacts table, contact detail panel, segment cards, status chart, and revenue ranking.
+Search and filters work together and update counts, rows, and pagination correctly.
+Selecting a contact loads the correct details. Editing notes/tags/segments saves and reloads correctly.
+Create/edit/delete segment operations work, and segment membership/counts follow the configured rules.
+Charts and revenue rankings use real data and clearly defined date ranges.
+API Configuration reports actual connection status and Test Connection performs a real test.
+Phone number, business profile, webhook, and message settings can be managed by authorized users.
+Webhook verification, event subscriptions, retries, and error handling work correctly.
+Message Logs and Error Logs show real records with accurate timestamps, statuses, and error mappings.
+Usage limits and billing renewal/reset dates reflect actual account configuration.
+Opt-out contacts are excluded from marketing sends, secrets are protected, and access permissions are enforced.
+26. Reference Image
+The complete original image supplied with this request is embedded below. It contains the Contacts &amp; Segments screen in the upper portion and the Settings &amp; Logs screen in the lower portion. Use it as the visual reference for page layout, sidebar navigation, metrics, tables, contact details, segment analytics, API configuration, phone numbers, business profile, webhook events, message settings, and logs.
+
+27. Implementation Decisions to Confirm
+Confirm the intended date-range order and whether dashboard metrics use the selected period, lifetime values, or both.
+Define whether Blocked Numbers is a distinct status from invalid/unsubscribed contacts and make chart categories mutually exclusive where needed.
+Confirm the official WhatsApp Business API provider integration, credential storage, supported phone-number limits, and subscription/usage source.
+Confirm which customer fields may be exported and which roles can view/edit notes, spending, consent, and phone numbers.
+Confirm exact segment-rule operators, refresh frequency, and revenue attribution period.
+Before release, provide a completed-feature checklist and list all items requiring store-owner approval.

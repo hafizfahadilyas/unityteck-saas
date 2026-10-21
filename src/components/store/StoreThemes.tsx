@@ -52,9 +52,14 @@ import {
 interface StoreThemesProps {
   onOpenStorefront?: () => void;
   onCustomizeTheme?: (targetThemeId?: string, targetPage?: string) => void;
+  onOpenThemeCustomizer?: (sectionId?: string) => void;
 }
 
-export const StoreThemes: React.FC<StoreThemesProps> = ({ onOpenStorefront, onCustomizeTheme }) => {
+export const StoreThemes: React.FC<StoreThemesProps> = ({
+  onOpenStorefront,
+  onCustomizeTheme,
+  onOpenThemeCustomizer,
+}) => {
   const {
     activeStore,
     themes,
@@ -512,6 +517,18 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({ onOpenStorefront, onCu
 
       {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b pb-3 overflow-x-auto" style={{ borderColor: 'var(--border)' }}>
+        {onOpenThemeCustomizer && (
+          <button
+            type="button"
+            onClick={() => onOpenThemeCustomizer('01_store_identity')}
+            className="px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 cursor-pointer transition-all shadow-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shrink-0 active:scale-[0.98]"
+            title={isAr ? 'فتح مخصص الثيم التفاعلي المباشر (WordPress Customizer)' : 'Launch Live WordPress Customizer'}
+          >
+            <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+            <span>{isAr ? 'فتح مخصص الثيم المباشر (WordPress Style)' : 'Launch Live Customizer'}</span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => setActiveTab('theme-settings')}
@@ -573,7 +590,10 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({ onOpenStorefront, onCu
       {/* TAB 0: THEME SETTINGS (ALL 18 SECTIONS MOCKUPS)           */}
       {/* ======================================================== */}
       {activeTab === 'theme-settings' && (
-        <ThemeSettingsMaster onOpenStorefront={onOpenStorefront} />
+        <ThemeSettingsMaster
+          onOpenStorefront={onOpenStorefront}
+          onOpenThemeCustomizer={onOpenThemeCustomizer}
+        />
       )}
 
       {/* ======================================================== */}
@@ -618,8 +638,10 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({ onOpenStorefront, onCu
                     {/* Visual UI Mockup Screenshot Frame with Hover Scroll */}
                     <div className="relative h-48 w-full overflow-hidden bg-slate-950 select-none border-b" style={{ borderColor: 'var(--border)' }}>
                       <img
-                        src={tmpl.thumbnail || '/theme-mockups/theme_flora_luxe_homepage_preview.svg'}
+                        src={(tmpl.thumbnail || '/theme-mockups/theme_flora_luxe_homepage_preview.svg').replace(/\.png$/, '.webp')}
                         alt={isAr ? tmpl.nameAr : tmpl.name}
+                        loading="lazy"
+                        decoding="async"
                         onError={(e) => handleImageError(e, '/theme-mockups/theme_flora_luxe_homepage_preview.svg')}
                         className="w-full h-[540px] object-cover object-top transition-transform duration-[3500ms] ease-in-out group-hover:translate-y-[-58%]"
                       />
@@ -990,8 +1012,10 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({ onOpenStorefront, onCu
                     {/* Visual Screenshot Frame with Smooth Hover Scroll */}
                     <div className="relative h-64 w-full overflow-hidden bg-slate-950 select-none border-b" style={{ borderColor: 'var(--border)' }}>
                       <img
-                        src={theme.thumbnail || '/theme-mockups/real_storefront_fullpage.png'}
+                        src={(theme.thumbnail || '/theme-mockups/real_storefront_fullpage.webp').replace(/\.png$/, '.webp')}
                         alt={themeTitle}
+                        loading="lazy"
+                        decoding="async"
                         onError={(e) => handleImageError(e, '/theme-mockups/real_storefront_fullpage.png')}
                         className="w-full h-auto min-h-full block object-cover object-top transition-transform duration-[6000ms] ease-in-out group-hover:translate-y-[-60%]"
                       />

@@ -55,6 +55,21 @@ export interface HeaderActionsSettings {
     placeholderAr: string;
     placeholderEn: string;
   };
+  wishlist?: {
+    enabled: boolean;
+    iconColor: string;
+    badgeBg: string;
+    badgeText: string;
+    showBadgeCount: boolean;
+  };
+  whatsapp?: {
+    enabled: boolean;
+    phoneNumber: string;
+    tooltipAr: string;
+    tooltipEn: string;
+    iconColor: string;
+    pulseAnimation: boolean;
+  };
   account: {
     enabled: boolean;
     showText: boolean;

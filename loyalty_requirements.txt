@@ -1,0 +1,208 @@
+
+Souq Loyalty ProgramDeveloper Implementation Requirements
+
+
+Purpose: Define the functional and technical requirements for implementing the Loyalty Program in the Souq merchant dashboard, including points earning, reward redemption, expiration, notifications, analytics, data structures, and validation.
+1. Objective and Scope
+Implement a working customer loyalty system connected to Souq customers, orders, checkout, and merchant settings. Merchants must be able to configure how customers earn points, define rewards and eligibility conditions, manage expiration and notifications, and review program performance. The interface must not rely on hard-coded production metrics or balances.
+2. Dashboard KPI Cards
+Metric
+Definition / expected behavior
+Implementation note
+
+Contribution to Sales
+Share of eligible sales attributed to the loyalty program.
+Define which orders count as loyalty-attributed and use the same rule across the dashboard.
+
+Orders from Points
+Number of orders that used points or loyalty rewards.
+Specify whether this includes any reward redemption or points used directly as payment.
+
+Total Redeemed Rewards
+Display redeemed reward activity.
+Clarify whether the value represents reward count or points redeemed; these are different metrics.
+
+Total Points Issued
+Total points awarded within the selected period.
+Use point transaction records and prevent duplicate awarding.
+
+Registered Customers
+Number of customers enrolled in the loyalty program.
+Define whether this is the total enrolled base or new registrations within the selected period.
+
+3. Charts and Activity Feed
+3.1 Loyalty Program Performance
+Provide a time-series chart showing the configured sales and orders-from-points measures over the selected date range. Support an appropriate time granularity and compare with the previous equivalent period where required.
+3.2 Points Usage by Reward Type
+Display the distribution of redeemed points by reward type, such as product discount, free shipping, free product, fixed discount, and other configured types. Percentages must be calculated from actual redemption transactions and should total approximately 100% when all types are included.
+3.3 Recent Activities
+Show recent events such as customer enrollment, points awarded for an order, reward redemption, and points balance updates. Include event status, timestamp, and relevant context, with access controlled by merchant permissions. Provide a View All page if supported.
+4. Ways to Earn Points
+Provide a configurable list of earning rules. Each rule must have a method, points value, active/inactive state, and any method-specific settings.
+Purchase from online store — award points only when an eligible order reaches the configured qualifying status.
+Share store link — award points only when a verifiable qualifying action occurs; do not award points merely because a button was clicked.
+Allow authorized merchants to add, edit, enable, or disable supported earning methods.
+Prevent duplicate awards for the same qualifying event using unique event/order identifiers or idempotency controls.
+Define how cancellations, refunds, partial refunds, and failed payments affect previously awarded points.
+5. Reward Management — Create New Reward
+Field
+Expected behavior
+
+Reward Type
+Support the reward types implemented by Souq, such as percentage/amount discount, free shipping, and free product.
+
+Reward Name
+Required name shown in the merchant dashboard and, where appropriate, to customers.
+
+Description
+Description of the reward and its conditions.
+
+Points Required for Redemption
+Required positive integer or configured points precision; validate before saving.
+
+Reward Image
+Optional or required according to the product design. Validate file type, size, and dimensions.
+
+Status
+Allow rewards to be enabled or disabled without deleting historical redemption records.
+
+6. Reward Conditions
+Minimum spending amount: define the eligible subtotal and whether tax, shipping, and fees are excluded.
+Maximum spending amount: apply only when configured and validate against the same subtotal definition.
+Included items: allow selecting eligible products or categories.
+Excluded items: allow selecting products or categories that cannot qualify.
+Support searchable multi-select controls for product/category selection.
+Validate conditions on the server against the current cart, not only in the browser.
+Define behavior for mixed carts containing eligible and ineligible items.
+7. Loyalty Program Settings
+Setting
+Expected behavior
+
+Enable loyalty program
+Enable or disable earning and redemption according to an explicitly defined policy. Disabling the program must not silently delete customer balances.
+
+App notifications
+Send supported in-app notifications for qualifying points/reward events, respecting customer preferences.
+
+Email notifications
+Send supported email messages for loyalty events or promotional rewards, respecting consent and notification preferences.
+
+Points expiration
+Configure the expiration policy and apply it to eligible point lots/transactions. Record expiration as an auditable transaction.
+
+8. Reminder Configuration
+Configure how many days before points expire a reminder should be sent.
+Allow supported delivery channels: email, SMS, and app notifications; an “All” option should select only configured and permitted channels.
+Provide localized message subject and body fields, with language support such as English (EN) and additional languages as configured.
+Schedule reminders using a background job and the store's configured timezone.
+Prevent duplicate reminders for the same customer and expiring points batch.
+Log delivery status and handle provider failures with retry rules that avoid duplicate sends.
+9. Points Ledger and Redemption Flow
+Maintain an auditable points ledger rather than relying only on a mutable balance field. The balance may be cached for performance, but it must reconcile with the transaction ledger.
+Receive a qualifying event from the order or supported earning method.
+Verify the event, customer, store, and earning rule.
+Check whether the event has already been processed.
+Write a points-credit transaction and update the available balance atomically.
+When redeeming a reward, verify the reward is active and all conditions are satisfied.
+Verify the customer has enough available points and reserve/debit them atomically.
+Apply the configured reward to the checkout/order and create a redemption record.
+If checkout fails or the order is cancelled, apply the documented release/reversal policy.
+Use database transactions, unique constraints, idempotency keys, or an equivalent concurrency-safe strategy to prevent duplicate credits, double redemption, and negative balances.
+10. Suggested Data Model
+loyalty_settings
+store_id, enabled, expiration_policy, notification_preferences, configuration fields
+loyalty_customers
+store_id, customer_id, enrolled_at, cached_available_balance (optional)
+points_transactions
+id, store_id, customer_id, transaction_type, points_delta, reason, source_event_id, order_id, expires_at, created_at
+loyalty_earning_rules
+id, store_id, method, points_value, status, method_config
+loyalty_rewards
+id, store_id, name, description, reward_type, reward_config, points_required, image_asset_id, status
+reward_conditions
+reward_id, minimum_spend, maximum_spend, included_items, excluded_items, condition_config
+reward_redemptions
+id, store_id, customer_id, reward_id, order_id, points_used, discount_value, status, created_at
+loyalty_notifications
+id, store_id, customer_id, event_type, channel, template_language, status, sent_at, deduplication_key
+loyalty_activity_log
+id, store_id, actor/customer reference, event_type, related_entity_id, timestamp, safe metadata
+Adapt these structures to the existing Souq schema. Reuse existing stores, customers, orders, products, categories, and media entities. Every read/write operation must enforce store-level isolation and role-based authorization.
+11. Suggested API Operations
+GET /api/loyalty/dashboard?from=YYYY-MM-DD&amp;to=YYYY-MM-DD
+GET /api/loyalty/settings
+PATCH /api/loyalty/settings
+GET /api/loyalty/earning-rules
+POST /api/loyalty/earning-rules
+PATCH /api/loyalty/earning-rules/{id}
+GET /api/loyalty/rewards
+POST /api/loyalty/rewards
+PATCH /api/loyalty/rewards/{id}
+POST /api/loyalty/rewards/{id}/redeem
+GET /api/loyalty/customers/{id}/points
+GET /api/loyalty/activities
+These routes are illustrative. Follow the existing Souq API conventions, authentication, authorization, validation, and error-response formats.
+12. Analytics Definitions
+Metric
+Definition / implementation rule
+
+Contribution to Sales
+Eligible loyalty-attributed sales divided by eligible total sales, multiplied by 100. Define attribution rules.
+
+Orders from Points
+Count of eligible orders that used points or loyalty rewards, based on the documented definition.
+
+Total Redeemed Rewards
+Choose and label either redemption count or points redeemed; do not mix units.
+
+Total Points Issued
+Sum of valid point-credit transactions during the selected period, excluding duplicate events and any reversed credits according to policy.
+
+Registered Customers
+Clearly label whether this is total enrolled customers or new enrollments during the selected period.
+
+Points Usage by Reward Type
+Points redeemed for each reward type divided by total points redeemed in the same scope.
+
+Period-over-period change
+Compare with the immediately preceding equivalent period; handle a zero previous value as “New” or “—”.
+
+13. Security, Privacy, and Reliability
+Enforce store/tenant isolation for all customer balances, rewards, transactions, analytics, and exports.
+Apply role-based permissions to settings, earning rules, rewards, and customer loyalty data.
+Do not expose sensitive customer information in activity feeds or logs unnecessarily.
+Respect applicable privacy requirements and notification consent/preferences.
+Use a store-configured timezone for expiry and reminder scheduling.
+Use idempotency and concurrency protection for points issuance, expiration, and redemption.
+Keep an auditable record for credits, debits, expiration, reversals, and administrative adjustments.
+Provide clear loading, empty, partial-data, success, and error states.
+14. Acceptance Criteria
+Merchants can enable/disable the program without losing existing balances.
+Earning rules can be created, edited, activated, and deactivated.
+Points are awarded only for qualifying events and never duplicated for the same event.
+Rewards can be created with valid point costs, types, images, and conditions.
+Reward eligibility is checked on the server against the current cart and customer balance.
+Concurrent requests cannot cause duplicate redemptions or negative balances.
+Expiration is auditable and reminders are not sent repeatedly for the same expiry event.
+Dashboard metrics and charts use real records and respond to the selected date range.
+Metric labels clearly distinguish points, reward counts, orders, and monetary sales.
+Store isolation, role permissions, and notification preferences are tested.
+Cancellation/refund and failed-checkout behavior follows a documented policy.
+15. Recommended Implementation Phases
+Phase 1 — Points foundation
+Implement earning rules, point ledger, balance calculations, idempotency, and order event integration.
+Phase 2 — Reward management
+Implement reward CRUD, reward conditions, redemption validation, and checkout integration.
+Phase 3 — Program settings
+Implement enable/disable behavior, expiration policies, and notification preferences.
+Phase 4 — Reminders and notifications
+Implement templates, scheduled reminders, delivery logging, and duplicate prevention.
+Phase 5 — Analytics dashboard
+Implement KPI APIs, charts, activity feed, date filters, and export if required.
+Phase 6 — QA and hardening
+Test balances, concurrency, refunds, expiration, permissions, privacy, and tenant isolation.
+16. Final Implementation Notes
+Use the supplied screenshot as a UI/workflow reference; it does not define all business rules.
+Reuse existing Souq customer, order, checkout, notification, and media systems where possible.
+Document qualifying order status, points rounding, expiry policy, redemption reversal, eligible sales, and notification rules before release.
+The loyalty program must be enforced server-side; hiding or disabling UI controls is not sufficient security.

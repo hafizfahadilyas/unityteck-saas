@@ -1,6 +1,12 @@
 import React from 'react';
 import type { InvoiceDocument, InvoiceTemplateConfig, InvoiceLineItem } from '../../../../types/invoices';
 import { AlertOctagon, XCircle, Clock, ShieldAlert, Phone, Mail, MapPin, AlertCircle, CheckCircle2 } from 'lucide-react';
+import {
+  getLocalizedItemName,
+  getCustomerDisplayName,
+  getLocalizedAddress,
+} from '../../../../utils/storeLocalization';
+import { formatInvoiceDate } from '../../../../utils/zatca';
 
 interface TemplateProps {
   document: InvoiceDocument;
@@ -15,7 +21,7 @@ export const CancellationRecordTemplate: React.FC<TemplateProps> = ({ document, 
     <div
       className="bg-white text-slate-900 w-full min-h-[1050px] p-8 sm:p-12 flex flex-col justify-between select-text"
       style={{
-        fontFamily: isAr ? 'Tajawal, Cairo, sans-serif' : 'Inter, sans-serif',
+        fontFamily: isAr ? "'Cairo', 'Tajawal', sans-serif" : 'Inter, sans-serif',
       }}
       dir={isAr ? 'rtl' : 'ltr'}
     >
@@ -48,10 +54,12 @@ export const CancellationRecordTemplate: React.FC<TemplateProps> = ({ document, 
         <div className="flex items-start justify-between border-b pb-6" style={{ borderColor: '#e2e8f0' }}>
           <div className="space-y-1">
             <h1 className="text-xl font-black text-slate-900">
-              {isAr ? document.seller.nameAr || document.seller.name : document.seller.name}
+              {isAr ? document.seller.nameAr || document.seller.name : document.seller.nameEn || document.seller.name}
             </h1>
             <p className="text-xs text-slate-500">
-              {isAr ? document.seller.addressAr || document.seller.address : document.seller.address}
+              {isAr
+                ? document.seller.addressAr || document.seller.address
+                : document.seller.addressEn || getLocalizedAddress(document.seller.address, 'en')}
             </p>
             <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 pt-1">
               {document.seller.vatNumber && (
@@ -93,11 +101,14 @@ export const CancellationRecordTemplate: React.FC<TemplateProps> = ({ document, 
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
               {isAr ? 'تاريخ الإلغاء' : 'Cancellation Date'}
             </span>
-            <p className="text-sm font-semibold text-slate-800 mt-1">
-              {new Date(document.cancellationDate || document.issueDate).toLocaleDateString(
-                isAr ? 'ar-SA' : 'en-US',
-                { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }
-              )}
+            <p className="text-sm font-semibold text-slate-800 mt-1 whitespace-nowrap" dir={isAr ? 'rtl' : 'ltr'}>
+              {formatInvoiceDate(document.cancellationDate || document.issueDate, locale, {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
             </p>
           </div>
 
@@ -106,9 +117,15 @@ export const CancellationRecordTemplate: React.FC<TemplateProps> = ({ document, 
               {isAr ? 'بيانات العميل' : 'Customer Details'}
             </span>
             <p className="text-sm font-bold text-slate-900 mt-1">
-              {isAr ? document.buyer.nameAr || document.buyer.name : document.buyer.name}
+              {isAr
+                ? document.buyer.nameAr || document.buyer.name
+                : document.buyer.nameEn || getCustomerDisplayName(document.buyer.name, 'en')}
             </p>
-            {document.buyer.phone && <p className="text-xs text-slate-600 dir-ltr">{document.buyer.phone}</p>}
+            {document.buyer.phone && (
+              <p className="text-xs text-slate-600 font-mono text-start mt-0.5">
+                <span dir="ltr" className="inline-block">{document.buyer.phone}</span>
+              </p>
+            )}
           </div>
 
           <div>
@@ -144,8 +161,8 @@ export const CancellationRecordTemplate: React.FC<TemplateProps> = ({ document, 
           <p className="text-sm font-semibold text-slate-900 leading-relaxed">
             {document.cancellationReason ||
               (isAr
-                ? 'تم الإلغاء بناءً على طلب العميل قبل بدء تجهيز باقة الورود.'
-                : 'Cancelled per customer request prior to arrangement preparation.')}
+                ? 'تم الإلغاء رسمياً بناءً على طلب العميل قبل بدء تجهيز الشحنة.'
+                : 'Officially cancelled per customer request prior to dispatch processing.')}
           </p>
         </div>
 
@@ -169,7 +186,7 @@ export const CancellationRecordTemplate: React.FC<TemplateProps> = ({ document, 
                 <tr key={item.id || idx}>
                   <td className="py-3 px-2 font-mono text-slate-400">{idx + 1}</td>
                   <td className="py-3 px-2 font-medium text-slate-800 line-through">
-                    {isAr ? item.nameAr || item.name : item.name}
+                    {isAr ? item.nameAr || item.name : item.nameEn || getLocalizedItemName(item, 'en')}
                   </td>
                   <td className="py-3 px-2 font-mono text-slate-500">{item.sku || '—'}</td>
                   <td className="py-3 px-2 text-center font-bold text-slate-900">{item.quantity}</td>

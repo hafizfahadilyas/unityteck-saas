@@ -1,9 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
+import { useTenant } from '../../../context/TenantContext';
+import { readAllThemeSettings } from '../../settings/themeSettingsStore';
 import {
   Search,
   ShoppingBag,
   User,
+  Heart,
+  MessageCircle,
   X,
   ChevronRight,
   ChevronLeft,
@@ -16,7 +20,7 @@ import {
   Palette
 } from 'lucide-react';
 
-type MegaMenuKey = 'machines' | 'mills' | 'cabinets' | 'accessories' | 'offers' | 'custom-order' | 'explore' | null;
+type MegaMenuKey = 'machines' | 'mills' | 'cabinets' | 'accessories' | 'offers' | 'explore' | null;
 
 interface MegaProductItem {
   id: string;
@@ -25,612 +29,6 @@ interface MegaProductItem {
   image: string;
   isNew: boolean;
 }
-
-// 100% Curated 5 products for every category and every sub-filter
-const MEGA_CATALOG: Record<string, Record<string, MegaProductItem[]>> = {
-  machines: {
-    latest: [
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew Barista Pro H7A Dual-Boiler',
-        nameAr: 'ماكينة بارستا برو H7A دبل بويلر 20 بار',
-        image: './src/assets/images/hibrew_h7a_flagship_machine.png',
-        isNew: true
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew H10A Pro Dual PID',
-        nameAr: 'ماكينة هايبرو H10A بنظام PID المزدوج',
-        image: './src/assets/images/hibrew_espresso_isolated.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew H10B Barista Master 58mm',
-        nameAr: 'ماكينة بارستا ماستر بمقبس تجاري 58مم',
-        image: './src/assets/images/product_machine_silver_pro.png',
-        isNew: false
-      },
-      {
-        id: 'hb-h4a-portable-travel',
-        name: 'HiBrew H4A Portable 4-in-1 Espresso',
-        nameAr: 'ماكينة القهوة المحمولة 4 في 1 للسفر',
-        image: './src/assets/images/hibrew_h4a_portable_isolated.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew H11 Semi-Automatic 19-Bar',
-        nameAr: 'ماكينة هايبرو H11 الإيطالية 19 بار',
-        image: './src/assets/images/product_machine_compact_black.png',
-        isNew: false
-      }
-    ],
-    pro: [
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew Barista Pro H7A Dual-Boiler',
-        nameAr: 'ماكينة بارستا برو H7A دبل بويلر 20 بار',
-        image: './src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew H10A Pro Dual PID',
-        nameAr: 'ماكينة هايبرو H10A بنظام PID المزدوج',
-        image: './src/assets/images/hero_hibrew_espresso_1791217182679.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew Touchscreen PID Commercial',
-        nameAr: 'ماكينة اللمس الذكية PID للتحكم الحراري',
-        image: './src/assets/images/hibrew_barista_pro_details_showcase_1791364980884.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew Dual Thermo Pressure Gauge',
-        nameAr: 'ماكينة مقياس الضغط واستخلاص الكريمة',
-        image: './src/assets/images/barista_crema_macro_1791363328316.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew Pro Walnut Wood Edition',
-        nameAr: 'ماكينة برو إصدار خشب الجوز الفاخر',
-        image: './src/assets/images/espresso_wood_pitcher_1791363392554.jpg',
-        isNew: true
-      }
-    ],
-    compact: [
-      {
-        id: 'hb-h4a-portable-travel',
-        name: 'HiBrew H4A Portable 4-in-1 Espresso',
-        nameAr: 'ماكينة القهوة المحمولة 4 في 1 للسفر',
-        image: './src/assets/images/hero_multicapsule_portable_1791217213863.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew H2B 5-in-1 Multi-Capsule',
-        nameAr: 'ماكينة كبسولات متعددة 5 في 1 مدمجة',
-        image: './src/assets/images/saudi_cafe_machine_1791363309148.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew H1A Compact 3-in-1 Pod Maker',
-        nameAr: 'ماكينة هايبرو H1A المدمجة السريعة',
-        image: './src/assets/images/hero_hibrew_espresso_1791217182679.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew H11 Slim 19-Bar Italian',
-        nameAr: 'ماكينة هايبرو H11 سليم ستانلس ستيل',
-        image: './src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-h4a-portable-travel',
-        name: 'HiBrew H4B Car & Camping Espresso',
-        nameAr: 'ماكينة السيارة والتخييم مع كابل 12V',
-        image: './src/assets/images/hero_multicapsule_portable_1791217213863.jpg',
-        isNew: false
-      }
-    ],
-    commercial: [
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew Commercial 58mm Dual Boiler',
-        nameAr: 'ماكينة 58مم التجارية دبل بويلر ULKA',
-        image: './src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew H10A Rotary Pump Dual Group',
-        nameAr: 'ماكينة بمضخة روتاري تجارية هادئة',
-        image: './src/assets/images/hibrew_barista_pro_details_showcase_1791364980884.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew E61 Saturated Brass Group',
-        nameAr: 'رأس استخلاص نحاسي E61 مشبع بالحرارة',
-        image: './src/assets/images/hero_hibrew_espresso_1791217182679.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew Cafe Pro Master Espresso Bar',
-        nameAr: 'محطة الكافيه الاحترافية المتكاملة',
-        image: './src/assets/images/saudi_cafe_machine_1791363309148.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'HiBrew Commercial Microfoam Steamer',
-        nameAr: 'ماكينة التبخير الجاف 3 فتحات للاتيه',
-        image: './src/assets/images/barista_milk_steaming_1791363367164.jpg',
-        isNew: false
-      }
-    ]
-  },
-  mills: {
-    latest: [
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'HiBrew Conical Burr Coffee Mill G5',
-        nameAr: 'مطحنة بن هايبرو G5 بتروس مخروطية',
-        image: './src/assets/images/hibrew_grinder_isolated.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'HiBrew G3 Flat Burr 64mm Mill',
-        nameAr: 'مطحنة التروس المسطحة 64مم فلات بير',
-        image: './src/assets/images/hibrew_grinder_silver.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'HiBrew G4 Pro Zero-Retention Single',
-        nameAr: 'مطحنة الاحتباس الصفري مع مضخة تفريغ',
-        image: './src/assets/images/hibrew_grinder_isolated.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-v60-complete-kit',
-        name: 'HiBrew CNC Titanium Precision Hand Mill',
-        nameAr: 'مطحنة يدوية تروس تيتانيوم خماسية CNC',
-        image: './src/assets/images/hibrew_grinder_silver.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'HiBrew Stepless Low-RPM Commercial Mill',
-        nameAr: 'مطحنة تجارية دوران بطيء مانع للحرارة',
-        image: './src/assets/images/hibrew_grinder_isolated.jpg',
-        isNew: false
-      }
-    ],
-    conical: [
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'HiBrew G5 40mm Titanium Conical Mill',
-        nameAr: 'مطحنة G5 تروس تيتانيوم 40 ملم مخروطية',
-        image: './src/assets/images/coffee_grinder_mill_banner_1791218928342.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'HiBrew G5 Pro Anti-Static Bellows',
-        nameAr: 'مطحنة G5 برو مع مضخة سيليكون هوائية',
-        image: './src/assets/images/coffee_grinder_mill_banner_1791218928342.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'HiBrew G2 Conical Burr Daily Espresso',
-        nameAr: 'مطحنة مخروطية للإسبريسو اليومي والفلتر',
-        image: './src/assets/images/coffee_grinder_mill_banner_1791218928342.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-v60-complete-kit',
-        name: 'HiBrew Compact Travel Conical Grinder',
-        nameAr: 'مطحنة مخروطية مدمجة للرحلات والمكتب',
-        image: './src/assets/images/saudi_national_day_coffee_hero_1791364192381.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'HiBrew 48mm Italian Conical Burrs',
-        nameAr: 'تروس إيطالية مخروطية 48 ملم عالية الصلابة',
-        image: './src/assets/images/coffee_grinder_mill_banner_1791218928342.jpg',
-        isNew: true
-      }
-    ],
-    flat: [
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'HiBrew G3 64mm Titanium Flat Burr',
-        nameAr: 'مطحنة تروس مسطحة 64مم مطلية تيتانيوم',
-        image: './src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'HiBrew G4 Flat Burr Commercial Hopper',
-        nameAr: 'مطحنة فلات بير مع هوبر تجاري 250 جرام',
-        image: './src/assets/images/coffee_grinder_mill_banner_1791218928342.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'HiBrew Ultra-Uniform Single Dose 54mm',
-        nameAr: 'مطحنة سينجل دوز 54مم تناسق فائق',
-        image: './src/assets/images/coffee_grinder_mill_banner_1791218928342.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'HiBrew Lab Precision Flat Burr Espresso',
-        nameAr: 'مطحنة مسطحة بدقة مخبرية لتحضير V60',
-        image: './src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'HiBrew DLC Coated Commercial Flat',
-        nameAr: 'تروس كربونية DLC مقاومة للاحتكاك والحرارة',
-        image: './src/assets/images/coffee_grinder_mill_banner_1791218928342.jpg',
-        isNew: true
-      }
-    ]
-  },
-  cabinets: {
-    latest: [
-      {
-        id: 'hb-cabinet-solid-oak',
-        name: 'Artisan Fluted Oak Coffee Cabinet',
-        nameAr: 'دولاب ركن القهوة خشب البلوط المضلع',
-        image: './src/assets/images/hero_coffee_corner_cabinet_1791217199146.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-corner-station-led',
-        name: 'Barista Corner Station Sintered Stone',
-        nameAr: 'ركن باريستا متكامل مع سطح بورسلان حراري',
-        image: './src/assets/images/coffee_corner_luxury_station_1791219182840.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-cabinet-solid-oak',
-        name: 'Luxury Floating Espresso Bar with LED',
-        nameAr: 'بار إسبريسو جداري معلق بإضاءة دافئة',
-        image: './src/assets/images/hero_coffee_corner_cabinet_1791217199146.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-corner-station-led',
-        name: 'Mobile Barista Hardwood Cart on Wheels',
-        nameAr: 'عربة باريستا متحركة بعجلات نحاسية',
-        image: './src/assets/images/coffee_corner_luxury_station_1791219182840.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-cabinet-solid-oak',
-        name: 'Grand Barista Corner Cabinet Deluxe',
-        nameAr: 'دولاب ركن القهوة الملكي مع منافذ كهرباء',
-        image: './src/assets/images/hero_coffee_corner_cabinet_1791217199146.jpg',
-        isNew: true
-      }
-    ],
-    cabinets: [
-      {
-        id: 'hb-cabinet-solid-oak',
-        name: 'Artisan Fluted Oak Cabinet 140cm',
-        nameAr: 'دولاب قهوة خشب بلوط مضلع 140 سم',
-        image: './src/assets/images/hero_coffee_corner_cabinet_1791217199146.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-corner-station-led',
-        name: 'Solid Walnut Double Door Coffee Bar',
-        nameAr: 'خزانة قهوة خشب جوز طبيعي ببابين',
-        image: './src/assets/images/coffee_corner_luxury_station_1791219182840.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-cabinet-solid-oak',
-        name: 'Warm Oak Tempered Glass Cabinet',
-        nameAr: 'دولاب زجاج حراري لعرض الأكواب والمكائن',
-        image: './src/assets/images/hero_coffee_corner_cabinet_1791217199146.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-corner-station-led',
-        name: 'Porcelain Top Sintered Stone Cupboard',
-        nameAr: 'طاولة قهوة بسطح حجري مقاوم للبقع',
-        image: './src/assets/images/coffee_corner_luxury_station_1791219182840.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-cabinet-solid-oak',
-        name: 'Minimalist Nordic Oak Coffee Console',
-        nameAr: 'كونسول قهوة بتصميم نورديك عصري بسيط',
-        image: './src/assets/images/hero_coffee_corner_cabinet_1791217199146.jpg',
-        isNew: false
-      }
-    ],
-    corners: [
-      {
-        id: 'hb-corner-station-led',
-        name: 'Barista Corner Station Sintered Stone',
-        nameAr: 'محطة ركن القهوة الذكية مع رفوف علوية',
-        image: './src/assets/images/coffee_corner_luxury_station_1791219182840.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-cabinet-solid-oak',
-        name: 'L-Shaped Luxury Coffee Corner Cabinet',
-        nameAr: 'ركن قهوة زاوية حرف L للصالات والمكاتب',
-        image: './src/assets/images/hero_coffee_corner_cabinet_1791217199146.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-corner-station-led',
-        name: 'Barista Island Station with Outlets',
-        nameAr: 'محطة جزيرة باريستا مع توصيلات مدمجة',
-        image: './src/assets/images/coffee_corner_luxury_station_1791219182840.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-cabinet-solid-oak',
-        name: 'Compact 100cm Coffee Corner Station',
-        nameAr: 'ركن قهوة مدمج 100 سم للشقق والغرف',
-        image: './src/assets/images/hero_coffee_corner_cabinet_1791217199146.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-corner-station-led',
-        name: 'Full Home Cafe Deluxe Barista Corner',
-        nameAr: 'ركن الكافيه المنزلي الفاخر بإضاءة ليد مخفية',
-        image: './src/assets/images/coffee_corner_luxury_station_1791219182840.jpg',
-        isNew: true
-      }
-    ]
-  },
-  accessories: {
-    latest: [
-      {
-        id: 'hb-boltfilter-58-naked',
-        name: '58mm Naked Walnut Boltfilter',
-        nameAr: 'بورتافلتر مكشوف 58 ملم خشب الجوز',
-        image: './src/assets/images/hibrew_portafilter_isolated.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-ceramic-cups-set',
-        name: 'Artisan Stoneware Ceramic Cup Set',
-        nameAr: 'طقم أكواب سيراميك حجري مع صحون خشب',
-        image: './src/assets/images/hibrew_ceramic_cup_isolated.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-smart-scale-timer',
-        name: 'Precision Barista Smart Scale Timer',
-        nameAr: 'ميزان القهوة الذكي مع مؤقت التدفق 0.1g',
-        image: './src/assets/images/hibrew_scale_isolated.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-barista-tools-pro',
-        name: 'Constant Pressure 30lb Spring Tamper',
-        nameAr: 'تامبر تسوية أوتوماتيكي بضغط ثابت 30lb',
-        image: './src/assets/images/hibrew_barista_kit_isolated.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-v60-complete-kit',
-        name: 'Crystal Glass Dripper & Server Kit',
-        nameAr: 'طقم قمع ترشيح كريستال وسيرفر زجاجي',
-        image: './src/assets/images/hibrew_v60_isolated.jpg',
-        isNew: false
-      }
-    ],
-    boltfilters: [
-      {
-        id: 'hb-boltfilter-58-naked',
-        name: '58mm Naked Walnut Bottomless Filter',
-        nameAr: 'بورتافلتر مكشوف 58 ملم خشب جوز طبيعي',
-        image: './src/assets/images/coffee_portafilter_boltfilter_1791218943846.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-boltfilter-58-naked',
-        name: '58mm Double Spout Ergonomic Portafilter',
-        nameAr: 'بورتافلتر مخرج مزدوج بمقبض مريح',
-        image: './src/assets/images/coffee_portafilter_boltfilter_1791218943846.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-boltfilter-58-naked',
-        name: '58mm Dark Ebony Hardwood Filter',
-        nameAr: 'بورتافلتر بمقبض خشب الأبنوس الأسود',
-        image: './src/assets/images/coffee_portafilter_boltfilter_1791218943846.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-boltfilter-58-naked',
-        name: '58.4mm Micro-Laser Precision Basket 18g',
-        nameAr: 'باسكت دقيق الفتحات بالليزر مقاس 18 جرام',
-        image: './src/assets/images/coffee_portafilter_boltfilter_1791218943846.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-boltfilter-58-naked',
-        name: '58mm Puck Screen Stainless Steel Mesh',
-        nameAr: 'شبكة توزيع المياه ومصفاة البك سكرين 58مم',
-        image: './src/assets/images/coffee_portafilter_boltfilter_1791218943846.jpg',
-        isNew: true
-      }
-    ],
-    cups: [
-      {
-        id: 'hb-ceramic-cups-set',
-        name: 'Artisan Stoneware Ceramic Cup Set',
-        nameAr: 'طقم أكواب سيراميك حجري مع صحون خشب',
-        image: './src/assets/images/product_ceramic_cups_set_1791217230149.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-ceramic-cups-set',
-        name: 'Matte Espresso Cup with Wooden Saucer',
-        nameAr: 'كوب إسبريسو 80 مل أسود مطفي مع صحن',
-        image: './src/assets/images/product_ceramic_cups_set_1791217230149.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-ceramic-cups-set',
-        name: 'Flat White & Cortado Ceramic Cup 180ml',
-        nameAr: 'كوب فلات وايت وكورتادو سيراميك 180 مل',
-        image: './src/assets/images/product_ceramic_cups_set_1791217230149.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-ceramic-cups-set',
-        name: 'Latte Art Wide-Rim Ceramic Mug 250ml',
-        nameAr: 'كوب لاتيه عريض الحافة لرسم اللاتيه آرت',
-        image: './src/assets/images/product_ceramic_cups_set_1791217230149.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-v60-complete-kit',
-        name: 'Royal Saudi Emerald Heritage Cup Set',
-        nameAr: 'طقم فناجين اليوم الوطني الأخضر والذهبي',
-        image: './src/assets/images/saudi_national_day_coffee_hero_1791364192381.jpg',
-        isNew: true
-      }
-    ],
-    tools: [
-      {
-        id: 'hb-barista-tools-pro',
-        name: 'Constant Pressure 30lb Spring Tamper',
-        nameAr: 'تامبر تسوية أوتوماتيكي بضغط ثابت 30 باوند',
-        image: './src/assets/images/coffee_barista_accessories_set_1791219198302.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-barista-tools-pro',
-        name: 'Magnetic WDT Tool with 8 Needles',
-        nameAr: 'مفكك تكتلات القهوة المغناطيسي 8 إبر',
-        image: './src/assets/images/coffee_barista_accessories_set_1791219198302.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-barista-tools-pro',
-        name: 'Teflon Sharp-Spout Milk Pitcher 450ml',
-        nameAr: 'بتشر تبخير تيفلون بفتحة صب دقيقة للرسم',
-        image: './src/assets/images/espresso_wood_pitcher_1791363392554.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-smart-scale-timer',
-        name: 'Precision Barista Smart Scale Timer',
-        nameAr: 'ميزان إلكتروني بمؤقت ذكي وحساس 0.1 جرام',
-        image: './src/assets/images/coffee_barista_accessories_set_1791219198302.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-barista-tools-pro',
-        name: 'Solid Walnut Barista Tamping Mat',
-        nameAr: 'قاعدة كبس وتنظيم أدوات من خشب الجوز',
-        image: './src/assets/images/coffee_barista_accessories_set_1791219198302.jpg',
-        isNew: true
-      }
-    ]
-  },
-  offers: {
-    latest: [
-      {
-        id: 'hb-v60-complete-kit',
-        name: 'Royal Saudi 96 V60 Pour-Over Set',
-        nameAr: 'بكج التقطير الملكي V60 وغلاية التحكم الرقمي',
-        image: './src/assets/images/hibrew_v60_isolated.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-h4a-portable-travel',
-        name: 'HiBrew H4A Portable Travel Espresso Kit',
-        nameAr: 'بكج السفر المتكامل مع حقيبة وكابل 12V',
-        image: './src/assets/images/hibrew_h4a_portable_isolated.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'Complete Home Barista Master Station',
-        nameAr: 'بكج محطة الباريستا المتكاملة (ماكينة + مطحنة)',
-        image: './src/assets/images/hibrew_h7a_flagship_machine.png',
-        isNew: true
-      },
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'Specialty Espresso Duo Pack (H10A + G5)',
-        nameAr: 'عرض الثنائي الذهبي: ماكينة H10A + مطحنة G5',
-        image: './src/assets/images/hibrew_grinder_isolated.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-ceramic-cups-set',
-        name: 'Dual Cup & Pitcher Barista Gift Set',
-        nameAr: 'بوكس الهدايا: أكواب سيراميك + بتشر تبخير',
-        image: './src/assets/images/hibrew_ceramic_cup_isolated.jpg',
-        isNew: true
-      }
-    ],
-    bundles: [
-      {
-        id: 'hb-h10a-dualboiler',
-        name: 'Complete Home Barista Master Station',
-        nameAr: 'بكج محطة الباريستا المتكاملة (ماكينة + مطحنة)',
-        image: './src/assets/images/hibrew_h7a_flagship_machine.png',
-        isNew: true
-      },
-      {
-        id: 'hb-v60-complete-kit',
-        name: 'Royal Saudi 96 V60 Pour-Over Set',
-        nameAr: 'بكج التقطير الملكي V60 وغلاية التحكم الرقمي',
-        image: './src/assets/images/hibrew_v60_isolated.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-h4a-portable-travel',
-        name: 'HiBrew H4A Portable Travel Espresso Kit',
-        nameAr: 'بكج السفر المتكامل مع حقيبة وكابل 12V',
-        image: './src/assets/images/hibrew_h4a_portable_isolated.jpg',
-        isNew: true
-      },
-      {
-        id: 'hb-barista-tools-pro',
-        name: 'Barista Pro Puck Prep Complete Set',
-        nameAr: 'بكج أدوات تحضير البك المتكاملة (8 قطع)',
-        image: './src/assets/images/hibrew_barista_kit_isolated.jpg',
-        isNew: false
-      },
-      {
-        id: 'hb-mill-g5-pro',
-        name: 'Specialty Espresso Duo Pack (H10A + G5)',
-        nameAr: 'عرض الثنائي الذهبي: ماكينة H10A + مطحنة G5',
-        image: './src/assets/images/hibrew_grinder_isolated.jpg',
-        isNew: true
-      }
-    ]
-  }
-};
 
 export const Header: React.FC = () => {
   const {
@@ -645,8 +43,86 @@ export const Header: React.FC = () => {
     setLanguage,
     toggleLanguage,
     currentRoute,
-    user
+    user,
+    products
   } = useCart();
+
+  // Dynamic Mega Catalog computed from live products (100% PNG & auto-updating from Dashboard)
+  const dynamicMegaCatalog = useMemo(() => {
+    const catalog: Record<string, Record<string, MegaProductItem[]>> = {
+      machines: { latest: [], pro: [], compact: [] },
+      mills: { latest: [], electric: [], manual: [] },
+      cabinets: { latest: [], modern: [], luxury: [] },
+      accessories: { latest: [], tools: [], cups: [] },
+      offers: { latest: [], bundles: [], flash: [] },
+    };
+
+    (products || []).forEach((prod) => {
+      const catKey = (prod.category || 'machines').toLowerCase();
+      const primaryImg =
+        prod.colors?.[0]?.image ||
+        prod.images?.[0] ||
+        (prod as any).image ||
+        '/src/assets/images/hibrew_h7a_flagship_machine.png';
+
+      const item: MegaProductItem = {
+        id: prod.id,
+        name: prod.name,
+        nameAr: prod.nameAr || prod.name,
+        image: primaryImg,
+        isNew: Boolean(prod.badge || (prod.originalPrice && prod.originalPrice > prod.basePrice)),
+      };
+
+      if (catKey.includes('machine') || catKey === 'machines') {
+        catalog.machines.latest.push(item);
+        if (prod.basePrice > 1000) {
+          catalog.machines.pro.push(item);
+        } else {
+          catalog.machines.compact.push(item);
+        }
+      } else if (catKey.includes('mill') || catKey.includes('grind') || catKey === 'mills') {
+        catalog.mills.latest.push(item);
+        catalog.mills.electric.push(item);
+      } else if (catKey.includes('cabinet') || catKey.includes('corner') || catKey === 'cabinets') {
+        catalog.cabinets.latest.push(item);
+        catalog.cabinets.luxury.push(item);
+      } else if (catKey.includes('access') || catKey.includes('cup') || catKey === 'accessories') {
+        catalog.accessories.latest.push(item);
+        catalog.accessories.tools.push(item);
+      }
+
+      if (prod.originalPrice && prod.originalPrice > prod.basePrice) {
+        catalog.offers.latest.push(item);
+        catalog.offers.flash.push(item);
+      }
+    });
+
+    return catalog;
+  }, [products]);
+
+  const { activeStore } = useTenant();
+  const [headerVersion, setHeaderVersion] = useState(0);
+
+  useEffect(() => {
+    const handleSync = () => setHeaderVersion((v) => v + 1);
+    window.addEventListener('unityteck-theme-settings', handleSync);
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === 'UNITYTECK_PREVIEW_SYNC') handleSync();
+    });
+    return () => {
+      window.removeEventListener('unityteck-theme-settings', handleSync);
+    };
+  }, []);
+
+  const allThemeSettings = useMemo(() => {
+    try {
+      return readAllThemeSettings(activeStore?.id, activeStore);
+    } catch {
+      return null;
+    }
+  }, [activeStore, headerVersion]);
+
+  const headerSettings = allThemeSettings?.customHeader;
 
   const [activeMegaMenu, setActiveMegaMenu] = useState<MegaMenuKey>(null);
   const [renderedMegaMenu, setRenderedMegaMenu] = useState<MegaMenuKey>(null);
@@ -766,8 +242,8 @@ export const Header: React.FC = () => {
   const currentMenu = renderedMegaMenu || activeMegaMenu || 'machines';
   const getActiveProducts = (): MegaProductItem[] => {
     const menuToUse = renderedMegaMenu || activeMegaMenu || 'machines';
-    if (!menuToUse || menuToUse === 'custom-order' || menuToUse === 'explore') return [];
-    const cat = MEGA_CATALOG[menuToUse];
+    if (!menuToUse || menuToUse === 'explore') return [];
+    const cat = dynamicMegaCatalog[menuToUse];
     if (!cat) return [];
     return cat[activeSubFilter] || cat['latest'] || [];
   };
@@ -776,6 +252,24 @@ export const Header: React.FC = () => {
 
   return (
     <>
+      {/* 0. PROMO ANNOUNCEMENT BAR (If enabled in theme customizer) */}
+      {(headerSettings?.announcement?.enabled || allThemeSettings?.announcementBar?.enabled) && (
+        <div
+          style={{
+            backgroundColor: headerSettings?.announcement?.bgColor || allThemeSettings?.announcementBar?.bgColor || '#000000',
+            color: headerSettings?.announcement?.textColor || allThemeSettings?.announcementBar?.textColor || '#FFFFFF',
+          }}
+          className="w-full text-xs font-bold py-2 px-4 text-center transition-all duration-300 relative z-50 flex items-center justify-center gap-2"
+        >
+          <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+          <span>
+            {language === 'AR'
+              ? (headerSettings?.announcement?.messages?.[0]?.textAr || allThemeSettings?.announcementBar?.messages?.[0]?.text || 'شحن سريع لجميع مدن المملكة | ضمان سنتين معتمد')
+              : (headerSettings?.announcement?.messages?.[0]?.textEn || allThemeSettings?.announcementBar?.messages?.[0]?.text || 'Express delivery across KSA | 2-Year Official Saudi Warranty')}
+          </span>
+        </div>
+      )}
+
       {/* 1. TOP BAR (Honor Style Country/Region Selector Bar) */}
       {countryNoticeVisible && (
         <div className="w-full bg-[#f7f7f8] border-b border-neutral-200/70 text-[12px] text-neutral-600 py-1.5 px-4 sm:px-6 lg:px-8 transition-all duration-300 overflow-hidden">
@@ -822,8 +316,8 @@ export const Header: React.FC = () => {
         onMouseLeave={handleHeaderMouseLeave}
       >
         <div className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between relative bg-white z-50">
-          {/* 1. Left: Brand Logo */}
-          <div className="flex items-center shrink-0 z-10" onMouseEnter={() => scheduleMenuClose(80)}>
+          {/* 1. Desktop Left: Brand Logo */}
+          <div className="hidden lg:flex items-center shrink-0 z-10" onMouseEnter={() => scheduleMenuClose(80)}>
             <button
               type="button"
               onClick={() => {
@@ -842,8 +336,80 @@ export const Header: React.FC = () => {
             </button>
           </div>
 
+          {/* 1. Mobile Left: Hamburger + Cart + Search (Exact match with Image) */}
+          <div className="flex lg:hidden items-center gap-1 sm:gap-2 shrink-0">
+            {/* Hamburger Toggle */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveMegaMenu(null);
+                setMobileMenuOpen((prev) => !prev);
+              }}
+              className="p-1.5 text-neutral-900 hover:text-black cursor-pointer active:scale-95 transition-transform"
+              aria-label="Toggle Menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5 stroke-[2]" /> : <Menu className="w-5 h-5 stroke-[2]" />}
+            </button>
+
+            {/* Shopping Bag with Badge */}
+            <button
+              id="header-mobile-cart-btn"
+              type="button"
+              onClick={() => {
+                setActiveMegaMenu(null);
+                setMobileMenuOpen(false);
+                setIsMiniCartOpen(true);
+              }}
+              className="relative p-1.5 text-neutral-900 hover:text-black cursor-pointer active:scale-95 transition-transform"
+              aria-label="Cart"
+            >
+              <ShoppingBag className="w-5 h-5 stroke-[1.8]" />
+              {cartCount > 0 && (
+                <span className="absolute top-0.5 -end-0.5 bg-black text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
+            {/* Search */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMegaMenu(null);
+                setMobileMenuOpen(false);
+                setIsSearchOpen(true);
+              }}
+              className="p-1.5 text-neutral-900 hover:text-black cursor-pointer active:scale-95 transition-transform"
+              aria-label="Search"
+            >
+              <Search className="w-5 h-5 stroke-[1.8]" />
+            </button>
+          </div>
+
           {/* 2. Center: Desktop Nav Items (Flex in-flow layout ensuring zero overlap in both RTL Arabic and LTR English) */}
           <nav className="hidden lg:flex items-center justify-center flex-1 min-w-0 mx-2 lg:mx-3 xl:mx-4 2xl:mx-6 gap-2 lg:gap-2.5 xl:gap-3.5 2xl:gap-5 text-[12px] lg:text-[12.5px] xl:text-[13px] 2xl:text-[13.5px] font-normal text-neutral-800 h-16 whitespace-nowrap">
+            {/* 0. Shop (المتجر) */}
+            <div className="relative h-full flex items-center shrink-0" onMouseEnter={() => scheduleMenuClose(80)}>
+              <button
+                type="button"
+                onClick={() => {
+                  closeMenuImmediately();
+                  navigateTo('products');
+                }}
+                className={`py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap ${
+                  currentRoute === 'products'
+                    ? 'text-black font-semibold'
+                    : 'text-neutral-700 hover:text-black font-normal'
+                }`}
+              >
+                <span>{language === 'AR' ? 'المتجر' : 'Shop'}</span>
+                {currentRoute === 'products' && (
+                  <span className="absolute bottom-0 inset-x-0 h-[2px] bg-black rounded-full" />
+                )}
+              </button>
+            </div>
+
             {/* 1. Machines (مكائن القهوة) */}
             <div
               className="relative h-full flex items-center shrink-0"
@@ -1000,97 +566,118 @@ export const Header: React.FC = () => {
                 <span>{language === 'AR' ? 'الدعم والضمان' : 'Support'}</span>
               </button>
             </div>
-
-            {/* 9. Custom Made to Order */}
-            <div
-              className="relative h-full flex items-center shrink-0"
-              onMouseEnter={() => handleNavMouseEnter('custom-order')}
-            >
-              <button
-                onClick={() => {
-                  closeMenuImmediately();
-                  navigateTo('custom-order');
-                }}
-                className={`py-2 transition-colors cursor-pointer relative whitespace-nowrap ${
-                  (activeMegaMenu === 'custom-order' && isMegaMenuOpen) || currentRoute === 'custom-order'
-                    ? 'text-black font-semibold'
-                    : 'text-neutral-700 hover:text-black'
-                }`}
-              >
-                <span>{language === 'AR' ? 'تفصيل حسب الطلب' : 'Custom Made to Order'}</span>
-                {((activeMegaMenu === 'custom-order' && isMegaMenuOpen) || currentRoute === 'custom-order') && (
-                  <span className="absolute bottom-0 inset-x-0 h-[2px] bg-black rounded-full" />
-                )}
-              </button>
-            </div>
           </nav>
 
-          {/* 3. Right: Search, Cart, Profile, Store Pill, Language, Mobile Toggle */}
-          <div className="flex items-center gap-1.5 sm:gap-3 xl:gap-4 shrink-0 z-10" onMouseEnter={() => scheduleMenuClose(80)}>
+          {/* 3. Desktop Right: Search, Wishlist, Cart, WhatsApp, Profile, Store Pill, Language */}
+          <div className="hidden lg:flex items-center gap-1.5 sm:gap-3 xl:gap-4 shrink-0 z-10" onMouseEnter={() => scheduleMenuClose(80)}>
             {/* Search Icon */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveMegaMenu(null);
-                setMobileMenuOpen(false);
-                setIsSearchOpen(true);
-              }}
-              className="p-1.5 text-neutral-800 hover:text-black transition-colors cursor-pointer"
-              title="Search"
-              aria-label="Search"
-            >
-              <Search className="w-5 h-5 stroke-[1.8]" />
-            </button>
+            {headerSettings?.actions?.search?.enabled !== false && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveMegaMenu(null);
+                  setMobileMenuOpen(false);
+                  setIsSearchOpen(true);
+                }}
+                className="p-1.5 text-neutral-800 hover:text-black transition-colors cursor-pointer"
+                title="Search"
+                aria-label="Search"
+              >
+                <Search className="w-5 h-5 stroke-[1.8]" />
+              </button>
+            )}
+
+            {/* Wishlist Heart Icon */}
+            {headerSettings?.actions?.wishlist?.enabled !== false && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveMegaMenu(null);
+                  setMobileMenuOpen(false);
+                  navigateTo('products');
+                }}
+                className="p-1.5 text-neutral-800 hover:text-red-500 transition-colors cursor-pointer"
+                title={language === 'AR' ? 'قائمة الرغبات والمفضلة' : 'Wishlist'}
+                aria-label="Wishlist"
+              >
+                <Heart className="w-5 h-5 stroke-[1.8]" />
+              </button>
+            )}
 
             {/* Cart Icon with badge & Flying Cart Destination */}
-            <button
-              id="header-cart-btn"
-              type="button"
-              onClick={() => {
-                setActiveMegaMenu(null);
-                setMobileMenuOpen(false);
-                setIsMiniCartOpen(true);
-              }}
-              className={`relative p-1.5 text-neutral-800 hover:text-black transition-all duration-300 cursor-pointer ${
-                cartBump ? 'scale-135 text-black' : 'scale-100'
-              }`}
-              title="Cart"
-              aria-label="Cart"
-            >
-              <ShoppingBag
-                className={`w-5 h-5 stroke-[1.8] transition-transform duration-300 ${
-                  cartBump ? 'scale-125 stroke-[2.2]' : ''
+            {headerSettings?.actions?.cart?.enabled !== false && (
+              <button
+                id="header-cart-btn"
+                type="button"
+                onClick={() => {
+                  setActiveMegaMenu(null);
+                  setMobileMenuOpen(false);
+                  setIsMiniCartOpen(true);
+                }}
+                className={`relative p-1.5 text-neutral-800 hover:text-black transition-all duration-300 cursor-pointer ${
+                  cartBump ? 'scale-135 text-black' : 'scale-100'
                 }`}
-              />
-              {cartCount > 0 && (
-                <span
-                  className={`absolute -top-0.5 -end-0.5 bg-black text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300 ${
-                    cartBump
-                      ? 'scale-135 bg-emerald-600 shadow-lg ring-2 ring-emerald-300'
-                      : 'scale-100'
+                title="Cart"
+                aria-label="Cart"
+              >
+                <ShoppingBag
+                  className={`w-5 h-5 stroke-[1.8] transition-transform duration-300 ${
+                    cartBump ? 'scale-125 stroke-[2.2]' : ''
                   }`}
-                >
-                  {cartCount}
-                </span>
-              )}
-            </button>
+                />
+                {cartCount > 0 && (
+                  <span
+                    className={`absolute -top-0.5 -end-0.5 bg-black text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300 ${
+                      cartBump
+                        ? 'scale-135 bg-emerald-600 shadow-lg ring-2 ring-emerald-300'
+                        : 'scale-100'
+                    }`}
+                  >
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* WhatsApp Chat Icon */}
+            {headerSettings?.actions?.whatsapp?.enabled !== false && (
+              <button
+                type="button"
+                onClick={() => {
+                  const rawPhone =
+                    headerSettings?.actions?.whatsapp?.phoneNumber ||
+                    (activeStore as any)?.whatsapp ||
+                    activeStore?.phone ||
+                    '+966549876543';
+                  const cleanPhone = rawPhone.replace(/\D/g, '') || '966549876543';
+                  window.open(`https://wa.me/${cleanPhone}`, '_blank');
+                }}
+                className="p-1.5 text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer relative"
+                title={language === 'AR' ? 'تواصل معنا مباشرة عبر واتساب' : 'Chat on WhatsApp'}
+                aria-label="WhatsApp"
+              >
+                <MessageCircle className="w-5 h-5 stroke-[2] text-emerald-600" />
+              </button>
+            )}
 
             {/* Profile Icon */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveMegaMenu(null);
-                setMobileMenuOpen(false);
-                navigateTo('profile');
-              }}
-              className="p-1.5 text-neutral-800 hover:text-black transition-colors cursor-pointer"
-              title="User Profile"
-              aria-label="Account"
-            >
-              <User className="w-5 h-5 stroke-[1.8]" />
-            </button>
+            {headerSettings?.actions?.account?.enabled !== false && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveMegaMenu(null);
+                  setMobileMenuOpen(false);
+                  navigateTo('profile');
+                }}
+                className="p-1.5 text-neutral-800 hover:text-black transition-colors cursor-pointer"
+                title="User Profile"
+                aria-label="Account"
+              >
+                <User className="w-5 h-5 stroke-[1.8]" />
+              </button>
+            )}
 
-            {/* Store Pill Button */}
+            {/* Store Pill Button (Desktop only) */}
             <button
               type="button"
               onClick={() => {
@@ -1100,7 +687,7 @@ export const Header: React.FC = () => {
               }}
               className="hidden xl:inline-flex items-center justify-center px-4 py-1 rounded-full border border-neutral-300 hover:border-black text-[12px] font-medium text-neutral-800 hover:text-black transition-colors cursor-pointer"
             >
-              {language === 'AR' ? 'المتجر' : 'Store'}
+              {language === 'AR' ? 'المتجر' : 'Shop'}
             </button>
 
             {/* Language Switcher (EN | AR) */}
@@ -1130,24 +717,38 @@ export const Header: React.FC = () => {
                 AR
               </button>
             </div>
+          </div>
 
-            {/* Mobile Menu Hamburger Toggle Button */}
+          {/* 3. Mobile Right: Brand Logo & Language Switcher (Exact match with Image) */}
+          <div className="flex lg:hidden items-center gap-2 shrink-0 z-10">
+            {/* Language Toggle on Mobile */}
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveMegaMenu(null);
-                setMobileMenuOpen((prev) => !prev);
-              }}
-              className={`lg:hidden flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full transition-all cursor-pointer shrink-0 ${
-                mobileMenuOpen
-                  ? 'bg-black text-white shadow-sm'
-                  : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-900'
-              }`}
-              aria-label="Toggle Menu"
-              aria-expanded={mobileMenuOpen}
+              onClick={() => setLanguage(language === 'AR' ? 'EN' : 'AR')}
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-neutral-200 bg-neutral-50 text-neutral-800 cursor-pointer active:scale-95"
+              title="Toggle Language"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5 stroke-[2.2]" /> : <Menu className="w-5 h-5 stroke-[2.2]" />}
+              {language === 'AR' ? 'EN' : 'عربي'}
+            </button>
+
+            {/* Mobile Brand Logo */}
+            <button
+              type="button"
+              onClick={() => {
+                closeMenuImmediately();
+                setMobileMenuOpen(false);
+                navigateTo('home');
+              }}
+              className="flex items-center gap-1.5 font-black text-base sm:text-lg font-sans text-black uppercase cursor-pointer"
+              title="HiBrew Coffee Official Store KSA"
+            >
+              <svg className="w-4 h-4 text-black shrink-0" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="2.5" />
+                <path d="M12 3.5 A8.5 8.5 0 0 1 20.5 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+              </svg>
+              <span className="tracking-tight font-extrabold text-[16px] sm:text-[18px]">
+                {language === 'AR' ? 'هايبرو' : 'HIBREW'}
+              </span>
             </button>
           </div>
         </div>
@@ -1168,6 +769,21 @@ export const Header: React.FC = () => {
               }`}
             >
               {language === 'AR' ? 'الرئيسية' : 'Home'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                navigateTo('products');
+              }}
+              className={`px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
+                currentRoute === 'products' && !mobileMenuOpen
+                  ? 'bg-black text-white'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+              }`}
+            >
+              {language === 'AR' ? 'المتجر' : 'Shop'}
             </button>
 
             <button
@@ -1254,21 +870,6 @@ export const Header: React.FC = () => {
               type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
-                navigateTo('products');
-              }}
-              className={`px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
-                currentRoute === 'products' && !mobileMenuOpen
-                  ? 'bg-black text-white'
-                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-              }`}
-            >
-              {language === 'AR' ? 'المتجر' : 'Store'}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
                 navigateTo('reviews');
               }}
               className={`px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
@@ -1306,129 +907,8 @@ export const Header: React.FC = () => {
           {/* Seamless Hover Bridge: Prevents any hover gap */}
           <div className="absolute -top-3 left-0 right-0 h-4 bg-transparent pointer-events-auto" />
 
-          <div className="w-full max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-5 pb-5 sm:pb-6 flex flex-col items-center">
-            {/* IF CUSTOM MADE TO ORDER MENU */}
-            {currentMenu === 'custom-order' ? (
-              <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch py-2">
-                <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-6 text-start">
-                  {/* Col 1 */}
-                  <div className="space-y-2.5">
-                    <h5 className="font-bold text-[12.5px] text-neutral-400 uppercase tracking-wider border-b border-neutral-100 pb-2">
-                      {language === 'AR' ? 'المواد والأخشاب الفاخرة' : 'PREMIUM MATERIALS'}
-                    </h5>
-                    <div className="flex flex-col space-y-2 text-[13.5px] text-neutral-800">
-                      <button
-                        onClick={() => { closeMenuImmediately(); navigateTo('product-detail', 'hb-cabinet-solid-oak'); }}
-                        className="hover:text-neutral-500 transition-colors text-start"
-                      >
-                        {language === 'AR' ? 'خشب البلوط والسنديان الطبيعي' : 'Kiln-Dried Solid White Oak'}
-                      </button>
-                      <button
-                        onClick={() => { closeMenuImmediately(); navigateTo('product-detail', 'hb-corner-station-led'); }}
-                        className="hover:text-neutral-500 transition-colors text-start"
-                      >
-                        {language === 'AR' ? 'أسطح البورسلان والرخام الإيطالي' : 'Sintered Stone Countertops'}
-                      </button>
-                      <button
-                        onClick={() => { closeMenuImmediately(); navigateTo('product-detail', 'hb-cabinet-solid-oak'); }}
-                        className="hover:text-neutral-500 transition-colors text-start"
-                      >
-                        {language === 'AR' ? 'خشب الجوز الملكي الطبيعي' : 'Natural American Walnut'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Col 2 */}
-                  <div className="space-y-2.5">
-                    <h5 className="font-bold text-[12.5px] text-neutral-400 uppercase tracking-wider border-b border-neutral-100 pb-2">
-                      {language === 'AR' ? 'المواصفات والتجهيزات' : 'CUSTOM ENGINEERING'}
-                    </h5>
-                    <div className="flex flex-col space-y-2 text-[13.5px] text-neutral-800">
-                      <button
-                        onClick={() => { closeMenuImmediately(); navigateTo('product-detail', 'hb-corner-station-led'); }}
-                        className="hover:text-neutral-500 transition-colors text-start"
-                      >
-                        {language === 'AR' ? 'تمديدات مياه وصرف مخفية' : 'Concealed Water & Drain Lines'}
-                      </button>
-                      <button
-                        onClick={() => { closeMenuImmediately(); navigateTo('product-detail', 'hb-corner-station-led'); }}
-                        className="hover:text-neutral-500 transition-colors text-start"
-                      >
-                        {language === 'AR' ? 'مسارات إضاءة LED مدمجة' : 'Integrated LED Rail Lighting'}
-                      </button>
-                      <button
-                        onClick={() => { closeMenuImmediately(); navigateTo('product-detail', 'hb-cabinet-solid-oak'); }}
-                        className="hover:text-neutral-500 transition-colors text-start"
-                      >
-                        {language === 'AR' ? 'منافذ شحن وكهرباء باريستا' : 'Built-in Barista Power Outlets'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Col 3 */}
-                  <div className="space-y-2.5">
-                    <h5 className="font-bold text-[12.5px] text-neutral-400 uppercase tracking-wider border-b border-neutral-100 pb-2">
-                      {language === 'AR' ? 'خدمة التفصيل والتركيب' : 'BESPOKE SERVICE'}
-                    </h5>
-                    <div className="flex flex-col space-y-2 text-[13.5px] text-neutral-800">
-                      <a
-                        href="https://wa.me/9668008440443?text=%D8%A3%D8%B1%D8%BA%D8%A8%20%D9%81%D9%8A%20%D8%B7%D9%84%D8%A8%20%D8%AA%D9%81%D8%B5%D9%8A%D9%84%20%D8%B1%D9%83%D9%86%20%D9%82%D9%87%D9%88%D8%A9%20%D8%AD%D8%B3%D8%A8%20%D8%A7%D9%84%D8%B7%D9%84%D8%A8"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:text-neutral-500 transition-colors text-start inline-flex items-center gap-1.5 text-emerald-600 font-semibold"
-                      >
-                        {language === 'AR' ? 'طلب تفصيل بمقاساتك (واتساب)' : 'Custom Sizing via WhatsApp'}
-                      </a>
-                      <button
-                        onClick={() => { closeMenuImmediately(); navigateTo('products'); }}
-                        className="hover:text-neutral-500 transition-colors text-start"
-                      >
-                        {language === 'AR' ? 'استعراض جميع أركان القهوة' : 'View All Custom Cabinets'}
-                      </button>
-                      <button
-                        onClick={() => { closeMenuImmediately(); navigateTo('reviews'); }}
-                        className="hover:text-neutral-500 transition-colors text-start"
-                      >
-                        {language === 'AR' ? 'توصيل وتركيب منزلي احترافي' : 'White-Glove KSA Setup'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Hero Showcase */}
-                <div
-                  className="lg:col-span-4 bg-neutral-900 rounded-[18px] p-5 text-white cursor-pointer flex flex-col justify-between group overflow-hidden border border-neutral-800"
-                  onClick={() => {
-                    closeMenuImmediately();
-                    navigateTo('custom-order');
-                  }}
-                >
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] uppercase font-mono tracking-widest text-amber-400 font-bold bg-white/10 px-2.5 py-0.5 rounded-full inline-block">
-                      {language === 'AR' ? 'تصميم وتنفيذ حسب الطلب' : 'Custom Made to Order'}
-                    </span>
-                    <h4 className="text-[16px] font-bold text-white group-hover:text-amber-300 transition-colors">
-                      {language === 'AR' ? 'ركن القهوة المخصص - التخطيط والتصميم والتنفيذ' : 'Custom Tailor-Made Coffee Corner'}
-                    </h4>
-                    <p className="text-[11.5px] text-neutral-400 line-clamp-2">
-                      {language === 'AR'
-                        ? 'حدد المقاسات بالسنتيمتر، نوع الخشب، بديل الرخام أو الطبيعي، التقسيم الداخلي والإكسسوارات مع تسعير فوري أو طلب عرض سعر.'
-                        : 'Choose custom dimensions in cm, wood type, edge finishing, marble top, division, and add-ons with instant pricing or quote request.'}
-                    </p>
-                  </div>
-                  <div className="pt-3 flex items-center justify-between border-t border-neutral-800 text-xs font-semibold">
-                    <span className="text-amber-400 font-mono text-[13px]">
-                      {language === 'AR' ? 'يبدأ من 1,490 ر.س' : 'From SAR 1,490'}
-                    </span>
-                    <span className="flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                      {language === 'AR' ? 'بدء تفصيل الركن الآن' : 'Start Customizing Now'} <ArrowRight className="w-3.5 h-3.5" />
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* PRODUCTS MEGA MENU */
-              <div className="w-full flex flex-col items-center">
+            {/* PRODUCTS MEGA MENU */}
+            <div className="w-full flex flex-col items-center">
                 {/* Top Sub-category Tabs (Centered, Pure Text Links, Crisp Spacing) */}
                 <div className="flex items-center justify-center gap-5 sm:gap-8 pb-4 sm:pb-5 text-[13px] sm:text-[13.5px] flex-wrap" role="tablist">
                   <button
@@ -1677,9 +1157,7 @@ export const Header: React.FC = () => {
                   </button>
                 </div>
               </div>
-            )}
           </div>
-        </div>
 
         {/* 4. HONOR MOBILE DRILLDOWN SLIDE NAVIGATION */}
         {mobileMenuOpen && (
@@ -1711,6 +1189,19 @@ export const Header: React.FC = () => {
                     className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100/80 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
                   >
                     <span>{language === 'AR' ? 'الرئيسية' : 'Home'}</span>
+                    {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
+                  </button>
+
+                  {/* 0b. Shop */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      navigateTo('products');
+                    }}
+                    className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100/80 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
+                  >
+                    <span>{language === 'AR' ? 'المتجر' : 'Shop'}</span>
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>
 
@@ -1792,23 +1283,7 @@ export const Header: React.FC = () => {
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>
 
-                  {/* 7. Custom Made to Order */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      navigateTo('custom-order');
-                    }}
-                    className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
-                  >
-                    <span className="inline-flex items-center gap-1.5">
-                      <span>{language === 'AR' ? 'تفصيل حسب الطلب' : 'Custom Made to Order'}</span>
-                      <Palette className="w-3.5 h-3.5 text-amber-600" />
-                    </span>
-                    {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
-                  </button>
-
-                  {/* 8. Smart AI Tech & Craft */}
+                  {/* 7. Smart AI Tech & Craft */}
                   <button
                     type="button"
                     onClick={() => {
@@ -2038,7 +1513,7 @@ export const Header: React.FC = () => {
 
                 {/* Product Grid in Mobile Drilldown */}
                 <div className="grid grid-cols-2 gap-3">
-                  {(MEGA_CATALOG[mobileSubNavKey || 'machines']?.[mobileSubFilter] || MEGA_CATALOG[mobileSubNavKey || 'machines']?.latest || []).map(prod => (
+                  {(dynamicMegaCatalog[mobileSubNavKey || 'machines']?.[mobileSubFilter] || dynamicMegaCatalog[mobileSubNavKey || 'machines']?.latest || []).map(prod => (
                     <div
                       key={prod.name}
                       onClick={() => {

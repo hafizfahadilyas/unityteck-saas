@@ -19,14 +19,16 @@ import {
   Server,
   ToggleLeft,
   ToggleRight,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { BrandingPanel } from '../common/BrandingPanel';
 import { DbSyncSettingsCard } from '../common/DbSyncSettingsCard';
 import { bumpCacheTag, platformTag } from '../../api/cacheTags';
 import { useToast } from '../common/ToastProvider';
 import { CURRENCIES, type DisplayCurrency } from '../../i18n/prefs';
+import { MasterControlCenter } from './MasterControlCenter';
 
-type MasterSettingsTab = 'platform' | 'localization' | 'appearance' | 'social' | 'database';
+type MasterSettingsTab = 'controls' | 'platform' | 'localization' | 'appearance' | 'social' | 'database';
 
 export const MasterSettings: React.FC = () => {
   const { stores, softRefreshTenantData } = useTenant();
@@ -88,6 +90,11 @@ export const MasterSettings: React.FC = () => {
 
   const tabs = [
     {
+      id: 'controls' as const,
+      label: isAr ? 'التحكم بالصفحات والعناصر' : 'Central Controls & Toggles',
+      icon: SlidersHorizontal,
+    },
+    {
       id: 'platform' as const,
       label: isAr ? 'هوية المنصة' : 'Platform Identity',
       icon: Settings,
@@ -130,6 +137,26 @@ export const MasterSettings: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Quick Language Switcher Button */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = locale === 'ar' ? 'en' : 'ar';
+              setLocale(next);
+              toast(next === 'ar' ? 'تم تحويل النظام إلى العربية' : 'Language set to English', 'success');
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer shadow-xs transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+            style={{
+              background: 'var(--surface)',
+              borderColor: 'var(--border)',
+              color: 'var(--text)',
+            }}
+            title={isAr ? 'Switch Language to English' : 'تحويل اللغة إلى العربية'}
+          >
+            <Globe className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+            <span className="font-bold">{isAr ? 'English (EN)' : 'العربية (AR)'}</span>
+          </button>
+
           <button
             type="button"
             onClick={toggleTheme}
@@ -189,6 +216,13 @@ export const MasterSettings: React.FC = () => {
           );
         })}
       </div>
+
+      {/* ── TAB 0: Central Controls & Toggles ── */}
+      {activeTab === 'controls' && (
+        <div className="-mx-4 sm:-mx-6 lg:-mx-8">
+          <MasterControlCenter />
+        </div>
+      )}
 
       {/* ── TAB 1: Platform Identity ── */}
       {activeTab === 'platform' && (

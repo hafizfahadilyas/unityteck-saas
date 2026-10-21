@@ -28,6 +28,7 @@ export interface InvoiceLineItem {
   id: string;
   name: string;
   nameAr?: string;
+  nameEn?: string;
   sku: string;
   quantity: number;
   unitPrice: number;
@@ -41,15 +42,21 @@ export interface InvoiceLineItem {
 export interface DocumentPartyDetails {
   name: string;
   nameAr?: string;
+  nameEn?: string;
   companyName?: string;
   companyNameAr?: string;
+  companyNameEn?: string;
   email?: string;
   phone?: string;
   address?: string;
   addressAr?: string;
+  addressEn?: string;
   city?: string;
   cityAr?: string;
+  cityEn?: string;
   country?: string;
+  countryAr?: string;
+  countryEn?: string;
   postalCode?: string;
   vatNumber?: string; // Tax Registration Number (الرقم الضريبي)
   crNumber?: string;  // Commercial Registration Number (السجل التجاري)
@@ -136,6 +143,7 @@ export interface InvoiceDocument {
   documentNumber: string; // e.g. INV-2026-0042
   title?: string;
   titleAr?: string;
+  titleEn?: string;
   
   // Cross References
   orderId?: string;
@@ -217,8 +225,20 @@ export interface InvoiceDocument {
   // Status & Custom notes
   status: InvoiceDocumentStatus;
   paymentTerms?: string;
+  paymentTermsAr?: string;
+  paymentTermsEn?: string;
   notes?: string;
+  notesAr?: string;
+  notesEn?: string;
   termsAndConditions?: string;
+  termsAndConditionsAr?: string;
+  termsAndConditionsEn?: string;
+  cancellationReasonAr?: string;
+  cancellationReasonEn?: string;
+  creditReasonAr?: string;
+  creditReasonEn?: string;
+  deliveryInstructionsAr?: string;
+  deliveryInstructionsEn?: string;
   
   // History & Snapshot
   auditTrail: DocumentAuditEntry[];

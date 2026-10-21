@@ -6,8 +6,10 @@
  * 100% Faithful Port of E:\GOGLE\hibrew-ksa-_-official-coffee-store-متجر-مكائن-ومستلزمات-القهوة
  */
 
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { CartProvider, useCart, RouteType } from './context/CartContext';
+import { useTenant } from '../../context/TenantContext';
+import { readAllThemeSettings } from '../settings/themeSettingsStore';
 import { Header } from './components/Header';
 import { HomePage } from './components/HomePage';
 import { MiniCartDrawer } from './components/MiniCartDrawer';
@@ -27,8 +29,8 @@ const CheckoutPage = lazy(() => import('./components/CheckoutPage').then(m => ({
 const ProfilePage = lazy(() => import('./components/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const ReviewsPage = lazy(() => import('./components/ReviewsPage').then(m => ({ default: m.ReviewsPage })));
 const ThankYouPage = lazy(() => import('./components/ThankYouPage').then(m => ({ default: m.ThankYouPage })));
-const CustomOrderPage = lazy(() => import('./components/CustomOrderPage').then(m => ({ default: m.CustomOrderPage })));
 const CoffeeStaticPage = lazy(() => import('./components/CoffeeStaticPage').then(m => ({ default: m.CoffeeStaticPage })));
+const CustomOrderPage = lazy(() => import('./components/CustomOrderPage').then(m => ({ default: m.CustomOrderPage })));
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -55,11 +57,18 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
   render() {
     if (this.state.hasError) {
+      const isAr = typeof document !== 'undefined' ? (document.documentElement.lang === 'ar' || document.documentElement.dir === 'rtl') : true;
       return (
         <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center">
           <div className="max-w-md bg-white p-8 rounded-3xl shadow-sm border border-neutral-200/80">
-            <h2 className="text-xl font-bold text-neutral-900 mb-2">عذراً، حدث خطأ غير متوقع</h2>
-            <p className="text-sm text-neutral-600 mb-6">Something unexpected occurred. Please click below to reload.</p>
+            <h2 className="text-xl font-bold text-neutral-900 mb-2">
+              {isAr ? 'عذراً، حدث خطأ غير متوقع' : 'Sorry, an unexpected error occurred'}
+            </h2>
+            <p className="text-sm text-neutral-600 mb-6">
+              {isAr
+                ? 'حدث خطأ غير متوقع أثناء معالجة الصفحة. اضغط أدناه لإعادة التحميل.'
+                : 'An unexpected error occurred while loading this view. Click below to reload.'}
+            </p>
             <button
               onClick={() => {
                 this.setState({ hasError: false });
@@ -67,7 +76,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
               }}
               className="px-6 py-2.5 bg-black text-white text-sm font-medium rounded-full hover:bg-neutral-800 transition-colors cursor-pointer"
             >
-              إعادة التحميل (Reload Page)
+              {isAr ? 'إعادة التحميل' : 'Reload Page'}
             </button>
           </div>
         </div>
@@ -87,10 +96,44 @@ interface CoffeeRoastersThemeViewProps {
 function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage?: string; isAdmin?: boolean }) {
   const { currentRoute, navigateTo, toastMessage, language } = useCart();
 
+  let tenant: ReturnType<typeof useTenant> | null = null;
+  try {
+    tenant = useTenant();
+  } catch {
+    tenant = null;
+  }
+
+  const [settingsVer, setSettingsVer] = useState(0);
+  useEffect(() => {
+    const onThemeChange = () => setSettingsVer((v) => v + 1);
+    window.addEventListener('unityteck-theme-settings', onThemeChange);
+    return () => window.removeEventListener('unityteck-theme-settings', onThemeChange);
+  }, []);
+
+  const isCustomOrderEnabled = useMemo(() => {
+    try {
+      const storeId = tenant?.activeStore?.id || 'store-coffee';
+      const fallbackStore = tenant?.activeStore || { name: 'HiBrew Store' };
+      const s = readAllThemeSettings(storeId, fallbackStore);
+      return Boolean(s?.customOrder?.enabled);
+    } catch {
+      return false;
+    }
+  }, [tenant?.activeStore, settingsVer]);
+
+  useEffect(() => {
+    if (currentRoute === 'custom-order' && !isCustomOrderEnabled) {
+      navigateTo('home');
+    }
+  }, [currentRoute, isCustomOrderEnabled, navigateTo]);
+
   useEffect(() => {
     // Set dynamic SEO & Document metadata for HiBrew KSA
     if (typeof document !== 'undefined') {
-      document.title = 'HiBrew KSA | Official Coffee Store متجر مكائن ومستلزمات القهوة';
+      const isAr = language === 'AR';
+      document.title = isAr
+        ? 'هايبرو السعودية | المتجر الرسمي لمكائن ومستلزمات القهوة المختصة'
+        : 'HiBrew KSA | Official Coffee Store - Espresso Machines & Specialty Coffee Gear';
 
       const updateMeta = (name: string, content: string, isProperty = false) => {
         let el = document.querySelector(isProperty ? `meta[property="${name}"]` : `meta[name="${name}"]`);
@@ -103,9 +146,11 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
         el.setAttribute('content', content);
       };
 
-      const desc = 'متخصصون في بيع مكائن القهوة و مستلزماتها ذات جودة عالية و بسعر مناسب ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية';
+      const desc = isAr
+        ? 'متجر هايبرو السعودية الرسمي. متخصصون في مكائن القهوة 20 بار، مطاحن البن التيتانيوم، وأركان ودواليب القهوة الفاخرة مع توصيل سريع لجميع مناطق المملكة.'
+        : 'Official HiBrew KSA store. High-performance 20-bar espresso machines, titanium conical burr grinders, and luxury coffee stations across Saudi Arabia.';
       updateMeta('description', desc);
-      updateMeta('og:title', 'HiBrew KSA | Official Coffee Store متجر مكائن ومستلزمات القهوة', true);
+      updateMeta('og:title', document.title, true);
       updateMeta('og:description', desc, true);
       updateMeta('og:type', 'website', true);
       updateMeta('twitter:card', 'summary_large_image');
@@ -145,8 +190,6 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
         ? 'profile'
         : p === 'reviews'
         ? 'reviews'
-        : p === 'custom-order' || p === 'customorder'
-        ? 'custom-order'
         : p === 'thankyou'
         ? 'thankyou'
         : p === 'privacy' ||
@@ -163,8 +206,28 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
         ? (p as RouteType)
         : 'home';
 
-    navigateTo(target);
-  }, [initialPage, navigateTo]);
+    if (target !== currentRoute) {
+      navigateTo(target);
+    }
+  }, [initialPage, currentRoute, navigateTo]);
+
+  // Ensure view is scrolled strictly to top header on any route navigation
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual';
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      const t = setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  }, [currentRoute]);
 
   const isStaticPolicyRoute =
     currentRoute === 'privacy' ||
@@ -203,7 +266,7 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
             {currentRoute === 'profile' && <ProfilePage />}
             {currentRoute === 'reviews' && <ReviewsPage />}
             {currentRoute === 'thankyou' && <ThankYouPage />}
-            {currentRoute === 'custom-order' && <CustomOrderPage />}
+            {currentRoute === 'custom-order' && isCustomOrderEnabled && <CustomOrderPage />}
             {isStaticPolicyRoute && <CoffeeStaticPage />}
           </Suspense>
         </ErrorBoundary>
@@ -237,8 +300,10 @@ export const CoffeeRoastersThemeView: React.FC<CoffeeRoastersThemeViewProps> = (
   isAdmin = false,
 }) => {
   return (
-    <CartProvider>
-      <CoffeeStorefrontContent initialPage={initialPage} isAdmin={isAdmin} />
-    </CartProvider>
+    <ErrorBoundary>
+      <CartProvider>
+        <CoffeeStorefrontContent initialPage={initialPage} isAdmin={isAdmin} />
+      </CartProvider>
+    </ErrorBoundary>
   );
 };

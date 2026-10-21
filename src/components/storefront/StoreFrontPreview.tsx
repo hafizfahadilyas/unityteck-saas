@@ -153,7 +153,52 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
   const { locale: lang, money, theme, currency } = usePrefs();
 
   const [viewMode, setViewMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
-  const [sfPage, setSfPage] = useState<FlowersSfPage>('home');
+  const [sfPage, setSfPage] = useState<FlowersSfPage>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const search = new URLSearchParams(window.location.search);
+        const p = (search.get('page') || search.get('preview_page') || '').toLowerCase().trim();
+        if (p) {
+          if (p === 'catalog' || p === 'products') return 'shop';
+          return p as FlowersSfPage;
+        }
+        const saved = sessionStorage.getItem('unityteck_preview_sfpage');
+        if (saved) return saved as FlowersSfPage;
+      }
+    } catch {}
+    return 'home';
+  });
+
+  // Keep preview sfPage synced to URL and storage and strictly scroll to top header
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('unityteck_preview_sfpage', sfPage);
+        const url = new URL(window.location.href);
+        if (sfPage === 'home') {
+          url.searchParams.delete('page');
+        } else {
+          url.searchParams.set('page', sfPage);
+        }
+        window.history.replaceState({ page: sfPage }, '', url.toString());
+      }
+    } catch {}
+
+    if (typeof window !== 'undefined') {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual';
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      const t = setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  }, [sfPage]);
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [checkoutComplete, setCheckoutComplete] = useState(false);
   const [paymentChoice, setPaymentChoice] = useState<'mada' | 'apple_pay' | 'tabby' | 'cod'>('mada');
@@ -205,9 +250,17 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
     syncTheme();
     window.addEventListener('unityteck-theme-settings', syncTheme);
     window.addEventListener('unityteck-data', syncTheme);
+    window.addEventListener('unityteck-categories-updated', syncTheme);
+    window.addEventListener('unityteck-brands-updated', syncTheme);
+    window.addEventListener('unityteck-product-updated', syncTheme);
+    window.addEventListener('storage', syncTheme);
     return () => {
       window.removeEventListener('unityteck-theme-settings', syncTheme);
       window.removeEventListener('unityteck-data', syncTheme);
+      window.removeEventListener('unityteck-categories-updated', syncTheme);
+      window.removeEventListener('unityteck-brands-updated', syncTheme);
+      window.removeEventListener('unityteck-product-updated', syncTheme);
+      window.removeEventListener('storage', syncTheme);
     };
   }, [activeStore.id, activeStore.name, activeStore.accentColor]);
 
@@ -326,11 +379,15 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
     };
     window.addEventListener('focus', bump);
     window.addEventListener('unityteck-theme-identity', bump);
+    window.addEventListener('unityteck-store-updated', bump);
+    window.addEventListener('unityteck-pages-changed', bump);
     window.addEventListener('unityteck-data', onData as EventListener);
     window.addEventListener('storage', bump);
     return () => {
       window.removeEventListener('focus', bump);
       window.removeEventListener('unityteck-theme-identity', bump);
+      window.removeEventListener('unityteck-store-updated', bump);
+      window.removeEventListener('unityteck-pages-changed', bump);
       window.removeEventListener('unityteck-data', onData as EventListener);
       window.removeEventListener('storage', bump);
     };
@@ -1761,6 +1818,9 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
                       setSfPage('product');
                     }}
                     onToggleWishlist={() => toggleWishlist(prod.id)}
+                    cardDesignPreset={themeSettings.productCards.cardDesignPreset || 'royal-luxury'}
+                    showFeatureBadges={themeSettings.productCards.showFeatureBadges !== false}
+                    showWhatsAppButton={themeSettings.productCards.showWhatsAppButton !== false}
                   />
                 );
               })}

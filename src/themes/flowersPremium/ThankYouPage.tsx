@@ -22,6 +22,14 @@ export const ThankYouPage: React.FC<Props> = ({
 }) => {
   const ar = lang === 'ar';
 
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, []);
+
   return (
     <section
       className="px-4 sm:px-8 py-12 sm:py-16 flex flex-col items-center text-center gap-5"

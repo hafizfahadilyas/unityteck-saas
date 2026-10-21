@@ -4,6 +4,8 @@ import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
 import { ReturnsManager } from './ReturnsManager';
+import { CourierShippingLabelModal } from './CourierShippingLabelModal';
+import type { ShippingLabelData, CourierCarrierCode } from '../../../utils/courierBarcode';
 import {
   X,
   Printer,
@@ -27,8 +29,9 @@ import {
   ShieldCheck,
   Check,
   Sparkles,
+  Tag,
 } from 'lucide-react';
-import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../../utils/imageFallback';
+import { handleImageError, FALLBACK_PRODUCT_IMAGE, resolveProductThumbnail } from '../../../utils/imageFallback';
 
 interface OrderDetailsModalProps {
   isOpen: boolean;
@@ -52,6 +55,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
 
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [showReturnsModal, setShowReturnsModal] = useState(false);
+  const [showShippingLabel, setShowShippingLabel] = useState(false);
   const [isEditingTracking, setIsEditingTracking] = useState(false);
   const [courierName, setCourierName] = useState(order?.shippingCompany || 'SMSA Express');
   const [trackingNumber, setTrackingNumber] = useState(order?.trackingNumber || '');
@@ -148,11 +152,21 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowShippingLabel(true)}
+              className="px-3 py-1.5 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 text-sky-800 dark:text-sky-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title={isAr ? 'طباعة بوليصة الشحن اللوجستية (AWB Barcode)' : 'Print Shipping Label'}
+            >
+              <Truck className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{isAr ? 'بوليصة الشحن (AWB)' : 'Shipping Label'}</span>
+            </button>
+
             {onPrintInvoice && (
               <button
                 type="button"
                 onClick={() => onPrintInvoice(order)}
-                className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{isAr ? 'طباعة الفاتورة' : 'Print Invoice'}</span>
@@ -459,7 +473,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                       <td className="py-3 px-3">
                         <div className="flex items-center gap-2.5">
                           <img
-                            src={item.image || FALLBACK_PRODUCT_IMAGE}
+                            src={resolveProductThumbnail(item)}
                             onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                             alt={item.name}
                             className="w-10 h-10 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shrink-0"
@@ -567,6 +581,66 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
           isOpen={showReturnsModal}
           onClose={() => setShowReturnsModal(false)}
           order={order}
+        />
+      )}
+
+      {/* Courier Shipping Label Printable Barcode Modal */}
+      {showShippingLabel && (
+        <CourierShippingLabelModal
+          isOpen={showShippingLabel}
+          onClose={() => setShowShippingLabel(false)}
+          labelData={{
+            carrier: (courierName.toLowerCase().includes('spl') || courierName.toLowerCase().includes('post')
+              ? 'spl'
+              : courierName.toLowerCase().includes('aramex')
+              ? 'aramex'
+              : courierName.toLowerCase().includes('dhl')
+              ? 'dhl'
+              : 'smsa') as CourierCarrierCode,
+            carrierName: courierName || 'SMSA Express',
+            carrierNameAr: courierName.toLowerCase().includes('spl')
+              ? 'سبل (البريد السعودي)'
+              : courierName.toLowerCase().includes('aramex')
+              ? 'أرامكس'
+              : 'سمسا إكسبريس',
+            trackingNumber: trackingNumber || order.trackingNumber || `TRK-SA-${order.orderNumber.replace(/[^0-9]/g, '') || '98421'}`,
+            awbNumber: `AWB-${order.orderNumber.replace(/[^0-9]/g, '') || '98421'}-SA`,
+            orderNumber: order.orderNumber,
+            orderDate: order.date || new Date().toISOString().split('T')[0],
+            sender: {
+              name: activeStore.name || 'Makkah Gifts & Luxury Flowers Est.',
+              nameAr: activeStore.nameAr || 'مؤسسة هدايا مكة والزهور الفاخرة',
+              phone: '+966 12 555 8899',
+              address: 'Ibrahim Al-Khalil Road, Jabal Omar District',
+              city: 'Makkah',
+              country: 'Saudi Arabia',
+            },
+            recipient: {
+              name: order.customerName,
+              phone: order.customerPhone,
+              address: order.shippingAddress || order.deliveryLocation || 'Al-Nuzha District, Makkah',
+              city: order.deliveryLocation?.split(' ')[0] || 'Makkah',
+              country: 'Saudi Arabia',
+            },
+            packageDetails: {
+              weightKg: 2.5,
+              pieces: order.items?.length || 1,
+              contentDescription: 'Store Catalog Items & Luxury Gifts',
+              contentDescriptionAr: 'منتجات متجر وهدايا فاخرة',
+              declaredValueSar: Number(order.total) || 100,
+            },
+            payment: {
+              method: isCod ? 'cod' : 'prepaid',
+              codAmountSar: isCod ? Number(order.total) || 0 : undefined,
+              currency: 'SAR',
+            },
+            routing: {
+              hubCode: 'MAK-HUB-01',
+              serviceType: 'Priority Next-Day Delivery',
+              serviceTypeAr: 'توصيل سريع أولولية',
+              routeCode: 'SA-WST-MAK-88',
+            },
+          }}
         />
       )}
     </div>

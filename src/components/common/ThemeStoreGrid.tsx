@@ -241,8 +241,16 @@ export const ThemeStoreGrid: React.FC<Props> = ({
               {/* Theme Screenshot Preview with Smooth Hover Scroll */}
               <div className="relative h-64 w-full overflow-hidden bg-slate-950 select-none border-b" style={{ borderColor: 'var(--border)' }}>
                 <img
-                  src={theme.thumbnail || '/theme-mockups/real_storefront_fullpage.png'}
+                  src={(theme.thumbnail || '/theme-mockups/real_storefront_fullpage.webp').replace(/\.png$/, '.webp')}
                   alt={themeTitle}
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target.src.endsWith('.webp')) {
+                      target.src = target.src.replace('.webp', '.png');
+                    }
+                  }}
                   className="w-full h-auto min-h-full block object-cover object-top transition-transform duration-[6000ms] ease-in-out group-hover:translate-y-[-60%]"
                 />
 

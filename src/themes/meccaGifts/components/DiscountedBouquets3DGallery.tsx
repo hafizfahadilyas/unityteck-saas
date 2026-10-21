@@ -23,8 +23,8 @@ export const DiscountedBouquets3DGallery: React.FC<DiscountedBouquets3DGalleryPr
       if (discounted.length >= 3) return discounted;
       return [...discounted, ...appProducts].slice(0, 6);
     }
-    return isCoffee ? [] : DISCOUNTED_BOUQUETS;
-  }, [propProducts, appProducts, isCoffee]);
+    return [];
+  }, [propProducts, appProducts]);
 
   const title = isCoffee ? 'عروض وتخفيضات محاصيل القهوة' : 'باقات ورود طبيعية مخفضة';
   const titleEn = isCoffee ? 'Specialty Coffee Offers & Discounts' : 'Discounted Natural Flower Bouquets';

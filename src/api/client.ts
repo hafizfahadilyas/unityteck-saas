@@ -3,7 +3,7 @@
  * Empty / disabled env → mock mode in TenantContext.
  */
 
-import { getAuthToken, clearAuthSession } from '../auth/session';
+import { getAuthToken, clearAuthSession, readAuthSession } from '../auth/session';
 
 export function getApiBase(): string {
   const url = import.meta.env.VITE_API_URL as string | undefined;
@@ -69,17 +69,36 @@ export async function apiFetch<T>(
     headers['Content-Type'] = 'application/json';
   }
 
+  const isPublicEndpoint =
+    Boolean(skipAuth) ||
+    path.startsWith('/storefront') ||
+    path.startsWith('/health') ||
+    path.startsWith('/auth/otp') ||
+    path.startsWith('/auth/forgot') ||
+    path.startsWith('/auth/reset') ||
+    path.startsWith('/auth/master/login') ||
+    path.startsWith('/auth/store/login') ||
+    path.startsWith('/webhooks') ||
+    path.startsWith('/resolve-domain') ||
+    path.startsWith('/whatsapp') ||
+    path.includes('/blog/');
+
   if (portal === 'master') {
     headers['X-Portal'] = 'master';
   } else if (storeId) {
     headers['X-Store-Id'] = storeId;
+  } else if (!isPublicEndpoint) {
+    const session = readAuthSession();
+    if (session?.portal === 'store' && session.storeId) {
+      headers['X-Store-Id'] = session.storeId;
+    }
   }
 
-  if (!skipAuth) {
-    const token = getAuthToken();
-    if (token && !token.startsWith('mock-')) {
-      headers.Authorization = `Bearer ${token}`;
-    }
+  const token = getAuthToken();
+  if (token && !token.startsWith('mock-')) {
+    headers.Authorization = `Bearer ${token}`;
+  } else if (!isPublicEndpoint) {
+    throw new Error('No active backend API session (mock/guest mode).');
   }
 
   let requestUrl = joinUrl(getApiBase(), path);
@@ -106,9 +125,7 @@ export async function apiFetch<T>(
   }
 
   if (!res.ok) {
-    if (res.status === 401 && !skipAuth) {
-      clearAuthSession();
-    }
+    // Note: Do not auto-close or clear session on 401; user session remains active lifetime until manual logout
     throw new Error(extractErrorMessage(json, res.status, res.statusText));
   }
 

@@ -32,6 +32,7 @@ import {
   Archive,
   PanelLeftClose,
   PanelLeftOpen,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 interface MasterSidebarProps {
@@ -55,6 +56,7 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({ currentTab, onSele
     const all = [
       { id: 'dashboard', icon: LayoutDashboard },
       { id: 'stores', icon: Store, count: stores.length },
+      { id: 'control-center', icon: SlidersHorizontal },
       { id: 'onboarding', icon: UserPlus },
       { id: 'domains', icon: Globe },
       { id: 'database', icon: Database },

@@ -29,7 +29,6 @@ import {
 import { useManualOrderForm } from '../../hooks/useManualOrderForm';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
-import { HADAAYA_MAKKAH_PRODUCTS } from '../../data/hadayaMeccaData';
 import type { Order, Product } from '../../types';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
 import { getProductDisplayCategory } from '../../utils/storeLocalization';
@@ -76,8 +75,26 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
     if (currentProducts && currentProducts.length > 0) {
       return currentProducts;
     }
-    return HADAAYA_MAKKAH_PRODUCTS;
+    return [];
   }, [propProducts, resolvedStoreId, allProducts, currentProducts]);
+
+  const initialStoreItems = useMemo(() => {
+    if (catalogProducts && catalogProducts.length > 0) {
+      const p = catalogProducts[0];
+      return [
+        {
+          id: p.id,
+          name: isAr ? (p.nameAr || p.name) : (p.nameEn || p.name),
+          sku: p.sku || 'SKU-001',
+          price: p.price || 50,
+          quantity: 1,
+          total: p.price || 50,
+          image: p.image,
+        },
+      ];
+    }
+    return [];
+  }, [catalogProducts, isAr]);
 
   const {
     countryCode,
@@ -110,6 +127,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
   } = useManualOrderForm({
     initialShippingFee: 15.0,
     taxRate: 0.15,
+    initialItems: initialStoreItems,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);

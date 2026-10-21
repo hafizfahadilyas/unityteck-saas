@@ -8,6 +8,7 @@ import {
   Plus, 
   ExternalLink, 
   ShieldCheck, 
+  ShieldAlert,
   CheckCircle, 
   Clock, 
   AlertTriangle, 
@@ -19,7 +20,10 @@ import {
   Crown,
   Coffee,
   Car,
-  RefreshCw
+  RefreshCw,
+  MessageSquare,
+  Save,
+  X
 } from 'lucide-react';
 
 import { usePrefs } from '../../i18n/PrefsContext';
@@ -32,6 +36,8 @@ import {
 } from '../../utils/storeLocalization';
 import { readAuthSession } from '../../auth/session';
 import { canDeleteEntities } from '../../auth/roles';
+import { fetchMasterWhatsAppQuotas, updateMasterWhatsAppQuotaApi } from '../../services/whatsappManagerService';
+import { MasterStoreWhatsAppQuota } from '../../types/whatsapp';
 
 interface MasterStoresProps {
   onOpenCreateStore: () => void;
@@ -107,6 +113,63 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
   const [filterPlan, setFilterPlan] = useState<string>('All');
   const [filterStatus, setFilterStatus] = useState<string>('All');
 
+  const [showWhatsAppQuotasModal, setShowWhatsAppQuotasModal] = useState(false);
+  const [quotasLoading, setQuotasLoading] = useState(false);
+  const [storeQuotas, setStoreQuotas] = useState<MasterStoreWhatsAppQuota[]>([]);
+  const [editingQuotas, setEditingQuotas] = useState<Record<string, { daily_limit: number; monthly_limit: number }>>({});
+  const [savingQuotaStoreId, setSavingQuotaStoreId] = useState<string | null>(null);
+
+  const handleOpenQuotasModal = async () => {
+    setShowWhatsAppQuotasModal(true);
+    setQuotasLoading(true);
+    try {
+      const list = await fetchMasterWhatsAppQuotas();
+      setStoreQuotas(list);
+      const initialEdits: Record<string, { daily_limit: number; monthly_limit: number }> = {};
+      list.forEach((q) => {
+        initialEdits[q.store_id] = {
+          daily_limit: q.daily_limit ?? 10,
+          monthly_limit: q.monthly_limit ?? 50,
+        };
+      });
+      setEditingQuotas(initialEdits);
+    } catch {
+      toast(isAr ? 'تعذر جلب حصص واتساب للمتاجر' : 'Failed to load store WhatsApp quotas', 'error');
+    } finally {
+      setQuotasLoading(false);
+    }
+  };
+
+  const handleSaveStoreQuota = async (storeId: string) => {
+    const current = editingQuotas[storeId];
+    if (!current) return;
+    setSavingQuotaStoreId(storeId);
+    try {
+      const res = await updateMasterWhatsAppQuotaApi(storeId, {
+        daily_limit: Math.max(1, Number(current.daily_limit) || 10),
+        monthly_limit: Math.max(1, Number(current.monthly_limit) || 50),
+      });
+      if (res.success) {
+        toast(isAr ? 'تم تحديث حصة واتساب بنجاح' : 'Store WhatsApp quota updated successfully', 'success');
+        setStoreQuotas((prev) =>
+          prev.map((item) =>
+            item.store_id === storeId
+              ? {
+                  ...item,
+                  daily_limit: Math.max(1, Number(current.daily_limit) || 10),
+                  monthly_limit: Math.max(1, Number(current.monthly_limit) || 50),
+                }
+              : item,
+          ),
+        );
+      }
+    } catch {
+      toast(isAr ? 'فشل حفظ حصة واتساب' : 'Failed to save store quota', 'error');
+    } finally {
+      setSavingQuotaStoreId(null);
+    }
+  };
+
   const filtered = stores.filter((s) => {
     const q = searchTerm.toLowerCase().trim();
     const displayName = getStoreDisplayName(s, locale).toLowerCase();
@@ -136,7 +199,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
   }, [allOrders, stores, cacheEpoch]);
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -154,6 +217,15 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <button
+            onClick={handleOpenQuotasModal}
+            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 dark:text-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer border border-emerald-200/80 dark:border-emerald-500/30"
+            title={isAr ? 'إدارة حصص واتساب ومكافحة حظر الأرقام لجميع المتاجر' : 'Manage Store WhatsApp Quotas & Anti-Ban Controls'}
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>{isAr ? 'حصص واتساب (مكافحة الحظر)' : 'WhatsApp Quotas (Anti-Ban)'}</span>
+          </button>
+
           <button
             onClick={async () => {
               await softRefreshTenantData();
@@ -578,6 +650,205 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
           </div>
         )}
       </div>
+
+      {/* Master WhatsApp Quotas & Anti-Ban Modal */}
+      {showWhatsAppQuotasModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>
+                      {isAr
+                        ? 'إدارة حصص واتساب ومكافحة حظر الأرقام (Anti-Ban)'
+                        : 'Store WhatsApp Quotas & Anti-Ban Safeguards'}
+                    </span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">
+                      {isAr ? 'الإدارة العامة' : 'Master Admin'}
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {isAr
+                      ? 'التحكم المركزي في سقف الرسائل الآلية لكل متجر لحماية شرائح وأرقام التجار من حظر Meta'
+                      : 'Centralized control: configure daily & monthly automated limits to protect merchant numbers from Meta spam flags'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowWhatsAppQuotasModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                aria-label={isAr ? 'إغلاق النافذة' : 'Close modal'}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Anti-Ban Protection Policy Card */}
+            <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border-b border-emerald-100 dark:border-emerald-900/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-emerald-900 dark:text-emerald-200">
+              <div className="flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">
+                    {isAr
+                      ? 'سياسة الأمان الافتراضية: 10 رسائل/يومياً و 50 رسائل/شهرياً'
+                      : 'Default Anti-Ban Safety: 10 msgs/day & 50 msgs/month'}
+                  </span>
+                  <p className="text-[11px] text-emerald-700 dark:text-emerald-300/80 mt-0.5">
+                    {isAr
+                      ? 'خوارزميات Meta تقوم بحظر الأرقام الجديدة عند إرسال رسائل جماعية مفاجئة. الرسائل اليدوية (Direct WhatsApp) مجانية 100% مدى الحياة بدون حدود وبدون خطر الحظر.'
+                      : 'Meta spam filters flag phone numbers sending bulk automated messages without prior customer opt-in. The Direct WhatsApp option is 100% Free Lifetime with zero quota limits.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Body: Stores Quota Table */}
+            <div className="p-5 overflow-y-auto flex-1 space-y-3">
+              {quotasLoading ? (
+                <div className="py-12 text-center text-xs text-slate-500 flex flex-col items-center justify-center gap-2">
+                  <RefreshCw className="w-5 h-5 animate-spin text-teal-600" />
+                  <span>{isAr ? 'جاري تحميل بيانات حصص المتاجر...' : 'Loading store quota records...'}</span>
+                </div>
+              ) : storeQuotas.length === 0 ? (
+                <div className="py-12 text-center text-xs text-slate-500">
+                  {isAr ? 'لا توجد بيانات حصص متاحة حالياً.' : 'No store quota records found.'}
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                  {storeQuotas.map((q) => {
+                    const edit = editingQuotas[q.store_id] || { daily_limit: q.daily_limit, monthly_limit: q.monthly_limit };
+                    const isSaving = savingQuotaStoreId === q.store_id;
+                    const isNearDaily = q.daily_used >= q.daily_limit;
+                    const isNearMonthly = q.monthly_used >= q.monthly_limit;
+
+                    return (
+                      <div
+                        key={q.store_id}
+                        className="p-3.5 bg-white dark:bg-slate-900/60 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+                      >
+                        {/* Store Info */}
+                        <div className="min-w-[180px]">
+                          <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                            <span>{isAr ? q.store_name_ar || q.store_name : q.store_name}</span>
+                            {q.is_connected ? (
+                              <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">
+                                {isAr ? 'متصل بـ Meta' : 'Connected'}
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-md bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                                {isAr ? 'غير متصل' : 'Not Connected'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                            {q.sender_phone || q.store_id}
+                          </div>
+                        </div>
+
+                        {/* Quota Form Controls */}
+                        <div className="flex flex-wrap items-center gap-4">
+                          {/* Daily Quota */}
+                          <div className="flex items-center gap-2">
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                                {isAr ? 'الحد اليومي' : 'Daily Limit'}
+                              </span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={500}
+                                value={edit.daily_limit}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value) || 1;
+                                  setEditingQuotas((prev) => ({
+                                    ...prev,
+                                    [q.store_id]: { ...edit, daily_limit: val },
+                                  }));
+                                }}
+                                className="w-20 px-2 py-1 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                              />
+                            </div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 self-end pb-1 font-mono">
+                              <span className={isNearDaily ? 'text-rose-600 font-bold' : ''}>
+                                {q.daily_used}
+                              </span>
+                              /{edit.daily_limit} {isAr ? 'مستخدم اليوم' : 'used'}
+                            </div>
+                          </div>
+
+                          {/* Monthly Quota */}
+                          <div className="flex items-center gap-2">
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                                {isAr ? 'الحد الشهري' : 'Monthly Limit'}
+                              </span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={2000}
+                                value={edit.monthly_limit}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value) || 1;
+                                  setEditingQuotas((prev) => ({
+                                    ...prev,
+                                    [q.store_id]: { ...edit, monthly_limit: val },
+                                  }));
+                                }}
+                                className="w-20 px-2 py-1 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                              />
+                            </div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 self-end pb-1 font-mono">
+                              <span className={isNearMonthly ? 'text-rose-600 font-bold' : ''}>
+                                {q.monthly_used}
+                              </span>
+                              /{edit.monthly_limit} {isAr ? 'مستخدم هذا الشهر' : 'used'}
+                            </div>
+                          </div>
+
+                          {/* Save Button */}
+                          <button
+                            onClick={() => handleSaveStoreQuota(q.store_id)}
+                            disabled={isSaving}
+                            className="self-end px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            title={isAr ? 'حفظ الحصة للمتجر' : 'Save Quota'}
+                          >
+                            {isSaving ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Save className="w-3.5 h-3.5" />
+                            )}
+                            <span>{isAr ? 'حفظ' : 'Save'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                {isAr
+                  ? 'يتم تطبيق الحدود فورياً على واجهات المتاجر وحفظها في قاعدة البيانات'
+                  : 'Changes are written to MySQL store_settings and enforced immediately in real-time'}
+              </span>
+              <button
+                onClick={() => setShowWhatsAppQuotasModal(false)}
+                className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+              >
+                {isAr ? 'إغلاق' : 'Close'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

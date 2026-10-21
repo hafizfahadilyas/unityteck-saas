@@ -65,7 +65,7 @@ export const PromoCountdownBanner: React.FC = () => {
             src={bannerImage}
             alt={title}
             className="w-full h-full object-cover object-left filter brightness-[0.88]"
-            loading="lazy"
+            loading="lazy" decoding="async"
           />
           {/* Subtle gradient overlay to enhance text readability on right */}
           <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/55 to-black/85 rtl:bg-gradient-to-l rtl:from-black/20 rtl:via-black/55 rtl:to-black/85" />
@@ -137,3 +137,4 @@ export const PromoCountdownBanner: React.FC = () => {
     </section>
   );
 };
+

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
 import { PRODUCTS, EIGHT_FEATURED_CATEGORIES } from '../data/mockData';
 import { ProductCard } from '../components/ProductCard';
 import { Product } from '../types';
+import { readAllThemeSettings } from '../../settings/themeSettingsStore';
 import {
   Filter,
   Search,
@@ -38,7 +39,15 @@ export const CatalogPage: React.FC = () => {
     navigateToProduct
   } = useApp();
   const isAr = language === 'ar';
-  const catalogProducts = products && products.length > 0 ? products : PRODUCTS;
+  const catalogProducts = products || [];
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, []);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,8 +91,11 @@ export const CatalogPage: React.FC = () => {
       return true;
     }
 
-    // 3. Check in product tags
+    // 3. Check in product tags & badge
     if (product.tags && product.tags.some(tag => tag.toLowerCase().includes(t) || t.includes(tag.toLowerCase()))) {
+      return true;
+    }
+    if (product.badge && (product.badge.toLowerCase().includes(t) || t.includes(product.badge.toLowerCase()))) {
       return true;
     }
 
@@ -249,7 +261,40 @@ export const CatalogPage: React.FC = () => {
     { label: isAr ? 'هدايا التخرج' : 'Graduation', cat: 'هدايا التخرج' },
   ];
 
-  const quickPills = isCoffee ? coffeePills : isCar ? carPills : flowerPills;
+  // Dynamic filter pills strictly derived from actual catalog products
+  const quickPills = useMemo(() => {
+    if (isCoffee) return coffeePills;
+    if (isCar) return carPills;
+
+    const catMap = new Map<string, { label: string; cat: string }>();
+    catalogProducts.forEach((p) => {
+      const catVal = isAr ? (p.categoryAr || p.category) : (p.categoryEn || p.category);
+      if (catVal && !catMap.has(catVal)) {
+        catMap.set(catVal, {
+          label: catVal,
+          cat: catVal,
+        });
+      }
+    });
+
+    if (catMap.size > 0) {
+      return [
+        { label: isAr ? 'الكل' : 'All', cat: null },
+        ...Array.from(catMap.values()),
+      ];
+    }
+
+    return flowerPills;
+  }, [catalogProducts, isAr, isCoffee, isCar]);
+
+  const themeSettings = useMemo(() => {
+    return readAllThemeSettings(activeStore?.id || '', activeStore);
+  }, [activeStore]);
+
+  const customShopBanner =
+    themeSettings?.categoryCartCustomer?.categoryBannerUrl ||
+    themeSettings?.banners?.banners?.[0]?.image ||
+    '';
 
   return (
     <div className="py-6 md:py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out">
@@ -277,9 +322,20 @@ export const CatalogPage: React.FC = () => {
         )}
       </div>
 
-      {/* Dynamic Category Hero Header Banner */}
+      {/* Dynamic Category Hero Header Banner with Custom Theme Banner Support */}
       <div className="mb-8 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#102a1c] via-[#163825] to-[#102a1c] text-[#FAF9F5] shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-radial from-[#e6ca98]/10 to-transparent rounded-full -mr-20 -mt-20 pointer-events-none" />
+        {customShopBanner ? (
+          <>
+            <img
+              src={customShopBanner}
+              alt="Shop Banner"
+              className="absolute inset-0 w-full h-full object-cover filter brightness-[0.4] transition-all duration-500"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+          </>
+        ) : (
+          <div className="absolute top-0 right-0 w-64 h-64 bg-radial from-[#e6ca98]/10 to-transparent rounded-full -mr-20 -mt-20 pointer-events-none" />
+        )}
         <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#e6ca98]/20 text-[#e6ca98] text-xs font-semibold mb-2">
@@ -329,7 +385,7 @@ export const CatalogPage: React.FC = () => {
 
       {/* Horizontal Category Quick Filter Pills */}
       <div className="mb-8 flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
-        {quickPills.map((pill, idx) => {
+        {quickPills.map((pill: { label: string; cat: string | null }, idx: number) => {
           const isActive = (!selectedCategory && pill.cat === null) || (selectedCategory === pill.cat);
           return (
             <button
@@ -399,7 +455,7 @@ export const CatalogPage: React.FC = () => {
                   <span className="font-mono text-[10px]">{catalogProducts.length}</span>
                 </button>
 
-                {quickPills.slice(1).map((pill, idx) => {
+                {quickPills.slice(1).map((pill: { label: string; cat: string | null }, idx: number) => {
                   const isSelected = selectedCategory === pill.cat;
                   return (
                     <button
@@ -685,7 +741,7 @@ export const CatalogPage: React.FC = () => {
                               src={product.image}
                               alt={pName}
                               className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
-                              loading="lazy"
+                              loading="lazy" decoding="async"
                             />
                             {product.badge && (
                               <span className="absolute top-2.5 start-2.5 px-2.5 py-0.5 rounded-full bg-[#102a1c]/90 text-[#e6ca98] text-[10px] font-bold border border-[#d4af37]/40 shadow-sm">
@@ -817,4 +873,5 @@ export const CatalogPage: React.FC = () => {
     </div>
   );
 };
+
 

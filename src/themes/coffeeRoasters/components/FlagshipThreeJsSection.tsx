@@ -1,7 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
+import { useTenant } from '../../../context/TenantContext';
+import { readAllThemeSettings } from '../../settings/themeSettingsStore';
 import { PRODUCTS } from '../data/products';
-import { ChevronRight, ExternalLink, ShoppingBag } from 'lucide-react';
+import { ChevronRight, ShoppingBag } from 'lucide-react';
+
+// Authentic, high-resolution coffee photography assets
+import saudiCafeMachine from '../assets/images/saudi_cafe_machine_1791363309148.jpg';
+import baristaCremaMacro from '../assets/images/barista_crema_macro_1791363328316.jpg';
+import baristaMilkSteaming from '../assets/images/barista_milk_steaming_1791363367164.jpg';
+import baristaTampingShot from '../assets/images/barista_tamping_shot_1791363346824.jpg';
+import espressoWoodPitcher from '../assets/images/espresso_wood_pitcher_1791363392554.jpg';
+import saudiCoffeeCollage from '../assets/images/saudi_coffee_collage_1791363410810.jpg';
 
 export const SallaIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
   <svg
@@ -57,46 +67,28 @@ interface KeyProductBannerProps {
   imgRightAlt: string;
   bgGradientClass: string;
   borderClass?: string;
-  badgeBgClass?: string;
-  badgeTextClass?: string;
-  badgeBorderClass?: string;
-  badgeIconClass?: string;
   isReversed?: boolean;
   sallaUrl?: string;
 }
 
 const KeyProductRow: React.FC<KeyProductBannerProps> = ({
   id,
-  tagBadge,
-  tagBadgeAr,
   title,
   titleAr,
-  tagline,
-  taglineAr,
   price,
-  originalPrice,
   imgLeft,
   imgRight,
   imgLeftAlt,
   imgRightAlt,
   bgGradientClass,
   borderClass = '',
-  badgeBgClass = '',
-  badgeTextClass = '',
-  badgeBorderClass = '',
-  badgeIconClass = '',
-  badge = '',
-  badgeAr = '',
   isReversed = false,
-  sallaUrl
 }) => {
-  const { navigateTo, language, addToCart, triggerFlyToCart } = useCart();
-  const product = PRODUCTS.find((p) => p.id === id);
-  const effectiveSallaUrl = sallaUrl || (product as any)?.sallaUrl || 'https://salla.sa';
+  const { navigateTo, language, addToCart, triggerFlyToCart, products } = useCart();
+  const product = products.find((p) => p.id === id) || PRODUCTS.find((p) => p.id === id);
   const rowRef = useRef<HTMLDivElement | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
-
   const [isMobile, setIsMobile] = useState(false);
 
   // Detect mobile viewport and handle scroll animation
@@ -116,7 +108,6 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
       // Viewport coverage calculation
       if (rect.bottom > -200 && rect.top < windowHeight + 200) {
         setIsVisible(true);
-        // Normalized progress: -1 when entering from bottom, 0 in center, +1 when leaving top
         const centerDistance = (windowHeight / 2 - (rect.top + rect.height / 2)) / (windowHeight / 1.4);
         const clamped = Math.max(-1.3, Math.min(1.3, centerDistance));
         setScrollProgress(clamped);
@@ -141,7 +132,6 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
     };
   }, []);
 
-  // High-impact synchronized scroll transforms: disable or clamp sideways translations on mobile to prevent horizontal overflow
   const leftSlideX = isMobile ? 0 : scrollProgress * (isReversed ? -38 : 38);
   const rightSlideX = isMobile ? 0 : scrollProgress * (isReversed ? 38 : -38);
   const leftSlideY = isMobile ? scrollProgress * 10 : scrollProgress * 32;
@@ -152,13 +142,11 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
   const rightRotateX = isMobile ? 0 : scrollProgress * -5;
   const scaleEffect = isMobile ? 1 : 1.05 - Math.min(0.12, Math.abs(scrollProgress) * 0.08);
 
-  // Helper to split banner heading: start bold (semibold, not overly bold), last 4 words light
   const splitBannerHeading = (fullText: string) => {
     const words = fullText.trim().split(/\s+/);
     if (words.length <= 1) {
       return { boldPart: fullText, lightPart: '' };
     }
-    // Last 4 words light, start words bold (at least 1 word kept as bold if <= 4 words)
     const lightCount = words.length > 4 ? 4 : words.length - 1;
     const boldPart = words.slice(0, words.length - lightCount).join(' ');
     const lightPart = words.slice(words.length - lightCount).join(' ');
@@ -178,12 +166,14 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
       <div className={`grid grid-cols-1 lg:grid-cols-12 items-center gap-6 lg:gap-12 w-full max-w-full ${isReversed ? 'lg:flex-row-reverse' : ''}`}>
         {/* Info Column (5 cols) */}
         <div className={`lg:col-span-5 text-start w-full min-w-0 ${isReversed ? 'lg:order-2' : 'lg:order-1'}`}>
-          {/* 1. Title: Start bold (font-semibold, not overly bold), last 4 words light (font-light) */}
-          <h2 className={`honor-heading text-xl sm:text-3xl lg:text-[40px] text-black break-words ${
-            language === 'AR' 
-              ? 'leading-[1.42] tracking-normal' 
-              : 'leading-[1.28] tracking-[-0.01em]'
-          }`}>
+          {/* 1. Title */}
+          <h2
+            className={`honor-heading text-xl sm:text-3xl lg:text-[40px] text-black break-words ${
+              language === 'AR'
+                ? 'leading-[1.42] tracking-normal'
+                : 'leading-[1.28] tracking-[-0.01em]'
+            }`}
+          >
             <span className="font-semibold text-black">{boldPart}</span>
             {lightPart && (
               <>
@@ -193,15 +183,14 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
             )}
           </h2>
 
-
-          {/* 3. Refined Honor-Style Price matching Image 1 */}
+          {/* 2. Refined Honor-Style Price */}
           <div className="mt-4 sm:mt-7 flex items-baseline gap-1.5 flex-wrap">
             <span className="text-sm sm:text-base font-bold text-neutral-950">
               {language === 'AR' ? `${price.toLocaleString()}.00 ر.س` : `SAR ${price.toLocaleString()}.00`}
             </span>
           </div>
 
-          {/* 4. Action Buttons: [ Buy ] black pill + Learn More > + [Salla Icon] Open in Salla ↗ */}
+          {/* 3. Action Buttons */}
           <div className="mt-4 sm:mt-6 flex items-center gap-2.5 sm:gap-5 flex-wrap">
             <button
               type="button"
@@ -224,19 +213,20 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
               />
             </button>
 
-            {/* Add to Cart Button (Replaces Salla button) with Flying Animation */}
+            {/* Add to Cart Button with Flying Animation */}
             {(() => {
-              const currentProduct = product || PRODUCTS.find((p) => p.id === id) || PRODUCTS[0];
+              const currentProduct = product || products.find((p) => p.id === id) || PRODUCTS.find((p) => p.id === id) || PRODUCTS[0];
+              const flyImg = imgLeft || currentProduct.images?.[0] || currentProduct.colors[0]?.image;
               return (
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     const rect = e.currentTarget.getBoundingClientRect();
-                    triggerFlyToCart(rect, imgLeft || currentProduct.colors[0]?.image);
+                    triggerFlyToCart(rect, flyImg);
                     addToCart(currentProduct, undefined, undefined, undefined, undefined, false);
                   }}
-                  className="group/addcart px-4 sm:px-5 py-2 sm:py-2.5 rounded-full border border-black bg-transparent hover:bg-transparent text-black font-medium text-xs sm:text-sm transition-all duration-200 active:scale-95 cursor-pointer inline-flex items-center gap-2 shadow-none hover:opacity-85"
+                  className="group/addcart px-4 sm:px-5 py-2 sm:py-2.5 rounded-full border border-black bg-transparent hover:bg-black/5 text-black font-medium text-xs sm:text-sm transition-all duration-200 active:scale-95 cursor-pointer inline-flex items-center gap-2 shadow-none"
                   title={language === 'AR' ? 'أضف للسلة' : 'Add to Cart'}
                 >
                   <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 transition-transform duration-200 group-hover/addcart:scale-110" />
@@ -248,13 +238,12 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
         </div>
 
         {/* Dual FULL-HEIGHT Animated Images Stage (7 cols) */}
-        {/* Scroll-synchronized Left <-> Right Slide, 3D Flip/Tilt, and Dynamic Scale */}
         <div
           className={`lg:col-span-7 flex justify-center cursor-pointer w-full max-w-full overflow-hidden ${isReversed ? 'lg:order-1' : 'lg:order-2'}`}
           onClick={() => navigateTo('product-detail', id)}
         >
           <div className="relative w-full h-[240px] sm:h-[340px] md:h-[400px] lg:h-[450px] flex items-center justify-center gap-2.5 sm:gap-4 p-0.5 sm:p-1 perspective-[1400px] overflow-hidden">
-            {/* Left Full-Height Image: Smooth Slide Left/Right + 3D Tilt + Scale Zoom */}
+            {/* Left Full-Height Image */}
             <div
               className="relative w-1/2 h-full overflow-hidden rounded-2xl sm:rounded-3xl bg-white shadow-xs border-0 border-transparent will-change-transform transform-gpu"
               style={{
@@ -266,11 +255,11 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
                 alt={imgLeftAlt}
                 className="w-full h-full object-cover object-center transition-transform duration-700 hover:scale-105"
                 referrerPolicy="no-referrer"
-                loading="lazy"
+                loading="lazy" decoding="async"
               />
             </div>
 
-            {/* Right Full-Height Image: Synchronized Complementary Slide + 3D Tilt + Scale Zoom */}
+            {/* Right Full-Height Image */}
             <div
               className="relative w-1/2 h-full overflow-hidden rounded-2xl sm:rounded-3xl bg-white shadow-xs border-0 border-transparent will-change-transform transform-gpu"
               style={{
@@ -282,7 +271,7 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
                 alt={imgRightAlt}
                 className="w-full h-full object-cover object-center transition-transform duration-700 hover:scale-105"
                 referrerPolicy="no-referrer"
-                loading="lazy"
+                loading="lazy" decoding="async"
               />
             </div>
           </div>
@@ -294,6 +283,40 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
 
 export const FlagshipThreeJsSection: React.FC = () => {
   const { language } = useCart();
+  const { activeStore } = useTenant();
+  const [version, setVersion] = useState(0);
+
+  useEffect(() => {
+    const handleSync = () => setVersion((v) => v + 1);
+    window.addEventListener('unityteck-theme-settings', handleSync);
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === 'UNITYTECK_PREVIEW_SYNC') handleSync();
+    });
+    return () => {
+      window.removeEventListener('unityteck-theme-settings', handleSync);
+    };
+  }, []);
+
+  const themeSettings = useMemo(() => {
+    try {
+      return readAllThemeSettings(activeStore?.id, activeStore);
+    } catch {
+      return null;
+    }
+  }, [activeStore, version]);
+
+  const configuredBanners = themeSettings?.banners?.banners;
+  const b0 = configuredBanners?.[0];
+  const b1 = configuredBanners?.[1];
+  const b2 = configuredBanners?.[2];
+
+  const resolveImage = (img: string | undefined, fallback: string) => {
+    if (!img) return fallback;
+    const lower = img.toLowerCase();
+    if (lower.startsWith('http') || lower.startsWith('data:') || lower.startsWith('/')) return img;
+    return fallback;
+  };
+
   return (
     <section className="w-full max-w-[1360px] mx-auto px-4 lg:px-8 py-8 sm:py-16 space-y-8 sm:space-y-10 select-none overflow-hidden">
       <div className="text-center max-w-3xl mx-auto space-y-3">
@@ -313,65 +336,61 @@ export const FlagshipThreeJsSection: React.FC = () => {
             : 'Cutting-edge engineering and bespoke aesthetics for the ultimate coffee experience.'}
         </p>
       </div>
+
       {/* ========================================================================= */}
-      {/* ROW 1: Flagship Dual-Boiler 20-Bar Barista Pro */}
-      {/* Warm champagne / sand beige (#F4ECE1 -> #EADFCF) */}
+      {/* ROW 1: Saudi Cafe Dual-Boiler Flagship & Macro Crema                       */}
       {/* ========================================================================= */}
       <KeyProductRow
-        id="hb-h10a-dualboiler"
-        title="HiBrew Dual-Boiler 20-Bar Barista Pro"
-        titleAr="ماكينة إسبريسو هاي برو الاحترافية 20 بار دبل بويلر"
+        id={b0?.link?.replace('#', '') || "hb-h10a-dualboiler"}
+        title={b0?.title || "HiBrew Dual-Boiler 20-Bar Barista Pro"}
+        titleAr={b0?.title || "ماكينة إسبريسو هاي برو الاحترافية 20 بار دبل بويلر"}
         price={1899}
         originalPrice={2299}
-        imgLeft="./src/assets/images/saudi_cafe_machine_1791363309148.jpg"
-        imgRight="./src/assets/images/barista_crema_macro_1791363328316.jpg"
+        imgLeft={resolveImage(b0?.image, saudiCafeMachine)}
+        imgRight={baristaCremaMacro}
         imgLeftAlt="Commercial Dual-Boiler Machine on Cafe Counter"
         imgRightAlt="Macro Golden Crema Bottomless Extraction"
         bgGradientClass="bg-gradient-to-br from-[#F4ECE1] to-[#EADFCF]"
         borderClass="border-0 border-transparent"
         isReversed={false}
-        sallaUrl="https://salla.sa"
       />
 
       {/* ========================================================================= */}
-      {/* ROW 2: Barista Milk Steaming & Precision Titanium Grinder G5 */}
-      {/* Warm blush / terracotta peach (#F8E2D8 -> #EFCFC2) */}
+      {/* ROW 2: Barista Milk Steaming & Precision Titanium Grinder G5             */}
       {/* ========================================================================= */}
       <KeyProductRow
-        id="hb-mill-g5-pro"
-        title="HiBrew Conical Burr Coffee Mill G5"
-        titleAr="مطحنة القهوة الكهربائية بتروس تيتانيوم G5"
+        id={b1?.link?.replace('#', '') || "hb-mill-g5-pro"}
+        title={b1?.title || "HiBrew Conical Burr Coffee Mill G5"}
+        titleAr={b1?.title || "مطحنة القهوة الكهربائية بتروس تيتانيوم G5"}
         price={489}
         originalPrice={650}
-        imgLeft="./src/assets/images/barista_milk_steaming_1791363367164.jpg"
-        imgRight="./src/assets/images/barista_tamping_shot_1791363346824.jpg"
+        imgLeft={resolveImage(b1?.image, baristaMilkSteaming)}
+        imgRight={baristaTampingShot}
         imgLeftAlt="Barista Steaming Milk with Pitcher"
         imgRightAlt="Barista Tamping Ground Espresso into Portafilter"
         bgGradientClass="bg-gradient-to-br from-[#F8E2D8] to-[#EFCFC2]"
         borderClass="border-0 border-transparent"
         isReversed={false}
-        sallaUrl="https://salla.sa"
       />
 
       {/* ========================================================================= */}
-      {/* ROW 3: 58mm Naked Walnut Boltfilter & Artisan Collection (Image 1 match) */}
-      {/* Elegant eucalyptus / sage mist (#E6ECE5 -> #D5E0D4) */}
+      {/* ROW 3: 58mm Naked Walnut Boltfilter & Artisan Collection                 */}
       {/* ========================================================================= */}
       <KeyProductRow
-        id="hb-boltfilter-58-naked"
-        title="58mm Naked Walnut Boltfilter"
-        titleAr="بورتافلتر مكشوف مقاس 58 ملم خشب الجوز"
+        id={b2?.link?.replace('#', '') || "hb-boltfilter-58-naked"}
+        title={b2?.title || "58mm Naked Walnut Boltfilter"}
+        titleAr={b2?.title || "بورتافلتر مكشوف مقاس 58 ملم خشب الجوز"}
         price={159}
         originalPrice={220}
-        imgLeft="./src/assets/images/espresso_wood_pitcher_1791363392554.jpg"
-        imgRight="./src/assets/images/saudi_coffee_collage_1791363410810.jpg"
+        imgLeft={resolveImage(b2?.image, espressoWoodPitcher)}
+        imgRight={saudiCoffeeCollage}
         imgLeftAlt="Glass Espresso Mini Pitcher with Wooden Handle"
         imgRightAlt="Luxury Saudi Coffee Master Collection"
         bgGradientClass="bg-gradient-to-br from-[#E6ECE5] to-[#D5E0D4]"
         borderClass="border-0 border-transparent"
         isReversed={false}
-        sallaUrl="https://salla.sa"
       />
     </section>
   );
 };
+

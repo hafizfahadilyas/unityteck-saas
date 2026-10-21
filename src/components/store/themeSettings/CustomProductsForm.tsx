@@ -143,8 +143,55 @@ export const CustomProductsForm: React.FC = () => {
         </div>
 
         <div className="rounded-xl border p-4 space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-          <h3 className="text-xs font-bold uppercase text-emerald-600">Product Settings</h3>
+          <h3 className="text-xs font-bold uppercase text-emerald-600">
+            {isAr ? 'فلتر وتخطيط المنتجات' : 'Product Filter & Layout'}
+          </h3>
           <div className="space-y-3">
+            {/* Collection Filter */}
+            <div>
+              <span className="text-[10px] font-bold uppercase text-muted block mb-1">
+                {isAr ? 'تصنيف وفلترة المجموعة' : 'Collection / Tag Filter'}
+              </span>
+              <select
+                value={settings.collectionFilter || 'all'}
+                onChange={(e) => setVal('collectionFilter', e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl border outline-none font-bold"
+                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
+              >
+                <option value="all">{isAr ? 'جميع المنتجات (All Products)' : 'All Products'}</option>
+                <option value="trending">{isAr ? 'الأكثر رواجاً (Top Trending 🔥)' : 'Top Trending 🔥'}</option>
+                <option value="best_sellers">{isAr ? 'الأكثر مبيعاً (Best Sellers ⭐)' : 'Best Sellers ⭐'}</option>
+                <option value="best_products">{isAr ? 'أفضل المنتجات (Best Products 👑)' : 'Best Products 👑'}</option>
+                <option value="featured">{isAr ? 'منتجات مميزة (Featured ✨)' : 'Featured ✨'}</option>
+                <option value="women">{isAr ? 'هدايا نسائية (Women)' : 'Women Collection'}</option>
+                <option value="valentines">{isAr ? 'عيد الحب والرومانسية (Valentine)' : "Valentine's Day"}</option>
+                <option value="eid">{isAr ? 'أقسام العيد (Eid)' : 'Eid Celebrations'}</option>
+                <option value="birthday">{isAr ? 'أعياد الميلاد (Birthday)' : 'Birthday Gifts'}</option>
+                <option value="luxury">{isAr ? 'تشكيلة فاخرة (Luxury VIP)' : 'Luxury VIP'}</option>
+              </select>
+            </div>
+
+            {/* Columns Per Row */}
+            <div>
+              <span className="text-[10px] font-bold uppercase text-muted block mb-1">
+                {isAr ? 'عدد المنتجات في الصف الواحد (Grid Columns)' : 'Products Per Row (Columns)'}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {[3, 4, 5, 6, 8, 10].map((col) => (
+                  <button
+                    key={col}
+                    type="button"
+                    onClick={() => setVal('columnsCount', col)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border cursor-pointer ${
+                      (settings.columnsCount || 4) === col ? 'bg-emerald-600 text-white border-emerald-600' : ''
+                    }`}
+                  >
+                    {col} {isAr ? 'في الصف' : '/ row'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold">Display Type</span>
               <div className="flex gap-2">

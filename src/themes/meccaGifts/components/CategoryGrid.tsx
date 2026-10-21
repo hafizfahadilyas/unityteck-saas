@@ -200,7 +200,7 @@ export const CategoryGrid: React.FC = () => {
               src={cat.image}
               alt={isAr ? cat.name : cat.nameEn}
               className="w-full h-full object-cover object-center filter brightness-[0.82] group-hover:scale-108 group-hover:brightness-[0.92] transition-transform duration-500 ease-out"
-              loading="lazy"
+              loading="lazy" decoding="async"
             />
 
             {/* Dark Gradient Scrim overlay at bottom for contrast */}
@@ -221,3 +221,4 @@ export const CategoryGrid: React.FC = () => {
     </section>
   );
 };
+

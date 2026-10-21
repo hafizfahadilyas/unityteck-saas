@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120" fill="none">
+  <rect width="300" height="120" rx="16" fill="#FFFFFF"/>
+  <g transform="translate(20, 20)">
+    <!-- La Marzocco classic Florentine crest with crowned lion silhouette -->
+    <rect x="12" y="10" width="46" height="60" rx="4" fill="#991B1B" stroke="#D97706" stroke-width="2"/>
+    <path d="M22 20 L27 15 L35 20 L43 15 L48 20" stroke="#FBBF24" stroke-width="2" fill="none"/>
+    <circle cx="35" cy="38" r="10" fill="#FBBF24"/>
+    <path d="M30 46 L40 46 L38 58 L32 58 Z" fill="#FBBF24"/>
+    <!-- La Marzocco wordmark -->
+    <text x="74" y="44" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="900" fill="#18181B" letter-spacing="3">LA MARZOCCO</text>
+    <text x="76" y="64" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="700" fill="#991B1B" letter-spacing="4">FIRENZE · 1927</text>
+  </g>
+</svg>

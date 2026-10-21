@@ -1,6 +1,7 @@
 import React from 'react';
 import { MessageCircle } from 'lucide-react';
 import { FLOWERS_WHATSAPP } from './pack';
+import { readStoreIdentity } from '../settings/storeIdentity';
 
 type Props = {
   lang: string;
@@ -11,17 +12,20 @@ type Props = {
 export const WhatsAppChatFab: React.FC<Props> = ({ lang, productName, isAdmin = false }) => {
   if (isAdmin) return null;
 
+  const identity = readStoreIdentity('store-1', { name: 'متجر هدايا' });
+  const activePhone = (identity.whatsapp || FLOWERS_WHATSAPP.phone).replace(/[^0-9]/g, '');
+
   const msg =
     (lang === 'ar' ? FLOWERS_WHATSAPP.defaultMessageAr : FLOWERS_WHATSAPP.defaultMessageEn) +
     (productName ? ` — ${productName}` : '');
-  const href = `https://wa.me/${FLOWERS_WHATSAPP.phone}?text=${encodeURIComponent(msg)}`;
+  const href = `https://wa.me/${activePhone}?text=${encodeURIComponent(msg)}`;
 
   return (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed bottom-5 start-5 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-[#25D366] text-white text-xs font-black shadow-lg shadow-emerald-900/30 hover:brightness-105 transition-all"
+      className="fixed bottom-5 end-5 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-[#25D366] text-white text-xs font-black shadow-lg shadow-emerald-900/30 hover:brightness-105 transition-all"
       title={lang === 'ar' ? 'دردشة واتساب' : 'WhatsApp chat'}
     >
       <MessageCircle className="w-4 h-4" />
@@ -30,8 +34,10 @@ export const WhatsAppChatFab: React.FC<Props> = ({ lang, productName, isAdmin = 
   );
 };
 
-export function whatsappOrderHref(lang: string, lines: string[]): string {
+export function whatsappOrderHref(lang: string, lines: string[], phoneOverride?: string): string {
+  const identity = readStoreIdentity('store-1', { name: 'متجر هدايا' });
+  const activePhone = (phoneOverride || identity.whatsapp || FLOWERS_WHATSAPP.phone).replace(/[^0-9]/g, '');
   const header = lang === 'ar' ? FLOWERS_WHATSAPP.defaultMessageAr : FLOWERS_WHATSAPP.defaultMessageEn;
   const body = [header, '', ...lines].join('\n');
-  return `https://wa.me/${FLOWERS_WHATSAPP.phone}?text=${encodeURIComponent(body)}`;
+  return `https://wa.me/${activePhone}?text=${encodeURIComponent(body)}`;
 }

@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
 
-type ToastKind = 'success' | 'error' | 'info';
+type ToastKind = 'success' | 'error' | 'info' | 'warning';
 
 type ToastItem = {
   id: number;
@@ -103,6 +103,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 background:
                   t.kind === 'error'
                     ? 'color-mix(in srgb, #f43f5e 16%, transparent)'
+                    : t.kind === 'warning'
+                    ? 'color-mix(in srgb, #f59e0b 16%, transparent)'
                     : 'color-mix(in srgb, var(--portal-600, #1d8b94) 16%, transparent)',
               }}
             >
@@ -110,6 +112,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 <CheckCircle2 className="w-4 h-4 text-[var(--portal-600,#1d8b94)]" />
               )}
               {t.kind === 'error' && <XCircle className="w-4 h-4 text-rose-500" />}
+              {t.kind === 'warning' && <AlertTriangle className="w-4 h-4 text-amber-500" />}
               {t.kind === 'info' && (
                 <Info className="w-4 h-4 text-[var(--portal-400,#4fb8b4)]" />
               )}

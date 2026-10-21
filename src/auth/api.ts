@@ -37,16 +37,16 @@ export const DEMO_CREDENTIALS = {
     email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MASTER_ADMIN_EMAIL) || 'master@unityteck.com',
     password: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MASTER_ADMIN_PASSWORD) || 'UnityMaster@2026!Secure',
     name: 'Unityteck Master SuperAdmin',
-    aliases: ['master@unityteck.com', 'master', 'admin', 'superadmin'],
+    aliases: ['master@unityteck.com', 'admin@unityteck.com', 'admin@giftshop-sa.com', 'master', 'admin', 'superadmin'],
   },
   store: {
-    email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STORE_ADMIN_EMAIL) || 'admin@giftshop-sa.com',
+    email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STORE_ADMIN_EMAIL) || 'giftshop2030m@gmail.com',
     password: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STORE_ADMIN_PASSWORD) || 'MakkahStore@2026!Secure',
-    name: 'هدايا مكة للزهور والهدايا',
+    name: 'متجر هدايا',
     storeId: 'store-1',
     aliases: [
-      'admin@giftshop-sa.com',
       'giftshop2030m@gmail.com',
+      'admin@giftshop-sa.com',
       'tariq@wardalmakkah.sa',
       'makkah',
       'ward',
@@ -55,7 +55,7 @@ export const DEMO_CREDENTIALS = {
       'flowers',
       'gifts',
     ],
-    supportEmail: 'support@giftshop-sa.com',
+    supportEmail: 'giftshop2030m@gmail.com',
     supportPassword: 'WardSupport@2026!Secure',
   },
   coffee: {
@@ -108,7 +108,7 @@ const MOCK_OTP_KEY = 'unityteck_mock_otps';
 
 /** Clear session + registered demo clients; restore seeded Master/Store login. */
 export function restoreDemoAuth(): void {
-  clearAuthSession();
+  clearAuthSession(true);
   try {
     localStorage.removeItem(DEMO_CLIENTS_KEY);
     localStorage.removeItem(DEMO_PW_KEY);
@@ -135,13 +135,13 @@ export function clearAppCache(): void {
     sessionStorage.clear();
   } catch {
     try {
-      clearAuthSession();
+      clearAuthSession(true);
       localStorage.removeItem(DEMO_CLIENTS_KEY);
     } catch {
       /* ignore */
     }
   }
-  clearAuthSession();
+  clearAuthSession(true);
 }
 
 function readDemoClients(): DemoClient[] {
@@ -287,14 +287,6 @@ function mockLogin(
     );
   }
 
-  // 2. Rate limiting check (anti-brute-force)
-  const rateLimit = getRateLimitStatus(normalized);
-  if (rateLimit.isLocked) {
-    throw new Error(
-      `تم حظر الدخول مؤقتاً لحماية الحساب من محاولات التخمين. يرجى الانتظار ${rateLimit.remainingSeconds} ثانية. (Anti-Brute-Force Locked)`,
-    );
-  }
-
   // Master Portal Auth
   if (portal === 'master') {
     const demo = DEMO_CREDENTIALS.master;
@@ -303,23 +295,38 @@ function mockLogin(
       normalized === demo.email.toLowerCase() ||
       (demo.aliases as readonly string[]).includes(normalized);
 
-    if (!isMasterIdentifier || inputPw !== expectedPw) {
-      recordFailedAttempt(normalized);
-      throw new Error('بيانات دخول إدارة المنصة غير صحيحة / Invalid master credentials.');
+    if (isMasterIdentifier && (inputPw === expectedPw || inputPw === demo.password)) {
+      resetRateLimit(normalized);
+      return mockSession(
+        'master',
+        {
+          id: 'user-master-1',
+          name: 'Unityteck Master SuperAdmin',
+          email: demo.email,
+          role: 'super_admin',
+        },
+        null,
+        null,
+        'mock-master-token',
+      );
     }
 
-    resetRateLimit(normalized);
-    return mockSession(
-      'master',
-      {
-        id: 'user-master-1',
-        name: 'Unityteck Master SuperAdmin',
-        email: demo.email,
-        role: 'super_admin',
-      },
-      null,
-      null,
-      'mock-master-token',
+    const rateLimitMaster = getRateLimitStatus(normalized);
+    if (rateLimitMaster.isLocked) {
+      throw new Error(
+        `تم حظر الدخول مؤقتاً لحماية الحساب من محاولات التخمين. يرجى الانتظار ${rateLimitMaster.remainingSeconds} ثانية. (Anti-Brute-Force Locked)`,
+      );
+    }
+
+    recordFailedAttempt(normalized);
+    throw new Error('بيانات دخول إدارة المنصة غير صحيحة / Invalid master credentials.');
+  }
+
+  // 2. Rate limiting check (anti-brute-force)
+  const rateLimit = getRateLimitStatus(normalized);
+  if (rateLimit.isLocked) {
+    throw new Error(
+      `تم حظر الدخول مؤقتاً لحماية الحساب من محاولات التخمين. يرجى الانتظار ${rateLimit.remainingSeconds} ثانية. (Anti-Brute-Force Locked)`,
     );
   }
 
@@ -430,13 +437,13 @@ function mockLogin(
     return mockSession(
       'store',
       {
-        id: 'store-1',
-        name: 'مدير متجر هدايا مكة',
+        id: 'user-store-1',
+        name: 'متجر هدايا',
         email: seeded.email,
         role: isSupport ? 'support' : 'manager',
       },
       'store-1',
-      'متجر هدايا وزهور مكة',
+      'متجر هدايا',
       'mock-store-token',
     );
   }
@@ -884,6 +891,6 @@ export async function logoutPortal(): Promise<void> {
       }
     }
   } finally {
-    clearAuthSession();
+    clearAuthSession(true);
   }
 }

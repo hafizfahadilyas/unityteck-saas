@@ -82,7 +82,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
 
   // Email input for instant verification
   const [merchantEmailInput, setMerchantEmailInput] = useState(
-    currentSEOConfig.googleAccountEmail || (activeStore.ownerEmail && activeStore.ownerEmail.includes('@') && !activeStore.ownerEmail.includes('wardalmakkah') ? activeStore.ownerEmail : '')
+    currentSEOConfig.googleAccountEmail || activeStore.ownerEmail || (activeStore.id === 'store-1' ? 'giftshop2030m@gmail.com' : '')
   );
   const [showAdvancedOAuth, setShowAdvancedOAuth] = useState(false);
   const [customClientIdInput, setCustomClientIdInput] = useState(getStoredGoogleClientId());

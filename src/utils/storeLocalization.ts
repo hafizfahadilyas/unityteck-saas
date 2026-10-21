@@ -353,3 +353,190 @@ export function getProductDisplayCategory(
     return CATEGORY_MAP_TO_EN[raw] || 'Bouquets & Gifts';
   }
 }
+
+const CUSTOMER_NAME_EN_MAP: Record<string, string> = {
+  'ريان بن عبد الله السليمان': 'Rayan Al-Sulaiman',
+  'نورة بنت سعد القحطاني': 'Noura Al-Qahtani',
+  'سلطان فهد الغامدي': 'Sultan Al-Ghamdi',
+  'أحمد بن محمد القحطاني': 'Ahmed Al-Qahtani',
+  'أحمد القحطاني': 'Ahmed Al-Qahtani',
+  'أحمد محمد': 'Ahmed Mohammed',
+  'سارة أحمد': 'Sarah Ahmed',
+  'محمد علي': 'Mohammed Ali',
+  'ريم خالد': 'Reem Khalid',
+  'عبد الله الشمري': 'Abdullah Al-Shammari',
+  'عبد الرحمن الشمري': 'Abdulrahman Al-Shammari',
+  'فيصل المطيري': 'Faisal Al-Mutairi',
+  'منى العتيبي': 'Mona Al-Otaibi',
+  'خالد الدوسري': 'Khalid Al-Dossari',
+  'فهد العنزي': 'Fahad Al-Enezi',
+  'نورة سعد': 'Noura Saad',
+  'سارة المحمدي': 'Sarah Al-Mohammadi',
+  'بدر بن خالد العتيبي': 'Bader Al-Otaibi',
+  'هند بنت ماجد التميمي': 'Hind Al-Tamimi',
+  'مشعل بن ناصر الدوسري': 'Meshal Al-Dossari',
+  'أحمد بن طارق الزهراني': 'Ahmed Al-Zahrani',
+  'عبدالرحمن السديس': 'Abdulrahman Al-Sudais',
+  'فهد العتيبي': 'Fahad Al-Otaibi',
+  'حسان الزهراني': 'Hassan Al-Zahrani',
+  'حسن الزهراني': 'Hassan Al-Zahrani',
+  'طارق المنصور': 'Tariq Al-Mansoor',
+};
+
+export function getCustomerDisplayName(rawName?: string | null, locale: string = 'ar'): string {
+  if (!rawName) return locale === 'ar' ? 'عميل المتجر' : 'Store Customer';
+  const trimmed = rawName.trim();
+  if (locale === 'ar') {
+    return trimmed;
+  }
+  // If in English and name is Arabic, look up transliterated English name
+  if (/[\u0600-\u06FF]/.test(trimmed)) {
+    if (CUSTOMER_NAME_EN_MAP[trimmed]) return CUSTOMER_NAME_EN_MAP[trimmed];
+    // Try matching without bin / bint
+    const simplified = trimmed.replace(/\s+(بن|بنت)\s+/g, ' ');
+    if (CUSTOMER_NAME_EN_MAP[simplified]) return CUSTOMER_NAME_EN_MAP[simplified];
+    // Generic clean transliteration fallback
+    const firstWord = trimmed.split(' ')[0];
+    if (CUSTOMER_NAME_EN_MAP[firstWord]) return CUSTOMER_NAME_EN_MAP[firstWord];
+    return trimmed;
+  }
+  return trimmed;
+}
+
+export const ITEM_NAME_MAP_EN: Record<string, string> = {
+  // Coffee store products
+  'كولومبيا غيشا ريزيرف فاخرة ٢٠٠ جرام': 'Colombian Geisha Reserve 200g',
+  'كولومبيا عيشا ريزيرف فاخره ٢٠٠ جرام': 'Colombian Geisha Reserve 200g',
+  'كولومبيا غيشا ريزيرف': 'Colombian Geisha Reserve',
+  'طقم تقطير القهوة V60 المتكامل مع السيرفر والفلاتر': 'V60 Drip Brewing Kit with Server & Filters',
+  'المتكامل مع السيرفر والفلاتر V60 طقم تقطير القهوه': 'V60 Drip Brewing Kit with Server & Filters',
+  'غلاية فلو ستاغ EKG الكهربائية الذكية مع تحكم حراري رقمي': 'Fellow Stagg EKG Digital Variable Temp Kettle',
+  'غلاية فلو ستاغ EKG الكهربائية الذكية': 'Fellow Stagg EKG Digital Electric Kettle',
+  'إثيوبيا يرقاتشيفي - معالجة مجففة ٢٥٠ جرام': 'Ethiopia Yirgacheffe Natural 250g',
+  'كوستاريكا تارازو - معالجة عسلية صفراء ٢٥٠ جرام': 'Costa Rica Tarrazu Yellow Honey 250g',
+  'مطحنة قهوة يدوية بتروس فولاذية مخروطية دقيقة': 'Precision Conical Burr Manual Coffee Grinder',
+  'مطحنة قهوة يدوية بتروس فولاذية مخروطية': 'Precision Conical Burr Manual Coffee Grinder',
+  'ميزان أكايا لونار الذكي المقاوم للماء لإسبريسو احترافي': 'Acaia Lunar Waterproof Precision Espresso Scale',
+  'خلطة إسبريسو سيغنتشر - شوكولاتة داكنة وبندق ١ كجم': 'Signature Espresso Blend Dark Choc & Hazelnut 1kg',
+  'أداة تحضير كيمكس الزجاجية الكلاسيكية ٦ أكواب': 'Chemex Classic 6-Cup Glass Pour-Over Brewer',
+  'بتشر تبخير الحليب ستانلس ستيل ٤٥٠ مل مع قلم رسم': 'Stainless Milk Steaming Pitcher 450ml with Latte Pen',
+  'بتشر تبخير الحليب ستانلس ستيل ٤٥٠ مل': 'Stainless Milk Steaming Pitcher 450ml',
+  'يمن حراز - موكا بري عتيق ٢٠٠ جرام': 'Yemen Haraaz Wild Moka Vintage Roast 200g',
+  'ماكينة قهوة بارستا برو هايبرو H7A دبل بويلر 20 بار': 'HiBrew Barista Pro H7A Dual-Boiler 20-Bar',
+  'مطحنة هايبرو G5 الفاخرة بدون احتباس': 'HiBrew G5 Zero-Retention Luxury Mill',
+  'ماكينة إسبريسو هايبرو H10A الاحترافية': 'HiBrew H10A Pro Espresso Machine',
+  'ماكينة هاي برو H10A دبل بويلر 20 بار': 'HiBrew H10A Dual Boiler 20-Bar Espresso Machine',
+  'ماكينة هاي برو H10A دبل بويلر 20 بار شاشة تحكم PID': 'HiBrew H10A Dual Boiler Espresso Machine (20-Bar PID)',
+  'مطحنة بن هاي برو G5 شفرات مخروطية تيتانيوم 36 درجة': 'HiBrew G5 Precision Titanium Conical Burr Grinder',
+  'مطحنة بن هاي برو G5 شفرات تيتانيوم': 'HiBrew G5 Precision Titanium Conical Burr Grinder',
+  'ماكينة تحضير قهوة إسبريسو متنقلة للسفر والسيارة 3 في 1': 'HiBrew H4A Portable Travel Espresso Maker Kit',
+  'طقم ماكينة القهوة المحمولة للسفر 3 في 1': 'HiBrew H4A Portable Travel Espresso Kit',
+  'ماكينة كبسولات متعددة الاستخدام 4 في 1': 'Multi-Capsule 4-in-1 Espresso Machine',
+  'ماكينة قهوة متنقلة لاسلكية للسيارة والرحلات': 'Cordless Portable Travel & Car Espresso Maker',
+  'ميزان قهوة رقمي مع مؤقت ذكي': 'Digital Precision Coffee Scale with Timer',
+  'بورتافلتر مكشوف 58 مم مع باسكت احترافي': 'Bottomless 58mm Portafilter with Pro Basket',
+  'طقم أكواب سيراميك فخار يدوي (قطعتين)': 'Handmade Ceramic Flat White Cups (Set of 2)',
+  'دولاب ركن القهوة خشب بلوط مضلع فاخر': 'Luxury Ribbed Oak Coffee Bar Cabinet',
+  'ركن قهوة مودرن مع رفوف معلقة وإضاءة ليد': 'Modern Coffee Station with Floating Shelves & LED',
+
+  // Flowers / Gifts store products
+  'صندوق مخملي فاخر بالورود الهولندية الحمراء': 'Royal Dutch Red Roses Velvet Box',
+  'تشكيلة ترفل باتشي الملكية الفاخرة 500 جم': 'Patchi Luxury Truffles Collection 500g',
+  'فازة كريستال بزهور الأوركيد والبيبي روز': 'Crystal Orchid & Baby Rose Vase',
+  'سلة هدايا العيد الملكية الفاخرة': 'Royal Festive Luxury Gift Basket',
+
+  // Car store products
+  'تلبيس مقاعد جلد ألماني فاخر مقاوم للحرارة': 'German Thermal-Resistant Leather Seat Covers',
+  'طقم أرضيات دايموند خماسي الأبعاد 5D': '5D Diamond Precision Custom Floor Mats',
+  'داش كام أمامية وخلفية بدقة 4K مع GPS': 'Front & Rear 4K Dashcam with GPS & Parking Mode',
+};
+
+export const ADDRESS_MAP_EN: Record<string, string> = {
+  'الرياض - حي العليا': 'Riyadh - Al Olaya District',
+  'الرياض - حي النرجس': 'Riyadh - Al Narjis District',
+  'الخبر - حي الحزام الذهبي': 'Al Khobar - Golden Belt District',
+  'الظهران - حي الدوحة': 'Dhahran - Al Doha District',
+  'جدة - حي الشاطئ': 'Jeddah - Al Shati District',
+  'الرياض - حي حطين': 'Riyadh - Hittin District',
+  'الدمام - حي الشاطئ الشرقي': 'Dammam - East Shati District',
+  'مكة المكرمة - حي الشوقية': 'Makkah - Al Shawqiyyah District',
+  'فندق رافلز برج الساعة، جناح 1804': 'Clock Tower Raffles Hotel, Suite 1804',
+  'طريق الملك فهد، حي العليا، الرياض، المملكة العربية السعودية': 'King Fahd Road, Al-Olaya District, Riyadh, Saudi Arabia',
+  'طريق الملك عبد العزيز، حي الياسمين، الرياض، المملكة العربية السعودية': 'King Abdulaziz Rd, Al Yasmin District, Riyadh, Saudi Arabia',
+  'طريق إبراهيم الخليل، منطقة جبل عمر، مكة المكرمة، المملكة العربية السعودية': 'Ibrahim Al-Khalil Road, Jabal Omar District, Makkah, Saudi Arabia',
+  'حي العوالي، شارع إبراهيم الخليل، مكة المكرمة، المملكة العربية السعودية': 'Al-Awali District, Ibrahim Al-Khalil St, Makkah, Saudi Arabia',
+  'حي البساتين، طريق المدينة، جدة، المملكة العربية السعودية': 'Al-Basateen District, Madinah Road, Jeddah, Saudi Arabia',
+  'طريق خريص الفرعي، حي الروضة، الرياض، المملكة العربية السعودية': 'Khurais Branch Rd, Al Rawdah, Riyadh, Saudi Arabia',
+};
+
+export function getLocalizedItemName(
+  item: { name?: string; nameAr?: string; nameEn?: string; sku?: string },
+  locale: string = 'ar'
+): string {
+  const isAr = locale === 'ar';
+  if (isAr) {
+    return item.nameAr || item.name || '';
+  }
+  if (item.nameEn && !/[\u0600-\u06FF]/.test(item.nameEn)) {
+    return item.nameEn;
+  }
+  const raw = (item.name || '').trim();
+  if (ITEM_NAME_MAP_EN[raw]) {
+    return ITEM_NAME_MAP_EN[raw];
+  }
+  // Check without trailing punctuation / parenthesis
+  const cleaned = raw.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  if (ITEM_NAME_MAP_EN[cleaned]) {
+    return ITEM_NAME_MAP_EN[cleaned];
+  }
+  // If raw doesn't have Arabic, return as-is
+  if (!/[\u0600-\u06FF]/.test(raw) && raw) {
+    return raw;
+  }
+  // Fallback by SKU if known
+  const sku = (item.sku || '').toUpperCase();
+  if (sku.includes('H10A')) return 'HiBrew H10A Dual Boiler 20-Bar Espresso Machine';
+  if (sku.includes('G5')) return 'HiBrew G5 Precision Titanium Conical Burr Grinder';
+  if (sku.includes('H4A')) return 'HiBrew H4A Portable Travel Espresso Maker Kit';
+  if (sku.includes('H7A')) return 'HiBrew Barista Pro H7A Dual-Boiler 20-Bar';
+  if (sku.includes('COL') || sku.includes('GEISHA')) return 'Colombian Geisha Reserve 200g';
+  if (sku.includes('KIT') || sku.includes('V60')) return 'V60 Drip Brewing Kit with Server & Filters';
+  if (sku.includes('STG') || sku.includes('KETTLE')) return 'Fellow Stagg EKG Digital Electric Kettle';
+  if (sku.includes('ETH')) return 'Ethiopia Yirgacheffe Natural 250g';
+  if (sku.includes('CR') || sku.includes('COSTA')) return 'Costa Rica Tarrazu Yellow Honey 250g';
+  if (sku.includes('GRIND')) return 'Precision Conical Burr Manual Coffee Grinder';
+  if (sku.includes('ACA') || sku.includes('SCALE')) return 'Acaia Lunar Waterproof Precision Espresso Scale';
+  if (sku.includes('ESP') || sku.includes('BLEND')) return 'Signature Espresso Blend Dark Choc & Hazelnut 1kg';
+  if (sku.includes('CHM')) return 'Chemex Classic 6-Cup Glass Pour-Over Brewer';
+  if (sku.includes('PIT')) return 'Stainless Milk Steaming Pitcher 450ml';
+  if (sku.includes('YEM')) return 'Yemen Haraaz Wild Moka Vintage Roast 200g';
+  if (sku.includes('CB') || sku.includes('COLD')) return 'Cold Brew Coffee Concentrate 500ml';
+  if (sku.includes('ROSE')) return 'Royal Dutch Red Roses Velvet Box';
+  if (sku.includes('TRUF') || sku.includes('PAT')) return 'Patchi Luxury Truffles Collection 500g';
+
+  return raw || 'Product Item';
+}
+
+export function getLocalizedAddress(address?: string | null, locale: string = 'ar'): string {
+  if (!address) return '';
+  const isAr = locale === 'ar';
+  const trimmed = address.trim();
+  if (isAr) {
+    return trimmed;
+  }
+  if (ADDRESS_MAP_EN[trimmed]) {
+    return ADDRESS_MAP_EN[trimmed];
+  }
+  if (!/[\u0600-\u06FF]/.test(trimmed)) {
+    return trimmed;
+  }
+  // Translate parts if possible
+  if (trimmed.includes('الرياض')) return 'Riyadh, Saudi Arabia';
+  if (trimmed.includes('جدة')) return 'Jeddah, Saudi Arabia';
+  if (trimmed.includes('الدمام')) return 'Dammam, Saudi Arabia';
+  if (trimmed.includes('الخبر')) return 'Al Khobar, Saudi Arabia';
+  if (trimmed.includes('مكة')) return 'Makkah, Saudi Arabia';
+  return 'Saudi Arabia';
+}
+
+

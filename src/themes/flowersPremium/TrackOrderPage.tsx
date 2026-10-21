@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Truck,
   CheckCircle2,
@@ -36,6 +36,14 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({
   const isAr = lang === 'ar';
   const [searchQuery, setSearchQuery] = useState(initialOrderRef || '');
   const [activeStep, setActiveStep] = useState(3); // Step 4 (0-indexed 3): Out for delivery
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, []);
 
   // Look for order by query or fallback to first order or demo data
   const matchedOrder = orders.find(

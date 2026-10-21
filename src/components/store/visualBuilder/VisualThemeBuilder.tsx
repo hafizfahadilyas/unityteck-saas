@@ -843,7 +843,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
       );
     }
 
-    if (b.type === 'promo_banners_pair') return wrapBlock(<PromoBannersPair />);
+    if (b.type === 'promo_banners_pair') return wrapBlock(<PromoBannersPair settings={b.settings} isBuilderMode={true} />);
     if (b.type === 'promo_countdown_banner') return wrapBlock(<PromoCountdownBanner />);
 
     if (b.type === 'product_section_luxury') {
@@ -1047,14 +1047,41 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
       }
       return wrapBlock(<VideoSection />);
     }
-    if (b.type === 'best_sellers') return wrapBlock(<BestSellersSection />);
+    if (b.type === 'best_sellers') return wrapBlock(<BestSellersSection settings={b.settings} isBuilderMode={true} />);
     if (b.type === 'shop_by_category') return wrapBlock(<ShopByCategorySection />);
-    if (b.type === 'featured_collections' || b.type === 'metrics_section' || b.type === 'statistics') return wrapBlock(<FeaturedCollectionsSection />);
+    if (b.type === 'featured_collections' || b.type === 'metrics_section' || b.type === 'statistics') return wrapBlock(<FeaturedCollectionsSection settings={b.settings} isBuilderMode={true} />);
     if (b.type === 'store_features_bar' || b.type === 'features') return wrapBlock(<StoreFeaturesBar />);
-    if (b.type === 'occasion_why_us') return wrapBlock(<OccasionAndWhyUsSection />);
-    if (b.type === 'custom_gift_banner') return wrapBlock(<CustomGiftBanner />);
+    if (b.type === 'occasion_why_us') return wrapBlock(<OccasionAndWhyUsSection settings={b.settings} isBuilderMode={true} />);
+    if (b.type === 'custom_gift_banner') {
+      return wrapBlock(
+        <CustomGiftBanner
+          settings={b.settings}
+          titleAr={b.settings?.titleAr || b.titleAr}
+          titleEn={b.settings?.titleEn || b.titleEn}
+          subtitleAr={b.settings?.subtitleAr}
+          subtitleEn={b.settings?.subtitleEn}
+          imageUrl={b.settings?.imageUrl}
+          buttonTextAr={b.settings?.buttonTextAr}
+          buttonTextEn={b.settings?.buttonTextEn}
+          buttonUrl={b.settings?.buttonUrl}
+          isBuilderMode={true}
+        />
+      );
+    }
     if (b.type === 'offer_video_banner') return wrapBlock(<OfferVideoBanner />);
-    if (b.type === 'trending_this_week') return wrapBlock(<TrendingThisWeekSection />);
+    if (b.type === 'trending_this_week') {
+      return wrapBlock(
+        <TrendingThisWeekSection
+          blockId={b.id}
+          settings={b.settings}
+          titleAr={b.settings?.titleAr || b.titleAr}
+          titleEn={b.settings?.titleEn || b.titleEn}
+          subtitleAr={b.settings?.subtitleAr}
+          subtitleEn={b.settings?.subtitleEn}
+          isBuilderMode={true}
+        />
+      );
+    }
     if (b.type === 'social_reels') return wrapBlock(<SocialReelsSection />);
     if (b.type === 'video_section') {
       if (isCoffeeStore) {
@@ -2114,33 +2141,55 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       activeStore.id === 'store-coffee' ||
       activeStore.domain?.includes('coffee') ||
       currentThemeId.includes('coffee');
+    const isFlowerStore =
+      activeStore.id === 'store-mecca' ||
+      activeStore.domain?.includes('gift') ||
+      activeStore.slug?.includes('flower') ||
+      currentThemeId.includes('flower') ||
+      currentThemeId.includes('luxury_gifts');
 
     const list = currentProducts && currentProducts.length > 0 ? currentProducts.map((p) => {
       const isArName = /[\u0600-\u06FF]/.test(p.nameAr || p.name || '');
       const nameAr = p.nameAr || (isArName ? p.name : p.subtitleAr || p.name);
       const nameEn = (!isArName ? p.name : (p.subtitle || p.sku || p.name));
       const pAny = p as any;
+
+      const defaultNameAr = isCoffeeStore ? 'محصول بن مختص' : isFlowerStore ? 'باقة ورد طبيعي' : 'منتج مميز';
+      const defaultNameEn = isCoffeeStore ? 'Specialty Coffee Beans' : isFlowerStore ? 'Fresh Flower Bouquet' : 'Featured Product';
+      const defaultImg = isCoffeeStore
+        ? 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80'
+        : isFlowerStore
+        ? '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg'
+        : 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80';
+      const defaultCatAr = isCoffeeStore ? 'حبوب القهوة المختصة' : isFlowerStore ? 'باقات الورود الطبيعية' : 'منتجات المتجر';
+      const defaultCatEn = isCoffeeStore ? 'Specialty Coffee Beans' : isFlowerStore ? 'Natural Flower Bouquets' : 'Store Products';
+      const defaultCatSlug = isCoffeeStore ? 'coffee-beans' : isFlowerStore ? 'bouquets' : 'products';
+      const defaultOccasions = isCoffeeStore ? ['قهوة الصباح', 'ركن القهوة'] : isFlowerStore ? ['هدايا الحرم', 'مناسبات خاصة'] : ['عروض حصرية', 'منتجات مميزة'];
+      const defaultTags = isCoffeeStore ? ['مختص', 'تحميص طازج', 'إسبريسو'] : isFlowerStore ? ['طبيعي', 'هولندي', 'فاخر'] : ['أصلي', 'جودة عالية', 'توصيل سريع'];
+      const defaultDescAr = isCoffeeStore ? 'حبوب بن فاخرة منتقاة بعناية ومحمصة بحرفية.' : isFlowerStore ? 'تنسيق فاخر من أجود أنواع الزهور والورود الطبيعية.' : 'منتج عالي الجودة بأفضل المواصفات وضمان الجودة.';
+      const defaultDescEn = isCoffeeStore ? 'Specialty roasted coffee beans carefully selected.' : isFlowerStore ? 'Luxury fresh floral arrangement crafted with premium blooms.' : 'Premium quality product with authentic craftsmanship.';
+
       return {
         id: String(p.id),
-        name: nameAr || (isCoffeeStore ? 'محصول بن مختص' : 'باقة ورد طبيعي'),
-        nameEn: nameEn || (isCoffeeStore ? 'Specialty Coffee Beans' : 'Fresh Flower Bouquet'),
+        name: nameAr || defaultNameAr,
+        nameEn: nameEn || defaultNameEn,
         price: Number(p.discountedPrice || p.price || 0),
         originalPrice: p.originalPrice ? Number(p.originalPrice) : (p.discountedPrice && p.discountedPrice < p.price ? Number(p.price) : undefined),
         rating: 4.9,
         reviewsCount: p.salesCount || 135,
-        image: p.image || (isCoffeeStore ? 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80' : '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg'),
-        additionalImages: p.galleryUrls && p.galleryUrls.length > 0 ? p.galleryUrls : [p.image],
-        category: p.category || (isCoffeeStore ? 'حبوب القهوة المختصة' : 'باقات الورود الطبيعية'),
-        categoryEn: pAny.categoryEn || p.category || (isCoffeeStore ? 'Specialty Coffee Beans' : 'Natural Flower Bouquets'),
-        categorySlug: pAny.categorySlug || (p.category ? p.category.toLowerCase().replace(/\s+/g, '-') : (isCoffeeStore ? 'coffee-beans' : 'bouquets')),
-        occasions: p.tags || (isCoffeeStore ? ['قهوة الصباح', 'ركن القهوة'] : ['هدايا الحرم', 'مناسبات خاصة']),
-        tags: p.tags || (isCoffeeStore ? ['مختص', 'تحميص طازج', 'إسبريسو'] : ['طبيعي', 'هولندي', 'فاخر']),
+        image: p.image || defaultImg,
+        additionalImages: p.galleryUrls && p.galleryUrls.length > 0 ? p.galleryUrls : [p.image || defaultImg],
+        category: p.category || defaultCatAr,
+        categoryEn: pAny.categoryEn || p.category || defaultCatEn,
+        categorySlug: pAny.categorySlug || (p.category ? p.category.toLowerCase().replace(/\s+/g, '-') : defaultCatSlug),
+        occasions: p.tags || defaultOccasions,
+        tags: p.tags || defaultTags,
         badge: p.originalPrice ? 'عرض خاص' : undefined,
         badgeEn: p.originalPrice ? 'Special Offer' : undefined,
-        description: p.descriptionAr || p.description || (isCoffeeStore ? 'حبوب بن فاخرة منتقاة بعناية ومحمصة بحرفية.' : 'تنسيق فاخر من أجود أنواع الزهور والورود الطبيعية.'),
-        descriptionEn: p.description || p.descriptionAr || (isCoffeeStore ? 'Specialty roasted coffee beans carefully selected.' : 'Luxury fresh floral arrangement crafted with premium blooms.'),
-        flowerTypes: pAny.flowerTypes || (isCoffeeStore ? ['سلالة بوربون', 'كاتورا', 'غيشا'] : ['جوري هولندي فاخر', 'بيبي روز', 'يوكاليبتوس']),
-        dimensions: pAny.dimensions || (isCoffeeStore ? 'كيس 250 جرام صمام تفريغ' : 'ارتفاع 50 سم × عرض 35 سم'),
+        description: p.descriptionAr || p.description || defaultDescAr,
+        descriptionEn: p.description || p.descriptionAr || defaultDescEn,
+        flowerTypes: pAny.flowerTypes || (isCoffeeStore ? ['سلالة بوربون', 'كاتورا', 'غيشا'] : isFlowerStore ? ['جوري هولندي فاخر', 'بيبي روز', 'يوكاليبتوس'] : undefined),
+        dimensions: pAny.dimensions || (isCoffeeStore ? 'كيس 250 جرام صمام تفريغ' : isFlowerStore ? 'ارتفاع 50 سم × عرض 35 سم' : undefined),
         inStock: p.stock !== undefined ? p.stock > 0 : true,
         featured: true,
       };
@@ -2153,8 +2202,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       });
       if (matched.length >= maxLimit) return matched.slice(0, maxLimit);
       const existingIds = new Set(matched.map((m) => m.id));
-      // For coffee or isolated store catalogs, fallback strictly to store's own items!
-      const safeFallback = isCoffeeStore ? list : fallback;
+      // Fallback strictly to store's own items unless explicitly a flower store
+      const safeFallback = isFlowerStore ? fallback : list;
       const rest = safeFallback.filter((f) => !existingIds.has(f.id));
       return [...matched, ...rest].slice(0, maxLimit);
     };
@@ -2168,6 +2217,18 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         coffee: filterByKeywords(['قهوة', 'إسبريسو', 'coffee', 'espresso', 'باريستا'], list, 6),
         vases: filterByKeywords(['سيرفر', 'أكواب', 'server', 'cup', 'glass'], list, 6),
         mawajeeb: filterByKeywords(['حصري', 'مايكرولوت', 'micro-lot'], list, 4),
+      };
+    }
+
+    if (!isFlowerStore) {
+      return {
+        natural: filterByKeywords(['جديد', 'new', 'مميز', 'featured'], list, 6),
+        luxury: filterByKeywords(['فاخر', 'vip', 'luxury', 'طقم', 'pro'], list, 6),
+        chocolate: filterByKeywords(['عرض', 'sale', 'offer', 'خصم'], list, 6),
+        cake: filterByKeywords(['أفضل', 'best', 'top', 'شائع'], list, 6),
+        coffee: filterByKeywords(['إكسسوار', 'ملحق', 'accessory'], list, 6),
+        vases: filterByKeywords(['منتج', 'أصلي', 'standard'], list, 6),
+        mawajeeb: filterByKeywords(['حصري', 'خاص', 'exclusive'], list, 4),
       };
     }
 

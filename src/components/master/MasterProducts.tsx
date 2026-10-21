@@ -46,6 +46,8 @@ import {
   getProductDisplayCategory,
 } from '../../utils/storeLocalization';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
+import { RichTextEditor } from '../common/RichTextEditor';
+import { StoreProductEditorView } from '../store/StoreProductEditorView';
 
 /**
  * MasterProducts — Master Admin Products & Catalog Directory & Editor
@@ -257,13 +259,17 @@ export const MasterProducts: React.FC = () => {
   };
 
   // ────────────────────────────────────────────────
-  //  VIEW 2: 3-COLUMN PRODUCT EDITOR (Mockup 07 Exact)
+  //  VIEW 2: UNIFIED PRODUCT EDITOR (100% Pixel Perfect to Screenshot & Spec)
   // ────────────────────────────────────────────────
   if (currentView === 'edit' && editingProduct) {
+    const parentStore = stores.find((s) => s.id === editingProduct.storeId) || stores[0];
     return (
-      <ProductEditorView
+      <StoreProductEditorView
         product={editingProduct}
-        stores={stores}
+        storeName={parentStore ? parentStore.name : 'Store'}
+        storeSlug={parentStore?.slug}
+        storeId={editingProduct.storeId}
+        canMutate={true}
         categories={categories}
         onBack={() => {
           setCurrentView('list');
@@ -274,6 +280,7 @@ export const MasterProducts: React.FC = () => {
           toast(t('productSavedSuccess'), 'success');
         }}
         onDelete={() => handleDeleteProduct(editingProduct)}
+        onDuplicate={(prod) => handleDuplicateProduct(prod)}
       />
     );
   }
@@ -826,12 +833,9 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
   const [gallery, setGallery] = useState<string[]>(
     product.galleryUrls && product.galleryUrls.length > 0
       ? product.galleryUrls
-      : [
-          product.image || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80',
-          'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=600&q=80',
-          'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=600&q=80',
-          'https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2?auto=format&fit=crop&w=600&q=80',
-        ]
+      : product.image
+      ? [product.image]
+      : []
   );
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
@@ -1000,7 +1004,7 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
               onClick={() => {
                 const url = prompt(
                   isAr ? 'أدخل رابط الصورة الجديدة:' : 'Enter new image URL to add to gallery:',
-                  'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80'
+                  ''
                 );
                 if (url) {
                   setGallery([...gallery, url]);
@@ -1066,38 +1070,13 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
             </div>
 
             <div>
-              <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                {t('productDescription')} *
-              </label>
-              {/* Rich text mock toolbar */}
-              <div className="flex items-center gap-1 p-1.5 rounded-t-xl border border-b-0 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-                <button type="button" className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  <Bold className="w-3.5 h-3.5" />
-                </button>
-                <button type="button" className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  <Italic className="w-3.5 h-3.5" />
-                </button>
-                <button type="button" className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  <Underline className="w-3.5 h-3.5" />
-                </button>
-                <div className="w-[1px] h-3.5 bg-slate-300 dark:bg-slate-700 mx-1" />
-                <button type="button" className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  <List className="w-3.5 h-3.5" />
-                </button>
-                <button type="button" className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  <ListOrdered className="w-3.5 h-3.5" />
-                </button>
-                <button type="button" className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  <Link2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <textarea
-                rows={4}
-                required
+              <RichTextEditor
+                label={t('productDescription')}
+                requiredMark
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full p-3.5 rounded-b-xl border text-xs focus:outline-none leading-relaxed"
-                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                onChange={setDescription}
+                placeholder="High-quality commercial espresso machine with dual thermoblocks..."
+                isAr={isAr}
               />
             </div>
 

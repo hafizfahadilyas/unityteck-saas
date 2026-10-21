@@ -120,8 +120,56 @@ async function runTests() {
   assert(updatedConf.primaryColor === '#1e3a8a', 'Primary color updated in config');
   assert(updatedConf.fontSize === 'compact', 'Font size updated to compact in config');
 
+  // 10. Test ZATCA Phase 2 Cryptographic TLV & XML Hashing
+  console.log('\n--- Test Suite 10: ZATCA Phase 2 Cryptographic Validation & SHA-256 Hashing ---');
+  const { parseAndVerifyZatcaTlv, generateInvoiceHashSha256 } = await import('../src/utils/zatca');
+  
+  const testXmlString = '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"><ID>INV-2026-0042</ID><IssueDate>2026-10-18</IssueDate></Invoice>';
+  const computedHash = generateInvoiceHashSha256(testXmlString);
+  assert(typeof computedHash === 'string' && computedHash.length > 20, 'Invoice SHA-256 hash successfully calculated in Base64');
+
+  const phase2Payload = generateZatcaTlvBase64({
+    sellerName: 'مؤسسة هدايا مكة والزهور الفاخرة',
+    vatNumber: '300948215600003',
+    timestamp: '2026-10-18T14:30:00Z',
+    invoiceTotal: 1500.0,
+    vatTotal: 225.0,
+    invoiceHash: computedHash,
+    digitalSignature: 'MEQCID6v9320kL81_ZATCA_PHASE2_ECDSA_STAMP_VERIFIED',
+    publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE7ZATCA_PUBKEY',
+    stampIdentifier: 'CSID-SA-TEST-9921',
+  });
+
+  const verification = parseAndVerifyZatcaTlv(phase2Payload);
+  assert(verification.isValid, 'Phase 2 TLV payload is valid with 0 errors');
+  assert(verification.isPhase2Compliant, 'Phase 2 compliance verified (Tags 6, 7, 8 detected)');
+  assert(verification.sellerName === 'مؤسسة هدايا مكة والزهور الفاخرة', 'Parsed seller name matches in Arabic UTF-8');
+  assert(verification.vatNumber === '300948215600003', 'Parsed VAT registration number matches');
+  assert(verification.invoiceTotal === 1500, 'Parsed invoice total matches 1500 SAR');
+  assert(verification.invoiceHash === computedHash, 'Parsed XML hash matches input computedHash');
+  assert(verification.parsedTags.length >= 8, `Parsed tags count should be at least 8, got ${verification.parsedTags.length}`);
+
+  // 11. Test Courier Code 128 Barcodes & Shipping Label Specifications
+  console.log('\n--- Test Suite 11: Courier Code 128 Printable Barcodes (SMSA / SPL / Aramex) ---');
+  const { generateCode128Svg, getCarrierBrand } = await import('../src/utils/courierBarcode');
+
+  const smsaBrand = getCarrierBrand('smsa');
+  assert(smsaBrand.code === 'smsa', 'SMSA brand recognized correctly');
+  assert(smsaBrand.serviceCenterPhone === '920009999', 'SMSA official customer support hotline matches');
+
+  const splBrand = getCarrierBrand('spl');
+  assert(splBrand.code === 'spl', 'SPL brand recognized correctly');
+  assert(splBrand.serviceCenterPhone === '19992', 'SPL official customer support hotline matches');
+
+  const aramexBrand = getCarrierBrand('aramex');
+  assert(aramexBrand.code === 'aramex', 'Aramex brand recognized correctly');
+  assert(aramexBrand.serviceCenterPhone === '920027447', 'Aramex official customer care hotline matches');
+
+  const awbSvg = generateCode128Svg('SMSA-AWB-984210-SA', { height: 50 });
+  assert(awbSvg.includes('<svg') && awbSvg.includes('SMSA-AWB-984210-SA'), 'Generated SVG contains valid Code 128 barcode markup and text');
+
   console.log('\n====================================================');
-  console.log('🎉 ALL 9 TEST SUITES COMPLETED SUCCESSFULLY! (100% PASS)');
+  console.log('🎉 ALL 11 TEST SUITES COMPLETED SUCCESSFULLY! (100% PASS)');
   console.log('====================================================\n');
 }
 

@@ -29,18 +29,34 @@ type StoredSub = {
   renewedAt: string | null;
 };
 
+let cachedSubMap: Record<string, StoredSub> | null = null;
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (!e.key || e.key === STORE_SUB_KEY) {
+      cachedSubMap = null;
+    }
+  });
+}
+
 function readMap(): Record<string, StoredSub> {
+  if (cachedSubMap) return cachedSubMap;
   try {
     const raw = localStorage.getItem(STORE_SUB_KEY);
-    if (!raw) return {};
+    if (!raw) {
+      cachedSubMap = {};
+      return cachedSubMap;
+    }
     const parsed = JSON.parse(raw) as Record<string, StoredSub>;
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    cachedSubMap = parsed && typeof parsed === 'object' ? parsed : {};
+    return cachedSubMap;
   } catch {
     return {};
   }
 }
 
 function writeMap(map: Record<string, StoredSub>): void {
+  cachedSubMap = map;
   localStorage.setItem(STORE_SUB_KEY, JSON.stringify(map));
 }
 

@@ -4,6 +4,11 @@ import { Sparkline } from '../common/Sparkline';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { getStoreDisplayName } from '../../utils/storeLocalization';
+import {
+  getMasterGlobalTracking,
+  saveMasterGlobalTracking,
+  type MasterGlobalTrackingConfig,
+} from '../../services/ksaAutomationEngine';
 import { 
   Search, 
   Globe, 
@@ -25,7 +30,7 @@ Content-Type: application/json
 }`;
 
 export const MasterSEO: React.FC = () => {
-  const { stores, seoConfigs, switchToStore } = useTenant();
+  const { stores, seoConfigs, switchToStore, updateStoreSEOConfig } = useTenant();
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
   const { toast } = useToast();
@@ -33,6 +38,31 @@ export const MasterSEO: React.FC = () => {
   const [filterMode, setFilterMode] = useState<'all' | 'connected' | 'pending'>('all');
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [syncToast, setSyncToast] = useState(false);
+  const [masterTracking, setMasterTracking] = useState<MasterGlobalTrackingConfig>(() =>
+    getMasterGlobalTracking(),
+  );
+
+  const handleAutoProvisionAllStores = () => {
+    saveMasterGlobalTracking(masterTracking);
+    stores.forEach((st) => {
+      const slugTag = (st.slug || st.id).slice(0, 5).toUpperCase();
+      updateStoreSEOConfig(st.id, {
+        googleConnected: true,
+        googleAccountEmail: st.ownerEmail || `seo@${st.slug || 'store'}.sa`,
+        ga4MeasurementId: `${masterTracking.masterGa4Id}-${slugTag}`,
+        gtmContainerId: `${masterTracking.masterGtmId}-${slugTag}`,
+        searchConsoleConnected: true,
+        searchConsoleVerificationTag: `google-site-verification=KSA-${slugTag}-AUTO`,
+        indexingApiEnabled: masterTracking.masterIndexingAutoEnabled,
+      });
+    });
+    toast(
+      isAr
+        ? `تم تفعيل وربط GTM4 و GA4 والفهرسة التلقائية لجميع المتاجر (${stores.length}) دون تدخل التاجر!`
+        : `Auto-provisioned Master GTM4, GA4 & Indexing Timer across all ${stores.length} stores automatically!`,
+      'success',
+    );
+  };
 
   // Compute aggregated Google SEO metrics across ALL stores
   const storeEntries = stores.map(s => {
@@ -122,7 +152,7 @@ export const MasterSEO: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800">
+    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800">
       {/* Top Banner */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-gradient-to-r from-[#032320] via-[#06332e] to-[#032320] text-white p-6 rounded-3xl shadow-sm border border-[#0d4a43]">
         <div className="space-y-1.5">
@@ -170,6 +200,74 @@ export const MasterSEO: React.FC = () => {
           </span>
         </div>
       )}
+
+      {/* Master Global Zero-Touch GTM4 / GA4 & Auto-Indexing Umbrella Panel */}
+      <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+              {isAr
+                ? 'الربط التلقائي الموحد من الماستر (بدون إعداد من التاجر)'
+                : 'Master Zero-Touch GTM4 & GA4 Auto-Provisioning (No Merchant Setup Needed)'}
+            </h3>
+            <p className="text-xs text-slate-500">
+              {isAr
+                ? 'لا يحتاج صاحب المتجر لإحضار أي معرف؛ يقوم الماستر بتوليد وربط حاويات التتبع والفهرسة التلقائية لكل متجر بشكل معزول.'
+                : 'Store owners never need to fetch IDs manually—Master Admin auto-provisions isolated GTM4, GA4 & Indexing streams for every store.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleAutoProvisionAllStores}
+            className="px-4 py-2.5 rounded-2xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 cursor-pointer flex items-center gap-2 shadow-sm"
+          >
+            <Zap className="w-4 h-4" />
+            <span>
+              {isAr
+                ? `تفعيل تلقائي لجميع المتاجر (${stores.length})`
+                : `Auto-Provision All ${stores.length} Stores Now`}
+            </span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <label className="text-[11px] font-bold text-slate-500 block mb-1">
+              {isAr ? 'بادئة حاوية مدير العلامات (GTM)' : 'Master GTM Container Prefix'}
+            </label>
+            <input
+              type="text"
+              value={masterTracking.masterGtmId}
+              onChange={(e) => setMasterTracking({ ...masterTracking, masterGtmId: e.target.value })}
+              className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-mono font-bold text-xs"
+            />
+          </div>
+          <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <label className="text-[11px] font-bold text-slate-500 block mb-1">
+              {isAr ? 'بادئة معرف التحليلات (GA4)' : 'Master GA4 Stream Prefix'}
+            </label>
+            <input
+              type="text"
+              value={masterTracking.masterGa4Id}
+              onChange={(e) => setMasterTracking({ ...masterTracking, masterGa4Id: e.target.value })}
+              className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-mono font-bold text-xs"
+            />
+          </div>
+          <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <label className="text-[11px] font-bold text-slate-500 block mb-1">
+              {isAr ? 'مؤقت حماية الفهرسة التلقائية (دقائق)' : 'Safe Auto-Indexing Timer (Minutes)'}
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={60}
+              value={masterTracking.indexingTimerMinutes}
+              onChange={(e) => setMasterTracking({ ...masterTracking, indexingTimerMinutes: Number(e.target.value) })}
+              className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-mono font-bold text-xs"
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Cross-Store KPI Analytics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

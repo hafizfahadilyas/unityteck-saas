@@ -27,20 +27,21 @@ import {
   COFFEE_STORE_WORKSPACE_PATH,
 } from './coffeeStoreData';
 import { syncCatalogImagesToMediaAssets } from '../utils/mediaOptimizer';
+import { getArabCustomerAvatar } from '../utils/customerAvatars';
 
 export const INITIAL_STORES: Store[] = [
   {
     id: 'store-1',
-    name: 'هدايا مكة',
-    nameAr: 'هدايا مكة للزهور والهدايا',
-    nameEn: 'Makkah Flowers',
+    name: 'متجر هدايا',
+    nameAr: 'متجر هدايا',
+    nameEn: 'Hadaya Gifts & Flowers',
     slug: 'giftshop-sa',
     category: 'زهور طبيعية وهدايا فاخرة',
     categoryAr: 'زهور طبيعية وهدايا فاخرة',
     categoryEn: 'Flowers & Luxury Gifts',
-    owner: 'متجر هدايا مكة',
-    ownerAr: 'متجر هدايا مكة',
-    ownerEn: 'Makkah Gifts Store',
+    owner: 'متجر هدايا',
+    ownerAr: 'متجر هدايا',
+    ownerEn: 'Hadaya Store',
     ownerEmail: 'giftshop2030m@gmail.com',
     plan: 'pro',
     masterGrantedPro: true,
@@ -461,6 +462,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 70,
           quantity: 2,
           total: 140,
+          image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80',
         },
         {
           id: 'it-c5',
@@ -469,6 +471,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 79,
           quantity: 1,
           total: 79,
+          image: 'https://images.unsplash.com/photo-1587734195503-904fca47e0e9?auto=format&fit=crop&w=800&q=80',
         },
         {
           id: 'it-c6',
@@ -477,6 +480,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 220,
           quantity: 1,
           total: 220,
+          image: '/src/assets/images/coffee_grinder_mill_banner_1791218928342.jpg',
         },
       ],
       total: 439,
@@ -510,6 +514,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 840,
           quantity: 1,
           total: 840,
+          image: 'https://images.unsplash.com/photo-1509785307050-d4066910ec1e?auto=format&fit=crop&w=800&q=80',
         },
       ],
       total: 840,
@@ -543,6 +548,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 118,
           quantity: 2,
           total: 236,
+          image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=800&q=80',
         },
         {
           id: 'it-c9',
@@ -551,6 +557,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 195,
           quantity: 1,
           total: 195,
+          image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=800&q=80',
         },
         {
           id: 'it-c10',
@@ -559,6 +566,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 82,
           quantity: 1,
           total: 82,
+          image: 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?auto=format&fit=crop&w=800&q=80',
         },
       ],
       total: 513,
@@ -592,6 +600,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 150,
           quantity: 1,
           total: 150,
+          image: 'https://images.unsplash.com/photo-1610632380989-680fe40816c6?auto=format&fit=crop&w=800&q=80',
         },
         {
           id: 'it-c12',
@@ -600,6 +609,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 32,
           quantity: 3,
           total: 96,
+          image: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?auto=format&fit=crop&w=800&q=80',
         },
       ],
       total: 246,
@@ -633,6 +643,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 135,
           quantity: 2,
           total: 270,
+          image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=800&q=80',
         },
         {
           id: 'it-c14',
@@ -641,6 +652,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 70,
           quantity: 3,
           total: 210,
+          image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80',
         },
         {
           id: 'it-c15',
@@ -649,6 +661,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 79,
           quantity: 2,
           total: 158,
+          image: 'https://images.unsplash.com/photo-1587734195503-904fca47e0e9?auto=format&fit=crop&w=800&q=80',
         },
         {
           id: 'it-c16',
@@ -657,6 +670,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 620,
           quantity: 1,
           total: 620,
+          image: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&q=80',
         },
         {
           id: 'it-c17',
@@ -665,6 +679,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 220,
           quantity: 1,
           total: 220,
+          image: '/src/assets/images/coffee_grinder_mill_banner_1791218928342.jpg',
         },
       ],
       total: 1478,
@@ -698,6 +713,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 118,
           quantity: 3,
           total: 354,
+          image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=800&q=80',
         },
         {
           id: 'it-c19',
@@ -706,6 +722,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 82,
           quantity: 1,
           total: 82,
+          image: 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?auto=format&fit=crop&w=800&q=80',
         },
         {
           id: 'it-c20',
@@ -714,6 +731,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 70,
           quantity: 5,
           total: 350,
+          image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80',
         },
         {
           id: 'it-c21',
@@ -722,6 +740,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 32,
           quantity: 1,
           total: 32,
+          image: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?auto=format&fit=crop&w=800&q=80',
         },
         {
           id: 'it-c22',
@@ -730,6 +749,7 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
           price: 79,
           quantity: 0.25,
           total: 21,
+          image: 'https://images.unsplash.com/photo-1587734195503-904fca47e0e9?auto=format&fit=crop&w=800&q=80',
         },
       ],
       total: 839,
@@ -1301,6 +1321,46 @@ export const INITIAL_ORDERS: Record<string, Order[]> = {
 export const INITIAL_CUSTOMERS: Record<string, Customer[]> = {
   'store-1': [
     {
+      id: 'cust-mkk-naser',
+      storeId: 'store-1',
+      name: 'Naser Hakami',
+      nameAr: 'ناصر حكمي',
+      firstName: 'Naser',
+      lastName: 'Hakami',
+      email: 'naser@example.com',
+      phone: '+966508146695',
+      totalOrders: 0,
+      totalSpending: 0,
+      avgOrderValue: 0,
+      status: 'Active',
+      registeredDate: '2026-07-23',
+      lastOrderDate: '',
+      city: 'Jazan',
+      cityAr: 'جازان',
+      country: 'Saudi Arabia',
+      state: 'Jazan',
+      stateAr: 'جازان',
+      gender: 'Male',
+      source: 'WhatsApp',
+      group: 'Regular',
+      dob: '2005/07/31',
+      language: 'Arabic',
+      loyaltyPoints: 240,
+      cashbackBalance: 18.00,
+      availableCoupons: 3,
+      expiringSoonCount: 1,
+      marketingEmails: true,
+      whatsappMessages: true,
+      smsNotifications: false,
+      tags: ['Flower Lover', 'Regular Customer', 'Interested in Offers'],
+      aiInsights: [
+        'High chance to purchase again',
+        'Interested in flowers and gifts',
+        'Prefers offers and discounts',
+        'Active on WhatsApp',
+      ],
+    },
+    {
       id: 'cust-mkk-1',
       storeId: 'store-1',
       name: 'سارة عبد العزيز الشريف',
@@ -1374,6 +1434,46 @@ export const INITIAL_CUSTOMERS: Record<string, Customer[]> = {
     },
   ],
   'store-coffee': [
+    {
+      id: 'cust-cof-fahad',
+      storeId: 'store-coffee',
+      name: 'fahad',
+      nameAr: 'فهد',
+      firstName: 'fahad',
+      lastName: '',
+      email: 'customer_7893@store.sa',
+      phone: '+966 4567 123 50 966',
+      totalOrders: 1,
+      totalSpending: 240,
+      avgOrderValue: 240,
+      status: 'Active',
+      registeredDate: 'Today',
+      lastOrderDate: 'Today',
+      city: 'Riyadh',
+      cityAr: 'الرياض',
+      country: 'Saudi Arabia',
+      state: 'Riyadh',
+      stateAr: 'الرياض',
+      gender: 'Male',
+      source: 'WhatsApp',
+      group: 'Regular',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&auto=format&fit=crop&crop=faces&q=80',
+      language: 'Arabic',
+      loyaltyPoints: 120,
+      cashbackBalance: 12.0,
+      availableCoupons: 2,
+      expiringSoonCount: 0,
+      marketingEmails: true,
+      whatsappMessages: true,
+      smsNotifications: false,
+      tags: ['Regular Customer', 'Active on WhatsApp'],
+      aiInsights: [
+        'High chance to purchase again',
+        'Interested in flowers and gifts',
+        'Prefers offers and discounts',
+        'Active on WhatsApp',
+      ],
+    },
     {
       id: 'cust-cof-1',
       storeId: 'store-coffee',
@@ -1738,6 +1838,15 @@ export const INITIAL_CUSTOMERS: Record<string, Customer[]> = {
     },
   ],
 };
+
+// Ensure every initial customer has an authentic Arab profile avatar
+Object.values(INITIAL_CUSTOMERS).forEach((custList) => {
+  custList.forEach((cust) => {
+    if (!cust.avatar) {
+      cust.avatar = getArabCustomerAvatar(cust);
+    }
+  });
+});
 
 export const INITIAL_SHIPPING: Record<string, ShippingZone[]> = {
   'store-1': [
@@ -3662,17 +3771,18 @@ export const INITIAL_BLOGS: PlatformBlog[] = [
 export const INITIAL_SEO_CONFIGS: Record<string, StoreSEOConfig> = {
   'store-1': {
     storeId: 'store-1',
-    googleConnected: false,
-    googleAccountEmail: null,
-    connectedAt: null,
-    ga4MeasurementId: '',
-    gtmContainerId: '',
-    searchConsoleConnected: false,
-    searchConsoleVerificationTag: '',
-    indexingApiEnabled: false,
-    metaTitle: 'Makkah Fresh Flowers | زهور مكة الطازجة | توصيل ورد طبيعي وهدايا مكة',
-    metaDescription: 'متجر زهور مكة الطازجة لتوصيل أجمل باقات الورد الطبيعي الهولندي، فازات الليليوم، وهدايا الحرم المكي مع توصيل سريع خلال ساعتين لكافة أحياء وفنادق مكة المكرمة.',
+    googleConnected: true,
+    googleAccountEmail: 'giftshop2030m@gmail.com',
+    connectedAt: '2026-10-21',
+    ga4MeasurementId: 'G-HADAY99',
+    gtmContainerId: 'GTM-HDYA82',
+    searchConsoleConnected: true,
+    searchConsoleVerificationTag: 'google-site-verification=giftshop-sa-KSA-948210',
+    indexingApiEnabled: true,
+    metaTitle: 'متجر هدايا | زهور مكة الطبيعية وهدايا فاخرة | توصيل فوري',
+    metaDescription: 'متجر هدايا وزهور مكة لتوصيل أجمل باقات الورد الطبيعي الهولندي، فازات الليليوم، وهدايا الحرم المكي مع توصيل سريع خلال ساعتين لكافة أحياء وفنادق مكة المكرمة.',
     keywords: [
+      'متجر هدايا',
       'توصيل ورد مكة',
       'محل ورد في مكة المكرمة',
       'توصيل ورد فنادق الحرم',
@@ -3682,14 +3792,22 @@ export const INITIAL_SEO_CONFIGS: Record<string, StoreSEOConfig> = {
       'هدايا العمرة ورد وزمزم'
     ],
     sitemapUrl: 'https://giftshop-sa.com/sitemap.xml',
-    indexedUrlsCount: 0,
-    totalSearchClicks: 0,
-    totalSearchImpressions: 0,
-    avgCtr: 0,
-    avgPosition: 0,
-    lastIndexingPing: 'Never',
-    submittedUrls: [],
-    topQueries: [],
+    indexedUrlsCount: 32,
+    totalSearchClicks: 1420,
+    totalSearchImpressions: 18450,
+    avgCtr: 7.7,
+    avgPosition: 2.8,
+    lastIndexingPing: 'Just now',
+    submittedUrls: [
+      { url: 'https://giftshop-sa.com', submittedAt: '10 min ago', status: 'indexed' },
+      { url: 'https://giftshop-sa.com/catalog', submittedAt: '1 hour ago', status: 'indexed' },
+      { url: 'https://giftshop-sa.com/sitemap.xml', submittedAt: '2 hours ago', status: 'indexed' },
+    ],
+    topQueries: [
+      { query: 'متجر هدايا مكة', clicks: 520, impressions: 5400, position: 1.8 },
+      { query: 'توصيل ورد طبيعي مكة', clicks: 380, impressions: 4200, position: 2.4 },
+      { query: 'باقات ورد فنادق الحرم', clicks: 290, impressions: 3100, position: 2.1 },
+    ],
   },
   'store-coffee': {
     storeId: 'store-coffee',

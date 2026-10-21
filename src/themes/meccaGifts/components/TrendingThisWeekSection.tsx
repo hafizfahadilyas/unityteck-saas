@@ -1,187 +1,340 @@
 import React, { useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
-import { ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShoppingCart, ShoppingBag, Sparkles } from 'lucide-react';
 import { Product } from '../types';
 
-export const TrendingThisWeekSection: React.FC = () => {
+export interface TrendingThisWeekSectionProps {
+  blockId?: string;
+  settings?: Record<string, any>;
+  titleAr?: string;
+  titleEn?: string;
+  subtitleAr?: string;
+  subtitleEn?: string;
+  bannerImage?: string;
+  categoryFilter?: string;
+  brandFilter?: string;
+  tagFilter?: string;
+  limit?: number;
+  imageAspectRatio?: 'portrait' | 'square' | 'tall' | 'auto';
+  showPrices?: boolean;
+  showAddToCart?: boolean;
+  showTitle?: boolean;
+  isBuilderMode?: boolean;
+}
+
+export const TrendingThisWeekSection: React.FC<TrendingThisWeekSectionProps> = ({
+  blockId,
+  settings,
+  titleAr,
+  titleEn,
+  subtitleAr,
+  subtitleEn,
+  bannerImage,
+  categoryFilter,
+  brandFilter,
+  tagFilter,
+  limit,
+  imageAspectRatio,
+  showPrices,
+  showAddToCart,
+  showTitle,
+  isBuilderMode = false,
+}) => {
   const { language, products, addToCart, navigateToProduct } = useApp();
-  const { activeStore } = useTenant();
+  const { activeStore, currentProducts } = useTenant();
   const isAr = language === 'ar';
-  const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Exact 5 products from Image 2
-  const defaultTrending: Product[] = [
-    {
-      id: 'trend-1',
-      name: 'بوكس الورد الملكي الفاخر',
-      nameEn: 'Luxury Flower Box',
-      price: 349,
-      rating: 4.9,
-      reviewsCount: 110,
-      description: 'بوكس خشبي أنيق يحتوي على أزهار الجوري والبيبي روز الفاخرة.',
-      descriptionEn: 'Luxury keepsake box filled with premium fresh blooms.',
-      flowerTypes: ['جوري هولندي', 'بيبي روز'],
-      image: '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
-      category: 'باقات فاخرة',
-      categoryEn: 'Luxury Bouquets',
-      inStock: true,
-    },
-    {
-      id: 'trend-2',
-      name: 'باقة الجوري الأحمر الإكوادوري',
-      nameEn: 'Red Rose Bouquet',
-      price: 199,
-      rating: 4.9,
-      reviewsCount: 145,
-      description: 'جوري أحمر إكوادوري طويل الساق بتغليف أنيق.',
-      descriptionEn: 'Long-stem red roses in signature elegant wrapping.',
-      flowerTypes: ['جوري أحمر'],
-      image: '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg',
-      category: 'ورد أحمر',
-      categoryEn: 'Red Roses',
-      inStock: true,
-    },
-    {
-      id: 'trend-3',
-      name: 'سلة الهدايا الملكية الفاخرة',
-      nameEn: 'Gift Hamper',
-      price: 299,
-      rating: 4.9,
-      reviewsCount: 92,
-      description: 'سلة إهداء متكاملة تضم زهوراً طبيعية وشوكولاتة فاخرة.',
-      descriptionEn: 'Gourmet gift hamper paired with fresh blooms and Belgian chocolates.',
-      flowerTypes: ['أزهار منوعة'],
-      image: '/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg',
-      category: 'ورد وشوكولاتة بلجيكية فاخرة',
-      categoryEn: 'Roses & Chocolates',
-      inStock: true,
-    },
-    {
-      id: 'trend-4',
-      name: 'باقة زهور مشكلة موسمية',
-      nameEn: 'Mixed Flowers',
-      price: 249,
-      rating: 4.8,
-      reviewsCount: 78,
-      description: 'مزيج رائع من أزهار البيوني والجوري واليوكاليبتوس الطبيعي.',
-      descriptionEn: 'Vibrant mix of seasonal garden peonies and fresh foliage.',
-      flowerTypes: ['بيوني', 'جوري'],
-      image: '/src/assets/images/hadaya_pink_peonies_1791216156090.jpg',
-      category: 'باقات الورود الطبيعية',
-      categoryEn: 'Natural Bouquets',
-      inStock: true,
-    },
-    {
-      id: 'trend-5',
-      name: 'طقم إهداء رجالي ملكي فاخر',
-      nameEn: "Men's Gift Set",
-      price: 279,
-      rating: 5.0,
-      reviewsCount: 64,
-      description: 'طقم رجالي فاخر يجمع بين العطور والعود الطبيعي وتنسيق الورد.',
-      descriptionEn: 'Bespoke executive gift set featuring authentic oud and floral accents.',
-      flowerTypes: ['ورد بيبي روز'],
-      image: '/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg',
-      category: 'هدايا رجالية',
-      categoryEn: 'Men Gifts',
-      inStock: true,
-    },
-  ];
+  const s = settings || {};
 
-  const items: Product[] = React.useMemo(() => {
-    if (products && products.length > 0) {
-      // Use products from store catalog preserving their real name, price and images
-      return products.slice(0, 8);
+  // Store Category / Industry Detection
+  const isCoffee =
+    activeStore?.id === 'store-coffee' ||
+    Boolean(activeStore?.category && activeStore.category.includes('قهوة')) ||
+    Boolean(activeStore?.domain?.includes('coffee')) ||
+    Boolean(s.isCoffee);
+
+  const isCarStore =
+    activeStore?.id?.includes('transport') ||
+    activeStore?.id?.includes('car') ||
+    Boolean(
+      activeStore?.category &&
+        (activeStore.category.includes('سيارات') ||
+          activeStore.category.toLowerCase().includes('car') ||
+          activeStore.category.toLowerCase().includes('transport'))
+    );
+
+  // Industry-specific smart fallbacks
+  const defaultTitleAr = isCoffee
+    ? 'المحاصيل الأكثر رواجاً هذا الأسبوع'
+    : isCarStore
+    ? 'إكسسوارات السيارات الأكثر طلباً'
+    : 'الأكثر رواجاً هذا الأسبوع';
+
+  const defaultTitleEn = isCoffee
+    ? 'Trending Coffee Blends This Week'
+    : isCarStore
+    ? 'Trending Vehicle Accessories This Week'
+    : 'Trending This Week';
+
+  const defaultSubAr = isCoffee
+    ? 'أفضل محاصيل القهوة المختصة الأكثر طلباً وتقييماً هذا الأسبوع'
+    : isCarStore
+    ? 'تشكيلة مختارة من أرقى أغطية المقاعد والدعاسات الملكية الأكثر مبيعاً'
+    : 'تشكيلة الورود والهدايا الأكثر طلباً وإعجاباً هذا الأسبوع';
+
+  const defaultSubEn = isCoffee
+    ? 'Most popular specialty single origins and blends this week'
+    : isCarStore
+    ? 'Top trending luxury seat covers and floor mats for your vehicle'
+    : 'Most loved floral arrangements and gifts tailored by master florists';
+
+  const activeTitleAr = s.titleAr || s.mainTitleAr || titleAr || defaultTitleAr;
+  const activeTitleEn = s.titleEn || s.mainTitleEn || titleEn || defaultTitleEn;
+  const activeSubtitleAr = s.subtitleAr || subtitleAr || defaultSubAr;
+  const activeSubtitleEn = s.subtitleEn || subtitleEn || defaultSubEn;
+
+  const activeBanner = s.bannerImage || s.imageUrl || bannerImage;
+  const selectedCategory = s.categoryFilter || s.categorySlug || categoryFilter;
+  const selectedBrand = s.brandFilter || brandFilter;
+  const selectedTag = s.tagFilter || tagFilter;
+  const itemsLimit = s.limit || limit || 10;
+  const aspectMode = s.imageAspectRatio || imageAspectRatio || 'portrait'; // 'portrait' = Full Image 4:5 matching reference photo
+  const displayTitle = s.showTitle !== false && showTitle !== false;
+  const displayPrice = s.showPrices !== false && showPrices !== false;
+  const displayCart = s.showAddToCart !== false && showAddToCart !== false;
+
+  // Real store catalog strictly isolated to active tenant
+  const storeCatalog = React.useMemo(() => {
+    const list =
+      currentProducts && currentProducts.length > 0
+        ? currentProducts
+        : products || [];
+    return list.filter((p) => (p as any).status !== 'archived');
+  }, [currentProducts, products]);
+
+  // Dynamic filter with ZERO mock/fake arrays
+  const items = React.useMemo(() => {
+    if (!storeCatalog || storeCatalog.length === 0) return [];
+
+    let filtered = [...storeCatalog];
+
+    // Filter by category if requested
+    if (selectedCategory && selectedCategory !== 'all') {
+      const target = selectedCategory.toLowerCase();
+      filtered = filtered.filter((p) => {
+        const cat = (p.category || '').toLowerCase();
+        const catSlug = ((p as any).categorySlug || '').toLowerCase();
+        return cat.includes(target) || catSlug.includes(target);
+      });
     }
-    return isCoffee ? [] : defaultTrending;
-  }, [products, isCoffee]);
+
+    // Filter by brand if requested
+    if (selectedBrand && selectedBrand !== 'all') {
+      filtered = filtered.filter(
+        (p) => (p as any).brandId === selectedBrand || (p as any).brand === selectedBrand
+      );
+    }
+
+    // Filter by tag if requested
+    if (selectedTag && selectedTag !== 'all') {
+      const tagLower = selectedTag.toLowerCase();
+      filtered = filtered.filter((p) => {
+        const b = String(p.badge || '').toLowerCase();
+        const tags = (p.tags || []).map((t) => String(t).toLowerCase());
+        return b === tagLower || tags.includes(tagLower);
+      });
+    } else {
+      // Prioritize trending or popular products in catalog
+      const trendingList = filtered.filter((p) => {
+        const b = String(p.badge || '').toLowerCase();
+        const tags = (p.tags || []).map((x) => String(x).toLowerCase());
+        return (
+          b.includes('trend') ||
+          b.includes('top') ||
+          b.includes('best') ||
+          tags.includes('trending')
+        );
+      });
+
+      if (trendingList.length >= 4) {
+        filtered = trendingList;
+      }
+    }
+
+    return filtered.slice(0, itemsLimit);
+  }, [storeCatalog, selectedCategory, selectedBrand, selectedTag, itemsLimit]);
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const offset = direction === 'left' ? -260 : 260;
-      scrollRef.current.scrollBy({ left: isAr ? -offset : offset, behavior: 'smooth' });
+      const offset = direction === 'left' ? -280 : 280;
+      scrollRef.current.scrollBy({
+        left: isAr ? -offset : offset,
+        behavior: 'smooth',
+      });
     }
   };
 
   return (
-    <section className="py-10 sm:py-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      {/* Header with Prev / Next Arrow Controls */}
-      <div className="flex items-center justify-between mb-8 pb-3 border-b border-[#ece7de]">
-        <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c]">
-          {isAr ? 'الأكثر رواجاً هذا الأسبوع' : 'Trending This Week'}
-        </h2>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => scroll('left')}
-            aria-label="Previous"
-            className="w-8 h-8 rounded-full border border-[#d6cfc0] bg-white hover:bg-[#102a1c] hover:text-white flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
-          >
-            {isAr ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </button>
-          <button
-            type="button"
-            onClick={() => scroll('right')}
-            aria-label="Next"
-            className="w-8 h-8 rounded-full border border-[#d6cfc0] bg-white hover:bg-[#102a1c] hover:text-white flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
-          >
-            {isAr ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          </button>
+    <section className="py-10 sm:py-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full transition-colors">
+      {/* Optional Custom Section Banner */}
+      {activeBanner && (
+        <div className="mb-6 rounded-3xl overflow-hidden shadow-md max-h-48 sm:max-h-64 relative">
+          <img
+            src={activeBanner}
+            alt={isAr ? activeTitleAr : activeTitleEn}
+            className="w-full h-full object-cover"
+            loading="lazy" decoding="async"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-6">
+            <span className="text-white font-bold text-lg sm:text-xl font-serif drop-shadow-sm">
+              {isAr ? activeTitleAr : activeTitleEn}
+            </span>
+          </div>
         </div>
+      )}
+
+      {/* Header with Title, Subtitle, and Prev / Next Arrow Controls */}
+      <div className="flex items-end justify-between mb-8 pb-3 border-b border-[#ece7de] dark:border-stone-800">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c] dark:text-[#f3e5c8] tracking-tight">
+              {isAr ? activeTitleAr : activeTitleEn}
+            </h2>
+            <Sparkles className="w-5 h-5 text-amber-500 animate-pulse hidden sm:inline-block" />
+          </div>
+          {(activeSubtitleAr || activeSubtitleEn) && (
+            <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 font-light">
+              {isAr ? activeSubtitleAr : activeSubtitleEn}
+            </p>
+          )}
+        </div>
+
+        {items.length > 0 && (
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => scroll('left')}
+              aria-label={isAr ? 'السابق' : 'Previous'}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-[#d6cfc0] dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-[#102a1c] hover:text-white dark:hover:bg-[#d4af37] dark:hover:text-black flex items-center justify-center transition-colors shadow-2xs cursor-pointer active:scale-95"
+            >
+              {isAr ? (
+                <ChevronRight className="w-4 h-4" />
+              ) : (
+                <ChevronLeft className="w-4 h-4" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => scroll('right')}
+              aria-label={isAr ? 'التالي' : 'Next'}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-[#d6cfc0] dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-[#102a1c] hover:text-white dark:hover:bg-[#d4af37] dark:hover:text-black flex items-center justify-center transition-colors shadow-2xs cursor-pointer active:scale-95"
+            >
+              {isAr ? (
+                <ChevronLeft className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Horizontal Carousel (Exact 5 cards matching Image 2) */}
-      <div
-        ref={scrollRef}
-        className="flex gap-4 sm:gap-5 overflow-x-auto pb-4 no-scrollbar scroll-smooth"
-      >
-        {items.map((item) => {
-          const name = isAr ? item.name : item.nameEn;
-          return (
-            <div
-              key={item.id}
-              onClick={() => navigateToProduct(item)}
-              className="group min-w-[210px] sm:min-w-[230px] max-w-[240px] bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-[#eee8df] hover:border-[#d4af37]/60 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between cursor-pointer shrink-0"
-            >
-              <div className="relative aspect-square rounded-xl sm:rounded-2xl overflow-hidden bg-[#faf8f5] mb-3">
-                <img
-                  src={item.image}
-                  alt={name}
-                  className="w-full h-full object-cover group-hover:scale-106 transition-transform duration-500"
-                  loading="lazy"
-                />
-              </div>
+      {/* Genuine Empty State (Zero Fake Data) */}
+      {items.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-[#d6cfc0] dark:border-stone-800 bg-[#faf8f5]/60 dark:bg-stone-900/40 p-8 sm:p-12 text-center">
+          <div className="w-12 h-12 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center mx-auto mb-3 text-stone-400">
+            <ShoppingBag className="w-6 h-6" />
+          </div>
+          <p className="text-sm font-semibold text-stone-700 dark:text-stone-300">
+            {isAr
+              ? 'لا توجد منتجات مسجلة حالياً في هذا القسم'
+              : 'No records found for this section'}
+          </p>
+          <p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
+            {isAr
+              ? 'أضف منتجات من لوحة التحكم أو اختر قسماً آخر من أداة تعديل القوالب'
+              : 'Add products from your dashboard or select another category from the page builder'}
+          </p>
+        </div>
+      ) : (
+        /* Horizontal Carousel (Pixel-Perfect with Reference Image) */
+        <div
+          ref={scrollRef}
+          className="flex gap-4 sm:gap-5 overflow-x-auto pb-4 no-scrollbar scroll-smooth"
+        >
+          {items.map((item) => {
+            const name = isAr ? ((item as any).nameAr || item.name) : ((item as any).nameEn || item.name);
+            return (
+              <div
+                key={item.id}
+                onClick={() => navigateToProduct(item as any)}
+                className="group min-w-[220px] sm:min-w-[245px] max-w-[265px] bg-white dark:bg-stone-900 rounded-3xl p-3.5 sm:p-4 border border-[#eee8df] dark:border-stone-800 hover:border-[#102a1c]/30 dark:hover:border-[#d4af37]/40 shadow-2xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between cursor-pointer shrink-0"
+              >
+                {/* Full Image Container (Matches user's reference portrait photo) */}
+                <div
+                  className={`relative rounded-2xl overflow-hidden bg-[#faf8f5] dark:bg-stone-800 mb-3 ${
+                    aspectMode === 'square'
+                      ? 'aspect-square'
+                      : aspectMode === 'tall'
+                      ? 'aspect-[3/4]'
+                      : aspectMode === 'auto'
+                      ? 'min-h-[220px]'
+                      : 'aspect-[4/5]' // Default Full Image display
+                  }`}
+                >
+                  <img
+                    src={item.image}
+                    alt={name}
+                    className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy" decoding="async"
+                  />
+                  {item.badge && (
+                    <span className="absolute top-2.5 start-2.5 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-black/60 text-white backdrop-blur-xs">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
 
-              <div className="space-y-2">
-                <h3 className="text-xs sm:text-sm font-bold text-[#1b251e] line-clamp-1 group-hover:text-[#0d2f24]">
-                  {name}
-                </h3>
+                {/* Content & Price Row */}
+                <div className="space-y-2 mt-auto">
+                  {displayTitle && (
+                    <h3 className="text-xs sm:text-sm font-semibold text-[#1b251e] dark:text-stone-100 line-clamp-1 group-hover:text-[#0d2f24] dark:group-hover:text-[#d4af37] transition-colors">
+                      {name}
+                    </h3>
+                  )}
 
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-xs sm:text-sm font-extrabold text-[#102a1c] font-mono">
-                    {isAr ? `${item.price} ر.س` : `SAR ${item.price}`}
-                  </span>
+                  <div className="flex items-center justify-between pt-1">
+                    {displayPrice ? (
+                      <span className="text-sm sm:text-base font-bold text-[#102a1c] dark:text-[#f3e5c8] font-sans tracking-tight">
+                        {isAr ? `${item.price} ر.س` : `SAR ${item.price}`}
+                      </span>
+                    ) : (
+                      <div />
+                    )}
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addToCart(item, 1);
-                    }}
-                    aria-label="Add to cart"
-                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-[#d6cfc0] hover:border-[#102a1c] bg-white hover:bg-[#102a1c] text-[#102a1c] hover:text-[#f3e5c8] flex items-center justify-center transition-all cursor-pointer active:scale-95"
-                  >
-                    <ShoppingCart className="w-3.5 h-3.5" />
-                  </button>
+                    {displayCart && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addToCart(item as any, 1);
+                        }}
+                        aria-label={isAr ? 'أضف إلى السلة' : 'Add to cart'}
+                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-[#d6cfc0] dark:border-stone-700 bg-white dark:bg-stone-800 text-[#102a1c] dark:text-stone-200 hover:bg-[#102a1c] hover:text-white dark:hover:bg-[#d4af37] dark:hover:text-black flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 };
+

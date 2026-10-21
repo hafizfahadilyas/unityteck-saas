@@ -17,56 +17,52 @@ import {
   ExternalLink
 } from 'lucide-react';
 
+import { useTenant } from '../../../context/TenantContext';
+
 export const ThankYouPage: React.FC = () => {
   const { lastOrder, navigateTo, language, showToast } = useCart();
+  const { activeStore, currentOrders } = useTenant();
   const [copied, setCopied] = useState(false);
 
-  // Fallback demo order if visited directly without checkout
-  const order = lastOrder || {
-    id: 'HB-892104',
-    orderNumber: 'HB-892104',
-    date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-    items: [
-      {
-        id: 'sample-1',
-        productId: 'hb-h10a-dualboiler',
-        productName: 'HiBrew Barista Pro H7A Dual-Boiler 20-Bar',
-        unitPrice: 1899,
-        quantity: 1,
-        image: './src/assets/images/hibrew_espresso_isolated.jpg',
-        selectedColor: {
-          name: 'Brushed Steel',
-          nameAr: 'ستانلس ستيل مصقول',
-          hex: '#D1D5DB',
-          image: './src/assets/images/hibrew_espresso_isolated.jpg'
-        },
-        selectedStorage: {
-          capacity: 'Standard 58mm Kit',
-          ram: 'Single & Double Baskets',
-          priceDelta: 0
-        }
-      }
-    ],
-    total: 1899,
-    paymentMethod: 'tabby',
+  // Authentic order resolution: real session order > real store recent order > null
+  const order = lastOrder || (currentOrders && currentOrders.length > 0 ? {
+    id: currentOrders[0].orderNumber || currentOrders[0].id,
+    orderNumber: currentOrders[0].orderNumber || currentOrders[0].id,
+    date: currentOrders[0].date || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+    items: (currentOrders[0].items || []).map((it: any) => ({
+      id: it.id || 'item',
+      productId: it.sku || it.id,
+      productName: it.name,
+      unitPrice: it.price || 0,
+      quantity: it.quantity || 1,
+      image: it.image || '/src/assets/images/hibrew_h7a_flagship_machine.png',
+      selectedColor: { name: 'Standard', nameAr: 'قياسي', hex: '#333', image: it.image || '' },
+      selectedStorage: { capacity: 'Standard', ram: '', priceDelta: 0 },
+    })),
+    total: currentOrders[0].total || 0,
+    paymentMethod: String(currentOrders[0].paymentMethod || 'mada'),
     shippingAddress: {
-      name: 'Fahad Al-Otaibi',
-      phone: '0501234567',
-      city: 'Riyadh (الرياض)',
-      district: 'An Narjis',
-      street: 'Anas Ibn Malik Street'
+      name: currentOrders[0].customerName || (language === 'AR' ? 'عميل المتجر' : 'Store Customer'),
+      phone: currentOrders[0].customerPhone || '',
+      city: currentOrders[0].deliveryLocation || '',
+      district: '',
+      street: '',
     },
-    status: 'Processing'
-  };
+    status: currentOrders[0].status || 'Confirmed'
+  } : null);
 
   const handleCopyOrderId = () => {
+    if (!order) return;
     navigator.clipboard.writeText(order.orderNumber);
     setCopied(true);
     showToast(language === 'AR' ? 'تم نسخ رقم الطلب!' : 'Order ID copied!');
     setTimeout(() => setCopied(false), 2500);
   };
 
+  const storeName = activeStore?.name || (language === 'AR' ? 'متجر القهوة المختصة' : 'Specialty Coffee Store');
+
   const shareViaWhatsApp = () => {
+    if (!order) return;
     const itemsList = order.items
       .map(
         i =>
@@ -76,7 +72,7 @@ export const ThankYouPage: React.FC = () => {
 
     const message =
       language === 'AR'
-        ? `☕ *فاتورة متجر هايبرو السعودية الرسمية* 🇸🇦\n\n` +
+        ? `☕ *فاتورة ${storeName} الرسمية* 🇸🇦\n\n` +
           `📦 *رقم الطلب:* ${order.orderNumber}\n` +
           `📅 *التاريخ:* ${order.date}\n` +
           `👤 *العميل:* ${order.shippingAddress.name}\n` +
@@ -85,10 +81,10 @@ export const ThankYouPage: React.FC = () => {
           `🛒 *تفاصيل المنتجات:*\n${itemsList}\n\n` +
           `💳 *طريقة الدفع:* ${order.paymentMethod.toUpperCase()}\n` +
           `💰 *المجموع الإجمالي:* ${order.total.toLocaleString()}.00 ر.س (شامل الضريبة 15%)\n` +
-          `🚚 *الشحن:* فوري مجاني لكافة مدن المملكة\n` +
+          `🚚 *الشحن:* فوري لكافة مدن المملكة\n` +
           `🛡️ *الضمان:* سنتين شامل الوكيل المعتمد بالسعودية\n\n` +
-          `شكراً لتسوقك من متجر هايبرو السعودية!`
-        : `☕ *Official HiBrew KSA Store Invoice* 🇸🇦\n\n` +
+          `شكراً لتسوقك من ${storeName}!`
+        : `☕ *Official ${storeName} Store Invoice* 🇸🇦\n\n` +
           `📦 *Order ID:* ${order.orderNumber}\n` +
           `📅 *Date:* ${order.date}\n` +
           `👤 *Customer:* ${order.shippingAddress.name}\n` +
@@ -97,9 +93,9 @@ export const ThankYouPage: React.FC = () => {
           `🛒 *Items:*\n${itemsList}\n\n` +
           `💳 *Payment:* ${order.paymentMethod.toUpperCase()}\n` +
           `💰 *Total Amount:* SAR ${order.total.toLocaleString()}.00 (15% VAT included)\n` +
-          `🚚 *Delivery:* Express Free Doorstep Delivery across KSA\n` +
+          `🚚 *Delivery:* Express Doorstep Delivery across KSA\n` +
           `🛡️ *Warranty:* 2-Year Official Agency Warranty\n\n` +
-          `Thank you for choosing HiBrew Saudi Arabia!`;
+          `Thank you for choosing ${storeName}!`;
 
     const encoded = encodeURIComponent(message);
     window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
@@ -108,6 +104,26 @@ export const ThankYouPage: React.FC = () => {
   const handlePrintInvoice = () => {
     window.print();
   };
+
+  if (!order) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center bg-[#F8F9FA]">
+        <Package className="w-16 h-16 text-neutral-400 mb-4" />
+        <h2 className="text-xl font-bold text-neutral-900 mb-2">
+          {language === 'AR' ? 'لا يوجد طلب حديث لعرضه' : 'No Recent Order Found'}
+        </h2>
+        <p className="text-xs text-neutral-500 mb-6 max-w-sm">
+          {language === 'AR' ? 'لم يتم العثور على تفاصيل طلب في جلستك الحالية. يمكنك تصفح المنتجات وإجراء طلبك الآن.' : 'No active order details were found in your current session. Browse our catalog and place your order.'}
+        </p>
+        <button
+          onClick={() => navigateTo('products')}
+          className="px-6 py-2.5 bg-black text-white text-xs font-bold rounded-full hover:bg-neutral-800 transition-colors cursor-pointer"
+        >
+          {language === 'AR' ? 'تصفح المنتجات' : 'Browse Products'}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] py-8 sm:py-12 text-start text-neutral-900 selection:bg-neutral-900 selection:text-white">

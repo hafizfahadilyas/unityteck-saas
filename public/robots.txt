@@ -1,0 +1,30 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Allow: /coffee
+Allow: /cars
+Allow: /bleco
+Allow: /flowers
+Allow: /hadaya
+Allow: /images/
+Allow: /src/
+
+# Disallow admin control panels and system APIs
+Disallow: /admin
+Disallow: /api/
+Disallow: /_system/
+Disallow: /server.js
+
+# Google Image & Ad bots
+User-agent: Googlebot-Image
+Allow: /images/
+Allow: /public/
+
+User-agent: Mediapartners-Google
+Allow: /
+
+# Canonical Sitemap index
+Sitemap: https://bashayer-logistics.com/sitemap.xml
+Sitemap: https://store-coffee.saudi-stores.com/sitemap.xml
+Sitemap: https://store-bleco.saudi-stores.com/sitemap.xml
+Sitemap: https://store-flowers.saudi-stores.com/sitemap.xml

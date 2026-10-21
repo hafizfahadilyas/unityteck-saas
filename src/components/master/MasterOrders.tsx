@@ -55,7 +55,7 @@ import { EditOrderModal } from '../common/EditOrderModal';
 import { getStoreDisplayName } from '../../utils/storeLocalization';
 import { readAuthSession } from '../../auth/session';
 import { canDeleteEntities } from '../../auth/roles';
-import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
+import { handleImageError, FALLBACK_PRODUCT_IMAGE, resolveProductThumbnail } from '../../utils/imageFallback';
 
 /**
  * MasterOrders — Platform Order Management (100% Pixel Perfect to Mockups 04 & 05)
@@ -1085,19 +1085,13 @@ export const MasterOrders: React.FC = () => {
                         </td>
                         <td className="py-3 px-2" style={{ borderBottom: '1px solid var(--border)' }}>
                           <div className="flex items-center gap-2.5">
-                            {it.image ? (
-                              <img
-                                src={it.image}
-                                alt={isAr ? (it.nameAr || it.name) : (it.nameEn || it.name)}
-                                onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
-                                className="w-9 h-9 rounded-xl object-cover shrink-0 border"
-                                style={{ borderColor: 'var(--border)' }}
-                              />
-                            ) : (
-                              <span className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
-                                <Package className="w-4 h-4 text-slate-500" />
-                              </span>
-                            )}
+                            <img
+                              src={resolveProductThumbnail(it)}
+                              alt={isAr ? (it.nameAr || it.name) : (it.nameEn || it.name)}
+                              onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
+                              className="w-9 h-9 rounded-xl object-cover shrink-0 border"
+                              style={{ borderColor: 'var(--border)' }}
+                            />
                             <div className="min-w-0">
                               <span className="font-bold block truncate max-w-[130px]" style={{ color: 'var(--text)' }}>
                                 {isAr ? (it.nameAr || it.name) : (it.nameEn || it.name)}
@@ -1812,32 +1806,22 @@ export const MasterOrders: React.FC = () => {
                       {/* Products (Thumbnails + +count badge) */}
                       <td className="py-3.5 px-3 whitespace-nowrap" style={{ borderBottom: '1px solid var(--border)' }}>
                         <div className="flex items-center gap-1.5">
-                          {itemsList[0]?.image ? (
-                            <img
-                              src={itemsList[0].image}
-                              alt="prod"
-                              onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
-                              className="w-6 h-6 rounded-md object-cover border"
-                              style={{ borderColor: 'var(--border)' }}
-                            />
-                          ) : (
-                            <span className="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                              <Package className="w-3 h-3 text-slate-500" />
-                            </span>
-                          )}
+                          <img
+                            src={resolveProductThumbnail(itemsList[0])}
+                            alt="prod"
+                            onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
+                            className="w-6 h-6 rounded-md object-cover border"
+                            style={{ borderColor: 'var(--border)' }}
+                          />
 
-                          {itemsList[1]?.image ? (
+                          {itemsList[1] && (
                             <img
-                              src={itemsList[1].image}
+                              src={resolveProductThumbnail(itemsList[1])}
                               alt="prod"
                               onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                               className="w-6 h-6 rounded-md object-cover border"
                               style={{ borderColor: 'var(--border)' }}
                             />
-                          ) : (
-                            <span className="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                              <ShoppingBag className="w-3 h-3 text-slate-500" />
-                            </span>
                           )}
 
                           {extraCount && (

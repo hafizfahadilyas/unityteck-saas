@@ -12,7 +12,7 @@ interface CylinderBarChartProps {
 }
 
 /** Holst market-share cylinders — percentage capped, no overflow pillar. */
-export const CylinderBarChart: React.FC<CylinderBarChartProps> = ({
+export const CylinderBarChart: React.FC<CylinderBarChartProps> = React.memo(({
   items,
   height = 150,
 }) => {
@@ -64,4 +64,6 @@ export const CylinderBarChart: React.FC<CylinderBarChartProps> = ({
       })}
     </div>
   );
-};
+});
+
+CylinderBarChart.displayName = 'CylinderBarChart';

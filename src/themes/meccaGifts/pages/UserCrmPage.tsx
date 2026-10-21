@@ -1,7 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { PRODUCTS } from '../data/mockData';
 import { ProductCard } from '../components/ProductCard';
+import { useTenant } from '../../../context/TenantContext';
+import {
+  fetchCartInterceptCustomerProfileApi,
+  CartInterceptCustomerRewards,
+} from '../../../api/tenantApi';
+import { CustomerLoyaltyProfileSection } from '../../../components/storefront/CustomerLoyaltyProfileSection';
+
 import {
   User,
   ShoppingBag,
@@ -23,7 +30,12 @@ import {
   LogOut,
   LogIn,
   AlertCircle,
-  X
+  X,
+  Copy,
+  Tag,
+  Check,
+  RotateCcw,
+  Percent,
 } from 'lucide-react';
 
 export const UserCrmPage: React.FC = () => {
@@ -43,11 +55,42 @@ export const UserCrmPage: React.FC = () => {
     loginWithGoogle,
     logout,
     setShowInvoiceModal,
-    cancelOrderRequest
+    cancelOrderRequest,
+    applyCouponCode,
+    addToCart,
   } = useApp();
+  const { activeStore } = useTenant();
 
   const isAr = language === 'ar';
-  const [activeTab, setActiveTab] = useState<'orders' | 'occasions' | 'addresses' | 'wishlist'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'loyalty' | 'gift_cards' | 'saved_cart' | 'occasions' | 'addresses' | 'wishlist'>('orders');
+  const [customerRewards, setCustomerRewards] = useState<CartInterceptCustomerRewards>({
+    loyalty_points: 0,
+    claimed_coupons: [],
+    saved_carts: [],
+    points_history: [],
+  });
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadRewards = async () => {
+      try {
+        const storeId = activeStore?.id || 'store-1';
+        const customerId = user.isLoggedIn && user.email ? user.email : 'guest';
+        const res = await fetchCartInterceptCustomerProfileApi(storeId, customerId);
+        if (res && isMounted) {
+          setCustomerRewards(res);
+        }
+      } catch {}
+    };
+    loadRewards();
+  }, [activeStore?.id, user.isLoggedIn, user.email]);
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard?.writeText(code);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2500);
+  };
 
   // Cancel order modal state
   const [cancelModalOrder, setCancelModalOrder] = useState<string | null>(null);
@@ -190,6 +233,9 @@ export const UserCrmPage: React.FC = () => {
       <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-8 border-b border-[#e8e4dc] no-scrollbar">
         {[
           { id: 'orders', label: isAr ? 'طلباتي ومتابعة التوصيل' : 'Orders & Live Tracking', icon: ShoppingBag, count: orders.length },
+          { id: 'loyalty', label: isAr ? 'كارت ولاء العملاء والنقاط' : 'Loyalty Points Card', icon: Sparkles, count: loyaltyPoints },
+          { id: 'gift_cards', label: isAr ? 'كروت الهدايا والخصومات' : 'Gift Cards & Coupons', icon: Gift, count: customerRewards.claimed_coupons.length },
+          { id: 'saved_cart', label: isAr ? 'السلات المحفوظة' : 'Saved Carts', icon: ShoppingBag, count: customerRewards.saved_carts.length },
           { id: 'occasions', label: isAr ? 'مفكرة المناسبات الذكية' : 'Occasion Reminders', icon: Calendar, count: savedOccasions.length },
           { id: 'addresses', label: isAr ? 'العناوين المحفوظة' : 'Saved Addresses', icon: MapPin, count: savedAddresses.length },
           { id: 'wishlist', label: isAr ? 'قائمة الأمنيات' : 'Wishlist', icon: Heart, count: wishlist.length },
@@ -480,7 +526,290 @@ export const UserCrmPage: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 2: Occasion Reminders Calendar */}
+      {/* TAB: Loyalty Points Card & Rewards */}
+      {activeTab === 'loyalty' && (
+        <div className="space-y-6">
+          <CustomerLoyaltyProfileSection
+            storeId={activeStore?.id || 'store-1'}
+            customerId={user?.email || 'customer'}
+            customerName={user?.name}
+            customerEmail={user?.email}
+          />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold font-serif text-[#102a1c]">
+                {isAr ? 'كارت ولاء العملاء والمكافآت الملكية' : 'VIP Loyalty Card & Reward Balance'}
+              </h2>
+              <p className="text-xs text-[#7a7164] mt-0.5">
+                {isAr
+                  ? 'اكسب النقاط الذهبية مع كل طلب واستبدلها بخصومات حقيقية وفورية على مشترياتك القادمة'
+                  : 'Earn reward points with every purchase and redeem them for instant discounts.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Premium Loyalty Card matching Image 1 styling */}
+          <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-[#102a1c] via-[#153825] to-[#0a1e13] text-[#FAF9F5] border border-[#d4af37]/40 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-[#d4af37]/15 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-[#e6ca98] text-[#102a1c] flex items-center justify-center shadow-lg shrink-0">
+                  <Sparkles className="w-8 h-8" />
+                </div>
+                <div>
+                  <span className="text-[11px] uppercase tracking-wider text-[#d4af37] font-bold block">
+                    {isAr ? 'برنامج مكافآت هدايا مكة' : 'Hadaya Makkah Rewards'}
+                  </span>
+                  <h3 className="text-xl sm:text-2xl font-bold font-serif text-white mt-0.5">
+                    {user.name || (isAr ? 'عميل النخبة' : 'VIP Member')}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#d4af37]/20 text-[#f3e5ab] text-[10px] font-bold border border-[#d4af37]/40">
+                      <Crown className="w-3 h-3 text-[#d4af37]" />
+                      <span>{isAr ? 'المستوى الذهبي الملكي' : 'Royal Gold Tier'}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 text-center min-w-[200px]">
+                <span className="text-[11px] text-[#ded7c8] uppercase block">
+                  {isAr ? 'الرصيد المتاح' : 'Available Balance'}
+                </span>
+                <p className="text-3xl font-black font-mono text-[#e6ca98] mt-1">
+                  {loyaltyPoints}
+                </p>
+                <span className="text-xs text-[#faf7f2]/90 block mt-0.5 font-medium">
+                  {isAr ? `تعادل ${(loyaltyPoints * 0.1).toFixed(0)} ر.س خصم` : `Worth ${(loyaltyPoints * 0.1).toFixed(0)} SAR`}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Points Transactions History */}
+          <div className="bg-[#FAF9F5] border border-[#e8e4dc] rounded-3xl p-6 shadow-sm space-y-4">
+            <h4 className="text-sm font-bold text-[#102a1c]">
+              {isAr ? 'سجل حركات واكتساب النقاط' : 'Points Activity Ledger'}
+            </h4>
+
+            {customerRewards.points_history && customerRewards.points_history.length > 0 ? (
+              <div className="divide-y divide-[#e8e4dc]">
+                {customerRewards.points_history.map((item, idx) => (
+                  <div key={idx} className="py-3 flex items-center justify-between text-xs">
+                    <div>
+                      <p className="font-bold text-[#102a1c]">
+                        {isAr ? item.reason_ar || item.reason : item.reason}
+                      </p>
+                      <span className="text-[11px] text-[#7a7164]">
+                        {new Date(item.date).toLocaleDateString(isAr ? 'ar-SA' : 'en-US')}
+                      </span>
+                    </div>
+                    <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+                      +{item.points} {isAr ? 'نقطة' : 'pts'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : loyaltyPoints > 0 ? (
+              <div className="divide-y divide-[#e8e4dc]">
+                <div className="py-3 flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-bold text-[#102a1c]">
+                      {isAr ? 'مكافأة التقاط السلة الترحيبية' : 'Cart Intercept Welcome Reward'}
+                    </p>
+                    <span className="text-[11px] text-[#7a7164]">
+                      {new Date().toLocaleDateString(isAr ? 'ar-SA' : 'en-US')}
+                    </span>
+                  </div>
+                  <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+                    +{loyaltyPoints} {isAr ? 'نقطة' : 'pts'}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="py-8 text-center text-xs text-[#7a7164]">
+                {isAr ? 'لا توجد حركات نقاط مسجلة بعد. أضف باقاتك إلى السلة واجمع أول نقاطك!' : 'No points activity recorded yet. Add items to cart to earn your first points!'}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB: Gift Cards & Claimed Coupons */}
+      {activeTab === 'gift_cards' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold font-serif text-[#102a1c]">
+                {isAr ? 'كروت الهدايا وأكواد الخصم المفعلة' : 'Gift Cards & Active Coupons'}
+              </h2>
+              <p className="text-xs text-[#7a7164] mt-0.5">
+                {isAr
+                  ? 'أكواد الخصم المكتسبة من عروض السلة والمكافآت الترويجية الجاهزة للاستخدام'
+                  : 'Claimed coupon vouchers from cart offers ready to be applied.'}
+              </p>
+            </div>
+          </div>
+
+          {customerRewards.claimed_coupons && customerRewards.claimed_coupons.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {customerRewards.claimed_coupons.map((coupon, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-3xl p-5 bg-white border border-[#e8e4dc] shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="w-12 h-12 rounded-2xl bg-[#fef3c7] text-[#b45309] flex items-center justify-center">
+                      <Gift className="w-6 h-6" />
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[11px]">
+                      {isAr ? 'نشط وصالح' : 'Active'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-black text-[#102a1c]">
+                      {coupon.discount_percent}% {isAr ? 'خصم فوري' : 'OFF'}
+                    </h3>
+                    <p className="text-xs text-[#7a7164] mt-1">
+                      {isAr ? 'هدية سلة المشتريات الترويجية' : 'Cart Intercept Gift Reward'}
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-[#fcfbf7] rounded-2xl border border-dashed border-[#d6cfc0] flex items-center justify-between">
+                    <span className="font-mono font-bold text-sm tracking-wider text-[#102a1c]">
+                      {coupon.code}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyCode(coupon.code)}
+                      className="p-1.5 rounded-lg hover:bg-slate-200 text-[#102a1c] transition-colors cursor-pointer"
+                      title={isAr ? 'نسخ الكود' : 'Copy code'}
+                    >
+                      {copiedCode === coupon.code ? (
+                        <Check className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      applyCouponCode(coupon.code);
+                      setCurrentPage('cart');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-[#102a1c] hover:bg-[#1a3f2b] text-[#e6ca98] text-xs font-bold transition-all cursor-pointer"
+                  >
+                    {isAr ? 'تطبيق الكود على السلة الآن' : 'Apply Code to Bag'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-[#FAF9F5] border border-[#e8e4dc] rounded-3xl p-10 sm:p-14 text-center space-y-4 shadow-sm">
+              <div className="w-16 h-16 rounded-2xl bg-[#102a1c]/10 text-[#102a1c] flex items-center justify-center mx-auto shadow-inner">
+                <Gift className="w-8 h-8" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold font-serif text-[#102a1c]">
+                  {isAr ? 'لا توجد كروت هدايا نشطة حالياً' : 'No Active Gift Cards Found'}
+                </h3>
+                <p className="text-xs text-[#8c8275] max-w-md mx-auto mt-1.5 leading-relaxed">
+                  {isAr
+                    ? 'عندما تضغط على "أضف للسلة" لأول مرة وتختار كارت الهدية، ستظهر جميع أكواد الخصم الترويجية الخاصة بك هنا.'
+                    : 'When you interact with our first-click cart gift offer, your vouchers will automatically appear here.'}
+                </p>
+              </div>
+              <button
+                onClick={() => setCurrentPage('catalog')}
+                className="px-6 py-2.5 rounded-2xl bg-[#102a1c] text-[#e6ca98] text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2"
+              >
+                <span>{isAr ? 'تسوق الآن واكتشف العروض' : 'Shop Now'}</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: Saved Carts Across Devices */}
+      {activeTab === 'saved_cart' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold font-serif text-[#102a1c]">
+                {isAr ? 'السلات المحفوظة عبر الأجهزة' : 'Saved Carts Across Devices'}
+              </h2>
+              <p className="text-xs text-[#7a7164] mt-0.5">
+                {isAr
+                  ? 'سلاتك التي تم حفظها عند تسجيل الدخول لاستعادتها ومتابعة الشراء في أي وقت'
+                  : 'Carts backed up to your account to restore across any browser or mobile device.'}
+              </p>
+            </div>
+          </div>
+
+          {customerRewards.saved_carts && customerRewards.saved_carts.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {customerRewards.saved_carts.map((sc) => (
+                <div
+                  key={sc.id}
+                  className="rounded-3xl p-5 bg-white border border-[#e8e4dc] shadow-sm hover:shadow-md transition-all space-y-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#102a1c]">
+                      {sc.product_preview || (isAr ? 'سلة هدايا مكة' : 'Hadaya Cart')}
+                    </span>
+                    <span className="text-[11px] text-[#7a7164]">
+                      {new Date(sc.saved_at).toLocaleDateString(isAr ? 'ar-SA' : 'en-US')}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-[#fcfbf7] rounded-2xl text-xs text-[#555] space-y-1">
+                    <p>{isAr ? `تحتوي على ${sc.items?.length || 1} منتجات محفوظة` : `Contains ${sc.items?.length || 1} saved items`}</p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (sc.items && sc.items.length > 0) {
+                        sc.items.forEach((it: any) => {
+                          if (it.product) addToCart(it.product, it.quantity || 1);
+                        });
+                      }
+                      setCurrentPage('cart');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-[#102a1c] hover:bg-[#1a3f2b] text-[#e6ca98] text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>{isAr ? 'استعادة السلة والمتابعة للشراء' : 'Restore Cart & Proceed'}</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-[#FAF9F5] border border-[#e8e4dc] rounded-3xl p-10 sm:p-14 text-center space-y-4 shadow-sm">
+              <div className="w-16 h-16 rounded-2xl bg-[#102a1c]/10 text-[#102a1c] flex items-center justify-center mx-auto shadow-inner">
+                <ShoppingBag className="w-8 h-8" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold font-serif text-[#102a1c]">
+                  {isAr ? 'لا توجد سلات محفوظة حالياً' : 'No Saved Carts Found'}
+                </h3>
+                <p className="text-xs text-[#8c8275] max-w-md mx-auto mt-1.5 leading-relaxed">
+                  {isAr
+                    ? 'عند تفعيل خيار "حفظ السلة"، سيتم حفظ محتويات سلتك تلقائياً هنا عبر جميع أجهزتك.'
+                    : 'When you save your cart at first click, it will be safely synchronized here.'}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: Occasion Reminders Calendar */}
       {activeTab === 'occasions' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">

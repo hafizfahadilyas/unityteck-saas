@@ -27,28 +27,45 @@ export const Footer: React.FC<FooterCustomProps> = ({
   onSelectSubElement,
   settings = {},
 }) => {
-  const { language, setCurrentPage, setSelectedCategory } = useApp();
+  const { language, setCurrentPage, setSelectedCategory, products } = useApp();
   const { activeStore } = useTenant();
   const isAr = language === 'ar';
   const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
+  const isAuto = activeStore?.id === 'store-transport' || (activeStore?.category && (activeStore.category.includes('سيار') || activeStore.category.includes('نقل')));
 
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
 
   const s = settings || {};
 
-  const storeNameAr = s.storeNameAr || s.brandNameAr || activeStore?.nameAr || activeStore?.name || (isCoffee ? 'محمصة القهوة المختصة' : 'هدايا مكة');
-  const storeNameEn = s.storeNameEn || s.brandNameEn || activeStore?.nameEn || activeStore?.name || (isCoffee ? 'Specialty Coffee Roasters' : 'Hadaya Flowers & Gifts');
+  const storeNameAr = s.storeNameAr || s.brandNameAr || activeStore?.nameAr || activeStore?.name || (isCoffee ? 'محمصة القهوة المختصة' : isAuto ? 'نقليات ومعدات الجزيرة' : 'هدايا مكة');
+  const storeNameEn = s.storeNameEn || s.brandNameEn || activeStore?.nameEn || activeStore?.name || (isCoffee ? 'Specialty Coffee Roasters' : isAuto ? 'Saudia Transport Logistics' : 'Hadaya Flowers & Gifts');
   
   const defaultDescAr = isCoffee
     ? 'محاصيل بن مختصة طازجة التحميص، أدوات ترشيح V60 ومعدات إسبريسو احترافية لتجربة قهوة لا تُنسى في كل صباح.'
+    : isAuto
+    ? 'خدمات تأجير ونقل وشحن معتمد بأعلى معايير الأمان والسرعة على مدار الساعة.'
     : 'زهور طبيعية وهدايا فاخرة لكل مناسبة، صُممت بعناية وأناقة لتصل إلى أحبابك بأعلى معايير الإتقان والتوصيل السريع.';
   const defaultDescEn = isCoffee
     ? 'Single origin specialty coffee, precision pour-over tools, and pro espresso gear crafted for coffee connoisseurs.'
+    : isAuto
+    ? 'Certified transport, logistics, and heavy fleet solutions with 24/7 round-the-clock reliability.'
     : 'Premium flowers and gifts for every occasion. Fresh, elegant and delivered with love across the Kingdom.';
 
   const storeDescAr = s.storeDescAr || defaultDescAr;
   const storeDescEn = s.storeDescEn || defaultDescEn;
+
+  const dynamicCategories = React.useMemo(() => {
+    if (products && products.length > 0) {
+      const unique = Array.from(new Set(products.map((p) => p.category).filter(Boolean)));
+      if (unique.length > 0) return unique.slice(0, 5);
+    }
+    return isCoffee
+      ? ['قهوة مختصة', 'أدوات ترشيح', 'محاصيل بن', 'إكسسوارات']
+      : isAuto
+      ? ['مركبات VIP', 'نقل بضائع', 'معدات ثقيلة', 'تأجير أساطيل']
+      : ['زهور طبيعية', 'هدايا وشوكولاتة', 'كيك ومناسبات', 'تشكيلات فاخرة'];
+  }, [products, isCoffee, isAuto]);
 
   const whatsappNumber = s.whatsappNumber || activeStore?.contactPhone || MECCA_WHATSAPP;
   const phoneNumber = s.phoneNumber || activeStore?.contactPhone || '+966 50 123 4567';
@@ -118,7 +135,9 @@ export const Footer: React.FC<FooterCustomProps> = ({
               onClick={() => {
                 if (isBuilderMode) return;
                 setCurrentPage('home');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
               }}
               className="cursor-pointer select-none"
             >
@@ -130,7 +149,9 @@ export const Footer: React.FC<FooterCustomProps> = ({
                     {isAr ? storeNameAr : storeNameEn}
                   </h3>
                   <p className="text-[10px] tracking-[0.2em] uppercase text-[#cca65b] font-medium mt-0.5">
-                    {isAr ? 'عطور وهدايا فاخرة' : 'FLOWERS & LUXURY GIFTS'}
+                    {isAr
+                      ? (isCoffee ? 'محاصيل بن وأدوات تحضير' : isAuto ? 'خدمات نقل وشحن متكاملة' : (activeStore?.category || 'عطور وهدايا فاخرة'))
+                      : (isCoffee ? 'SPECIALTY COFFEE & ROASTERS' : isAuto ? 'TRANSPORT & LOGISTICS' : 'FLOWERS & LUXURY GIFTS')}
                   </p>
                 </>
               )}
@@ -239,7 +260,9 @@ export const Footer: React.FC<FooterCustomProps> = ({
                   onClick={() => {
                     if (isBuilderMode) return;
                     setCurrentPage('home');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+                    document.documentElement.scrollTop = 0;
+                    document.body.scrollTop = 0;
                   }}
                   className="hover:text-white transition-colors cursor-pointer"
                 >
@@ -251,8 +274,10 @@ export const Footer: React.FC<FooterCustomProps> = ({
                   type="button"
                   onClick={() => {
                     if (isBuilderMode) return;
-                    setCurrentPage('crm');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    setCurrentPage('about');
+                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+                    document.documentElement.scrollTop = 0;
+                    document.body.scrollTop = 0;
                   }}
                   className="hover:text-white transition-colors cursor-pointer"
                 >
@@ -265,7 +290,9 @@ export const Footer: React.FC<FooterCustomProps> = ({
                   onClick={() => {
                     if (isBuilderMode) return;
                     setCurrentPage('catalog');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+                    document.documentElement.scrollTop = 0;
+                    document.body.scrollTop = 0;
                   }}
                   className="hover:text-white transition-colors cursor-pointer"
                 >
@@ -277,12 +304,44 @@ export const Footer: React.FC<FooterCustomProps> = ({
                   type="button"
                   onClick={() => {
                     if (isBuilderMode) return;
-                    setCurrentPage('crm');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    setCurrentPage('track-order');
+                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+                    document.documentElement.scrollTop = 0;
+                    document.body.scrollTop = 0;
+                  }}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  {isAr ? 'تتبع طلبك' : 'Track Order'}
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isBuilderMode) return;
+                    setCurrentPage('contact');
+                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+                    document.documentElement.scrollTop = 0;
+                    document.body.scrollTop = 0;
                   }}
                   className="hover:text-white transition-colors cursor-pointer"
                 >
                   {isAr ? 'الشكاوى والاقتراحات' : 'Complaints & Support'}
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isBuilderMode) return;
+                    setCurrentPage('privacy');
+                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+                    document.documentElement.scrollTop = 0;
+                    document.body.scrollTop = 0;
+                  }}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  {isAr ? 'سياسة الخصوصية' : 'Privacy Policy'}
                 </button>
               </li>
             </ul>
@@ -302,58 +361,24 @@ export const Footer: React.FC<FooterCustomProps> = ({
               {isAr ? 'التصنيفات' : 'Categories'}
             </h4>
             <ul className="space-y-2 text-xs text-[#b8b0a0]">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isBuilderMode) return;
-                    setSelectedCategory('باقات الورود الطبيعية');
-                    setCurrentPage('catalog');
-                  }}
-                  className="hover:text-white transition-colors cursor-pointer"
-                >
-                  {isAr ? 'زهور طبيعية' : 'Flowers'}
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isBuilderMode) return;
-                    setSelectedCategory('ورد وشوكولاتة بلجيكية فاخرة');
-                    setCurrentPage('catalog');
-                  }}
-                  className="hover:text-white transition-colors cursor-pointer"
-                >
-                  {isAr ? 'هدايا وشوكولاتة' : 'Gifts'}
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isBuilderMode) return;
-                    setSelectedCategory('ورد و كيك');
-                    setCurrentPage('catalog');
-                  }}
-                  className="hover:text-white transition-colors cursor-pointer"
-                >
-                  {isAr ? 'كيك ومناسبات' : 'Cakes'}
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isBuilderMode) return;
-                    setSelectedCategory('باقات فاخرة');
-                    setCurrentPage('catalog');
-                  }}
-                  className="hover:text-white transition-colors cursor-pointer"
-                >
-                  {isAr ? 'تشكيلات فاخرة' : 'Luxury'}
-                </button>
-              </li>
+              {dynamicCategories.map((cat, idx) => (
+                <li key={idx}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isBuilderMode) return;
+                      setSelectedCategory(cat);
+                      setCurrentPage('catalog');
+                      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+                      document.documentElement.scrollTop = 0;
+                      document.body.scrollTop = 0;
+                    }}
+                    className="hover:text-white transition-colors cursor-pointer"
+                  >
+                    {cat}
+                  </button>
+                </li>
+              ))}
             </ul>
           </div>
 

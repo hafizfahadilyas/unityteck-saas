@@ -27,7 +27,10 @@ import {
   Layers,
 } from 'lucide-react';
 import { statusChipStyle } from '../../utils/liveSeries';
-import { OrderDetailsModal } from './orders/OrderDetailsModal';
+
+const OrderDetailsModal = React.lazy(() =>
+  import('./orders/OrderDetailsModal').then((m) => ({ default: m.OrderDetailsModal })),
+);
 
 interface DashboardOrdersTableProps {
   orders: Order[];
@@ -40,7 +43,7 @@ const PAGE_SIZE = 5;
 
 type SortKey = 'date_desc' | 'date_asc' | 'total_desc' | 'total_asc' | 'id_desc' | 'id_asc';
 
-export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
+export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = React.memo(({
   orders,
   onNavigateTab,
   className = '',
@@ -423,10 +426,10 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   >
                     <option value="all">{isAr ? 'كافة طرق الدفع' : 'All Payment Methods'}</option>
-                    <option value="mada">{isAr ? 'مدى (Mada)' : 'Mada'}</option>
-                    <option value="apple">{isAr ? 'Apple Pay' : 'Apple Pay'}</option>
-                    <option value="tamara">{isAr ? 'تمارا (Tamara)' : 'Tamara'}</option>
-                    <option value="tabby">{isAr ? 'تابي (Tabby)' : 'Tabby'}</option>
+                    <option value="mada">{isAr ? 'مدى' : 'Mada'}</option>
+                    <option value="apple">{isAr ? 'أبل باي' : 'Apple Pay'}</option>
+                    <option value="tamara">{isAr ? 'تمارا' : 'Tamara'}</option>
+                    <option value="tabby">{isAr ? 'تابي' : 'Tabby'}</option>
                     <option value="cash">{isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery'}</option>
                   </select>
                 </div>
@@ -444,8 +447,8 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
                   >
                     <option value="all">{isAr ? 'كافة القنوات' : 'All Channels'}</option>
                     <option value="store">{isAr ? 'المتجر الإلكتروني' : 'Online Store'}</option>
-                    <option value="salla">{isAr ? 'سلة (Salla)' : 'Salla'}</option>
-                    <option value="woo">{isAr ? 'ووكومرس (WooCommerce)' : 'WooCommerce'}</option>
+                    <option value="salla">{isAr ? 'سلة' : 'Salla'}</option>
+                    <option value="woo">{isAr ? 'ووكومرس' : 'WooCommerce'}</option>
                     <option value="app">{isAr ? 'تطبيق الجوال' : 'Mobile App'}</option>
                   </select>
                 </div>
@@ -777,14 +780,18 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
       </div>
 
       {inspectOrder && (
-        <OrderDetailsModal
-          isOpen={Boolean(inspectOrder)}
-          onClose={() => setInspectOrder(null)}
-          order={inspectOrder}
-          onPrintInvoice={() => onNavigateTab('orders')}
-          onEditOrder={() => onNavigateTab('orders')}
-        />
+        <React.Suspense fallback={null}>
+          <OrderDetailsModal
+            isOpen={Boolean(inspectOrder)}
+            onClose={() => setInspectOrder(null)}
+            order={inspectOrder}
+            onPrintInvoice={() => onNavigateTab('orders')}
+            onEditOrder={() => onNavigateTab('orders')}
+          />
+        </React.Suspense>
       )}
     </div>
   );
-};
+});
+
+DashboardOrdersTable.displayName = 'DashboardOrdersTable';

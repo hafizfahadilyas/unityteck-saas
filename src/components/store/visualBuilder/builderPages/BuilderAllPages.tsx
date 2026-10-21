@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ShoppingCart,
   Heart,
@@ -33,6 +33,7 @@ import {
   Zap,
   Trash2,
 } from 'lucide-react';
+import { useTenant } from '../../../../context/TenantContext';
 
 interface BuilderPageProps {
   isAr: boolean;
@@ -40,6 +41,34 @@ interface BuilderPageProps {
   onNavigateHome: () => void;
   onNavigatePage: (page: string) => void;
   isMobile?: boolean;
+}
+
+function useBuilderStoreContext(isAr: boolean) {
+  const tenant = useTenant();
+  const activeStore = tenant?.activeStore;
+  const currentProducts = tenant?.currentProducts || [];
+  const currentOrders = tenant?.currentOrders || [];
+
+  const isCoffee = activeStore?.id === 'store-coffee' || Boolean(activeStore?.category && activeStore.category.includes('قهوة'));
+  const isAuto = activeStore?.id === 'store-transport' || Boolean(activeStore?.category && (activeStore.category.includes('سيار') || activeStore.category.includes('نقل')));
+
+  const storeName = isAr
+    ? (activeStore?.nameAr || activeStore?.name || (isCoffee ? 'محمصة القهوة المختصة' : isAuto ? 'نقليات ومعدات الجزيرة' : 'هدايا مكة'))
+    : (activeStore?.nameEn || activeStore?.name || (isCoffee ? 'Specialty Coffee Roasters' : isAuto ? 'Saudia Transport Logistics' : 'Hadaya Flowers & Gifts'));
+
+  const primaryProduct = currentProducts[0] || null;
+  const secondaryProduct = currentProducts[1] || null;
+
+  return {
+    activeStore,
+    currentProducts,
+    currentOrders,
+    isCoffee,
+    isAuto,
+    storeName,
+    primaryProduct,
+    secondaryProduct,
+  };
 }
 
 // =========================================================================
@@ -52,27 +81,65 @@ export const BuilderProductPage: React.FC<BuilderPageProps> = ({
   onNavigatePage,
   isMobile,
 }) => {
+  const { activeStore, isCoffee, isAuto, primaryProduct } = useBuilderStoreContext(isAr);
+
   const [selectedSize, setSelectedSize] = useState('24');
   const [selectedVase, setSelectedVase] = useState('crystal');
   const [activeTab, setActiveTab] = useState<'desc' | 'care' | 'reviews'>('desc');
   const [addedSuccess, setAddedSuccess] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
-  const images = [
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80',
-    'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?auto=format&fit=crop&w=1000&q=80',
-    'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=1000&q=80',
-    'https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=1000&q=80',
-  ];
+  const images = useMemo(() => {
+    if (primaryProduct?.images && primaryProduct.images.length > 0) return primaryProduct.images;
+    if (primaryProduct?.image) return [primaryProduct.image];
+    if (isCoffee) {
+      return [
+        'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=1000&q=80',
+        'https://images.unsplash.com/photo-1587734195503-904fca47e0e9?auto=format&fit=crop&w=1000&q=80',
+        'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1000&q=80',
+      ];
+    }
+    if (isAuto) {
+      return [
+        'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=1000&q=80',
+        'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1000&q=80',
+        'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1000&q=80',
+      ];
+    }
+    return [
+      'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80',
+      'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?auto=format&fit=crop&w=1000&q=80',
+      'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=1000&q=80',
+    ];
+  }, [primaryProduct, isCoffee, isAuto]);
 
   const handleAdd = () => {
     setAddedSuccess(true);
     setTimeout(() => setAddedSuccess(false), 2500);
   };
 
-  const basePrice = selectedSize === '12' ? 350 : selectedSize === '24' ? 490 : 680;
-  const vaseExtra = selectedVase === 'crystal' ? 90 : 0;
+  const defaultPrice = primaryProduct?.price || (isCoffee ? 85 : isAuto ? 1500 : 490);
+  const basePrice = selectedSize === '12' ? Math.round(defaultPrice * 0.75) : selectedSize === '24' ? defaultPrice : Math.round(defaultPrice * 1.4);
+  const vaseExtra = selectedVase === 'crystal' ? (isCoffee ? 25 : isAuto ? 100 : 90) : 0;
   const totalPrice = basePrice + vaseExtra;
+
+  const categoryTitle = isAr
+    ? (primaryProduct?.category || (isCoffee ? 'محاصيل القهوة المختصة' : isAuto ? 'خدمات النقل والأساطيل' : 'الباقات الفاخرة'))
+    : (primaryProduct?.categoryEn || primaryProduct?.category || (isCoffee ? 'Specialty Coffee Beans' : isAuto ? 'Fleet & Logistics' : 'Luxury Bouquets'));
+
+  const productTitle = isAr
+    ? (primaryProduct?.name || (isCoffee ? 'محصول سلفادور سانتا لوسيا كلاسيك' : isAuto ? 'شاحنة مرسيدس أكتروس للنقل الثقيل' : 'حامل ورود حمراء مخملية ملكية'))
+    : (primaryProduct?.nameEn || primaryProduct?.name || (isCoffee ? 'El Salvador Santa Lucia Specialty' : isAuto ? 'Mercedes Actros Heavy Truck' : 'Royal Velvet Red Roses Stand'));
+
+  const productDesc = isAr
+    ? (primaryProduct?.description || (isCoffee ? 'محصول بن مختص فاخر طازج التحميص بإيحاءات الفواكه والكراميل والشوكولاتة الداكنة.' : isAuto ? 'مقطورة شحن وأسطول نقل معتمد بأعلى معايير السلامة والتتبع اللحظي عبر الأقمار الصناعية.' : 'تنسيق ملكي مجهز يدوياً من أرقى الورود الجورية المنتقاة بعناية للمناسبات الراقية.'))
+    : (primaryProduct?.descriptionEn || primaryProduct?.description || (isCoffee ? 'Fresh roasted single-origin specialty coffee beans featuring notes of sweet fruit, caramel, and chocolate.' : isAuto ? 'Heavy-duty certified cargo fleet equipped with real-time satellite tracking and safety systems.' : 'Hand-curated floral masterpiece featuring imported velvety roses crafted for luxury gifting.'));
+
+  const featureTag = isCoffee
+    ? (isAr ? 'بن مختص ١٠٠٪ أرابيكا' : '100% Specialty Arabica')
+    : isAuto
+    ? (isAr ? 'أسطول معتمد ومفحوص' : 'Certified Safe Fleet')
+    : (isAr ? 'ورد طبيعي ١٠٠٪ طازج' : '100% Fresh Blooms');
 
   return (
     <div className={`space-y-8 ${isMobile ? 'p-3' : 'p-6 sm:p-10'}`}>
@@ -83,11 +150,11 @@ export const BuilderProductPage: React.FC<BuilderPageProps> = ({
         </button>
         <span>/</span>
         <button onClick={() => onNavigatePage('home')} className="hover:text-indigo-600 font-medium cursor-pointer">
-          {isAr ? 'الباقات الفاخرة' : 'Luxury Bouquets'}
+          {categoryTitle}
         </button>
         <span>/</span>
         <span className="text-slate-900 font-bold truncate">
-          {isAr ? 'حامل ورود حمراء مخملية ملكية' : 'Royal Velvet Red Roses Stand'}
+          {productTitle}
         </span>
       </nav>
 
@@ -97,35 +164,37 @@ export const BuilderProductPage: React.FC<BuilderPageProps> = ({
         <div className={isMobile ? 'col-span-1' : 'lg:col-span-6 space-y-3'}>
           <div className="relative rounded-3xl overflow-hidden border border-slate-200 shadow-md aspect-square bg-slate-50">
             <img
-              src={images[selectedImageIndex]}
-              alt="Product View"
+              src={images[selectedImageIndex] || images[0]}
+              alt={productTitle}
               className="w-full h-full object-cover transition-all duration-300"
             />
             <span className="absolute top-4 start-4 px-3 py-1 rounded-full text-xs font-black bg-rose-600 text-white shadow-md">
-              {isAr ? 'خصم ٢٥٪ لفترة محدودة' : '25% OFF Limited'}
+              {isAr ? 'عرض حصري' : 'Special Offer'}
             </span>
             <span className="absolute top-4 end-4 px-3 py-1 rounded-full text-[11px] font-bold bg-white/90 text-slate-800 backdrop-blur-xs shadow-xs flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>{isAr ? 'ورد إكوادوري طبيعي ١٠٠٪' : '100% Fresh Ecuadorian'}</span>
+              <span>{featureTag}</span>
             </span>
           </div>
 
           {/* Thumbnails */}
-          <div className="flex items-center gap-3 overflow-x-auto pb-1">
-            {images.map((img, idx) => (
-              <button
-                key={idx}
-                onClick={() => setSelectedImageIndex(idx)}
-                className={`w-18 h-18 rounded-2xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
-                  selectedImageIndex === idx
-                    ? 'border-indigo-600 ring-2 ring-indigo-200 scale-105'
-                    : 'border-slate-200 hover:border-slate-400 opacity-70 hover:opacity-100'
-                }`}
-              >
-                <img src={img} alt={`Thumb ${idx}`} className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
+          {images.length > 1 && (
+            <div className="flex items-center gap-3 overflow-x-auto pb-1">
+              {images.map((img, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedImageIndex(idx)}
+                  className={`w-18 h-18 rounded-2xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
+                    selectedImageIndex === idx
+                      ? 'border-indigo-600 ring-2 ring-indigo-200 scale-105'
+                      : 'border-slate-200 hover:border-slate-400 opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  <img src={img} alt={`Thumb ${idx}`} className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Product Info & Actions */}
@@ -134,7 +203,7 @@ export const BuilderProductPage: React.FC<BuilderPageProps> = ({
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
                 <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                <span>4.9 (124 {isAr ? 'تقييم موثق من مكة' : 'Makkah reviews'})</span>
+                <span>4.9 (124 {isAr ? 'تقييم موثق' : 'verified reviews'})</span>
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 {isAr ? 'متوفر للتوصيل الفوري' : 'In Stock · Fast Dispatch'}
@@ -142,12 +211,10 @@ export const BuilderProductPage: React.FC<BuilderPageProps> = ({
             </div>
 
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              {isAr ? 'حامل ورود حمراء مخملية ملكية وفازة فاخرة' : 'Royal Velvet Red Roses Stand & Luxury Vase'}
+              {productTitle}
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-              {isAr
-                ? 'تنسيق ملكي مجهز يدوياً من أرقى الورود الجورية الحمراء المنتقاة بعناية، مخصصة لغرف وأجنحة فنادق الحرم المكي الشريف والمناسبات الراقية.'
-                : 'Hand-curated floral masterpiece featuring imported velvety red roses, crafted specifically for luxury Haram hotel suites and VIP gifting in Makkah.'}
+              {productDesc}
             </p>
           </div>
 
@@ -402,24 +469,45 @@ export const BuilderCartPage: React.FC<BuilderPageProps> = ({
   onNavigatePage,
   isMobile,
 }) => {
-  const [items, setItems] = useState([
-    {
-      id: 'p1',
-      name: isAr ? 'حامل ورود حمراء مخملية ملكية' : 'Royal Velvet Red Roses Stand',
-      price: 490,
-      qty: 1,
-      img: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=400&q=80',
-      specs: isAr ? '٢٤ وردة · فازة كريستال' : '24 Stems · Crystal Vase',
-    },
-    {
-      id: 'p2',
-      name: isAr ? 'صندوق شوكولاتة باتشي الفاخرة' : 'Patchi Luxury Floral Box',
-      price: 180,
-      qty: 1,
-      img: 'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=400&q=80',
-      specs: isAr ? '٥٠٠ جرام · شريط ذهبي' : '500g · Gold Ribbon',
-    },
-  ]);
+  const { activeStore, isCoffee, isAuto, currentProducts } = useBuilderStoreContext(isAr);
+
+  const initialItems = useMemo(() => {
+    if (currentProducts.length > 0) {
+      return currentProducts.slice(0, 2).map((p) => ({
+        id: p.id,
+        name: isAr ? p.name : (p.nameEn || p.name),
+        price: p.price || 150,
+        qty: 1,
+        img: p.image || p.images?.[0] || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=400&q=80',
+        specs: isAr
+          ? (isCoffee ? '٢٥٠ جرام · بن حبوب كاملة' : isAuto ? 'تأجير معتمد · شامل التأمين' : 'تغليف فاخر · بطاقة إهداء')
+          : (isCoffee ? '250g · Whole Bean' : isAuto ? 'Certified · Full Insurance' : 'Luxury Wrap · Gift Card'),
+      }));
+    }
+    return [
+      {
+        id: 'p1',
+        name: isAr
+          ? (isCoffee ? 'محصول بن كولومبي مختص' : isAuto ? 'خدمة نقل شحن لوجستي' : 'باقة زهور طبيعية فاخرة')
+          : (isCoffee ? 'Colombian Specialty Coffee' : isAuto ? 'Logistics Transport Service' : 'Luxury Flower Bouquet'),
+        price: isCoffee ? 95 : isAuto ? 1200 : 490,
+        qty: 1,
+        img: isCoffee
+          ? 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=400&q=80'
+          : isAuto
+          ? 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=400&q=80'
+          : 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=400&q=80',
+        specs: isAr
+          ? (isCoffee ? '٢٥٠ جرام' : isAuto ? 'شاحنة مجهزة' : '٢٤ وردة')
+          : (isCoffee ? '250g' : isAuto ? 'Equipped Truck' : '24 Stems'),
+      },
+    ];
+  }, [currentProducts, isAr, isCoffee, isAuto]);
+
+  const [items, setItems] = useState(initialItems);
+  React.useEffect(() => {
+    setItems(initialItems);
+  }, [initialItems]);
 
   const [couponCode, setCouponCode] = useState('');
   const [couponApplied, setCouponApplied] = useState(false);
@@ -447,10 +535,10 @@ export const BuilderCartPage: React.FC<BuilderPageProps> = ({
       <div className="flex items-center justify-between border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900">
-            {isAr ? 'سلة المشتريات والهدايا' : 'Shopping Cart & Hampers'}
+            {isAr ? 'سلة المشتريات' : 'Shopping Bag'}
           </h1>
           <p className="text-xs text-slate-500">
-            {isAr ? `لديك (${items.length}) عناصر مميزة في سلتك` : `${items.length} premium items in your bag`}
+            {isAr ? `لديك (${items.length}) عناصر في سلتك` : `${items.length} items in your bag`}
           </p>
         </div>
         <button
@@ -467,12 +555,12 @@ export const BuilderCartPage: React.FC<BuilderPageProps> = ({
           <Truck className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>
             {isAr
-              ? 'مبارك! طلبيتك مؤهلة للتوصيل المجاني المبرد في مكة المكرمة.'
-              : 'Congratulations! Your order qualifies for FREE express delivery in Makkah.'}
+              ? (isCoffee ? 'شحن سريع مجاني لطلبات البن والمعدات فوق ٢٠٠ ر.س' : isAuto ? 'تأكيد فوري للجدولة وبدء العمليات اللوجستية' : 'توصيل سريع وموثوق إلى باب موقعك')
+              : (isCoffee ? 'Free fast shipping on coffee and gear orders above 200 SAR' : isAuto ? 'Instant scheduling and certified logistics dispatch' : 'Express delivery right to your location')}
           </span>
         </div>
         <span className="font-extrabold text-emerald-700 bg-white px-2 py-0.5 rounded-md text-[11px] shadow-2xs">
-          {isAr ? 'مجاناً' : 'FREE'}
+          {isAr ? 'مشمول' : 'Included'}
         </span>
       </div>
 
@@ -621,7 +709,22 @@ export const BuilderCheckoutPage: React.FC<BuilderPageProps> = ({
   onNavigatePage,
   isMobile,
 }) => {
+  const { activeStore, isCoffee, isAuto, primaryProduct, secondaryProduct } = useBuilderStoreContext(isAr);
   const [payment, setPayment] = useState<'mada' | 'apple' | 'tabby' | 'cod'>('mada');
+
+  const item1Name = isAr
+    ? (primaryProduct?.name || (isCoffee ? 'محصول بن مختص' : isAuto ? 'خدمة نقل أسطول' : 'باقة زهور فاخرة'))
+    : (primaryProduct?.nameEn || primaryProduct?.name || (isCoffee ? 'Specialty Coffee' : isAuto ? 'Fleet Transport' : 'Luxury Bouquet'));
+  const item1Price = primaryProduct?.price || (isCoffee ? 95 : isAuto ? 1200 : 490);
+
+  const item2Name = isAr
+    ? (secondaryProduct?.name || (isCoffee ? 'فلاتر ترشيح V60' : isAuto ? 'تأمين أسطول إضافي' : 'بوكس شوكولاتة فاخر'))
+    : (secondaryProduct?.nameEn || secondaryProduct?.name || (isCoffee ? 'V60 Paper Filters' : isAuto ? 'Cargo Insurance' : 'Luxury Chocolate Box'));
+  const item2Price = secondaryProduct?.price || (isCoffee ? 35 : isAuto ? 250 : 180);
+
+  const subtotal = item1Price + item2Price;
+  const vat = subtotal * 0.15;
+  const grandTotal = subtotal + vat;
 
   return (
     <div className={`space-y-6 ${isMobile ? 'p-3' : 'p-6 sm:p-10'}`}>
@@ -649,7 +752,7 @@ export const BuilderCheckoutPage: React.FC<BuilderPageProps> = ({
           <div className="p-5 rounded-2xl border border-slate-200 bg-white space-y-3.5 shadow-2xs">
             <h3 className="font-black text-xs sm:text-sm text-slate-900 flex items-center gap-2">
               <MapPin className="w-4 h-4 text-indigo-600" />
-              <span>{isAr ? 'العنوان الوطني وموقع التوصيل بمكة المكرمة' : 'Saudi Delivery Address & District'}</span>
+              <span>{isAr ? 'العنوان الوطني وبيانات التوصيل' : 'National Address & Delivery Details'}</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -659,7 +762,7 @@ export const BuilderCheckoutPage: React.FC<BuilderPageProps> = ({
                 </label>
                 <input
                   type="text"
-                  defaultValue="فهد بن ناصر العتيبي"
+                  placeholder={isAr ? 'الاسم الكامل للعميل / المستلم' : 'Recipient Full Name'}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-600"
                 />
               </div>
@@ -670,32 +773,31 @@ export const BuilderCheckoutPage: React.FC<BuilderPageProps> = ({
                 </label>
                 <input
                   type="text"
-                  defaultValue="0559876543"
+                  placeholder={isAr ? '05xxxxxxxx' : '+966 5xxxxxxxx'}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-600"
                 />
               </div>
 
               <div>
                 <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                  {isAr ? 'الحي أو المنطقة بمكة المكرمة:' : 'Makkah District / Zone:'}
+                  {isAr ? 'المدينة والحي:' : 'City & District:'}
                 </label>
                 <select className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-600">
-                  <option>فنادق الحرم المكي المركزية (Al-Haram Hotels)</option>
-                  <option>أبراج البيت وفيرمونت برج الساعة (Clock Towers)</option>
-                  <option>مشروع جبل عمر (Jabal Omar Development)</option>
-                  <option>العزيزية الشمالية والجنوبية (Al-Aziziyah)</option>
-                  <option>الشوقية وبطحاء قريش (Al-Shawqiyyah)</option>
-                  <option>العوالي والجامعة (Al-Awali)</option>
+                  <option>{isAr ? 'الرياض - حي النرجس / العليا' : 'Riyadh - Al Narjis / Olaya'}</option>
+                  <option>{isAr ? 'جدة - حي الروضة / الشاطئ' : 'Jeddah - Al Rawdah / Al Shati'}</option>
+                  <option>{isAr ? 'مكة المكرمة - العزيزية / الشوقية' : 'Makkah - Al Aziziyah / Al Shawqiyyah'}</option>
+                  <option>{isAr ? 'الدمام والخبر - الشاطئ' : 'Dammam & Khobar'}</option>
+                  <option>{isAr ? 'المدينة المنورة - قباء' : 'Madinah - Quba'}</option>
                 </select>
               </div>
 
               <div>
                 <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                  {isAr ? 'اسم الفندق أو رقم المبنى / الغرفة:' : 'Hotel Name or Room Number:'}
+                  {isAr ? 'اسم المبنى / الشارع / رقم الوحدة:' : 'Building / Street / Unit:'}
                 </label>
                 <input
                   type="text"
-                  defaultValue="فندق سويس أوتيل المقام - جناح 1402"
+                  placeholder={isAr ? 'اسم المبنى أو رقم الوحدة' : 'Building or Unit Number'}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-600"
                 />
               </div>
@@ -711,7 +813,7 @@ export const BuilderCheckoutPage: React.FC<BuilderPageProps> = ({
                   type="button"
                   className="p-2 rounded-xl border border-indigo-600 bg-indigo-50 font-bold text-indigo-900 text-center cursor-pointer"
                 >
-                  {isAr ? 'فوري (خلال ٦٠ دقيقة)' : 'Express (60 Mins)'}
+                  {isAr ? 'فوري وسريع' : 'Express'}
                 </button>
                 <button
                   type="button"
@@ -791,32 +893,32 @@ export const BuilderCheckoutPage: React.FC<BuilderPageProps> = ({
             <h4 className="font-black text-sm text-slate-900 flex items-center justify-between">
               <span>{isAr ? 'ملخص الطلب والفاتورة' : 'Order & Invoice'}</span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                #ORD-2026-9872
+                #ORD-{Date.now().toString().slice(-4)}
               </span>
             </h4>
 
             <div className="space-y-2 text-slate-600 border-b border-slate-200 pb-3">
               <div className="flex justify-between">
-                <span>{isAr ? 'حامل ورود حمراء مخملية' : 'Red Roses Stand'}</span>
-                <span className="font-bold text-slate-900">{money(490)}</span>
+                <span>{item1Name}</span>
+                <span className="font-bold text-slate-900">{money(item1Price)}</span>
               </div>
               <div className="flex justify-between">
-                <span>{isAr ? 'بوكس شوكولاتة باتشي' : 'Patchi Box'}</span>
-                <span className="font-bold text-slate-900">{money(180)}</span>
+                <span>{item2Name}</span>
+                <span className="font-bold text-slate-900">{money(item2Price)}</span>
               </div>
               <div className="flex justify-between">
                 <span>{isAr ? 'ضريبة القيمة المضافة (١٥٪)' : 'VAT (15%)'}</span>
-                <span className="font-bold text-slate-900">{money(100.5)}</span>
+                <span className="font-bold text-slate-900">{money(vat)}</span>
               </div>
               <div className="flex justify-between text-emerald-600 font-bold">
-                <span>{isAr ? 'توصيل مبرد سريع' : 'Chilled Express Delivery'}</span>
+                <span>{isAr ? 'الشحن والتوصيل' : 'Shipping'}</span>
                 <span>{isAr ? 'مجاني' : 'FREE'}</span>
               </div>
             </div>
 
             <div className="flex justify-between text-base font-black text-slate-900">
               <span>{isAr ? 'المجموع النهائي' : 'Total Amount'}</span>
-              <span className="text-indigo-600">{money(770.5)}</span>
+              <span className="text-indigo-600">{money(grandTotal)}</span>
             </div>
 
             <button
@@ -847,6 +949,8 @@ export const BuilderThankYouPage: React.FC<BuilderPageProps> = ({
   onNavigateHome,
   isMobile,
 }) => {
+  const { activeStore, isCoffee, isAuto, storeName } = useBuilderStoreContext(isAr);
+
   return (
     <div className={`max-w-2xl mx-auto space-y-6 ${isMobile ? 'p-3' : 'p-6 sm:p-10'}`}>
       <div className="text-center space-y-3">
@@ -858,8 +962,8 @@ export const BuilderThankYouPage: React.FC<BuilderPageProps> = ({
         </h1>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
           {isAr
-            ? 'شكراً لاختيارك زهور مكة الفاخرة. تم إصدار فاتورة زاتكا الضريبية وتجهيز باقتك في غرف التبريد الخاصة.'
-            : 'Thank you for choosing Makkah Fresh Flowers. Your ZATCA tax invoice is ready and master florists are arranging your blooms.'}
+            ? `شكراً لاختيارك ${storeName}. تم إصدار فاتورة زاتكا الضريبية وتجهيز طلبك بأعلى معايير الإتقان.`
+            : `Thank you for choosing ${storeName}. Your official ZATCA tax invoice is ready and your order is confirmed.`}
         </p>
       </div>
 
@@ -868,7 +972,7 @@ export const BuilderThankYouPage: React.FC<BuilderPageProps> = ({
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div>
             <span className="text-slate-400 text-[10px] block">{isAr ? 'رقم الطلب' : 'Order ID'}</span>
-            <span className="font-mono font-black text-sm text-slate-900">#ORD-2026-9872</span>
+            <span className="font-mono font-black text-sm text-slate-900">#ORD-{Date.now().toString().slice(-4)}</span>
           </div>
           <div className="text-end">
             <span className="text-slate-400 text-[10px] block">{isAr ? 'الوقت المتوقع للتسليم' : 'Estimated Arrival'}</span>
@@ -892,13 +996,17 @@ export const BuilderThankYouPage: React.FC<BuilderPageProps> = ({
               <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto text-xs">
                 <Check className="w-3.5 h-3.5" />
               </div>
-              <span className="text-emerald-700">{isAr ? 'تجهيز الورد' : 'Arranging'}</span>
+              <span className="text-emerald-700">
+                {isAr ? (isCoffee ? 'تحميص وتجهيز' : isAuto ? 'تجهيز الأسطول' : 'تجهيز الطلب') : (isCoffee ? 'Roasting' : isAuto ? 'Fleet Prep' : 'Preparing')}
+              </span>
             </div>
             <div className="space-y-1">
               <div className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center mx-auto text-xs animate-pulse">
                 <Truck className="w-3.5 h-3.5" />
               </div>
-              <span className="text-indigo-700 font-black">{isAr ? 'مع السائق المبرد' : 'With Driver'}</span>
+              <span className="text-indigo-700 font-black">
+                {isAr ? (isAuto ? 'جاري التنفيذ' : 'مع المندوب') : 'Dispatched'}
+              </span>
             </div>
             <div className="space-y-1 opacity-40">
               <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center mx-auto text-xs font-mono">4</div>
@@ -914,16 +1022,16 @@ export const BuilderThankYouPage: React.FC<BuilderPageProps> = ({
               <User className="w-5 h-5 text-indigo-700" />
             </div>
             <div>
-              <span className="font-black text-slate-900 block">{isAr ? 'الكابتن: محمد القرشي' : 'Driver: Mohammed Al-Qurashi'}</span>
-              <span className="text-[11px] text-slate-500 block">فان توصيل مبرد (رقم اللوحة: أ ب د ٤٥٨٢)</span>
+              <span className="font-black text-slate-900 block">{isAr ? 'مندوب التوصيل المعتمد' : 'Certified Dispatcher'}</span>
+              <span className="text-[11px] text-slate-500 block">{storeName}</span>
             </div>
           </div>
           <a
-            href="tel:+966559876543"
+            href={`tel:${activeStore?.contactPhone || '+966559876543'}`}
             className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs flex items-center gap-1 shadow-2xs hover:bg-emerald-700 cursor-pointer"
           >
             <Phone className="w-3.5 h-3.5" />
-            <span>{isAr ? 'اتصال بالسائق' : 'Call Driver'}</span>
+            <span>{isAr ? 'اتصال بالدعم' : 'Call Support'}</span>
           </a>
         </div>
       </div>
@@ -933,7 +1041,7 @@ export const BuilderThankYouPage: React.FC<BuilderPageProps> = ({
           onClick={onNavigateHome}
           className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
         >
-          {isAr ? 'العودة لمتجر الورود' : 'Back to Florist Store'}
+          {isAr ? `العودة لـ ${storeName}` : `Back to ${storeName}`}
         </button>
       </div>
     </div>
@@ -948,94 +1056,80 @@ export const BuilderAboutPage: React.FC<BuilderPageProps> = ({
   onNavigateHome,
   isMobile,
 }) => {
+  const { activeStore, isCoffee, isAuto, storeName } = useBuilderStoreContext(isAr);
+
+  const heroSub = isCoffee
+    ? (isAr ? 'قصة شغف بالبن المختص وطرق التحميص الاحترافية' : 'Our Passion for Specialty Coffee Roasting')
+    : isAuto
+    ? (isAr ? 'ريادة في النقل اللوجستي وتجهيز الأساطيل بالمملكة' : 'Pioneering Transport & Fleet Solutions in Saudi Arabia')
+    : (isAr ? 'عراقة وفخامة الهدايا والزهور الطبيعية' : 'Heritage of Curated Luxury & Elegant Gifting');
+
+  const heroStory = isCoffee
+    ? (isAr ? 'نختار بعناية أجود محاصيل البن من مرتفعات إثيوبيا، كولومبيا، والبرازيل، ونحمصها بملامح حرارية دقيقة لتمنحك تجربة قهوة فاخرة لا مثيل لها.' : 'We meticulously source the finest beans from top estates worldwide and roast with precision profiles to deliver unmatched flavor notes.')
+    : isAuto
+    ? (isAr ? 'نقدم حلولاً لوجستية ونقلاً معتمداً بأحدث معايير السلامة والتتبع الحي للشركات والأفراد على امتداد طرق المملكة.' : 'We provide premier transport, logistics, and heavy fleet solutions with 24/7 reliability across Saudi Arabia.')
+    : (isAr ? 'نقدم أرقى التنسيقات الفاخرة لعملائنا لنوثق أجمل اللحظات والمناسبات بأعلى معايير الإتقان والسرعة.' : 'Crafting bespoke luxury arrangements and hampers with uncompromising attention to detail and rapid dispatch.');
+
   return (
     <div className={`max-w-4xl mx-auto space-y-10 ${isMobile ? 'p-3' : 'p-6 sm:p-10'}`}>
       <div className="text-center space-y-3">
         <span className="text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 inline-block">
-          {isAr ? 'عراقة وفخامة الورود في مكة المكرمة' : 'Makkah Heritage Floral Boutique'}
+          {storeName}
         </span>
         <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
-          {isAr ? 'قصة شغف بالورد الطبيعي في أقدس بقاع الأرض' : 'Our Sacred Passion for Luxury Blooms'}
+          {heroSub}
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 max-w-2xl mx-auto leading-relaxed">
-          {isAr
-            ? 'منذ أكثر من ١٢ عاماً ونحن نتشرف بتجهيز أرقى باقات الورود الطبيعية الهولندية والإكوادورية لضيوف الرحمن وفنادق الحرم الشريف وكبار الشخصيات.'
-            : 'For over 12 years, we have had the honor of crafting exquisite Dutch and Ecuadorian floral arrangements for guests of the Holy City, Haram hotels, and VIP celebrations.'}
+          {heroStory}
         </p>
-      </div>
-
-      {/* Imagery & Values */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm aspect-4/3">
-          <img
-            src="https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=600&q=80"
-            alt="Atelier"
-            className="w-full h-full object-cover"
-          />
-        </div>
-        <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm aspect-4/3">
-          <img
-            src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80"
-            alt="Handcraft"
-            className="w-full h-full object-cover"
-          />
-        </div>
-        <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm aspect-4/3">
-          <img
-            src="https://images.unsplash.com/photo-1563241527-3004b7be0ffd?auto=format&fit=crop&w=600&q=80"
-            alt="Florals"
-            className="w-full h-full object-cover"
-          />
-        </div>
       </div>
 
       {/* 4 Pillars */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[
           {
-            icon: Flower2,
+            icon: ShieldCheck,
             iconColor: 'text-rose-500 bg-rose-50',
-            titleAr: 'ورد طبيعي ١٠٠٪ طازج يومياً',
-            titleEn: '100% Daily Fresh Imports',
-            descAr: 'نستورد يومياً من هولندا والإكوادور عبر شحن جوي مبرد مع شهادات نضارة معتمدة.',
-            descEn: 'Imported fresh daily from Holland and Ecuador via direct refrigerated air freight.',
+            titleAr: 'أصالة وجودة معتمدة',
+            titleEn: '100% Certified Quality',
+            descAr: 'منتجات ومحاصيل وخدمات أصلية متوافقة مع أعلى معايير الجودة والمواصفات القياسية.',
+            descEn: 'Authentic products and certified services compliant with the highest industry standards.',
           },
           {
             icon: Zap,
             iconColor: 'text-amber-500 bg-amber-50',
-            titleAr: 'توصيل مبرد خلال ٦٠ دقيقة',
-            titleEn: '60-Minute Climate-Controlled Delivery',
-            descAr: 'أسطول سيارات حديث مجهز بأنظمة تبريد دقيقة لضمان وصول الورد بكامل نضارته في حرارة مكة.',
-            descEn: 'Modern temperature-controlled fleet ensuring blooms reach your room in prime condition.',
+            titleAr: 'سرعة ودقة في التنفيذ',
+            titleEn: 'Rapid & Reliable Fulfillment',
+            descAr: 'معالجة فورية وتجهيز احترافي لضمان وصول طلبك في الوقت المحدد بأقصى سرعة.',
+            descEn: 'Immediate processing and swift fulfillment ensuring prompt delivery to your location.',
           },
           {
             icon: MapPin,
             iconColor: 'text-emerald-500 bg-emerald-50',
-            titleAr: 'تغطية شاملة لفنادق الحرم المكي',
-            titleEn: 'Exclusive Central Haram Coverage',
-            descAr: 'تصاريح دخول لكافة أبراج البيت، جبل عمر، وفنادق المنطقة المركزية مع تسليم مباشر للاستقبال.',
-            descEn: 'Full clearance for Clock Towers, Jabal Omar, and all central hotels with room delivery.',
+            titleAr: 'تغطية واسعة لكافة المناطق',
+            titleEn: 'Kingdom-Wide Coverage',
+            descAr: 'شبكة شحن وتوصيل تغطي المدن الرئيسية مع تتبع لحظي مباشر للشحنة.',
+            descEn: 'Extensive delivery network covering major cities with live dispatch tracking.',
           },
           {
             icon: Sparkles,
             iconColor: 'text-indigo-500 bg-indigo-50',
-            titleAr: 'تنسيقات ملكية وبطاقات خط عربي',
-            titleEn: 'Royal Handcrafted Calligraphy',
-            descAr: 'نكتب بطاقات الإهداء بخطاطين محترفين مع خيارات ماء زمزم ودهن العود الفاخر.',
-            descEn: 'Artisan hand-written Arabic calligraphy with Zamzam water and luxury oud options.',
+            titleAr: 'خدمة عملاء على مدار الساعة',
+            titleEn: '24/7 Dedicated Support',
+            descAr: 'فريق دعم محترف جاهز لخدمتكم ومساعدتكم عبر الواتساب والمكالمات في أي وقت.',
+            descEn: 'Dedicated customer care available around the clock via WhatsApp and phone.',
           },
-        ].map((item, idx) => {
-          const PIcon = item.icon;
-          return (
-            <div key={idx} className="p-5 rounded-2xl border border-slate-200 bg-white shadow-2xs space-y-2">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.iconColor}`}>
-                <PIcon className="w-5 h-5" />
-              </div>
-              <h3 className="font-black text-sm text-slate-900">{isAr ? item.titleAr : item.titleEn}</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">{isAr ? item.descAr : item.descEn}</p>
+        ].map((pillar, idx) => (
+          <div key={idx} className="p-4 rounded-2xl bg-white border border-slate-200 flex gap-3 text-xs">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${pillar.iconColor}`}>
+              <pillar.icon className="w-4 h-4" />
             </div>
-          );
-        })}
+            <div>
+              <h4 className="font-bold text-slate-900 mb-1">{isAr ? pillar.titleAr : pillar.titleEn}</h4>
+              <p className="text-slate-500 leading-relaxed text-[11px]">{isAr ? pillar.descAr : pillar.descEn}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Numbers */}
@@ -1069,16 +1163,21 @@ export const BuilderContactPage: React.FC<BuilderPageProps> = ({
   onNavigateHome,
   isMobile,
 }) => {
+  const { activeStore, storeName } = useBuilderStoreContext(isAr);
   const [sent, setSent] = useState(false);
+  const phone = activeStore?.contactPhone || '+966 50 123 4567';
+  const locationText = isAr
+    ? (activeStore?.domain || 'المملكة العربية السعودية')
+    : (activeStore?.domain || 'Saudi Arabia');
 
   return (
     <div className={`max-w-4xl mx-auto space-y-8 ${isMobile ? 'p-3' : 'p-6 sm:p-10'}`}>
       <div className="text-center space-y-2">
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900">
-          {isAr ? 'تواصل مع فريق خدمة عملاء زهور مكة' : 'Contact Makkah Floral Concierge'}
+          {isAr ? `تواصل مع فريق خدمة عملاء ${storeName}` : `Contact ${storeName} Concierge`}
         </h1>
         <p className="text-xs text-slate-500">
-          {isAr ? 'فريقنا متواجد على مدار الساعة لخدمة طلباتكم وتجهيز مناسباتكم' : 'Our team is available 24/7 to coordinate VIP bouquets & deliveries'}
+          {isAr ? 'فريقنا متواجد على مدار الساعة لخدمة طلباتكم والإجابة على استفساراتكم' : 'Our team is available 24/7 to assist with your orders and inquiries'}
         </p>
       </div>
 
@@ -1088,28 +1187,28 @@ export const BuilderContactPage: React.FC<BuilderPageProps> = ({
           <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-1 text-xs">
             <span className="text-indigo-600 font-black flex items-center gap-1.5">
               <Phone className="w-4 h-4" />
-              <span>{isAr ? 'الرقم الموحد المباشر:' : 'Direct Hotline:'}</span>
+              <span>{isAr ? 'الهاتف المباشر:' : 'Direct Phone:'}</span>
             </span>
-            <p className="font-mono font-bold text-slate-900 text-sm" dir="ltr">+966 12 555 8920</p>
+            <p className="font-mono font-bold text-slate-900 text-sm" dir="ltr">{phone}</p>
             <p className="text-slate-400 text-[10px]">{isAr ? 'متاح من ٨ ص حتى ١٢ ليلاً' : 'Available 8 AM - Midnight'}</p>
           </div>
 
           <div className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50 space-y-1 text-xs">
             <span className="text-emerald-700 font-black flex items-center gap-1.5">
               <MessageCircle className="w-4 h-4" />
-              <span>{isAr ? 'واتساب الطلبات العاجلة:' : 'Express WhatsApp Concierge:'}</span>
+              <span>{isAr ? 'واتساب الدعم السريع:' : 'Express WhatsApp:'}</span>
             </span>
-            <p className="font-mono font-bold text-emerald-900 text-sm" dir="ltr">+966 50 442 8819</p>
-            <p className="text-emerald-700 text-[10px]">{isAr ? 'رد فوري خلال ٣ دقائق' : 'Response within 3 mins'}</p>
+            <p className="font-mono font-bold text-emerald-900 text-sm" dir="ltr">{phone}</p>
+            <p className="text-emerald-700 text-[10px]">{isAr ? 'رد فوري ومباشر' : 'Instant response'}</p>
           </div>
 
           <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-1 text-xs">
             <span className="text-slate-700 font-black flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-indigo-600" />
-              <span>{isAr ? 'المقر الرئيسي والبوتيك:' : 'Main Boutique:'}</span>
+              <span>{isAr ? 'المقر والنطاق:' : 'Hub & Coverage:'}</span>
             </span>
             <p className="text-slate-900 font-bold">
-              {isAr ? 'مكة المكرمة · حي العزيزية · طريق المسجد الحرام' : 'Makkah · Al-Aziziyah · Al Masjid Al Haram Rd'}
+              {locationText}
             </p>
           </div>
         </div>
@@ -1118,13 +1217,13 @@ export const BuilderContactPage: React.FC<BuilderPageProps> = ({
         <div className={isMobile ? 'col-span-1' : 'md:col-span-7'}>
           <div className="p-6 rounded-3xl border border-slate-200 bg-white shadow-2xs space-y-4 text-xs">
             <h3 className="font-black text-sm text-slate-900">
-              {isAr ? 'أرسل استفسارك أو طلب تنسيق خاص' : 'Send Inquiry or Custom Request'}
+              {isAr ? 'أرسل استفسارك وسنعاود الاتصال بك' : 'Send Inquiry or Request'}
             </h3>
 
             {sent ? (
               <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-800 text-center font-bold flex items-center justify-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>{isAr ? 'تم إرسال رسالتك بنجاح! سيتواصل معك المنسق قريباً.' : 'Message received! Our florist will reach out shortly.'}</span>
+                <span>{isAr ? 'تم إرسال رسالتك بنجاح! سيتواصل معك فريقنا قريباً.' : 'Message received! Our team will reach out shortly.'}</span>
               </div>
             ) : (
               <form
@@ -1156,22 +1255,12 @@ export const BuilderContactPage: React.FC<BuilderPageProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-1">{isAr ? 'نوع المناسبة:' : 'Occasion:'}</label>
-                  <select className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
-                    <option>{isAr ? 'إهداء فندق الحرم المكي' : 'Haram Hotel Gift'}</option>
-                    <option>{isAr ? 'حفل زفاف أو ملكة' : 'Wedding / Engagement'}</option>
-                    <option>{isAr ? 'ترحيب معتمر وزيارة' : 'Umrah Welcome Blooms'}</option>
-                    <option>{isAr ? 'تنسيق خاص لشركات ومؤسسات' : 'Corporate / VIP'}</option>
-                  </select>
-                </div>
-
-                <div>
                   <label className="text-[11px] font-bold text-slate-700 block mb-1">{isAr ? 'تفاصيل الطلب:' : 'Details:'}</label>
                   <textarea
                     required
                     rows={3}
-                    placeholder={isAr ? 'اكتب تفاصيل طلبك أو موعد التوصيل المطلوب...' : 'Describe your custom arrangement...'}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                    placeholder={isAr ? 'اكتب تفاصيل طلبك أو استفسارك...' : 'Describe your inquiry...'}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 resize-none"
                   />
                 </div>
 
@@ -1180,7 +1269,7 @@ export const BuilderContactPage: React.FC<BuilderPageProps> = ({
                   className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   <Send className="w-3.5 h-3.5 rtl:-scale-x-100" />
-                  <span>{isAr ? 'إرسال الرسالة للمنسق' : 'Send Message'}</span>
+                  <span>{isAr ? 'إرسال الرسالة' : 'Send Message'}</span>
                 </button>
               </form>
             )}
@@ -1306,17 +1395,19 @@ export const BuilderTrackOrderPage: React.FC<BuilderPageProps> = ({
   onNavigateHome,
   isMobile,
 }) => {
-  const [orderId, setOrderId] = useState('ORD-2026-9872');
+  const { activeStore, isCoffee, isAuto, storeName, currentOrders } = useBuilderStoreContext(isAr);
+  const sampleOrderNumber = currentOrders?.[0]?.orderNumber || currentOrders?.[0]?.id || 'ORD-2026-1001';
+  const [orderId, setOrderId] = useState(sampleOrderNumber);
   const [searched, setSearched] = useState(true);
 
   return (
     <div className={`max-w-2xl mx-auto space-y-6 ${isMobile ? 'p-3' : 'p-6 sm:p-10'}`}>
       <div className="text-center space-y-2">
         <h1 className="text-2xl font-black text-slate-900">
-          {isAr ? 'تتبع مسار شحنة الورد المباشر' : 'Live Floral Order Tracker'}
+          {isAr ? `تتبع مسار طلبك المباشر - ${storeName}` : `Live Order Tracker - ${storeName}`}
         </h1>
         <p className="text-xs text-slate-500">
-          {isAr ? 'أدخل رقم طلبك أو رقم الجوال للاطلاع على خط سير السائق المبرد' : 'Enter order number or phone to view live driver ETA'}
+          {isAr ? 'أدخل رقم طلبك للاطلاع على خط سير الشحنة المباشر' : 'Enter order number or phone to view live driver ETA'}
         </p>
       </div>
 
@@ -1326,7 +1417,7 @@ export const BuilderTrackOrderPage: React.FC<BuilderPageProps> = ({
           type="text"
           value={orderId}
           onChange={(e) => setOrderId(e.target.value)}
-          placeholder={isAr ? 'رقم الطلب (مثال: ORD-2026-9872)' : 'Order Number'}
+          placeholder={isAr ? 'رقم الطلب (مثال: ORD-2026-1001)' : 'Order Number'}
           className="flex-1 px-3 py-2 text-xs font-mono uppercase focus:outline-none"
         />
         <button
@@ -1342,7 +1433,7 @@ export const BuilderTrackOrderPage: React.FC<BuilderPageProps> = ({
           <div className="flex items-center justify-between border-b pb-4">
             <div>
               <span className="font-mono font-black text-slate-900 text-sm">#{orderId}</span>
-              <span className="text-[11px] text-slate-400 block">{isAr ? 'توصيل لفندق فيرمونت برج الساعة' : 'Delivery to Fairmont Clock Tower'}</span>
+              <span className="text-[11px] text-slate-400 block">{storeName}</span>
             </div>
             <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 font-extrabold text-xs">
               {isAr ? 'في الطريق مع السائق (٣٠ دقيقة)' : 'In Transit · 30 Mins'}
@@ -1353,9 +1444,19 @@ export const BuilderTrackOrderPage: React.FC<BuilderPageProps> = ({
           <div className="space-y-4">
             {[
               { titleAr: 'تم استلام وتأكيد الطلب', titleEn: 'Order Confirmed', time: '11:15 ص', done: true },
-              { titleAr: 'تنسيق الورد في الورشتة المركزية بالعزيزية', titleEn: 'Fresh Arrangement Prepared', time: '11:32 ص', done: true },
-              { titleAr: 'تم تسليم الشحنة للسائق في الفان المبرد', titleEn: 'Dispatched in Chilled Van', time: '11:45 ص', current: true },
-              { titleAr: 'التسليم لاستقبال الفندق أو العميل', titleEn: 'Delivered to Guest', time: 'متوقع 12:15 م', pending: true },
+              {
+                titleAr: isCoffee ? 'تحميص وتجهيز البن في المحمصة' : isAuto ? 'تجهيز وفحص الأسطول' : 'تجهيز وتغليف الطلب',
+                titleEn: isCoffee ? 'Coffee Roasting & Packing' : isAuto ? 'Fleet Prep & Safety Check' : 'Order Assembly & Packing',
+                time: '11:32 ص',
+                done: true
+              },
+              {
+                titleAr: isAuto ? 'جاري التنفيذ والتشغيل' : 'تم تسليم الشحنة لمندوب التوصيل',
+                titleEn: isAuto ? 'Fleet In Transit' : 'Dispatched with Courier',
+                time: '11:45 ص',
+                current: true
+              },
+              { titleAr: 'التسليم لاستقبال أو عنوان العميل', titleEn: 'Delivered to Customer', time: 'متوقع 12:15 م', pending: true },
             ].map((step, idx) => (
               <div key={idx} className="flex items-start gap-3">
                 <div
@@ -1392,11 +1493,13 @@ export const BuilderPrivacyPage: React.FC<BuilderPageProps> = ({
   onNavigateHome,
   isMobile,
 }) => {
+  const { storeName } = useBuilderStoreContext(isAr);
+
   return (
     <div className={`max-w-3xl mx-auto space-y-6 ${isMobile ? 'p-3' : 'p-6 sm:p-10'}`}>
       <div className="border-b pb-4 space-y-2">
         <h1 className="text-2xl font-black text-slate-900">
-          {isAr ? 'سياسة الخصوصية وسرية البيانات' : 'Privacy & Data Protection Policy'}
+          {isAr ? `سياسة الخصوصية وسرية البيانات - ${storeName}` : `Privacy & Data Protection Policy - ${storeName}`}
         </h1>
         <p className="text-xs text-slate-500">
           {isAr
@@ -1412,8 +1515,8 @@ export const BuilderPrivacyPage: React.FC<BuilderPageProps> = ({
           </h3>
           <p>
             {isAr
-              ? 'نقوم بجمع بيانات العميل الأساسية (الاسم، رقم الجوال، عنوان الفندق أو الحي) حصراً لغرض معالجة وتوصيل طلبات الورود والهدايا، وإصدار الفواتير الضريبية الإلكترونية المعتمدة.'
-              : 'We collect customer contact details solely for floral order fulfillment, driver dispatch in Makkah, and official ZATCA tax invoice generation.'}
+              ? `نقوم بجمع بيانات العميل الأساسية (الاسم، رقم الجوال، عنوان التوصيل) حصراً لغرض معالجة وتوصيل طلبات ${storeName}، وإصدار الفواتير الضريبية الإلكترونية المعتمدة.`
+              : `We collect customer contact details solely for ${storeName} order fulfillment, dispatch, and official ZATCA tax invoice generation.`}
           </p>
         </section>
 
@@ -1430,12 +1533,12 @@ export const BuilderPrivacyPage: React.FC<BuilderPageProps> = ({
 
         <section className="space-y-1.5">
           <h3 className="font-black text-sm text-slate-900">
-            {isAr ? '٣. خصوصية رسائل الإهداء:' : '3. Gift Message Confidentiality:'}
+            {isAr ? '٣. سرية معلومات العملاء:' : '3. Customer Information Confidentiality:'}
           </h3>
           <p>
             {isAr
-              ? 'نلتزم بالسرية التامة لجميع بطاقات الإهداء ورسائل المناسبات المرفقة مع الباقات، ولا يتم الاطلاع عليها إلا من قبل الخطاط المصرح له بتجهيز البطاقة.'
-              : 'All gift messages and custom card contents are strictly confidential and accessed only by our authorized calligrapher.'}
+              ? 'نلتزم بالسرية التامة لجميع بيانات واختيارات العميل ورسائله المرفقة، ولا تتم مشاركتها مع أي طرف ثالث غير معني بتنفيذ الطلب.'
+              : 'All customer data and custom requests are strictly confidential and shared only with authorized fulfillment staff.'}
           </p>
         </section>
       </div>
@@ -1451,39 +1554,42 @@ export const BuilderReturnPolicyPage: React.FC<BuilderPageProps> = ({
   onNavigateHome,
   isMobile,
 }) => {
+  const { activeStore, storeName } = useBuilderStoreContext(isAr);
+  const contactPhone = activeStore?.contactPhone || '+966 50 123 4567';
+
   return (
     <div className={`max-w-3xl mx-auto space-y-6 ${isMobile ? 'p-3' : 'p-6 sm:p-10'}`}>
       <div className="border-b pb-4 space-y-2">
         <h1 className="text-2xl font-black text-slate-900">
-          {isAr ? 'سياسة الاستبدال والاسترجاع وضمان النضارة' : 'Return & Freshness Guarantee Policy'}
+          {isAr ? `سياسة الاستبدال والاسترجاع وضمان الجودة - ${storeName}` : `Return & Quality Guarantee Policy - ${storeName}`}
         </h1>
         <p className="text-xs text-slate-500">
           {isAr
-            ? 'نضمن رضاكم التام عن كل وردة طبيعية تصلكم في مكة المكرمة'
-            : 'Our 100% satisfaction commitment for natural fresh flowers in Makkah'}
+            ? `نضمن رضاكم التام عن كل منتج وخدمة تصلكم من ${storeName}`
+            : `Our 100% satisfaction commitment for every order delivered by ${storeName}`}
         </p>
       </div>
 
       <div className="text-xs sm:text-sm text-slate-600 space-y-4 leading-relaxed">
         <section className="space-y-1.5">
           <h3 className="font-black text-sm text-slate-900">
-            {isAr ? '١. ضمان النضارة واستبدال الورد:' : '1. Freshness Replacement Guarantee:'}
+            {isAr ? '١. ضمان الجودة والاستبدال:' : '1. Quality & Replacement Guarantee:'}
           </h3>
           <p>
             {isAr
-              ? 'نظراً لأن الورد الطبيعي منتج حي وسريع التأثر، يحق للعميل طلب استبدال فوري للباقة خلال ساعتين من وقت التسليم في حال وجود أي ذبول أو عدم تطابق مع المواصفات المختارة.'
-              : 'As fresh blooms are perishable, customers may request an immediate replacement within 2 hours of delivery if quality does not match the catalog.'}
+              ? 'يحق للعميل طلب استبدال فوري أو فحص للمنتج في حال وجود أي عيب مصنعي أو عدم تطابق مع المواصفات المسجلة بالفاتورة.'
+              : 'Customers may request an immediate replacement if products arrive with defects or do not match order specifications.'}
           </p>
         </section>
 
         <section className="space-y-1.5">
           <h3 className="font-black text-sm text-slate-900">
-            {isAr ? '٢. خطوات طلب الاستبدال السريع:' : '2. Rapid Exchange Procedure:'}
+            {isAr ? '٢. خطوات طلب الاستبدال السريع:' : '2. Rapid Support Procedure:'}
           </h3>
           <p>
             {isAr
-              ? 'يكفي إرسال صورة الباقة ورقم الطلب عبر واتساب خدمة العملاء (+966504428819)، وسيقوم فريقنا بإرسال باقة بديلة فوراً أو إعادة المبلغ لحسابكم خلال ٢٤ ساعة.'
-              : 'Simply send a photo and order ID to our concierge WhatsApp (+966504428819) for an immediate replacement or full refund within 24 hours.'}
+              ? `يكفي إرسال رقم الطلب عبر واتساب خدمة العملاء (${contactPhone}) وسيقوم فريقنا بمتابعة الطلب فوراً.`
+              : `Simply send your order ID to our support WhatsApp (${contactPhone}) for swift assistance.`}
           </p>
         </section>
 
@@ -1493,8 +1599,8 @@ export const BuilderReturnPolicyPage: React.FC<BuilderPageProps> = ({
           </h3>
           <p>
             {isAr
-              ? 'تتم استعادة المبالغ المدفوعة عبر بطاقات مدى أو أبل باي لنفس البطاقة المستخدمة وفق مدد البنوك السعودية الرسمية (خلال ١-٣ أيام عمل).'
-              : 'Refunds processed via Mada or Apple Pay are credited back to the original funding card within 1-3 business days.'}
+              ? 'تتم استعادة المبالغ المدفوعة عبر بطاقات مدى أو أبل باي لنفس وسيلة الدفع الأصلية وفق مدد البنوك السعودية الرسمية.'
+              : 'Refunds processed via Mada or Apple Pay are credited back to the original funding card within official banking timelines.'}
           </p>
         </section>
       </div>

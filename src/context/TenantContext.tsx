@@ -63,6 +63,8 @@ import {
   INITIAL_MEDIA
 } from '../data/mockData';
 import { syncCatalogImagesToMediaAssets } from '../utils/mediaOptimizer';
+import { resolveProductThumbnail, FALLBACK_PRODUCT_IMAGE } from '../utils/imageFallback';
+import { getArabCustomerAvatar } from '../utils/customerAvatars';
 import { isApiEnabled } from '../api/client';
 import {
   bumpCacheTag,
@@ -142,6 +144,7 @@ interface TenantContextType {
   toggleStoreStatus: (storeId: string) => void;
   updateStorePlan: (storeId: string, plan: PlanType) => void;
   updateStoreLanguages: (storeId: string, languages: { english: boolean; arabic: boolean }) => void;
+  updateStoreInfo: (storeId: string, updates: Partial<Store>) => Promise<void>;
   deleteStore: (storeId: string) => void;
 
   // Platform Metrics
@@ -248,7 +251,7 @@ interface TenantContextType {
   // Shipping & City delivery
   currentShipping: ShippingZone[];
   allShipping: Record<string, ShippingZone[]>;
-  updateShippingRate: (id: string, rate: number, freeAbove: number) => void;
+  updateShippingRate: (id: string, rate: number, freeAbove: number, extraPatch?: Record<string, any>) => void | Promise<void>;
   addShippingCity: (
     cityName: string,
     rate: number,
@@ -261,6 +264,7 @@ interface TenantContextType {
       maxWeightKg?: number;
     },
   ) => void;
+  deleteShippingCity: (id: string) => Promise<void>;
 
   // Real Configurable Shipping Methods
   currentShippingMethods: ShippingMethodItem[];
@@ -287,6 +291,7 @@ interface TenantContextType {
   testCourier: (id: string) => Promise<{ success: boolean; message: string }>;
   syncCourier: (id: string) => Promise<{ success: boolean; message: string }>;
   createShipmentForOrder: (orderId: string, provider: CourierProviderCode, weightKg?: number) => Promise<{ success: boolean; awb?: string; trackingNumber?: string }>;
+  updateShipmentStatus: (shipmentId: string, status: any, note?: string) => Promise<void>;
 
   // Real Payment Gateways & Transactions
   currentPaymentGateways: PaymentGatewayItem[];
@@ -411,6 +416,7 @@ export function createFallbackTenantContext(): TenantContextType {
     toggleStoreStatus: () => {},
     updateStorePlan: () => {},
     updateStoreLanguages: () => {},
+    updateStoreInfo: async () => {},
     deleteStore: () => {},
     platformMetrics: {
       totalRevenue: 28450,
@@ -631,11 +637,17 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [activeStoreId, setActiveStoreId] = useState<string>(() => {
     try {
       if (typeof window !== 'undefined') {
+        // 1. Highest Priority: Active Store Tenant Session (locks store user to their store)
+        const session = readAuthSession();
+        if (session && session.portal === 'store' && session.storeId) {
+          return session.storeId;
+        }
+
         const q = new URLSearchParams(window.location.search);
         const s = (q.get('store') || q.get('storeId') || q.get('tenant') || q.get('demo') || '').toLowerCase();
         const p = (window.location.pathname || '').toLowerCase();
 
-        // 1. Highest Priority: Explicit URL parameter or explicit path
+        // 2. Explicit URL parameter or explicit path
         if (
           s === 'car' ||
           s === 'cars' ||
@@ -655,7 +667,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         ) {
           return 'store-bleco';
         }
-        if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee')) {
+        if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html')) {
           return 'store-coffee';
         }
         if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || s === 'giftshop' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
@@ -667,7 +679,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (s.startsWith('store-')) return s;
         }
 
-        // 2. Multi-Domain & Subdomain Hostname Detection (Phase 6.1)
+        // 3. Multi-Domain & Subdomain Hostname Detection (Phase 6.1)
         const hostParam = q.get('test_domain') || q.get('host');
         const effectiveHostname = hostParam || (typeof window !== 'undefined' ? window.location.hostname : '');
         if (effectiveHostname) {
@@ -677,13 +689,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         }
 
-        // 3. Active Session Priority (only when no explicit store parameter in URL)
-        const session = readAuthSession();
-        if (session && session.portal === 'store' && session.storeId) {
-          return session.storeId;
-        }
-
-        // 3. Saved localStorage preference
+        // 4. Saved localStorage preference
         const saved = localStorage.getItem('unityteck_active_store_id');
         if (saved && (saved === 'store-bleco' || saved === 'store-coffee' || saved === 'store-1')) {
           return saved;
@@ -707,6 +713,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (typeof window === 'undefined') return;
     const syncFromUrl = () => {
       try {
+        const session = readAuthSession();
+        // Strict Tenant Isolation: Authenticated store user must remain pinned to their store
+        if (session && session.portal === 'store' && session.storeId) {
+          if (activeStoreIdRef.current !== session.storeId) {
+            setActiveStoreId(session.storeId);
+          }
+          return;
+        }
+
         const q = new URLSearchParams(window.location.search);
         const s = (q.get('store') || q.get('storeId') || q.get('tenant') || q.get('demo') || '').toLowerCase();
         const p = (window.location.pathname || '').toLowerCase();
@@ -730,7 +745,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           p.startsWith('/bleco')
         ) {
           targetId = 'store-bleco';
-        } else if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee')) {
+        } else if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html')) {
           targetId = 'store-coffee';
         } else if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || s === 'giftshop' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
           targetId = 'store-1';
@@ -817,7 +832,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             Object.keys(INITIAL_PRODUCTS).forEach((storeId) => {
               const initList = INITIAL_PRODUCTS[storeId] || [];
               const currList = parsed[storeId];
-              if (!Array.isArray(currList) || currList.length < initList.length) {
+              if (!Array.isArray(currList)) {
                 parsed[storeId] = initList;
                 updated = true;
               }
@@ -833,7 +848,19 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               updated = true;
             }
             const coffeeProds = parsed['store-coffee'];
-            const hasOldCoffee = !coffeeProds || !Array.isArray(coffeeProds) || coffeeProds.length < 15 || coffeeProds.some((p: Product) => p.id === 'cof-prod-101' || p.sku?.startsWith('COF-ETH-'));
+            const hasOldCoffee =
+              !coffeeProds ||
+              !Array.isArray(coffeeProds) ||
+              coffeeProds.some(
+                (p: Product) =>
+                  p.id === 'cof-prod-101' ||
+                  p.sku?.startsWith('COF-ETH-') ||
+                  p.id === 'hb-nordic-cabinet' ||
+                  p.id === 'hb-doublewall-paper-cups' ||
+                  p.id === 'hb-boltfilter-58-naked' ||
+                  p.id === 'hb-mill-g5-pro' ||
+                  (p.image && p.image.endsWith('.jpg')),
+              );
             if (hasOldCoffee) {
               parsed['store-coffee'] = INITIAL_PRODUCTS['store-coffee'];
               updated = true;
@@ -871,6 +898,24 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               if (!Array.isArray(currList) || currList.length < initList.length) {
                 parsed[storeId] = initList;
                 updated = true;
+              } else {
+                currList.forEach((ord: any, ordIdx: number) => {
+                  const matchOrd = initList.find((io) => io.id === ord.id || io.orderNumber === ord.orderNumber) || initList[ordIdx];
+                  if (matchOrd && matchOrd.items && (!ord.items || !Array.isArray(ord.items) || ord.items.length === 0)) {
+                    ord.items = JSON.parse(JSON.stringify(matchOrd.items));
+                    updated = true;
+                  }
+                  if (Array.isArray(ord.items)) {
+                    ord.items.forEach((it: any, itemIdx: number) => {
+                      if (!it.image || typeof it.image !== 'string' || it.image.trim().length < 5) {
+                        const directThumb = resolveProductThumbnail(it);
+                        const matchImg = matchOrd?.items?.[itemIdx]?.image;
+                        it.image = (directThumb && directThumb.length > 5) ? directThumb : (matchImg || FALLBACK_PRODUCT_IMAGE);
+                        updated = true;
+                      }
+                    });
+                  }
+                });
               }
             });
             if (updated) {
@@ -1124,11 +1169,26 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
 
   useEffect(() => {
-    try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('unityteck_media_map', JSON.stringify(mediaMap));
+    const timer = setTimeout(() => {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          // Keep localStorage ultra lean: strip huge base64 strings (>50KB) to prevent browser hanging
+          const sanitized: Record<string, MediaAsset[]> = {};
+          for (const [sId, list] of Object.entries(mediaMap)) {
+            sanitized[sId] = (list || []).slice(0, 150).map((m) => {
+              if (m.originalUrl?.startsWith('data:') && m.originalUrl.length > 50000) {
+                return { ...m, originalUrl: '', webpUrl: '', optimizedUrl: '' };
+              }
+              return m;
+            });
+          }
+          localStorage.setItem('unityteck_media_map', JSON.stringify(sanitized));
+        }
+      } catch (err) {
+        console.warn('Debounced mediaMap localStorage sync skipped:', err);
       }
-    } catch {}
+    }, 800);
+    return () => clearTimeout(timer);
   }, [mediaMap]);
 
   // Live Storefront Cart
@@ -1143,6 +1203,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const loadStoreScopedData = useCallback(async (storeId: string) => {
     if (!storeId || !hasLiveApiAuth()) return;
 
+    // Strict Multi-tenant Isolation: Never request store-scoped private data for a foreign store
+    const session = readAuthSession();
+    if (session?.portal === 'store' && session.storeId && storeId !== session.storeId) {
+      return;
+    }
+
     const settled = await Promise.allSettled([
       tenantApi.fetchProducts(storeId),
       tenantApi.fetchOrders(storeId),
@@ -1155,19 +1221,18 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       tenantApi.fetchPaymentGateways(storeId),
       tenantApi.fetchPaymentTransactions(storeId),
       tenantApi.fetchDomainsApi(storeId),
+      tenantApi.fetchCourierShipments(storeId),
     ]);
 
     const isUnauthorized = settled.some(
       (s) => s.status === 'rejected' && String(s.reason?.message || s.reason).includes('401'),
     );
     if (isUnauthorized) {
-      clearAuthSession();
-      dataSourceRef.current = 'mock';
-      setDataSource('mock');
-      return;
+      // Keep user session alive lifetime; fallback store data gracefully without auto-logout
+      console.warn('Some store endpoints returned unauthorized; keeping session active.');
     }
 
-    const [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10] = settled;
+    const [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11] = settled;
 
     if (s0.status === 'fulfilled' && Array.isArray(s0.value) && s0.value.length > 0) {
       setProductsMap((prev) => ({ ...prev, [storeId]: s0.value }));
@@ -1204,6 +1269,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const otherStoresDomains = prev.filter((d) => d.storeId !== storeId);
         return [...otherStoresDomains, ...s10.value];
       });
+    }
+    if (s11?.status === 'fulfilled' && Array.isArray(s11.value)) {
+      setShipmentsMap((prev) => ({ ...prev, [storeId]: s11.value }));
     }
 
     if (s0.status === 'fulfilled' || s1.status === 'fulfilled') {
@@ -1332,6 +1400,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return;
       }
       if (!hasLiveApiAuth()) return;
+      const session = readAuthSession();
+      if (session?.portal === 'store' && session.storeId && storeId !== session.storeId) {
+        return;
+      }
 
       try {
         switch (resource) {
@@ -1420,6 +1492,18 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       const parsed = parseStoreTag(detail.tag);
       if (parsed) {
+        if (parsed.resource === 'products') {
+          try {
+            const raw = localStorage.getItem('unityteck_products_map');
+            if (raw) {
+              const pMap = JSON.parse(raw);
+              if (pMap && typeof pMap === 'object') {
+                setProductsMap(pMap);
+                setCacheEpoch((n) => n + 1);
+              }
+            }
+          } catch {}
+        }
         if (parsed.resource === 'theme') {
           try {
             const savedTheme = localStorage.getItem('unityteck_store_active_theme_map');
@@ -1432,6 +1516,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     };
     const onStorage = (e: StorageEvent) => {
+      if (e.key === 'unityteck_products_map' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && typeof parsed === 'object') {
+            setProductsMap(parsed);
+            setCacheEpoch((n) => n + 1);
+          }
+        } catch {}
+      }
       if (e.key === 'unityteck_store_active_theme_map' && e.newValue) {
         try {
           setStoreActiveTheme(JSON.parse(e.newValue));
@@ -1441,6 +1534,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
           setStoreActiveHomepage(JSON.parse(e.newValue));
         } catch {}
+      }
+      if (
+        e.key?.startsWith('unityteck_store_categories_') ||
+        e.key?.startsWith('unityteck_store_brands_') ||
+        e.key?.startsWith('unityteck_theme_settings_')
+      ) {
+        setCacheEpoch((n) => n + 1);
       }
     };
     window.addEventListener(DATA_EVENT, onData as EventListener);
@@ -1517,10 +1617,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       setDataSource('api');
 
-      // Drop leftover mock-* sessions — they cannot read the database
+      // Maintain active session lifetime even with mock/local tokens
       const rawSession = readAuthSession();
       if (rawSession?.token?.startsWith('mock-')) {
-        clearAuthSession();
         if (!cancelled) {
           dataSourceRef.current = 'mock';
           setDataSource('mock');
@@ -1528,7 +1627,6 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setProductsMap(INITIAL_PRODUCTS);
           setOrdersMap(INITIAL_ORDERS);
           setCustomersMap(INITIAL_CUSTOMERS);
-          setApiError('Please sign in again for live database data.');
           setApiReady(true);
         }
         return;
@@ -1554,7 +1652,41 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       try {
-        const session = readAuthSession();
+        let session = readAuthSession();
+        // Self-healing: Verify & synchronize authentic store_id & role from /auth/me
+        if (hasLiveApiAuth()) {
+          try {
+            const me = await tenantApi.fetchAuthMe();
+            if (session) {
+              const needsUpdate =
+                (me.portal === 'store' && me.store_id && session.storeId !== me.store_id) ||
+                session.portal !== me.portal ||
+                session.user.role !== me.user.role;
+
+              if (needsUpdate) {
+                session.portal = me.portal;
+                if (me.portal === 'store' && me.store_id) {
+                  session.storeId = me.store_id;
+                  session.storeName = me.store_name || session.storeName;
+                }
+                session.user.role = me.user.role;
+                if (me.abilities) session.abilities = me.abilities;
+                writeAuthSession(session);
+              }
+              if (me.portal === 'store' && me.store_id) {
+                setActiveStoreId(me.store_id);
+              }
+            }
+          } catch (authErr) {
+            const msg = String(authErr instanceof Error ? authErr.message : authErr);
+            if (msg.includes('401') || msg.includes('Unauthenticated')) {
+              console.warn('[TenantContext] Live session token is invalid or expired. Resetting session.');
+              clearAuthSession();
+              session = null;
+            }
+          }
+        }
+
         let apiStores = await tenantApi.fetchStores();
         if (cancelled) return;
 
@@ -1611,6 +1743,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     if (dataSource !== 'api' || !activeStoreId || !hasLiveApiAuth()) return;
 
+    // Strict Multi-tenant Isolation: Tenant staff/manager can ONLY fetch their own store
+    const session = readAuthSession();
+    if (session?.portal === 'store' && session.storeId && activeStoreId !== session.storeId) {
+      console.warn(`[MultiTenant] Suppressing store-scoped fetch for foreign store ${activeStoreId}. User is locked to ${session.storeId}.`);
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       try {
@@ -1643,11 +1782,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }),
         ]);
       } catch (err) {
-        if (String((err as any)?.message).includes('401')) {
-          clearAuthSession();
-          dataSourceRef.current = 'mock';
-          setDataSource('mock');
-        }
+        // Keep session alive lifetime; do not clear auth on background error
+        console.warn('Store settings/seo load error:', err);
       }
     })();
 
@@ -1719,7 +1855,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Isolated Customers for currently selected store
   const currentCustomers = useMemo(() => {
-    return customersMap[activeStoreId] || [];
+    const list = customersMap[activeStoreId] || [];
+    return list.map((c) => ({
+      ...c,
+      avatar: c.avatar || getArabCustomerAvatar(c),
+    }));
   }, [customersMap, activeStoreId, cacheEpoch]);
 
   // Isolated Channels for currently selected store
@@ -1889,9 +2029,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const isMock = !session?.token || session.token.startsWith('mock-');
 
     // Strict Multi-tenant Isolation:
-    // Only lock within restricted admin dashboard if a tenant staff is restricted with real live API token
-    if (!isMock && !isPublicOrDemo && session && session.portal === 'store' && session.storeId && session.storeId !== storeId) {
-      console.warn('Unauthorized store switch attempt blocked for tenant user.');
+    // Store tenant users are strictly bound to their authorized store and cannot switch admin stores
+    if (!isMock && session && session.portal === 'store' && session.storeId && session.storeId !== storeId) {
+      if (!isPublicOrDemo) {
+        console.warn('Unauthorized store switch attempt blocked for tenant user.');
+        return;
+      }
+      // In public/demo storefront preview, allow activeStoreId to update visually without tampering session
+      setActiveStoreId((prev) => (prev !== storeId ? storeId : prev));
       return;
     }
 
@@ -1900,7 +2045,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (typeof localStorage !== 'undefined' && localStorage.getItem('unityteck_active_store_id') !== storeId) {
         localStorage.setItem('unityteck_active_store_id', storeId);
       }
-      if (session && (session.storeId !== storeId || !session.storeName)) {
+      // ONLY update session.storeId for master admin accounts
+      if (session && session.portal === 'master' && (session.storeId !== storeId || !session.storeName)) {
         const targetStore = storesRef.current.find((s) => s.id === storeId);
         session.storeId = storeId;
         session.storeName = targetStore?.name || storeId;
@@ -2257,6 +2403,35 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       return s;
     }));
+    bumpCacheTag(platformTag());
+    bumpCacheTag(storeTag(storeId, 'settings'));
+  };
+
+  const updateStoreInfo = async (storeId: string, updates: Partial<Store>) => {
+    setStores(prev => prev.map(s => {
+      if (s.id === storeId) {
+        return { ...s, ...updates };
+      }
+      return s;
+    }));
+
+    if (dataSourceRef.current === 'api') {
+      try {
+        const payload: Record<string, unknown> = {};
+        if (updates.name) payload.name = updates.name;
+        if (updates.ownerEmail) payload.email = updates.ownerEmail;
+        if (updates.phone) payload.phone = updates.phone;
+        if (updates.category) payload.category = updates.category;
+        if (updates.logo) payload.logo = updates.logo;
+        if (updates.domain) payload.domain = updates.domain;
+        if (Object.keys(payload).length > 0) {
+          const updated = await tenantApi.updateStore(storeId, payload);
+          setStores(prev => prev.map(s => s.id === storeId ? { ...s, ...updated } : s));
+        }
+      } catch (err) {
+        console.warn('Backend updateStore failed, state kept in sync locally:', err);
+      }
+    }
     bumpCacheTag(platformTag());
     bumpCacheTag(storeTag(storeId, 'settings'));
   };
@@ -2849,6 +3024,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       id: `cust-${Date.now()}`,
       storeId,
       registeredDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      avatar: customerData.avatar || getArabCustomerAvatar(customerData),
     };
 
     setCustomersMap(prev => ({
@@ -2946,16 +3122,20 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       void tenantApi
         .createProduct(storeId, {
           name: prodData.name,
+          name_ar: prodData.nameAr ?? null,
           price: prodData.price,
           sku: prodData.sku,
           stock: prodData.stock,
           category: prodData.category,
+          category_ar: prodData.categoryAr ?? null,
           image_url: prodData.image,
           original_price: prodData.originalPrice ?? null,
           description: prodData.description ?? null,
           gallery_urls: prodData.galleryUrls ?? [],
           video_url: prodData.videoUrl ?? null,
           tags: prodData.tags ?? [],
+          badge: prodData.badge ?? null,
+          badge_en: prodData.badgeEn ?? null,
           seo_title: prodData.seoTitle ?? null,
           seo_description: prodData.seoDescription ?? null,
           seo_keywords: prodData.seoKeywords ?? null,
@@ -2995,14 +3175,33 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isActive: prodData.isActive ?? true,
       galleryUrls: prodData.galleryUrls ?? [],
       tags: prodData.tags ?? [],
+      badge: prodData.badge,
+      badgeEn: prodData.badgeEn,
     };
 
-    setProductsMap(prev => ({
-      ...prev,
-      [storeId]: [newProd, ...(prev[storeId] || [])]
-    }));
+    setProductsMap((prev) => {
+      const nextMap = {
+        ...prev,
+        [storeId]: [newProd, ...(prev[storeId] || [])],
+      };
+      try {
+        localStorage.setItem('unityteck_products_map', JSON.stringify(nextMap));
+      } catch {}
+      return nextMap;
+    });
 
-    setStores(prev => prev.map(s => s.id === storeId ? { ...s, productsCount: s.productsCount + 1 } : s));
+    setStores((prev) =>
+      prev.map((s) => (s.id === storeId ? { ...s, productsCount: s.productsCount + 1 } : s)),
+    );
+
+    bumpStore(storeId, 'products');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('unityteck-product-updated', {
+          detail: { storeId, productId: newProd.id, patch: newProd, at: Date.now() },
+        }),
+      );
+    }
 
     addActivity({
       title: 'New product added',
@@ -3027,12 +3226,35 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     storeId = storeId || activeStoreId;
 
-    setProductsMap((prev) => ({
-      ...prev,
-      [storeId!]: (prev[storeId!] || []).map((p) =>
-        p.id === productId ? { ...p, ...patch, isStale: false } : p,
-      ),
-    }));
+    const finalPatch: Partial<Product> = {
+      ...patch,
+      imageVersion: patch.imageVersion || String(Date.now()),
+      isStale: false,
+    };
+
+    setProductsMap((prev) => {
+      const nextList = (prev[storeId!] || []).map((p) =>
+        p.id === productId ? { ...p, ...finalPatch } : p,
+      );
+      const nextMap = {
+        ...prev,
+        [storeId!]: nextList,
+      };
+      try {
+        localStorage.setItem('unityteck_products_map', JSON.stringify(nextMap));
+      } catch {}
+      return nextMap;
+    });
+
+    // Synchronously notify active store, all tabs, and listeners instantly
+    bumpStore(storeId!, 'products');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('unityteck-product-updated', {
+          detail: { storeId: storeId!, productId, patch: finalPatch, at: Date.now() },
+        }),
+      );
+    }
 
     if (dataSourceRef.current === 'api') {
       const body: import('../api/tenantApi').UpdateProductPayload = {};
@@ -3047,6 +3269,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (patch.galleryUrls !== undefined) body.gallery_urls = patch.galleryUrls;
       if (patch.videoUrl !== undefined) body.video_url = patch.videoUrl;
       if (patch.tags !== undefined) body.tags = patch.tags;
+      if (patch.badge !== undefined) body.badge = patch.badge;
+      if (patch.badgeEn !== undefined) body.badge_en = patch.badgeEn;
+      if (patch.nameAr !== undefined) body.name_ar = patch.nameAr;
+      if (patch.categoryAr !== undefined) body.category_ar = patch.categoryAr;
       if (patch.seoTitle !== undefined) body.seo_title = patch.seoTitle;
       if (patch.seoDescription !== undefined) body.seo_description = patch.seoDescription;
       if (patch.seoKeywords !== undefined) body.seo_keywords = patch.seoKeywords;
@@ -3056,13 +3282,27 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       void tenantApi
         .updateProduct(storeId!, productId, body)
         .then((updated) => {
-          setProductsMap((prev) => ({
-            ...prev,
-            [storeId!]: (prev[storeId!] || []).map((p) =>
-              p.id === productId ? updated : p,
-            ),
-          }));
+          setProductsMap((prev) => {
+            const nextList = (prev[storeId!] || []).map((p) =>
+              p.id === productId ? { ...updated, imageVersion: String(Date.now()) } : p,
+            );
+            const nextMap = {
+              ...prev,
+              [storeId!]: nextList,
+            };
+            try {
+              localStorage.setItem('unityteck_products_map', JSON.stringify(nextMap));
+            } catch {}
+            return nextMap;
+          });
           bumpCacheTag(storeTag(storeId!, 'products'));
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('unityteck-product-updated', {
+                detail: { storeId: storeId!, productId, patch: updated, at: Date.now() },
+              }),
+            );
+          }
           void revalidateResource(storeId!, 'products');
         })
         .catch((err) => {
@@ -3093,10 +3333,17 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const prevList = productsMap[storeId!] || [];
     const prevCount = stores.find((s) => s.id === storeId)?.productsCount;
 
-    setProductsMap((prev) => ({
-      ...prev,
-      [storeId!]: prevList.filter((p) => p.id !== productId),
-    }));
+    setProductsMap((prev) => {
+      const nextList = prevList.filter((p) => p.id !== productId);
+      const nextMap = {
+        ...prev,
+        [storeId!]: nextList,
+      };
+      try {
+        localStorage.setItem('unityteck_products_map', JSON.stringify(nextMap));
+      } catch {}
+      return nextMap;
+    });
     setStores((prev) =>
       prev.map((s) =>
         s.id === storeId
@@ -3104,6 +3351,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           : s,
       ),
     );
+
+    bumpStore(storeId!, 'products');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('unityteck-product-updated', {
+          detail: { storeId: storeId!, productId, deleted: true, at: Date.now() },
+        }),
+      );
+    }
 
     if (dataSourceRef.current === 'api') {
       void tenantApi
@@ -3829,14 +4085,30 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [activeStoreId]);
 
   // Shipping
-  const updateShippingRate = (id: string, rate: number, freeAbove: number) => {
+  const updateShippingRate = useCallback(async (id: string, rate: number, freeAbove: number, extraPatch?: Record<string, any>) => {
+    const sId = activeStoreId || 'store-1';
     setShippingMap(prev => ({
       ...prev,
-      [activeStoreId]: (prev[activeStoreId] || []).map(s => s.id === id ? { ...s, rate, freeShippingAbove: freeAbove } : s)
+      [sId]: (prev[sId] || []).map(s => s.id === id ? { ...s, rate, freeShippingAbove: freeAbove, ...extraPatch } : s)
     }));
-  };
+    try {
+      await tenantApi.updateShippingZone(sId, id, {
+        rate,
+        free_above: freeAbove,
+        ...(extraPatch ? {
+          rate_per_kg: extraPatch.ratePerKg,
+          min_weight_kg: extraPatch.minWeightKg,
+          max_weight_kg: extraPatch.maxWeightKg,
+          estimated_delivery: extraPatch.estimatedDelivery,
+          status: extraPatch.status,
+        } : {}),
+      });
+    } catch (err) {
+      console.warn('Failed to update shipping zone in API:', err);
+    }
+  }, [activeStoreId]);
 
-  const addShippingCity = (
+  const addShippingCity = useCallback(async (
     cityName: string,
     rate: number,
     freeAbove: number,
@@ -3848,26 +4120,71 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       maxWeightKg?: number;
     },
   ) => {
+    const sId = activeStoreId || 'store-1';
     const region = extras?.region || 'Saudi Arabia';
-    const newZone: ShippingZone = {
-      id: `ship-${Date.now()}`,
-      storeId: activeStoreId,
-      cityName,
-      province: region,
-      region,
-      rate,
-      ratePerKg: extras?.ratePerKg ?? 0,
-      minWeightKg: extras?.minWeightKg ?? 0,
-      maxWeightKg: extras?.maxWeightKg ?? 20,
-      freeShippingAbove: freeAbove,
-      estimatedDelivery: deliveryTime,
-      status: 'active',
-    };
+    try {
+      const created = await tenantApi.createShippingZone(sId, {
+        name: cityName,
+        region,
+        rate,
+        rate_per_kg: extras?.ratePerKg ?? 0,
+        min_weight_kg: extras?.minWeightKg ?? 0,
+        max_weight_kg: extras?.maxWeightKg ?? 20,
+        free_above: freeAbove,
+        estimated_delivery: deliveryTime,
+      });
+      const newZone: ShippingZone = {
+        id: String(created?.id || `ship-${Date.now()}`),
+        storeId: sId,
+        cityName,
+        province: region,
+        region,
+        rate,
+        ratePerKg: extras?.ratePerKg ?? 0,
+        minWeightKg: extras?.minWeightKg ?? 0,
+        maxWeightKg: extras?.maxWeightKg ?? 20,
+        freeShippingAbove: freeAbove,
+        estimatedDelivery: deliveryTime,
+        status: 'active',
+      };
+      setShippingMap(prev => ({
+        ...prev,
+        [sId]: [...(prev[sId] || []), newZone]
+      }));
+    } catch {
+      const fallbackZone: ShippingZone = {
+        id: `ship-${Date.now()}`,
+        storeId: sId,
+        cityName,
+        province: region,
+        region,
+        rate,
+        ratePerKg: extras?.ratePerKg ?? 0,
+        minWeightKg: extras?.minWeightKg ?? 0,
+        maxWeightKg: extras?.maxWeightKg ?? 20,
+        freeShippingAbove: freeAbove,
+        estimatedDelivery: deliveryTime,
+        status: 'active',
+      };
+      setShippingMap(prev => ({
+        ...prev,
+        [sId]: [...(prev[sId] || []), fallbackZone]
+      }));
+    }
+  }, [activeStoreId]);
+
+  const deleteShippingCity = useCallback(async (id: string) => {
+    const sId = activeStoreId || 'store-1';
     setShippingMap(prev => ({
       ...prev,
-      [activeStoreId]: [...(prev[activeStoreId] || []), newZone]
+      [sId]: (prev[sId] || []).filter(s => s.id !== id)
     }));
-  };
+    try {
+      await tenantApi.deleteShippingZone(sId, id);
+    } catch (err) {
+      console.warn('Failed to delete shipping zone in API:', err);
+    }
+  }, [activeStoreId]);
 
   // ── Configurable Shipping Methods Handlers ──
   const addShippingMethod = useCallback(async (methodData: Omit<ShippingMethodItem, 'id' | 'storeId'>) => {
@@ -4058,6 +4375,34 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }));
       return { success: true, awb, trackingNumber: tracking };
     }
+  }, [activeStoreId]);
+
+  const updateShipmentStatus = useCallback(async (shipmentId: string, status: any, note?: string) => {
+    const sId = activeStoreId || 'store-1';
+    try {
+      await tenantApi.updateCourierShipmentStatus(sId, shipmentId, { status, note });
+    } catch {
+      /* fallback */
+    }
+    setShipmentsMap(prev => {
+      const list = prev[sId] || [];
+      return {
+        ...prev,
+        [sId]: list.map(s => s.id === shipmentId ? {
+          ...s,
+          status,
+          deliveredAt: status === 'delivered' ? new Date().toISOString() : s.deliveredAt,
+          trackingEvents: [
+            ...(s.trackingEvents || []),
+            {
+              time: new Date().toISOString(),
+              status: typeof status === 'string' ? status.toUpperCase() : 'UPDATED',
+              description: note || `Shipment marked as ${status}`,
+            }
+          ]
+        } : s)
+      };
+    });
   }, [activeStoreId]);
 
   // ── Payment Gateway Handlers ──
@@ -4822,7 +5167,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [activeStoreId, productsMap, stores],
   );
 
-  const contextValue: TenantContextType = {
+  const contextValue: TenantContextType = useMemo(() => ({
     dataSource,
     apiReady,
     apiError,
@@ -4830,136 +5175,279 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     softRefreshTenantData,
     revalidateResource,
     mode,
-        setMode: setModeSafe,
-        canAccessMaster,
-        activeStoreId,
-        activeStore,
-        setActiveStoreId,
-        switchToStore,
-        switchToMaster,
-        stores,
-        createNewStore,
-        toggleMasterGrant,
-        toggleStoreStatus,
-        updateStorePlan,
-        updateStoreLanguages,
-        deleteStore,
-        platformMetrics,
-        recentActivities: activities,
-        addActivity,
-        domains,
-        resolvedDomain,
-        simulateDomain,
-        activateDomain,
-        toggleDomainSsl,
-        addDomainRequest,
-        connectHostingerToStore,
-        verifyDomainDns,
-        deployStoreLive,
-        setStoreDomainMode,
-        requestCustomDomainHosting,
-        auditLogs,
-        addAuditLog,
-        updates,
-        toggleStoreUpdate,
-        approveUpdate,
-        rollbackUpdate,
-        themes,
-        allStoreThemes,
-        storeActiveTheme,
-        storeActiveHomepage,
-        setStoreTheme,
-        setStoreHomepageStyle,
-        createStoreTheme,
-        updateStoreTheme,
-        deleteStoreTheme,
-        duplicateStoreTheme,
-        plugins,
-        storeInstalledPlugins,
-        toggleStorePlugin,
-        currentCustomers,
-        allStoreCustomers: customersMap,
-        addCustomer,
-        updateCustomer,
-        deleteCustomer,
-        bulkDeleteCustomers,
-        bulkSetCustomerStatus,
-        currentChannels,
-        currentProducts,
-        allProducts: productsMap,
-        addProduct,
-        updateProduct,
-        deleteProduct,
-        togglePublishProduct,
-        currentOrders,
-        allOrders: ordersMap,
-        addOrder,
-        updateOrderStatus,
-        updateOrder,
-        processOrderReturn,
-        updateOrderCodStatus,
-        deleteOrder,
-        archiveOrder,
-        restoreOrder,
-        permanentDeleteOrder,
-        currentCoupons,
-        allCoupons: couponsMap,
-        addCoupon,
-        deleteCoupon,
-        toggleCouponStatus,
-        recordCouponUsage,
-        recordStoreVisit,
-        currentShipping,
-        allShipping: shippingMap,
-        updateShippingRate,
-        addShippingCity,
-        currentShippingMethods,
-        allShippingMethods: shippingMethodsMap,
-        addShippingMethod,
-        updateShippingMethod,
-        deleteShippingMethod,
-        currentCouriers,
-        allCouriers: couriersMap,
-        currentShipments,
-        allShipments: shipmentsMap,
-        connectCourier,
-        testCourier,
-        syncCourier,
-        createShipmentForOrder,
-        currentPaymentGateways,
-        allPaymentGateways: paymentGatewaysMap,
-        currentPaymentTransactions,
-        allPaymentTransactions: paymentTransactionsMap,
-        savePaymentGatewayConfig,
-        testPaymentGatewayConfig,
-        verifyOrderPayment,
-        refundPaymentOrder,
-        blogs,
-        registerNewClient,
-        cart,
-        addToCart,
-        removeFromCart,
-        clearCart,
-        seoConfigs,
-        currentSEOConfig,
-        updateStoreSEOConfig,
-        connectGoogleAccount,
-        disconnectGoogleAccount,
-        submitUrlToGoogleIndexing,
-        currentMedia,
-        allMedia: mediaMap,
-        addMediaAsset,
-        updateMediaAsset,
-        deleteMediaAsset,
-        replaceMediaAsset,
-        getMediaUsages,
-        syncProductImagesToMedia,
-        showArchDrawer,
-        setShowArchDrawer,
-        searchQuery,
-        setSearchQuery,
+    setMode: setModeSafe,
+    canAccessMaster,
+    activeStoreId,
+    activeStore,
+    setActiveStoreId,
+    switchToStore,
+    switchToMaster,
+    stores,
+    createNewStore,
+    toggleMasterGrant,
+    toggleStoreStatus,
+    updateStorePlan,
+    updateStoreLanguages,
+    updateStoreInfo,
+    deleteStore,
+    platformMetrics,
+    recentActivities: activities,
+    addActivity,
+    domains,
+    resolvedDomain,
+    simulateDomain,
+    activateDomain,
+    toggleDomainSsl,
+    addDomainRequest,
+    connectHostingerToStore,
+    verifyDomainDns,
+    deployStoreLive,
+    setStoreDomainMode,
+    requestCustomDomainHosting,
+    auditLogs,
+    addAuditLog,
+    updates,
+    toggleStoreUpdate,
+    approveUpdate,
+    rollbackUpdate,
+    themes,
+    allStoreThemes,
+    storeActiveTheme,
+    storeActiveHomepage,
+    setStoreTheme,
+    setStoreHomepageStyle,
+    createStoreTheme,
+    updateStoreTheme,
+    deleteStoreTheme,
+    duplicateStoreTheme,
+    plugins,
+    storeInstalledPlugins,
+    toggleStorePlugin,
+    currentCustomers,
+    allStoreCustomers: customersMap,
+    addCustomer,
+    updateCustomer,
+    deleteCustomer,
+    bulkDeleteCustomers,
+    bulkSetCustomerStatus,
+    currentChannels,
+    currentProducts,
+    allProducts: productsMap,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    togglePublishProduct,
+    currentOrders,
+    allOrders: ordersMap,
+    addOrder,
+    updateOrderStatus,
+    updateOrder,
+    processOrderReturn,
+    updateOrderCodStatus,
+    deleteOrder,
+    archiveOrder,
+    restoreOrder,
+    permanentDeleteOrder,
+    currentCoupons,
+    allCoupons: couponsMap,
+    addCoupon,
+    deleteCoupon,
+    toggleCouponStatus,
+    recordCouponUsage,
+    recordStoreVisit,
+    currentShipping,
+    allShipping: shippingMap,
+    updateShippingRate,
+    addShippingCity,
+    deleteShippingCity,
+    currentShippingMethods,
+    allShippingMethods: shippingMethodsMap,
+    addShippingMethod,
+    updateShippingMethod,
+    deleteShippingMethod,
+    currentCouriers,
+    allCouriers: couriersMap,
+    currentShipments,
+    allShipments: shipmentsMap,
+    connectCourier,
+    testCourier,
+    syncCourier,
+    createShipmentForOrder,
+    updateShipmentStatus,
+    currentPaymentGateways,
+    allPaymentGateways: paymentGatewaysMap,
+    currentPaymentTransactions,
+    allPaymentTransactions: paymentTransactionsMap,
+    savePaymentGatewayConfig,
+    testPaymentGatewayConfig,
+    verifyOrderPayment,
+    refundPaymentOrder,
+    blogs,
+    registerNewClient,
+    cart,
+    addToCart,
+    removeFromCart,
+    clearCart,
+    seoConfigs,
+    currentSEOConfig,
+    updateStoreSEOConfig,
+    connectGoogleAccount,
+    disconnectGoogleAccount,
+    submitUrlToGoogleIndexing,
+    currentMedia,
+    allMedia: mediaMap,
+    addMediaAsset,
+    updateMediaAsset,
+    deleteMediaAsset,
+    replaceMediaAsset,
+    getMediaUsages,
+    syncProductImagesToMedia,
+    showArchDrawer,
+    setShowArchDrawer,
+    searchQuery,
+    setSearchQuery,
     notificationCount,
-  };
+  }), [
+    dataSource,
+    apiReady,
+    apiError,
+    cacheEpoch,
+    softRefreshTenantData,
+    revalidateResource,
+    mode,
+    setModeSafe,
+    canAccessMaster,
+    activeStoreId,
+    activeStore,
+    setActiveStoreId,
+    switchToStore,
+    switchToMaster,
+    stores,
+    createNewStore,
+    toggleMasterGrant,
+    toggleStoreStatus,
+    updateStorePlan,
+    updateStoreLanguages,
+    updateStoreInfo,
+    deleteStore,
+    platformMetrics,
+    activities,
+    addActivity,
+    domains,
+    resolvedDomain,
+    simulateDomain,
+    activateDomain,
+    toggleDomainSsl,
+    addDomainRequest,
+    connectHostingerToStore,
+    verifyDomainDns,
+    deployStoreLive,
+    setStoreDomainMode,
+    requestCustomDomainHosting,
+    auditLogs,
+    addAuditLog,
+    updates,
+    toggleStoreUpdate,
+    approveUpdate,
+    rollbackUpdate,
+    themes,
+    allStoreThemes,
+    storeActiveTheme,
+    storeActiveHomepage,
+    setStoreTheme,
+    setStoreHomepageStyle,
+    createStoreTheme,
+    updateStoreTheme,
+    deleteStoreTheme,
+    duplicateStoreTheme,
+    plugins,
+    storeInstalledPlugins,
+    toggleStorePlugin,
+    currentCustomers,
+    customersMap,
+    addCustomer,
+    updateCustomer,
+    deleteCustomer,
+    bulkDeleteCustomers,
+    bulkSetCustomerStatus,
+    currentChannels,
+    currentProducts,
+    productsMap,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    togglePublishProduct,
+    currentOrders,
+    ordersMap,
+    addOrder,
+    updateOrderStatus,
+    updateOrder,
+    processOrderReturn,
+    updateOrderCodStatus,
+    deleteOrder,
+    archiveOrder,
+    restoreOrder,
+    permanentDeleteOrder,
+    currentCoupons,
+    couponsMap,
+    addCoupon,
+    deleteCoupon,
+    toggleCouponStatus,
+    recordCouponUsage,
+    recordStoreVisit,
+    currentShipping,
+    shippingMap,
+    updateShippingRate,
+    addShippingCity,
+    deleteShippingCity,
+    currentShippingMethods,
+    shippingMethodsMap,
+    addShippingMethod,
+    updateShippingMethod,
+    deleteShippingMethod,
+    currentCouriers,
+    couriersMap,
+    currentShipments,
+    shipmentsMap,
+    connectCourier,
+    testCourier,
+    syncCourier,
+    createShipmentForOrder,
+    updateShipmentStatus,
+    currentPaymentGateways,
+    paymentGatewaysMap,
+    currentPaymentTransactions,
+    paymentTransactionsMap,
+    savePaymentGatewayConfig,
+    testPaymentGatewayConfig,
+    verifyOrderPayment,
+    refundPaymentOrder,
+    blogs,
+    registerNewClient,
+    cart,
+    addToCart,
+    removeFromCart,
+    clearCart,
+    seoConfigs,
+    currentSEOConfig,
+    updateStoreSEOConfig,
+    connectGoogleAccount,
+    disconnectGoogleAccount,
+    submitUrlToGoogleIndexing,
+    currentMedia,
+    mediaMap,
+    addMediaAsset,
+    updateMediaAsset,
+    deleteMediaAsset,
+    replaceMediaAsset,
+    getMediaUsages,
+    syncProductImagesToMedia,
+    showArchDrawer,
+    setShowArchDrawer,
+    searchQuery,
+    setSearchQuery,
+    notificationCount,
+  ]);
 
   if (typeof window !== 'undefined') {
     (window as any).__unityteck_tenant_context = contextValue;

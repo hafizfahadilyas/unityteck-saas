@@ -4,12 +4,13 @@ import { PRODUCTS } from '../data/products';
 import { Search, X, ChevronRight } from 'lucide-react';
 
 export const SearchModal: React.FC = () => {
-  const { isSearchOpen, setIsSearchOpen, navigateTo, language } = useCart();
+  const { isSearchOpen, setIsSearchOpen, navigateTo, language, products } = useCart();
   const [query, setQuery] = useState('');
 
   if (!isSearchOpen) return null;
 
-  const results = query.trim() === '' ? [] : PRODUCTS.filter(p => {
+  const sourceProducts = products && products.length > 0 ? products : PRODUCTS;
+  const results = query.trim() === '' ? [] : sourceProducts.filter(p => {
     const q = query.toLowerCase();
     return (
       p.name.toLowerCase().includes(q) ||
@@ -56,7 +57,7 @@ export const SearchModal: React.FC = () => {
                   className="flex items-center gap-3 flex-1 cursor-pointer"
                 >
                   <img
-                    src={prod.colors[0]?.image || prod.images[0]}
+                    src={(prod as any)?.image || prod.images?.[0] || prod.colors?.[0]?.image || '/src/assets/images/hibrew_h7a_flagship_machine.png'}
                     alt={prod.name}
                     className="w-12 h-12 object-contain rounded-xl bg-[#F8F9FA] p-1"
                   />

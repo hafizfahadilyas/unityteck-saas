@@ -56,7 +56,7 @@ export const MasterThemes: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800">
+    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

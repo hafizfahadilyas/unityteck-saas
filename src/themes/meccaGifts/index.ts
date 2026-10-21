@@ -23,6 +23,7 @@ export interface Product {
   badge?: string;
   badgeEn?: string;
   description: string;
+  descriptionAr?: string;
   descriptionEn: string;
   flowerTypes: string[];
   dimensions?: string;

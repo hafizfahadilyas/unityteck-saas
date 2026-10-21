@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120" fill="none">
+  <rect width="300" height="120" rx="16" fill="#FFFFFF"/>
+  <g transform="translate(24, 25)">
+    <!-- Hario stylized dripper icon -->
+    <path d="M12 10 L58 10 L42 56 L28 56 Z" stroke="#DC2626" stroke-width="4" stroke-linejoin="round" fill="#FEE2E2" fill-opacity="0.3"/>
+    <path d="M28 56 L42 56 L38 66 L32 66 Z" fill="#DC2626"/>
+    <circle cx="35" cy="32" r="6" fill="#DC2626"/>
+    <path d="M20 22 C26 26, 44 26, 50 22" stroke="#DC2626" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Brand Wordmark -->
+    <text x="80" y="46" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="900" fill="#18181B" letter-spacing="3">HARIO</text>
+    <text x="82" y="66" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="700" fill="#DC2626" letter-spacing="4">JAPAN · 1921</text>
+  </g>
+</svg>

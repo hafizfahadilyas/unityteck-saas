@@ -67,6 +67,14 @@ export const SingleProductView: React.FC<Props> = ({
 }) => {
   const isAr = lang === 'ar';
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, [product.id]);
+
   // Variations
   const variations = FLOWERS_VARIATIONS[product.id] || [];
   const [selectedVarId, setSelectedVarId] = useState<string | null>(
@@ -621,12 +629,19 @@ export const SingleProductView: React.FC<Props> = ({
         {/* Tab Contents */}
         {activeTab === 'desc' && (
           <div className="space-y-4 text-xs sm:text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-            <p>
-              {product.description ||
-                (isAr
-                  ? 'تنسيق فاخر من الورود الطبيعية المختارة بعناية فائقة من مزارع هولندا والإكوادور. تم تجميع الباقة بأيدي نخبة من منسقي الزهور المحترفين لتمنحك رائحة عطرية عميقة وتدوم لأكثر من 10 أيام.'
-                  : 'A luxury hand-crafted bouquet featuring fresh flowers imported directly from Dutch & Ecuadorian estates, preserved in optimal humidity and temperature.')}
-            </p>
+            {product.description && /<[a-z][\s\S]*>/i.test(product.description) ? (
+              <div
+                className="rich-text-content leading-relaxed text-slate-600 dark:text-slate-300 [&_ul]:list-disc [&_ul]:ps-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:ps-5 [&_ol]:my-2 [&_a]:text-emerald-600 [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_u]:underline"
+                dangerouslySetInnerHTML={{ __html: product.description }}
+              />
+            ) : (
+              <p className="whitespace-pre-line">
+                {product.description ||
+                  (isAr
+                    ? 'تنسيق فاخر من الورود الطبيعية المختارة بعناية فائقة من مزارع هولندا والإكوادور. تم تجميع الباقة بأيدي نخبة من منسقي الزهور المحترفين لتمنحك رائحة عطرية عميقة وتدوم لأكثر من 10 أيام.'
+                    : 'A luxury hand-crafted bouquet featuring fresh flowers imported directly from Dutch & Ecuadorian estates, preserved in optimal humidity and temperature.')}
+              </p>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
               <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
                 <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs mb-1">

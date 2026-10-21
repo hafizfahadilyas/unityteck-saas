@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Calendar,
   Clock,
@@ -28,6 +28,14 @@ export const BlogPageView: React.FC<BlogPageViewProps> = ({
   const isAr = lang === 'ar';
   const [selectedArticle, setSelectedArticle] = useState<BlogArticleItem | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, [selectedArticle]);
 
   const categories = ['All', ...Array.from(new Set(articles.map((a) => a.category).filter(Boolean)))];
 

@@ -8,6 +8,7 @@ import {
   writeAllThemeSettings,
   type CategoryCartCustomerSettings,
 } from '../../../themes/settings/themeSettingsStore';
+import { MediaUploadField } from '../../common/MediaUploadField';
 
 export const CategoryCartCustomerForm: React.FC = () => {
   const { activeStore } = useTenant();
@@ -113,28 +114,16 @@ export const CategoryCartCustomerForm: React.FC = () => {
                 </button>
               </div>
 
-              {/* Category Banner Upload */}
-              <div className="space-y-1.5 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-                <span className="text-xs font-bold block">{isAr ? 'بانر التصنيف الرئيسي' : 'Category Banner'}</span>
-                <span className="text-[10px] text-muted block">{isAr ? 'المقاس الموصى به: 1920 × 600 بكسل' : 'Recommended image size: 1920 × 600 px'}</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={settings.categoryBannerUrl}
-                    onChange={(e) => setVal('categoryBannerUrl', e.target.value)}
-                    placeholder="https://.../category-banner.jpg"
-                    className="flex-1 px-3 py-1.5 text-xs rounded-xl border outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
-                  />
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1 cursor-pointer"
-                    style={{ borderColor: 'var(--border)' }}
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'رفع' : 'Upload'}</span>
-                  </button>
-                </div>
+              {/* Category & Shop Banner Upload */}
+              <div className="pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+                <MediaUploadField
+                  label={isAr ? 'بانر التصنيف وصفحة المتجر الرئيسي' : 'Category & Shop Banner Image'}
+                  value={settings.categoryBannerUrl || ''}
+                  onChange={(url) => setVal('categoryBannerUrl', url)}
+                  aspectRatio="banner"
+                  initialFolder="banners"
+                  recommendedSize="1920 × 600 px"
+                />
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
@@ -257,27 +246,15 @@ export const CategoryCartCustomerForm: React.FC = () => {
             </div>
 
             {/* Background image upload */}
-            <div className="space-y-1.5">
-              <span className="text-xs font-bold block">{isAr ? 'صورة خلفية صفحات العميل' : 'Customer Background Image'}</span>
-              <span className="text-[10px] text-muted block">{isAr ? 'المقاس الموصى به: 1920 × 1080 بكسل' : 'Recommended image size: 1920 × 1080 px'}</span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={settings.customerBgImage}
-                  onChange={(e) => setVal('customerBgImage', e.target.value)}
-                  placeholder="https://.../customer-bg.jpg"
-                  className="flex-1 px-3 py-1.5 text-xs rounded-xl border outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
-                />
-                <button
-                  type="button"
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1 cursor-pointer"
-                  style={{ borderColor: 'var(--border)' }}
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>{isAr ? 'رفع' : 'Upload'}</span>
-                </button>
-              </div>
+            <div className="pt-2">
+              <MediaUploadField
+                label={isAr ? 'صورة خلفية صفحات العميل' : 'Customer Account Background Image'}
+                value={settings.customerBgImage || ''}
+                onChange={(url) => setVal('customerBgImage', url)}
+                aspectRatio="banner"
+                initialFolder="general"
+                recommendedSize="1920 × 1080 px"
+              />
             </div>
 
             {/* Login Style */}

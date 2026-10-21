@@ -24,6 +24,8 @@ export const STORE_TAB_ABILITY: Record<string, string | null> = {
   hosting: 'settings.read',
   themes: 'themes.read',
   pages: null,
+  blog: null,
+  'commerce-tools': null,
   appstore: 'themes.read',
   payments: 'settings.read',
   settings: 'settings.read',
@@ -35,6 +37,7 @@ export const STORE_TAB_ABILITY: Record<string, string | null> = {
 export const MASTER_TAB_ABILITY: Record<string, string | null> = {
   dashboard: null,
   stores: 'stores.read',
+  'control-center': 'stores.read',
   onboarding: 'stores.write',
   domains: 'stores.read',
   database: 'stores.read',

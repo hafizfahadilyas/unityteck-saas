@@ -94,13 +94,13 @@ const PartShowcaseBanner: React.FC<PartShowcaseBannerProps> = ({ part, index, la
       </div>
 
       {/* 2. FULL-WIDTH CLEAN BANNER IMAGE - 100% UNOBSTRUCTED, NO TEXT OVERLAY */}
-      <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] max-h-[620px] rounded-3xl overflow-hidden bg-neutral-900 border border-white/10 shadow-2xl group">
+      <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] max-h-[620px] rounded-3xl overflow-hidden bg-neutral-900 border-0 shadow-2xl group">
         <img
           src={part.image}
           alt={part.titleEn}
           className="w-full h-full object-cover object-center group-hover:scale-103 transition-transform duration-700 ease-out"
           referrerPolicy="no-referrer"
-          loading="lazy"
+          loading="lazy" decoding="async"
         />
       </div>
     </article>
@@ -283,7 +283,7 @@ export const ProductDetailPage: React.FC = () => {
     badgeEn: product.badge || 'OFFICIAL KSA EDITION',
     badgeAr: product.badge || 'الإصدار الرسمي بالمملكة',
     bgGradient: 'from-[#061838] via-[#092558] to-[#030d22]',
-    heroImage: product.colors[0]?.image || product.images[0],
+    heroImage: (product as any).image || product.colors?.[0]?.image || product.images?.[0] || '/src/assets/images/hibrew_h7a_flagship_machine.png',
     featuresEn: product.specs.slice(0, 4).map(s => `${s.label}: ${s.value}`),
     featuresAr: product.specs.slice(0, 4).map(s => `${s.labelAr || s.label}: ${s.valueAr || s.value}`)
   };
@@ -440,7 +440,7 @@ export const ProductDetailPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* 2. HONOR-STYLE FULL-WIDTH HERO COVER BANNER (SIDE TEXT + BOLD/LIGHT TITLE) */}
       {/* ========================================================================= */}
-      <section id="hero-section" className="relative w-full min-h-[580px] sm:min-h-[640px] lg:min-h-[700px] flex items-center overflow-hidden border-b border-white/10 select-none scroll-mt-28">
+      <section id="hero-section" className="relative w-full min-h-[580px] sm:min-h-[640px] lg:min-h-[700px] flex items-center overflow-hidden border-0 select-none scroll-mt-28">
         {/* Full Cover Hero Background Image */}
         <div className="absolute inset-0 w-full h-full z-0 overflow-hidden">
           <img
@@ -585,7 +585,7 @@ export const ProductDetailPage: React.FC = () => {
             </div>
 
             {/* Clean 4K Video Banner Container */}
-            <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] max-h-[620px] rounded-3xl overflow-hidden bg-black border border-white/10 shadow-2xl group">
+            <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] max-h-[620px] rounded-3xl overflow-hidden bg-black border-0 shadow-2xl group">
               <video
                 ref={videoRef}
                 src={productVideoUrl}
@@ -640,7 +640,7 @@ export const ProductDetailPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="rounded-3xl overflow-hidden bg-white/5 border border-white/10">
+          <div className="rounded-3xl overflow-hidden bg-white/5 border-0">
             <div className="divide-y divide-white/10">
               {product.specs.map((spec, sIdx) => (
                 <div key={sIdx} className="grid grid-cols-1 sm:grid-cols-12 p-4 sm:p-5 hover:bg-white/5 transition-colors">
@@ -659,9 +659,9 @@ export const ProductDetailPage: React.FC = () => {
         {/* ========================================================================= */}
         {/* 5. BOTTOM OFFICIAL HONOR-STYLE CTA BANNER                                  */}
         {/* ========================================================================= */}
-        <section id="warranty-section" className="relative rounded-3xl p-8 sm:p-12 overflow-hidden bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 border border-white/10 text-center space-y-6 scroll-mt-28">
+        <section id="warranty-section" className="relative rounded-3xl p-8 sm:p-12 overflow-hidden bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 border-0 text-center space-y-6 scroll-mt-28">
           <div className="max-w-3xl mx-auto space-y-3">
-            <span className="inline-block text-xs font-bold uppercase tracking-widest bg-white/10 text-neutral-300 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
+            <span className="inline-block text-xs font-bold uppercase tracking-widest bg-white/10 text-neutral-300 px-4 py-1.5 rounded-full border-0 backdrop-blur-md">
               {language === 'AR' ? 'ضمان رسمي سنتين شامل الوكيل' : 'Official 2-Year Agency Warranty'}
             </span>
             <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight text-center">
@@ -753,3 +753,4 @@ export const ProductDetailPage: React.FC = () => {
     </div>
   );
 };
+

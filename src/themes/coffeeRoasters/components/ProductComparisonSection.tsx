@@ -109,7 +109,7 @@ export const ProductComparisonSection: React.FC<ProductComparisonSectionProps> =
       {/* 1. SECTION HEADER */}
       <div className="flex flex-col items-center text-center max-w-4xl mx-auto space-y-3 px-3">
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-4 py-1.5 rounded-full bg-[#8B5A2B]/10 text-[#8B5A2B] border border-[#8B5A2B]/20">
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-4 py-1.5 rounded-full bg-[#8B5A2B]/10 text-[#8B5A2B] border-0">
             <Sparkles className="w-3.5 h-3.5 shrink-0" />
             {isAr ? 'المواصفات الفنية المعتمدة الرسمية' : 'OFFICIAL TECHNICAL SPECIFICATIONS'}
           </span>
@@ -131,10 +131,10 @@ export const ProductComparisonSection: React.FC<ProductComparisonSectionProps> =
       </div>
 
       {/* 2. ONLY COMPARISON IMAGE DISPLAY (Clean, High-Res Card) */}
-      <div className="w-full bg-gradient-to-b from-white to-neutral-50/60 border border-neutral-200/90 rounded-[28px] sm:rounded-[36px] p-3 sm:p-6 lg:p-8 shadow-lg shadow-neutral-200/40 flex flex-col items-center transition-all">
+      <div className="w-full bg-gradient-to-b from-white to-neutral-50/60 border-0 rounded-[28px] sm:rounded-[36px] p-3 sm:p-6 lg:p-8 shadow-lg shadow-neutral-200/40 flex flex-col items-center transition-all">
         
         {/* Top Control Bar: Title & Fullscreen Lightbox Button */}
-        <div className="w-full flex items-center justify-between pb-3 sm:pb-4 border-b border-neutral-200/70 text-xs">
+        <div className="w-full flex items-center justify-between pb-3 sm:pb-4 border-0 text-xs">
           <div className="flex items-center gap-2 text-neutral-600 font-medium">
             <ImageIcon className="w-4 h-4 text-[#8B5A2B]" />
             <span className="font-bold text-neutral-800">
@@ -149,7 +149,7 @@ export const ProductComparisonSection: React.FC<ProductComparisonSectionProps> =
                 setIsZoomOpen(true);
                 setZoomLevel(1);
               }}
-              className="px-3.5 py-1.5 rounded-xl bg-[#8B5A2B] hover:bg-[#724820] text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              className="px-3.5 py-1.5 rounded-xl bg-[#8B5A2B] hover:bg-[#724820] text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs border-0"
             >
               <Maximize2 className="w-3.5 h-3.5" />
               <span>{isAr ? 'تكبير المخطط' : 'Full Screen'}</span>
@@ -163,7 +163,7 @@ export const ProductComparisonSection: React.FC<ProductComparisonSectionProps> =
             setIsZoomOpen(true);
             setZoomLevel(1);
           }}
-          className="relative w-full mt-4 rounded-2xl overflow-hidden bg-white border border-neutral-200/80 p-2 sm:p-5 flex items-center justify-center cursor-zoom-in group transition-all hover:border-[#8B5A2B]/40 hover:shadow-md"
+          className="relative w-full mt-4 rounded-2xl overflow-hidden bg-white border-0 p-2 sm:p-5 flex items-center justify-center cursor-zoom-in group transition-all hover:shadow-md"
         >
           <img
             src={primaryImgUrl}

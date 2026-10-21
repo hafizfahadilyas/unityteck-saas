@@ -99,28 +99,64 @@ export const TopCircularCategories: React.FC<TopCircularCategoriesProps> = ({
   const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
 
   const categoryList: VisualCategoryItem[] = useMemo(() => {
-    if (categories && categories.length > 0) return categories;
+    if (categories && categories.length > 0) {
+      return categories.map(c => ({
+        ...c,
+        name: isAr ? c.name : (c.nameEn || c.name),
+      }));
+    }
     if (isCoffee) return COFFEE_CIRCULAR_CATEGORIES;
-    if (activeStore?.id === 'store-1') return EIGHT_FEATURED_CATEGORIES;
 
+    // Check store custom categories from Dashboard / Database
+    try {
+      if (typeof window !== 'undefined' && activeStore?.id) {
+        const raw = localStorage.getItem(`unityteck_store_categories_${activeStore.id}`);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list) && list.length > 0) {
+            return list.map((c: any, idx: number) => {
+              const matchedProd = currentProducts?.find(p => p.category === c.name || p.categoryAr === c.name || (p as any).categoryEn === c.nameEn);
+              return {
+                id: c.id || `cat-saved-${idx}`,
+                name: isAr ? (c.nameAr || c.name) : (c.nameEn || c.name),
+                nameEn: c.nameEn || c.name,
+                image: c.imageUrl || matchedProd?.image || FALLBACK_PRODUCT_IMAGE,
+                count: currentProducts?.filter(p => p.category === c.name || p.categoryAr === c.name || (p as any).categoryEn === c.nameEn).length || 5,
+              };
+            });
+          }
+        }
+      }
+    } catch {}
+
+    // Extract dynamic categories directly from active store catalog products
     if (currentProducts && currentProducts.length > 0) {
       const map = new Map<string, VisualCategoryItem>();
       currentProducts.forEach((p, idx) => {
-        const cat = p.category || 'General';
-        if (!map.has(cat)) {
-          map.set(cat, {
+        const catName = isAr ? (p.categoryAr || p.category) : ((p as any).categoryEn || p.category);
+        const catKey = p.category || (p as any).categoryEn || 'General';
+        if (!map.has(catKey)) {
+          map.set(catKey, {
             id: `cat-cir-dyn-${idx}`,
-            name: cat,
-            nameEn: (p as any).categoryEn || cat,
-            image: p.image || 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80',
-            count: 5,
+            name: catName,
+            nameEn: (p as any).categoryEn || p.category,
+            image: p.image || FALLBACK_PRODUCT_IMAGE,
+            count: currentProducts.filter(item => item.category === p.category || item.categoryAr === p.categoryAr).length,
           });
         }
       });
       if (map.size >= 2) return Array.from(map.values()).slice(0, 8);
     }
-    return EIGHT_FEATURED_CATEGORIES;
-  }, [categories, isCoffee, activeStore?.id, currentProducts]);
+
+    if (activeStore?.id === 'store-1') {
+      return EIGHT_FEATURED_CATEGORIES.map(c => ({
+        ...c,
+        name: isAr ? c.name : (c.nameEn || c.name),
+      }));
+    }
+
+    return [];
+  }, [categories, isCoffee, activeStore?.id, currentProducts, isAr]);
 
   // Compute responsive columns
   const getGridColsClass = (cols: number) => {
@@ -217,7 +253,7 @@ export const TopCircularCategories: React.FC<TopCircularCategoriesProps> = ({
                 alt={isAr ? cat.name : cat.nameEn || cat.name}
                 onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                 className="w-full h-full object-cover object-center group-hover:scale-108 transition-transform duration-500 ease-out"
-                loading="lazy"
+                loading="lazy" decoding="async"
                 referrerPolicy="no-referrer"
               />
 
@@ -251,3 +287,4 @@ export const TopCircularCategories: React.FC<TopCircularCategoriesProps> = ({
     </section>
   );
 };
+

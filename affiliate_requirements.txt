@@ -1,0 +1,148 @@
+
+Souq Affiliate Marketing Dashboard
+Developer Implementation Requirements
+
+Purpose: Define the functional and technical requirements for implementing the Affiliate Marketing dashboard shown in the supplied design. The feature should allow store administrators to manage affiliate opportunities, affiliates, referral tracking, commissions, orders, payments, coupon conditions, and affiliate program settings.
+1. Dashboard Summary and Performance Metrics
+Provide a date-range selector and an Export action for dashboard data.
+Display Total Sales, Total Orders, Total Commission, Affiliates, Affiliate Visits, and Conversion Rate for the selected reporting period.
+Show percentage change compared with the previous period where historical data is available.
+Ensure all figures are calculated from actual orders, visits, commission records, and affiliate data; do not hard-code example metrics.
+Define whether sales and commissions include taxes, shipping, cancelled orders, refunds, and pending commissions.
+2. Performance Overview
+Provide a time-series chart for sales (SAR) and orders.
+Provide a date-range selector such as Last 30 Days.
+Ensure chart values respond to the selected period and use a consistent timezone and currency.
+Provide accessible labels and a clear empty state when there is insufficient data.
+3. Sales by Affiliate Offer
+Display sales contribution by opportunity or offer category, such as General Promotion, Product Review, Sponsored Video, Instagram Campaign, Exclusive Discount, and Others.
+Show both the relative share and the total sales amount for the selected period.
+Define how each order is attributed when multiple affiliate links or offers are involved.
+4. Latest Updates
+Display recent affiliate-related events, including new affiliate registrations, orders attributed to affiliates, commission payments, and new applications.
+Show event status and timestamp.
+Provide a View All action to open the full activity history.
+Ensure the feed reflects persisted events and applies appropriate access controls.
+5. Marketing Opportunities
+Display opportunities with name, commission, status, start date, end date, and available actions.
+Support searching opportunities and filtering by status.
+Provide Create Opportunity, Edit, and additional row actions as appropriate.
+Support opportunity types such as promoting store products, product reviews, sponsored videos, social media campaigns, and exclusive discounts.
+Validate required fields, date ranges, commission values, and product/category eligibility before saving.
+Define whether opportunities can be edited, paused, or deleted after affiliates have joined or generated orders.
+6. Affiliates Management
+Display affiliate name, location, join date, total sales, order count, and available actions.
+Provide affiliate search and filters.
+Support opening affiliate details and managing applications or account status according to permissions.
+Protect affiliate personal data and restrict access based on the administrator role.
+7. Affiliate Program Settings
+Enable or disable the affiliate program.
+Configure whether marketing materials such as images and videos are available to affiliates.
+Enable or disable unique referral links and define how links are generated.
+Configure order tracking rules, including which order statuses count toward affiliate performance.
+Configure the commission period and define the time window used to calculate or attribute commissions.
+Explain the effect of each setting and validate changes before saving.
+8. Affiliate Orders
+Display order number, affiliate, attributed opportunity, order amount, commission, order date, status, and actions.
+Provide search and filtering controls.
+Support statuses such as Completed and Pending, with the complete status workflow documented.
+Recalculate or adjust commissions according to defined rules when an order is cancelled, refunded, edited, or partially refunded.
+Prevent duplicate attribution or duplicate commission records for the same eligible order.
+9. Affiliate Payments
+Display payment number, date, amount, status, and available actions.
+Provide search and filtering by payment details and status.
+Support statuses such as Paid and Under Review, with documented transitions.
+Keep payment records linked to the relevant affiliate and commission entries.
+Define payment eligibility, minimum payout, payment method handling, and failed-payment behavior if these features are in scope.
+Do not mark a payment as paid unless the payment operation has been confirmed.
+10. Create New Opportunity
+Provide a form with the fields shown in the design:
+Opportunity Name — required; support the store’s enabled languages where applicable.
+Type — select the opportunity or promotion type.
+Amount (SAR) or Commission Percentage — display the field relevant to the selected commission type.
+Start Date and End Date — validate date format and ensure the end date is not earlier than the start date.
+Products — select all products or specific eligible products.
+Create Opportunity and Cancel actions.
+Show inline validation messages and success or failure feedback.
+The design shows fixed-amount and commission-percentage options. The supported commission calculation rules must be explicitly defined, including whether commission is per order, per item, or based on eligible order value.
+11. Opportunity Details
+Display opportunity name, status, commission type/value, start date, end date, and description.
+Provide actions such as Edit, Share, and View Orders where supported.
+Provide tabs for Details, Marketing Materials, Eligible Affiliates, and Orders.
+Allow authorized users to manage approved opportunity details and related resources.
+Define which fields may be changed after the opportunity has generated affiliate activity.
+12. Apply Opportunity Conditions
+Provide a conditions panel to configure when an opportunity is valid and who may use it.
+Validity Period — start date and end date.
+Usage Scope — all products, specific categories, or specific products.
+Eligible Customers — all customers or selected customer groups.
+Usage Limit per Customer — optional; define empty as unlimited only if that is the intended policy.
+Total Usage Limit — optional; define the behavior when the limit is reached.
+Validate all conditions on the server before attribution or discount application.
+Use concurrency-safe enforcement to prevent simultaneous requests from exceeding usage limits.
+13. Optional Discount Coupon
+Allow an opportunity to include a discount coupon for the final customer, where applicable.
+Support discount type selection, such as percentage or fixed amount.
+Provide a discount value field and optional minimum order amount.
+Support automatic coupon application when a customer purchases through an affiliate link, if enabled.
+Provide an explicit setting for whether the coupon can be combined with other discounts.
+Validate coupon eligibility, expiration, usage limits, and stacking rules on the server.
+Define how the customer discount affects the commissionable order amount.
+14. Commission Calculation and Attribution Rules
+Document the attribution model, such as last eligible affiliate click or another explicitly selected rule.
+Define cookie or referral attribution duration and how direct visits or multiple affiliate referrals are handled.
+Define which order statuses qualify for commission and when commissions become payable.
+Define whether commission is calculated before or after discounts, taxes, shipping, refunds, and chargebacks.
+Use consistent currency precision and rounding rules.
+Prevent duplicate commissions and retain an auditable record of attribution and adjustments.
+15. Security, Reliability, and Auditability
+Enforce authentication, role-based authorization, and store-level isolation for opportunities, affiliates, orders, commissions, and payments.
+Validate all numeric values, currencies, dates, selected products, and customer eligibility rules.
+Protect referral links and prevent manipulation of client-supplied order totals or commission amounts.
+Use transactions and concurrency-safe processing for order attribution, usage limits, commission creation, and payouts.
+Record important changes to opportunities, settings, commission adjustments, and payment statuses.
+Provide loading, empty, success, and error states across all panels.
+16. Suggested Data Entities
+Affiliate Program Settings — program status, referral-link settings, tracking rules, and commission period.
+Affiliates — affiliate profile, status, join date, and relevant settings.
+Marketing Opportunities — name, type, commission rules, validity period, status, and description.
+Opportunity Conditions — eligible products/categories/customer groups and usage limits.
+Affiliate Referrals/Visits — referral identifier, affiliate, opportunity, timestamp, and attribution details.
+Affiliate Orders/Commissions — order reference, affiliate, opportunity, eligible amount, commission amount, and status.
+Affiliate Payments — payment reference, affiliate, amount, date, status, and related commission entries.
+Coupon Rules — discount type/value, minimum order amount, eligibility, expiration, usage limits, and stacking policy.
+These are logical entities, not mandatory table names. Adapt them to the existing Souq database and reuse current customers, products, orders, coupons, and payment records wherever possible.
+17. Suggested API Operations
+GET /api/affiliate/dashboard — summary metrics and charts.
+GET /api/affiliate/opportunities — list and filter opportunities.
+POST /api/affiliate/opportunities — create an opportunity.
+GET /api/affiliate/opportunities/{id} — retrieve opportunity details.
+PATCH /api/affiliate/opportunities/{id} — update an opportunity.
+GET /api/affiliate/partners — list and search affiliates.
+GET /api/affiliate/orders — list and filter attributed orders.
+GET /api/affiliate/payments — list and filter payments.
+POST /api/affiliate/opportunities/{id}/conditions — save opportunity conditions.
+POST /api/affiliate/attribution/evaluate — evaluate referral attribution where required.
+These routes are illustrative. Follow existing Souq API conventions, authentication, authorization, validation, and error-response formats.
+18. Acceptance Criteria
+Dashboard metrics and charts reflect the selected reporting period and actual stored data.
+Opportunities can be created, viewed, edited, searched, and filtered according to permissions.
+Affiliates, orders, and payments can be searched and filtered.
+Opportunity conditions enforce validity dates, eligible products/categories, customer rules, and usage limits.
+Referral attribution and commission calculations follow documented rules.
+Coupon settings are enforced by the backend and respect stacking rules.
+Refunds, cancellations, and order changes adjust commissions consistently.
+Payment status changes are recorded and cannot falsely indicate a successful payout.
+Concurrent requests cannot bypass usage limits or create duplicate commissions.
+Store isolation, authorization, audit history, and error handling are tested.
+19. Recommended Implementation Phases
+Phase 1 — Affiliate program settings, opportunity creation, and opportunity listing.
+Phase 2 — Affiliate management, referral links, and attribution tracking.
+Phase 3 — Affiliate orders and commission calculation.
+Phase 4 — Opportunity conditions and optional discount coupon compatibility.
+Phase 5 — Affiliate payments, dashboard analytics, audit logs, and QA hardening.
+20. Final Implementation Notes
+Use the supplied screenshot as the UI and workflow reference.
+Inspect the existing Souq architecture before creating new tables, routes, or integrations.
+Confirm business rules not explicit in the screenshot, especially attribution, commission basis, payout eligibility, refunds, and coupon stacking.
+A visual control is not complete until it is connected to backend behavior and tested.

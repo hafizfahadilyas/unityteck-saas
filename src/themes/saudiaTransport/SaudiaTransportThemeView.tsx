@@ -34,7 +34,8 @@ import {
   ArrowRight,
   Menu,
   Layers,
-  CreditCard
+  CreditCard,
+  User
 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
@@ -76,6 +77,7 @@ import { LuxuryToastSystem, ToastItem } from './components/LuxuryToastSystem';
 import { PostCategoryAdvancedFeatures } from './components/PostCategoryAdvancedFeatures';
 import { ModernLuxuryFloorMatsSection } from './components/ModernLuxuryFloorMatsSection';
 import { ModernLuxurySeatCoversSection } from './components/ModernLuxurySeatCoversSection';
+import { CustomerAccountModal } from './components/CustomerAccountModal';
 import './saudiaTransport.css';
 
 interface SaudiaTransportThemeViewProps {
@@ -111,6 +113,28 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
   const locale = prefs?.locale;
   const setLocale = prefs?.setLocale;
 
+  const [syncTick, setSyncTick] = useState(0);
+
+  useEffect(() => {
+    const handleSync = () => {
+      setSyncTick((t) => t + 1);
+    };
+    window.addEventListener('unityteck-product-updated', handleSync);
+    window.addEventListener('unityteck-data', handleSync);
+    window.addEventListener('unityteck-categories-updated', handleSync);
+    window.addEventListener('unityteck-brands-updated', handleSync);
+    window.addEventListener('unityteck-theme-settings', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('unityteck-product-updated', handleSync);
+      window.removeEventListener('unityteck-data', handleSync);
+      window.removeEventListener('unityteck-categories-updated', handleSync);
+      window.removeEventListener('unityteck-brands-updated', handleSync);
+      window.removeEventListener('unityteck-theme-settings', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
+
   // Read admin theme settings
   const storeId = activeStore?.id || 'store-bleco';
   const themeSettings = useMemo(() => {
@@ -119,7 +143,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     } catch {
       return null;
     }
-  }, [storeId, activeStore]);
+  }, [storeId, activeStore, syncTick]);
 
   // Bilingual State (AR / EN)
   const [currentLang, setCurrentLang] = useState<'ar' | 'en'>(locale === 'en' ? 'en' : 'ar');
@@ -148,7 +172,20 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
   }, [currentLang, isAr]);
 
   // View Mode: 'home' vs 'catalog'
-  const [viewMode, setViewMode] = useState<'home' | 'catalog'>('home');
+  const [viewMode, setViewMode] = useState<'home' | 'catalog'>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const search = new URLSearchParams(window.location.search);
+        const p = (search.get('page') || search.get('preview_page') || '').toLowerCase().trim();
+        if (p === 'catalog' || p === 'products' || p === 'shop' || p === 'fleet') return 'catalog';
+        const pathname = window.location.pathname.toLowerCase().replace(/\/$/, '') || '/';
+        if (pathname === '/catalog' || pathname === '/shop' || pathname === '/products') return 'catalog';
+        const saved = sessionStorage.getItem('unityteck_transport_page');
+        if (saved === 'catalog') return 'catalog';
+      }
+    } catch {}
+    return 'home';
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [navDropdownOpen, setNavDropdownOpen] = useState(false);
   const [searchBarOpen, setSearchBarOpen] = useState(false);
@@ -200,7 +237,30 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
   const [cardSelectedColors, setCardSelectedColors] = useState<Record<string, SeatColorOption>>({});
 
   // Single Product Detail Modal & Customizer
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const search = new URLSearchParams(window.location.search);
+        const pId = search.get('product') || search.get('id');
+        const p = (search.get('page') || search.get('preview_page') || '').toLowerCase().trim();
+        if (pId || p === 'product' || p === 'product-detail' || p === 'detail') {
+          const allProds = (currentProducts && currentProducts.length > 0 ? currentProducts : BLECO_STORE_PRODUCTS) as Product[];
+          if (pId) {
+            const found = allProds.find((prod) => prod.id === pId);
+            if (found) return found;
+          }
+          return allProds[0] || null;
+        }
+        const savedId = sessionStorage.getItem('unityteck_transport_product_id');
+        if (savedId) {
+          const allProds = (currentProducts && currentProducts.length > 0 ? currentProducts : BLECO_STORE_PRODUCTS) as Product[];
+          const found = allProds.find((prod) => prod.id === savedId);
+          if (found) return found;
+        }
+      }
+    } catch {}
+    return null;
+  });
   const [detailColor, setDetailColor] = useState<SeatColorOption | null>(null);
   const [detailMaterial, setDetailMaterial] = useState<'fabric' | 'leather' | 'diamond'>('leather');
   const [detailCoverage, setDetailCoverage] = useState<'full' | 'front_only'>('full');
@@ -235,6 +295,23 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     }
   });
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+
+  // Checkout State
+  const [checkoutOpen, setCheckoutOpen] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const search = new URLSearchParams(window.location.search);
+        const p = (search.get('page') || search.get('preview_page') || '').toLowerCase().trim();
+        if (p === 'checkout') return true;
+        const pathname = window.location.pathname.toLowerCase().replace(/\/$/, '') || '/';
+        if (pathname === '/checkout') return true;
+        const saved = sessionStorage.getItem('unityteck_transport_page');
+        if (saved === 'checkout') return true;
+      }
+    } catch {}
+    return false;
+  });
 
   // Sync cart to localStorage
   useEffect(() => {
@@ -243,7 +320,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     } catch {}
   }, [cart]);
 
-  // Handle route switching from initialPage prop (Home, Catalog, Product, Cart, Checkout)
+  // Handle route switching from initialPage prop (Home, Catalog, Product, Cart, Checkout, Profile)
   const prevInitialPageRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!initialPage) return;
@@ -260,6 +337,8 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     } else if (p === 'checkout') {
       setCartDrawerOpen(false);
       setCheckoutOpen(true);
+    } else if (p === 'profile' || p === 'crm' || p === 'account' || p === 'login') {
+      setIsAccountModalOpen(true);
     } else if (p === 'product' || p === 'product-detail' || p === 'detail') {
       const firstProd = (currentProducts && currentProducts.length > 0 ? currentProducts[0] : null) || BLECO_STORE_PRODUCTS[0];
       if (firstProd) {
@@ -272,6 +351,83 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
       setCheckoutOpen(false);
     }
   }, [initialPage, currentProducts]);
+
+  // Synchronize Saudia Transport theme state to URL and storage so refreshing preserves current page
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        let activePage = 'home';
+        if (checkoutOpen) {
+          activePage = 'checkout';
+        } else if (selectedProduct) {
+          activePage = 'product';
+          url.searchParams.set('product', selectedProduct.id);
+          sessionStorage.setItem('unityteck_transport_product_id', selectedProduct.id);
+        } else if (viewMode === 'catalog') {
+          activePage = 'catalog';
+        }
+
+        if (!selectedProduct) {
+          url.searchParams.delete('product');
+          sessionStorage.removeItem('unityteck_transport_product_id');
+        }
+
+        if (activePage === 'home') {
+          url.searchParams.delete('page');
+        } else {
+          url.searchParams.set('page', activePage);
+        }
+        sessionStorage.setItem('unityteck_transport_page', activePage);
+        window.history.replaceState({ page: activePage }, '', url.toString());
+      }
+    } catch {}
+  }, [viewMode, checkoutOpen, selectedProduct]);
+
+  // Ensure view is scrolled strictly to top header on any page change or refresh
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual';
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      const t = setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  }, [viewMode, checkoutOpen, selectedProduct]);
+
+  // Handle browser popstate navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      try {
+        const search = new URLSearchParams(window.location.search);
+        const p = (search.get('page') || search.get('preview_page') || '').toLowerCase().trim();
+        if (p === 'catalog' || p === 'products' || p === 'shop') {
+          setViewMode('catalog');
+          setSelectedProduct(null);
+          setCheckoutOpen(false);
+          return;
+        }
+        if (p === 'checkout') {
+          setCheckoutOpen(true);
+          return;
+        }
+        if (p === 'home' || !p) {
+          setViewMode('home');
+          setSelectedProduct(null);
+          setCheckoutOpen(false);
+        }
+      } catch {}
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
   
   // Luxury Animated Toast Stack (Single active notification strictly controlled to prevent spam)
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -355,7 +511,6 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
   };
 
   // Checkout State
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [orderCompleteData, setOrderCompleteData] = useState<{ orderNumber: string; total: number } | null>(null);
   const [checkoutForm, setCheckoutForm] = useState({
     name: '',
@@ -408,11 +563,37 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
   const [catalogPageLimit, setCatalogPageLimit] = useState(24);
 
   const storeCatalog = useMemo(() => {
-    if (currentProducts && currentProducts.length > 0) {
-      return currentProducts;
+    let source = currentProducts;
+    try {
+      if (typeof window !== 'undefined' && activeStore?.id) {
+        const rawMap = localStorage.getItem('unityteck_products_map');
+        if (rawMap) {
+          const map = JSON.parse(rawMap);
+          if (Array.isArray(map[activeStore.id]) && map[activeStore.id].length > 0) {
+            source = map[activeStore.id];
+          }
+        }
+      }
+    } catch {}
+
+    const isDefaultTransportStore = !activeStore?.id || activeStore.id === 'store-bleco' || activeStore.id === 'store-transport' || (activeStore as any)?.themeId === 'theme-saudia-transport';
+    if (source && source.length > 0) {
+      return source;
     }
-    return BLECO_STORE_PRODUCTS;
-  }, [currentProducts]);
+    if (isDefaultTransportStore) {
+      return BLECO_STORE_PRODUCTS;
+    }
+    return [];
+  }, [currentProducts, activeStore, syncTick]);
+
+  useEffect(() => {
+    if (selectedProduct) {
+      const live = storeCatalog.find((p) => p.id === selectedProduct.id);
+      if (live && (live.image !== selectedProduct.image || live.price !== selectedProduct.price || live.name !== selectedProduct.name || live.images !== selectedProduct.images)) {
+        setSelectedProduct(live);
+      }
+    }
+  }, [storeCatalog]);
 
   // Dynamically computed counts from actual store catalog
   const brandProductCounts = useMemo(() => {
@@ -929,6 +1110,17 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               {searchBarOpen ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
             </button>
 
+            {/* User Account / Profile Circular Icon Button */}
+            <button
+              type="button"
+              onClick={() => setIsAccountModalOpen(true)}
+              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white hover:text-[#f6c344] border border-white/15 flex items-center justify-center transition-all cursor-pointer shadow-md shrink-0"
+              title={isAr ? 'حسابي والطلبات (VIP Portal)' : 'My Account & Orders'}
+              aria-label={isAr ? 'حسابي' : 'My Account'}
+            >
+              <User className="w-4 h-4" />
+            </button>
+
             {/* WhatsApp Circular Icon Button */}
             <button 
               type="button"
@@ -1090,6 +1282,18 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                 >
                   <Car className="w-4 h-4 text-[#f6c344]" />
                   <span>{isAr ? 'الصفحة الرئيسية' : 'Home'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setIsAccountModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-left rtl:text-right text-[#f6c344]"
+                >
+                  <User className="w-4 h-4 text-[#f6c344]" />
+                  <span>{isAr ? 'حسابي والطلبات (VIP Portal)' : 'My Account & Orders'}</span>
                 </button>
 
                 <a
@@ -1355,7 +1559,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                           src={brand.logo} 
                           alt={isAr ? brand.nameAr : brand.nameEn} 
                           className="h-8 max-w-[46px] w-auto object-contain filter group-hover:scale-110 transition-transform duration-300 drop-shadow-xs"
-                          loading="lazy"
+                          loading="lazy" decoding="async"
                           onError={(e) => {
                             const target = e.currentTarget;
                             target.style.display = 'none';
@@ -1446,23 +1650,38 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             {/* ========================================================
                 SECTION 3: CAR FLOOR MATS (أرضيات 5D ليزر فائقة الدقة والرفاهية)
                 ======================================================== */}
-            <ModernLuxuryFloorMatsSection
-              isAr={isAr}
-              mats={FEATURED_FLOOR_MATS}
-              onSelectMat={(mat) => setSelectedFloorMatModal(mat)}
-              onOpenWhatsApp={(mat, selectedColorName) => {
-                const customMsg = isAr
-                  ? `مرحباً متجر السعيدي، أرغب بالطلب والاستفسار عن أرضيات 5D ليزر:\n*النوع:* ${mat.nameAr || mat.name}\n${selectedColorName ? `*اللون المفضل:* ${selectedColorName}\n` : ''}*السعر:* ${mat.price} ر.س\n*المطلوب:* تفصيل ليزري لموديل سيارتي.`
-                  : `Hello Al-Saeedi Car Services, I would like to order 5D Laser Floor Mats:\n*Type:* ${mat.nameEn || mat.name}\n${selectedColorName ? `*Preferred Color:* ${selectedColorName}\n` : ''}*Price:* ${mat.price} SAR\n*Request:* Laser tailored for my vehicle model.`;
-                openWhatsAppOrder(mat, undefined, undefined, customMsg);
-              }}
-              onViewAll={() => {
-                const el = document.getElementById('catalog-view-top');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-                setViewMode('catalog');
-              }}
-              onAddToCart={addFloorMatToCart}
-            />
+            {(() => {
+              const matsFromStore = currentProducts?.filter(p =>
+                p.type === 'floor-mat' ||
+                p.category?.includes('أرضيات') ||
+                p.categoryAr?.includes('أرضيات') ||
+                p.categoryEn?.toLowerCase().includes('mat') ||
+                p.tags?.some(t => t.includes('mat') || t.includes('أرضيات'))
+              ) || [];
+              const existingIds = new Set(matsFromStore.map(m => m.id));
+              const restMats = FEATURED_FLOOR_MATS.filter(f => !existingIds.has(f.id));
+              const displayMats = [...matsFromStore, ...restMats].slice(0, 10);
+
+              return (
+                <ModernLuxuryFloorMatsSection
+                  isAr={isAr}
+                  mats={displayMats}
+                  onSelectMat={(mat) => setSelectedFloorMatModal(mat)}
+                  onOpenWhatsApp={(mat, selectedColorName) => {
+                    const customMsg = isAr
+                      ? `مرحباً متجر السعيدي، أرغب بالطلب والاستفسار عن أرضيات 5D ليزر:\n*النوع:* ${mat.nameAr || mat.name}\n${selectedColorName ? `*اللون المفضل:* ${selectedColorName}\n` : ''}*السعر:* ${mat.price} ر.س\n*المطلوب:* تفصيل ليزري لموديل سيارتي.`
+                      : `Hello Al-Saeedi Car Services, I would like to order 5D Laser Floor Mats:\n*Type:* ${mat.nameEn || mat.name}\n${selectedColorName ? `*Preferred Color:* ${selectedColorName}\n` : ''}*Price:* ${mat.price} SAR\n*Request:* Laser tailored for my vehicle model.`;
+                    openWhatsAppOrder(mat, undefined, undefined, customMsg);
+                  }}
+                  onViewAll={() => {
+                    const el = document.getElementById('catalog-view-top');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    setViewMode('catalog');
+                  }}
+                  onAddToCart={addFloorMatToCart}
+                />
+              );
+            })()}
 
             {/* ========================================================
                 SECTION 4: CAR SEAT COVERS (تلابيس مقاعد ملكية تفصيل وكالة ليزري)
@@ -1472,11 +1691,12 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                 p.type === 'seat-cover' || 
                 p.category?.includes('تلابيس') || 
                 p.categoryAr?.includes('تلابيس') ||
-                p.categoryEn?.toLowerCase().includes('seat')
-              );
-              const displaySeats = (seatsFromStore && seatsFromStore.length >= 8 
-                ? seatsFromStore 
-                : FEATURED_HOME_SEATS).slice(0, 8);
+                p.categoryEn?.toLowerCase().includes('seat') ||
+                p.tags?.some(t => t.includes('seat') || t.includes('تلبيس'))
+              ) || [];
+              const existingIds = new Set(seatsFromStore.map(s => s.id));
+              const restSeats = FEATURED_HOME_SEATS.filter(f => !existingIds.has(f.id));
+              const displaySeats = [...seatsFromStore, ...restSeats].slice(0, 10);
 
               return (
                 <ModernLuxurySeatCoversSection
@@ -1961,7 +2181,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                       }
                     }}
                   >
-                    <img src={cardImg} alt={liveProd.name} className="w-full h-full object-cover img-zoom transition-all duration-500" loading="lazy" />
+                    <img src={cardImg} alt={liveProd.name} className="w-full h-full object-cover img-zoom transition-all duration-500" loading="lazy" decoding="async" />
                     
                     {/* Brand Pill */}
                     <span className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 bg-[#16032e]/90 text-white text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/20 shadow-xs">
@@ -2452,7 +2672,32 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
           </div>
           <span>{isAr ? 'السلة' : 'Cart'}</span>
         </button>
+
+        <button
+          onClick={() => setIsAccountModalOpen(true)}
+          className={`flex flex-col items-center gap-1 p-1 text-[10px] font-bold cursor-pointer transition-colors ${
+            isAccountModalOpen ? 'text-[#f6c344]' : 'text-slate-300 hover:text-white'
+          }`}
+        >
+          <User className="w-4 h-4" />
+          <span>{isAr ? 'حسابي' : 'Profile'}</span>
+        </button>
       </nav>
+
+      {/* 11. VIP CUSTOMER ACCOUNT & PROFILE CRM MODAL */}
+      <CustomerAccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        isAr={isAr}
+        onApplyGarageVehicle={(brand, model, year) => {
+          setFormMake(brand);
+          setFormModel(model);
+          setFormYear(year);
+          setViewMode('catalog');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
     </div>
   );
 };
+

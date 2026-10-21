@@ -1,0 +1,209 @@
+
+Souq Marketing Channels PerformanceDeveloper Implementation Requirements
+
+
+Document purpose: Specify how to implement the Marketing Channels Performance analytics page in the Souq merchant dashboard, including channel tracking, metrics, charts, data architecture, integrations, and acceptance criteria.
+1. Objective and Scope
+Build a working analytics dashboard that reports traffic, cart activity, completed orders, conversion, and attributed revenue by marketing channel. All production values must come from actual tracked events, order records, or authorized integrations. Never use hard-coded or fabricated metrics.
+The page must support store-level data isolation, date filtering, channel search and sorting, export, charts, and integration synchronization status.
+2. Supported Marketing Channels
+Channel
+Classification
+Implementation notes
+
+Instagram
+Organic + Paid
+Track tagged links and store events. Ad metrics require an authorized integration.
+
+TikTok
+Organic + Paid
+Keep organic and paid traffic distinguishable where the source data supports it.
+
+Snapchat
+Organic + Paid
+Track tagged links and store events. Ad metrics require an authorized integration.
+
+WhatsApp
+Messaging / Sales
+Attribute tagged links and resulting store sessions/orders; do not assume all conversations are measurable.
+
+Facebook
+Organic + Paid
+Track tagged links and store events. Meta ad metrics require an authorized integration.
+
+Google Ads
+Paid Ads
+Use an authorized Google Ads integration for spend, clicks, impressions, and campaign metrics.
+
+Google Organic Search
+Organic Search
+Use available analytics/search data; do not invent unavailable search terms.
+
+Direct
+Direct
+Use when a session has no known source/referrer under the selected attribution rules.
+
+Referral
+Referral
+Track sessions referred by external websites.
+
+YouTube
+Organic + Paid
+Track tagged links; ad metrics require an authorized integration where supported.
+
+Keep the initial release focused on these ten channels. Include an optional “Other / Unclassified” bucket for traffic that cannot be confidently assigned. Show unconnected sources as “Not Connected” and unavailable metrics as “No Data”; do not present them as zero-performance channels.
+3. Dashboard UI Requirements
+3.1 Date range and filters
+Provide a date-range picker and presets such as Last 7 Days, Last 30 Days, This Month, and Previous Month. Changing the range must refresh every KPI, table, chart, and export. Compare results with the immediately preceding equivalent period and label the comparison clearly.
+3.2 KPI cards
+Completed Orders
+Revenue
+Total Visits (define whether this means sessions or unique visitors and apply the definition consistently)
+Conversion Rate
+Add to Cart
+Average Order Value (AOV)
+3.3 Channel Performance table
+Display these columns:
+Channel / Source
+Channel Type
+Visits
+Add to Cart
+Completed Orders
+Conversion Rate
+Attributed Revenue
+Average Order Value (AOV)
+Growth vs. Previous Period
+Trend Sparkline
+Include channel search, sortable columns, pagination if needed, a column-visibility selector, and export to CSV or XLSX. Use consistent currency formatting (SAR by default for Saudi stores) and localized date formatting.
+3.4 Charts and insight panels
+Revenue Share by Channel
+A donut chart showing each channel’s percentage of total attributed revenue.
+Conversion Rate by Channel
+A comparison chart showing channel visits/orders/conversion, with a clear legend and readable labels.
+Top Performing Channels
+A ranked list selectable by revenue, orders, visits, or conversion rate.
+Visits Trend
+A time-series chart comparing the selected period with the previous equivalent period.
+Orders by Channel
+A channel-level comparison of completed orders.
+Last Data Update
+A status panel showing each integration’s last successful sync time and current connection state.
+4. Tracking and Attribution
+4.1 UTM campaign tracking
+Use UTM-tagged links for campaigns and social profiles wherever practical. Example:
+https://store.example/product/example?utm_source=instagram&amp;utm_medium=social&amp;utm_campaign=summer_sale
+Capture and validate the following fields where available:
+utm_source
+utm_medium
+utm_campaign
+utm_content
+utm_term
+referrer
+landing page
+session ID
+event timestamp
+Store attribution information in a first-party session or event record and associate it with an order according to the agreed attribution model. Define whether reporting uses first-touch, last-touch, or another explicit model. Handle missing UTMs, direct visits, repeat visits, and consent restrictions consistently.
+4.2 Event tracking
+session_started / page_view
+add_to_cart
+checkout_started (optional)
+purchase_completed
+order_cancelled / refund_recorded where applicable
+Use unique event or order identifiers to prevent duplicate counting. Avoid collecting unnecessary personal data in analytics events.
+5. Metric Definitions
+Metric
+Definition
+
+Completed Orders
+Count of orders meeting the agreed completed/paid status rules within the selected period.
+
+Revenue
+Sum of eligible order revenue under the documented reporting policy, with cancellations/refunds handled consistently.
+
+Total Visits
+Count of sessions or visitors; choose one definition and label it accurately.
+
+Conversion Rate
+Attributed completed orders divided by eligible visits, multiplied by 100. Document the attribution and counting rules.
+
+Add to Cart
+Count of add-to-cart events or distinct sessions with an add-to-cart event; select one definition and use it consistently.
+
+AOV
+Eligible attributed revenue divided by eligible completed orders. Show “—” when the denominator is zero.
+
+Revenue Share
+Channel attributed revenue divided by total attributed revenue across the same scope, multiplied by 100.
+
+Growth
+((Current-period value - previous-period value) / previous-period value) × 100. If the previous value is zero, show “New” or “—” rather than an infinite percentage.
+
+All dashboard components must use the same metric definitions and filters. If visits are zero, avoid division by zero and display the agreed empty-state value.
+6. Suggested Data Model
+Adapt this outline to the existing Souq schema instead of duplicating existing orders or store records.
+marketing_channels
+id, store_id or global channel key, name, channel_type, is_active
+tracking_sessions
+id, store_id, session_id, channel_id, source, medium, campaign, referrer, landing_page, started_at
+analytics_events
+id, store_id, session_id, event_type, event_id, order_id (nullable), occurred_at, permitted metadata
+orders (existing)
+order_id, store_id, status, eligible revenue fields, created_at, attributed session/channel reference where appropriate
+integration_connections
+id, store_id, provider, connection_status, last_sync_at, last_sync_status, error summary
+analytics_daily_aggregates (optional)
+store_id, date, channel_id, visits, add_to_cart, completed_orders, revenue
+Use appropriate indexes for store_id, timestamps, channel_id, session_id, and order_id. Enforce tenant isolation in every query and authorization check. Daily aggregates may improve performance, but the source records must remain auditable.
+7. Backend API Expectations
+Implement endpoints consistent with the project’s API conventions. Example endpoint shapes:
+GET /api/analytics/marketing/summary?from=YYYY-MM-DD&amp;to=YYYY-MM-DD
+GET /api/analytics/marketing/channels?from=YYYY-MM-DD&amp;to=YYYY-MM-DD&amp;sort=revenue
+GET /api/analytics/marketing/trends?from=YYYY-MM-DD&amp;to=YYYY-MM-DD&amp;interval=day
+GET /api/analytics/marketing/integrations
+POST /api/analytics/marketing/export
+These are illustrative routes, not a requirement to override existing API conventions. Validate date ranges and store access on the server, return consistent response schemas, and paginate large datasets.
+8. External Integrations and Sync
+UTM/event/order tracking can provide attributed store traffic and sales without a direct ad-platform API. Ad spend, impressions, clicks, and campaign-level performance require authorized platform integrations and the appropriate permissions.
+Provide a Connect / Disconnect flow for each supported provider where an integration is implemented.
+Store access tokens and secrets securely on the server; never expose them to browser code.
+Use scheduled/background sync with retry handling, rate-limit handling, and clear error states.
+Show last successful sync time and status per provider.
+Distinguish Not Connected, Connected, Syncing, Error, and No Data states.
+Do not assume every listed channel offers the same metrics or API capabilities.
+Document data freshness and any provider-specific attribution limitations.
+9. Security, Privacy, and Reliability
+Enforce store/tenant isolation on every analytics query and export.
+Apply role-based access controls to analytics and integration settings.
+Respect applicable consent, cookie, privacy, and platform API requirements.
+Minimize personal data in tracking events and apply retention rules.
+Prevent duplicate event and order counting through idempotency and unique identifiers.
+Use clear loading, empty, partial-data, and error states.
+Log sync failures without exposing secrets or sensitive customer data.
+Make calculations timezone-aware and define the store reporting timezone.
+10. Acceptance Criteria
+Changing the date range updates all KPI cards, the table, charts, and exports.
+Every displayed production metric is sourced from tracked events, order records, or an authorized provider integration.
+Table totals reconcile with the same eligible source records and metric definitions used by the summary cards.
+Revenue share totals approximately 100% when all attributed revenue is included, allowing for rounding.
+Zero denominators and zero previous-period values are handled without invalid calculations.
+The same order or event cannot be counted twice.
+Unconnected providers are clearly marked; unavailable data is not represented as actual zero performance.
+Search, sorting, column visibility, and export work correctly.
+Sync status and last successful sync time are displayed accurately.
+Store data isolation and permissions are verified by tests.
+Charts have readable labels, legends, tooltips, and empty states.
+11. Recommended Implementation Phases
+Phase 1 — First-party analytics
+Implement UTM capture, session/event tracking, order attribution, metric definitions, and reliable summary APIs.
+Phase 2 — Dashboard UI
+Build KPI cards, date controls, channel table, charts, search, sorting, and export.
+Phase 3 — Ad platform integrations
+Add authorized provider connections and sync for ad spend, impressions, clicks, and campaign metrics where supported.
+Phase 4 — QA and optimization
+Validate calculations, privacy/consent behavior, tenant isolation, sync recovery, performance, and reporting consistency.
+12. Important Implementation Notes
+Do not treat the visual reference as a source of real data; it defines layout and intended functionality only.
+Use the existing Souq order, store, authentication, and design systems wherever possible.
+Clearly distinguish attributed revenue from total store revenue and ad-platform-reported conversions.
+Document the attribution model, reporting timezone, revenue/refund policy, and exact definitions of visits and add-to-cart before launch.
+If an integration is not implemented or authorized, show its status honestly and avoid fabricated metrics.

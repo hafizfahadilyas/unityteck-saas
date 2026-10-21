@@ -160,7 +160,7 @@ export const ShopByCategorySection: React.FC = () => {
                 src={cat.image}
                 alt={isAr ? cat.titleAr : cat.title}
                 className="w-full h-full object-cover group-hover:scale-106 transition-transform duration-500"
-                loading="lazy"
+                loading="lazy" decoding="async"
               />
             </div>
 
@@ -188,3 +188,4 @@ export const ShopByCategorySection: React.FC = () => {
     </section>
   );
 };
+

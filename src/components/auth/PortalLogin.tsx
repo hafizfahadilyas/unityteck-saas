@@ -581,6 +581,63 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
               </div>
             )}
 
+            {/* Quick 1-Click Access for Development & Store Admins */}
+            <div className="mb-4 p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40">
+              <p className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 mb-2 flex items-center justify-between">
+                <span>{isAr ? '⚡ دخول فوري بضغطة زر إلى لوحة التحكم:' : '⚡ 1-Click Quick Sign-In to Dashboard:'}</span>
+              </p>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIdentifier('admin@giftshop-sa.com');
+                    setPassword('MakkahStore@2026!Secure');
+                    if (portal !== 'store') onSwitchPortal?.('store');
+                  }}
+                  className="px-2.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-emerald-300 dark:border-slate-700 hover:border-emerald-500 text-[11px] font-bold text-[#102a1c] dark:text-emerald-300 transition-all text-start truncate shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>🌸</span>
+                  <span className="truncate">{isAr ? 'متجر هدايا مكة' : 'Makkah Flowers'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIdentifier('rayan@specialtycoffee.sa');
+                    setPassword('CoffeeStore@2026!Secure');
+                    if (portal !== 'store') onSwitchPortal?.('store');
+                  }}
+                  className="px-2.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-emerald-300 dark:border-slate-700 hover:border-emerald-500 text-[11px] font-bold text-[#102a1c] dark:text-emerald-300 transition-all text-start truncate shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>☕</span>
+                  <span className="truncate">{isAr ? 'متجر القهوة' : 'Coffee Roasters'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIdentifier('admin@bleco.sa');
+                    setPassword('BlackoStore@2026!Secure');
+                    if (portal !== 'store') onSwitchPortal?.('store');
+                  }}
+                  className="px-2.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-emerald-300 dark:border-slate-700 hover:border-emerald-500 text-[11px] font-bold text-[#102a1c] dark:text-emerald-300 transition-all text-start truncate shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>🚗</span>
+                  <span className="truncate">{isAr ? 'مؤسسة بلاكو' : 'Bleco Automotive'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIdentifier('master@unityteck.com');
+                    setPassword('UnityMaster@2026!Secure');
+                    if (portal !== 'master') onSwitchPortal?.('master');
+                  }}
+                  className="px-2.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-emerald-300 dark:border-slate-700 hover:border-emerald-500 text-[11px] font-bold text-[#102a1c] dark:text-emerald-300 transition-all text-start truncate shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>👑</span>
+                  <span className="truncate">{isAr ? 'الماستر أدمن' : 'Master SuperAdmin'}</span>
+                </button>
+              </div>
+            </div>
+
             {/* Dedicated Username or Email + Password Form */}
             <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
               {/* Username / Email Field */}

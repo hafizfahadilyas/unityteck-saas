@@ -128,62 +128,75 @@ export const StoreIdentityForm: React.FC = () => {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-4">
         {field(locale === 'ar' ? 'اسم المتجر' : 'Store name', 'storeName')}
-        {field('Tagline (EN)', 'taglineEn', { dir: 'ltr' })}
-        <div className="md:col-span-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          {field('Tagline (EN)', 'taglineEn', { dir: 'ltr' })}
           {field('الشعار (عربي)', 'taglineAr', { dir: 'rtl' })}
         </div>
-        <div className="md:col-span-2">
-          <MediaUploadField
-            label={locale === 'ar' ? 'شعار المتجر (Store Logo)' : 'Store Logo'}
-            value={form.logoUrl}
-            onChange={(url) => setForm((prev) => ({ ...prev, logoUrl: url }))}
-            recommendedSize="200 × 200 px"
-            aspectRatio="square"
-            initialFolder="branding"
-          />
+        <MediaUploadField
+          label={locale === 'ar' ? 'شعار المتجر (Store Logo)' : 'Store Logo'}
+          value={form.logoUrl}
+          onChange={(url) => setForm((prev) => ({ ...prev, logoUrl: url }))}
+          recommendedSize="200 × 200 px"
+          aspectRatio="square"
+          initialFolder="branding"
+        />
+      </div>
+
+      {/* Contact Channels: Phone, WhatsApp, Email */}
+      <div className="space-y-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+        <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          {locale === 'ar' ? 'قنوات التواصل المباشر' : 'Direct Contact Channels'}
+        </p>
+        <div className="grid grid-cols-1 gap-3">
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
+              <Phone className="w-3 h-3 text-emerald-500" /> {locale === 'ar' ? 'رقم الهاتف' : 'Phone Number'}
+            </span>
+            {field('', 'phone', { dir: 'ltr', placeholder: '+966 50 000 0000' })}
+          </div>
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
+              <span className="w-2 h-2 rounded-full bg-emerald-500" /> WhatsApp
+            </span>
+            {field('', 'whatsapp', { dir: 'ltr', placeholder: '+966 50 000 0000' })}
+          </div>
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
+              <Mail className="w-3 h-3 text-indigo-500" /> Email
+            </span>
+            {field('', 'email', { type: 'email', dir: 'ltr', placeholder: 'support@store.sa' })}
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-1 space-y-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
-            <Phone className="w-3 h-3" /> {locale === 'ar' ? 'هاتف' : 'Phone'}
-          </span>
-          {field('', 'phone', { dir: 'ltr' })}
+      {/* Official Address & Registration */}
+      <div className="space-y-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+        <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          {locale === 'ar' ? 'العنوان والبيانات الرسمية' : 'Official Address & Registration'}
+        </p>
+        <div className="grid grid-cols-1 gap-3">
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
+              <MapPin className="w-3 h-3 text-rose-500" /> Address EN
+            </span>
+            {field('', 'addressEn', { dir: 'ltr', placeholder: 'King Fahd Rd, Riyadh' })}
+          </div>
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
+              <MapPin className="w-3 h-3 text-rose-500" /> العنوان عربي
+            </span>
+            {field('', 'addressAr', { dir: 'rtl', placeholder: 'طريق الملك فهد، الرياض' })}
+          </div>
         </div>
-        <div className="md:col-span-1 space-y-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
-            WhatsApp
-          </span>
-          {field('', 'whatsapp', { dir: 'ltr' })}
-        </div>
-        <div className="md:col-span-1 space-y-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
-            <Mail className="w-3 h-3" /> Email
-          </span>
-          {field('', 'email', { type: 'email', dir: 'ltr' })}
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
-            <MapPin className="w-3 h-3" /> Address EN
-          </span>
-          {field('', 'addressEn', { dir: 'ltr' })}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {field(locale === 'ar' ? 'المدينة' : 'City', 'city')}
+          {field('Instagram', 'instagram', { dir: 'ltr', placeholder: '@handle' })}
+          {field(locale === 'ar' ? 'السجل التجاري (CR)' : 'Commercial Registration (CR)', 'commercialReg', { dir: 'ltr' })}
+          {field(locale === 'ar' ? 'الرقم الضريبي (VAT)' : 'VAT Number', 'vatNumber', { dir: 'ltr' })}
         </div>
-        <div className="space-y-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
-            العنوان عربي
-          </span>
-          {field('', 'addressAr', { dir: 'rtl' })}
-        </div>
-        {field(locale === 'ar' ? 'المدينة' : 'City', 'city')}
-        {field('Instagram', 'instagram', { dir: 'ltr', placeholder: '@handle' })}
-        {field(locale === 'ar' ? 'السجل التجاري' : 'Commercial registration', 'commercialReg', { dir: 'ltr' })}
-        {field(locale === 'ar' ? 'الرقم الضريبي' : 'VAT number', 'vatNumber', { dir: 'ltr' })}
       </div>
 
       {/* Connected Local Workspace Directory Link */}

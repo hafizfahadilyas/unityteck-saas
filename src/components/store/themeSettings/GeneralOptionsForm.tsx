@@ -19,6 +19,10 @@ export const GeneralOptionsForm: React.FC = () => {
     const full = readAllThemeSettings(activeStore.id, activeStore);
     return full.general;
   });
+  const [customOrderEnabled, setCustomOrderEnabled] = useState<boolean>(() => {
+    const full = readAllThemeSettings(activeStore.id, activeStore);
+    return Boolean(full.customOrder?.enabled ?? false);
+  });
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
@@ -35,6 +39,14 @@ export const GeneralOptionsForm: React.FC = () => {
     setSaving(true);
     const full = readAllThemeSettings(activeStore.id, activeStore);
     full.general = settings;
+    full.customOrder = {
+      ...(full.customOrder || {
+        whatsappNumber: '+966549876543',
+        whatsappMessageAr: 'السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم',
+        whatsappMessageEn: 'Hello, I would like to inquire about placing a custom coffee corner order.',
+      }),
+      enabled: customOrderEnabled,
+    };
     writeAllThemeSettings(activeStore.id, full);
 
     setTimeout(() => {
@@ -110,6 +122,32 @@ export const GeneralOptionsForm: React.FC = () => {
               onClick={() => toggle('arabicNumerals')}
               className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
                 settings.arabicNumerals ? 'bg-emerald-600 justify-end' : 'bg-slate-300 justify-start'
+              }`}
+            >
+              <span className="bg-white w-4 h-4 rounded-full shadow-md transform transition-transform" />
+            </button>
+          </div>
+
+          {/* Custom Order & Bespoke Studio */}
+          <div className="flex items-center justify-between pt-3">
+            <div>
+              <span className="text-xs font-bold flex items-center gap-1.5">
+                <span>{isAr ? 'صفحة الطلب والتفصيل المخصص' : 'Custom Order & Bespoke Studio'}</span>
+                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${customOrderEnabled ? 'bg-emerald-500/15 text-emerald-600' : 'bg-amber-500/15 text-amber-600'}`}>
+                  {customOrderEnabled ? (isAr ? 'مُفعّل' : 'Active') : (isAr ? 'مخفي (واتساب)' : 'Hidden (WhatsApp)')}
+                </span>
+              </span>
+              <span className="text-[11px] text-muted">
+                {isAr
+                  ? 'إظهار استوديو التفصيل الهندسي في المتجر، أو تحويل النقرات تلقائياً إلى واتساب'
+                  : 'Display custom order studio or auto-route clicks directly to WhatsApp concierge'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCustomOrderEnabled((v) => !v)}
+              className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
+                customOrderEnabled ? 'bg-emerald-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
               }`}
             >
               <span className="bg-white w-4 h-4 rounded-full shadow-md transform transition-transform" />

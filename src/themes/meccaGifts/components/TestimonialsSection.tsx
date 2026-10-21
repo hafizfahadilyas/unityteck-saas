@@ -174,7 +174,7 @@ export const TestimonialsSection: React.FC = () => {
                             src={t.avatar}
                             alt={isAr ? t.name : t.nameEn}
                             className="w-full h-full object-cover rounded-xl"
-                            loading="lazy"
+                            loading="lazy" decoding="async"
                           />
                         </div>
 
@@ -246,3 +246,4 @@ export const TestimonialsSection: React.FC = () => {
     </section>
   );
 };
+

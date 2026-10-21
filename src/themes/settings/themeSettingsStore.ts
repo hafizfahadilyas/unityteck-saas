@@ -7,6 +7,7 @@
 import { defaultStoreIdentity, readStoreIdentity, writeStoreIdentity, type StoreIdentitySettings } from './storeIdentity';
 import { type HeaderCustomSettings, DEFAULT_HEADER_SETTINGS, getDefaultHeaderSettings } from './headerCustomSettings';
 import { getThemeManifest } from '../registry';
+import { bumpStore } from '../../api/cacheTags';
 
 export interface CustomMenuItem {
   id: string;
@@ -121,16 +122,63 @@ export interface CategoryCartCustomerSettings {
   showPhoneInCustomer: boolean;
 }
 
+export interface SlideSpecItem {
+  icon: 'gauge' | 'flame' | 'coffee' | 'zap' | 'ruler';
+  labelEn: string;
+  labelAr: string;
+  valueEn: string;
+  valueAr: string;
+}
+
 export interface SliderSlide {
   id: string;
+  productId?: string;
   type: 'image' | 'video';
   image: string;
+  fallbackImage?: string;
   videoUrl?: string;
   title: string;
+  titleAr?: string;
+  titleEn?: string;
   subtitle: string;
+  subtitleAr?: string;
+  subtitleEn?: string;
   buttonText: string;
+  buttonTextAr?: string;
+  buttonTextEn?: string;
   buttonUrl: string;
+  buttonLink?: string;
+  buttonBgColor?: string;
+  buttonTextColor?: string;
+  buttonIcon?: string;
+  buttonStyle?: 'filled' | 'outlined' | 'gradient' | 'glass';
+  buttonBorderRadius?: number;
   badge: string;
+  badgeAr?: string;
+  badgeEn?: string;
+  overlayGradient?: string;
+  bgColor?: string;
+  // Specifications Box (Matching user screenshot: Size WxHxL + Pressure + Boiler + Grouphead)
+  dimensionsEn?: string;
+  dimensionsAr?: string;
+  priceEn?: string;
+  priceAr?: string;
+  specs?: SlideSpecItem[];
+  spec1Icon?: 'gauge' | 'flame' | 'coffee' | 'zap' | 'ruler';
+  spec1LabelEn?: string;
+  spec1LabelAr?: string;
+  spec1ValueEn?: string;
+  spec1ValueAr?: string;
+  spec2Icon?: 'gauge' | 'flame' | 'coffee' | 'zap' | 'ruler';
+  spec2LabelEn?: string;
+  spec2LabelAr?: string;
+  spec2ValueEn?: string;
+  spec2ValueAr?: string;
+  spec3Icon?: 'gauge' | 'flame' | 'coffee' | 'zap' | 'ruler';
+  spec3LabelEn?: string;
+  spec3LabelAr?: string;
+  spec3ValueEn?: string;
+  spec3ValueAr?: string;
 }
 
 export interface AdvancedSliderSettings {
@@ -146,6 +194,7 @@ export interface AdvancedSliderSettings {
   showOnDesktop: boolean;
   showOnMobile: boolean;
   customCss: string;
+  heroWidgetType?: 'slider' | 'flower-scroll-hero' | '3d-interactive';
 }
 
 export interface VideoProductItem {
@@ -180,6 +229,8 @@ export interface ProductTabsSettings {
   tabs: string[];
   displayType: 'list' | 'slider';
   numberOfProducts: number;
+  columnsCount?: number;
+  collectionFilter?: string;
   displayViewAll: boolean;
 }
 
@@ -407,6 +458,9 @@ export interface ProductCardsSettings {
   showNotifyMe: boolean;
   showDiscountPercentage: boolean;
   showProductRating: boolean;
+  cardDesignPreset?: 'royal-luxury' | 'classic' | 'minimal';
+  showFeatureBadges?: boolean;
+  showWhatsAppButton?: boolean;
 }
 
 export interface CustomProductsSettings {
@@ -417,6 +471,8 @@ export interface CustomProductsSettings {
   displayType: 'list' | 'slider';
   productType: 'latest' | 'featured' | 'discounts';
   numberOfProducts: number;
+  columnsCount?: number;
+  collectionFilter?: string;
   displayViewAll: boolean;
 }
 
@@ -478,6 +534,15 @@ export interface MaintenanceModeSettings {
   whatsappNumber: string;
 }
 
+export interface CustomOrderSettings {
+  enabled: boolean;
+  whatsappNumber: string;
+  whatsappMessageAr: string;
+  whatsappMessageEn: string;
+  buttonLabelAr?: string;
+  buttonLabelEn?: string;
+}
+
 export interface AllThemeSettings {
   identity: StoreIdentitySettings;
   general: GeneralOptionsSettings;
@@ -499,15 +564,265 @@ export interface AllThemeSettings {
   statistics: StoreStatisticsSettings;
   customHeader?: HeaderCustomSettings;
   maintenance?: MaintenanceModeSettings;
+  customOrder?: CustomOrderSettings;
   updatedAt: string;
 }
 
-export function defaultThemeSettingsMap(fallback: {
+function buildRawDefaultThemeSettings(fallback: {
   name: string;
   ownerEmail?: string;
   logo?: string;
   accentColor?: string;
+  id?: string;
 }): AllThemeSettings {
+  const storeId = (fallback as any)?.id || '';
+  const storeName = (fallback as any)?.name || '';
+  const isCoffee =
+    storeId === 'store-coffee' ||
+    storeId.includes('coffee') ||
+    storeName.toLowerCase().includes('coffee') ||
+    storeName.includes('قهوة') ||
+    storeName.includes('HiBrew') ||
+    (fallback as any)?.category?.includes('قهوة');
+
+  const isCar =
+    storeId === 'store-bleco' ||
+    storeId.includes('car') ||
+    storeId.includes('bleco') ||
+    storeName.toLowerCase().includes('bleco') ||
+    storeName.includes('سيارات');
+
+  // Dynamic Store-Aware Slider Defaults
+  const defaultSlides: SliderSlide[] = isCoffee
+    ? [
+        {
+          id: 'slide-coffee-1',
+          productId: 'hb-h10a-dualboiler',
+          type: 'image',
+          image: '/hero_coffee_banner_white_1.jpg',
+          title: 'HiBrew Barista Pro™ H7A Dual-Boiler',
+          titleAr: 'هايبرو بارستا برو H7A دبل بويلر 20 بار',
+          titleEn: 'HiBrew Barista Pro™ H7A Dual-Boiler',
+          subtitle: 'Dual independent PID thermoblock with commercial 58mm group and 20-bar Italian ULKA pump.',
+          subtitleAr: 'دبل بويلر مستقل ونظام تحكم حراري PID مع مقبس تجاري 58 ملم ومضخة إيطالية 20 بار.',
+          subtitleEn: 'Dual independent PID thermoblock with commercial 58mm group and 20-bar Italian ULKA pump.',
+          buttonText: 'Shop Barista Pro →',
+          buttonTextAr: 'تسوّق الآن →',
+          buttonTextEn: 'Shop Barista Pro →',
+          buttonUrl: '#products',
+          buttonBgColor: '#c88a58',
+          buttonTextColor: '#FFFFFF',
+          buttonIcon: 'ShoppingBag',
+          buttonStyle: 'filled',
+          buttonBorderRadius: 12,
+          badge: 'AI✦ Flagship Choice',
+          badgeAr: 'خيار الفلاجشيب AI✦',
+          badgeEn: 'AI✦ Flagship Choice',
+          dimensionsEn: 'W: 34cm · H: 31cm · L: 42cm',
+          dimensionsAr: 'عرض: 34سم · ارتفاع: 31سم · طول: 42سم',
+          priceEn: 'SAR 1,899.00',
+          priceAr: '1,899.00 ر.س',
+          spec1Icon: 'gauge',
+          spec1LabelEn: 'Pressure',
+          spec1LabelAr: 'الضغط',
+          spec1ValueEn: '20-Bar ULKA',
+          spec1ValueAr: 'مضخة ٢٠ بار',
+          spec2Icon: 'flame',
+          spec2LabelEn: 'Boiler',
+          spec2LabelAr: 'التسخين',
+          spec2ValueEn: 'Dual PID System',
+          spec2ValueAr: 'دبل بويلر PID',
+          spec3Icon: 'coffee',
+          spec3LabelEn: 'Grouphead',
+          spec3LabelAr: 'المقبس',
+          spec3ValueEn: '58mm Brass',
+          spec3ValueAr: '٥٨ مم نحاسي',
+        },
+        {
+          id: 'slide-coffee-2',
+          productId: 'hb-barista-silver-pro',
+          type: 'image',
+          image: '/hero_coffee_banner_white_2.jpg',
+          title: 'HiBrew Titanium Burr Grinder G5',
+          titleAr: 'مطحنة القهوة المخروطية G5 بتروس تيتانيوم',
+          titleEn: 'HiBrew Titanium Burr Grinder G5',
+          subtitle: '40mm Titanium CNC burrs, stepless micron dial with zero-retention blowing hopper.',
+          subtitleAr: 'تروس تيتانيوم CNC 40 مم مع ضبط ميكروني فائق الدقة ومنفاخ تفريغ البن بالكامل.',
+          subtitleEn: '40mm Titanium CNC burrs, stepless micron dial with zero-retention blowing hopper.',
+          buttonText: 'Explore Grinders',
+          buttonTextAr: 'اكتشف المطاحن',
+          buttonTextEn: 'Explore Grinders',
+          buttonUrl: '#products',
+          buttonBgColor: '#21140e',
+          buttonTextColor: '#FFFFFF',
+          buttonIcon: 'Zap',
+          buttonStyle: 'filled',
+          buttonBorderRadius: 12,
+          badge: 'Titanium Burrs',
+          badgeAr: 'تروس تيتانيوم',
+          badgeEn: 'Titanium Burrs',
+          dimensionsEn: 'W: 32cm · H: 30cm · L: 38cm',
+          dimensionsAr: 'عرض: 32سم · ارتفاع: 30سم · طول: 38سم',
+          priceEn: 'SAR 1,499.00',
+          priceAr: '1,499.00 ر.س',
+          spec1Icon: 'gauge',
+          spec1LabelEn: 'Pressure',
+          spec1LabelAr: 'الضغط',
+          spec1ValueEn: '20-Bar Pump',
+          spec1ValueAr: 'مضخة ٢٠ بار',
+          spec2Icon: 'zap',
+          spec2LabelEn: 'Warmup',
+          spec2LabelAr: 'التسخين',
+          spec2ValueEn: '30s Fast Heating',
+          spec2ValueAr: 'تسخين ٣٠ ثانية',
+          spec3Icon: 'coffee',
+          spec3LabelEn: 'Steam Wand',
+          spec3LabelAr: 'التبخير',
+          spec3ValueEn: 'Microfoam Steam',
+          spec3ValueAr: 'تبخير ميكروفوم',
+        },
+        {
+          id: 'slide-coffee-3',
+          productId: 'hb-classic-duo-espresso',
+          type: 'image',
+          image: '/hero_coffee_banner_white_3.jpg',
+          title: 'HiBrew Luxury Oak Coffee Station',
+          titleAr: 'ركن ودولاب القهوة الملكي من خشب البلوط',
+          titleEn: 'HiBrew Luxury Oak Coffee Station',
+          subtitle: 'Natural fluted American oak with heat-proof sintered stone and internal power track.',
+          subtitleAr: 'خشب بلوط أمريكي طبيعي مع سطح حجر مقاوم للحرارة ومسار كهربائي مخفي للباريستا.',
+          subtitleEn: 'Natural fluted American oak with heat-proof sintered stone and internal power track.',
+          buttonText: 'Custom Made to Order',
+          buttonTextAr: 'تفصيل حسب الطلب',
+          buttonTextEn: 'Custom Made to Order',
+          buttonUrl: 'https://wa.me/966549876543',
+          buttonBgColor: '#78350f',
+          buttonTextColor: '#FFFFFF',
+          buttonIcon: 'Sparkles',
+          buttonStyle: 'filled',
+          buttonBorderRadius: 12,
+          badge: 'Handcrafted',
+          badgeAr: 'تفصيل فاخر',
+          badgeEn: 'Handcrafted',
+          dimensionsEn: 'W: 140cm · H: 92cm · D: 60cm',
+          dimensionsAr: 'عرض: 140سم · ارتفاع: 92سم · عمق: 60سم',
+          priceEn: 'SAR 2,450.00',
+          priceAr: '2,450.00 ر.س',
+          spec1Icon: 'ruler',
+          spec1LabelEn: 'Structure',
+          spec1LabelAr: 'الهيكل',
+          spec1ValueEn: 'Natural Solid Oak',
+          spec1ValueAr: 'خشب بلوط طبيعي',
+          spec2Icon: 'flame',
+          spec2LabelEn: 'Surface',
+          spec2LabelAr: 'السطح',
+          spec2ValueEn: 'Sintered Stone',
+          spec2ValueAr: 'حجر إيطالي فاخر',
+          spec3Icon: 'zap',
+          spec3LabelEn: 'Power',
+          spec3LabelAr: 'الكهرباء',
+          spec3ValueEn: 'Concealed Rail',
+          spec3ValueAr: 'مسار كهرباء مخفي',
+        },
+      ]
+    : isCar
+    ? [
+        {
+          id: 'slide-car-1',
+          type: 'image',
+          image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1920&q=80',
+          title: 'Royal 7D Diamond Leather Car Mats',
+          titleAr: 'دعاسات وأرضيات السيارات الملكية 7D بالجلد الماسي',
+          titleEn: 'Royal 7D Diamond Leather Car Mats',
+          subtitle: 'Laser-scanned precision fit for all luxury vehicle makes with waterproof multi-layer armor.',
+          subtitleAr: 'تفصيل ليزري مخصص بدقة ثلاثية الأبعاد لجميع أنواع السيارات مع حماية عازلة للماء.',
+          subtitleEn: 'Laser-scanned precision fit for all luxury vehicle makes with waterproof multi-layer armor.',
+          buttonText: 'Configure Mats →',
+          buttonTextAr: 'فصّل أرضيتك الآن →',
+          buttonTextEn: 'Configure Mats →',
+          buttonUrl: '#products',
+          buttonBgColor: '#d97706',
+          buttonTextColor: '#FFFFFF',
+          buttonIcon: 'ShoppingBag',
+          buttonStyle: 'filled',
+          buttonBorderRadius: 12,
+          badge: 'VIP 7D Armor',
+          badgeAr: 'حماية VIP 7D',
+          badgeEn: 'VIP 7D Armor',
+        },
+        {
+          id: 'slide-car-2',
+          type: 'image',
+          image: 'https://images.unsplash.com/photo-1489824904134-891ab64532f1?auto=format&fit=crop&w=1920&q=80',
+          title: 'Custom Diamond Cabin Upholstery',
+          titleAr: 'تنجيد مراتب السيارات الفاخر بالجلد الطبيعي',
+          titleEn: 'Custom Diamond Cabin Upholstery',
+          subtitle: 'Artisan hand-stitched German thread diamond upholstery with 5-year anti-sag guarantee.',
+          subtitleAr: 'تنجيد مقاعد يدوي فاخر بخيوط ألمانية أصلية وضمان 5 سنوات ضد الهبوط والتآكل.',
+          subtitleEn: 'Artisan hand-stitched German thread diamond upholstery with 5-year anti-sag guarantee.',
+          buttonText: 'Order Custom Seats',
+          buttonTextAr: 'طلب تنجيد مخصص',
+          buttonTextEn: 'Order Custom Seats',
+          buttonUrl: '#products',
+          buttonBgColor: '#0f172a',
+          buttonTextColor: '#FFFFFF',
+          buttonIcon: 'Sparkles',
+          buttonStyle: 'filled',
+          buttonBorderRadius: 12,
+          badge: '5-Year Guarantee',
+          badgeAr: 'ضمان 5 سنوات',
+          badgeEn: '5-Year Guarantee',
+        },
+      ]
+    : [
+        {
+          id: 'slide-flowers-1',
+          type: 'image',
+          image: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80',
+          title: 'Discover Luxury Floral Bouquets',
+          titleAr: 'أفخم باقات الورد الطبيعي والهدايا الملكية',
+          titleEn: 'Discover Luxury Floral Bouquets',
+          subtitle: 'Daily fresh imports from Holland and Ecuador crafted for your sacred moments in Makkah.',
+          subtitleAr: 'ورود طبيعية مستوردة يومياً من هولندا والإكوادور صُنعت بشغف لأروع المناسبات.',
+          subtitleEn: 'Daily fresh imports from Holland and Ecuador crafted for your sacred moments in Makkah.',
+          buttonText: 'Shop Bouquets →',
+          buttonTextAr: 'تسوّق الباقات →',
+          buttonTextEn: 'Shop Bouquets →',
+          buttonUrl: '#store-products-grid',
+          buttonBgColor: '#059669',
+          buttonTextColor: '#FFFFFF',
+          buttonIcon: 'ShoppingBag',
+          buttonStyle: 'filled',
+          buttonBorderRadius: 12,
+          badge: 'Fresh Daily Import',
+          badgeAr: 'استيراد يومي طازج',
+          badgeEn: 'Fresh Daily Import',
+        },
+        {
+          id: 'slide-flowers-2',
+          type: 'image',
+          image: 'https://images.unsplash.com/photo-1525310072745-f49212b5ac6d?auto=format&fit=crop&w=1920&q=80',
+          title: 'Royal Lily & Orchid Elegance',
+          titleAr: 'تشكيلة الليليوم والأوركيد الملكية الفاخرة',
+          titleEn: 'Royal Lily & Orchid Elegance',
+          subtitle: 'Daily fresh imports delivered chilled to your doorstep within 60 minutes across Makkah.',
+          subtitleAr: 'توصيل مبرد وسريع خلال 60 دقيقة لكافة أحياء مكة المكرمة والمشاعر.',
+          subtitleEn: 'Daily fresh imports delivered chilled to your doorstep within 60 minutes across Makkah.',
+          buttonText: 'Explore Collection',
+          buttonTextAr: 'تصفح التشكيلة',
+          buttonTextEn: 'Explore Collection',
+          buttonUrl: '#store-products-grid',
+          buttonBgColor: '#047857',
+          buttonTextColor: '#FFFFFF',
+          buttonIcon: 'Sparkles',
+          buttonStyle: 'filled',
+          buttonBorderRadius: 12,
+          badge: 'Bestseller',
+          badgeAr: 'الأكثر مبيعاً',
+          badgeEn: 'Bestseller',
+        },
+      ];
+
   return {
     identity: defaultStoreIdentity(fallback),
     general: {
@@ -523,26 +838,40 @@ export function defaultThemeSettingsMap(fallback: {
       categoryLayoutWidth: 'container',
       mobileDisplayMode: '2-columns',
       autoSeasonThemeColors: true,
-      customNavigationMenu: [
-        { id: 'menu-1', labelEn: 'Home', labelAr: 'الرئيسية', url: 'home', type: 'page', active: true },
-        { id: 'menu-2', labelEn: 'Shop', labelAr: 'المتجر', url: 'shop', type: 'page', active: true },
-        { id: 'menu-3', labelEn: 'Track Order', labelAr: 'تتبع الطلب', url: 'track-order', type: 'page', active: true },
-        { id: 'menu-4', labelEn: 'Blog', labelAr: 'المدونة', url: 'blog', type: 'page', active: true },
-        { id: 'menu-5', labelEn: 'About Us', labelAr: 'من نحن', url: 'about', type: 'page', active: true },
-        { id: 'menu-6', labelEn: 'Contact', labelAr: 'تواصل معنا', url: 'contact', type: 'page', active: true },
-      ],
+      customNavigationMenu: isCoffee
+        ? [
+            { id: 'menu-1', labelEn: 'Shop Gear', labelAr: 'المتجر والمعدات', url: 'products', type: 'page', active: true },
+            { id: 'menu-2', labelEn: 'Machines', labelAr: 'مكائن القهوة', url: 'products', type: 'page', active: true },
+            { id: 'menu-3', labelEn: 'Mills', labelAr: 'مطاحن البن', url: 'products', type: 'page', active: true },
+            { id: 'menu-5', labelEn: 'Reviews', labelAr: 'آراء العملاء', url: 'reviews', type: 'page', active: true },
+          ]
+        : isCar
+        ? [
+            { id: 'menu-1', labelEn: 'Custom Mats', labelAr: 'دعاسات السيارات 7D', url: 'catalog', type: 'page', active: true },
+            { id: 'menu-2', labelEn: 'Upholstery', labelAr: 'تنجيد المراتب', url: 'catalog', type: 'page', active: true },
+            { id: 'menu-3', labelEn: 'Accessories', labelAr: 'إكسسوارات المقصورة', url: 'catalog', type: 'page', active: true },
+            { id: 'menu-4', labelEn: 'Calculator', labelAr: 'حاسبة الأسعار', url: 'catalog', type: 'page', active: true },
+          ]
+        : [
+            { id: 'menu-1', labelEn: 'Home', labelAr: 'الرئيسية', url: 'home', type: 'page', active: true },
+            { id: 'menu-2', labelEn: 'Shop', labelAr: 'المتجر', url: 'shop', type: 'page', active: true },
+            { id: 'menu-3', labelEn: 'Track Order', labelAr: 'تتبع الطلب', url: 'track-order', type: 'page', active: true },
+            { id: 'menu-4', labelEn: 'Blog', labelAr: 'المدونة', url: 'blog', type: 'page', active: true },
+            { id: 'menu-5', labelEn: 'About Us', labelAr: 'من نحن', url: 'about', type: 'page', active: true },
+            { id: 'menu-6', labelEn: 'Contact', labelAr: 'تواصل معنا', url: 'contact', type: 'page', active: true },
+          ],
     },
     colors: {
       enableDarkModeSwitch: true,
       forceDarkMode: false,
       primaryBgColor: '#FFFFFF',
-      secondaryBgColor: '#F8FAFC',
-      mainTextColor: '#111827',
-      secondaryTextColor: '#6B7280',
-      headerBgColor: '#032320',
+      secondaryBgColor: isCoffee ? '#1a110c' : isCar ? '#0f172a' : '#F8FAFC',
+      mainTextColor: isCoffee ? '#f7ede2' : '#111827',
+      secondaryTextColor: isCoffee ? '#c88a58' : '#6B7280',
+      headerBgColor: isCoffee ? '#160e0a' : isCar ? '#020617' : '#032320',
       headerTextColor: '#FFFFFF',
       productCardBgColor: '#FFFFFF',
-      promoLabelBgColor: '#EF4444',
+      promoLabelBgColor: isCoffee ? '#c88a58' : isCar ? '#d97706' : '#EF4444',
       enableLoadingScreen: false,
       enableDashboardLoader: true,
       loadingAnimatedLogo: true,
@@ -560,13 +889,17 @@ export function defaultThemeSettingsMap(fallback: {
     },
     categoryCartCustomer: {
       autoLoadProducts: true,
-      categoryBannerUrl: 'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&w=1920&q=80',
+      categoryBannerUrl: isCoffee
+        ? '/hero_coffee_banner_white_2.jpg'
+        : 'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&w=1920&q=80',
       subcategories: true,
       breadcrumbs: true,
       enhancedCart: true,
       recommendedProducts: true,
       recommendedDisplayStyle: 'grid',
-      customerBgImage: 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=1920&q=80',
+      customerBgImage: isCoffee
+        ? '/hero_coffee_banner_white_3.jpg'
+        : 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=1920&q=80',
       loginPageStyle: 'image',
       registerPageStyle: 'image',
       accountPageStyle: 'solid',
@@ -574,50 +907,21 @@ export function defaultThemeSettingsMap(fallback: {
       showPhoneInCustomer: false,
     },
     slider: {
-      slides: [
-        {
-          id: 'slide-1',
-          type: 'image',
-          image: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80',
-          title: 'Discover Your Style',
-          subtitle: 'Premium quality floral bouquets crafted for your sacred moments in Makkah.',
-          buttonText: 'Shop Now →',
-          buttonUrl: '#store-products-grid',
-          badge: 'Limited Edition',
-        },
-        {
-          id: 'slide-2',
-          type: 'image',
-          image: 'https://images.unsplash.com/photo-1525310072745-f49212b5ac6d?auto=format&fit=crop&w=1920&q=80',
-          title: 'Royal Lily & Orchid Elegance',
-          subtitle: 'Daily fresh imports from Netherlands and Ecuador delivered to your doorstep in 2 hours.',
-          buttonText: 'Explore Collection',
-          buttonUrl: '#store-products-grid',
-          badge: 'Bestseller',
-        },
-        {
-          id: 'slide-3',
-          type: 'image',
-          image: 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=1920&q=80',
-          title: 'Ramadan & Eid Celebrations',
-          subtitle: 'Spread joy and blessing with handcrafted luxury arrangements.',
-          buttonText: 'Order via WhatsApp',
-          buttonUrl: 'https://wa.me/966504428819',
-          badge: 'Special Season',
-        },
-      ],
+      slides: defaultSlides,
       transitionEffect: 'fade',
       transitionDuration: 5,
       animationSpeed: 2,
       autoPlay: true,
-      buttonBgColor: '#059669',
+      buttonBgColor: isCoffee ? '#c88a58' : isCar ? '#d97706' : '#059669',
       buttonTextColor: '#FFFFFF',
       buttonStyle: 'filled',
       buttonBorderRadius: 12,
       showOnDesktop: true,
       showOnMobile: true,
       customCss: '',
+      heroWidgetType: 'slider',
     },
+    customHeader: getDefaultHeaderSettings(fallback, (fallback as any)?.theme_id),
     videos: {
       enabled: true,
       elementTitle: 'Product Videos',
@@ -673,6 +977,8 @@ export function defaultThemeSettingsMap(fallback: {
       tabs: ['Best Selling', 'Latest', 'Discounts', 'Bridal', 'Luxury Vases', 'Accessories'],
       displayType: 'slider',
       numberOfProducts: 8,
+      columnsCount: 4,
+      collectionFilter: 'all',
       displayViewAll: true,
     },
     detailedProducts: {
@@ -1004,6 +1310,9 @@ export function defaultThemeSettingsMap(fallback: {
       showNotifyMe: true,
       showDiscountPercentage: true,
       showProductRating: true,
+      cardDesignPreset: (!isCoffee && !isCar) ? 'royal-luxury' : 'classic',
+      showFeatureBadges: (!isCoffee && !isCar) ? true : false,
+      showWhatsAppButton: true,
     },
     customProducts: {
       enabled: true,
@@ -1013,6 +1322,8 @@ export function defaultThemeSettingsMap(fallback: {
       displayType: 'slider',
       productType: 'featured',
       numberOfProducts: 8,
+      columnsCount: 4,
+      collectionFilter: 'all',
       displayViewAll: true,
     },
     specialOffer: {
@@ -1095,9 +1406,100 @@ export function defaultThemeSettingsMap(fallback: {
       showEmailSubscribe: true,
       whatsappNumber: '+966581617712',
     },
-    customHeader: getDefaultHeaderSettings({ ...fallback, id: (fallback as any).id }),
+    customOrder: {
+      enabled: false,
+      whatsappNumber: (fallback as any)?.whatsapp || (fallback as any)?.phone || '966549876543',
+      whatsappMessageAr: isCoffee
+        ? 'السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم'
+        : 'السلام عليكم، أود الاستفسار بخصوص تفصيل طلب مخصص',
+      whatsappMessageEn: isCoffee
+        ? 'Hello, I would like to inquire about placing a custom coffee corner order.'
+        : 'Hello, I would like to inquire about placing a custom order.',
+      buttonLabelAr: isCoffee ? 'تفصيل حسب الطلب · تصميم وتنفيذ' : 'طلب مخصص وتفصيل',
+      buttonLabelEn: isCoffee ? 'Custom Made · Design & Build' : 'Custom Made to Order',
+    },
     updatedAt: new Date().toISOString(),
   };
+}
+
+/** True only for the flowers/gifts vertical, the single store type allowed to keep floral seed content. */
+export function isFlowerStore(store: { id?: string; name?: string }): boolean {
+  const id = (store.id || '').toLowerCase();
+  const name = store.name || '';
+  return (
+    id === 'store-1' ||
+    /flower|bouquet|florist|hadaya|gift/i.test(name) ||
+    /زهور|ورد|هدايا|باقات/.test(name)
+  );
+}
+
+const FLOWER_CONTENT_PATTERN =
+  /photo-1518895949257|photo-1563245372|photo-1526047932273|photo-1490750967868|photo-1561181286|bouquet|flower|floral|vases?\b|haram|makkah|dutch|bridal|زهور|باقات|مكة|الحرم/i;
+
+/** Detects floral seed content that must never appear on non-flower stores. */
+export function containsFlowerContent(section: unknown): boolean {
+  if (section == null) return false;
+  try {
+    return FLOWER_CONTENT_PATTERN.test(JSON.stringify(section));
+  } catch {
+    return false;
+  }
+}
+
+/** Sections whose default content is vertical-specific and must be empty for non-flower stores. */
+const CONTENT_SECTION_KEYS = [
+  'videos',
+  'tabs',
+  'detailedProducts',
+  'imageGrid',
+  'customLinks',
+  'banners',
+  'blog',
+  'announcementBar',
+  'enhancedFeatures',
+  'specialOffer',
+  'statistics',
+  'maintenance',
+  'customOrder',
+] as const;
+
+export function defaultThemeSettingsMap(fallback: {
+  name: string;
+  ownerEmail?: string;
+  logo?: string;
+  accentColor?: string;
+  id?: string;
+}): AllThemeSettings {
+  const base = buildRawDefaultThemeSettings(fallback);
+  if (isFlowerStore({ id: fallback.id, name: fallback.name })) return base;
+
+  // Non-flower store: no fabricated catalog/marketing content. Sections render genuine empty states
+  // or fall back to the active theme's own components fed by the store's real products.
+  const s: any = base;
+  s.videos = { ...s.videos, enabled: false, videoProducts: [] };
+  s.tabs = { ...s.tabs, tabs: [], activeTab: '' };
+  s.detailedProducts = {
+    ...s.detailedProducts,
+    selectedProductId: '',
+    productVideoUrl: '',
+    salesCount: '',
+    movingBannerText: '',
+  };
+  s.imageGrid = { ...s.imageGrid, items: [] };
+  s.customLinks = { ...s.customLinks, links: [] };
+  s.banners = { ...s.banners, banners: [] };
+  s.blog = { ...s.blog, articles: [] };
+  if (s.statistics) s.statistics = { ...s.statistics, items: [] };
+  if (s.maintenance) {
+    s.maintenance = {
+      ...s.maintenance,
+      titleEn: fallback.name || '',
+      titleAr: fallback.name || '',
+      subtitleEn: '',
+      subtitleAr: '',
+    };
+  }
+  return base;
 }
 
 export const getThemeSettingsCompositeKey = (storeId: string, themeId?: string): string => {
@@ -1119,12 +1521,29 @@ export function resolveStoreActiveThemeId(storeId: string): string | undefined {
   return undefined;
 }
 
+const themeSettingsCache = new Map<string, AllThemeSettings>();
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (!e.key || e.key.startsWith('unityteck_theme_settings_') || e.key === 'unityteck_store_active_theme_map') {
+      themeSettingsCache.clear();
+    }
+  });
+  window.addEventListener('unityteck-theme-settings', () => {
+    themeSettingsCache.clear();
+  });
+}
+
 export function readAllThemeSettings(
   storeId: string,
   fallbackStore: { name: string; ownerEmail?: string; logo?: string; accentColor?: string },
   explicitThemeId?: string,
 ): AllThemeSettings {
   const targetThemeId = explicitThemeId || resolveStoreActiveThemeId(storeId);
+  const cacheKey = `${storeId}::${targetThemeId || ''}::${fallbackStore?.name || ''}`;
+  const cached = themeSettingsCache.get(cacheKey);
+  if (cached) return cached;
+
   const defaults = defaultThemeSettingsMap({ ...fallbackStore, id: storeId } as any);
 
   // If a theme manifest exists, adapt default colors to match that theme's branding
@@ -1154,6 +1573,12 @@ export function readAllThemeSettings(
 
     if (raw) {
       const parsed = JSON.parse(raw);
+      // Strict vertical isolation: purge any floral seed content persisted for a non-flower store.
+      if (!isFlowerStore({ id: storeId, name: fallbackStore.name })) {
+        for (const key of CONTENT_SECTION_KEYS) {
+          if (containsFlowerContent(parsed[key])) delete parsed[key];
+        }
+      }
       // Self-heal header if it holds wrong store's default flowers for coffee/car/other store
       const isNotHadayaStore = storeId === 'store-coffee' || storeId === 'store-bleco' || storeId !== 'store-1';
       const hasWrongFlowerHeader = isNotHadayaStore && (
@@ -1165,14 +1590,27 @@ export function readAllThemeSettings(
         ? defaults.customHeader
         : (parsed.customHeader || defaults.customHeader);
 
-      return {
+      // Self-heal slider if it holds floral bouquet defaults on coffee or car store
+      const hasWrongFlowerSlider = isNotHadayaStore && (
+        parsed.slider?.slides?.some((s: any) =>
+          s.subtitle?.toLowerCase().includes('floral') ||
+          s.title?.toLowerCase().includes('floral') ||
+          s.subtitle?.includes('باقات') ||
+          s.title?.includes('باقات')
+        )
+      );
+      const safeSlider = hasWrongFlowerSlider
+        ? defaults.slider
+        : (parsed.slider || defaults.slider);
+
+      const result: AllThemeSettings = {
         ...defaults,
         ...parsed,
         identity: { ...defaults.identity, ...(parsed.identity || {}) },
         general: { ...defaults.general, ...(parsed.general || {}) },
         colors: { ...defaults.colors, ...(parsed.colors || {}) },
         categoryCartCustomer: { ...defaults.categoryCartCustomer, ...(parsed.categoryCartCustomer || {}) },
-        slider: { ...defaults.slider, ...(parsed.slider || {}) },
+        slider: safeSlider,
         videos: { ...defaults.videos, ...(parsed.videos || {}) },
         tabs: { ...defaults.tabs, ...(parsed.tabs || {}) },
         detailedProducts: { ...defaults.detailedProducts, ...(parsed.detailedProducts || {}) },
@@ -1188,11 +1626,15 @@ export function readAllThemeSettings(
         statistics: { ...defaults.statistics, ...(parsed.statistics || {}) },
         customHeader: safeCustomHeader,
         maintenance: { ...(defaults.maintenance || {}), ...(parsed.maintenance || {}) },
+        customOrder: { ...(defaults.customOrder || {}), ...(parsed.customOrder || {}) },
       };
+      themeSettingsCache.set(cacheKey, result);
+      return result;
     }
   } catch {
     /* fallback to defaults */
   }
+  themeSettingsCache.set(cacheKey, defaults);
   return defaults;
 }
 
@@ -1201,6 +1643,7 @@ export function writeAllThemeSettings(
   settings: AllThemeSettings,
   explicitThemeId?: string,
 ): void {
+  themeSettingsCache.clear();
   const targetThemeId = explicitThemeId || resolveStoreActiveThemeId(storeId);
   const next = { ...settings, updatedAt: new Date().toISOString() };
 
@@ -1215,6 +1658,8 @@ export function writeAllThemeSettings(
   writeStoreIdentity(storeId, next.identity);
 
   if (typeof window !== 'undefined') {
+    bumpStore(storeId, 'theme');
+    bumpStore(storeId, 'settings');
     window.dispatchEvent(
       new CustomEvent('unityteck-theme-settings', {
         detail: { storeId, themeId: targetThemeId, updatedAt: next.updatedAt },

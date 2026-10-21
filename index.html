@@ -270,25 +270,41 @@
         try {
           var params = new URLSearchParams(window.location.search);
           var s = (params.get('store') || params.get('storeId') || localStorage.getItem('unityteck_active_store_id') || '').toLowerCase();
-          if (s === 'coffee' || s === 'store-coffee' || s === 'roasters') {
-            document.title = 'HiBrew KSA | Official Coffee Store متجر مكائن ومستلزمات القهوة';
-            var metaDesc = document.querySelector('meta[name="description"]');
-            var desc = 'متخصصون في بيع مكائن القهوة و مستلزماتها ذات جودة عالية و بسعر مناسب ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية';
-            if (metaDesc) metaDesc.setAttribute('content', desc);
-            var ogTitle = document.querySelector('meta[property="og:title"]');
-            if (ogTitle) ogTitle.setAttribute('content', 'HiBrew KSA | Official Coffee Store متجر مكائن ومستلزمات القهوة');
-            var ogDesc = document.querySelector('meta[property="og:description"]');
-            if (ogDesc) ogDesc.setAttribute('content', desc);
+          var p = (window.location.pathname || '').toLowerCase();
+          var h = (window.location.hostname || '').toLowerCase();
+          var lang = document.documentElement.lang || 'ar';
+          var isAr = lang === 'ar' || lang === 'ur';
+
+          var title = isAr ? 'منصة يونيتي تك | المنصة المتكاملة للتجارة الإلكترونية بالسعودية' : 'UnityTeck SaaS | Multi-Store E-Commerce Platform';
+          var desc = isAr ? 'منصة التجارة الإلكترونية متعددة المتاجر المتوافقة مع معايير التجارة السعودية والربط المحاسبي السحابي' : 'Unified multi-tenant e-commerce SaaS with real-time analytics, ERP synchronization and automated logistics';
+
+          if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html')) {
+            title = isAr ? 'هايبرو السعودية | المتجر الرسمي لمكائن ومستلزمات القهوة المختصة' : 'HiBrew KSA | Official Coffee Store - Espresso Machines & Specialty Coffee Gear';
+            desc = isAr ? 'متخصصون في بيع مكائن القهوة ومستلزماتها ذات الجودة العالية ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية' : 'Official HiBrew Saudi Arabia distributor for commercial & home espresso machines, titanium conical grinders and luxury coffee bar setups.';
+          } else if (s === 'bleco' || s === 'store-bleco' || s === 'cars' || s === 'alsaeedi' || p.startsWith('/car') || p.startsWith('/bleco')) {
+            title = isAr ? 'متجر السعيدي لخدمات السيارات | تنجيد وتلبيس مقاعد السيارات بمكة المكرمة' : 'Al-Saeedi VIP Automotive Services | Luxury Car Seat Upholstery & Floor Protection Makkah';
+            desc = isAr ? 'خدمات تنجيد وتلبيس مقاعد السيارات وتفصيل الدعاسات الفاخرة المقاومة للماء والأتربة بأعلى معايير الحرفية بمكة المكرمة' : 'High-precision laser cut automotive seat upholstery, luxury 5D diamond floor mats and interior restoration in Makkah, Saudi Arabia.';
+          } else if (s === 'store-1' || s === 'hadaya' || s === 'flowers' || p.startsWith('/flowers') || p.startsWith('/hadaya') || h.includes('giftshop-sa.com')) {
+            title = isAr ? 'هدايا مكة | متجر الزهور الطبيعية وباقات الورد وتوصيل فنادق الحرم المكي' : 'Hadaya Mecca | Luxury Fresh Flowers, Gifts & 24/7 Haram Hotel Delivery';
+            desc = isAr ? 'متجر باقات الورد الطبيعي الفاخر، شوكولاتة باتشي وبستاني، وتنسيق هدايا مع خدمة التوصيل السريع إلى جميع فنادق وأبراج مكة المكرمة' : 'Same-day express delivery of premium Ecuadorian roses, Belgian chocolates and VIP pilgrim gift boxes to Makkah Haram clock tower hotels.';
           }
+
+          document.title = title;
+          var metaDesc = document.querySelector('meta[name="description"]');
+          if (metaDesc) metaDesc.setAttribute('content', desc);
+          var ogTitle = document.querySelector('meta[property="og:title"]');
+          if (ogTitle) ogTitle.setAttribute('content', title);
+          var ogDesc = document.querySelector('meta[property="og:description"]');
+          if (ogDesc) ogDesc.setAttribute('content', desc);
         } catch (e) {}
       })();
     </script>
 
-    <title>HiBrew KSA | Official Coffee Store متجر مكائن ومستلزمات القهوة</title>
-    <meta name="description" content="متخصصون في بيع مكائن القهوة و مستلزماتها ذات جودة عالية و بسعر مناسب ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية" />
-    <meta name="keywords" content="هاي برو,مكائن قهوة,مطاحن,باريستا,20 بار,دبل بويلر,السعودية,HiBrew,قهوة مختصة,أركان قهوة" />
-    <meta property="og:title" content="HiBrew KSA | Official Coffee Store متجر مكائن ومستلزمات القهوة" />
-    <meta property="og:description" content="متخصصون في بيع مكائن القهوة و مستلزماتها ذات جودة عالية و بسعر مناسب ☕️" />
+    <title>هايبرو السعودية | المتجر الرسمي لمكائن ومستلزمات القهوة المختصة</title>
+    <meta name="description" content="متخصصون في بيع مكائن القهوة ومستلزماتها ذات الجودة العالية ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية" />
+    <meta name="keywords" content="هاي برو, مكائن قهوة, مطاحن, باريستا, 20 بار, دبل بويلر, السعودية, قهوة مختصة, أركان قهوة" />
+    <meta property="og:title" content="هايبرو السعودية | المتجر الرسمي لمكائن ومستلزمات القهوة المختصة" />
+    <meta property="og:description" content="متخصصون في بيع مكائن القهوة ومستلزماتها ذات الجودة العالية ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
 

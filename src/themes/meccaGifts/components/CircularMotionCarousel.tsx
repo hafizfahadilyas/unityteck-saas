@@ -171,7 +171,7 @@ export const CircularMotionCarousel: React.FC<CircularMotionCarouselProps> = ({
                     src={item.image}
                     alt={isAr ? item.name : item.nameEn}
                     className="w-full h-full object-cover rounded-full group-hover:scale-115 transition-transform duration-700 ease-out"
-                    loading="lazy"
+                    loading="lazy" decoding="async"
                   />
                   <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors rounded-full" />
                 </div>
@@ -214,3 +214,4 @@ export const CircularMotionCarousel: React.FC<CircularMotionCarouselProps> = ({
     </section>
   );
 };
+

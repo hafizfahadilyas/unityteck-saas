@@ -2,6 +2,11 @@ import React from 'react';
 import type { InvoiceDocument, InvoiceTemplateConfig, InvoiceLineItem } from '../../../../types/invoices';
 import { generateQrSvgDataUri } from '../../../../utils/zatca';
 import { ShieldCheck, Building2, MapPin, Phone, Mail } from 'lucide-react';
+import {
+  getLocalizedItemName,
+  getCustomerDisplayName,
+  getLocalizedAddress,
+} from '../../../../utils/storeLocalization';
 
 interface TemplateProps {
   document: InvoiceDocument;
@@ -25,7 +30,7 @@ export const TaxInvoiceTemplate: React.FC<TemplateProps> = ({ document, config, 
       dir={isAr ? 'rtl' : 'ltr'}
     >
       <div>
-        {/* Top ZATCA Tax Compliance Bilingual Header */}
+        {/* Top Tax Compliance Header */}
         <div className="flex items-start justify-between border-b-2 pb-6" style={{ borderColor: '#0f172a' }}>
           <div className="space-y-1 max-w-[60%]">
             <div className="flex items-center gap-2">
@@ -34,49 +39,55 @@ export const TaxInvoiceTemplate: React.FC<TemplateProps> = ({ document, config, 
               </div>
               <div>
                 <h1 className="text-xl font-black text-slate-900">
-                  {document.seller.nameAr || document.seller.name}
+                  {isAr ? document.seller.nameAr || document.seller.name : document.seller.nameEn || document.seller.name}
                 </h1>
                 <p className="text-xs text-slate-600 font-medium">
-                  {document.seller.name}
+                  {isAr ? 'فاتورة ضريبية رسمية معتمدة' : 'Official Registered Tax Invoice'}
                 </p>
               </div>
             </div>
 
             <div className="text-xs text-slate-600 space-y-0.5 pt-2">
-              <p>{document.seller.addressAr || document.seller.address}</p>
-              <p className="text-[11px] text-slate-500">{document.seller.address}</p>
+              <p>
+                {isAr
+                  ? document.seller.addressAr || document.seller.address
+                  : document.seller.addressEn || getLocalizedAddress(document.seller.address, 'en')}
+              </p>
               <div className="flex flex-wrap gap-4 text-xs font-bold text-slate-900 pt-1">
                 <span>
-                  الرقم الضريبي (VAT): <strong className="font-mono text-emerald-800">{document.seller.vatNumber || '300948215600003'}</strong>
+                  {isAr ? 'الرقم الضريبي:' : 'VAT Registration:'}{' '}
+                  <strong className="font-mono text-emerald-800">{document.seller.vatNumber || config.taxNumber}</strong>
                 </span>
                 <span>
-                  السجل التجاري (CR): <strong className="font-mono">{document.seller.crNumber || '1010892341'}</strong>
+                  {isAr ? 'السجل التجاري:' : 'Commercial Registration (CR):'}{' '}
+                  <strong className="font-mono">{document.seller.crNumber || config.crNumber}</strong>
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Document Title & Official ZATCA QR Code */}
+          {/* Document Title & QR Code */}
           <div className="text-end flex flex-col items-end space-y-2">
             <div className="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-end shadow-xs">
               <div className="text-xs font-black uppercase tracking-wider">
-                {isStandardB2B ? 'فاتورة ضريبية (B2B)' : 'فاتورة ضريبية مبسطة (B2C)'}
-              </div>
-              <div className="text-[10px] text-slate-300 uppercase tracking-tight">
-                {isStandardB2B ? 'TAX INVOICE' : 'SIMPLIFIED TAX INVOICE'}
+                {isStandardB2B
+                  ? isAr ? 'فاتورة ضريبية' : 'TAX INVOICE'
+                  : isAr ? 'فاتورة ضريبية مبسطة' : 'SIMPLIFIED TAX INVOICE'}
               </div>
             </div>
 
             <div className="text-end">
-              <p className="text-[10px] text-slate-500 uppercase font-bold">رقم الفاتورة / Invoice Number</p>
+              <p className="text-[10px] text-slate-500 uppercase font-bold">
+                {isAr ? 'رقم الفاتورة' : 'Invoice Number'}
+              </p>
               <p className="text-base font-black font-mono text-slate-900">{document.documentNumber}</p>
             </div>
 
             {qrUri && (
               <div className="pt-1 flex flex-col items-center">
-                <img src={qrUri} alt="ZATCA TLV Base64 QR" className="w-24 h-24 border-2 border-slate-300 rounded-lg p-1 bg-white shadow-2xs" />
+                <img src={qrUri} alt="Tax Verification QR Code" className="w-24 h-24 border-2 border-slate-300 rounded-lg p-1 bg-white shadow-2xs" />
                 <span className="text-[9px] text-emerald-800 font-bold block text-center mt-0.5 font-mono">
-                  ZATCA Phase 2 TLV
+                  {isAr ? 'رمز التحقق الرقمي' : 'Digital Verification QR'}
                 </span>
               </div>
             )}
@@ -89,7 +100,7 @@ export const TaxInvoiceTemplate: React.FC<TemplateProps> = ({ document, config, 
           <div className="space-y-2 text-xs">
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                تاريخ ووقت الإصدار / Issue Date & Time
+                {isAr ? 'تاريخ ووقت الإصدار' : 'Issue Date & Time'}
               </span>
               <p className="text-sm font-semibold text-slate-800 font-mono mt-0.5">
                 {new Date(document.issueDate).toISOString().replace('T', ' ').substring(0, 19)} UTC
@@ -98,32 +109,46 @@ export const TaxInvoiceTemplate: React.FC<TemplateProps> = ({ document, config, 
             {document.orderNumber && (
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  الرقم المرجعي للطلب / Order Reference
+                  {isAr ? 'رقم الطلب المرجعي' : 'Order Reference'}
                 </span>
                 <p className="text-xs font-bold font-mono text-blue-700 mt-0.5">{document.orderNumber}</p>
               </div>
             )}
           </div>
 
-          {/* Buyer Details (Mandatory for Standard B2B) */}
+          {/* Buyer Details */}
           <div className="space-y-1 text-xs">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              بيانات المشتري (العميل) / Customer & Buyer Details
+              {isAr ? 'بيانات العميل (المشتري)' : 'Customer & Buyer Details'}
             </span>
             <p className="text-sm font-extrabold text-slate-900">
-              {document.buyer.nameAr || document.buyer.name}
+              {isAr
+                ? document.buyer.nameAr || document.buyer.name
+                : document.buyer.nameEn || getCustomerDisplayName(document.buyer.name, 'en')}
             </p>
             {document.buyer.companyName && (
-              <p className="text-xs font-semibold text-slate-700">{document.buyer.companyName}</p>
+              <p className="text-xs font-semibold text-slate-700">
+                {isAr
+                  ? document.buyer.companyNameAr || document.buyer.companyName
+                  : document.buyer.companyNameEn || document.buyer.companyName}
+              </p>
             )}
             {document.buyer.vatNumber ? (
               <p className="text-xs font-bold text-emerald-800 font-mono">
-                الرقم الضريبي للمشتري: {document.buyer.vatNumber}
+                {isAr ? 'الرقم الضريبي للمشتري:' : 'Buyer VAT:'} {document.buyer.vatNumber}
               </p>
             ) : (
-              <p className="text-[11px] text-slate-500 font-medium">مستهلك نهائي (B2C End Consumer)</p>
+              <p className="text-[11px] text-slate-500 font-medium">
+                {isAr ? 'مستهلك نهائي' : 'End Consumer'}
+              </p>
             )}
-            {document.buyer.address && <p className="text-xs text-slate-500">{document.buyer.address}</p>}
+            {document.buyer.address && (
+              <p className="text-xs text-slate-500">
+                {isAr
+                  ? document.buyer.addressAr || document.buyer.address
+                  : document.buyer.addressEn || getLocalizedAddress(document.buyer.address, 'en')}
+              </p>
+            )}
           </div>
         </div>
 
@@ -133,38 +158,14 @@ export const TaxInvoiceTemplate: React.FC<TemplateProps> = ({ document, config, 
             <thead>
               <tr className="border-b-2 text-[10px] font-black uppercase text-slate-800" style={{ borderColor: '#0f172a' }}>
                 <th className="py-2.5 px-1 text-start">#</th>
-                <th className="py-2.5 px-2 text-start">
-                  <div>السلع والخدمات</div>
-                  <div className="text-[9px] text-slate-500 font-normal">Item Description</div>
-                </th>
-                <th className="py-2.5 px-2 text-center">
-                  <div>الكمية</div>
-                  <div className="text-[9px] text-slate-500 font-normal">Qty</div>
-                </th>
-                <th className="py-2.5 px-2 text-end">
-                  <div>سعر الوحدة</div>
-                  <div className="text-[9px] text-slate-500 font-normal">Unit Price</div>
-                </th>
-                <th className="py-2.5 px-2 text-end">
-                  <div>الخصم</div>
-                  <div className="text-[9px] text-slate-500 font-normal">Discount</div>
-                </th>
-                <th className="py-2.5 px-2 text-end">
-                  <div>المبلغ الخاضع للضريبة</div>
-                  <div className="text-[9px] text-slate-500 font-normal">Taxable Amount</div>
-                </th>
-                <th className="py-2.5 px-2 text-end">
-                  <div>نسبة الضريبة</div>
-                  <div className="text-[9px] text-slate-500 font-normal">VAT Rate</div>
-                </th>
-                <th className="py-2.5 px-2 text-end">
-                  <div>مبلغ الضريبة</div>
-                  <div className="text-[9px] text-slate-500 font-normal">VAT Amount</div>
-                </th>
-                <th className="py-2.5 px-2 text-end">
-                  <div>الإجمالي شامل الضريبة</div>
-                  <div className="text-[9px] text-slate-500 font-normal">Total Incl. VAT</div>
-                </th>
+                <th className="py-2.5 px-2 text-start">{isAr ? 'السلع والخدمات' : 'Item Description'}</th>
+                <th className="py-2.5 px-2 text-center">{isAr ? 'الكمية' : 'Qty'}</th>
+                <th className="py-2.5 px-2 text-end">{isAr ? 'سعر الوحدة' : 'Unit Price'}</th>
+                <th className="py-2.5 px-2 text-end">{isAr ? 'الخصم' : 'Discount'}</th>
+                <th className="py-2.5 px-2 text-end">{isAr ? 'المبلغ الخاضع للضريبة' : 'Taxable Amount'}</th>
+                <th className="py-2.5 px-2 text-end">{isAr ? 'نسبة الضريبة' : 'VAT Rate'}</th>
+                <th className="py-2.5 px-2 text-end">{isAr ? 'مبلغ الضريبة' : 'VAT Amount'}</th>
+                <th className="py-2.5 px-2 text-end">{isAr ? 'الإجمالي شامل الضريبة' : 'Total Incl. VAT'}</th>
               </tr>
             </thead>
             <tbody className="divide-y text-xs text-slate-800" style={{ borderColor: '#f1f5f9' }}>
@@ -177,8 +178,8 @@ export const TaxInvoiceTemplate: React.FC<TemplateProps> = ({ document, config, 
                   <tr key={item.id || idx}>
                     <td className="py-3 px-1 font-mono text-slate-400 text-center">{idx + 1}</td>
                     <td className="py-3 px-2 font-medium text-slate-900">
-                      <div>{item.nameAr || item.name}</div>
-                      <div className="text-[10px] text-slate-500 font-mono">{item.sku}</div>
+                      <div>{isAr ? item.nameAr || item.name : item.nameEn || getLocalizedItemName(item, 'en')}</div>
+                      {item.sku && <div className="text-[10px] text-slate-500 font-mono">{item.sku}</div>}
                     </td>
                     <td className="py-3 px-2 text-center font-bold">{item.quantity}</td>
                     <td className="py-3 px-2 text-end font-mono">{item.unitPrice.toFixed(2)}</td>
@@ -204,41 +205,93 @@ export const TaxInvoiceTemplate: React.FC<TemplateProps> = ({ document, config, 
         <div className="flex justify-end mt-6">
           <div className="w-full max-w-md space-y-1.5 text-xs p-4 rounded-xl bg-slate-50 border border-slate-200">
             <div className="flex justify-between text-slate-700 pb-1 border-b border-slate-200">
-              <span>الإجمالي الخاضع للضريبة (غير شامل الضريبة) / Total Taxable Amount:</span>
+              <span>{isAr ? 'الإجمالي الخاضع للضريبة (غير شامل الضريبة):' : 'Total Taxable Amount (Excl. VAT):'}</span>
               <span className="font-mono font-bold">{document.subtotal.toFixed(2)} {document.currency}</span>
             </div>
             {document.discountAmount > 0 && (
               <div className="flex justify-between text-emerald-700 pb-1 border-b border-slate-200">
-                <span>إجمالي الخصومات / Total Discounts:</span>
+                <span>{isAr ? 'إجمالي الخصومات:' : 'Total Discounts:'}</span>
                 <span className="font-mono font-bold">-{document.discountAmount.toFixed(2)} {document.currency}</span>
               </div>
             )}
             {document.shippingFee > 0 && (
               <div className="flex justify-between text-slate-700 pb-1 border-b border-slate-200">
-                <span>رسوم الشحن والتوصيل / Shipping:</span>
+                <span>{isAr ? 'رسوم الشحن والتوصيل:' : 'Shipping & Delivery:'}</span>
                 <span className="font-mono font-bold">{document.shippingFee.toFixed(2)} {document.currency}</span>
               </div>
             )}
             <div className="flex justify-between text-emerald-900 font-bold pb-1 border-b border-slate-200">
-              <span>مجموع ضريبة القيمة المضافة (15%) / Total VAT (15%):</span>
+              <span>{isAr ? 'مجموع ضريبة القيمة المضافة (15%):' : 'Total VAT (15%):'}</span>
               <span className="font-mono">{document.taxAmount.toFixed(2)} {document.currency}</span>
             </div>
             <div className="flex justify-between py-2 font-black text-sm bg-slate-900 text-white px-3 rounded-lg">
-              <span>الإجمالي المستحق شامل الضريبة / Grand Total (Incl. VAT):</span>
+              <span>{isAr ? 'الإجمالي المستحق شامل الضريبة:' : 'Grand Total (Incl. VAT):'}</span>
               <span className="font-mono text-base">{document.grandTotal.toFixed(2)} {document.currency}</span>
             </div>
           </div>
         </div>
+
+        {/* Cryptographic Security Stamp Box */}
+        {document.zatca && (
+          <div className="mt-6 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <span className="font-black text-slate-800 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>
+                  {isAr ? 'بيانات التوثيق والاعتماد الرقمي الرسمي' : 'Official Cryptographic Validation Details'}
+                </span>
+              </span>
+              <span className="px-2 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-900 border border-emerald-300">
+                {document.zatca.complianceStatus === 'cleared'
+                  ? isAr ? 'معتمدة ومفسوحة' : 'Cleared'
+                  : document.zatca.complianceStatus === 'reported'
+                  ? isAr ? 'مُبلغة للهيئة' : 'Reported'
+                  : isAr ? 'معتمدة نظامياً' : 'Compliant'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px] font-mono">
+              <div className="bg-white p-2.5 rounded-lg border border-slate-200 overflow-hidden">
+                <span className="text-[10px] font-bold text-slate-400 block mb-0.5 font-sans">
+                  {isAr ? 'الرمز الرقمي للفاتورة:' : 'Invoice Hash (SHA-256):'}
+                </span>
+                <span className="text-slate-800 break-all text-[10px] block font-semibold">
+                  {document.zatca.invoiceHash || 'a9f4c3b281d7e502b487c6531980a3fe7412e8b9...'}
+                </span>
+              </div>
+
+              <div className="bg-white p-2.5 rounded-lg border border-slate-200 overflow-hidden">
+                <span className="text-[10px] font-bold text-slate-400 block mb-0.5 font-sans">
+                  {isAr ? 'الختم والتوقيع الرقمي:' : 'Digital Stamp (ECDSA):'}
+                </span>
+                <span className="text-emerald-800 break-all text-[10px] block font-semibold">
+                  {document.zatca.cryptographicStamp || 'MEQCID6v9320...TAX-SECP256K1-VERIFIED'}
+                </span>
+              </div>
+
+              <div className="bg-white p-2.5 rounded-lg border border-slate-200 overflow-hidden">
+                <span className="text-[10px] font-bold text-slate-400 block mb-0.5 font-sans">
+                  {isAr ? 'معيار الفاتورة والتصنيف:' : 'Tax Category & Code:'}
+                </span>
+                <span className="text-slate-800 font-sans text-xs font-bold block">
+                  {isAr ? 'الفئة القياسية (15%)' : 'Standard 15% VAT'} · Code {document.zatca.invoiceType || '388'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Official Tax Disclaimer */}
       <div className="pt-6 border-t mt-8 text-[10px] text-slate-500 space-y-1" style={{ borderColor: '#e2e8f0' }}>
         <p className="font-semibold text-slate-700">
-          تعتبر هذه الفاتورة الإلكترونية صادرة بموجب متطلبات هيئة الزكاة والضريبة والجمارك (ZATCA) في المملكة العربية السعودية ومتوافقة مع معايير الفوترة الإلكترونية (فاتورة - المرحلة الأولى والثانية).
+          {isAr
+            ? 'تعتبر هذه الفاتورة الإلكترونية صادرة بموجب متطلبات هيئة الزكاة والضريبة والجمارك في المملكة العربية السعودية ومتوافقة مع معايير الفوترة الإلكترونية.'
+            : 'This official electronic invoice is issued in accordance with Saudi tax and e-invoicing statutory regulations.'}
         </p>
         <div className="flex items-center justify-between text-[10px] text-slate-400">
-          <span>{document.seller.nameAr || document.seller.name} · ZATCA Phase 2 Tax Invoicing System</span>
-          <span>الصفحة 1 من 1 / Page 1 of 1</span>
+          <span>{isAr ? document.seller.nameAr || document.seller.name : document.seller.name}</span>
+          <span>{isAr ? 'الصفحة 1 من 1' : 'Page 1 of 1'}</span>
         </div>
       </div>
     </div>

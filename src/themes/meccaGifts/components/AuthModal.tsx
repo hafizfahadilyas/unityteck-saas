@@ -13,6 +13,7 @@ import {
   Key,
   Check,
   User,
+  Award,
 } from 'lucide-react';
 import { MECCA_LOGO } from '../data/mockData';
 import {
@@ -171,29 +172,46 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="space-y-2 pt-2">
                 <button
                   type="button"
                   onClick={() => {
                     setCurrentPage('crm');
                     onClose();
+                    setTimeout(() => {
+                      window.dispatchEvent(new CustomEvent('open-loyalty-modal'));
+                    }, 80);
                   }}
-                  className="py-3 px-4 rounded-2xl bg-[#102a1c] hover:bg-[#1a3f2b] text-white text-xs font-bold transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                  className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-[#0d3822] to-[#055130] hover:brightness-110 text-white text-xs font-bold transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 border border-[#d4af37]/30"
                 >
-                  <User className="w-3.5 h-3.5 text-[#e6ca98]" />
-                  <span>{isAr ? 'لوحة التحكم والطلبات' : 'My Orders & Profile'}</span>
+                  <Award className="w-4 h-4 text-[#d4af37]" />
+                  <span>{isAr ? 'بطاقة الولاء والعملات والمكافآت' : 'Loyalty Card, Coins & Rewards'}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    logout();
-                    onClose();
-                  }}
-                  className="py-3 px-4 rounded-2xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>{isAr ? 'تسجيل الخروج' : 'Sign Out'}</span>
-                </button>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentPage('crm');
+                      onClose();
+                    }}
+                    className="py-3 px-4 rounded-2xl bg-[#102a1c] hover:bg-[#1a3f2b] text-white text-xs font-bold transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <User className="w-3.5 h-3.5 text-[#e6ca98]" />
+                    <span>{isAr ? 'لوحة التحكم والطلبات' : 'My Orders & Profile'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      onClose();
+                    }}
+                    className="py-3 px-4 rounded-2xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>{isAr ? 'تسجيل الخروج' : 'Sign Out'}</span>
+                  </button>
+                </div>
               </div>
 
               {cart.length > 0 && (

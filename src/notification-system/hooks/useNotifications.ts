@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { NotificationItem, NotificationZone } from '../types/notification.types';
 import { NotificationEngine } from '../services/notificationEngine';
@@ -45,7 +45,29 @@ function saveSnoozedMap(map: Record<string, string>): void {
   }
 }
 
-export function useNotifications() {
+export interface NotificationsContextValue {
+  notifications: NotificationItem[];
+  zone1Items: NotificationItem[];
+  zone2Items: NotificationItem[];
+  zone3Items: NotificationItem[];
+  unreadCounts: {
+    zone1: number;
+    zone2: number;
+    zone3: number;
+    total: number;
+  };
+  isLoading: boolean;
+  markAsRead: (id: string) => void;
+  markAllAsRead: (zone?: NotificationZone) => void;
+  dismissNotification: (id: string) => void;
+  snoozeNotification: (id: string, snoozeMinutes?: number) => void;
+  handleAction: (item: NotificationItem, onNavigateTab?: (tab: string) => void) => void;
+  refresh: () => void;
+}
+
+const NotificationsContext = createContext<NotificationsContextValue | null>(null);
+
+function useNotificationsInternal(): NotificationsContextValue {
   const { activeStore, currentOrders, currentProducts, currentCustomers, currentCoupons } = useTenant();
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
@@ -77,8 +99,8 @@ export function useNotifications() {
     computeNotifications();
   }, [computeNotifications]);
 
-  // Realtime background sync every 30s
-  useRealtimeSync(computeNotifications, 30000);
+  // Realtime background sync every 120s (reduced from 30s to eliminate CPU spikes)
+  useRealtimeSync(computeNotifications, 120000);
 
   // Filter out dismissed and currently snoozed notifications
   const activeNotifications = useMemo(() => {
@@ -213,18 +235,46 @@ export function useNotifications() {
     [markAsRead, isAr],
   );
 
-  return {
-    notifications: activeNotifications,
-    zone1Items,
-    zone2Items,
-    zone3Items,
-    unreadCounts,
-    isLoading,
-    markAsRead,
-    markAllAsRead,
-    dismissNotification,
-    snoozeNotification,
-    handleAction,
-    refresh: computeNotifications,
-  };
+  return useMemo(
+    () => ({
+      notifications: activeNotifications,
+      zone1Items,
+      zone2Items,
+      zone3Items,
+      unreadCounts,
+      isLoading,
+      markAsRead,
+      markAllAsRead,
+      dismissNotification,
+      snoozeNotification,
+      handleAction,
+      refresh: computeNotifications,
+    }),
+    [
+      activeNotifications,
+      zone1Items,
+      zone2Items,
+      zone3Items,
+      unreadCounts,
+      isLoading,
+      markAsRead,
+      markAllAsRead,
+      dismissNotification,
+      snoozeNotification,
+      handleAction,
+      computeNotifications,
+    ],
+  );
+}
+
+export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const value = useNotificationsInternal();
+  return React.createElement(NotificationsContext.Provider, { value }, children);
+};
+
+export function useNotifications(): NotificationsContextValue {
+  const ctx = useContext(NotificationsContext);
+  if (ctx) return ctx;
+  // Fallback if mounted outside NotificationsProvider
+  return useNotificationsInternal();
 }

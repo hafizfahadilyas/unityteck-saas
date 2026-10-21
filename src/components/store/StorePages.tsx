@@ -223,7 +223,7 @@ export const StorePages: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-20 max-w-7xl mx-auto" dir={isAr ? 'rtl' : 'ltr'}>
+    <div className="p-4 sm:p-6 space-y-6 pb-20 max-w-7xl mx-auto" dir={isAr ? 'rtl' : 'ltr'}>
       {/* Toast */}
       {toastMessage && (
         <div className="fixed bottom-6 end-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-700 animate-in fade-in slide-in-from-bottom-3 duration-200">

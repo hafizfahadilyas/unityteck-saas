@@ -69,7 +69,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Store name, logo, contacts, CR, VAT, and official Saudi registration',
     descAr: 'اسم المتجر، الشعار، التواصل، السجل التجاري، والرقم الضريبي',
     icon: Building2,
-    thumbnail: '/theme-mockups/01_store_identity.png',
+    thumbnail: '/theme-mockups/01_store_identity.webp',
     category: 'identity',
   },
   {
@@ -80,7 +80,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Arabic numerals, content protection, breadcrumbs, title styling & layout',
     descAr: 'الأرقام العربية، حماية المحتوى، مسار التصفح، وتنسيق الرأس والتذييل',
     icon: Sliders,
-    thumbnail: '/theme-mockups/02_general_options.png',
+    thumbnail: '/theme-mockups/02_general_options.webp',
     category: 'identity',
   },
   {
@@ -91,7 +91,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Dark mode switch, background palettes, text colors, loading screen & floating buttons',
     descAr: 'الوضع الداكن، لوحة الألوان، شاشة التحميل، والأزرار العائمة',
     icon: Palette,
-    thumbnail: '/theme-mockups/03_store_colors.png',
+    thumbnail: '/theme-mockups/03_store_colors.webp',
     category: 'identity',
   },
   {
@@ -102,7 +102,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Auto-load products, category banners, enhanced cart, login & register styles',
     descAr: 'التحميل التلقائي، بانرات الأقسام، السلة المطورة، وستايل صفحات الدخول',
     icon: FolderTree,
-    thumbnail: '/theme-mockups/04_category_cart_customer.png',
+    thumbnail: '/theme-mockups/04_category_cart_customer.webp',
     category: 'products',
   },
   {
@@ -113,7 +113,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Hero slider with animations, slide manager, video/image slides, custom buttons',
     descAr: 'سلايدر الواجهة بالصور والفيديوهات والأزرار المتحركة والتحكم بالسرعة',
     icon: SlidersHorizontal,
-    thumbnail: '/theme-mockups/05_advanced_slider.png',
+    thumbnail: '/theme-mockups/05_advanced_slider.webp',
     category: 'media',
   },
   {
@@ -124,7 +124,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Short-form 9:16 vertical videos (Reels/TikTok) with play overlay and badges',
     descAr: 'فيديوهات طولية 9:16 للمنتجات مع زر تشغيل وشارات العروض الترويجية',
     icon: Video,
-    thumbnail: '/theme-mockups/06_product_videos.png',
+    thumbnail: '/theme-mockups/06_product_videos.webp',
     category: 'media',
   },
   {
@@ -135,7 +135,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Product collections in tabbed buttons (Best Selling, Latest, Discounts, Bridal)',
     descAr: 'عرض المنتجات في تبويبات تفاعلية للأكثر مبيعاً، الأحدث، والتخفيضات',
     icon: LayoutGrid,
-    thumbnail: '/theme-mockups/07_product_tabs.png',
+    thumbnail: '/theme-mockups/07_product_tabs.webp',
     category: 'products',
   },
   {
@@ -146,7 +146,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Spotlight product showcase with gallery, stars rating, ticker, and instant Buy Now',
     descAr: 'عرض تفصيلي لمنتج الأسبوع مع معرض الصور، التقييم، وشريط الضمانات المتحرك',
     icon: Sparkles,
-    thumbnail: '/theme-mockups/08_detailed_products.png',
+    thumbnail: '/theme-mockups/08_detailed_products.webp',
     category: 'products',
   },
   {
@@ -157,7 +157,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Bento layout, masonry, collage, geometric shapes & modern hover zoom effects',
     descAr: 'شبكة صور بتخطيط بينتو وماسونري وأشكال هندسية وتأثيرات تحويم فاخرة',
     icon: Grid,
-    thumbnail: '/theme-mockups/09_image_grid.png',
+    thumbnail: '/theme-mockups/09_image_grid.webp',
     category: 'media',
   },
   {
@@ -168,7 +168,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Shop by category visual cards with hover zooms, quick shop links & badges',
     descAr: 'بطاقات الأقسام والتصنيفات بأزرار شراء سريعة وتأثيرات تكبير ناعمة',
     icon: Link2,
-    thumbnail: '/theme-mockups/10_custom_links.png',
+    thumbnail: '/theme-mockups/10_custom_links.webp',
     category: 'media',
   },
   {
@@ -179,7 +179,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Full-width animated banners with discount badges, arrows, and dark overlay',
     descAr: 'بانرات عريضة وشارات تخفيضات 30% مع أسهم تنقل وتحكم بالشفافية',
     icon: ImageIcon,
-    thumbnail: '/theme-mockups/11_banners.png',
+    thumbnail: '/theme-mockups/11_banners.webp',
     category: 'media',
   },
   {
@@ -190,7 +190,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Editorial cards with read time, publish dates, category pills & read more links',
     descAr: 'عرض مقالات المدونة، نصائح العناية، وأوقات القراءة لتعزيز الـ SEO',
     icon: BookOpen,
-    thumbnail: '/theme-mockups/12_blog.png',
+    thumbnail: '/theme-mockups/12_blog.webp',
     category: 'marketing',
   },
   {
@@ -201,7 +201,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Marquee / rotating top alert bar with live ticking countdown boxes & Shop Now',
     descAr: 'شريط إعلانات علوي بمؤقت عد تنازلي حي 02:15:30 وزر شراء متحرك',
     icon: Megaphone,
-    thumbnail: '/theme-mockups/13_announcement_bar.png',
+    thumbnail: '/theme-mockups/13_announcement_bar.webp',
     category: 'marketing',
   },
   {
@@ -212,7 +212,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: '5 modern styles (Classic cards, floating, glass, timeline) for fast delivery & warranty',
     descAr: '٥ أنماط عصرية للشحن المبرد، الدفع الآمن، وخدمة العملاء 24/7',
     icon: Award,
-    thumbnail: '/theme-mockups/14_enhanced_features.png',
+    thumbnail: '/theme-mockups/14_enhanced_features.webp',
     category: 'marketing',
   },
   {
@@ -223,7 +223,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Hover actions, wishlist, quick add, color swatches, stock alerts & flash countdown',
     descAr: 'بطاقات المنتجات بأزرار التحويم، نقاط الألوان، التقييم، وشارات التخفيض',
     icon: ShoppingBag,
-    thumbnail: '/theme-mockups/15_product_cards.png',
+    thumbnail: '/theme-mockups/15_product_cards.webp',
     category: 'products',
   },
   {
@@ -234,7 +234,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Featured collection slider with discounts, elegant serifs and clean cards',
     descAr: 'سلايدر التشكيلة المميزة بتصميم ناعم وشارات خصم 50%',
     icon: Package,
-    thumbnail: '/theme-mockups/16_custom_products.png',
+    thumbnail: '/theme-mockups/16_custom_products.webp',
     category: 'products',
   },
   {
@@ -245,7 +245,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: 'Hero promotional card with live countdown timer (Days/Hours/Mins/Secs) and trust notes',
     descAr: 'بانر عروض خاص بمؤقت عد تنازلي ضخم وشارات ثقة للشحن والدفع',
     icon: Percent,
-    thumbnail: '/theme-mockups/17_special_offer_countdown.png',
+    thumbnail: '/theme-mockups/17_special_offer_countdown.webp',
     category: 'marketing',
   },
   {
@@ -256,19 +256,19 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     descEn: '5 styles (Glass, card, floating, stats bar) with animated counters (+500, +3K, etc.)',
     descAr: 'إبراز إنجازات المتجر بأرقام متحركة وتصاميم زجاجية وعائمة مذهلة',
     icon: BarChart2,
-    thumbnail: '/theme-mockups/18_store_statistics.png',
+    thumbnail: '/theme-mockups/18_store_statistics.webp',
     category: 'marketing',
   },
 ];
 
 interface ThemeSettingsMasterProps {
   onOpenStorefront?: () => void;
-  onOpenCustomizer?: (sectionId?: string) => void;
+  onOpenThemeCustomizer?: (sectionId?: string) => void;
 }
 
 export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
   onOpenStorefront,
-  onOpenCustomizer,
+  onOpenThemeCustomizer,
 }) => {
   const { activeStore } = useTenant();
   const { locale } = usePrefs();
@@ -351,19 +351,15 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
                 ))}
               </select>
 
-              {onOpenCustomizer && (
+              {onOpenThemeCustomizer && (
                 <button
                   type="button"
-                  onClick={() => onOpenCustomizer(activeSection.id)}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer text-white shadow-xs hover:opacity-90 transition-opacity"
-                  style={{
-                    background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
-                    borderColor: '#10b981',
-                  }}
-                  title={isAr ? 'فتح هذا القسم داخل محرر التخصيص المباشر مثل ووردبريس' : 'Open in WordPress-Style Live Customizer'}
+                  onClick={() => onOpenThemeCustomizer(activeSection.id)}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  title={isAr ? 'فتح في مخصص الثيم المباشر مع المعاينة' : 'Open in Live Customizer with Real-time Preview'}
                 >
-                  <Sliders className="w-3.5 h-3.5" />
-                  <span>{isAr ? 'تخصيص حي (WP Style)' : 'Live Customizer'}</span>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                  <span className="hidden sm:inline">{isAr ? 'المخصص المباشر' : 'Live Customizer'}</span>
                 </button>
               )}
 
@@ -430,17 +426,31 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
               </p>
             </div>
 
-            {/* Quick Search */}
-            <div className="relative w-full md:w-80">
-              <Search className="w-4 h-4 absolute start-3 top-2.5 text-muted" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={isAr ? 'ابحث في الشاشات الـ ١٨…' : 'Search in 18 design sections…'}
-                className="w-full ps-9 pe-3 py-2 text-xs rounded-xl border outline-none"
-                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
-              />
+            <div className="flex items-center gap-3 flex-wrap">
+              {onOpenThemeCustomizer && (
+                <button
+                  type="button"
+                  onClick={() => onOpenThemeCustomizer('01_store_identity')}
+                  className="px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 cursor-pointer transition-all shadow-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shrink-0 active:scale-[0.98]"
+                  title={isAr ? 'فتح مخصص الثيم التفاعلي المباشر (WordPress Customizer)' : 'Launch Live WordPress Customizer'}
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+                  <span>{isAr ? 'المخصص المباشر (WordPress Style)' : 'Live Theme Customizer'}</span>
+                </button>
+              )}
+
+              {/* Quick Search */}
+              <div className="relative w-full sm:w-72">
+                <Search className="w-4 h-4 absolute start-3 top-2.5 text-muted" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={isAr ? 'ابحث في الشاشات الـ ١٨…' : 'Search in 18 design sections…'}
+                  className="w-full ps-9 pe-3 py-2 text-xs rounded-xl border outline-none"
+                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
+                />
+              </div>
             </div>
           </div>
 
@@ -476,7 +486,13 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
               return (
                 <div
                   key={section.id}
-                  onClick={() => setActiveSectionId(section.id)}
+                  onClick={() => {
+                    if (onOpenThemeCustomizer) {
+                      onOpenThemeCustomizer(section.id);
+                    } else {
+                      setActiveSectionId(section.id);
+                    }
+                  }}
                   className="group rounded-2xl border overflow-hidden bg-white dark:bg-slate-900 shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between cursor-pointer transform hover:-translate-y-1"
                   style={{ borderColor: 'var(--border)' }}
                 >
@@ -486,10 +502,16 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
                       <img
                         src={section.thumbnail}
                         alt={section.titleEn}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover object-top filter brightness-95 group-hover:scale-105 transition-transform duration-500"
                         onError={(e) => {
-                          // Fallback if image fails
-                          (e.target as HTMLElement).style.display = 'none';
+                          const target = e.target as HTMLImageElement;
+                          if (target.src.endsWith('.webp')) {
+                            target.src = target.src.replace('.webp', '.png');
+                          } else {
+                            target.style.display = 'none';
+                          }
                         }}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
@@ -547,3 +569,4 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
     </div>
   );
 };
+

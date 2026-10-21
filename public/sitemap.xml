@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+
+  <!-- ========================================== -->
+  <!-- 1. HiBrew KSA — Official Coffee Store      -->
+  <!-- ========================================== -->
+  <url>
+    <loc>https://bashayer-logistics.com/?store=coffee</loc>
+    <lastmod>2026-10-19T00:00:00+03:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://bashayer-logistics.com/?store=coffee&amp;lang=ar" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://bashayer-logistics.com/?store=coffee&amp;lang=en" />
+    <image:image>
+      <image:loc>https://bashayer-logistics.com/images/categories/hibrew_flagship_espresso_hero.jpg</image:loc>
+      <image:title>HiBrew KSA Official Coffee Store Saudi Arabia</image:title>
+    </image:image>
+  </url>
+
+  <url>
+    <loc>https://bashayer-logistics.com/?store=coffee&amp;page=catalog</loc>
+    <lastmod>2026-10-19T00:00:00+03:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://bashayer-logistics.com/?store=coffee&amp;page=catalog&amp;lang=ar" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://bashayer-logistics.com/?store=coffee&amp;page=catalog&amp;lang=en" />
+  </url>
+
+  <!-- ========================================== -->
+  <!-- 2. Al-Saeedi Car Services — Automotive VIP -->
+  <!-- ========================================== -->
+  <url>
+    <loc>https://bashayer-logistics.com/?store=bleco</loc>
+    <lastmod>2026-10-19T00:00:00+03:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://bashayer-logistics.com/?store=bleco&amp;lang=ar" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://bashayer-logistics.com/?store=bleco&amp;lang=en" />
+    <image:image>
+      <image:loc>https://bashayer-logistics.com/images/seat-covers/leather-laser-hero.jpg</image:loc>
+      <image:title>Al-Saeedi Luxury Automotive Upholstery Makkah</image:title>
+    </image:image>
+  </url>
+
+  <url>
+    <loc>https://bashayer-logistics.com/?store=bleco&amp;page=catalog</loc>
+    <lastmod>2026-10-19T00:00:00+03:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://bashayer-logistics.com/?store=bleco&amp;page=catalog&amp;lang=ar" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://bashayer-logistics.com/?store=bleco&amp;page=catalog&amp;lang=en" />
+  </url>
+
+  <!-- ========================================== -->
+  <!-- 3. Hadaya Mecca — Luxury Flowers & Gifts   -->
+  <!-- ========================================== -->
+  <url>
+    <loc>https://bashayer-logistics.com/?store=store-1</loc>
+    <lastmod>2026-10-19T00:00:00+03:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://bashayer-logistics.com/?store=store-1&amp;lang=ar" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://bashayer-logistics.com/?store=store-1&amp;lang=en" />
+    <image:image>
+      <image:loc>https://bashayer-logistics.com/images/products/hadaya_red_roses_bouquet.jpg</image:loc>
+      <image:title>Hadaya Mecca Royal Flowers and Haram Hotel Gifts</image:title>
+    </image:image>
+  </url>
+
+  <url>
+    <loc>https://bashayer-logistics.com/?store=store-1&amp;page=catalog</loc>
+    <lastmod>2026-10-19T00:00:00+03:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://bashayer-logistics.com/?store=store-1&amp;page=catalog&amp;lang=ar" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://bashayer-logistics.com/?store=store-1&amp;page=catalog&amp;lang=en" />
+  </url>
+
+  <!-- ========================================== -->
+  <!-- 4. Featured Brand Landing URLs             -->
+  <!-- ========================================== -->
+  <url>
+    <loc>https://bashayer-logistics.com/?store=coffee&amp;brand=Hario</loc>
+    <lastmod>2026-10-19T00:00:00+03:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bashayer-logistics.com/?store=coffee&amp;brand=Chemex</loc>
+    <lastmod>2026-10-19T00:00:00+03:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bashayer-logistics.com/?store=coffee&amp;brand=Fellow</loc>
+    <lastmod>2026-10-19T00:00:00+03:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bashayer-logistics.com/?store=coffee&amp;brand=LaMarzocco</loc>
+    <lastmod>2026-10-19T00:00:00+03:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+</urlset>

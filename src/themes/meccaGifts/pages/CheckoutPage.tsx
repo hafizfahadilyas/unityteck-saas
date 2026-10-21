@@ -37,6 +37,14 @@ export const CheckoutPage: React.FC = () => {
   const [promoCode, setPromoCode] = useState('');
   const [promoFeedback, setPromoFeedback] = useState<{ msg: string; isError: boolean } | null>(null);
 
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, []);
+
   const handleApplyPromo = (e: React.FormEvent) => {
     e.preventDefault();
     setPromoFeedback(null);
@@ -46,15 +54,15 @@ export const CheckoutPage: React.FC = () => {
   };
 
   // Checkout form state
-  const [recipientName, setRecipientName] = useState('سارة السالم');
-  const [recipientPhone, setRecipientPhone] = useState('+966 50 123 4567');
-  const [city, setCity] = useState('مكة المكرمة');
-  const [district, setDistrict] = useState('حي العوالي');
-  const [streetAddress, setStreetAddress] = useState('شارع إبراهيم الجفالي، فيلا 12');
+  const [recipientName, setRecipientName] = useState(user?.isLoggedIn ? user.name : '');
+  const [recipientPhone, setRecipientPhone] = useState('');
+  const [city, setCity] = useState('');
+  const [district, setDistrict] = useState('');
+  const [streetAddress, setStreetAddress] = useState('');
   const [isAnonymousSender, setIsAnonymousSender] = useState(false);
-  const [deliveryDate, setDeliveryDate] = useState('اليوم (توصيل فوري)');
-  const [deliveryTimeSlot, setDeliveryTimeSlot] = useState('توصيل عاجل خلال 60 دقيقة');
-  const [cardMessage, setCardMessage] = useState('ألف مبروك الترقية المباركة ومنها للأعلى دائماً يا غالية');
+  const [deliveryDate, setDeliveryDate] = useState('');
+  const [deliveryTimeSlot, setDeliveryTimeSlot] = useState('');
+  const [cardMessage, setCardMessage] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('mada');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -231,7 +239,9 @@ export const CheckoutPage: React.FC = () => {
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   className="w-full bg-white border border-[#d6cfc0] rounded-xl px-3.5 py-2.5 text-xs text-[#1a1f1b] focus:outline-none focus:border-[#102a1c]"
+                  required
                 >
+                  <option value="" disabled>{isAr ? 'اختر المدينة' : 'Select city'}</option>
                   <option value="مكة المكرمة">{isAr ? 'مكة المكرمة (توصيل فوري 60 دقيقة)' : 'Mecca (1-hr express)'}</option>
                   <option value="جدة">{isAr ? 'جدة (توصيل نفس اليوم)' : 'Jeddah (Same-day)'}</option>
                   <option value="الرياض">{isAr ? 'الرياض (شحن مبرد فاخر)' : 'Riyadh (Refrigerated)'}</option>

@@ -3,10 +3,34 @@ import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
 import { readAllThemeSettings } from '../../settings/themeSettingsStore';
 
-export const PromoBannersPair: React.FC = () => {
-  const { navigateToCategory, setCurrentPage } = useApp();
+export interface PromoBannersPairProps {
+  settings?: Record<string, any>;
+  isBuilderMode?: boolean;
+}
+
+export const PromoBannersPair: React.FC<PromoBannersPairProps> = ({
+  settings,
+  isBuilderMode = false,
+}) => {
+  const { navigateToCategory, setCurrentPage, language } = useApp();
   const { activeStore } = useTenant();
-  const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
+  const isAr = language === 'ar';
+  const s = settings || {};
+
+  const isCoffee =
+    activeStore?.id === 'store-coffee' ||
+    Boolean(activeStore?.category && activeStore.category.includes('قهوة')) ||
+    Boolean(s.isCoffee);
+
+  const isCarStore =
+    activeStore?.id?.includes('transport') ||
+    activeStore?.id?.includes('car') ||
+    Boolean(
+      activeStore?.category &&
+        (activeStore.category.includes('سيارات') ||
+          activeStore.category.toLowerCase().includes('car') ||
+          activeStore.category.toLowerCase().includes('transport'))
+    );
 
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -19,7 +43,53 @@ export const PromoBannersPair: React.FC = () => {
     };
   }, []);
 
+  // Check if settings has explicit banners from Visual Page Builder
+  const builderBanners = useMemo(() => {
+    if (s.banner1Image || s.banner2Image || s.banner1TitleAr || s.banner1TitleEn) {
+      return [
+        {
+          id: 'b1',
+          image:
+            s.banner1Image ||
+            (isCoffee
+              ? 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=800&q=80'
+              : isCarStore
+              ? 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80'
+              : 'https://cdn.salla.sa/form-builder/UyrjLKc6fqzpog6pXVMOtIgt2Qe27ELnq45h9Q6W.png'),
+          title: isAr
+            ? s.banner1TitleAr || s.titleAr || (isCoffee ? 'محاصيل البن المختصة الفاخرة' : isCarStore ? 'أغطية المقاعد الفاخرة' : 'باقات الورد الطبيعي الفاخرة')
+            : s.banner1TitleEn || s.titleEn || (isCoffee ? 'Specialty Single Origins' : isCarStore ? 'Luxury Seat Covers' : 'Fresh Floral Bouquets'),
+          subtitle: isAr
+            ? s.banner1SubtitleAr || (isCoffee ? 'إثيوبيا، كولومبيا والبرازيل بتحميص طازج' : isCarStore ? 'تفصيل ملكي مقاوم للحرارة والسوائل' : 'منسقة بأيدي خبراء الزهور')
+            : s.banner1SubtitleEn || (isCoffee ? 'Fresh roasted beans from global origins' : isCarStore ? 'Bespoke custom vehicle interiors' : 'Tailored by master florists'),
+          buttonText: isAr ? s.banner1BtnAr || 'تسوق الآن' : s.banner1BtnEn || 'Shop Now',
+          link: s.banner1Link || '#catalog',
+        },
+        {
+          id: 'b2',
+          image:
+            s.banner2Image ||
+            (isCoffee
+              ? 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80'
+              : isCarStore
+              ? 'https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&w=800&q=80'
+              : 'https://cdn.salla.sa/form-builder/wrkohrPk90xTpC7DzSnsRoDKINz8GRcQxxBCaWyu.png'),
+          title: isAr
+            ? s.banner2TitleAr || (isCoffee ? 'أدوات ومكائن الترشيح V60' : isCarStore ? 'دعاسات السيارات المقاومة' : 'ورد وشوكولاتة بلجيكية فاخرة')
+            : s.banner2TitleEn || (isCoffee ? 'Barista Brew Gear & Tools' : isCarStore ? 'Heavy-Duty 7D Floor Mats' : 'Roses & Luxury Belgian Chocolates'),
+          subtitle: isAr
+            ? s.banner2SubtitleAr || (isCoffee ? 'معدات وموازين احترافية للباريستا المنزلي' : isCarStore ? 'حماية فائقة لأرضيات سيارتك' : 'توليفة راقية للمناسبات السعيدة')
+            : s.banner2SubtitleEn || (isCoffee ? 'Pro equipment for home baristas' : isCarStore ? 'Ultimate interior protection' : 'Signature pairs for special moments'),
+          buttonText: isAr ? s.banner2BtnAr || 'اكتشف المزيد' : s.banner2BtnEn || 'Discover More',
+          link: s.banner2Link || '#catalog',
+        },
+      ];
+    }
+    return null;
+  }, [s, isAr, isCoffee, isCarStore]);
+
   const customBanners = useMemo(() => {
+    if (builderBanners) return builderBanners;
     try {
       const cfg = readAllThemeSettings(activeStore.id, activeStore);
       if (cfg.banners && cfg.banners.enabled && cfg.banners.banners && cfg.banners.banners.length >= 2) {
@@ -27,7 +97,7 @@ export const PromoBannersPair: React.FC = () => {
       }
     } catch {}
     return null;
-  }, [activeStore.id, activeStore, tick]);
+  }, [activeStore.id, activeStore, tick, builderBanners]);
 
   if (customBanners && customBanners.length >= 2) {
     return (
@@ -52,23 +122,24 @@ export const PromoBannersPair: React.FC = () => {
                   src={banner.image}
                   alt={banner.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-[0.75]"
+                  loading="lazy" decoding="async"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
               </div>
               <div className="relative z-10 space-y-1 max-w-md">
-                {banner.discountBadge && (
+                {(banner as any).discountBadge && (
                   <span className="inline-block text-[10px] uppercase font-bold text-amber-300 tracking-widest px-2.5 py-0.5 rounded-full bg-black/40 border border-amber-300/30">
-                    {banner.discountBadge}
+                    {(banner as any).discountBadge}
                   </span>
                 )}
                 <h3 className="text-xl sm:text-2xl font-bold font-serif">{banner.title}</h3>
                 {banner.subtitle && (
                   <p className="text-xs text-stone-200 font-light">{banner.subtitle}</p>
                 )}
-                {banner.buttonText && (
+                {(banner as any).buttonText && (
                   <div className="pt-2">
                     <span className="inline-block text-xs font-bold text-white bg-white/20 hover:bg-white/30 px-3.5 py-1 rounded-xl backdrop-blur-md transition-colors">
-                      {banner.buttonText}
+                      {(banner as any).buttonText}
                     </span>
                   </div>
                 )}
@@ -94,13 +165,18 @@ export const PromoBannersPair: React.FC = () => {
                 src="https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=800&q=80"
                 alt="Specialty Coffee Micro-Lots"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-[0.7]"
+                loading="lazy" decoding="async"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
             </div>
             <div className="relative z-10 space-y-1">
               <span className="text-[10px] uppercase font-bold text-[#c88a58] tracking-widest block">ROAST MASTERS</span>
-              <h3 className="text-xl sm:text-2xl font-bold font-serif">محاصيل البن المختصة الفاخرة</h3>
-              <p className="text-xs text-stone-300 font-light">إثيوبيا، كولومبيا والبرازيل بتحميص طازج</p>
+              <h3 className="text-xl sm:text-2xl font-bold font-serif">
+                {isAr ? 'محاصيل البن المختصة الفاخرة' : 'Specialty Single Origins'}
+              </h3>
+              <p className="text-xs text-stone-300 font-light">
+                {isAr ? 'إثيوبيا، كولومبيا والبرازيل بتحميص طازج' : 'Freshly roasted micro-lots from top origins'}
+              </p>
             </div>
           </div>
 
@@ -114,13 +190,18 @@ export const PromoBannersPair: React.FC = () => {
                 src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80"
                 alt="Barista Pour-Over Tools"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-[0.7]"
+                loading="lazy" decoding="async"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
             </div>
             <div className="relative z-10 space-y-1">
               <span className="text-[10px] uppercase font-bold text-[#c88a58] tracking-widest block">BREW GEAR</span>
-              <h3 className="text-xl sm:text-2xl font-bold font-serif">أدوات ومكائن الترشيح V60</h3>
-              <p className="text-xs text-stone-300 font-light">معدات وموازين احترافية للباريستا المنزلي</p>
+              <h3 className="text-xl sm:text-2xl font-bold font-serif">
+                {isAr ? 'أدوات ومكائن الترشيح V60' : 'Pour-Over Brew Gear'}
+              </h3>
+              <p className="text-xs text-stone-300 font-light">
+                {isAr ? 'معدات وموازين احترافية للباريستا المنزلي' : 'Pro equipment and scales for home baristas'}
+              </p>
             </div>
           </div>
         </div>
@@ -143,9 +224,10 @@ export const PromoBannersPair: React.FC = () => {
             />
             <img
               src="https://cdn.salla.sa/form-builder/UyrjLKc6fqzpog6pXVMOtIgt2Qe27ELnq45h9Q6W.png"
-              alt="Hadaya Special Promotion 1"
+              alt="Special Promotion 1"
               className="w-full h-auto object-cover group-hover:scale-103 transition-transform duration-500"
               referrerPolicy="no-referrer"
+              loading="lazy" decoding="async"
             />
           </picture>
         </div>
@@ -162,9 +244,10 @@ export const PromoBannersPair: React.FC = () => {
             />
             <img
               src="https://cdn.salla.sa/form-builder/wrkohrPk90xTpC7DzSnsRoDKINz8GRcQxxBCaWyu.png"
-              alt="Hadaya Special Promotion 2"
+              alt="Special Promotion 2"
               className="w-full h-auto object-cover group-hover:scale-103 transition-transform duration-500"
               referrerPolicy="no-referrer"
+              loading="lazy" decoding="async"
             />
           </picture>
         </div>
@@ -172,3 +255,4 @@ export const PromoBannersPair: React.FC = () => {
     </section>
   );
 };
+

@@ -116,7 +116,12 @@ export const ProductTabsForm: React.FC = () => {
         </div>
 
         {/* Product Cards Grid Preview */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div
+          className="grid gap-3"
+          style={{
+            gridTemplateColumns: `repeat(auto-fill, minmax(${settings.columnsCount && settings.columnsCount >= 6 ? '140px' : '180px'}, 1fr))`,
+          }}
+        >
           {sampleProducts.map((p) => (
             <div
               key={p.id}
@@ -211,8 +216,55 @@ export const ProductTabsForm: React.FC = () => {
             {isAr ? 'عدد المنتجات وطريقة العرض' : 'Products Count & Layout'}
           </h3>
           <div className="space-y-3">
+            {/* Collection / Filter Source */}
             <div>
-              <span className="text-[10px] font-bold uppercase text-muted block mb-1">Number of Products</span>
+              <span className="text-[10px] font-bold uppercase text-muted block mb-1">
+                {isAr ? 'فلتر وتصنيف المنتجات' : 'Products Filter & Collection'}
+              </span>
+              <select
+                value={settings.collectionFilter || 'all'}
+                onChange={(e) => setVal('collectionFilter', e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl border outline-none font-bold"
+                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
+              >
+                <option value="all">{isAr ? 'جميع المنتجات (All Products)' : 'All Products'}</option>
+                <option value="trending">{isAr ? 'الأكثر رواجاً (Top Trending 🔥)' : 'Top Trending 🔥'}</option>
+                <option value="best_sellers">{isAr ? 'الأكثر مبيعاً (Best Sellers ⭐)' : 'Best Sellers ⭐'}</option>
+                <option value="best_products">{isAr ? 'أفضل المنتجات (Best Products 👑)' : 'Best Products 👑'}</option>
+                <option value="featured">{isAr ? 'منتجات مميزة (Featured ✨)' : 'Featured ✨'}</option>
+                <option value="women">{isAr ? 'هدايا نسائية (Women)' : 'Women Collection'}</option>
+                <option value="valentines">{isAr ? 'عيد الحب والرومانسية (Valentine)' : "Valentine's Day"}</option>
+                <option value="eid">{isAr ? 'أقسام العيد والاحتفالات (Eid)' : 'Eid Celebrations'}</option>
+                <option value="birthday">{isAr ? 'أعياد الميلاد (Birthday)' : 'Birthday Gifts'}</option>
+                <option value="luxury">{isAr ? 'تشكيلة فاخرة (Luxury VIP)' : 'Luxury VIP'}</option>
+              </select>
+            </div>
+
+            {/* Columns Per Row */}
+            <div>
+              <span className="text-[10px] font-bold uppercase text-muted block mb-1">
+                {isAr ? 'عدد المنتجات في الصف الواحد (Grid Columns)' : 'Products Per Row (Columns)'}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {[3, 4, 5, 6, 8, 10].map((col) => (
+                  <button
+                    key={col}
+                    type="button"
+                    onClick={() => setVal('columnsCount', col)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border cursor-pointer ${
+                      (settings.columnsCount || 4) === col ? 'bg-emerald-600 text-white border-emerald-600' : ''
+                    }`}
+                  >
+                    {col} {isAr ? 'في الصف' : '/ row'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <span className="text-[10px] font-bold uppercase text-muted block mb-1">
+                {isAr ? 'الحد الأقصى لعدد المنتجات' : 'Total Number of Products'}
+              </span>
               <div className="flex flex-wrap gap-1.5">
                 {[4, 8, 12, 16, 20, 24, 28, 32].map((num) => (
                   <button

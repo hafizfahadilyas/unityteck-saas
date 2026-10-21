@@ -25,17 +25,9 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton';
 import { InvoiceAlertModal } from './components/InvoiceAlertModal';
 import { AuthModal } from './components/AuthModal';
+import { CartInterceptModal } from './components/CartInterceptModal';
 
-import {
-  DISCOUNTED_BOUQUETS,
-  NATURAL_BOUQUETS,
-  CHOCOLATE_ROSES,
-  CAKE_ROSES,
-  COFFEE_SWEETS_ROSES,
-  FLOWER_VASES,
-  MAWAJEEB_PRODUCTS,
-  LUXURY_SETS,
-} from './data/mockData';
+
 
 import { CatalogPage } from './pages/CatalogPage';
 import { ProductDetailPage } from './pages/ProductDetailPage';
@@ -43,6 +35,7 @@ import { CartPage } from './pages/CartPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { ThankYouPage } from './pages/ThankYouPage';
 import { UserCrmPage } from './pages/UserCrmPage';
+import { MeccaStaticPage } from './pages/MeccaStaticPage';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useTenant } from '../../context/TenantContext';
 import { ThemePreloader } from '../../components/common/ThemePreloader';
@@ -58,7 +51,20 @@ interface MeccaGiftsThemeViewProps {
 }
 
 const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAdmin = false }) => {
-  const { currentPage, setCurrentPage, toastMessage, isAuthModalOpen, setIsAuthModalOpen, setLanguage, products } = useApp();
+  const {
+    currentPage,
+    setCurrentPage,
+    toastMessage,
+    isAuthModalOpen,
+    setIsAuthModalOpen,
+    setLanguage,
+    products,
+    isCartInterceptOpen,
+    cartInterceptConfig,
+    handleCartInterceptPrimary,
+    handleCartInterceptSecondary,
+    handleCartInterceptClose,
+  } = useApp();
   const { locale } = usePrefs();
   const { activeStore } = useTenant();
   const [isAdminBypass, setIsAdminBypass] = useState(false);
@@ -77,42 +83,45 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
     };
   }, []);
 
+  const currentStoreId = activeStore?.id || 'store-1';
+
   const activeBlocks = useMemo(() => {
-    return getLiveOrStoredBlocks(activeStore.id, 'theme-flora-luxe', activeStore).filter(
+    return getLiveOrStoredBlocks(currentStoreId, 'theme-flora-luxe', activeStore).filter(
       (b) => b.visible !== false && b.type !== 'header' && b.type !== 'footer'
     );
-  }, [activeStore.id, activeStore, blocksTick]);
+  }, [currentStoreId, activeStore, blocksTick]);
 
   const themeSettings = useMemo(() => {
-    return readAllThemeSettings(activeStore.id, activeStore);
-  }, [activeStore.id, activeStore]);
+    return readAllThemeSettings(currentStoreId, activeStore);
+  }, [currentStoreId, activeStore]);
 
   const isMaintenance = Boolean(themeSettings.maintenance?.enabled && !isAdminBypass);
 
-  // Dynamic products per section derived from store catalog with rich fallbacks
+// Dynamic products per section derived strictly from store catalog (Zero Dummy / Mock Data)
   const sectionProducts = useMemo(() => {
     const list = products && products.length > 0 ? products : [];
 
-    const filterByKeywords = (keywords: string[], fallback: Product[], maxLimit: number = 6) => {
+    const filterByKeywords = (keywords: string[], maxLimit: number = 6) => {
       const matched = list.filter((p) => {
-        const text = `${p.name} ${p.nameEn} ${p.category} ${p.categoryEn || ''} ${(p.tags || []).join(' ')}`.toLowerCase();
+        const text = `${p.name} ${p.nameAr || ''} ${p.nameEn || ''} ${p.category} ${p.categoryAr || ''} ${p.categoryEn || ''} ${p.badge || ''} ${(p.tags || []).join(' ')}`.toLowerCase();
         return keywords.some((k) => text.includes(k.toLowerCase()));
       });
       if (matched.length >= maxLimit) return matched.slice(0, maxLimit);
       const existingIds = new Set(matched.map((m) => m.id));
-      const rest = fallback.filter((f) => !existingIds.has(f.id));
-      return [...matched, ...rest].slice(0, maxLimit);
+      const catalogRemaining = list.filter((p) => !existingIds.has(p.id));
+      const pool = [...matched, ...catalogRemaining];
+      return pool.slice(0, maxLimit);
     };
 
     return {
-      discounted: filterByKeywords(['مخفض', 'عرض', 'خصم', 'promo', 'discount'], DISCOUNTED_BOUQUETS, 6),
-      natural: filterByKeywords(['طبيعي', 'باقة', 'rose', 'bouquet', 'peony', 'valent'], NATURAL_BOUQUETS, 6),
-      luxury: filterByKeywords(['ملكي', 'سلة', 'طقم', 'vip', 'hamper', 'luxury', 'men', 'نساء'], LUXURY_SETS, 6),
-      chocolate: filterByKeywords(['شوكول', 'باتشي', 'بستاني', 'choc'], CHOCOLATE_ROSES, 6),
-      cake: filterByKeywords(['كيك', 'حلا', 'cake', 'ريد فيلفت', 'ميلاد'], CAKE_ROSES, 6),
-      coffee: filterByKeywords(['قهوة', 'ضيافة', 'coffee'], COFFEE_SWEETS_ROSES, 6),
-      vases: filterByKeywords(['فاز', 'كريستال', 'lily', 'orchid', 'vase'], FLOWER_VASES, 6),
-      mawajeeb: filterByKeywords(['مواجيب', 'تراث', 'خشب', 'بخور'], MAWAJEEB_PRODUCTS, 4),
+      discounted: filterByKeywords(['مخفض', 'عرض', 'خصم', 'promo', 'discount', 'sale', 'off'], 6),
+      natural: filterByKeywords(['طبيعي', 'باقة', 'rose', 'bouquet', 'peony', 'valent', 'flowers', 'floral'], 6),
+      luxury: filterByKeywords(['ملكي', 'سلة', 'طقم', 'vip', 'hamper', 'luxury', 'men', 'نساء', 'box', 'gift'], 6),
+      chocolate: filterByKeywords(['شوكول', 'باتشي', 'بستاني', 'choc', 'chocolate'], 6),
+      cake: filterByKeywords(['كيك', 'حلا', 'cake', 'sweet'], 6),
+      coffee: filterByKeywords(['قهوة', 'ضيافة', 'coffee'], 6),
+      vases: filterByKeywords(['فاز', 'كريستال', 'lily', 'orchid', 'vase'], 6),
+      mawajeeb: filterByKeywords(['مواجيب', 'تراث', 'خشب', 'بخور', 'plaque'], 4),
     };
   }, [products]);
 
@@ -131,6 +140,24 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
       setCurrentPage(initialPage);
     }
   }, [initialPage, setCurrentPage]);
+
+  // Ensure view is scrolled strictly to top header on any page change or refresh
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual';
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      const t = setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  }, [currentPage]);
 
   if (isMaintenance) {
     return (
@@ -152,7 +179,7 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
       case 'circle_categories':
         return <TopCircularCategories key={b.id} />;
       case 'best_sellers':
-        return <BestSellersSection key={b.id} />;
+        return <BestSellersSection key={b.id} settings={b.settings} />;
       case 'promo_countdown_banner':
       case 'special_offer':
         return <PromoCountdownBanner key={b.id} />;
@@ -204,16 +231,39 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
           />
         );
       case 'trending_this_week':
-        return <TrendingThisWeekSection key={b.id} />;
+        return (
+          <TrendingThisWeekSection
+            key={b.id}
+            blockId={b.id}
+            settings={b.settings}
+            titleAr={b.settings?.titleAr || b.titleAr}
+            titleEn={b.settings?.titleEn || b.titleEn}
+            subtitleAr={b.settings?.subtitleAr}
+            subtitleEn={b.settings?.subtitleEn}
+          />
+        );
       case 'occasion_why_us':
-        return <OccasionAndWhyUsSection key={b.id} />;
+        return <OccasionAndWhyUsSection key={b.id} settings={b.settings} />;
       case 'custom_gift_banner':
-        return <CustomGiftBanner key={b.id} />;
+        return (
+          <CustomGiftBanner
+            key={b.id}
+            settings={b.settings}
+            titleAr={b.settings?.titleAr || b.titleAr}
+            titleEn={b.settings?.titleEn || b.titleEn}
+            subtitleAr={b.settings?.subtitleAr}
+            subtitleEn={b.settings?.subtitleEn}
+            imageUrl={b.settings?.imageUrl}
+            buttonTextAr={b.settings?.buttonTextAr}
+            buttonTextEn={b.settings?.buttonTextEn}
+            buttonUrl={b.settings?.buttonUrl}
+          />
+        );
       case 'promo_banners_pair':
-        return <PromoBannersPair key={b.id} />;
+        return <PromoBannersPair key={b.id} settings={b.settings} />;
       case 'featured_collections':
       case 'metrics_section':
-        return <FeaturedCollectionsSection key={b.id} />;
+        return <FeaturedCollectionsSection key={b.id} settings={b.settings} />;
       case 'reviews':
       case 'testimonials':
         return <TestimonialsSection key={b.id} />;
@@ -236,11 +286,11 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
       <ThemePreloader
         enabled={themeSettings.colors?.enableLoadingScreen ?? false}
         isLoading={false}
-        storeName={activeStore.name}
-        storeNameAr={activeStore.name}
+        storeName={activeStore?.name || 'Hadaya Mecca'}
+        storeNameAr={activeStore?.nameAr || activeStore?.name || 'هدايا مكة'}
         title={themeSettings.colors?.loadingTitle}
         subtitle={themeSettings.colors?.loadingSubtitle}
-        logoUrl={themeSettings.colors?.loadingLogoUrl || activeStore.logo || MECCA_LOGO}
+        logoUrl={themeSettings.colors?.loadingLogoUrl || activeStore?.logo || MECCA_LOGO}
       />
 
       {/* Toast Notification Alert */}
@@ -265,9 +315,19 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
         onClose={() => setIsAuthModalOpen(false)}
       />
 
+      {/* 1st-Click Smart Cart Intercept Modal (Loyalty, Gifts, Save Cart) */}
+      <CartInterceptModal
+        isOpen={isCartInterceptOpen}
+        onClose={handleCartInterceptClose}
+        config={cartInterceptConfig}
+        language={locale === 'en' ? 'en' : 'ar'}
+        onPrimaryAction={handleCartInterceptPrimary}
+        onSecondaryAction={handleCartInterceptSecondary}
+      />
+
       {/* Page Routing */}
       <main className="flex-1">
-        {(currentPage === 'home' || !['catalog', 'product', 'cart', 'checkout', 'thankyou', 'crm'].includes(currentPage)) && (
+        {currentPage === 'home' && (
           <>
             {activeBlocks.map((b) => renderSectionBlock(b))}
           </>
@@ -279,6 +339,15 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
         {currentPage === 'checkout' && <CheckoutPage />}
         {currentPage === 'thankyou' && <ThankYouPage />}
         {currentPage === 'crm' && <UserCrmPage />}
+        {['privacy', 'return', 'terms', 'shipping', 'about', 'contact', 'faq', 'track-order'].includes(currentPage) && (
+          <MeccaStaticPage slug={currentPage} />
+        )}
+
+        {!['home', 'catalog', 'product', 'cart', 'checkout', 'thankyou', 'crm', 'privacy', 'return', 'terms', 'shipping', 'about', 'contact', 'faq', 'track-order'].includes(currentPage) && (
+          <>
+            {activeBlocks.map((b) => renderSectionBlock(b))}
+          </>
+        )}
       </main>
 
       {/* Luxury Emerald Footer matching Image 2 */}

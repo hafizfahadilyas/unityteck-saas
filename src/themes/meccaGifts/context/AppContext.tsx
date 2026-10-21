@@ -4,6 +4,12 @@ import { PRODUCTS, INITIAL_ORDERS, INITIAL_OCCASIONS, INITIAL_ADDRESSES } from '
 import { COFFEE_STORE_PRODUCTS } from '../../../data/hadayaMeccaData';
 import { useTenant } from '../../../context/TenantContext';
 import { CouponItem } from '../../../types';
+import { usePrefs } from '../../../i18n/PrefsContext';
+import {
+  CartInterceptConfig,
+  fetchCartInterceptSettingsApi,
+  trackCartInterceptActionApi,
+} from '../../../api/tenantApi';
 
 interface UserInfo {
   name: string;
@@ -62,45 +68,141 @@ interface AppContextType {
   removeAppliedCoupon: () => void;
   builderDevice?: 'desktop' | 'laptop' | 'tablet' | 'mobile';
   setBuilderDevice?: (device: 'desktop' | 'laptop' | 'tablet' | 'mobile') => void;
+  // Cart Intercept Modal
+  isCartInterceptOpen: boolean;
+  setIsCartInterceptOpen: (open: boolean) => void;
+  cartInterceptConfig: CartInterceptConfig;
+  handleCartInterceptPrimary: () => void;
+  handleCartInterceptSecondary: () => void;
+  handleCartInterceptClose: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentProducts, currentOrders, activeStore, currentCoupons, addOrder: tenantAddOrder, updateOrderStatus, updateOrder, recordCouponUsage } = useTenant();
+  const prefs = usePrefs();
+  const localeFromPrefs = prefs?.locale || 'ar';
+  const setLocaleFromPrefs = prefs?.setLocale;
 
-  // Dynamic products from store tenant context with store-isolated fallbacks
+  const [language, setLanguageState] = useState<Language>(() => {
+    if (localeFromPrefs === 'en' || localeFromPrefs === 'ar') return localeFromPrefs;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('unityteck_prefs');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.locale === 'en' || parsed.locale === 'ar') return parsed.locale;
+        }
+      }
+    } catch {}
+    return 'ar';
+  });
+
+  useEffect(() => {
+    if (localeFromPrefs && (localeFromPrefs === 'en' || localeFromPrefs === 'ar') && localeFromPrefs !== language) {
+      setLanguageState(localeFromPrefs);
+    }
+  }, [localeFromPrefs]);
+
+  const setLanguage = useCallback((lang: Language) => {
+    setLanguageState(lang);
+    if (setLocaleFromPrefs) {
+      setLocaleFromPrefs(lang === 'ar' ? 'ar' : 'en');
+    }
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('unityteck_prefs');
+        const p = raw ? JSON.parse(raw) : {};
+        localStorage.setItem('unityteck_prefs', JSON.stringify({ ...p, locale: lang }));
+      }
+    } catch {}
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = lang;
+      document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    }
+  }, [setLocaleFromPrefs]);
+
+  const [syncTick, setSyncTick] = useState(0);
+
+  useEffect(() => {
+    const handleSync = () => {
+      setSyncTick((t) => t + 1);
+    };
+    window.addEventListener('unityteck-product-updated', handleSync);
+    window.addEventListener('unityteck-data', handleSync);
+    window.addEventListener('unityteck-categories-updated', handleSync);
+    window.addEventListener('unityteck-brands-updated', handleSync);
+    window.addEventListener('unityteck-theme-settings', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('unityteck-product-updated', handleSync);
+      window.removeEventListener('unityteck-data', handleSync);
+      window.removeEventListener('unityteck-categories-updated', handleSync);
+      window.removeEventListener('unityteck-brands-updated', handleSync);
+      window.removeEventListener('unityteck-theme-settings', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
+
+  // Dynamic products from store tenant context strictly isolated to activeStore
   const products: Product[] = useMemo(() => {
     const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
 
-    if (currentProducts && currentProducts.length > 0) {
-      return currentProducts.map((p) => {
-        const isArName = /[\u0600-\u06FF]/.test(p.nameAr || p.name || '');
-        const nameAr = p.nameAr || (isArName ? p.name : p.subtitleAr || p.name);
-        const nameEn = (!isArName ? p.name : (p.subtitle || p.sku || p.name));
+    let sourceProducts = currentProducts;
+    try {
+      if (typeof window !== 'undefined' && activeStore?.id) {
+        const rawMap = localStorage.getItem('unityteck_products_map');
+        if (rawMap) {
+          const map = JSON.parse(rawMap);
+          if (Array.isArray(map[activeStore.id]) && map[activeStore.id].length > 0) {
+            sourceProducts = map[activeStore.id];
+          }
+        }
+      }
+    } catch {}
+
+    if (sourceProducts && sourceProducts.length > 0) {
+      return sourceProducts.map((p) => {
+        const hasArChars = (str?: string) => Boolean(str && /[\u0600-\u06FF]/.test(str));
+        const nameAr = p.nameAr || (hasArChars(p.name) ? p.name : p.subtitleAr || p.name || '');
+        const nameEn = p.nameEn || (!hasArChars(p.name) ? p.name : p.subtitle || p.sku || p.name || '');
         const pAny = p as any;
+        const currentLangName = language === 'ar' ? (nameAr || nameEn) : (nameEn || nameAr);
+        const currentLangCat = language === 'ar' ? (p.categoryAr || p.category) : (pAny.categoryEn || p.categoryEn || p.category);
+        const currentLangDesc = language === 'ar' ? (p.descriptionAr || p.description) : (p.description || p.descriptionAr);
+
         return {
           id: String(p.id),
-          name: nameAr || (isCoffee ? 'محصول قهوة مختصة' : 'باقة ورد طبيعي'),
-          nameEn: nameEn || (isCoffee ? 'Specialty Single Origin Coffee' : 'Fresh Flower Bouquet'),
+          storeId: p.storeId || activeStore.id,
+          name: currentLangName,
+          nameAr: nameAr || nameEn,
+          nameEn: nameEn || nameAr,
+          sku: p.sku,
           price: Number(p.discountedPrice || p.price || 0),
           originalPrice: p.originalPrice ? Number(p.originalPrice) : (p.discountedPrice && p.discountedPrice < p.price ? Number(p.price) : undefined),
           rating: 4.9,
           reviewsCount: p.salesCount || 135,
-          image: p.image || (isCoffee ? 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80' : '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg'),
-          additionalImages: p.galleryUrls && p.galleryUrls.length > 0 ? p.galleryUrls : [p.image],
-          category: p.category || (isCoffee ? 'حبوب القهوة المختصة' : 'باقات الورود الطبيعية'),
-          categoryEn: pAny.categoryEn || p.category || (isCoffee ? 'Specialty Beans' : 'Natural Flower Bouquets'),
-          categorySlug: pAny.categorySlug || (p.category ? p.category.toLowerCase().replace(/\s+/g, '-') : (isCoffee ? 'coffee-beans' : 'bouquets')),
-          occasions: p.tags || (isCoffee ? ['قهوة الصباح', 'محاصيل مختارة'] : ['هدايا الحرم', 'مناسبات خاصة']),
-          tags: p.tags || (isCoffee ? ['قهوة مختصة', 'محمصة', 'حبوب بن'] : ['طبيعي', 'هولندي', 'فاخر']),
-          badge: p.originalPrice ? 'عرض خاص' : undefined,
+          image: p.image || '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+          additionalImages: p.galleryUrls && p.galleryUrls.length > 0 ? p.galleryUrls : (p.image ? [p.image] : []),
+          category: currentLangCat,
+          categoryAr: p.categoryAr || p.category,
+          categoryEn: pAny.categoryEn || p.categoryEn || p.category,
+          categorySlug: pAny.categorySlug || (p.category ? p.category.toLowerCase().replace(/\s+/g, '-') : 'general'),
+          occasions: p.tags || [],
+          tags: p.tags || [],
+          badge: p.originalPrice ? (language === 'ar' ? 'عرض خاص' : 'Special Offer') : undefined,
           badgeEn: p.originalPrice ? 'Special Offer' : undefined,
-          description: p.descriptionAr || p.description || (isCoffee ? 'محصول قهوة مختصة محمص بعناية وإيحاءات فريدة.' : 'تنسيق فاخر من أجود أنواع الزهور والورود الطبيعية.'),
-          descriptionEn: p.description || p.descriptionAr || (isCoffee ? 'Specialty single origin roasted coffee beans.' : 'Luxury fresh floral arrangement crafted with premium blooms.'),
-          flowerTypes: isCoffee ? [] : (pAny.flowerTypes || ['جوري هولندي فاخر', 'بيبي روز', 'يوكاليبتوس']),
-          dimensions: pAny.dimensions || (isCoffee ? '250g' : 'ارتفاع 50 سم × عرض 35 سم'),
+          description: currentLangDesc || '',
+          descriptionAr: p.descriptionAr || p.description || '',
+          descriptionEn: p.description || p.descriptionAr || '',
+          subtitle: p.subtitle,
+          subtitleAr: p.subtitleAr,
+          flowerTypes: pAny.flowerTypes || [],
+          dimensions: pAny.dimensions || '',
           inStock: p.stock !== undefined ? p.stock > 0 : true,
+          stock: p.stock,
+          status: p.status,
           featured: true,
         };
       });
@@ -108,28 +210,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     if (isCoffee) {
       return COFFEE_STORE_PRODUCTS.map((p) => {
-        const isArName = /[\u0600-\u06FF]/.test(p.nameAr || p.name || '');
-        const nameAr = p.nameAr || (isArName ? p.name : p.subtitleAr || p.name);
-        const nameEn = (!isArName ? p.name : (p.subtitle || p.sku || p.name));
+        const hasArChars = (str?: string) => Boolean(str && /[\u0600-\u06FF]/.test(str));
+        const nameAr = p.nameAr || (hasArChars(p.name) ? p.name : p.subtitleAr || p.name || '');
+        const nameEn = p.nameEn || (!hasArChars(p.name) ? p.name : p.subtitle || p.sku || p.name || '');
         return {
           id: String(p.id),
-          name: nameAr || 'محصول قهوة مختصة',
-          nameEn: nameEn || 'Specialty Coffee',
+          storeId: p.storeId || 'store-coffee',
+          name: language === 'ar' ? (nameAr || nameEn) : (nameEn || nameAr),
+          nameAr: nameAr || nameEn,
+          nameEn: nameEn || nameAr,
+          sku: p.sku,
           price: Number(p.discountedPrice || p.price || 0),
           originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
           rating: 4.9,
           reviewsCount: p.salesCount || 140,
           image: p.image || 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80',
-          additionalImages: p.galleryUrls && p.galleryUrls.length > 0 ? p.galleryUrls : [p.image],
-          category: p.category || 'حبوب القهوة المختصة',
-          categoryEn: 'Specialty Beans',
+          additionalImages: p.galleryUrls && p.galleryUrls.length > 0 ? p.galleryUrls : (p.image ? [p.image] : []),
+          category: language === 'ar' ? (p.categoryAr || p.category) : (p.categoryEn || p.category),
+          categoryAr: p.categoryAr || p.category,
+          categoryEn: p.categoryEn || 'Specialty Beans',
           categorySlug: 'coffee-beans',
           occasions: ['قهوة الصباح', 'تحميص طازج'],
           tags: ['قهوة مختصة', 'محمصة', 'سنجل أوريجن'],
-          badge: p.originalPrice ? 'عرض خاص' : undefined,
+          badge: p.originalPrice ? (language === 'ar' ? 'عرض خاص' : 'Special Offer') : undefined,
           badgeEn: p.originalPrice ? 'Special Offer' : undefined,
-          description: p.descriptionAr || p.description || 'محصول قهوة مختصة فريد النكهات.',
-          descriptionEn: p.description || 'Specialty single origin beans.',
+          description: (language === 'ar' ? (p.descriptionAr || p.description) : (p.description || p.descriptionAr)) || '',
+          descriptionAr: p.descriptionAr || p.description || '',
+          descriptionEn: p.description || p.descriptionAr || '',
           flowerTypes: [],
           dimensions: '250g',
           inStock: true,
@@ -138,8 +245,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
     }
 
-    return PRODUCTS;
-  }, [currentProducts, activeStore]);
+    // Zero Dummy / Mock Data policy:
+    // If a store has no products yet in database/dashboard, return genuine empty list []
+    return [];
+  }, [currentProducts, activeStore, syncTick, language]);
 
   const resolveValidPage = (raw: string | null | undefined): string | null => {
     if (!raw) return null;
@@ -153,7 +262,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return null;
   };
 
-  const [language, setLanguageState] = useState<Language>('ar');
   const [builderDevice, setBuilderDevice] = useState<'desktop' | 'laptop' | 'tablet' | 'mobile'>('desktop');
   const [currentPage, setCurrentPageState] = useState<string>(() => {
     try {
@@ -174,6 +282,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (path === '/catalog' || path === '/shop') return 'catalog';
         if (path === '/product') return 'product';
         if (path === '/thankyou') return 'thankyou';
+
+        const saved = sessionStorage.getItem('unityteck_mecca_page');
+        if (saved) {
+          const resolvedSaved = resolveValidPage(saved);
+          if (resolvedSaved) return resolvedSaved;
+        }
       }
     } catch {}
     return 'home';
@@ -184,16 +298,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCurrentPageState(valid);
     try {
       if (typeof window !== 'undefined') {
+        sessionStorage.setItem('unityteck_mecca_page', valid);
         const url = new URL(window.location.href);
         if (valid === 'home') {
           url.searchParams.delete('page');
         } else {
           url.searchParams.set('page', valid);
         }
-        window.history.pushState({ page: valid }, '', url.toString());
+        window.history.replaceState({ page: valid }, '', url.toString());
       }
     } catch {}
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    if (typeof window !== 'undefined') {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual';
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }, 50);
+    }
   };
 
   useEffect(() => {
@@ -286,9 +414,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(() => products[0] || PRODUCTS[0]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const prodId = params.get('product') || params.get('id');
+        if (prodId) {
+          const found = (products || []).find((p) => p.id === prodId) || PRODUCTS.find((p) => p.id === prodId);
+          if (found) return found;
+        }
+        const savedProd = sessionStorage.getItem('unityteck_mecca_product_id');
+        if (savedProd) {
+          const found = (products || []).find((p) => p.id === savedProd) || PRODUCTS.find((p) => p.id === savedProd);
+          if (found) return found;
+        }
+      }
+    } catch {}
+    return (products && products.length > 0 ? products[0] : null) || PRODUCTS[0] || null;
+  });
+
+  useEffect(() => {
+    if (selectedProduct) {
+      const updated = products.find((p) => p.id === selectedProduct.id);
+      if (updated && (updated.image !== selectedProduct.image || updated.price !== selectedProduct.price || updated.name !== selectedProduct.name)) {
+        setSelectedProduct(updated);
+      }
+    }
+  }, [products]);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
-  const [wishlist, setWishlist] = useState<string[]>(['wm-peony-05', 'wm-val-06', 'disc-1']);
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(`mecca_gifts_wishlist_${activeStore?.id || 'store-1'}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [orders, setOrders] = useState<Order[]>(() => {
     try {
       const stored = localStorage.getItem('mecca_gifts_customer_orders');
@@ -306,11 +467,114 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch {}
     return 0;
   });
-  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>(INITIAL_ADDRESSES);
-  const [savedOccasions, setSavedOccasions] = useState<OccasionReminder[]>(INITIAL_OCCASIONS);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>(() => {
+    try {
+      const saved = localStorage.getItem(`mecca_gifts_addresses_${activeStore?.id || 'store-1'}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [savedOccasions, setSavedOccasions] = useState<OccasionReminder[]>(() => {
+    try {
+      const saved = localStorage.getItem(`mecca_gifts_occasions_${activeStore?.id || 'store-1'}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`mecca_gifts_wishlist_${activeStore?.id || 'store-1'}`, JSON.stringify(wishlist));
+    } catch {}
+  }, [wishlist, activeStore?.id]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`mecca_gifts_addresses_${activeStore?.id || 'store-1'}`, JSON.stringify(savedAddresses));
+    } catch {}
+  }, [savedAddresses, activeStore?.id]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`mecca_gifts_occasions_${activeStore?.id || 'store-1'}`, JSON.stringify(savedOccasions));
+    } catch {}
+  }, [savedOccasions, activeStore?.id]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+
+  // ── Cart Intercept (1st Click Modal on Flowers Store) ─────────────────
+  const [isCartInterceptOpen, setIsCartInterceptOpen] = useState<boolean>(false);
+  const pendingAddToCartRef = React.useRef<{
+    product: Product;
+    quantity?: number;
+    addons?: AddonOption[];
+    cardMessage?: string;
+    size?: string;
+  } | null>(null);
+
+  const [visitorId] = useState<string>(() => {
+    try {
+      let vid = localStorage.getItem('mecca_gifts_visitor_id');
+      if (!vid) {
+        vid = `vis-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+        localStorage.setItem('mecca_gifts_visitor_id', vid);
+      }
+      return vid;
+    } catch {
+      return `vis-${Date.now()}`;
+    }
+  });
+
+  const [cartInterceptConfig, setCartInterceptConfig] = useState<CartInterceptConfig>({
+    enabled: true,
+    active_modal: 'loyalty',
+    loyalty_points: 25,
+    discount_percent: 10,
+    coupon_code: 'HADAYA10',
+    title_en: "Don't Lose Your Points!",
+    title_ar: 'لا تفوّت نقاطك الذهبية!',
+    subtitle_en: 'Log in and earn 25 points on this cart.',
+    subtitle_ar: 'سجّل دخولك الآن واكسب 25 نقطة إضافية على هذه السلة.',
+    gift_title_en: 'Your Gift is Ready!',
+    gift_title_ar: 'هديتك بانتظارك!',
+    gift_subtitle_en: 'Log in now and get 10% OFF automatically applied to your cart.',
+    gift_subtitle_ar: 'سجّل دخولك الآن واحصل على خصم 10% يطبق تلقائياً على سلتك.',
+    save_cart_title_en: 'Save Your Cart?',
+    save_cart_title_ar: 'هل ترغب بحفظ سلتك؟',
+    save_cart_subtitle_en: "As a guest, your cart might be lost. Log in and we'll save it for you across any device.",
+    save_cart_subtitle_ar: 'كزائر، قد تفقد سلتك عند إغلاق المتصفح. سجّل دخولك وسنحفظها لك عبر جميع أجهزتك.',
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const targetStoreId = activeStore?.id || 'store-1';
+    const loadConfig = async () => {
+      try {
+        const cfg = await fetchCartInterceptSettingsApi(targetStoreId);
+        if (cfg && isMounted) {
+          setCartInterceptConfig(cfg);
+        }
+      } catch {
+        try {
+          const raw = localStorage.getItem(`unityteck_cart_intercept_${targetStoreId}`);
+          if (raw && isMounted) setCartInterceptConfig(JSON.parse(raw));
+        } catch {}
+      }
+    };
+    loadConfig();
+
+    const handleUpdate = () => loadConfig();
+    window.addEventListener('unityteck-cart-intercept-updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('unityteck-cart-intercept-updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [activeStore?.id]);
 
   // User auth state with instant 1-click Google Sign-In & persistent storage
   const [user, setUser] = useState<UserInfo>(() => {
@@ -328,26 +592,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   });
 
-  const [cart, setCart] = useState<CartItem[]>([
-    {
-      id: 'cart-init-1',
-      productId: PRODUCTS[0].id,
-      product: PRODUCTS[0],
-      quantity: 1,
-      selectedSize: 'الحجم الفاخر الملكي',
-      cardMessage: 'أجمل التهاني بمناسبة قدوم مولودكم الجديد',
-      addons: []
-    }
-  ]);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem(`mecca_gifts_cart_${activeStore?.id || 'store-1'}`);
+        if (saved) return JSON.parse(saved);
+      }
+    } catch {}
+    return [];
+  });
 
   useEffect(() => {
-    document.documentElement.lang = language;
-    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
-  }, [language]);
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`mecca_gifts_cart_${activeStore?.id || 'store-1'}`, JSON.stringify(cart));
+      }
+    } catch {}
+  }, [cart, activeStore?.id]);
 
-  const setLanguage = useCallback((lang: Language) => {
-    setLanguageState(lang);
-  }, []);
+
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -378,7 +641,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       localStorage.setItem('mecca_gifts_customer_user', JSON.stringify(newUser));
     } catch {}
 
-    showToast(language === 'ar' ? `مرحباً بك ${finalName} في متجر هدايا مكة ✓` : `Welcome back ${finalName} ✓`);
+    // Apply pending intercept reward upon successful login
+    try {
+      const pendingReward = localStorage.getItem('mecca_pending_intercept_reward');
+      if (pendingReward === 'loyalty') {
+        const pts = cartInterceptConfig.loyalty_points || 25;
+        setLoyaltyPoints((prev) => {
+          const updated = prev + pts;
+          try { localStorage.setItem('mecca_gifts_customer_loyalty', String(updated)); } catch {}
+          return updated;
+        });
+        showToast(language === 'ar' ? `مرحباً بك ${finalName}! تم إضافة ${pts} نقطة ولاء إلى رصيدك 🪙` : `Welcome ${finalName}! ${pts} loyalty points credited!`);
+      } else if (pendingReward === 'gift') {
+        const code = cartInterceptConfig.coupon_code || 'HADAYA10';
+        applyCouponCode(code);
+        showToast(language === 'ar' ? `مرحباً بك ${finalName}! تم تطبيق كود الخصم (${code}) على سلتك 🎁` : `Welcome ${finalName}! Coupon (${code}) applied!`);
+      } else if (pendingReward === 'save_cart') {
+        showToast(language === 'ar' ? `مرحباً بك ${finalName}! تم حفظ ومزامنة سلتك في حسابك عبر أي جهاز 🛒` : `Welcome ${finalName}! Cart saved across your devices!`);
+      } else {
+        showToast(language === 'ar' ? `مرحباً بك ${finalName} في متجر هدايا مكة ✓` : `Welcome back ${finalName} ✓`);
+      }
+      localStorage.removeItem('mecca_pending_intercept_reward');
+    } catch {
+      showToast(language === 'ar' ? `مرحباً بك ${finalName} في متجر هدايا مكة ✓` : `Welcome back ${finalName} ✓`);
+    }
+
     setIsAuthModalOpen(false);
   };
 
@@ -396,7 +683,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     showToast(language === 'ar' ? 'تم تسجيل الخروج بنجاح' : 'Signed out successfully');
   };
 
-  const addToCart = (
+  const directAddToCart = (
     product: Product,
     quantity: number = 1,
     addons: AddonOption[] = [],
@@ -426,6 +713,171 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setIsCartOpen(true);
     showToast(language === 'ar' ? 'تمت إضافة الهدية إلى السلة بنجاح' : 'Added to bag successfully');
+  };
+
+  const addToCart = (
+    product: Product,
+    quantity: number = 1,
+    addons: AddonOption[] = [],
+    cardMessage?: string,
+    size?: string
+  ) => {
+    const storeId = activeStore?.id || 'store-1';
+    const isFlowersStore =
+      storeId === 'store-1' ||
+      activeStore?.category?.includes('ورد') ||
+      activeStore?.category?.includes('هدايا') ||
+      activeStore?.category?.includes('gift') ||
+      activeStore?.category?.includes('flower') ||
+      window.location.pathname.startsWith('/flowers') ||
+      window.location.pathname.startsWith('/hadaya');
+
+    // Check if Cart Intercept is configured & active exclusively for Flowers store
+    if (isFlowersStore && cartInterceptConfig.enabled && cartInterceptConfig.active_modal !== 'disabled') {
+      const dismissKey = `mecca_cart_intercept_dismissed_${storeId}`;
+      const isAlreadyDismissed = Boolean(
+        localStorage.getItem(dismissKey) || sessionStorage.getItem(dismissKey)
+      );
+
+      if (!isAlreadyDismissed) {
+        // 1ST CLICK: Trigger Cart Intercept Modal!
+        pendingAddToCartRef.current = { product, quantity, addons, cardMessage, size };
+        setIsCartInterceptOpen(true);
+
+        // Record impression in real backend tracking API (MySQL)
+        trackCartInterceptActionApi(storeId, {
+          visitor_id: visitorId,
+          customer_id: user.isLoggedIn ? user.email : null,
+          customer_name: user.isLoggedIn ? user.name : null,
+          customer_email: user.isLoggedIn ? user.email : null,
+          modal_type: cartInterceptConfig.active_modal as any,
+          action: 'impression',
+          product_id: product.id,
+          product_name: product.name,
+          product_price: product.price,
+          product_image: product.image,
+        }).catch(() => {});
+
+        return; // Modal opens, direct add deferred
+      }
+    }
+
+    // 2ND TIME (or once interacted/dismissed): Add directly to cart without modal!
+    directAddToCart(product, quantity, addons, cardMessage, size);
+  };
+
+  const handleCartInterceptPrimary = () => {
+    const storeId = activeStore?.id || 'store-1';
+    const dismissKey = `mecca_cart_intercept_dismissed_${storeId}`;
+    try {
+      localStorage.setItem(dismissKey, 'true');
+      sessionStorage.setItem(dismissKey, 'true');
+    } catch {}
+
+    // Add pending item to cart
+    if (pendingAddToCartRef.current) {
+      const { product, quantity, addons, cardMessage, size } = pendingAddToCartRef.current;
+      directAddToCart(product, quantity, addons, cardMessage, size);
+      pendingAddToCartRef.current = null;
+    }
+
+    const actionMap: Record<string, 'collect_points' | 'get_code' | 'save_cart'> = {
+      loyalty: 'collect_points',
+      gift: 'get_code',
+      save_cart: 'save_cart',
+    };
+    const actionName = actionMap[cartInterceptConfig.active_modal] || 'collect_points';
+
+    // Track conversion in real Hostinger MySQL backend
+    trackCartInterceptActionApi(storeId, {
+      visitor_id: visitorId,
+      customer_id: user.isLoggedIn ? user.email : null,
+      customer_name: user.isLoggedIn ? user.name : null,
+      customer_email: user.isLoggedIn ? user.email : null,
+      modal_type: cartInterceptConfig.active_modal as any,
+      action: actionName,
+      cart_items: cart,
+    }).catch(() => {});
+
+    setIsCartInterceptOpen(false);
+
+    if (!user.isLoggedIn) {
+      // Store pending reward so when user signs in, reward is credited
+      try {
+        localStorage.setItem('mecca_pending_intercept_reward', cartInterceptConfig.active_modal);
+      } catch {}
+      setIsAuthModalOpen(true);
+    } else {
+      // User is already logged in - apply benefit immediately!
+      if (cartInterceptConfig.active_modal === 'loyalty') {
+        const pts = cartInterceptConfig.loyalty_points || 25;
+        setLoyaltyPoints((prev) => {
+          const updated = prev + pts;
+          try { localStorage.setItem('mecca_gifts_customer_loyalty', String(updated)); } catch {}
+          return updated;
+        });
+        showToast(language === 'ar' ? `تم جمع ${pts} نقطة ولاء وإضافتها إلى حسابك بنجاح! 🪙` : `${pts} loyalty points collected!`);
+      } else if (cartInterceptConfig.active_modal === 'gift') {
+        const code = cartInterceptConfig.coupon_code || 'HADAYA10';
+        applyCouponCode(code);
+        showToast(language === 'ar' ? `تم تطبيق كود الخصم (${code}) على سلتك بنجاح! 🎁` : `Coupon (${code}) applied to cart!`);
+      } else if (cartInterceptConfig.active_modal === 'save_cart') {
+        showToast(language === 'ar' ? 'تم حفظ سلة مشترياتك في حسابك بنجاح! 🛒' : 'Cart saved across your devices!');
+      }
+    }
+  };
+
+  const handleCartInterceptSecondary = () => {
+    const storeId = activeStore?.id || 'store-1';
+    const dismissKey = `mecca_cart_intercept_dismissed_${storeId}`;
+    try {
+      localStorage.setItem(dismissKey, 'true');
+      sessionStorage.setItem(dismissKey, 'true');
+    } catch {}
+
+    if (pendingAddToCartRef.current) {
+      const { product, quantity, addons, cardMessage, size } = pendingAddToCartRef.current;
+      directAddToCart(product, quantity, addons, cardMessage, size);
+      pendingAddToCartRef.current = null;
+    }
+
+    const actionName = cartInterceptConfig.active_modal === 'gift' ? 'later' : 'continue_as_guest';
+    trackCartInterceptActionApi(storeId, {
+      visitor_id: visitorId,
+      customer_id: user.isLoggedIn ? user.email : null,
+      customer_name: user.isLoggedIn ? user.name : null,
+      customer_email: user.isLoggedIn ? user.email : null,
+      modal_type: cartInterceptConfig.active_modal as any,
+      action: actionName as any,
+    }).catch(() => {});
+
+    setIsCartInterceptOpen(false);
+  };
+
+  const handleCartInterceptClose = () => {
+    const storeId = activeStore?.id || 'store-1';
+    const dismissKey = `mecca_cart_intercept_dismissed_${storeId}`;
+    try {
+      localStorage.setItem(dismissKey, 'true');
+      sessionStorage.setItem(dismissKey, 'true');
+    } catch {}
+
+    if (pendingAddToCartRef.current) {
+      const { product, quantity, addons, cardMessage, size } = pendingAddToCartRef.current;
+      directAddToCart(product, quantity, addons, cardMessage, size);
+      pendingAddToCartRef.current = null;
+    }
+
+    trackCartInterceptActionApi(storeId, {
+      visitor_id: visitorId,
+      customer_id: user.isLoggedIn ? user.email : null,
+      customer_name: user.isLoggedIn ? user.name : null,
+      customer_email: user.isLoggedIn ? user.email : null,
+      modal_type: cartInterceptConfig.active_modal as any,
+      action: 'dismissed',
+    }).catch(() => {});
+
+    setIsCartInterceptOpen(false);
   };
 
   const removeFromCart = (cartItemId: string) => {
@@ -466,14 +918,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const navigateToProduct = (product: Product) => {
     setSelectedProduct(product);
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('unityteck_mecca_product_id', product.id);
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', 'product');
+        url.searchParams.set('product', product.id);
+        window.history.replaceState({ page: 'product', product: product.id }, '', url.toString());
+      }
+    } catch {}
     setCurrentPage('product');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
   };
 
   const navigateToCategory = (categoryName: string) => {
     setSelectedCategory(categoryName);
     setCurrentPage('catalog');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
   };
 
   const cartSubtotal = cart.reduce((acc, item) => {
@@ -805,6 +1274,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         removeAppliedCoupon,
         builderDevice,
         setBuilderDevice,
+        isCartInterceptOpen,
+        setIsCartInterceptOpen,
+        cartInterceptConfig,
+        handleCartInterceptPrimary,
+        handleCartInterceptSecondary,
+        handleCartInterceptClose,
       }}
     >
       {children}
@@ -867,6 +1342,22 @@ const DEFAULT_FALLBACK_APP_CONTEXT: AppContextType = {
   removeAppliedCoupon: () => {},
   builderDevice: 'desktop',
   setBuilderDevice: () => {},
+  isCartInterceptOpen: false,
+  setIsCartInterceptOpen: () => {},
+  cartInterceptConfig: {
+    enabled: true,
+    active_modal: 'loyalty',
+    loyalty_points: 25,
+    discount_percent: 10,
+    coupon_code: 'HADAYA10',
+    title_en: "Don't Lose Your Points!",
+    title_ar: 'لا تفوّت نقاطك الذهبية!',
+    subtitle_en: 'Log in and earn 25 points on this cart.',
+    subtitle_ar: 'سجّل دخولك الآن واكسب 25 نقطة إضافية على هذه السلة.',
+  },
+  handleCartInterceptPrimary: () => {},
+  handleCartInterceptSecondary: () => {},
+  handleCartInterceptClose: () => {},
 };
 
 export const useApp = () => {

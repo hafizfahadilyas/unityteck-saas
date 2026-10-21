@@ -29,7 +29,8 @@ import {
   Send,
   Coffee,
   RotateCcw,
-  Mail
+  Mail,
+  Clock
 } from 'lucide-react';
 import { TabbyIcon, TamaraIcon, MadaIcon, ApplePayIcon, VisaIcon, MastercardIcon } from './PaymentIcons';
 import { ProductComparisonSection } from './ProductComparisonSection';
@@ -51,8 +52,11 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   type BuyTabType = 'configure' | 'bundles' | 'features' | 'specs' | 'reviews' | 'faq';
   const [activeBuyTab, setActiveBuyTab] = useState<BuyTabType>('configure');
 
-  const [selectedColor, setSelectedColor] = useState<ProductColor>(product.colors[0]);
-  const [selectedStorage, setSelectedStorage] = useState<StorageOption>(product.storageOptions[0]);
+  const defaultColor: ProductColor = product?.colors?.[0] || { name: 'Default', hex: '#1c1917', image: product?.image || '' };
+  const defaultStorage: StorageOption = product?.storageOptions?.[0] || { capacity: 'Standard', ram: 'Default', priceDelta: 0 };
+
+  const [selectedColor, setSelectedColor] = useState<ProductColor>(defaultColor);
+  const [selectedStorage, setSelectedStorage] = useState<StorageOption>(defaultStorage);
   const [selectedWarranty, setSelectedWarranty] = useState<WarrantyOption | undefined>(undefined);
   const [selectedBundles, setSelectedBundles] = useState<BundleOption[]>([]);
   const [quantity, setQuantity] = useState(1);
@@ -60,23 +64,23 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
   // Comparison banner image directly from product entity (API / Database-backed)
   const customSpecImg = useMemo(() => {
-    if (language === 'AR' && product.specComparisonImageAr) {
+    if (language === 'AR' && product?.specComparisonImageAr) {
       return product.specComparisonImageAr;
     }
-    return product.specComparisonImage || specInfographicImg;
-  }, [product.specComparisonImage, product.specComparisonImageAr, language]);
+    return product?.specComparisonImage || specInfographicImg;
+  }, [product?.specComparisonImage, product?.specComparisonImageAr, language]);
 
   // Sync state whenever selectedProduct changes
   useEffect(() => {
     if (product) {
-      setSelectedColor(product.colors[0]);
-      setSelectedStorage(product.storageOptions[0]);
+      setSelectedColor(product.colors?.[0] || defaultColor);
+      setSelectedStorage(product.storageOptions?.[0] || defaultStorage);
       setSelectedBundles([]);
       setSelectedWarranty(undefined);
       setActiveImageIndex(0);
       setQuantity(1);
     }
-  }, [product.id]);
+  }, [product?.id, product?.colors, product?.images, (product as any)?.image]);
 
   // Glass Zoom Magnifier State (Screenshot 2)
   const [isHoveringImage, setIsHoveringImage] = useState(false);
@@ -160,14 +164,20 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     }
   ]);
 
-  // Stable gallery images: all product colors first in fixed order, followed by product images and extra shots
+  // Stable gallery images: all product colors first in fixed order, followed by product images
   const candidateImages = [
-    ...product.colors.map(c => c.image),
-    ...product.images.filter(img => !product.colors.some(col => col.image === img)),
-    './src/assets/images/barista_crema_macro_1791363328316.jpg',
-    './src/assets/images/barista_milk_steaming_1791363367164.jpg',
-    './src/assets/images/hibrew_barista_kit_isolated.jpg'
+    ...(product.colors || []).map(c => c.image),
+    ...(product.images || []).filter(img => !product.colors?.some(col => col.image === img)),
   ].filter(Boolean) as string[];
+
+  // Fallback to product.image or flagship PNG if empty
+  if (candidateImages.length === 0) {
+    if ((product as any).image) {
+      candidateImages.push((product as any).image);
+    } else {
+      candidateImages.push('/src/assets/images/hibrew_h7a_flagship_machine.png');
+    }
+  }
 
   const allImages = Array.from(new Set(candidateImages));
   const displayThumbnails = allImages.slice(0, 5);
@@ -191,6 +201,78 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   const originalPrice = originalUnitPrice * quantity;
   const savingsSAR = originalPrice - totalPrice;
   const installmentSAR = Math.round(totalPrice / 4);
+
+  // Countdown Timer state for Limited Time Offer Banner (Matches Theme Brown Colors)
+  const [timeLeft, setTimeLeft] = useState({
+    days: 1,
+    hours: 7,
+    minutes: 7,
+    seconds: 13,
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev.seconds > 0) {
+          return { ...prev, seconds: prev.seconds - 1 };
+        } else if (prev.minutes > 0) {
+          return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
+        } else if (prev.hours > 0) {
+          return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
+        } else if (prev.days > 0) {
+          return { ...prev, days: prev.days - 1, hours: 23, minutes: 59, seconds: 59 };
+        }
+        return prev;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Dynamic Product Highlight Bullets (4 key specs per product - Image 1)
+  const productBullets = useMemo(() => {
+    const isAr = language === 'AR';
+    if (isAr && product.heroBanner?.featuresAr && product.heroBanner.featuresAr.length > 0) {
+      return product.heroBanner.featuresAr.slice(0, 4);
+    }
+    if (!isAr && product.heroBanner?.featuresEn && product.heroBanner.featuresEn.length > 0) {
+      return product.heroBanner.featuresEn.slice(0, 4);
+    }
+    if (product.specs && product.specs.length > 0) {
+      return product.specs.slice(0, 4).map(s =>
+        isAr
+          ? `${s.labelAr || s.label}: ${s.valueAr || s.value}`
+          : `${s.label}: ${s.value}`
+      );
+    }
+    if (isAr && product.taglineAr) {
+      return product.taglineAr.split('·').map(t => t.trim()).filter(Boolean).slice(0, 4);
+    }
+    if (product.tagline) {
+      return product.tagline.split('·').map(t => t.trim()).filter(Boolean).slice(0, 4);
+    }
+    return isAr
+      ? [
+          'هندسة استخلاص إيطالية عالية الدقة بضغط متوازن',
+          'نظام تحكم حراري رقمي ذكي لثبات الأداء',
+          'تصميم متين من الفولاذ المقاوم للصدأ عالي الجودة',
+          'ضمان سنتين معتمد من الوكيل الرسمي بالمملكة'
+        ]
+      : [
+          'Commercial Italian high-precision extraction engineering',
+          'Digital smart thermal PID stability control',
+          'Heavy-duty food-grade stainless steel architecture',
+          'Official 2-Year KSA Agency Warranty coverage'
+        ];
+  }, [product, language]);
+
+  // Dynamic Discount calculation per product (Image 1)
+  const displayDiscount = useMemo(() => {
+    if (savingsSAR > 0) return savingsSAR;
+    if (product.originalPrice && product.originalPrice > product.basePrice) {
+      return (product.originalPrice - product.basePrice) * quantity;
+    }
+    return Math.round(unitPrice * 0.15) * quantity || 600;
+  }, [savingsSAR, product.originalPrice, product.basePrice, unitPrice, quantity]);
 
 
   // Mouse move handler for glass zoom magnifier
@@ -805,11 +887,104 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               </div>
             </div>
 
-            {/* OFFERS SECTION (Exact 1:1 Match with Reference Image 2) */}
-            <div className="space-y-3 pt-2 border-t border-neutral-100">
-              <h2 className="text-sm sm:text-base font-extrabold text-neutral-900 tracking-tight">
-                {language === 'AR' ? 'العروض والمكافآت' : 'Offers'}
-              </h2>
+            {/* 1. KEY PRODUCT HIGHLIGHT BULLETS (Exact 1:1 Match with Image 1) */}
+            <div className="space-y-2 pt-2.5 pb-2">
+              {productBullets.map((bullet, bIdx) => (
+                <div key={bIdx} className="flex items-center gap-2.5 text-xs sm:text-[13px] font-semibold text-neutral-800 leading-snug">
+                  <span className="w-1.5 h-1.5 rounded-none bg-neutral-900 shrink-0" />
+                  <span>{bullet}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* 2. BROWN LIMITED TIME OFFER COUNTDOWN BANNER (Matches Theme Brown Colors) */}
+            <div className="relative w-full rounded-2xl bg-gradient-to-r from-[#8B5A2B] via-[#986131] to-[#A46836] p-4 sm:p-4.5 text-white shadow-sm overflow-hidden select-none my-3">
+              {/* Top Row: Title + Discount Text + Sparkling Star */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <h3 className="text-base sm:text-lg font-black tracking-tight text-white drop-shadow-2xs">
+                    {language === 'AR' ? 'عرض لفترة محدودة' : 'Limited Time Offer'}
+                  </h3>
+                  <div className="text-xs sm:text-sm font-bold text-white/95 font-sans">
+                    {language === 'AR'
+                      ? `خصم SAR ${displayDiscount.toLocaleString()}`
+                      : `SAR ${displayDiscount.toLocaleString()} OFF`}
+                  </div>
+                </div>
+
+                {/* Decorative 4-point Sparkle Icon (Matches Image 1) */}
+                <div className="relative shrink-0 p-1">
+                  <svg className="w-7 h-7 text-white fill-white drop-shadow-sm" viewBox="0 0 24 24">
+                    <path d="M12 2L13.8 9.2L21 11L13.8 12.8L12 20L10.2 12.8L3 11L10.2 9.2L12 2Z" />
+                  </svg>
+                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-white/90" />
+                </div>
+              </div>
+
+              {/* Bottom Row: Clock/Timer Icon + Countdown Boxes (Matches Image 1) */}
+              <div className="mt-3.5 flex items-center justify-between gap-2 pt-2.5 border-t border-white/25 flex-wrap sm:flex-nowrap">
+                {/* Timer Icon */}
+                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <Clock className="w-3.5 h-3.5 text-white stroke-[2.2]" />
+                </div>
+
+                {/* Countdown Tiles & Label */}
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <span className="text-[11px] sm:text-xs font-bold text-white shrink-0">
+                    {language === 'AR' ? 'ينتهي في' : 'Ends in'}
+                  </span>
+
+                  {/* Days */}
+                  <div className="flex items-center gap-1">
+                    <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-[#8B5A2B] font-black text-xs sm:text-sm font-sans flex items-center justify-center shadow-xs">
+                      {timeLeft.days}
+                    </span>
+                    <span className="text-[10px] sm:text-xs font-semibold text-white">
+                      {language === 'AR' ? 'يوماً' : 'd'}
+                    </span>
+                  </div>
+
+                  {/* Hours */}
+                  <div className="flex items-center gap-1">
+                    <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-[#8B5A2B] font-black text-xs sm:text-sm font-sans flex items-center justify-center shadow-xs">
+                      {String(timeLeft.hours).padStart(2, '0')}
+                    </span>
+                    <span className="text-[10px] sm:text-xs font-semibold text-white">
+                      {language === 'AR' ? 'س' : 'h'}
+                    </span>
+                  </div>
+
+                  {/* Minutes */}
+                  <div className="flex items-center gap-1">
+                    <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-[#8B5A2B] font-black text-xs sm:text-sm font-sans flex items-center justify-center shadow-xs">
+                      {String(timeLeft.minutes).padStart(2, '0')}
+                    </span>
+                    <span className="text-[10px] sm:text-xs font-semibold text-white">
+                      {language === 'AR' ? 'د' : 'm'}
+                    </span>
+                  </div>
+
+                  {/* Seconds */}
+                  <div className="flex items-center gap-1">
+                    <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-[#8B5A2B] font-black text-xs sm:text-sm font-sans flex items-center justify-center shadow-xs">
+                      {String(timeLeft.seconds).padStart(2, '0')}
+                    </span>
+                    <span className="text-[10px] sm:text-xs font-semibold text-white">
+                      {language === 'AR' ? 'ث' : 's'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* OFFERS SECTION (Exact 1:1 Match with Reference Image 1 & 2) */}
+            <div className="space-y-3 pt-3 border-t border-neutral-100">
+              <div className="flex items-center gap-2">
+                <Gift className="w-4 h-4 text-neutral-900 shrink-0" />
+                <h2 className="text-sm sm:text-base font-extrabold text-neutral-900 tracking-tight">
+                  {language === 'AR' ? 'العروض' : 'Offers'}
+                </h2>
+              </div>
 
               <div className="space-y-2 text-xs text-neutral-800">
                 {/* Offer 1: Subscribe to Get Coupon! (Image 2) */}

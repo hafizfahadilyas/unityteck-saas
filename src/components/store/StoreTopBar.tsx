@@ -21,6 +21,10 @@ import {
   Settings,
   Sliders,
   ReceiptText,
+  Sparkles,
+  ChevronUp,
+  Pencil,
+  Menu,
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { PrefsSwitcher } from '../common/PrefsSwitcher';
@@ -38,7 +42,9 @@ interface StoreTopBarProps {
   onOpenStorefront?: () => void;
   onOpenProducts?: () => void;
   onCustomizeTheme?: (targetThemeId?: string, targetPage?: string) => void;
+  onOpenThemeCustomizer?: (sectionId?: string) => void;
   onNavigateTab?: (tab: string) => void;
+  onToggleSidebar?: () => void;
 }
 
 /**
@@ -62,7 +68,9 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
   onOpenStorefront,
   onOpenProducts,
   onCustomizeTheme,
+  onOpenThemeCustomizer,
   onNavigateTab,
+  onToggleSidebar,
 }) => {
   const { activeStore, switchToMaster } = useTenant();
   const { t, locale } = usePrefs();
@@ -118,16 +126,6 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
     return () => document.removeEventListener('mousedown', onDoc);
   }, [showQuickActions, showProfileMenu, showStoreInfo]);
 
-  // Eagerly prefetch theme builder after topbar mounts
-  useEffect(() => {
-    if (onCustomizeTheme) {
-      const timer = setTimeout(() => {
-        preloadVisualThemeBuilder();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [onCustomizeTheme]);
-
   const storeDisplayName = (isAr ? activeStore?.nameAr : activeStore?.nameEn) || activeStore?.name;
 
   const handleCopyStoreId = async (e: React.MouseEvent) => {
@@ -176,6 +174,20 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
       }}
       data-chrome="store-topbar"
     >
+      {/* Mobile Hamburger / Sidebar Drawer Toggle Button */}
+      {onToggleSidebar && (
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="lg:hidden p-1.5 sm:p-2 rounded-xl border hover:bg-slate-500/10 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shrink-0 shadow-2xs"
+          style={{ borderColor: 'var(--border)' }}
+          aria-label={isAr ? 'فتح وإغلاق القائمة الجانبية' : 'Toggle sidebar menu'}
+          title={isAr ? 'القائمة الجانبية' : 'Menu'}
+        >
+          <Menu className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+        </button>
+      )}
+
       {/* 1. SEARCH BAR (Responsive fluid sizing, Enter to search, clearable) */}
       <form
         onSubmit={handleSearchSubmit}
@@ -357,6 +369,23 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                   <ExternalLink className="w-3.5 h-3.5 opacity-60" />
                 </button>
 
+                {onOpenThemeCustomizer ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowStoreInfo(false);
+                      onOpenThemeCustomizer('01_store_identity');
+                    }}
+                    className="w-full px-3 py-2 rounded-xl text-start hover:bg-emerald-500/15 flex items-center justify-between cursor-pointer font-bold text-emerald-700 dark:text-emerald-300 transition-colors bg-emerald-500/10 border border-emerald-500/20"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                      <span>{isAr ? 'مخصص الثيم المباشر (WordPress)' : 'Live Theme Customizer'}</span>
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-600 text-white font-black">18</span>
+                  </button>
+                ) : null}
+
                 {onCustomizeTheme ? (
                   <button
                     type="button"
@@ -364,7 +393,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                       setShowStoreInfo(false);
                       onCustomizeTheme?.();
                     }}
-                    className="w-full px-3 py-2 rounded-xl text-start hover:bg-slate-500/10 flex items-center gap-2 cursor-pointer font-bold text-emerald-600 dark:text-emerald-400 transition-colors"
+                    className="w-full px-3 py-2 rounded-xl text-start hover:bg-slate-500/10 flex items-center gap-2 cursor-pointer font-bold text-indigo-600 dark:text-indigo-400 transition-colors"
                   >
                     <Palette className="w-3.5 h-3.5" />
                     <span>{isAr ? 'محرر الثيم والصفحات' : 'Theme & Page Builder'}</span>
@@ -620,43 +649,68 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
         </div>
         <div className="h-4 w-px hidden xl:block opacity-40 mx-0.5" style={{ background: 'var(--border)' }} aria-hidden />
 
-        {/* 3. USER PROFILE (Avatar + popover menu; text shown on 2xl+ only to prevent header overflow) */}
+        {/* 3. STORE PROFILE (Pixel-Perfect Reference Header Pill: Store Name, Email, Avatar with Edit Badge, Chevron) */}
         <div className="relative" ref={profileRef}>
           <button
             type="button"
             onClick={() => setShowProfileMenu((v) => !v)}
             aria-expanded={showProfileMenu}
-            className="flex items-center gap-1.5 sm:gap-2 p-1 rounded-xl hover:bg-slate-500/10 transition-colors cursor-pointer text-start min-w-0 shrink-0"
-            title={displayName}
+            className="flex items-center gap-1.5 sm:gap-2 px-2 py-1 sm:py-1.5 rounded-2xl hover:opacity-95 active:scale-[0.99] transition-all cursor-pointer text-start min-w-0 shrink-0 border shadow-2xs"
+            style={{
+              background: 'color-mix(in srgb, var(--surface) 92%, var(--portal-900, #0f172a))',
+              borderColor: 'var(--border)',
+            }}
+            title={`${storeDisplayName} (${session?.user?.email || activeStore.ownerEmail || 'giftshop2030m@gmail.com'})`}
           >
-            <div
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full font-bold flex items-center justify-center text-xs border shrink-0 text-white shadow-2xs"
-              style={{
-                background: 'var(--portal-cta)',
-                borderColor: 'color-mix(in srgb, var(--portal-400) 40%, transparent)',
-              }}
-              aria-hidden
-            >
-              {initials}
+            {/* Left Chevron Pill (Matching photo's rounded up/down caret) */}
+            <div className="w-5 h-6 sm:w-6 sm:h-7 rounded-lg bg-slate-500/15 dark:bg-slate-700/60 flex items-center justify-center shrink-0 text-slate-400 dark:text-slate-200">
+              {showProfileMenu ? (
+                <ChevronUp className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
+              )}
             </div>
-            <div className="hidden 2xl:block text-start leading-tight min-w-0 max-w-[6rem] 2xl:max-w-[7.5rem]">
+
+            {/* Middle: Store Name & Email */}
+            <div className="text-start leading-tight min-w-0 max-w-[110px] xs:max-w-[135px] sm:max-w-[170px] xl:max-w-[210px]">
               <span
-                className="text-xs font-bold block truncate"
+                className="text-xs sm:text-[13px] font-black block truncate"
                 style={{ color: 'var(--text)' }}
               >
-                {displayName}
+                {storeDisplayName}
               </span>
-              <span className="text-[10px] font-semibold block truncate" style={{ color: 'var(--accent)' }}>
-                {roleLabel}
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate font-mono">
+                {session?.user?.email || activeStore.ownerEmail || (activeStore.id === 'store-1' ? 'giftshop2030m@gmail.com' : 'contact@store.sa')}
               </span>
             </div>
-            <ChevronDown className="w-3 h-3 text-slate-400 hidden 2xl:block shrink-0" />
+
+            {/* Right: Avatar with Pencil Edit Badge (100% Matching Photo) */}
+            <div className="relative shrink-0">
+              <div
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full font-bold flex items-center justify-center text-xs border shrink-0 text-slate-800 bg-white shadow-sm overflow-hidden"
+                style={{
+                  borderColor: 'var(--border)',
+                }}
+              >
+                {activeStore.logo && activeStore.logo.startsWith('http') ? (
+                  <img src={activeStore.logo} alt={storeDisplayName} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="font-black text-slate-800">{initials}</span>
+                )}
+              </div>
+              <div
+                className="absolute -bottom-0.5 -start-0.5 w-3.5 h-3.5 rounded-full bg-slate-800 dark:bg-slate-700 text-white flex items-center justify-center border border-white dark:border-slate-900 shadow-2xs"
+                title={isAr ? 'تعديل بيانات المتجر' : 'Edit Store'}
+              >
+                <Pencil className="w-2 h-2 text-white" />
+              </div>
+            </div>
           </button>
 
           {showProfileMenu && (
             <div
               role="menu"
-              className="absolute end-0 mt-2 w-64 rounded-2xl border p-2.5 z-50 shadow-2xl text-xs space-y-2 animate-in fade-in zoom-in-95 duration-150"
+              className="absolute end-0 mt-2 w-72 rounded-2xl border p-2.5 z-50 shadow-2xl text-xs space-y-2 animate-in fade-in zoom-in-95 duration-150"
               style={{
                 background: 'var(--surface)',
                 borderColor: 'var(--border)',
@@ -664,12 +718,30 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                 boxShadow: 'var(--card-shadow)',
               }}
             >
-              <div className="px-3 py-2 rounded-xl bg-slate-500/5 border border-slate-500/10 space-y-1">
-                <div className="font-extrabold text-sm truncate">{displayName}</div>
-                <div className="text-[11px] text-slate-500 truncate">{session?.user?.email || activeStore.ownerEmail || 'admin@giftshop-sa.com'}</div>
-                <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 pt-0.5">
+              <div className="p-3 rounded-xl bg-slate-500/5 border border-slate-500/10 space-y-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="relative shrink-0">
+                    <div className="w-10 h-10 rounded-full font-bold flex items-center justify-center text-xs border text-slate-800 bg-white shadow-sm overflow-hidden">
+                      {activeStore.logo && activeStore.logo.startsWith('http') ? (
+                        <img src={activeStore.logo} alt={storeDisplayName} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="font-black text-slate-800">{initials}</span>
+                      )}
+                    </div>
+                    <div className="absolute -bottom-0.5 -start-0.5 w-3.5 h-3.5 rounded-full bg-slate-800 text-white flex items-center justify-center border border-white">
+                      <Pencil className="w-2 h-2 text-white" />
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-extrabold text-sm truncate">{storeDisplayName}</div>
+                    <div className="text-[11px] text-slate-500 truncate font-mono">
+                      {session?.user?.email || activeStore.ownerEmail || (activeStore.id === 'store-1' ? 'giftshop2030m@gmail.com' : 'contact@store.sa')}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 pt-1 border-t border-slate-500/10">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span className="truncate">{roleLabel} · {storeDisplayName}</span>
+                  <span className="truncate">{roleLabel} · {storeDisplayName} ({activeStore.id})</span>
                 </div>
               </div>
 
@@ -684,6 +756,20 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                 >
                   <Settings className="w-3.5 h-3.5 text-slate-400" />
                   <span>{isAr ? 'إعدادات الحساب والمتجر' : 'Settings'}</span>
+                </button>
+              ) : null}
+
+              {onNavigateTab ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    onNavigateTab('seo');
+                  }}
+                  className="w-full px-3 py-2 rounded-xl text-start font-medium hover:bg-slate-500/10 flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <Search className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{isAr ? 'أدوات السيو وفهرسة Google' : 'Google SEO & Indexing'}</span>
                 </button>
               ) : null}
 

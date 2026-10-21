@@ -274,6 +274,7 @@ class ProductController extends Controller
             'tags' => ['nullable', 'array'],
             'tags.*' => ['string', 'max:64'],
             'badge' => ['nullable', 'string', 'max:64'],
+            'badge_en' => ['nullable', 'string', 'max:64'],
             'seo_title' => ['nullable', 'string', 'max:255'],
             'seo_description' => ['nullable', 'string'],
             'seo_keywords' => ['nullable', 'string', 'max:500'],

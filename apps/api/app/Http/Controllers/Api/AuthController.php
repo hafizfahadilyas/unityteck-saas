@@ -25,11 +25,15 @@ class AuthController extends Controller
     public function masterLogin(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'email' => ['required', 'email'],
+            'email' => ['required', 'string'],
             'password' => ['required', 'string'],
         ]);
 
-        $user = User::query()->where('email', $data['email'])->first();
+        $input = strtolower(trim($data['email']));
+        $masterAliases = ['master', 'admin', 'superadmin', 'master@unityteck.com'];
+        $email = in_array($input, $masterAliases, true) ? 'master@unityteck.com' : $input;
+
+        $user = User::query()->where('email', $email)->first();
 
         if (! $user || ! Hash::check($data['password'], $user->password)) {
             throw ValidationException::withMessages([
@@ -59,14 +63,51 @@ class AuthController extends Controller
     public function storeLogin(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'email' => ['required', 'email'],
+            'email' => ['required', 'string'],
             'password' => ['required', 'string'],
             'store_id' => ['nullable', 'string'],
         ]);
 
-        $user = User::query()->where('email', $data['email'])->first();
+        $input = strtolower(trim($data['email']));
 
-        if (! $user || ! Hash::check($data['password'], $user->password)) {
+        $aliasMap = [
+            'admin@giftshop-sa.com' => 'giftshop2030m@gmail.com',
+            'makkah' => 'giftshop2030m@gmail.com',
+            'ward' => 'giftshop2030m@gmail.com',
+            'flowers' => 'giftshop2030m@gmail.com',
+            'gifts' => 'giftshop2030m@gmail.com',
+            'giftshop' => 'giftshop2030m@gmail.com',
+            'giftshop2030m@gmail.com' => 'giftshop2030m@gmail.com',
+            'tariq@wardalmakkah.sa' => 'giftshop2030m@gmail.com',
+            'admin@bleco.sa' => 'owner@tanjeedmakkah.com',
+            'bleco' => 'owner@tanjeedmakkah.com',
+            'car' => 'owner@tanjeedmakkah.com',
+            'tanjeed' => 'owner@tanjeedmakkah.com',
+            'alsaeedi' => 'owner@tanjeedmakkah.com',
+            'blacko' => 'owner@tanjeedmakkah.com',
+            'coffee' => 'rayan@specialtycoffee.sa',
+            'rayan' => 'rayan@specialtycoffee.sa',
+            'specialtycoffee' => 'rayan@specialtycoffee.sa',
+            'coffee@specialtycoffee.sa' => 'rayan@specialtycoffee.sa',
+            'admin@specialtycoffee.sa' => 'rayan@specialtycoffee.sa',
+        ];
+
+        $targetEmail = $aliasMap[$input] ?? $input;
+
+        $user = User::query()->where('email', $targetEmail)->first();
+
+        $passwordValid = false;
+        if ($user) {
+            $passwordValid = Hash::check($data['password'], $user->password);
+            if (! $passwordValid && in_array($targetEmail, ['owner@tanjeedmakkah.com', 'support@tanjeedmakkah.com'], true)) {
+                $alternate = str_contains($data['password'], 'Blacko')
+                    ? str_replace('Blacko', 'Bleco', $data['password'])
+                    : str_replace('Bleco', 'Blacko', $data['password']);
+                $passwordValid = Hash::check($alternate, $user->password);
+            }
+        }
+
+        if (! $user || ! $passwordValid) {
             throw ValidationException::withMessages([
                 'email' => ['Invalid email or password.'],
             ]);

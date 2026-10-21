@@ -153,6 +153,8 @@ export function mapProduct(row: ApiProductRow): Product {
     galleryUrls: asStringArray(row.gallery_urls),
     videoUrl: row.video_url == null || row.video_url === '' ? null : str(row.video_url),
     tags: asStringArray(row.tags),
+    badge: row.badge ? str(row.badge) : undefined,
+    badgeEn: row.badge_en ? str(row.badge_en) : undefined,
     description: row.description == null ? null : str(row.description),
     seoTitle: row.seo_title == null || row.seo_title === '' ? null : str(row.seo_title),
     seoDescription:
@@ -226,8 +228,11 @@ export function mapOrder(row: ApiOrderRow): Order {
 
   const rowAny = row as Record<string, unknown>;
 
+  const rawId = str(row.id);
+  const orderId = rawId || (row.order_number ? `ord-${str(row.order_number)}` : `ord_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
+
   return {
-    id: str(row.id),
+    id: orderId,
     storeId: str(row.store_id),
     orderNumber: str(row.order_number),
     customerName: str(row.customer_name),
@@ -235,8 +240,8 @@ export function mapOrder(row: ApiOrderRow): Order {
     itemsCount,
     itemsSummary: row.items_summary != null ? str(row.items_summary) : undefined,
     items: Array.isArray(items)
-      ? items.map((it: any) => ({
-          id: String(it.id || it.product_id || ''),
+      ? items.map((it: any, itIdx: number) => ({
+          id: String(it.id || it.product_id || `it-${itIdx + 1}`),
           name: String(it.product_name || it.name || ''),
           sku: String(it.sku || ''),
           price: num(it.unit_price ?? it.price, 0),
@@ -267,6 +272,14 @@ export function mapOrder(row: ApiOrderRow): Order {
     returnedAt: rowAny.returned_at ? String(rowAny.returned_at) : undefined,
     restockedAt: rowAny.restocked_at ? String(rowAny.restocked_at) : undefined,
     date: dateSlice(row.order_date ?? row.created_at),
+    createdAt: (row.order_date ?? row.created_at) ? String(row.order_date ?? row.created_at) : undefined,
+    time: rowAny.time ? String(rowAny.time) : (
+      (row.order_date ?? row.created_at) && String(row.order_date ?? row.created_at).includes('T')
+        ? String(row.order_date ?? row.created_at).split('T')[1].slice(0, 5)
+        : (row.order_date ?? row.created_at) && String(row.order_date ?? row.created_at).includes(' ')
+          ? String(row.order_date ?? row.created_at).split(' ')[1].slice(0, 5)
+          : undefined
+    ),
     medium: row.medium != null ? str(row.medium) : undefined,
     campaign: row.campaign != null ? str(row.campaign) : undefined,
     utmTerm: (row.utm_term ?? row.utmTerm) != null ? str(row.utm_term ?? row.utmTerm) : undefined,
@@ -327,8 +340,11 @@ export function mapCustomer(row: ApiCustomerRow): Customer {
         ? totalSpend / totalOrders
         : 0;
 
+  const rawId = str(row.id);
+  const custId = rawId || (row.email ? `cust-${str(row.email)}` : `cust_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
+
   return {
-    id: str(row.id),
+    id: custId,
     storeId: str(row.store_id),
     name: str(row.name),
     phone: str(row.phone),
@@ -373,12 +389,17 @@ export function mapCoupon(row: ApiCouponRow): CouponItem {
 
 export function mapShipping(row: ApiShippingRow): ShippingZone {
   const statusRaw = str(row.status, 'active');
+  const regionStr = str(row.region ?? row.province, 'Saudi Arabia');
   return {
     id: str(row.id),
     storeId: str(row.store_id),
     cityName: str(row.name ?? row.city_name, 'City'),
-    province: str(row.region ?? row.province, 'Saudi Arabia'),
+    province: regionStr,
+    region: regionStr,
     rate: num(row.rate),
+    ratePerKg: num(row.rate_per_kg, 0),
+    minWeightKg: num(row.min_weight_kg, 0),
+    maxWeightKg: num(row.max_weight_kg, 20),
     freeShippingAbove: num(row.free_above ?? row.free_shipping_above),
     estimatedDelivery: str(
       row.estimated_delivery,

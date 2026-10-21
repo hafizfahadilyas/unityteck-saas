@@ -1,6 +1,13 @@
 import React from 'react';
 import type { InvoiceDocument, InvoiceTemplateConfig, InvoiceLineItem } from '../../../../types/invoices';
-import { Truck, Package, MapPin, Phone, CheckCircle2, Clock, UserCheck, ShieldCheck } from 'lucide-react';
+import { Truck, Package, MapPin, Phone, CheckCircle2, Clock, UserCheck, ShieldCheck, Barcode } from 'lucide-react';
+import { generateCode128Svg } from '../../../../utils/courierBarcode';
+import {
+  getLocalizedItemName,
+  getCustomerDisplayName,
+  getLocalizedAddress,
+} from '../../../../utils/storeLocalization';
+import { formatInvoiceDate } from '../../../../utils/zatca';
 
 interface TemplateProps {
   document: InvoiceDocument;
@@ -15,7 +22,7 @@ export const DeliveryNoteTemplate: React.FC<TemplateProps> = ({ document, config
     <div
       className="bg-white text-slate-900 w-full min-h-[1050px] p-8 sm:p-12 flex flex-col justify-between select-text"
       style={{
-        fontFamily: isAr ? 'Tajawal, Cairo, sans-serif' : 'Inter, sans-serif',
+        fontFamily: isAr ? "'Cairo', 'Tajawal', sans-serif" : 'Inter, sans-serif',
       }}
       dir={isAr ? 'rtl' : 'ltr'}
     >
@@ -29,7 +36,7 @@ export const DeliveryNoteTemplate: React.FC<TemplateProps> = ({ document, config
               </div>
               <div>
                 <h1 className="text-xl font-black text-slate-900">
-                  {isAr ? document.seller.nameAr || document.seller.name : document.seller.name}
+                  {isAr ? document.seller.nameAr || document.seller.name : document.seller.nameEn || document.seller.name}
                 </h1>
                 <p className="text-xs font-bold text-sky-700">
                   {isAr ? 'بوليصة وسند تسليم لوجستي (سند شحن)' : 'Logistics Dispatch & Delivery Waybill'}
@@ -37,7 +44,9 @@ export const DeliveryNoteTemplate: React.FC<TemplateProps> = ({ document, config
               </div>
             </div>
             <p className="text-xs text-slate-500 pt-1">
-              {isAr ? document.seller.addressAr || document.seller.address : document.seller.address}
+              {isAr
+                ? document.seller.addressAr || document.seller.address
+                : document.seller.addressEn || getLocalizedAddress(document.seller.address, 'en')}
             </p>
           </div>
 
@@ -58,18 +67,18 @@ export const DeliveryNoteTemplate: React.FC<TemplateProps> = ({ document, config
           </div>
         </div>
 
-        {/* Courier & Tracking Details Box */}
+        {/* Courier & Tracking Details Box with Barcode */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 my-6 rounded-xl bg-sky-50/60 border border-sky-200 text-xs">
           <div>
             <span className="text-[10px] font-bold text-sky-800 uppercase tracking-wider block">
-              {isAr ? 'شركة الشحن والتوصيل' : 'Courier / Carrier'}
+              {isAr ? 'شركة الشحن والتوصيل' : 'Carrier & Courier'}
             </span>
-            <p className="font-extrabold text-slate-900 mt-0.5">{document.courierCompany || 'Express Fleet'}</p>
+            <p className="font-extrabold text-slate-900 mt-0.5">{document.courierCompany || 'SMSA Express'}</p>
           </div>
 
           <div>
             <span className="text-[10px] font-bold text-sky-800 uppercase tracking-wider block">
-              {isAr ? 'رقم التتبع (AWB)' : 'Tracking Number / AWB'}
+              {isAr ? 'رقم التتبع' : 'Tracking Number (AWB)'}
             </span>
             <p className="font-mono font-bold text-sky-800 mt-0.5">{document.trackingNumber || 'MKH-VIP-TRK-8849'}</p>
           </div>
@@ -78,8 +87,8 @@ export const DeliveryNoteTemplate: React.FC<TemplateProps> = ({ document, config
             <span className="text-[10px] font-bold text-sky-800 uppercase tracking-wider block">
               {isAr ? 'تاريخ التجهيز والشحن' : 'Dispatch Date'}
             </span>
-            <p className="font-semibold text-slate-800 mt-0.5">
-              {new Date(document.dispatchDate || document.issueDate).toLocaleDateString(isAr ? 'ar-SA' : 'en-US', {
+            <p className="font-semibold text-slate-800 mt-0.5 whitespace-nowrap" dir={isAr ? 'rtl' : 'ltr'}>
+              {formatInvoiceDate(document.dispatchDate || document.issueDate, locale, {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',
@@ -97,6 +106,28 @@ export const DeliveryNoteTemplate: React.FC<TemplateProps> = ({ document, config
           </div>
         </div>
 
+        {/* Printable Barcode Banner for Courier Scanner */}
+        <div className="mb-6 p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-start">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
+              {isAr ? 'رمز الباركود اللوجستي (Code 128 Barcode)' : 'Logistics Carrier Barcode (Code 128)'}
+            </span>
+            <p className="text-xs font-mono font-bold text-slate-800">
+              {document.trackingNumber || document.documentNumber}
+            </p>
+          </div>
+          <div
+            className="overflow-hidden flex justify-center"
+            dangerouslySetInnerHTML={{
+              __html: generateCode128Svg(document.trackingNumber || document.documentNumber, {
+                height: 40,
+                barWidth: 1.6,
+                showText: false,
+              }),
+            }}
+          />
+        </div>
+
         {/* Recipient & Destination Details */}
         <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 mb-6 text-xs space-y-1.5">
           <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
@@ -105,7 +136,9 @@ export const DeliveryNoteTemplate: React.FC<TemplateProps> = ({ document, config
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-0.5">
             <div>
               <p className="text-sm font-extrabold text-slate-900">
-                {isAr ? document.buyer.nameAr || document.buyer.name : document.buyer.name}
+                {isAr
+                  ? document.buyer.nameAr || document.buyer.name
+                  : document.buyer.nameEn || getCustomerDisplayName(document.buyer.name, 'en')}
               </p>
               {document.buyer.phone && (
                 <p className="text-xs font-semibold text-slate-700 flex items-center gap-1 mt-0.5 dir-ltr">
@@ -117,9 +150,15 @@ export const DeliveryNoteTemplate: React.FC<TemplateProps> = ({ document, config
             <div className="text-start sm:text-end">
               <p className="text-xs font-medium text-slate-800 flex items-center gap-1 sm:justify-end">
                 <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                <span>{document.buyer.address || (isAr ? 'مكة المكرمة' : 'Makkah, Saudi Arabia')}</span>
+                <span>
+                  {isAr
+                    ? document.buyer.addressAr || document.buyer.address || 'مكة المكرمة'
+                    : document.buyer.addressEn || getLocalizedAddress(document.buyer.address, 'en')}
+                </span>
               </p>
-              <p className="text-[11px] text-slate-500 font-medium">{document.buyer.city || 'Makkah'}</p>
+              <p className="text-[11px] text-slate-500 font-medium">
+                {isAr ? document.buyer.cityAr || document.buyer.city : document.buyer.cityEn || document.buyer.city}
+              </p>
             </div>
           </div>
 
@@ -141,7 +180,7 @@ export const DeliveryNoteTemplate: React.FC<TemplateProps> = ({ document, config
               <tr className="border-b-2 text-[11px] font-black uppercase text-slate-700" style={{ borderColor: '#cbd5e1' }}>
                 <th className="py-2.5 px-2 text-start">#</th>
                 <th className="py-2.5 px-2 text-start">{isAr ? 'اسم المنتج والوصف اللوجستي' : 'Product Item & Logistics Description'}</th>
-                <th className="py-2.5 px-2 text-start">{isAr ? 'الرمز SKU' : 'SKU'}</th>
+                <th className="py-2.5 px-2 text-start">{isAr ? 'رمز الصنف' : 'SKU'}</th>
                 <th className="py-2.5 px-2 text-center">{isAr ? 'الكمية المشحونة' : 'Dispatched Qty'}</th>
                 <th className="py-2.5 px-2 text-center">{isAr ? 'فحص الاستلام' : 'Check'}</th>
               </tr>
@@ -151,7 +190,7 @@ export const DeliveryNoteTemplate: React.FC<TemplateProps> = ({ document, config
                 <tr key={item.id || idx} className="hover:bg-slate-50/50">
                   <td className="py-3 px-2 font-mono text-slate-400">{idx + 1}</td>
                   <td className="py-3 px-2 font-semibold text-slate-900">
-                    <div>{isAr ? item.nameAr || item.name : item.name}</div>
+                    <div>{isAr ? item.nameAr || item.name : item.nameEn || getLocalizedItemName(item, 'en')}</div>
                   </td>
                   <td className="py-3 px-2 font-mono text-slate-500">{item.sku || '—'}</td>
                   <td className="py-3 px-2 text-center font-black text-sm text-sky-900">{item.quantity}</td>

@@ -12,6 +12,8 @@
   html,
   body,
   #root {
+    min-height: 100%;
+    width: 100%;
     font-family: var(--font-ui, 'Plus Jakarta Sans', system-ui, sans-serif);
     color: var(--text, #0F172A);
     background-color: var(--bg, #F8FAFC);
@@ -149,11 +151,13 @@
 
 /* Helper: completely hide scrollbar on flex-wrap tab strips */
 .no-scrollbar {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 .no-scrollbar::-webkit-scrollbar {
-  display: none;
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 /* Luxury Animations & Effects (Mecca Gifts Flagship Theme) */

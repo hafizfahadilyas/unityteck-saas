@@ -1,6 +1,12 @@
 import React from 'react';
 import type { InvoiceDocument, InvoiceTemplateConfig, InvoiceLineItem } from '../../../../types/invoices';
 import { CreditCard, CheckCircle2, Clock, ShieldCheck, MapPin, Phone, Mail, Building, Landmark } from 'lucide-react';
+import {
+  getLocalizedItemName,
+  getCustomerDisplayName,
+  getLocalizedAddress,
+} from '../../../../utils/storeLocalization';
+import { formatInvoiceDate } from '../../../../utils/zatca';
 
 interface TemplateProps {
   document: InvoiceDocument;
@@ -20,7 +26,7 @@ export const PaymentReceiptTemplate: React.FC<TemplateProps> = ({ document, conf
     <div
       className="bg-white text-slate-900 w-full min-h-[1050px] p-8 sm:p-12 flex flex-col justify-between select-text"
       style={{
-        fontFamily: isAr ? 'Tajawal, Cairo, sans-serif' : 'Inter, sans-serif',
+        fontFamily: isAr ? "'Cairo', 'Tajawal', sans-serif" : 'Inter, sans-serif',
       }}
       dir={isAr ? 'rtl' : 'ltr'}
     >
@@ -54,10 +60,12 @@ export const PaymentReceiptTemplate: React.FC<TemplateProps> = ({ document, conf
         <div className="flex items-start justify-between border-b pb-6" style={{ borderColor: '#e2e8f0' }}>
           <div className="space-y-1">
             <h1 className="text-xl font-black text-slate-900">
-              {isAr ? document.seller.nameAr || document.seller.name : document.seller.name}
+              {isAr ? document.seller.nameAr || document.seller.name : document.seller.nameEn || document.seller.name}
             </h1>
             <p className="text-xs text-slate-500">
-              {isAr ? document.seller.addressAr || document.seller.address : document.seller.address}
+              {isAr
+                ? document.seller.addressAr || document.seller.address
+                : document.seller.addressEn || getLocalizedAddress(document.seller.address, 'en')}
             </p>
             <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 pt-1">
               {document.seller.vatNumber && (
@@ -99,8 +107,8 @@ export const PaymentReceiptTemplate: React.FC<TemplateProps> = ({ document, conf
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
               {isAr ? 'تاريخ ووقت السداد' : 'Payment Timestamp'}
             </span>
-            <p className="font-bold text-slate-800 mt-0.5">
-              {new Date(document.issueDate).toLocaleDateString(isAr ? 'ar-SA' : 'en-US', {
+            <p className="font-bold text-slate-800 mt-0.5 whitespace-nowrap" dir={isAr ? 'rtl' : 'ltr'}>
+              {formatInvoiceDate(document.issueDate, locale, {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',
@@ -114,7 +122,7 @@ export const PaymentReceiptTemplate: React.FC<TemplateProps> = ({ document, conf
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
               {isAr ? 'وسيلة الدفع' : 'Payment Method'}
             </span>
-            <p className="font-bold text-slate-900 mt-0.5">{document.paymentMethod || 'Apple Pay / Mada'}</p>
+            <p className="font-bold text-slate-900 mt-0.5">{document.paymentMethod || (isAr ? 'مدى / دفع إلكتروني' : 'Card / Electronic')}</p>
           </div>
 
           <div>
@@ -128,10 +136,12 @@ export const PaymentReceiptTemplate: React.FC<TemplateProps> = ({ document, conf
 
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              {isAr ? 'الدافع / العميل' : 'Received From'}
+              {isAr ? 'الدافع (العميل)' : 'Received From'}
             </span>
             <p className="font-extrabold text-slate-900 mt-0.5">
-              {isAr ? document.buyer.nameAr || document.buyer.name : document.buyer.name}
+              {isAr
+                ? document.buyer.nameAr || document.buyer.name
+                : document.buyer.nameEn || getCustomerDisplayName(document.buyer.name, 'en')}
             </p>
           </div>
         </div>
@@ -172,7 +182,7 @@ export const PaymentReceiptTemplate: React.FC<TemplateProps> = ({ document, conf
             <tbody className="divide-y text-xs text-slate-700">
               <tr>
                 <td className="py-3 px-2 font-medium">
-                  {isAr ? 'إجمالي قيمة الفاتورة / الطلب الأصلية' : 'Total Order / Invoice Amount'}
+                  {isAr ? 'إجمالي قيمة الطلب الأصلية' : 'Total Original Order Amount'}
                 </td>
                 <td className="py-3 px-2 text-center font-mono">{document.currency}</td>
                 <td className="py-3 px-2 text-end font-mono font-bold text-slate-900">

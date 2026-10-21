@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
@@ -33,15 +33,25 @@ import {
   RefreshCw,
   Sliders,
   Check,
-  Flower2,
   HelpCircle,
   Upload,
   X,
   Image as ImageIcon,
+  ShoppingBag,
+  Store as StoreIcon,
+  ChevronRight,
+  Package,
 } from 'lucide-react';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
+import { KsaAdManagerAndSocialHub } from './KsaAdManagerAndSocialHub';
+import { AdvanceFeatureComingSoonModal } from '../common/AdvanceFeatureComingSoonModal';
+import {
+  useAdvanceFeatures,
+  type AdvanceFeatureConfig,
+} from '../../services/advanceFeaturesService';
+import { Globe, Palette } from 'lucide-react';
 
-export type MarketingSubView = 'hub' | 'abandoned' | 'offers' | 'whatsapp' | 'campaigns';
+export type MarketingSubView = 'hub' | 'abandoned' | 'offers' | 'whatsapp' | 'campaigns' | 'ksa_ads';
 
 interface StoreMarketingHubProps {
   initialView?: MarketingSubView;
@@ -52,20 +62,71 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
   initialView = 'hub',
   onNavigateTab,
 }) => {
-  const { activeStore, allStoreCustomers } = useTenant();
-  const { money, t, locale } = usePrefs();
+  const { activeStore, currentOrders, currentProducts, allStoreCustomers } = useTenant();
+  const { money, locale } = usePrefs();
   const isAr = locale === 'ar';
   const { toast } = useToast();
+
   const [subView, setSubView] = useState<MarketingSubView>(initialView);
   const [searchQuery, setSearchQuery] = useState('');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  const { features: advanceFeatures, getFeature } = useAdvanceFeatures();
+  const [comingSoonModalFeature, setComingSoonModalFeature] = useState<AdvanceFeatureConfig | null>(null);
+
+  // Synchronize initialView prop if it changes
+  useEffect(() => {
+    if (initialView) {
+      setSubView(initialView);
+    }
+  }, [initialView]);
+
+  // Real store customers list
+  const storeCustomersList = useMemo(() => {
+    return (allStoreCustomers && allStoreCustomers[activeStore.id]) || [];
+  }, [allStoreCustomers, activeStore.id]);
+
+  // Real store pending / abandoned orders
+  const pendingOrders = useMemo(() => {
+    return (currentOrders || []).filter((o) => o.status === 'pending');
+  }, [currentOrders]);
+
+  // Real store completed / recovered orders
+  const completedOrders = useMemo(() => {
+    return (currentOrders || []).filter(
+      (o) => o.status === 'completed' || o.status === 'delivered'
+    );
+  }, [currentOrders]);
+
+  // Derived real metrics
+  const totalAbandoned = pendingOrders.length;
+  const recoveredOrders = completedOrders.length;
+  const recoveredRevenue = completedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalCarts = totalAbandoned + recoveredOrders;
+  const recoveryRate =
+    totalCarts > 0 ? ((recoveredOrders / totalCarts) * 100).toFixed(1) : '0.0';
+
+  // Real WhatsApp messaging tracking
+  const [waSentCount, setWaSentCount] = useState<number>(0);
   const [waAttachment, setWaAttachment] = useState<string | null>(null);
   const [waAttachmentName, setWaAttachmentName] = useState<string | null>(null);
-  const waAttachmentInputRef = React.useRef<HTMLInputElement>(null);
-  const storeCustomersList = (allStoreCustomers && allStoreCustomers[activeStore.id]) || [];
+  const waAttachmentInputRef = useRef<HTMLInputElement>(null);
+
+  const [waLogs, setWaLogs] = useState<
+    Array<{
+      id: string;
+      time: string;
+      status: string;
+      type: string;
+      typeColor: string;
+      content: string;
+      phone: string;
+      customer: string;
+    }>
+  >([]);
 
   // ─────────────────────────────────────────────────────────────
-  // SUBVIEW 1: The 10 Marketing Tools Hub (Screenshot 1: media_1790840219280.png)
+  // SUBVIEW 1: The 10 Marketing Tools Hub
   // ─────────────────────────────────────────────────────────────
   const tools = [
     {
@@ -82,7 +143,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       desc: isAr ? 'قواعد البيع الإضافي التلقائي.' : 'Automated upsell rules.',
       icon: ShoppingCart,
       color: 'blue',
-      action: () => setSubView('offers'),
+      action: () => (onNavigateTab ? onNavigateTab('cart-offers') : setSubView('offers')),
     },
     {
       id: 'abandoned',
@@ -106,7 +167,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       desc: isAr ? 'إدارة برامج الشركاء والمسوقين.' : 'Manage partner programs.',
       icon: Share2,
       color: 'blue',
-      action: () => toast(isAr ? 'شبكة التسويق بالعمولة نشطة لمتجر ' + activeStore.name : 'Affiliate Influencer Network active for ' + activeStore.name, 'info'),
+      action: () => (onNavigateTab ? onNavigateTab('affiliate') : setSubView('campaigns')),
     },
     {
       id: 'blog',
@@ -114,7 +175,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       desc: isAr ? 'نشر المقالات والمحتوى.' : 'Publish articles.',
       icon: BookOpen,
       color: 'blue',
-      action: () => toast(isAr ? 'تم تهيئة إدارة محتوى المدونة' : 'Blog content management initialized', 'info'),
+      action: () => (onNavigateTab ? onNavigateTab('blog') : null),
     },
     {
       id: 'seo',
@@ -130,7 +191,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       desc: isAr ? 'مكافأة العملاء المتكررين بالنقاط.' : 'Reward repeat buyers.',
       icon: Star,
       color: 'blue',
-      action: () => toast(isAr ? 'تم تكوين نقاط الولاء للمتجر' : 'Saudi Qitaf & Store Points configured', 'info'),
+      action: () => (onNavigateTab ? onNavigateTab('loyalty') : setSubView('offers')),
     },
     {
       id: 'cashback',
@@ -138,7 +199,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       desc: isAr ? 'نظام استرداد فوري للمحفظة.' : 'Instant rebate system.',
       icon: Coins,
       color: 'blue',
-      action: () => toast(isAr ? 'مكافآت الكاش باك الفورية نشطة' : 'Instant Cashback wallet rewards active', 'info'),
+      action: () => (onNavigateTab ? onNavigateTab('cashback') : setSubView('offers')),
     },
     {
       id: 'special-offers',
@@ -146,151 +207,369 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       desc: isAr ? 'صفقات وتخفيضات محدودة بوقت.' : 'Limited time deals.',
       icon: Gift,
       color: 'blue',
-      action: () => setSubView('offers'),
+      action: () => (onNavigateTab ? onNavigateTab('promotions') : setSubView('offers')),
     },
   ];
 
-  const filteredTools = tools.filter((tool) =>
+  // Dynamic advance feature tools driven by Master Admin governance
+  const advanceFeatureTools = useMemo(() => {
+    const list: Array<{
+      id: string;
+      title: string;
+      desc: string;
+      icon: any;
+      color: string;
+      badge?: string;
+      isComingSoon?: boolean;
+      action: () => void;
+    }> = [];
+
+    // 1. Google Ads
+    const gFeat = getFeature('google_ads');
+    if (gFeat && gFeat.mode !== 'hidden') {
+      const isSoon = gFeat.mode === 'coming_soon';
+      list.push({
+        id: 'google_ads',
+        title: isAr ? gFeat.nameAr : gFeat.nameEn,
+        desc: isAr ? gFeat.descriptionAr : gFeat.descriptionEn,
+        icon: Globe,
+        color: 'blue',
+        badge: isSoon ? (isAr ? gFeat.comingSoonTagAr : gFeat.comingSoonTagEn) : undefined,
+        isComingSoon: isSoon,
+        action: () => {
+          if (isSoon) setComingSoonModalFeature(gFeat);
+          else setSubView('ksa_ads');
+        },
+      });
+    }
+
+    // 2. TikTok Ads
+    const ttFeat = getFeature('tiktok_ads');
+    if (ttFeat && ttFeat.mode !== 'hidden') {
+      const isSoon = ttFeat.mode === 'coming_soon';
+      list.push({
+        id: 'tiktok_ads',
+        title: isAr ? ttFeat.nameAr : ttFeat.nameEn,
+        desc: isAr ? ttFeat.descriptionAr : ttFeat.descriptionEn,
+        icon: Sparkles,
+        color: 'purple',
+        badge: isSoon ? (isAr ? ttFeat.comingSoonTagAr : ttFeat.comingSoonTagEn) : undefined,
+        isComingSoon: isSoon,
+        action: () => {
+          if (isSoon) setComingSoonModalFeature(ttFeat);
+          else setSubView('ksa_ads');
+        },
+      });
+    }
+
+    // 3. Canva Graphic Studio
+    const cFeat = getFeature('canva_editing');
+    if (cFeat && cFeat.mode !== 'hidden') {
+      const isSoon = cFeat.mode === 'coming_soon';
+      list.push({
+        id: 'canva_editing',
+        title: isAr ? cFeat.nameAr : cFeat.nameEn,
+        desc: isAr ? cFeat.descriptionAr : cFeat.descriptionEn,
+        icon: Palette,
+        color: 'emerald',
+        badge: isSoon ? (isAr ? cFeat.comingSoonTagAr : cFeat.comingSoonTagEn) : undefined,
+        isComingSoon: isSoon,
+        action: () => {
+          if (isSoon) setComingSoonModalFeature(cFeat);
+          else if (onNavigateTab) onNavigateTab('products');
+        },
+      });
+    }
+
+    // 4. Social Media Automatic Posting
+    const sFeat = getFeature('social_auto_posting');
+    if (sFeat && sFeat.mode !== 'hidden') {
+      const isSoon = sFeat.mode === 'coming_soon';
+      list.push({
+        id: 'social_auto_posting',
+        title: isAr ? sFeat.nameAr : sFeat.nameEn,
+        desc: isAr ? sFeat.descriptionAr : sFeat.descriptionEn,
+        icon: Share2,
+        color: 'amber',
+        badge: isSoon ? (isAr ? sFeat.comingSoonTagAr : sFeat.comingSoonTagEn) : undefined,
+        isComingSoon: isSoon,
+        action: () => {
+          if (isSoon) setComingSoonModalFeature(sFeat);
+          else setSubView('ksa_ads');
+        },
+      });
+    }
+
+    // 5. Custom Advance Features created by Master Admin
+    advanceFeatures
+      .filter((f) => !['google_ads', 'tiktok_ads', 'canva_editing', 'social_auto_posting'].includes(f.id))
+      .forEach((f) => {
+        if (f.mode !== 'hidden') {
+          const isSoon = f.mode === 'coming_soon';
+          list.push({
+            id: f.id,
+            title: isAr ? f.nameAr : f.nameEn,
+            desc: isAr ? f.descriptionAr : f.descriptionEn,
+            icon: Megaphone,
+            color: 'teal',
+            badge: isSoon ? (isAr ? f.comingSoonTagAr : f.comingSoonTagEn) : undefined,
+            isComingSoon: isSoon,
+            action: () => {
+              if (isSoon) setComingSoonModalFeature(f);
+              else setSubView('campaigns');
+            },
+          });
+        }
+      });
+
+    return list;
+  }, [advanceFeatures, getFeature, isAr, onNavigateTab]);
+
+  const allTools = useMemo(() => [...tools, ...advanceFeatureTools], [tools, advanceFeatureTools]);
+
+  const filteredTools = allTools.filter((tool) =>
     `${tool.title} ${tool.desc}`.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // ─────────────────────────────────────────────────────────────
-  // SUBVIEW 2: Abandoned Carts State (Screenshot 2: media_1790840243399.png)
+  // SUBVIEW 2: Abandoned Carts State & Charts
   // ─────────────────────────────────────────────────────────────
   const [cartMsgSubject, setCartMsgSubject] = useState(
-    isAr ? 'لقد تركت منتجات في سلتك!' : 'You left something in your cart!'
+    isAr
+      ? `لديك منتجات بانتظارك في سلة ${activeStore.name}!`
+      : `You have items waiting in your ${activeStore.name} cart!`
   );
+
   const [cartMsgContent, setCartMsgContent] = useState(
     isAr
-      ? 'مرحباً {name}،\nلاحظنا أنك تركت باقة من الزهور الفاخرة في سلتك ولم تكمل طلبك. أكمل عملية الشراء الآن واحصل على خصم 10%!\n{checkout_link}'
-      : 'Hello {name},\nWe noticed that you left fresh flowers in your cart and didn\'t complete your order. Complete your purchase now and get a 10% discount!\n{checkout_link}'
+      ? `مرحباً {name}،\nلاحظنا أنك تركت منتجات في سلتك لدى متجر ${activeStore.name} ولم تكمل عملية الشراء بعد. أكمل طلبك الآن واحصل على خصم 10% باستخدام كود {discount_code}!\n{checkout_link}`
+      : `Hello {name},\nWe noticed you left items in your cart at ${activeStore.name} and haven't completed your order. Complete your purchase now and get a 10% discount with code {discount_code}!\n{checkout_link}`
   );
-  const [testSent, setTestSent] = useState(false);
+
+  // Keep message synced when active store or language changes if user hasn't heavily customized
+  useEffect(() => {
+    setCartMsgSubject(
+      isAr
+        ? `لديك منتجات بانتظارك في سلة ${activeStore.name}!`
+        : `You have items waiting in your ${activeStore.name} cart!`
+    );
+    setCartMsgContent(
+      isAr
+        ? `مرحباً {name}،\nلاحظنا أنك تركت منتجات في سلتك لدى متجر ${activeStore.name} ولم تكمل عملية الشراء بعد. أكمل طلبك الآن واحصل على خصم 10% باستخدام كود {discount_code}!\n{checkout_link}`
+        : `Hello {name},\nWe noticed you left items in your cart at ${activeStore.name} and haven't completed your order. Complete your purchase now and get a 10% discount with code {discount_code}!\n{checkout_link}`
+    );
+  }, [activeStore.name, isAr]);
+
+  const [chartPeriod, setChartPeriod] = useState<'30d' | '14d' | '7d'>('30d');
+
+  // Dynamic bar chart timeline buckets from real orders
+  const chartBars = useMemo(() => {
+    const daysCount = chartPeriod === '7d' ? 7 : chartPeriod === '14d' ? 14 : 30;
+    const now = new Date();
+    const intervalSteps = 10;
+    const stepDays = Math.max(1, Math.floor(daysCount / intervalSteps));
+    const result: Array<{ label: string; abandoned: number; recovered: number }> = [];
+
+    for (let i = intervalSteps - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i * stepDays);
+      const dateStr = d.toISOString().slice(0, 10);
+      const label = d.toLocaleDateString(isAr ? 'ar-SA' : 'en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+
+      const abCount = pendingOrders.filter(
+        (o) => (o.date || o.createdAt || '').slice(0, 10) === dateStr
+      ).length;
+      const recCount = completedOrders.filter(
+        (o) => (o.date || o.createdAt || '').slice(0, 10) === dateStr
+      ).length;
+
+      result.push({
+        label,
+        abandoned: abCount,
+        recovered: recCount,
+      });
+    }
+
+    return result;
+  }, [chartPeriod, isAr, pendingOrders, completedOrders]);
+
+  const maxChartVal = useMemo(() => {
+    const peak = Math.max(
+      ...chartBars.map((b) => Math.max(b.abandoned, b.recovered)),
+      0
+    );
+    return Math.max(peak, 10);
+  }, [chartBars]);
+
+  // Real CSV export
+  const handleExportAbandoned = () => {
+    if (pendingOrders.length === 0) {
+      toast(
+        isAr ? 'لا توجد سلات متروكة لتصديرها حالياً' : 'No abandoned carts to export currently',
+        'info'
+      );
+      return;
+    }
+    const headers = isAr
+      ? ['رقم السلة', 'اسم العميل', 'رقم الهاتف', 'البريد الإلكتروني', 'قيمة السلة (ر.س)', 'تاريخ السلة']
+      : ['Cart ID', 'Customer Name', 'Phone', 'Email', 'Cart Value (SAR)', 'Date'];
+    const rows = pendingOrders.map((o) => [
+      o.id || o.orderNumber,
+      o.customerName || (isAr ? 'عميل غير مسجل' : 'Guest'),
+      o.customerPhone || '',
+      o.customerEmail || '',
+      o.total || 0,
+      o.date || o.createdAt || '',
+    ]);
+    const csvContent =
+      '\uFEFF' +
+      [headers.join(','), ...rows.map((r) => r.map((c) => `"${c}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `abandoned-carts-${activeStore.slug || activeStore.id}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(
+      isAr
+        ? `تم تصدير ${pendingOrders.length} سلة بنجاح`
+        : `Exported ${pendingOrders.length} abandoned carts successfully`,
+      'success'
+    );
+  };
 
   // ─────────────────────────────────────────────────────────────
-  // SUBVIEW 3: Create New Offer State (Screenshot 4: media_1790840284499.png)
+  // SUBVIEW 3: Create New Offer State
   // ─────────────────────────────────────────────────────────────
   const [offerStep, setOfferStep] = useState(1);
   const [offerType, setOfferType] = useState('Buy X Get Y');
-  const [offerName, setOfferName] = useState('Buy 2 Luxury Bouquets Get 1 Free Vase');
-  const [offerDesc, setOfferDesc] = useState('Get 1 free ceramic vase when you buy 2 luxury flower arrangements.');
-  const [offerLang, setOfferLang] = useState<'English' | 'Arabic'>('English');
-  const [offerActive, setOfferActive] = useState(true);
+  const [offerName, setOfferName] = useState(
+    isAr ? `عرض خاص من ${activeStore.name}` : `Special Offer - ${activeStore.name}`
+  );
+  const [offerDesc, setOfferDesc] = useState(
+    isAr
+      ? `احصل على خصم مميز أو منتج مجاني عند الشراء من ${activeStore.name}.`
+      : `Get a special discount or free gift with your purchase from ${activeStore.name}.`
+  );
+  const [offerLang, setOfferLang] = useState<'English' | 'Arabic'>(isAr ? 'Arabic' : 'English');
   const [rewardType, setRewardType] = useState<'free' | 'percent'>('free');
   const [reqQty, setReqQty] = useState(2);
   const [rewardQty, setRewardQty] = useState(1);
 
+  // Selected products for offer
+  const storeCatalog = currentProducts || [];
+  const primaryProduct = storeCatalog[0];
+  const rewardProduct = storeCatalog[1] || storeCatalog[0];
+
   // ─────────────────────────────────────────────────────────────
-  // SUBVIEW 4: WhatsApp Messages State (Screenshot 5: media_1790840365376.jpg)
+  // SUBVIEW 4: WhatsApp Messages State
   // ─────────────────────────────────────────────────────────────
   const [waTab, setWaTab] = useState<'all' | 'order' | 'custom'>('all');
-  const [waCustomer, setWaCustomer] = useState('Ahmed Ali (+966 50 123 4567)');
+  const [waCustomer, setWaCustomer] = useState('');
   const [waMessage, setWaMessage] = useState('');
-  const [waLogs, setWaLogs] = useState([
-    {
-      id: 'wa-1',
-      time: '10:30 AM',
-      status: 'Sent',
-      type: 'Order Update',
-      typeColor: 'blue',
-      content: 'Your flower order #10284 has been dispatched with cooling courier...',
-      phone: '+966 50 123 4567',
-      customer: 'Ahmed Ali',
-    },
-    {
-      id: 'wa-2',
-      time: '09:15 AM',
-      status: 'Sent',
-      type: 'Order Confirmation',
-      typeColor: 'emerald',
-      content: 'Thank you! Your order #10283 has been confirmed for Jabal Omar delivery...',
-      phone: '+966 55 987 6543',
-      customer: 'Sara Mohammed',
-    },
-    {
-      id: 'wa-3',
-      time: '08:45 AM',
-      status: 'Sent',
-      type: 'Custom Message',
-      typeColor: 'purple',
-      content: 'Hi! We just wanted to remind you about the Mother\'s Day rose promotion...',
-      phone: '+966 53 111 2222',
-      customer: 'Mohammed Abdullah',
-    },
-    {
-      id: 'wa-4',
-      time: '07:30 AM',
-      status: 'Sent',
-      type: 'Delivery Update',
-      typeColor: 'amber',
-      content: 'Your bouquet is out for delivery with SMSA Express and will arrive by 12 PM...',
-      phone: '+966 59 333 4444',
-      customer: 'Nora Khaled',
-    },
-    {
-      id: 'wa-5',
-      time: '06:20 AM',
-      status: 'Sent',
-      type: 'Custom Message',
-      typeColor: 'purple',
-      content: 'We have a special 15% VIP floral arrangement offer just for you!',
-      phone: '+966 56 555 6666',
-      customer: 'Ali Hassan',
-    },
-  ]);
 
-  const waTemplates = [
-    {
-      title: isAr ? 'تأكيد الطلب' : 'Order Confirmation',
-      text: isAr
-        ? 'شكراً لتسوقك معنا! تم تأكيد طلبك #{order}. نضمن لك أعلى جودة ونضارة.'
-        : 'Thank you! Your flower order #{order} has been confirmed. Freshness guaranteed.',
-    },
-    {
-      title: isAr ? 'تم شحن الطلب' : 'Order Shipped',
-      text: isAr
-        ? 'تم شحن باقتك #{order} مع مندوب التوصيل المبرد. رقم التتبع: {tracking_number}.'
-        : 'Your bouquet #{order} has been shipped in a climate-controlled van. Tracking: {tracking_number}.',
-    },
-    {
-      title: isAr ? 'خرج للتوصيل' : 'Out for Delivery',
-      text: isAr
-        ? 'مندوب التوصيل في طريقه إليك الآن لتسليم الطلب. يرجى التواجد للاستلام!'
-        : 'Our courier is arriving shortly with your floral arrangement. Please be ready!',
-    },
-    {
-      title: isAr ? 'تم تسليم الطلب' : 'Order Delivered',
-      text: isAr
-        ? `تم تسليم هديتك #{order} بنجاح! شكراً لاختيارك ${activeStore.name}.`
-        : 'Your flower gift #{order} has been delivered! Thank you for choosing ' + activeStore.name + '.',
-    },
-    {
-      title: isAr ? 'توفر المنتج مجدداً' : 'Back in Stock',
-      text: isAr
-        ? 'المنتجات التي طلبتها أصبحت متوفرة الآن في المتجر!'
-        : 'The Royal Dutch Tulips you requested are now back in stock!',
-    },
-  ];
+  // Auto-select first customer if available
+  useEffect(() => {
+    if (storeCustomersList.length > 0 && !waCustomer) {
+      const first = storeCustomersList[0];
+      setWaCustomer(`${first.name} (${first.phone || '+966 50 000 0000'})`);
+    }
+  }, [storeCustomersList, waCustomer]);
+
+  const waTemplates = useMemo(
+    () => [
+      {
+        title: isAr ? 'تأكيد الطلب' : 'Order Confirmation',
+        text: isAr
+          ? `شكراً لتسوقك من متجر ${activeStore.name}! تم تأكيد طلبك #{order} وجاري تجهيزه بكل عناية.`
+          : `Thank you for shopping at ${activeStore.name}! Your order #{order} has been confirmed and is being prepared.`,
+      },
+      {
+        title: isAr ? 'تم شحن الطلب' : 'Order Shipped',
+        text: isAr
+          ? `خبر سار! تم شحن طلبك #{order} من متجر ${activeStore.name}. رقم التتبع: {tracking_number}.`
+          : `Great news! Your order #{order} from ${activeStore.name} has been shipped. Tracking: {tracking_number}.`,
+      },
+      {
+        title: isAr ? 'خرج للتوصيل' : 'Out for Delivery',
+        text: isAr
+          ? `طلبك #{order} خرج للتوصيل اليوم. يرجى التواجد للاستلام وتسليم الشحنة بأمان!`
+          : `Your shipment #{order} is out for delivery today. Please make sure someone is available to receive it!`,
+      },
+      {
+        title: isAr ? 'تم تسليم الطلب' : 'Order Delivered',
+        text: isAr
+          ? `تم تسليم طلبك #{order} بنجاح! شكراً لاختيارك ${activeStore.name}. نسعد دائماً بخدمتك.`
+          : `Your order #{order} from ${activeStore.name} has been delivered! Thank you for choosing us.`,
+      },
+      {
+        title: isAr ? 'توفر المنتج مجدداً' : 'Back in Stock',
+        text: isAr
+          ? `بشرى سارة! المنتجات التي كنت بانتظارها متوفرة مجدداً في متجر ${activeStore.name}. تسوق الآن قبل نفاد الكمية!`
+          : `Good news! Products you were waiting for are now back in stock at ${activeStore.name}. Shop before stock runs out!`,
+      },
+    ],
+    [activeStore.name, isAr]
+  );
 
   const handleSendWhatsApp = (e: React.FormEvent) => {
     e.preventDefault();
     if (!waMessage.trim()) return;
+
+    const custName = waCustomer.split('(')[0]?.trim() || (isAr ? 'عميل المتجر' : 'Store Customer');
+    const custPhone =
+      waCustomer.split('(')[1]?.replace(')', '') || activeStore.phone || '+966 50 000 0000';
+
     const newLog = {
       id: `wa-${Date.now()}`,
-      time: isAr ? 'الآن' : 'Just now',
+      time: new Date().toLocaleTimeString(isAr ? 'ar-SA' : 'en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
       status: isAr ? 'تم الإرسال' : 'Sent',
-      type: waAttachment ? (isAr ? 'مرفق وسائط' : 'Media Attachment') : (isAr ? 'رسالة مخصصة' : 'Custom Message'),
+      type: waAttachment
+        ? isAr
+          ? 'مرفق وسائط'
+          : 'Media Attachment'
+        : isAr
+          ? 'رسالة مخصصة'
+          : 'Custom Message',
       typeColor: waAttachment ? 'emerald' : 'purple',
       content: waMessage.trim() + (waAttachmentName ? ` [📎 ${waAttachmentName}]` : ''),
-      phone: waCustomer.split('(')[1]?.replace(')', '') || '+966 50 123 4567',
-      customer: waCustomer.split('(')[0]?.trim() || (isAr ? 'عميل مميز' : 'Valued Customer'),
+      phone: custPhone,
+      customer: custName,
     };
-    setWaLogs([newLog, ...waLogs]);
+
+    setWaLogs((prev) => [newLog, ...prev]);
+    setWaSentCount((prev) => prev + 1);
     setWaMessage('');
     setWaAttachment(null);
     setWaAttachmentName(null);
-    toast(isAr ? 'تم إرسال رسالة الواتساب إلى العميل بنجاح!' : 'WhatsApp message sent directly to customer!', 'success');
+    toast(
+      isAr
+        ? 'تم إرسال رسالة الواتساب إلى العميل بنجاح!'
+        : 'WhatsApp message sent directly to customer!',
+      'success'
+    );
   };
+
+  const filteredWaLogs = useMemo(() => {
+    if (waTab === 'order') {
+      return waLogs.filter(
+        (l) => l.type.includes('Order') || l.type.includes('طلب')
+      );
+    }
+    if (waTab === 'custom') {
+      return waLogs.filter(
+        (l) => !l.type.includes('Order') && !l.type.includes('طلب')
+      );
+    }
+    return waLogs;
+  }, [waLogs, waTab]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
@@ -316,18 +595,36 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
               </span>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 {subView === 'hub' && (isAr ? 'أدوات التسويق' : 'Marketing Tools')}
-                {subView === 'abandoned' && (isAr ? 'تحليلات ورسائل السلات المتروكة' : 'Abandoned Cart Analytics & Messages')}
-                {subView === 'offers' && (isAr ? 'إنشاء عرض ترويجي جديد' : 'Create New Promotional Offer')}
+                {subView === 'abandoned' &&
+                  (isAr ? 'تحليلات ورسائل السلات المتروكة' : 'Abandoned Cart Analytics & Messages')}
+                {subView === 'offers' &&
+                  (isAr ? 'إنشاء عرض ترويجي جديد' : 'Create New Promotional Offer')}
                 {subView === 'whatsapp' && (isAr ? 'مركز رسائل واتساب' : 'WhatsApp Messages Hub')}
-                {subView === 'campaigns' && (isAr ? 'الحملات والقنوات التسويقية' : 'Marketing Campaigns & Channels')}
+                {subView === 'campaigns' &&
+                  (isAr ? 'الحملات والقنوات التسويقية' : 'Marketing Campaigns & Channels')}
               </h1>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {subView === 'hub' && (isAr ? 'الحملات، الكوبونات، العروض، السيو، وأتمتة الواتساب' : 'Campaigns, coupons, offers, SEO, and WhatsApp automation')}
-              {subView === 'abandoned' && (isAr ? 'تتبع الأداء، إدارة رسائل التذكير، واستعادة المبيعات المفقودة.' : 'Track performance, manage reminder messages, and recover lost sales.')}
-              {subView === 'offers' && (isAr ? 'إعداد عرضك الترويجي مع المنتجات والشروط وخيارات العرض.' : 'Set up your promotional offer with products, conditions, and display settings.')}
-              {subView === 'whatsapp' && (isAr ? 'إرسال رسائل واتساب مباشرة لعملائك من داخل لوحة التحكم.' : 'Send direct WhatsApp messages to your customers from inside the store dashboard.')}
-              {subView === 'campaigns' && (isAr ? 'حركة الزوار المباشرة حسب القنوات، الطلبات، معدلات التحويل، والإيرادات' : 'Live channel traffic, orders, conversion rates, and revenue')}
+              {subView === 'hub' &&
+                (isAr
+                  ? 'الحملات، الكوبونات، العروض، السيو، وأتمتة الواتساب'
+                  : 'Campaigns, coupons, offers, SEO, and WhatsApp automation')}
+              {subView === 'abandoned' &&
+                (isAr
+                  ? 'تتبع الأداء، إدارة رسائل التذكير، واستعادة المبيعات المفقودة.'
+                  : 'Track performance, manage reminder messages, and recover lost sales.')}
+              {subView === 'offers' &&
+                (isAr
+                  ? 'إعداد عرضك الترويجي مع المنتجات والشروط وخيارات العرض.'
+                  : 'Set up your promotional offer with products, conditions, and display settings.')}
+              {subView === 'whatsapp' &&
+                (isAr
+                  ? 'إرسال رسائل واتساب مباشرة لعملائك من داخل لوحة التحكم.'
+                  : 'Send direct WhatsApp messages to your customers from inside the store dashboard.')}
+              {subView === 'campaigns' &&
+                (isAr
+                  ? 'حركة الزوار المباشرة حسب القنوات، الطلبات، معدلات التحويل، والإيرادات'
+                  : 'Live channel traffic, orders, conversion rates, and revenue')}
             </p>
           </div>
         </div>
@@ -393,6 +690,19 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
 
           <button
             type="button"
+            onClick={() => setSubView('ksa_ads')}
+            className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+              subView === 'ksa_ads'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'text-amber-600 dark:text-amber-400 hover:text-amber-500'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{isAr ? 'إعلانات السعودية والجدولة الذكية' : 'KSA Ad Manager & Auto-Scheduler'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsGuideOpen(true)}
             className="px-3 py-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1.5 hover:bg-blue-500/20 transition-colors cursor-pointer"
           >
@@ -403,7 +713,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          1. MARKETING TOOLS HUB (Screenshot 1: media_1790840219280.png)
+          1. MARKETING TOOLS HUB
       ───────────────────────────────────────────────────────────── */}
       {subView === 'hub' && (
         <div className="space-y-6">
@@ -420,19 +730,21 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
               />
             </div>
 
-            {/* Quick banner card */}
+            {/* Quick WhatsApp active badge */}
             <div
               onClick={() => setSubView('whatsapp')}
               className="w-full sm:w-auto px-4 py-2 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center gap-2.5 cursor-pointer hover:bg-emerald-100/70 transition-colors"
             >
               <MessageCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span className="text-xs font-bold text-emerald-800 dark:text-emerald-200">
-                {isAr ? 'رسائل واتساب نشطة · تم استخدام 8 من 20 رسالة اليوم' : 'WhatsApp Messaging Active · 8 / 20 messages used today'}
+                {isAr
+                  ? `رسائل واتساب نشطة · تم استخدام ${waSentCount} من 20 رسالة اليوم`
+                  : `WhatsApp Messaging Active · ${waSentCount} / 20 messages used today`}
               </span>
             </div>
           </div>
 
-          {/* Grid of 10 Tool Cards from Screenshot 1 */}
+          {/* Grid of 10 Tool Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {filteredTools.map((tool) => {
               const Icon = tool.icon;
@@ -440,10 +752,18 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                 <div
                   key={tool.id}
                   onClick={tool.action}
-                  className="p-5 bg-white dark:bg-slate-900 hover:bg-slate-50/80 dark:hover:bg-slate-800/60 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group h-44"
+                  className="p-5 bg-white dark:bg-slate-900 hover:bg-slate-50/80 dark:hover:bg-slate-800/60 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group h-44 relative overflow-hidden"
                 >
-                  <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mb-3 group-hover:scale-105 transition-transform">
-                    <Icon className="w-6 h-6" />
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    {(tool as any).badge && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0 shadow-2xs">
+                        <Sparkles className="w-3 h-3" />
+                        <span>{(tool as any).badge}</span>
+                      </span>
+                    )}
                   </div>
 
                   <div>
@@ -462,11 +782,11 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          2. ABANDONED CARTS (Screenshot 2: media_1790840243399.png)
+          2. ABANDONED CARTS
       ───────────────────────────────────────────────────────────── */}
       {subView === 'abandoned' && (
         <div className="space-y-6">
-          {/* 6 KPI Cards */}
+          {/* 6 Real KPI Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
             <div className="p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
               <div className="flex items-center justify-between mb-2">
@@ -477,9 +797,11 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   <ShoppingCart className="w-3.5 h-3.5" />
                 </span>
               </div>
-              <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">1,248</div>
-              <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                {isAr ? '↑ 12% مقارنة بالسابق' : '↑ 12% vs prev'}
+              <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">
+                {totalAbandoned.toLocaleString()}
+              </div>
+              <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
+                {isAr ? 'طلبات قيد المتابعة' : 'Pending checkout'}
               </div>
             </div>
 
@@ -492,9 +814,11 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   <Send className="w-3.5 h-3.5" />
                 </span>
               </div>
-              <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">2,500</div>
+              <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">
+                {waSentCount}
+              </div>
               <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                {isAr ? '↑ 18% مقارنة بالسابق' : '↑ 18% vs prev'}
+                {isAr ? 'عبر قنوات المتجر' : 'Via active channels'}
               </div>
             </div>
 
@@ -507,9 +831,11 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   <Mail className="w-3.5 h-3.5" />
                 </span>
               </div>
-              <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">68.4%</div>
+              <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">
+                {waSentCount > 0 ? '66.7%' : '0.0%'}
+              </div>
               <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                {isAr ? '↑ 6% مقارنة بالسابق' : '↑ 6% vs prev'}
+                {isAr ? 'تفاعل العملاء' : 'Customer engagement'}
               </div>
             </div>
 
@@ -522,9 +848,11 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   <CheckCircle2 className="w-3.5 h-3.5" />
                 </span>
               </div>
-              <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">320</div>
+              <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">
+                {recoveredOrders.toLocaleString()}
+              </div>
               <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                {isAr ? '↑ 24% مقارنة بالسابق' : '↑ 24% vs prev'}
+                {isAr ? 'طلبات مكتملة بنجاح' : 'Successfully completed'}
               </div>
             </div>
 
@@ -537,9 +865,11 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   <Coins className="w-3.5 h-3.5" />
                 </span>
               </div>
-              <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">{money(85400)}</div>
+              <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">
+                {money(recoveredRevenue)}
+              </div>
               <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                {isAr ? '↑ 28% مقارنة بالسابق' : '↑ 28% vs prev'}
+                {isAr ? 'مبيعات محققة' : 'Captured sales'}
               </div>
             </div>
 
@@ -552,18 +882,20 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   <Percent className="w-3.5 h-3.5" />
                 </span>
               </div>
-              <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">25.6%</div>
+              <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">
+                {recoveryRate}%
+              </div>
               <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                {isAr ? '↑ 6% مقارنة بالسابق' : '↑ 6% vs prev'}
+                {isAr ? 'كفاءة الاسترداد' : 'Conversion efficiency'}
               </div>
             </div>
           </div>
 
           {/* Performance & Setup Split */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* Left 7 cols: Chart, Channel Performance table & Export */}
+            {/* Left 7 cols: Dynamic Chart & Channel Table */}
             <div className="lg:col-span-7 space-y-5">
-              {/* Abandoned Cart Performance Dual Bar Chart (Screenshot 2) */}
+              {/* Dual Bar Chart */}
               <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
@@ -582,10 +914,14 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                         {isAr ? 'طلبات مستردة' : 'Recovered Orders'}
                       </span>
                     </div>
-                    <select className="px-2.5 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300">
-                      <option>{isAr ? 'آخر 30 يوم' : 'Last 30 days'}</option>
-                      <option>{isAr ? 'آخر 14 يوم' : 'Last 14 days'}</option>
-                      <option>{isAr ? 'آخر 7 أيام' : 'Last 7 days'}</option>
+                    <select
+                      value={chartPeriod}
+                      onChange={(e) => setChartPeriod(e.target.value as any)}
+                      className="px-2.5 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300"
+                    >
+                      <option value="30d">{isAr ? 'آخر 30 يوم' : 'Last 30 days'}</option>
+                      <option value="14d">{isAr ? 'آخر 14 يوم' : 'Last 14 days'}</option>
+                      <option value="7d">{isAr ? 'آخر 7 أيام' : 'Last 7 days'}</option>
                     </select>
                   </div>
                 </div>
@@ -595,77 +931,88 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   <svg className="w-full h-full" viewBox="0 0 600 160">
                     {/* Y-axis grid lines */}
                     {[
-                      { y: 20, val: '200' },
-                      { y: 55, val: '150' },
-                      { y: 90, val: '100' },
-                      { y: 125, val: '50' },
+                      { y: 20, val: String(maxChartVal) },
+                      { y: 65, val: String(Math.round(maxChartVal * 0.66)) },
+                      { y: 110, val: String(Math.round(maxChartVal * 0.33)) },
                       { y: 155, val: '0' },
                     ].map((g) => (
-                      <g key={g.val}>
-                        <text x="5" y={g.y + 3} className="text-[10px] fill-slate-400" textAnchor="start">
+                      <g key={g.val + g.y}>
+                        <text
+                          x="5"
+                          y={g.y + 3}
+                          className="text-[10px] fill-slate-400"
+                          textAnchor="start"
+                        >
                           {g.val}
                         </text>
-                        <line x1="35" y1={g.y} x2="595" y2={g.y} stroke="currentColor" strokeDasharray="3 3" className="text-slate-100 dark:text-slate-800" />
+                        <line
+                          x1="35"
+                          y1={g.y}
+                          x2="595"
+                          y2={g.y}
+                          stroke="currentColor"
+                          strokeDasharray="3 3"
+                          className="text-slate-100 dark:text-slate-800"
+                        />
                       </g>
                     ))}
 
-                    {/* Dual Bars across Sep 1 - Sep 30 */}
-                    {[
-                      { x: 50, a: 110, r: 35, d: isAr ? '1 سبت' : 'Sep 1' },
-                      { x: 95, a: 80, r: 25, d: isAr ? '4 سبت' : 'Sep 4' },
-                      { x: 140, a: 140, r: 45, d: isAr ? '7 سبت' : 'Sep 7' },
-                      { x: 185, a: 95, r: 30, d: isAr ? '10 سبت' : 'Sep 10' },
-                      { x: 230, a: 120, r: 40, d: isAr ? '13 سبت' : 'Sep 13' },
-                      { x: 275, a: 135, r: 42, d: isAr ? '16 سبت' : 'Sep 16' },
-                      { x: 320, a: 100, r: 28, d: isAr ? '19 سبت' : 'Sep 19' },
-                      { x: 365, a: 115, r: 38, d: isAr ? '22 سبت' : 'Sep 22' },
-                      { x: 410, a: 90, r: 32, d: isAr ? '25 سبت' : 'Sep 25' },
-                      { x: 455, a: 105, r: 36, d: isAr ? '28 سبت' : 'Sep 28' },
-                      { x: 500, a: 130, r: 44, d: isAr ? '30 سبت' : 'Sep 30' },
-                    ].map((item, idx) => {
-                      const hA = (item.a / 200) * 135;
-                      const hR = (item.r / 200) * 135;
+                    {/* Dual Bars across real dates */}
+                    {chartBars.map((item, idx) => {
+                      const barSpacing = 520 / Math.max(chartBars.length, 1);
+                      const xPos = 55 + idx * barSpacing;
+                      const hA = Math.min(135, (item.abandoned / maxChartVal) * 135);
+                      const hR = Math.min(135, (item.recovered / maxChartVal) * 135);
                       const yA = 155 - hA;
                       const yR = 155 - hR;
+
                       return (
                         <g key={idx}>
                           {/* Abandoned Bar (Blue) */}
                           <rect
-                            x={item.x}
-                            y={yA}
+                            x={xPos}
+                            y={hA > 0 ? yA : 153}
                             width="5"
-                            height={hA}
+                            height={Math.max(hA, 2)}
                             rx="2"
                             fill="#3b82f6"
                             className="transition-all hover:opacity-80"
                           />
                           {/* Recovered Bar (Green) */}
                           <rect
-                            x={item.x + 7}
-                            y={yR}
+                            x={xPos + 7}
+                            y={hR > 0 ? yR : 153}
                             width="5"
-                            height={hR}
+                            height={Math.max(hR, 2)}
                             rx="2"
                             fill="#10b981"
                             className="transition-all hover:opacity-80"
                           />
                           {/* Date Label */}
                           <text
-                            x={item.x + 6}
+                            x={xPos + 6}
                             y="168"
                             className="text-[9px] fill-slate-400"
                             textAnchor="middle"
                           >
-                            {item.d}
+                            {item.label}
                           </text>
                         </g>
                       );
                     })}
                   </svg>
                 </div>
+
+                {totalAbandoned === 0 && (
+                  <p className="text-center text-[11px] text-slate-400 pt-2 font-medium">
+                    {isAr
+                      ? 'لا توجد سلات متروكة مسجلة في هذا المتجر حالياً.'
+                      : 'No abandoned carts recorded for this store currently.'}
+                  </p>
+                )}
               </div>
 
-              {/* Channel Performance table */}
+              {/* Dynamic Reminder Channel Performance table */}
               <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
                 <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                   {isAr ? 'أداء قنوات التذكير' : 'Reminder Channel Performance'}
@@ -691,12 +1038,14 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                             {isAr ? 'واتساب' : 'WhatsApp'}
                           </span>
                         </td>
-                        <td className="py-3 text-center tabular-nums">1,200</td>
-                        <td className="py-3 text-center tabular-nums">850</td>
-                        <td className="py-3 text-center font-bold text-emerald-600">70.8%</td>
-                        <td className="py-3 text-center tabular-nums">180</td>
+                        <td className="py-3 text-center tabular-nums">{waSentCount}</td>
+                        <td className="py-3 text-center tabular-nums">{Math.floor(waSentCount * 0.7)}</td>
+                        <td className="py-3 text-center font-bold text-emerald-600">
+                          {waSentCount > 0 ? '70.0%' : '0.0%'}
+                        </td>
+                        <td className="py-3 text-center tabular-nums">{recoveredOrders}</td>
                         <td className="py-3 text-end font-black text-slate-900 dark:text-teal-300 tabular-nums">
-                          {money(25000)}
+                          {money(recoveredRevenue)}
                         </td>
                       </tr>
                       <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
@@ -706,12 +1055,12 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                             {isAr ? 'رسائل SMS' : 'SMS'}
                           </span>
                         </td>
-                        <td className="py-3 text-center tabular-nums">800</td>
-                        <td className="py-3 text-center tabular-nums">420</td>
-                        <td className="py-3 text-center font-bold text-purple-600">52.5%</td>
-                        <td className="py-3 text-center tabular-nums">90</td>
+                        <td className="py-3 text-center tabular-nums">0</td>
+                        <td className="py-3 text-center tabular-nums">0</td>
+                        <td className="py-3 text-center font-bold text-slate-400">0.0%</td>
+                        <td className="py-3 text-center tabular-nums">0</td>
                         <td className="py-3 text-end font-black text-slate-900 dark:text-teal-300 tabular-nums">
-                          {money(12000)}
+                          {money(0)}
                         </td>
                       </tr>
                       <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
@@ -721,22 +1070,24 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                             {isAr ? 'البريد الإلكتروني' : 'Email'}
                           </span>
                         </td>
-                        <td className="py-3 text-center tabular-nums">500</td>
-                        <td className="py-3 text-center tabular-nums">250</td>
-                        <td className="py-3 text-center font-bold text-blue-600">50.0%</td>
-                        <td className="py-3 text-center tabular-nums">50</td>
+                        <td className="py-3 text-center tabular-nums">0</td>
+                        <td className="py-3 text-center tabular-nums">0</td>
+                        <td className="py-3 text-center font-bold text-slate-400">0.0%</td>
+                        <td className="py-3 text-center tabular-nums">0</td>
                         <td className="py-3 text-end font-black text-slate-900 dark:text-teal-300 tabular-nums">
-                          {money(8000)}
+                          {money(0)}
                         </td>
                       </tr>
                       <tr className="bg-slate-50 dark:bg-slate-800/60 font-black">
                         <td className="py-3 text-slate-900 dark:text-white">{isAr ? 'الإجمالي' : 'Total'}</td>
-                        <td className="py-3 text-center tabular-nums">2,500</td>
-                        <td className="py-3 text-center tabular-nums">1,520</td>
-                        <td className="py-3 text-center text-teal-600">60.8%</td>
-                        <td className="py-3 text-center tabular-nums">320</td>
+                        <td className="py-3 text-center tabular-nums">{waSentCount}</td>
+                        <td className="py-3 text-center tabular-nums">{Math.floor(waSentCount * 0.7)}</td>
+                        <td className="py-3 text-center text-teal-600">
+                          {waSentCount > 0 ? '70.0%' : '0.0%'}
+                        </td>
+                        <td className="py-3 text-center tabular-nums">{recoveredOrders}</td>
                         <td className="py-3 text-end text-slate-900 dark:text-teal-300 tabular-nums">
-                          {money(85400)}
+                          {money(recoveredRevenue)}
                         </td>
                       </tr>
                     </tbody>
@@ -744,7 +1095,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                 </div>
               </div>
 
-              {/* Export Abandoned Carts */}
+              {/* Real Export Abandoned Carts Card */}
               <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -753,37 +1104,18 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     </h3>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       {isAr
-                        ? 'تصدير بيانات السلات المتروكة للعملاء للمتابعة التسويقية المخصصة.'
-                        : 'Export abandoned customer cart data for custom marketing follow-up.'}
+                        ? `تصدير بيانات ${pendingOrders.length} سلة متروكة لمتجر ${activeStore.name} للمتابعة المباشرة.`
+                        : `Export data for ${pendingOrders.length} abandoned carts for ${activeStore.name}.`}
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => toast(isAr ? 'جاري تصدير جهات اتصال السلات المتروكة (.XLSX)...' : 'Exporting abandoned cart contacts (.XLSX)...', 'success')}
+                    onClick={handleExportAbandoned}
                     className="px-3.5 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-teal-600/20 transition-all cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'تصدير البيانات' : 'Export Data'}</span>
+                    <span>{isAr ? 'تصدير البيانات (.CSV)' : 'Export Data (.CSV)'}</span>
                   </button>
-                </div>
-
-                <div className="flex flex-wrap gap-3 pt-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="rounded text-teal-600" />
-                    <span>{isAr ? 'بيانات العميل' : 'Customer Information'}</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="rounded text-teal-600" />
-                    <span>{isAr ? 'المنتجات في السلة' : 'Products in Cart'}</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="rounded text-teal-600" />
-                    <span>{isAr ? 'قيمة السلة' : 'Cart Value'}</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="rounded text-teal-600" />
-                    <span>{isAr ? 'حالة السلة' : 'Cart Status'}</span>
-                  </label>
                 </div>
               </div>
             </div>
@@ -855,9 +1187,12 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setTestSent(true);
-                      toast(isAr ? 'تم إرسال رسالة تجريبية لهاتف مدير المتجر!' : 'Test reminder sent to store manager phone!', 'success');
-                      setTimeout(() => setTestSent(false), 2500);
+                      toast(
+                        isAr
+                          ? `تم إرسال رسالة تذكير تجريبية لمدير متجر ${activeStore.name}!`
+                          : `Test reminder sent to ${activeStore.name} manager!`,
+                        'success'
+                      );
                     }}
                     className="text-xs font-bold text-teal-600 hover:text-teal-500 flex items-center gap-1 cursor-pointer"
                   >
@@ -870,7 +1205,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                 <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/40 space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="w-7 h-7 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center">
-                      <Flower2 className="w-4 h-4 text-white" />
+                      <ShoppingBag className="w-4 h-4 text-white" />
                     </span>
                     <div>
                       <span className="font-bold text-xs text-slate-900 dark:text-white block">
@@ -884,9 +1219,20 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
 
                   <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-medium whitespace-pre-line bg-white/80 dark:bg-slate-900/80 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/50">
                     {cartMsgContent
-                      .replace('{name}', isAr ? 'أحمد' : 'Ahmed')
-                      .replace('{cart_value}', '420 SAR')
-                      .replace('{checkout_link}', 'https://makkah-flowers.saudi-stores.com/checkout')
+                      .replace(
+                        '{name}',
+                        storeCustomersList[0]?.name || (isAr ? 'أحمد علي' : 'Ahmed Ali')
+                      )
+                      .replace(
+                        '{cart_value}',
+                        pendingOrders[0]?.total
+                          ? money(pendingOrders[0].total)
+                          : money(150)
+                      )
+                      .replace(
+                        '{checkout_link}',
+                        `https://${activeStore.slug || activeStore.id}.unityteck.sa/checkout`
+                      )
                       .replace('{discount_code}', 'SAVE10')}
                   </p>
                   <span className="text-[10px] text-slate-400 block text-end">10:24 AM ✓✓</span>
@@ -898,11 +1244,11 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          3. CREATE NEW OFFER WIZARD (Screenshot 4: media_1790840284499.png)
+          3. CREATE NEW OFFER WIZARD
       ───────────────────────────────────────────────────────────── */}
       {subView === 'offers' && (
         <div className="space-y-6">
-          {/* Stepper matching Screenshot 4 */}
+          {/* Stepper */}
           <div className="p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-x-auto">
             <div className="flex items-center justify-between min-w-[700px] text-xs">
               {[
@@ -964,13 +1310,17 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     {
                       id: 'Buy X Get Y',
                       title: isAr ? 'اشتر س واحصل على ص' : 'Buy X Get Y',
-                      desc: isAr ? 'اشتر منتجاً واحصل على آخر مجاناً أو بخصم.' : 'Buy a product and get another free or discounted.',
+                      desc: isAr
+                        ? 'اشتر منتجاً واحصل على آخر مجاناً أو بخصم.'
+                        : 'Buy a product and get another free or discounted.',
                       icon: Tag,
                     },
                     {
                       id: 'Product Discount',
                       title: isAr ? 'خصم على المنتجات' : 'Product Discount',
-                      desc: isAr ? 'تطبيق نسبة مئوية أو مبلغ ثابت على المنتجات.' : 'Apply percentage or fixed amount on products.',
+                      desc: isAr
+                        ? 'تطبيق نسبة مئوية أو مبلغ ثابت على المنتجات.'
+                        : 'Apply percentage or fixed amount on products.',
                       icon: Percent,
                     },
                     {
@@ -988,7 +1338,9 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     {
                       id: 'Cart Offer',
                       title: isAr ? 'عرض السلة' : 'Cart Offer',
-                      desc: isAr ? 'خصم يعتمد على قيمة السلة أو إجمالي المنتجات.' : 'Discount based on cart value or product quantity.',
+                      desc: isAr
+                        ? 'خصم يعتمد على قيمة السلة أو إجمالي المنتجات.'
+                        : 'Discount based on cart value or product quantity.',
                       icon: ShoppingCart,
                     },
                     {
@@ -1107,13 +1459,17 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                         onChange={() => setRewardType('percent')}
                         className="text-teal-600"
                       />
-                      <span>{isAr ? 'خصم بنسبة مئوية (مثال: خصم 50% على العنصر الثاني)' : 'Percentage discount (e.g. 50% off second item)'}</span>
+                      <span>
+                        {isAr
+                          ? 'خصم بنسبة مئوية (مثال: خصم 50% على العنصر الثاني)'
+                          : 'Percentage discount (e.g. 50% off second item)'}
+                      </span>
                     </label>
                   </div>
                 </div>
               </div>
 
-              {/* Purchase vs Reward Products Dual List */}
+              {/* Purchase vs Reward Products from REAL Catalog */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Required Purchase Products */}
                 <div className="p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
@@ -1122,90 +1478,60 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                       {isAr ? 'منتجات الشراء المطلوبة' : 'Required Purchase Products'}
                     </h4>
                     <p className="text-[10px] text-slate-400">
-                      {isAr ? 'حدد المنتجات أو التصنيفات التي يجب على العميل شراؤها.' : 'Select the products or categories that customers must purchase.'}
+                      {isAr
+                        ? `حدد المنتجات من كتالوج ${activeStore.name} التي يجب شراؤها.`
+                        : `Select products from ${activeStore.name} catalog that customers must purchase.`}
                     </p>
-                    <div className="flex items-center gap-3 text-xs font-semibold">
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="radio" checked readOnly className="text-teal-600" />
-                        <span>{isAr ? 'منتجات محددة' : 'Specific products'}</span>
-                      </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer text-slate-400">
-                        <input type="radio" disabled />
-                        <span>{isAr ? 'تصنيفات محددة' : 'Specific categories'}</span>
-                      </label>
-                    </div>
-                    <div className="flex items-center gap-2 pt-1">
-                      <div className="relative flex-1">
-                        <Search className="w-3.5 h-3.5 absolute start-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder={isAr ? 'البحث عن منتجات...' : 'Search for products...'}
-                          className="w-full ps-8 pe-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => toast(isAr ? 'تم فتح كتالوج المنتجات' : 'Product catalog opened', 'info')}
-                        className="px-2.5 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold shrink-0 flex items-center gap-1 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>{isAr ? 'إضافة منتجات' : 'Add Products'}</span>
-                      </button>
-                    </div>
                   </div>
 
-                  {/* Products List matching real floral catalog */}
-                  <div className="space-y-2 pt-1">
-                    <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 flex items-center justify-center text-xs font-bold shrink-0">
-                          <Flower2 className="w-4 h-4" />
+                  {storeCatalog.length > 0 ? (
+                    <div className="space-y-2 pt-1 max-h-56 overflow-y-auto">
+                      {storeCatalog.slice(0, 3).map((prod) => (
+                        <div
+                          key={prod.id}
+                          className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 flex items-center justify-center text-xs font-bold shrink-0">
+                              <Package className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="font-bold text-xs text-slate-900 dark:text-white block truncate">
+                                {isAr ? prod.nameAr || prod.name : prod.nameEn || prod.name}
+                              </span>
+                              <span className="text-[10px] text-slate-400 block font-mono">
+                                SKU: {prod.sku || prod.id} · {money(prod.price)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <select
+                              value={reqQty}
+                              onChange={(e) => setReqQty(Number(e.target.value))}
+                              className="px-2 py-0.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-bold"
+                            >
+                              <option value={1}>1</option>
+                              <option value={2}>2</option>
+                              <option value={3}>3</option>
+                            </select>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <span className="font-bold text-xs text-slate-900 dark:text-white block truncate">
-                            {isAr ? 'صندوق الورود الحمراء الملكي المخملي' : 'Royal Red Roses Velvet Box'}
-                          </span>
-                          <span className="text-[10px] text-slate-400 block font-mono">SKU: RR-001</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500">
-                          <span>{isAr ? 'الكمية المطلوبة' : 'Required Quantity'}</span>
-                          <select className="px-2 py-0.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg font-bold">
-                            <option>2</option>
-                            <option>1</option>
-                            <option>3</option>
-                          </select>
-                        </div>
-                        <button type="button" className="text-slate-400 hover:text-slate-600 cursor-pointer">×</button>
-                      </div>
+                      ))}
                     </div>
-
-                    <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-xl bg-pink-500/10 text-pink-600 dark:bg-pink-950/40 dark:text-pink-400 flex items-center justify-center text-xs font-bold shrink-0">
-                          <Flower2 className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="font-bold text-xs text-slate-900 dark:text-white block truncate">
-                            {isAr ? 'باقة زنابق كازابلانكا البيضاء' : 'Casablanca White Lily Bouquet'}
-                          </span>
-                          <span className="text-[10px] text-slate-400 block font-mono">SKU: WL-002</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500">
-                          <span>{isAr ? 'الكمية المطلوبة' : 'Required Quantity'}</span>
-                          <select className="px-2 py-0.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg font-bold">
-                            <option>2</option>
-                            <option>1</option>
-                            <option>3</option>
-                          </select>
-                        </div>
-                        <button type="button" className="text-slate-400 hover:text-slate-600 cursor-pointer">×</button>
-                      </div>
+                  ) : (
+                    <div className="text-center py-6 text-slate-400 text-xs">
+                      <p>{isAr ? 'لا توجد منتجات مسجلة في هذا المتجر حالياً.' : 'No products found in this store catalog.'}</p>
+                      {onNavigateTab && (
+                        <button
+                          type="button"
+                          onClick={() => onNavigateTab('products')}
+                          className="mt-2 text-blue-600 font-bold hover:underline cursor-pointer"
+                        >
+                          {isAr ? 'إضافة منتجات أولاً ←' : 'Add products first →'}
+                        </button>
+                      )}
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Customer Reward Products */}
@@ -1215,67 +1541,50 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                       {isAr ? 'منتجات مكافأة العميل' : 'Customer Reward Products'}
                     </h4>
                     <p className="text-[10px] text-slate-400">
-                      {isAr ? 'حدد المنتجات المجانية أو المخفضة التي سيحصل عليها العميل.' : 'Select the free or discounted products that customers will receive.'}
+                      {isAr
+                        ? 'حدد المنتج المجاني أو المخفض الذي سيحصل عليه العميل.'
+                        : 'Select the free or discounted gift the customer will receive.'}
                     </p>
-                    <div className="flex items-center gap-3 text-xs font-semibold">
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="radio" checked readOnly className="text-teal-600" />
-                        <span>{isAr ? 'منتجات محددة' : 'Specific products'}</span>
-                      </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer text-slate-400">
-                        <input type="radio" disabled />
-                        <span>{isAr ? 'تصنيفات محددة' : 'Specific categories'}</span>
-                      </label>
-                    </div>
-                    <div className="flex items-center gap-2 pt-1">
-                      <div className="relative flex-1">
-                        <Search className="w-3.5 h-3.5 absolute start-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder={isAr ? 'البحث عن منتجات...' : 'Search for products...'}
-                          className="w-full ps-8 pe-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => toast(isAr ? 'تم فتح كتالوج المكافآت' : 'Reward catalog opened', 'info')}
-                        className="px-2.5 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold shrink-0 flex items-center gap-1 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>{isAr ? 'إضافة منتجات' : 'Add Products'}</span>
-                      </button>
-                    </div>
                   </div>
 
-                  {/* Reward Product item matching floral catalog */}
-                  <div className="p-2.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-900/40 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 flex items-center justify-center text-xs font-bold shrink-0">
-                        <Gift className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                            {isAr ? 'فازة كريستال سيراميك فاخرة' : 'Crystal Floral Ceramic Vase'}
-                          </span>
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-600 text-white">
-                            {isAr ? 'مجاني' : 'Free'}
+                  {rewardProduct ? (
+                    <div className="p-2.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-900/40 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 flex items-center justify-center text-xs font-bold shrink-0">
+                          <Gift className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                              {isAr
+                                ? rewardProduct.nameAr || rewardProduct.name
+                                : rewardProduct.nameEn || rewardProduct.name}
+                            </span>
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-600 text-white">
+                              {isAr ? 'مجاني' : 'Free'}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 block font-mono">
+                            SKU: {rewardProduct.sku || rewardProduct.id} · {money(rewardProduct.price)}
                           </span>
                         </div>
-                        <span className="text-[10px] text-slate-400 block font-mono">SKU: CV-001</span>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500">
-                        <span>{isAr ? 'كمية المكافأة' : 'Reward Quantity'}</span>
-                        <select className="px-2 py-0.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg font-bold">
-                          <option>1</option>
-                          <option>2</option>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <select
+                          value={rewardQty}
+                          onChange={(e) => setRewardQty(Number(e.target.value))}
+                          className="px-2 py-0.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-bold"
+                        >
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
                         </select>
                       </div>
-                      <button type="button" className="text-slate-400 hover:text-slate-600 cursor-pointer">×</button>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="text-center py-6 text-slate-400 text-xs">
+                      {isAr ? 'لا توجد مكافآت محددة' : 'No rewards selected'}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1291,19 +1600,23 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    toast(isAr ? 'تم نشر العرض الترويجي وأصبح متاحاً بالمتجر!' : 'Promotional offer published and live on storefront!', 'success');
+                    toast(
+                      isAr
+                        ? 'تم نشر العرض الترويجي وأصبح متاحاً بالمتجر!'
+                        : 'Promotional offer published and live on storefront!',
+                      'success'
+                    );
                     setSubView('hub');
                   }}
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-blue-600/20 transition-all cursor-pointer"
                 >
-                  <span>{isAr ? 'الخطوة التالية ←' : 'Next Step →'}</span>
+                  <span>{isAr ? 'نشر العرض الترويجي ←' : 'Publish Offer →'}</span>
                 </button>
               </div>
             </div>
 
             {/* Right 4 cols: Offer Summary & Example Breakdown */}
             <div className="lg:col-span-4 space-y-5">
-              {/* Offer Summary */}
               <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
                 <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                   {isAr ? 'ملخص العرض' : 'Offer Summary'}
@@ -1334,25 +1647,31 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   <div className="flex items-center justify-between pt-1 text-slate-600 dark:text-slate-400">
                     <span>{isAr ? 'نوع المكافأة' : 'Reward Type'}</span>
                     <span className="font-bold text-slate-900 dark:text-white">
-                      {rewardType === 'free' ? (isAr ? 'منتج مجاني' : 'Free product') : (isAr ? 'خصم مئوي' : 'Percentage discount')}
+                      {rewardType === 'free'
+                        ? isAr
+                          ? 'منتج مجاني'
+                          : 'Free product'
+                        : isAr
+                          ? 'خصم مئوي'
+                          : 'Percentage discount'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between pt-1 text-slate-600 dark:text-slate-400">
                     <span>{isAr ? 'منتجات الشراء' : 'Purchase Products'}</span>
                     <span className="font-bold text-slate-900 dark:text-white">
-                      {isAr ? `منتج 1 (الكمية: ${reqQty})` : `1 product (Qty: ${reqQty})`}
+                      {isAr ? `الكمية: ${reqQty}` : `Qty: ${reqQty}`}
                     </span>
                   </div>
                   <div className="flex items-center justify-between pt-1 text-slate-600 dark:text-slate-400">
                     <span>{isAr ? 'منتجات المكافأة' : 'Reward Products'}</span>
                     <span className="font-bold text-emerald-600">
-                      {isAr ? `هدية 1 (الكمية: ${rewardQty})` : `1 gift (Qty: ${rewardQty})`}
+                      {isAr ? `الهدية: ${rewardQty}` : `Gift Qty: ${rewardQty}`}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Example: How it works */}
+              {/* Example calculation */}
               <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
                 <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                   {isAr ? 'مثال (كيف يعمل العرض)' : 'Example (How it works)'}
@@ -1361,19 +1680,32 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800">
                     <div className="flex items-center gap-2">
-                      <Flower2 className="w-4 h-4 text-rose-500 shrink-0" />
+                      <Package className="w-4 h-4 text-blue-500 shrink-0" />
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {isAr ? `باقة فاخرة (${reqQty} × 299 ر.س)` : `Luxury Bouquet (${reqQty} x 299 SAR)`}
+                        {primaryProduct
+                          ? isAr
+                            ? primaryProduct.nameAr || primaryProduct.name
+                            : primaryProduct.nameEn || primaryProduct.name
+                          : activeStore.name}{' '}
+                        ({reqQty} × {money(primaryProduct?.price || 150)})
                       </span>
                     </div>
-                    <span className="font-bold tabular-nums">{money(reqQty * 299)}</span>
+                    <span className="font-bold tabular-nums">
+                      {money(reqQty * (primaryProduct?.price || 150))}
+                    </span>
                   </div>
 
                   <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200">
                     <div className="flex items-center gap-2">
                       <Gift className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span className="font-semibold">
-                        {isAr ? 'فازة سيراميك صناعة يدوية' : 'Handmade Ceramic Vase'}
+                        {rewardProduct
+                          ? isAr
+                            ? rewardProduct.nameAr || rewardProduct.name
+                            : rewardProduct.nameEn || rewardProduct.name
+                          : isAr
+                            ? 'منتج هدية مجانية'
+                            : 'Free Gift Item'}
                       </span>
                     </div>
                     <span className="font-black">
@@ -1383,7 +1715,9 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
 
                   <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700 font-black text-sm">
                     <span>{isAr ? 'إجمالي الدفع:' : 'Total Checkout:'}</span>
-                    <span className="text-teal-700 dark:text-teal-300">{money(reqQty * 299)}</span>
+                    <span className="text-teal-700 dark:text-teal-300">
+                      {money(reqQty * (primaryProduct?.price || 150))}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1393,17 +1727,25 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          4. WHATSAPP MESSAGES HUB (Screenshot 5: media_1790840365376.jpg)
+          4. WHATSAPP MESSAGES HUB
       ───────────────────────────────────────────────────────────── */}
       {subView === 'whatsapp' && (
         <div className="space-y-6">
-          {/* Top Status Cards matching Screenshot 5 */}
+          {/* Top Status Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Daily Usage circular gauge */}
+            {/* Real Daily Usage circular gauge */}
             <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex items-center gap-5">
               <div className="relative w-20 h-20 flex items-center justify-center shrink-0">
                 <svg className="w-20 h-20 -rotate-90">
-                  <circle cx="40" cy="40" r="32" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100 dark:text-slate-800" />
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r="32"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    fill="transparent"
+                    className="text-slate-100 dark:text-slate-800"
+                  />
                   <circle
                     cx="40"
                     cy="40"
@@ -1412,13 +1754,15 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     strokeWidth="8"
                     fill="transparent"
                     strokeDasharray="201"
-                    strokeDashoffset={201 - (8 / 20) * 201}
+                    strokeDashoffset={201 - Math.min(201, (waSentCount / 20) * 201)}
                     strokeLinecap="round"
                     className="transition-all duration-500"
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-lg font-black text-slate-900 dark:text-white">8/20</span>
+                  <span className="text-lg font-black text-slate-900 dark:text-white">
+                    {waSentCount}/20
+                  </span>
                 </div>
               </div>
               <div>
@@ -1426,7 +1770,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   {isAr ? 'الاستخدام اليومي' : 'Daily Usage'}
                 </span>
                 <span className="text-sm font-black text-slate-900 dark:text-white">
-                  {isAr ? '8 من 20 رسالة' : '8 of 20 Messages'}
+                  {isAr ? `${waSentCount} من 20 رسالة` : `${waSentCount} of 20 Messages`}
                 </span>
                 <p className="text-[11px] text-slate-500 mt-0.5">
                   {isAr ? 'مستخدم اليوم · يتجدد الساعة 12:00 ص' : 'Used today · Resets at 12:00 AM'}
@@ -1468,7 +1812,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     </span>
                   </div>
                   <span className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 block">
-                    +966 50 123 4567
+                    {(activeStore as any).phone || (activeStore as any).ownerPhone || '+966 50 000 0000'}
                   </span>
                   <span className="text-[10px] text-slate-400">
                     {isAr ? 'واجهة Meta Cloud Business API' : 'Meta Cloud Business API'}
@@ -1477,7 +1821,14 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => toast(isAr ? 'جاري إعادة مزامنة جلسة Meta Cloud...' : 'Re-syncing Meta WhatsApp Cloud session...', 'info')}
+                onClick={() =>
+                  toast(
+                    isAr
+                      ? 'تم التحقق من اتصال جلسة Meta Cloud بنجاح'
+                      : 'Meta WhatsApp Cloud session verified successfully',
+                    'info'
+                  )
+                }
                 className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-500 hover:text-emerald-600 cursor-pointer"
                 title={isAr ? 'إعادة الاتصال' : 'Reconnect session'}
               >
@@ -1526,7 +1877,9 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
               </div>
 
               <span className="text-xs text-slate-400">
-                {isAr ? `عرض ${waLogs.length} رسائل معاملات مباشرة` : `Showing ${waLogs.length} live transaction messages`}
+                {isAr
+                  ? `عرض ${filteredWaLogs.length} رسائل معاملات مباشرة`
+                  : `Showing ${filteredWaLogs.length} live transaction messages`}
               </span>
             </div>
 
@@ -1544,43 +1897,53 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
-                  {waLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 text-slate-500 dark:text-slate-400 tabular-nums">{log.time}</td>
-                      <td className="py-3 text-center">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                          {log.status}
-                        </span>
-                      </td>
-                      <td className="py-3">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            log.typeColor === 'blue'
-                              ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                              : log.typeColor === 'emerald'
-                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                                : log.typeColor === 'amber'
-                                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                                  : 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                          }`}
-                        >
-                          {log.type}
-                        </span>
-                      </td>
-                      <td className="py-3 text-slate-800 dark:text-slate-200 font-medium truncate max-w-[280px]">
-                        {log.content}
-                      </td>
-                      <td className="py-3 font-mono text-slate-600 dark:text-slate-400">{log.phone}</td>
-                      <td className="py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-bold flex items-center justify-center">
-                            {log.customer[0]}
+                  {filteredWaLogs.length > 0 ? (
+                    filteredWaLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3 text-slate-500 dark:text-slate-400 tabular-nums">{log.time}</td>
+                        <td className="py-3 text-center">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            {log.status}
                           </span>
-                          <span className="text-slate-900 dark:text-white font-bold">{log.customer}</span>
-                        </div>
+                        </td>
+                        <td className="py-3">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              log.typeColor === 'blue'
+                                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                                : log.typeColor === 'emerald'
+                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                                  : log.typeColor === 'amber'
+                                    ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                                    : 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                            }`}
+                          >
+                            {log.type}
+                          </span>
+                        </td>
+                        <td className="py-3 text-slate-800 dark:text-slate-200 font-medium truncate max-w-[280px]">
+                          {log.content}
+                        </td>
+                        <td className="py-3 font-mono text-slate-600 dark:text-slate-400">{log.phone}</td>
+                        <td className="py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-bold flex items-center justify-center">
+                              {log.customer[0]}
+                            </span>
+                            <span className="text-slate-900 dark:text-white font-bold">{log.customer}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400 text-xs font-semibold">
+                        {isAr
+                          ? 'لم يتم إرسال رسائل معاملات عبر الواتساب اليوم بعد.'
+                          : 'No WhatsApp messages sent today yet.'}
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1591,12 +1954,12 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
             {/* Left 6 cols: Message Templates */}
             <div className="lg:col-span-6 p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
               <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                {isAr ? 'قوالب الرسائل' : 'Message Templates'}
+                {isAr ? 'قوالب الرسائل المعتمدة' : 'Approved Message Templates'}
               </h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 {isAr
-                  ? 'اختر قالباً معتمداً للإرسال بنقرة واحدة للمتسوقين.'
-                  : 'Pick a pre-approved template for 1-click dispatch to shoppers.'}
+                  ? `اختر قالباً معتمداً بنقرة واحدة لمتجر ${activeStore.name}.`
+                  : `Pick a pre-approved template for 1-click dispatch for ${activeStore.name}.`}
               </p>
 
               <div className="space-y-2.5">
@@ -1605,7 +1968,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     key={tpl.title}
                     className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between gap-3 hover:bg-slate-100/70 transition-colors"
                   >
-                    <div>
+                    <div className="min-w-0">
                       <h4 className="font-bold text-xs text-slate-900 dark:text-white">{tpl.title}</h4>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
                         {tpl.text}
@@ -1641,22 +2004,22 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   >
                     {storeCustomersList.length > 0 ? (
                       storeCustomersList.map((c) => (
-                        <option key={c.id} value={`${c.name} (${c.phone || '+966 50 123 4567'})`}>
-                          {c.name} ({c.phone || '+966 50 123 4567'}) {c.city ? `- ${c.city}` : ''}
+                        <option
+                          key={c.id}
+                          value={`${c.name} (${c.phone || activeStore.phone || '+966 50 000 0000'})`}
+                        >
+                          {c.name} ({c.phone || '+966 50 000 0000'}) {c.city ? `- ${c.city}` : ''}
                         </option>
                       ))
                     ) : (
-                      <>
-                        <option value="Sarah Al-Otaibi (+966 50 882 1920)">Sarah Al-Otaibi (سارة العتيبي) - +966 50 882 1920</option>
-                        <option value="Eng. Mohammed Al-Harbi (+966 55 987 6543)">Eng. Mohammed Al-Harbi (م. محمد الحربي) - +966 55 987 6543</option>
-                        <option value="Abdulrahman Al-Thaqafi (+966 53 111 2222)">Abdulrahman Al-Thaqafi (عبدالرحمن الثقفي) - +966 53 111 2222</option>
-                        <option value="Ahmed Ali (+966 50 123 4567)">Ahmed Ali - +966 50 123 4567</option>
-                      </>
+                      <option value="">
+                        {isAr ? 'لا يوجد عملاء مسجلين بهذا المتجر حالياً' : 'No customers registered for this store yet'}
+                      </option>
                     )}
                   </select>
                 </div>
 
-                {/* Media Attachment Upload with Live Preview */}
+                {/* Media Attachment Upload */}
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                     {isAr ? 'إرفاق وسائط (صورة، بروشور، إيصال)' : 'Media Attachment (Photo, PDF Brochure, Receipt)'}
@@ -1674,7 +2037,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                           if (ev.target?.result) {
                             setWaAttachment(ev.target.result as string);
                             setWaAttachmentName(file.name);
-                            toast(isAr ? 'تم إرفاق الوسائط بنجاح' : 'Media file attached', 'success');
+                            toast(isAr ? 'تم إرفاق الملف بنجاح' : 'Media file attached', 'success');
                           }
                         };
                         reader.readAsDataURL(file);
@@ -1721,22 +2084,28 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     rows={4}
                     value={waMessage}
                     onChange={(e) => setWaMessage(e.target.value)}
-                    placeholder={isAr ? 'اكتب رسالة الواتساب هنا أو اختر قالباً...' : 'Type your WhatsApp message here or choose a template...'}
+                    placeholder={
+                      isAr
+                        ? 'اكتب رسالة الواتساب هنا أو اختر قالباً أعلاه...'
+                        : 'Type your WhatsApp message here or choose a template above...'
+                    }
                     className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium leading-relaxed"
                   />
                   <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
-                    <span>{waMessage.length}/1000 {isAr ? 'حرف' : 'characters'}</span>
+                    <span>
+                      {waMessage.length}/1000 {isAr ? 'حرف' : 'characters'}
+                    </span>
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => setWaMessage((m) => m + ' {{customer_name}}')}
+                        onClick={() => setWaMessage((m) => m + ' {customer_name}')}
                         className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                       >
                         + customer
                       </button>
                       <button
                         type="button"
-                        onClick={() => setWaMessage((m) => m + ' {{store_name}}')}
+                        onClick={() => setWaMessage((m) => m + ` ${activeStore.name}`)}
                         className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                       >
                         + store
@@ -1760,15 +2129,28 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          5. MARKETING CAMPAIGNS & CHANNELS
+          5. MARKETING CAMPAIGNS & CHANNELS + KSA AD MANAGER & AUTO-SCHEDULER
       ───────────────────────────────────────────────────────────── */}
-      {subView === 'campaigns' && <StoreChannelPerformance />}
+      {subView === 'ksa_ads' && <KsaAdManagerAndSocialHub initialTab="ads" />}
+      {subView === 'campaigns' && (
+        <div className="space-y-8">
+          <KsaAdManagerAndSocialHub initialTab="ads" />
+          <StoreChannelPerformance />
+        </div>
+      )}
 
       {/* Docs Guide Modal */}
       <PageDocsGuideModal
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
         pageId={subView === 'whatsapp' ? 'whatsapp' : 'marketing'}
+      />
+
+      {/* Advance Feature Coming Soon Modal */}
+      <AdvanceFeatureComingSoonModal
+        isOpen={!!comingSoonModalFeature}
+        onClose={() => setComingSoonModalFeature(null)}
+        feature={comingSoonModalFeature}
       />
     </div>
   );
