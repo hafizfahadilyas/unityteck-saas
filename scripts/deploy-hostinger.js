@@ -146,7 +146,7 @@ async function deploy() {
   try {
     await connectClient(client);
 
-    const TARGET_DIRS = ['/', '/public_html'];
+    const TARGET_DIRS = ['/'];
 
     for (const targetDir of TARGET_DIRS) {
       console.log(`\n====================================================`);
