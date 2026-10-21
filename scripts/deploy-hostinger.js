@@ -133,8 +133,15 @@ async function deploy() {
     console.log('✅ Connected & Authenticated successfully!\n');
   }
 
-  let client = new ftp.Client(120000);
+  let client = new ftp.Client(300000);
   client.ftp.verbose = false;
+
+  client.trackProgress((info) => {
+    if (info.type === 'upload') {
+      const mb = (info.bytesOverall / (1024 * 1024)).toFixed(1);
+      process.stdout.write(`\r📤 Transferring: ${info.name.padEnd(35).slice(0, 35)} [${mb} MB total]`);
+    }
+  });
 
   try {
     await connectClient(client);
@@ -175,7 +182,13 @@ async function deploy() {
           if (attempts >= 3) throw uploadErr;
           console.log('🔄 Reconnecting FTP client and resuming upload...');
           client.close();
-          client = new ftp.Client(120000);
+          client = new ftp.Client(300000);
+          client.trackProgress((info) => {
+            if (info.type === 'upload') {
+              const mb = (info.bytesOverall / (1024 * 1024)).toFixed(1);
+              process.stdout.write(`\r📤 Transferring: ${info.name.padEnd(35).slice(0, 35)} [${mb} MB total]`);
+            }
+          });
           await connectClient(client);
           await client.cd(targetDir);
         }
