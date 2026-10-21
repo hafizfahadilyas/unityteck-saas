@@ -277,7 +277,7 @@ export const MasterTopBar: React.FC<MasterTopBarProps> = ({
             e.stopPropagation();
             onSignOut();
           }}
-          className="flex items-center gap-1.5 px-2 sm:px-2.5 md:px-3 py-1.5 rounded-xl text-xs font-black cursor-pointer transition-all hover:bg-rose-600 hover:text-white hover:border-rose-600 active:scale-95 border shrink-0 shadow-2xs"
+          className="flex items-center justify-center w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-xl text-xs font-black cursor-pointer transition-all hover:bg-rose-600 hover:text-white hover:border-rose-600 active:scale-95 border shrink-0 shadow-2xs"
           style={{
             background: 'color-mix(in srgb, var(--tone-danger, #ef4444) 14%, var(--surface))',
             borderColor: 'color-mix(in srgb, var(--tone-danger, #ef4444) 40%, var(--border))',
@@ -287,7 +287,6 @@ export const MasterTopBar: React.FC<MasterTopBarProps> = ({
           title={locale === 'ar' ? 'تسجيل الخروج' : t('signOut')}
         >
           <LogOut className="w-3.5 h-3.5 rtl:rotate-180 shrink-0 stroke-[2.5]" aria-hidden />
-          <span className="hidden sm:inline font-black">{locale === 'ar' ? 'خروج' : t('signOut')}</span>
         </button>
       </div>
     </header>

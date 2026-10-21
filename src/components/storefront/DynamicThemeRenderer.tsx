@@ -100,7 +100,7 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
   const matchedStore = urlStoreParam ? stores?.find((st: any) => st.id?.toLowerCase() === urlStoreParam || st.slug?.toLowerCase() === urlStoreParam) : null;
 
   const explicitUrlStoreId =
-    pathname.startsWith('/coffee') || urlStoreParam.includes('coffee') || urlStoreParam.includes('hibrew') || urlStoreParam.includes('roaster') ? 'store-coffee' :
+    pathname.startsWith('/coffee') || pathname.startsWith('/public_html') || urlStoreParam.includes('coffee') || urlStoreParam.includes('hibrew') || urlStoreParam.includes('roaster') ? 'store-coffee' :
     pathname.startsWith('/car') || pathname.startsWith('/cars') || pathname.startsWith('/bleco') || pathname.startsWith('/transport') || urlStoreParam.includes('car') || urlStoreParam.includes('bleco') || urlStoreParam.includes('saeedi') ? 'store-bleco' :
     pathname.startsWith('/flowers') || pathname.startsWith('/hadaya') || pathname.startsWith('/gifts') || urlStoreParam.includes('flower') || urlStoreParam.includes('gift') || urlStoreParam.includes('makkah') ? 'store-1' :
     (matchedStore ? matchedStore.id : '');

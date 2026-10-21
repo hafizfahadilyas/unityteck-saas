@@ -51,6 +51,9 @@ DirectoryIndex index.html
   RewriteCond %{HTTP:X-Forwarded-Proto} !https
   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L,QSA]
 
+  # Redirect any legacy /public_html path to root to prevent stale asset MIME errors
+  RewriteRule ^public_html(?:/(.*))?$ /$1 [R=301,L,NC]
+
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d

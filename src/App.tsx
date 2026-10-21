@@ -281,7 +281,8 @@ function TabFallback() {
       search.includes('store=coffee') ||
       search.includes('demo=coffee') ||
       search.includes('hibrew') ||
-      pathname.startsWith('/coffee')
+      pathname.startsWith('/coffee') ||
+      pathname.startsWith('/public_html')
     );
 
   const isMaster =
@@ -1035,6 +1036,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         const urlPath = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
         const hasPathStore =
           urlPath.startsWith('/coffee') ||
+          urlPath.startsWith('/public_html') ||
           urlPath.startsWith('/bleco') ||
           urlPath.startsWith('/car') ||
           urlPath.startsWith('/flowers') ||

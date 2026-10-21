@@ -146,7 +146,7 @@ async function deploy() {
   try {
     await connectClient(client);
 
-    const TARGET_DIRS = ['/'];
+    const TARGET_DIRS = ['/', '/public_html'];
 
     for (const targetDir of TARGET_DIRS) {
       console.log(`\n====================================================`);
@@ -155,6 +155,19 @@ async function deploy() {
       await client.cd(targetDir);
       const remoteList = await client.list();
       console.log(`📂 Found in ${targetDir}: ${remoteList.map((i) => i.name).join(', ') || '(empty)'}`);
+
+      // Purge empty coffee dir from root if present so SPA rewrite for /coffee is never blocked
+      if (targetDir === '/') {
+        const hasCoffeeDir = remoteList.some((item) => item.name === 'coffee' && item.isDirectory);
+        if (hasCoffeeDir) {
+          try {
+            await client.removeDir('coffee');
+            console.log('🧹 Purged phantom empty /coffee directory to enable clean SPA routing.');
+          } catch (cErr) {
+            console.warn('⚠️ Notice removing /coffee dir:', cErr.message);
+          }
+        }
+      }
 
       // Clean old assets folder if it exists to purge outdated js/css bundles
       const hasAssetsDir = remoteList.some((item) => item.name === 'assets' && item.isDirectory);
@@ -193,12 +206,40 @@ async function deploy() {
           await client.cd(targetDir);
         }
       }
+
+      // If deploying to /public_html, upload specialized .htaccess for /public_html/ routing
+      if (targetDir === '/public_html') {
+        const pubHtaccess = `DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /public_html/
+
+  RewriteRule ^index\\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /public_html/index.html [L,QSA]
+</IfModule>
+`;
+        const tempHtaccessPath = path.join(rootDir, 'scripts', '_temp_pub_htaccess');
+        fs.writeFileSync(tempHtaccessPath, pubHtaccess, 'utf8');
+        try {
+          await client.uploadFrom(tempHtaccessPath, '.htaccess');
+          console.log('📄 Configured custom .htaccess inside /public_html for subfolder SPA routing.');
+        } catch (htErr) {
+          console.warn('⚠️ Could not upload custom .htaccess to /public_html:', htErr.message);
+        } finally {
+          if (fs.existsSync(tempHtaccessPath)) fs.unlinkSync(tempHtaccessPath);
+        }
+      }
     }
 
     console.log('\n====================================================');
     console.log(`🎉 ALL FILES DEPLOYED TO HOSTINGER SUCCESSFULLY!`);
     console.log(`🌐 ROOT STORE (FLOWERS/HADAYA) : https://giftshop-sa.com/`);
-    console.log(`🌐 COFFEE STORE (PUBLIC_HTML)  : https://giftshop-sa.com/public_html/`);
+    console.log(`☕ COFFEE STORE (PUBLIC_HTML)  : https://giftshop-sa.com/public_html/`);
+    console.log(`☕ COFFEE STORE (ROUTED)       : https://giftshop-sa.com/coffee`);
+    console.log(`☕ COFFEE STORE (QUERY)        : https://giftshop-sa.com/?store=coffee`);
     console.log(`👑 ADMIN DASHBOARD             : https://giftshop-sa.com/admin`);
     console.log(`☕ COFFEE ADMIN                : https://giftshop-sa.com/admin?store=coffee`);
     console.log('====================================================');
@@ -206,6 +247,8 @@ async function deploy() {
     // Run live verification checks
     await verifyLiveSite('https://giftshop-sa.com/');
     await verifyLiveSite('https://giftshop-sa.com/public_html/');
+    await verifyLiveSite('https://giftshop-sa.com/coffee');
+    await verifyLiveSite('https://giftshop-sa.com/?store=coffee');
     await verifyLiveSite('https://giftshop-sa.com/admin');
 
   } catch (err) {

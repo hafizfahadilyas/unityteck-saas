@@ -165,7 +165,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
 
   return (
     <header
-      className="h-16 border-b px-2.5 sm:px-3.5 md:px-4 flex items-center justify-between gap-1.5 sm:gap-2 w-full bg-[var(--surface)] text-[var(--text)] border-[var(--border)] shrink-0 z-30 select-none"
+      className="h-16 border-b px-2.5 sm:px-3.5 md:px-4 flex items-center justify-between gap-1.5 sm:gap-2 w-full bg-[var(--surface)] text-[var(--text)] border-[var(--border)] shrink-0 z-30 select-none overflow-x-clip"
       style={{
         background: 'var(--surface)',
         borderColor: 'var(--border)',
@@ -191,7 +191,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
       {/* 1. SEARCH BAR (Responsive fluid sizing, Enter to search, clearable) */}
       <form
         onSubmit={handleSearchSubmit}
-        className="flex-1 min-w-[90px] sm:min-w-[130px] md:min-w-[150px] max-w-[200px] xl:max-w-xs relative shrink"
+        className="flex-1 min-w-[80px] sm:min-w-[110px] md:min-w-[130px] max-w-[160px] lg:max-w-[180px] xl:max-w-[210px] relative shrink"
       >
         <button
           type="submit"
@@ -672,14 +672,14 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
             </div>
 
             {/* Middle: Store Name & Email */}
-            <div className="text-start leading-tight min-w-0 max-w-[110px] xs:max-w-[135px] sm:max-w-[170px] xl:max-w-[210px]">
+            <div className="text-start leading-tight min-w-0 max-w-[85px] xs:max-w-[105px] sm:max-w-[125px] md:max-w-[145px] xl:max-w-[170px]">
               <span
                 className="text-xs sm:text-[13px] font-black block truncate"
                 style={{ color: 'var(--text)' }}
               >
                 {storeDisplayName}
               </span>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate font-mono">
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 hidden sm:block truncate font-mono">
                 {session?.user?.email || activeStore.ownerEmail || (activeStore.id === 'store-1' ? 'giftshop2030m@gmail.com' : 'contact@store.sa')}
               </span>
             </div>
@@ -801,7 +801,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
           )}
         </div>
 
-        {/* 4. DEDICATED HIGH-CONTRAST LOGOUT BUTTON (PERMANENTLY VISIBLE & UNCLIPPED ON ALL SCREENS) */}
+        {/* 4. COMPACT HIGH-CONTRAST LOGOUT BUTTON (SMALL, CLEAN, NEVER OVERFLOWS) */}
         <button
           type="button"
           onClick={(e) => {
@@ -809,7 +809,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
             e.stopPropagation();
             onSignOut();
           }}
-          className="flex items-center justify-center gap-1.5 px-2.5 sm:px-2.5 xl:px-3 py-1.5 rounded-xl text-xs font-black cursor-pointer transition-all hover:bg-rose-600 hover:text-white hover:border-rose-600 active:scale-95 border shrink-0 shadow-2xs"
+          className="flex items-center justify-center w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-xl text-xs font-black cursor-pointer transition-all hover:bg-rose-600 hover:text-white hover:border-rose-600 active:scale-95 border shrink-0 shadow-2xs"
           style={{
             background: 'color-mix(in srgb, var(--tone-danger, #ef4444) 14%, var(--surface))',
             borderColor: 'color-mix(in srgb, var(--tone-danger, #ef4444) 40%, var(--border))',
@@ -819,7 +819,6 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
           aria-label={t('signOut')}
         >
           <LogOut className="w-3.5 h-3.5 rtl:rotate-180 shrink-0 stroke-[2.5]" aria-hidden />
-          <span className="hidden xl:inline font-black">{isAr ? 'خروج' : t('signOut')}</span>
         </button>
 
       </div>
