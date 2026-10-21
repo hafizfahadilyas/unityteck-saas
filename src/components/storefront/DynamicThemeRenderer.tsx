@@ -152,7 +152,7 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
     };
   }, []);
 
-  const effectiveStoreId = explicitUrlStoreId || storeId || (activeStore?.id ? activeStore.id : '') || 'store-coffee';
+  const effectiveStoreId = explicitUrlStoreId || storeId || (activeStore?.id ? activeStore.id : '') || 'store-1';
   const effectiveThemeId =
     themeId || urlThemeParam || (storeActiveTheme && storeActiveTheme[effectiveStoreId]) || (activeStore as any)?.theme_id;
   const effectiveCategory = category || activeStore?.category || (effectiveStoreId === 'store-coffee' ? 'قهوة' : '');

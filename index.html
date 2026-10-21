@@ -6,6 +6,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
     <script>
+      // Auto-recover from stale chunks on new deployments
+      window.addEventListener('vite:preloadError', function (event) {
+        var key = 'vite_preload_retry';
+        var now = Date.now();
+        var last = Number(sessionStorage.getItem(key) || 0);
+        if (now - last > 8000) {
+          sessionStorage.setItem(key, String(now));
+          window.location.reload();
+        }
+      });
+      window.addEventListener('error', function (event) {
+        var msg = (event && event.message) ? String(event.message) : '';
+        if (
+          msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
+          msg.indexOf('error loading dynamically imported module') !== -1 ||
+          msg.indexOf('Importing a module script failed') !== -1
+        ) {
+          var key = 'chunk_fetch_retry';
+          var now = Date.now();
+          var last = Number(sessionStorage.getItem(key) || 0);
+          if (now - last > 8000) {
+            sessionStorage.setItem(key, String(now));
+            window.location.reload();
+          }
+        }
+      });
+    </script>
+
+    <script>
       (function() {
         try {
           var _origFetch = typeof window !== 'undefined' ? window.fetch : null;
@@ -45,8 +74,14 @@
     <script>
       /* Hard wipe stale CMS / Firebase caches BEFORE React or Firestore boot. */
       (function () {
-        var BUILD = '20261016a';
+        var BUILD = '20261022_fresh_hostinger_api_v1';
         var BUILD_KEY = 'bashayer-app-build';
+        try {
+          var pMapRaw = localStorage.getItem('unityteck_products_map');
+          if (pMapRaw && (pMapRaw.indexOf('1791219815272') !== -1 || pMapRaw.indexOf('/src/assets/images') !== -1)) {
+            localStorage.removeItem('unityteck_products_map');
+          }
+        } catch (e) {}
         try {
           if (localStorage.getItem(BUILD_KEY) === BUILD) return;
           var keep = {
@@ -277,13 +312,13 @@
           var title = isAr ? 'منصة يونيتي تك | المنصة المتكاملة للتجارة الإلكترونية بالسعودية' : 'UnityTeck SaaS | Multi-Store E-Commerce Platform';
           var desc = isAr ? 'منصة التجارة الإلكترونية متعددة المتاجر المتوافقة مع معايير التجارة السعودية والربط المحاسبي السحابي' : 'Unified multi-tenant e-commerce SaaS with real-time analytics, ERP synchronization and automated logistics';
 
-          if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html')) {
+          if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html') || h.includes('giftshop-sa.com')) {
             title = isAr ? 'هايبرو السعودية | المتجر الرسمي لمكائن ومستلزمات القهوة المختصة' : 'HiBrew KSA | Official Coffee Store - Espresso Machines & Specialty Coffee Gear';
             desc = isAr ? 'متخصصون في بيع مكائن القهوة ومستلزماتها ذات الجودة العالية ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية' : 'Official HiBrew Saudi Arabia distributor for commercial & home espresso machines, titanium conical grinders and luxury coffee bar setups.';
           } else if (s === 'bleco' || s === 'store-bleco' || s === 'cars' || s === 'alsaeedi' || p.startsWith('/car') || p.startsWith('/bleco')) {
             title = isAr ? 'متجر السعيدي لخدمات السيارات | تنجيد وتلبيس مقاعد السيارات بمكة المكرمة' : 'Al-Saeedi VIP Automotive Services | Luxury Car Seat Upholstery & Floor Protection Makkah';
             desc = isAr ? 'خدمات تنجيد وتلبيس مقاعد السيارات وتفصيل الدعاسات الفاخرة المقاومة للماء والأتربة بأعلى معايير الحرفية بمكة المكرمة' : 'High-precision laser cut automotive seat upholstery, luxury 5D diamond floor mats and interior restoration in Makkah, Saudi Arabia.';
-          } else if (s === 'store-1' || s === 'hadaya' || s === 'flowers' || p.startsWith('/flowers') || p.startsWith('/hadaya') || h.includes('giftshop-sa.com')) {
+          } else if (s === 'store-1' || s === 'hadaya' || s === 'flowers' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
             title = isAr ? 'هدايا مكة | متجر الزهور الطبيعية وباقات الورد وتوصيل فنادق الحرم المكي' : 'Hadaya Mecca | Luxury Fresh Flowers, Gifts & 24/7 Haram Hotel Delivery';
             desc = isAr ? 'متجر باقات الورد الطبيعي الفاخر، شوكولاتة باتشي وبستاني، وتنسيق هدايا مع خدمة التوصيل السريع إلى جميع فنادق وأبراج مكة المكرمة' : 'Same-day express delivery of premium Ecuadorian roses, Belgian chocolates and VIP pilgrim gift boxes to Makkah Haram clock tower hotels.';
           }

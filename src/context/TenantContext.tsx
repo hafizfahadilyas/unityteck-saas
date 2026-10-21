@@ -670,7 +670,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html')) {
           return 'store-coffee';
         }
-        if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || s === 'giftshop' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
+        if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
           return 'store-1';
         }
         if (s) {
@@ -692,11 +692,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // 4. Saved localStorage preference
         const saved = localStorage.getItem('unityteck_active_store_id');
         if (saved && (saved === 'store-bleco' || saved === 'store-coffee' || saved === 'store-1')) {
+          // If on giftshop-sa.com root or base host without explicit store query, ensure store-1 (Flowers) wins
+          if ((!p || p === '/') && !s && effectiveHostname.includes('giftshop-sa.com')) {
+            return 'store-1';
+          }
           return saved;
         }
       }
     } catch {}
-    return INITIAL_STORES[0].id;
+    return 'store-1';
   });
 
   // Always keep unityteck_active_store_id synced in localStorage
@@ -747,7 +751,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           targetId = 'store-bleco';
         } else if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html')) {
           targetId = 'store-coffee';
-        } else if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || s === 'giftshop' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
+        } else if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
+          targetId = 'store-1';
+        } else if (!s && (p === '/' || p === '')) {
+          // Default storefront on root for giftshop-sa.com or base host is Hadaya Flowers & Gifts
           targetId = 'store-1';
         } else if (s) {
           const matched = storesRef.current.find(st => st.id.toLowerCase() === s || st.slug?.toLowerCase() === s);
@@ -865,6 +872,23 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               parsed['store-coffee'] = INITIAL_PRODUCTS['store-coffee'];
               updated = true;
             }
+            // Lifetime fix: purge any stale image for women-gift-1 / HM-WOMEN-01 across all stores in localStorage
+            Object.keys(parsed).forEach((sKey) => {
+              if (Array.isArray(parsed[sKey])) {
+                parsed[sKey].forEach((p: Product) => {
+                  if (
+                    (p.id === 'women-gift-1' || p.sku === 'HM-WOMEN-01') &&
+                    (!p.image || p.image.includes('1791219815272') || p.image.startsWith('/src/assets/images'))
+                  ) {
+                    p.image = '/images/hadaya_women_luxury_gift_zedaan.webp';
+                    p.galleryUrls = ['/images/hadaya_women_luxury_gift_zedaan.webp'];
+                    p.imageVersion = String(Date.now());
+                    p.isStale = false;
+                    updated = true;
+                  }
+                });
+              }
+            });
             if (updated) {
               try { localStorage.setItem('unityteck_products_map', JSON.stringify(parsed)); } catch {}
             }
@@ -1201,7 +1225,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [cacheEpoch, setCacheEpoch] = useState(0);
 
   const loadStoreScopedData = useCallback(async (storeId: string) => {
-    if (!storeId || !hasLiveApiAuth()) return;
+    if (!storeId || (!hasLiveApiAuth() && !isApiEnabled())) return;
 
     // Strict Multi-tenant Isolation: Never request store-scoped private data for a foreign store
     const session = readAuthSession();
@@ -1399,7 +1423,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCacheEpoch((n) => n + 1);
         return;
       }
-      if (!hasLiveApiAuth()) return;
+      if (!hasLiveApiAuth() && resource !== 'products') return;
       const session = readAuthSession();
       if (session?.portal === 'store' && session.storeId && storeId !== session.storeId) {
         return;
@@ -1599,13 +1623,24 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let cancelled = false;
 
     (async () => {
-      // If user does not have live auth, operate safely in resilient mock mode with preview data
+      // If user does not have live auth, fetch live store catalog from API and operate safely
       if (!hasLiveApiAuth()) {
         if (cancelled) return;
-        dataSourceRef.current = 'mock';
-        setDataSource('mock');
-        setStores((prev) => (prev.length > 0 ? prev : INITIAL_STORES));
-        setProductsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_PRODUCTS));
+        try {
+          const apiStores = await tenantApi.fetchStores();
+          if (!cancelled && Array.isArray(apiStores) && apiStores.length > 0) {
+            setStores(apiStores);
+            const targetId = activeStoreId || apiStores[0].id;
+            const prods = await tenantApi.fetchProducts(targetId);
+            if (!cancelled && Array.isArray(prods) && prods.length > 0) {
+              setProductsMap((prev) => ({ ...prev, [targetId]: prods }));
+            }
+          }
+        } catch {
+          // Graceful fallback to initial catalog
+          setStores((prev) => (prev.length > 0 ? prev : INITIAL_STORES));
+          setProductsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_PRODUCTS));
+        }
         setOrdersMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_ORDERS));
         setCustomersMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_CUSTOMERS));
         setCouponsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_COUPONS));
@@ -2243,7 +2278,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     };
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .createStore({
           name: storeData.name,
@@ -2309,7 +2344,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     };
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .deleteStoreApi(storeId)
         .then(runLocal)
@@ -2337,7 +2372,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return s;
     }));
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .updateStore(storeId, {
           master_granted_pro: nextGrant,
@@ -2364,7 +2399,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return s;
     }));
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .updateStore(storeId, { status: nextStatus })
         .then((updated) => {
@@ -2384,7 +2419,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return s;
     }));
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .updateStore(storeId, { plan })
         .then((updated) => {
@@ -2415,7 +2450,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return s;
     }));
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       try {
         const payload: Record<string, unknown> = {};
         if (updates.name) payload.name = updates.name;
@@ -2870,6 +2905,20 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const q = new URLSearchParams(window.location.search);
+    const explicitStore = (q.get('store') || q.get('demo') || q.get('storeId') || q.get('tenant') || '').toLowerCase();
+    const pathnameLower = window.location.pathname.toLowerCase();
+    const hasExplicitPath =
+      pathnameLower.startsWith('/coffee') ||
+      pathnameLower.startsWith('/car') ||
+      pathnameLower.startsWith('/bleco') ||
+      pathnameLower.startsWith('/flowers') ||
+      pathnameLower.startsWith('/hadaya');
+
+    // Never allow background domain resolution to override explicit route parameters (?store=, /coffee, etc.)
+    if (explicitStore || hasExplicitPath) {
+      return;
+    }
+
     const hostParam = q.get('test_domain') || q.get('host');
     const effectiveHostname = hostParam || window.location.hostname;
     if (!effectiveHostname || effectiveHostname === 'localhost' || effectiveHostname === '127.0.0.1') {
@@ -2987,7 +3036,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const addCustomer = (customerData: Omit<Customer, 'id' | 'storeId' | 'registeredDate'>) => {
     const storeId = activeStoreId;
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .createCustomer(storeId, {
           name: customerData.name,
@@ -3046,7 +3095,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       [storeId]: (prev[storeId] || []).map(c => c.id === id ? { ...c, ...updates } : c)
     }));
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       const body: Record<string, unknown> = {};
       if (updates.name !== undefined) body.name = updates.name;
       if (updates.email !== undefined) body.email = updates.email;
@@ -3084,7 +3133,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       [storeId]: (prev[storeId] || []).filter(c => c.id !== id)
     }));
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .deleteCustomer(storeId, id)
         .then(() => {
@@ -3118,7 +3167,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   ) => {
     const storeId = targetStoreId || activeStoreId;
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .createProduct(storeId, {
           name: prodData.name,
@@ -3256,7 +3305,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       );
     }
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       const body: import('../api/tenantApi').UpdateProductPayload = {};
       if (patch.name !== undefined) body.name = patch.name;
       if (patch.price !== undefined) body.price = patch.price;
@@ -3361,7 +3410,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       );
     }
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .deleteProduct(storeId!, productId)
         .then(() => {
@@ -3417,7 +3466,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       })
     }));
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .togglePublishProduct(storeId, productId)
         .then((updated) => {
@@ -3571,7 +3620,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // API Mode Sync (Hostinger DB / Laravel Backend)
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .createOrder(sId, {
           customer_name: orderData.customerName,
@@ -3675,7 +3724,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     }
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .updateOrderStatus(resolvedStoreId, orderId, status)
         .then((updated) => {
@@ -3713,7 +3762,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return next;
     });
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .updateOrder(resolvedStoreId, orderId, patch as Record<string, unknown>)
         .then((updated) => {
@@ -3828,7 +3877,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     }
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       try {
         const res = await tenantApi.processOrderReturn(resolvedStoreId, orderId, {
           reason: returnData.reason,
@@ -3890,7 +3939,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return next;
     });
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       try {
         const updated = await tenantApi.updateOrderCodStatus(resolvedStoreId, orderId, codStatus, notes);
         setOrdersMap((prev) => {
@@ -3960,7 +4009,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return next;
     });
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .deleteOrder(resolvedStoreId, orderId)
         .then(() => {
@@ -4775,7 +4824,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       };
     });
 
-    if (dataSourceRef.current === 'api') {
+    if (dataSourceRef.current === 'api' || isApiEnabled()) {
       void tenantApi
         .updateSeo(storeId, updates)
         .then((seo) => {

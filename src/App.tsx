@@ -407,8 +407,9 @@ function AdminContent() {
   });
 
 const getDefaultStoreTheme = (storeId?: string): string => {
-  if (storeId === 'store-coffee' || storeId?.includes('coffee')) return 'theme-coffee';
   if (storeId === 'store-bleco' || storeId?.includes('bleco') || storeId?.includes('car')) return 'theme-saudia-transport';
+  if (storeId === 'store-coffee' || storeId?.includes('coffee') || storeId?.includes('roaster')) return 'coffee-roasters';
+  if (storeId === 'store-1' || storeId?.includes('flower') || storeId?.includes('hadaya') || storeId?.includes('gift')) return 'theme-flora-luxe';
   return 'theme-flora-luxe';
 };
 
@@ -1374,7 +1375,9 @@ const getDefaultStoreTheme = (storeId?: string): string => {
           path.startsWith('/flowers') ||
           path.startsWith('/hadaya')
         ? 'store-1'
-        : activeStore?.id || (urlStoreSlug ? urlStoreSlug : 'store-coffee');
+        : (resolvedDomain?.resolved && resolvedDomain.storeId)
+        ? resolvedDomain.storeId
+        : activeStore?.id || 'store-1';
 
     return (
       <StatusErrorBoundary onHome={() => navigate('/')} onNavigate={navigate}>

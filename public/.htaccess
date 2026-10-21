@@ -54,6 +54,15 @@ DirectoryIndex index.html
   # Redirect any legacy /public_html path to root to prevent stale asset MIME errors
   RewriteRule ^public_html(?:/(.*))?$ /$1 [R=301,L,NC]
 
+  # Live Hostinger Multi-Tenant REST API Gateway
+  RewriteRule ^api/(.*)$ /api/index.php [QSA,L]
+  RewriteRule ^api$ /api/index.php [QSA,L]
+
+  # Prevent serving HTML for missing static assets (return 404 instead of index.html fallback)
+  RewriteCond %{REQUEST_URI} \.(?:js|mjs|css|png|jpe?g|gif|webp|svg|woff2?|ttf|eot|ico|json|map)$ [NC]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^ - [R=404,L]
+
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d

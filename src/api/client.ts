@@ -71,9 +71,13 @@ export async function apiFetch<T>(
 
   const isPublicEndpoint =
     Boolean(skipAuth) ||
+    path.startsWith('/products') ||
+    path.startsWith('/stores') ||
+    path.startsWith('/upload') ||
     path.startsWith('/storefront') ||
     path.startsWith('/health') ||
     path.startsWith('/auth/otp') ||
+    path.startsWith('/auth/me') ||
     path.startsWith('/auth/forgot') ||
     path.startsWith('/auth/reset') ||
     path.startsWith('/auth/master/login') ||

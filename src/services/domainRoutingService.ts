@@ -54,8 +54,8 @@ export const PRESET_SIMULATED_DOMAINS: SimulatedDomain[] = [
     domain: 'giftshop-sa.com',
     expectedStoreId: 'store-1',
     expectedThemeId: 'theme-flora-luxe',
-    labelAr: 'متجر هدايا مكة وزهور المناسبات الفاخرة',
-    labelEn: 'Makkah Fresh Flowers & Gifts Store',
+    labelAr: 'متجر هدايا (الزهور الطبيعية والهدايا الفاخرة)',
+    labelEn: 'Hadaya Gifts & Flowers Official Store (giftshop-sa.com)',
     type: 'custom',
   },
   {

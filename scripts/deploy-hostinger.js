@@ -207,46 +207,28 @@ async function deploy() {
         }
       }
 
-      // If deploying to /public_html, upload specialized .htaccess for /public_html/ routing
-      if (targetDir === '/public_html') {
-        const pubHtaccess = `DirectoryIndex index.html
-
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /public_html/
-
-  RewriteRule ^index\\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . /public_html/index.html [L,QSA]
-</IfModule>
-`;
-        const tempHtaccessPath = path.join(rootDir, 'scripts', '_temp_pub_htaccess');
-        fs.writeFileSync(tempHtaccessPath, pubHtaccess, 'utf8');
+      // Ensure canonical .htaccess with RewriteBase / is always uploaded
+      if (fs.existsSync(htaccessDist)) {
         try {
-          await client.uploadFrom(tempHtaccessPath, '.htaccess');
-          console.log('📄 Configured custom .htaccess inside /public_html for subfolder SPA routing.');
+          await client.uploadFrom(htaccessDist, '.htaccess');
+          console.log(`📄 Uploaded canonical SPA .htaccess (RewriteBase /) to ${targetDir}`);
         } catch (htErr) {
-          console.warn('⚠️ Could not upload custom .htaccess to /public_html:', htErr.message);
-        } finally {
-          if (fs.existsSync(tempHtaccessPath)) fs.unlinkSync(tempHtaccessPath);
+          console.warn(`⚠️ Notice uploading .htaccess to ${targetDir}:`, htErr.message);
         }
       }
     }
 
     console.log('\n====================================================');
     console.log(`🎉 ALL FILES DEPLOYED TO HOSTINGER SUCCESSFULLY!`);
-    console.log(`🌐 ROOT STORE (FLOWERS/HADAYA) : https://giftshop-sa.com/`);
-    console.log(`☕ COFFEE STORE (PUBLIC_HTML)  : https://giftshop-sa.com/public_html/`);
+    console.log(`🌸 ROOT STORE (FLOWERS/HADAYA) : https://giftshop-sa.com/`);
     console.log(`☕ COFFEE STORE (ROUTED)       : https://giftshop-sa.com/coffee`);
-    console.log(`☕ COFFEE STORE (QUERY)        : https://giftshop-sa.com/?store=coffee`);
-    console.log(`👑 ADMIN DASHBOARD             : https://giftshop-sa.com/admin`);
-    console.log(`☕ COFFEE ADMIN                : https://giftshop-sa.com/admin?store=coffee`);
+    console.log(`🚗 CAR SERVICES STORE (ROUTED) : https://giftshop-sa.com/car`);
+    console.log(`👑 MASTER ADMIN DASHBOARD      : https://giftshop-sa.com/master`);
+    console.log(`🏪 STORE ADMIN DASHBOARD       : https://giftshop-sa.com/admin`);
     console.log('====================================================');
 
     // Run live verification checks
     await verifyLiveSite('https://giftshop-sa.com/');
-    await verifyLiveSite('https://giftshop-sa.com/public_html/');
     await verifyLiveSite('https://giftshop-sa.com/coffee');
     await verifyLiveSite('https://giftshop-sa.com/?store=coffee');
     await verifyLiveSite('https://giftshop-sa.com/admin');

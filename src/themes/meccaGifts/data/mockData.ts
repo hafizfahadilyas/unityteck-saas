@@ -989,7 +989,7 @@ export const LUXURY_SETS: Product[] = [
     originalPrice: 690,
     rating: 5.0,
     reviewsCount: 215,
-    image: '/src/assets/images/hadaya_women_luxury_gift_1791219815272.jpg',
+    image: '/images/hadaya_women_luxury_gift_zedaan.webp',
     category: 'هدايا نسائية',
     categoryEn: 'Women Gifts',
     categorySlug: 'women-gifts',
