@@ -218,6 +218,7 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
         'success'
       );
       setSelectedIds([]);
+      window.dispatchEvent(new CustomEvent('unityteck-blog-updated', { detail: { storeId } }));
       await loadBlogData();
     } catch (err: any) {
       toast(err.message || (isAr ? 'فشل تطبيق الإجراء' : 'Failed to apply bulk action.'), 'error');
@@ -259,6 +260,7 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
 
     try {
       await deleteBlogArticleApi(storeId, art.id);
+      window.dispatchEvent(new CustomEvent('unityteck-blog-updated', { detail: { storeId } }));
       toast(isAr ? 'تم حذف المقال بنجاح.' : 'Article deleted successfully.', 'success');
       await loadBlogData();
     } catch (err: any) {
@@ -285,6 +287,7 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
       await createBlogArticleApi(storeId, data);
       toast(isAr ? 'تم نشر المقال بنجاح!' : 'Article created successfully!', 'success');
     }
+    window.dispatchEvent(new CustomEvent('unityteck-blog-updated', { detail: { storeId } }));
     await loadBlogData();
   };
 

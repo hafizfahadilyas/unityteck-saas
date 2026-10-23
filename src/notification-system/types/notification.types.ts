@@ -36,6 +36,7 @@ export type NotificationCategory =
   | 'Payment'
   | 'Inventory'
   | 'Shipping'
+  | 'SEO & Performance'
   | 'Critical';
 
 export interface CustomerVerificationData {
@@ -65,7 +66,7 @@ export interface NotificationRegistryEntry {
   defaultTextAr: string;
   actionLabel: string;
   actionLabelAr: string;
-  actionType: 'navigate' | 'whatsapp' | 'modal' | 'external' | 'quick_action';
+  actionType: 'navigate' | 'whatsapp' | 'modal' | 'external' | 'quick_action' | 'product';
   destination: string;
   filterParam?: string;
   resolution: string;
@@ -99,7 +100,7 @@ export interface NotificationItem {
   isAutoResolved?: boolean;
   actionLabel: string;
   actionLabelAr?: string;
-  actionType: 'navigate' | 'whatsapp' | 'modal' | 'external' | 'quick_action';
+  actionType: 'navigate' | 'whatsapp' | 'modal' | 'external' | 'quick_action' | 'product';
   destination: string;
   filterParam?: string;
   resolution?: string;

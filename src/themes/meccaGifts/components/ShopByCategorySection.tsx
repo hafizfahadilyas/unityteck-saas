@@ -10,7 +10,7 @@ const FLOWER_SHOP_CATEGORIES = [
     titleAr: 'باقات رومانسية',
     sub: 'Fresh natural blooms',
     subAr: 'زهور طبيعية فريش',
-    image: '/src/assets/images/hadaya_pink_peonies_1791216156090.jpg',
+    image: '/images/hadaya_pink_peonies_1791216156090.jpg',
     categoryKey: 'هدايا رومانسية',
   },
   {
@@ -19,7 +19,7 @@ const FLOWER_SHOP_CATEGORIES = [
     titleAr: 'هدايا فاخرة',
     sub: 'Curated royal sets',
     subAr: 'أطقم إهداء ملكية',
-    image: '/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg',
+    image: '/images/hadaya_luxury_gift_set_1791216170853.jpg',
     categoryKey: 'هدايا ملكية فاخرة',
   },
   {
@@ -28,7 +28,7 @@ const FLOWER_SHOP_CATEGORIES = [
     titleAr: 'تشكيلات مميزة',
     sub: 'Exquisite arrangements',
     subAr: 'تنسيقات حصرية راقية',
-    image: '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+    image: '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
     categoryKey: 'باقات فاخرة',
   },
   {
@@ -37,7 +37,7 @@ const FLOWER_SHOP_CATEGORIES = [
     titleAr: 'هدايا بريميوم',
     sub: 'Executive VIP hampers',
     subAr: 'هدايا كبار الشخصيات',
-    image: '/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg',
+    image: '/images/hadaya_men_luxury_gift_1791219799100.jpg',
     categoryKey: 'هدايا رجالية',
   },
 ];

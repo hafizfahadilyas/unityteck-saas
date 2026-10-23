@@ -1,22 +1,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
+import { useTenant } from '../../../context/TenantContext';
+import { apiFetch } from '../../../api/client';
 import { ChevronLeft, ChevronRight, Star, Sparkles, CheckCircle2 } from 'lucide-react';
 
 export const TestimonialsSection: React.FC = () => {
   const { language } = useApp();
   const isAr = language === 'ar';
+  const { activeStore } = useTenant();
+  const storeId = activeStore?.id || 'store-1';
 
   const [activeCard, setActiveCard] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  const testimonials = [
+  const fallbackTestimonials = [
     {
       id: 'test-1',
       name: 'د. سارة الغامدي',
       nameEn: 'Dr. Sarah Al-Ghamdi',
       role: 'مكة المكرمة · حي الشوقية',
       roleEn: 'Mecca • Al-Shawqiyyah',
-      avatar: '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+      avatar: '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
       rating: 5,
       comment: 'ما شاء الله تبارك الرحمن، تنسيق باقة الورد فاق التوقعات بكثير! الورد طبيعي جداً وفريش والتغليف فاخر يليق بأرقى المناسبات، والتوصيل خلال 45 دقيقة فقط.',
       commentEn: 'Exceeded all expectations! The roses were remarkably fresh and the packaging is worthy of the finest VIP celebrations, delivered in under 45 minutes.',
@@ -27,7 +31,7 @@ export const TestimonialsSection: React.FC = () => {
       nameEn: 'Eng. Abdulrahman Al-Harbi',
       role: 'مكة المكرمة · حي العوالي',
       roleEn: 'Mecca • Al-Awali VIP',
-      avatar: '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+      avatar: '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
       rating: 5,
       comment: 'طلبت بوكس الجوري وشوكولاتة باتشي، الصراحة فخامة لا توصف والاهتمام بأدق التفاصيل والكرت المكتوب بخط اليد مع ختم الشمع الملكي كان لمسة إبداعية.',
       commentEn: 'Ordered the roses & Patchi chocolate chest. Unmatched elegance, bespoke attention to detail, and the wax-sealed calligraphy card was breathtaking.',
@@ -38,7 +42,7 @@ export const TestimonialsSection: React.FC = () => {
       nameEn: 'Faisal Al-Sulami',
       role: 'مكة المكرمة · العزيزية',
       roleEn: 'Mecca • Al-Aziziyah',
-      avatar: '/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg',
+      avatar: '/images/hadaya_luxury_gift_set_1791216170853.jpg',
       rating: 5,
       comment: 'خدمة أكثر من رائعة وتجاوب فوري عبر الواتساب. الأفضل في مكة بلا منازع، الفازة الكريستالية كانت تحفة فنية أبهرت كل الضيوف في المجلس.',
       commentEn: 'Prompt WhatsApp concierge assistance and unmatched floristry quality. The crystal vase became the highlight of our reception salon.',
@@ -49,7 +53,7 @@ export const TestimonialsSection: React.FC = () => {
       nameEn: 'Noura Al-Hothali',
       role: 'مكة المكرمة · بطحاء قريش',
       roleEn: 'Mecca • Batha Quraish',
-      avatar: '/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg',
+      avatar: '/images/hadaya_white_orchid_penthouse_1791218732789.jpg',
       rating: 5,
       comment: 'تنسيق باقة العروس مع اللؤلؤ كان حلم وتحقق، الله يعطيكم العافية على الدقة والاحترافية وسرعة التوصيل المبرد اللي حافظت على نضارة كل وردة.',
       commentEn: 'The bridal bouquet with pearls was a dream come true. Immense gratitude for the chilled express delivery that kept every single petal fresh.',
@@ -60,12 +64,28 @@ export const TestimonialsSection: React.FC = () => {
       nameEn: 'Saeed Al-Zahrani',
       role: 'مكة المكرمة · حي النزهة',
       roleEn: 'Mecca • Al-Nuzha',
-      avatar: '/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg',
+      avatar: '/images/hadaya_men_luxury_gift_1791219799100.jpg',
       rating: 5,
       comment: 'سرعة الإنجاز والتعامل الراقي وباقة الورد ملأت المكان بعطرها الفواح. معتمدكم في كل مناسباتي القادمة بإذن الله.',
       commentEn: 'Swift execution, courteous service, and the flowers filled the entire room with alluring fragrance. My go-to store for all Mecca occasions.',
     },
   ];
+
+  const [testimonials, setTestimonials] = useState(fallbackTestimonials);
+
+  useEffect(() => {
+    let mounted = true;
+    apiFetch<{ success: boolean; data: any[] }>(`/stores/${storeId}/reviews`, { storeId })
+      .then((res) => {
+        if (mounted && res && res.data && res.data.length > 0) {
+          setTestimonials(res.data);
+        }
+      })
+      .catch(() => {
+        // Fallback gracefully to default
+      });
+    return () => { mounted = false; };
+  }, [storeId]);
 
   const total = testimonials.length;
 

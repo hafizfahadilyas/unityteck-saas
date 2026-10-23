@@ -25,7 +25,7 @@ export const NewsletterSection: React.FC = () => {
       {/* Background with floral blur */}
       <div className="absolute inset-0 opacity-20">
         <img
-          src="/src/assets/images/hadaya_luxury_master_hero_1791217937117.jpg"
+          src="/images/hadaya_luxury_master_hero_1791217937117.jpg"
           alt="Roses backdrop"
           className="w-full h-full object-cover"
           referrerPolicy="no-referrer"

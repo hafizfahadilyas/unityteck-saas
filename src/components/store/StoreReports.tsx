@@ -2413,7 +2413,7 @@ export const StoreReports: React.FC = () => {
               onClick={handleDownload}
               className="text-xs font-bold text-teal-700 dark:text-teal-400 hover:underline cursor-pointer"
             >
-              View All
+              {isAr ? 'عرض الكل' : 'View All'}
             </button>
           </div>
 
@@ -2421,10 +2421,10 @@ export const StoreReports: React.FC = () => {
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 text-start">
-                  <th className="py-2 font-medium text-start">Report Name</th>
-                  <th className="py-2 font-medium text-start">Date Range</th>
-                  <th className="py-2 font-medium text-start">Generated At</th>
-                  <th className="py-2 font-medium text-end">Action</th>
+                  <th className="py-2 font-medium text-start">{isAr ? 'اسم التقرير' : 'Report Name'}</th>
+                  <th className="py-2 font-medium text-start">{isAr ? 'النطاق الزمني' : 'Date Range'}</th>
+                  <th className="py-2 font-medium text-start">{isAr ? 'تاريخ الإنشاء' : 'Generated At'}</th>
+                  <th className="py-2 font-medium text-end">{isAr ? 'إجراء' : 'Action'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
@@ -2472,7 +2472,7 @@ export const StoreReports: React.FC = () => {
               onClick={() => toast(isAr ? 'تم حفظ جدولة التقارير التلقائية!' : 'Automated report dispatcher scheduled!', 'info')}
               className="text-xs font-bold text-teal-700 dark:text-teal-400 hover:underline cursor-pointer"
             >
-              Manage
+              {isAr ? 'إدارة' : 'Manage'}
             </button>
           </div>
 
@@ -2480,10 +2480,10 @@ export const StoreReports: React.FC = () => {
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 text-start">
-                  <th className="py-2 font-medium text-start">Report Name</th>
-                  <th className="py-2 font-medium text-center">Frequency</th>
-                  <th className="py-2 font-medium text-center">Next Run</th>
-                  <th className="py-2 font-medium text-end">Status</th>
+                  <th className="py-2 font-medium text-start">{isAr ? 'اسم التقرير' : 'Report Name'}</th>
+                  <th className="py-2 font-medium text-center">{isAr ? 'التكرار' : 'Frequency'}</th>
+                  <th className="py-2 font-medium text-center">{isAr ? 'التشغيل القادم' : 'Next Run'}</th>
+                  <th className="py-2 font-medium text-end">{isAr ? 'الحالة' : 'Status'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
@@ -2507,7 +2507,7 @@ export const StoreReports: React.FC = () => {
                               : 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
                           }`}
                         >
-                          {s.status}
+                          {s.status === 'Active' ? (isAr ? 'نشط' : 'Active') : (isAr ? 'غير نشط' : 'Inactive')}
                         </span>
                       </td>
                     </tr>

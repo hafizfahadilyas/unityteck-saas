@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="theme-color" content="#3e0f77" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" type="image/x-icon" href="/favicon.ico" />
 
     <script>
       // Auto-recover from stale chunks on new deployments
@@ -74,11 +76,21 @@
     <script>
       /* Hard wipe stale CMS / Firebase caches BEFORE React or Firestore boot. */
       (function () {
-        var BUILD = '20261022_fresh_hostinger_api_v1';
+        var BUILD = '20261022_fresh_hostinger_flowers_v5';
         var BUILD_KEY = 'bashayer-app-build';
+        var PRODUCTS_VER_KEY = 'unityteck_products_cache_ver';
+        var CURRENT_VER = 'v5_flowers_2026_canonical';
         try {
+          if (localStorage.getItem(PRODUCTS_VER_KEY) !== CURRENT_VER) {
+            localStorage.removeItem('unityteck_products_map');
+            localStorage.removeItem('unityteck_theme_settings_store-1');
+            localStorage.removeItem('unityteck_theme_settings_store-1_theme-flora-luxe');
+            localStorage.removeItem('selia_builder_published_store-1_theme-flora-luxe');
+            localStorage.removeItem('selia_builder_draft_store-1_theme-flora-luxe');
+            localStorage.setItem(PRODUCTS_VER_KEY, CURRENT_VER);
+          }
           var pMapRaw = localStorage.getItem('unityteck_products_map');
-          if (pMapRaw && (pMapRaw.indexOf('1791219815272') !== -1 || pMapRaw.indexOf('/src/assets/images') !== -1)) {
+          if (pMapRaw && (pMapRaw.indexOf('/src/assets/images') !== -1 || pMapRaw.indexOf('photo-1518709268805') !== -1)) {
             localStorage.removeItem('unityteck_products_map');
           }
         } catch (e) {}
@@ -224,11 +236,11 @@
           if (isLocalHost) {
             try {
               if (localStorage.getItem('unityteck_data_source') === 'api' || localStorage.getItem('unityteck_use_api') === 'true') {
-                urls.push('/api/index.php?action=settings&id=branding');
+                urls.push('/api/settings?id=branding');
               }
             } catch (e) {}
           } else {
-            urls.push('/api/index.php?action=settings&id=branding');
+            urls.push('/api/settings?id=branding');
           }
           var done = false;
           function applyLive(data) {
@@ -303,24 +315,35 @@
       (function() {
         try {
           var params = new URLSearchParams(window.location.search);
-          var s = (params.get('store') || params.get('storeId') || localStorage.getItem('unityteck_active_store_id') || '').toLowerCase();
+          var s = (params.get('store') || params.get('storeId') || '').toLowerCase();
           var p = (window.location.pathname || '').toLowerCase();
           var h = (window.location.hostname || '').toLowerCase();
           var lang = document.documentElement.lang || 'ar';
           var isAr = lang === 'ar' || lang === 'ur';
 
-          var title = isAr ? 'منصة يونيتي تك | المنصة المتكاملة للتجارة الإلكترونية بالسعودية' : 'UnityTeck SaaS | Multi-Store E-Commerce Platform';
-          var desc = isAr ? 'منصة التجارة الإلكترونية متعددة المتاجر المتوافقة مع معايير التجارة السعودية والربط المحاسبي السحابي' : 'Unified multi-tenant e-commerce SaaS with real-time analytics, ERP synchronization and automated logistics';
+          // On giftshop-sa.com, self-heal any stale coffee preference unless explicitly requested
+          var isGiftshopDomain = h.indexOf('giftshop-sa.com') !== -1 || h.indexOf('hadaya') !== -1;
+          var isExplicitCoffee = s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee');
+          var isExplicitCar = s === 'bleco' || s === 'store-bleco' || s === 'cars' || s === 'car' || s === 'alsaeedi' || p.startsWith('/car') || p.startsWith('/bleco');
 
-          if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html') || h.includes('giftshop-sa.com')) {
+          if (isGiftshopDomain && !isExplicitCoffee && !isExplicitCar) {
+            try {
+              var cached = localStorage.getItem('unityteck_active_store_id');
+              if (cached === 'store-coffee' || cached === 'store-bleco') {
+                localStorage.setItem('unityteck_active_store_id', 'store-1');
+              }
+            } catch (e) {}
+          }
+
+          var title = isAr ? 'هدايا مكة | متجر الزهور الطبيعية وباقات الورد وتوصيل فنادق الحرم المكي' : 'Hadaya Mecca | Luxury Fresh Flowers, Gifts & 24/7 Haram Hotel Delivery';
+          var desc = isAr ? 'متجر باقات الورد الطبيعي الفاخر، شوكولاتة باتشي وبستاني، وتنسيق هدايا مع خدمة التوصيل السريع إلى جميع فنادق وأبراج مكة المكرمة' : 'Same-day express delivery of premium Ecuadorian roses, Belgian chocolates and VIP pilgrim gift boxes to Makkah Haram clock tower hotels.';
+
+          if (isExplicitCoffee) {
             title = isAr ? 'هايبرو السعودية | المتجر الرسمي لمكائن ومستلزمات القهوة المختصة' : 'HiBrew KSA | Official Coffee Store - Espresso Machines & Specialty Coffee Gear';
             desc = isAr ? 'متخصصون في بيع مكائن القهوة ومستلزماتها ذات الجودة العالية ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية' : 'Official HiBrew Saudi Arabia distributor for commercial & home espresso machines, titanium conical grinders and luxury coffee bar setups.';
-          } else if (s === 'bleco' || s === 'store-bleco' || s === 'cars' || s === 'alsaeedi' || p.startsWith('/car') || p.startsWith('/bleco')) {
+          } else if (isExplicitCar) {
             title = isAr ? 'متجر السعيدي لخدمات السيارات | تنجيد وتلبيس مقاعد السيارات بمكة المكرمة' : 'Al-Saeedi VIP Automotive Services | Luxury Car Seat Upholstery & Floor Protection Makkah';
             desc = isAr ? 'خدمات تنجيد وتلبيس مقاعد السيارات وتفصيل الدعاسات الفاخرة المقاومة للماء والأتربة بأعلى معايير الحرفية بمكة المكرمة' : 'High-precision laser cut automotive seat upholstery, luxury 5D diamond floor mats and interior restoration in Makkah, Saudi Arabia.';
-          } else if (s === 'store-1' || s === 'hadaya' || s === 'flowers' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
-            title = isAr ? 'هدايا مكة | متجر الزهور الطبيعية وباقات الورد وتوصيل فنادق الحرم المكي' : 'Hadaya Mecca | Luxury Fresh Flowers, Gifts & 24/7 Haram Hotel Delivery';
-            desc = isAr ? 'متجر باقات الورد الطبيعي الفاخر، شوكولاتة باتشي وبستاني، وتنسيق هدايا مع خدمة التوصيل السريع إلى جميع فنادق وأبراج مكة المكرمة' : 'Same-day express delivery of premium Ecuadorian roses, Belgian chocolates and VIP pilgrim gift boxes to Makkah Haram clock tower hotels.';
           }
 
           document.title = title;
@@ -334,11 +357,11 @@
       })();
     </script>
 
-    <title>هايبرو السعودية | المتجر الرسمي لمكائن ومستلزمات القهوة المختصة</title>
-    <meta name="description" content="متخصصون في بيع مكائن القهوة ومستلزماتها ذات الجودة العالية ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية" />
-    <meta name="keywords" content="هاي برو, مكائن قهوة, مطاحن, باريستا, 20 بار, دبل بويلر, السعودية, قهوة مختصة, أركان قهوة" />
-    <meta property="og:title" content="هايبرو السعودية | المتجر الرسمي لمكائن ومستلزمات القهوة المختصة" />
-    <meta property="og:description" content="متخصصون في بيع مكائن القهوة ومستلزماتها ذات الجودة العالية ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية" />
+    <title>هدايا مكة | متجر الزهور الطبيعية وباقات الورد وتوصيل فنادق الحرم المكي</title>
+    <meta name="description" content="متجر باقات الورد الطبيعي الفاخر، شوكولاتة باتشي وبستاني، وتنسيق هدايا مع خدمة التوصيل السريع إلى جميع فنادق وأبراج مكة المكرمة" />
+    <meta name="keywords" content="هدايا مكة, ورد طبيعي, باقات ورد مكة, توصيل فنادق الحرم, هدايا فاخرة مكة, باتشي وبستاني, متجر زهور" />
+    <meta property="og:title" content="هدايا مكة | متجر الزهور الطبيعية وباقات الورد وتوصيل فنادق الحرم المكي" />
+    <meta property="og:description" content="متجر باقات الورد الطبيعي الفاخر، شوكولاتة باتشي وبستاني، وتنسيق هدايا مع خدمة التوصيل السريع إلى جميع فنادق وأبراج مكة المكرمة" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
 

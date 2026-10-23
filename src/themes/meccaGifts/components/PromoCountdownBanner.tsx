@@ -44,7 +44,7 @@ export const PromoCountdownBanner: React.FC = () => {
 
   const bannerImage = isCoffee
     ? 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=1200&q=80'
-    : '/src/assets/images/hadaya_promo_banner_1791216140411.jpg';
+    : '/images/hadaya_promo_banner_1791216140411.jpg';
 
   const title = isCoffee
     ? (isAr ? 'محاصيل بن مختارة لخبراء التذوق' : 'Specialty Coffee Roasts for Connoisseurs')

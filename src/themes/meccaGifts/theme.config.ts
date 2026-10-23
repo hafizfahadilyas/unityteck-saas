@@ -15,7 +15,7 @@ export const meccaGiftsThemeConfig: ThemeManifest = {
   descriptionAr: 'قالب فاخر لباقات الورد الطبيعي، الهدايا التذكارية المكية، وصناديق الإهداء الفاخرة للمناسبات.',
   author: 'Unityteck Storefront Engine',
   category: 'gifts',
-  previewImage: '/src/assets/images/saudi_hero_banner_2.jpg',
+  previewImage: '/images/saudi_hero_banner_2.jpg',
   tags: ['flowers', 'gifts', 'makkah', 'souvenirs', 'luxury', 'perfumes', 'chocolates'],
   defaultColors: {
     primary: '#064e3b',

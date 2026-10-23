@@ -5,16 +5,49 @@
  */
 
 export const FALLBACK_PRODUCT_IMAGE =
-  'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80';
+  '/images/hadaya_saudi_luxury_bouquet_1791300211553.webp';
 
 export const FALLBACK_STORE_LOGO =
-  'https://cdn.salla.sa/cdn-cgi/image/fit=scale-down,width=400,height=400,onerror=redirect,format=auto/NKOjvD/2Cnfzx8q23nZJ0tRXo8cUjOa6GP3vTWdrOePAhRl.png';
+  '/images/logo.png';
 
 /**
  * Clean inline SVG data URL for instant zero-network fallback
  */
 export const FALLBACK_SVG_PLACEHOLDER =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23f1f5f9"/><path d="M70 130 L95 100 L115 120 L130 105 L150 130 Z" fill="%23cbd5e1"/><circle cx="85" cy="80" r="12" fill="%23cbd5e1"/></svg>';
+
+/**
+ * Validates that an image URL is non-empty and has a valid protocol/scheme
+ * (handles http, https, data:image, blob, relative path, svg)
+ */
+export function isValidMediaUrl(url?: string | null): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const t = url.trim();
+  if (!t) return false;
+  return (
+    t.startsWith('http://') ||
+    t.startsWith('https://') ||
+    t.startsWith('data:image/') ||
+    t.startsWith('blob:') ||
+    t.startsWith('/') ||
+    t.startsWith('./')
+  );
+}
+
+/**
+ * Normalize any legacy /src/assets/images/ paths to canonical /images/
+ */
+export function cleanImageUrl(url?: string | null): string {
+  if (!url || typeof url !== 'string') return FALLBACK_PRODUCT_IMAGE;
+  let trimmed = url.trim();
+  if (trimmed.startsWith('./src/assets/images/')) {
+    trimmed = trimmed.replace('./src/assets/images/', '/images/');
+  }
+  if (trimmed.startsWith('/src/assets/images/')) {
+    trimmed = trimmed.replace('/src/assets/images/', '/images/');
+  }
+  return trimmed;
+}
 
 /**
  * Image error handler that prevents infinite loop and falls back to a clean placeholder
@@ -24,6 +57,14 @@ export function handleImageError(
   fallback: string = FALLBACK_PRODUCT_IMAGE,
 ) {
   const target = e.currentTarget;
+  const currentSrc = target.getAttribute('src') || target.src || '';
+
+  // If broken path had src/assets/images/, first try canonical /images/
+  if (currentSrc.includes('src/assets/images/')) {
+    target.src = currentSrc.replace(/^.*src\/assets\/images\//, '/images/');
+    return;
+  }
+
   if (!target.dataset.fallbackApplied) {
     target.dataset.fallbackApplied = 'true';
     target.src = fallback;
@@ -44,7 +85,7 @@ export const KNOWN_PRODUCT_CATALOG_IMAGES: Record<string, string> = {
   // V60 Kit
   'COF-KIT-03': 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80',
   // Precision Hand Grinder
-  'COF-GRIND-04': '/src/assets/images/coffee_grinder_mill_banner_1791218928342.jpg',
+  'COF-GRIND-04': '/images/coffee_grinder_mill_banner_1791218928342.jpg',
   // Espresso Blend 1kg / 250g
   'COF-ESP-05': 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=800&q=80',
   'COF-ESP-03': 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=800&q=80',
@@ -63,11 +104,34 @@ export const KNOWN_PRODUCT_CATALOG_IMAGES: Record<string, string> = {
   // Milk Pitcher
   'COF-PIT-12': 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?auto=format&fit=crop&w=800&q=80',
   // HiBrew Flagship Machines (Pure PNG catalog)
-  'hb-h10a-dualboiler': '/src/assets/images/hibrew_h7a_flagship_machine.png',
-  'hb-barista-silver-pro': '/src/assets/images/product_machine_silver_pro.png',
-  'hb-smart-capsule-compact': '/src/assets/images/product_machine_compact_black.png',
-  'hb-thermal-drip-brewer': '/src/assets/images/product_machine_drip_carafe.png',
-  'hb-classic-duo-espresso': '/src/assets/images/product_machine_delonghi_black.png',
+  'hb-h10a-dualboiler': '/images/hibrew_h7a_flagship_machine.png',
+  'hb-barista-silver-pro': '/images/product_machine_silver_pro.png',
+  'hb-smart-capsule-compact': '/images/product_machine_compact_black.png',
+  'hb-thermal-drip-brewer': '/images/product_machine_drip_carafe.png',
+  'hb-classic-duo-espresso': '/images/product_machine_delonghi_black.png',
+  // Luxury Flowers & Hadaya Makkah Catalog (Pure Local Images)
+  'WM-PEONY-05': '/images/hadaya_pink_peonies_1791216156090.jpg',
+  'wm-peony-05': '/images/hadaya_pink_peonies_1791216156090.jpg',
+  'WM-VAL-06': '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+  'wm-val-06': '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+  'WM-ROSE-01': '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+  'wm-rose-01': '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+  'WM-WHITE-02': '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+  'wm-white-02': '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+  'WM-ORCHID-03': '/images/hadaya_white_orchid_penthouse_1791218732789.jpg',
+  'wm-orchid-03': '/images/hadaya_white_orchid_penthouse_1791218732789.jpg',
+  'WM-LUXURY-04': '/images/hadaya_luxury_gift_set_1791216170853.jpg',
+  'wm-luxury-04': '/images/hadaya_luxury_gift_set_1791216170853.jpg',
+  'WM-WED-07': '/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
+  'wm-wed-07': '/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
+  'WM-SAUDI-08': '/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg',
+  'wm-saudi-08': '/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg',
+  'WM-WOMEN-01': '/images/hadaya_women_luxury_gift_zedaan.webp',
+  'women-gift-1': '/images/hadaya_women_luxury_gift_zedaan.webp',
+  'WM-MEN-01': '/images/hadaya_men_luxury_gift_1791219799100.jpg',
+  'men-gift-1': '/images/hadaya_men_luxury_gift_1791219799100.jpg',
+  'WM-CAKE-01': '/images/hadaya_luxury_velvet_cake_1791218716453.jpg',
+  'cake-1': '/images/hadaya_luxury_velvet_cake_1791218716453.jpg',
 };
 
 function normalizeSearchText(text: string): string {
@@ -156,19 +220,28 @@ export function resolveProductThumbnail(item?: {
 
     // ── Luxury Flowers & Mecca Gifts Catalog ──
     if (norm.includes('ورد') || norm.includes('زهور') || norm.includes('باقه') || norm.includes('flower') || norm.includes('rose')) {
-      return 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80';
+      return '/images/hadaya_red_roses_bouquet_1791276749666.jpg';
+    }
+    if (norm.includes('بيوني') || norm.includes('peony')) {
+      return '/images/hadaya_pink_peonies_1791216156090.jpg';
+    }
+    if (norm.includes('اوركيد') || norm.includes('فازه') || norm.includes('orchid') || norm.includes('vase')) {
+      return '/images/hadaya_white_orchid_penthouse_1791218732789.jpg';
     }
     if (norm.includes('شوكولات') || norm.includes('chocolate') || norm.includes('باتشي')) {
-      return 'https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=800&auto=format&fit=crop&q=80';
+      return '/images/hadaya_luxury_gift_set_1791216170853.jpg';
     }
     if (norm.includes('عطر') || norm.includes('عود') || norm.includes('perfume') || norm.includes('oud')) {
-      return 'https://images.unsplash.com/photo-1594035910387-fea47794261f?w=800&auto=format&fit=crop&q=80';
+      return '/images/hadaya_men_luxury_gift_1791219799100.jpg';
+    }
+    if (norm.includes('كيك') || norm.includes('cake')) {
+      return '/images/hadaya_luxury_velvet_cake_1791218716453.jpg';
     }
     if (norm.includes('سجاده') || norm.includes('مصحف') || norm.includes('قران') || norm.includes('prayer')) {
-      return 'https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?w=800&auto=format&fit=crop&q=80';
+      return '/images/hadaya_luxury_master_hero_1791217937117.jpg';
     }
     if (norm.includes('هديه') || norm.includes('gift') || norm.includes('مكه')) {
-      return 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&auto=format&fit=crop&q=80';
+      return '/images/hadaya_luxury_gift_set_1791216170853.jpg';
     }
 
     // ── Bleco Car & Electronics Catalog ──

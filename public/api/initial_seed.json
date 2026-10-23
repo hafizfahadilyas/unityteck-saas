@@ -21,7 +21,7 @@
       "revenue": 5420,
       "visitorsCount": 2680,
       "lastActivity": "Just now",
-      "logo": "/src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg",
+      "logo": "/images/coffee_hero_flagship_machine_1791218907782.jpg",
       "accentColor": "#7c2d12",
       "dbIsolation": "shared_store_id",
       "createdAt": "2024-02-15",
@@ -150,9 +150,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-10",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+          "/images/hadaya_pink_peonies_1791216156090.jpg",
           "https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80"
         ],
         "description": "Charming blush pink Dutch peonies tailored in a handcrafted velvet gift box with silk ribbon.",
@@ -187,10 +187,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-11",
-        "image": "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+        "image": "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
-          "/src/assets/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+          "/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
         ],
         "description": "Magnificent heart-shaped red Ecuadorian roses arrangement crafted for unforgettable romantic celebrations.",
         "descriptionAr": "تنسيق على شكل قلب يضم أرقى أنواع الجوري الإكوادوري الأحمر الفاخر للمناسبات الرومانسية الاستثنائية.",
@@ -227,7 +227,7 @@
         "image": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
         "galleryUrls": [
           "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg"
         ],
         "description": "Classic luxury black velvet box filled with deep crimson royal Dutch roses and baby breath accents.",
         "descriptionAr": "صندوق مخملي أسود فاخر مرصع بالورود الهولندية الحمراء الداكنة ولمسات الجيبسوفيلا الرقيقة.",
@@ -261,9 +261,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-13",
-        "image": "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+        "image": "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
           "https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80"
         ],
         "description": "Breathtaking tall glass vase holding fragrant Casablanca white lilies, Phalaenopsis orchids and eucalyptus.",
@@ -298,10 +298,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-14",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "/images/hadaya_luxury_gift_set_1791216170853.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
-          "/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg"
+          "/images/hadaya_luxury_gift_set_1791216170853.jpg",
+          "/images/hadaya_men_luxury_gift_1791219799100.jpg"
         ],
         "description": "Exclusive Haram VIP gift hamper containing luxury Ajwa dates, pure Taif rose oil, artisan Patchi chocolates and fresh floral arrangement.",
         "descriptionAr": "سلة هدايا الحرم المكي الملكية الفاخرة تضم تمر عجوة، دهن ورد طائفي نقي، شوكولاتة باتشي وباقة ورد طبيعي.",
@@ -338,9 +338,9 @@
         "image": "https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=85",
         "galleryUrls": [
           "https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=85",
-          "/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg",
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_royal_wedding_flowers_1791300194084.jpg",
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Exquisite bridal bouquet crafted with white garden roses, ivory orchids and silk ribbons for weddings.",
         "descriptionAr": "مسكة عروس ملكية منسقة بعناية فائقة من الورود البيضاء والأوركيد العاجي بشرائط الساتان الإيطالي.",
@@ -374,10 +374,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-15",
-        "image": "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+        "image": "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
-          "/src/assets/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+          "/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
         ],
         "description": "Charming fresh Dutch pink and crimson roses in artisan velvet wrap at an exclusive promotional price.",
         "descriptionAr": "باقة مميزة من الورود الطبيعية الهولندية ذات اللون الوردي الرقيق مغلفة بأناقة استثنائية وبسعر مخفض لفترة محدودة.",
@@ -411,9 +411,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-16",
-        "image": "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+        "image": "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg"
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg"
         ],
         "description": "Pure white garden roses with botanical eucalyptus greens in chic Korean florist wrap.",
         "descriptionAr": "ورود جورى بيضاء نقية مع لمسات خضراء هادئة في تغليف كوري راقٍ تعبر عن الصفاء والمودة.",
@@ -447,9 +447,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-17",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "A delicate combination of peach roses and Dutch tulips with gold satin ribbon.",
         "descriptionAr": "مزيج فاخر من التوليب الهولندي والجوري الخوخي مع شريطة حريرية ذهبية.",
@@ -519,9 +519,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-19",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Velvet Ecuadorian red roses paired with an artisan Patchi chocolate gift box at a special discount.",
         "descriptionAr": "باقة جوري مخملية مع علبة شوكولاتة باتشي فاخرة بتخفيض استثنائي لتكتمل فرحة الإهداء.",
@@ -555,10 +555,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-20",
-        "image": "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+        "image": "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
-          "/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+          "/images/hadaya_royal_wedding_flowers_1791300194084.jpg"
         ],
         "description": "50 premium long-stem Ecuadorian velvety red roses wrapped in black and gold silk packaging.",
         "descriptionAr": "50 وردة جوري أحمر إكوادوري مخملي طويل الساق مع تغليف أسود ملكي مطرز بالذهب.",
@@ -592,9 +592,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-21",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Imported fresh peony stems harmonized with tender baby spray roses.",
         "descriptionAr": "زهور الفاوانيا الوردية المستوردة مع باقة بيبي روز ناعمة بتنسيق أرستقراطي.",
@@ -628,9 +628,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-22",
-        "image": "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+        "image": "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg"
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg"
         ],
         "description": "Ivory roses paired with ethereal lisianthus and fragrant eucalyptus foliage.",
         "descriptionAr": "ورود عاجية نقية مع أزهار الليليانثوس الخالص واليوكاليبتوس الفواح.",
@@ -700,9 +700,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-24",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg"
+          "https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png"
         ],
         "description": "Opulent leather keepsake box with crimson roses and half a kilo of Patchi chocolates.",
         "descriptionAr": "صندوق فاخر يجمع بين الورد الجوري الأحمر الفاتن ونصف كيلو من شوكولاتة باتشي الفاخرة.",
@@ -808,9 +808,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-26",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "/images/hadaya_luxury_gift_set_1791216170853.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg"
+          "/images/hadaya_luxury_gift_set_1791216170853.jpg"
         ],
         "description": "Velvet heart gift box with Ecuadorian roses and dark Belgian cocoa truffles.",
         "descriptionAr": "صندوق بشكل قلب مبطن بالمخمل مع ورد طبيعي وترافل بلجيكي داكن يذوب في الفم.",
@@ -916,9 +916,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-27",
-        "image": "/src/assets/images/hadaya_luxury_velvet_cake_1791218716453.jpg",
+        "image": "/images/hadaya_luxury_velvet_cake_1791218716453.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_velvet_cake_1791218716453.jpg"
+          "/images/hadaya_luxury_velvet_cake_1791218716453.jpg"
         ],
         "description": "6 artisan gourmet cupcakes arranged beside fresh pastel roses and birthday candle.",
         "descriptionAr": "6 قطع كب كيك مزينة بحرفية عالية مع تشكيلة ورود الباستيل المبهجة وشمعة ذهبية.",
@@ -1024,9 +1024,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-29",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Black and gold marble tray with crystal floral vase, thermal flask, and Belgian sweets.",
         "descriptionAr": "صينية رخام أسود وذهبي تضم فازة كريستال ورد طبيعي، ترمس قهوة ذهبي، وبوكس حلا بلجيكي.",
@@ -1096,9 +1096,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-30",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Black and gold marble tray with crystal floral vase, thermal flask, and Belgian sweets.",
         "descriptionAr": "صينية رخام أسود وذهبي تضم فازة كريستال ورد طبيعي، ترمس قهوة ذهبي، وبوكس حلا بلجيكي.",
@@ -1168,9 +1168,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-31",
-        "image": "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
+        "image": "/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
+          "/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
         ],
         "description": "Neutral sandy fluted ceramic vase with Ikebana minimalist floral architecture.",
         "descriptionAr": "فازة سيراميك بلون رملي هادئ بتنسيق ياباني إيكيبانا يمنح المكان لمسة هدوء وجمال.",
@@ -1204,9 +1204,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-31",
-        "image": "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
+        "image": "/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
+          "/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
         ],
         "description": "Lush blue Dutch hydrangeas contrasted with pristine white roses in heavy glass vase.",
         "descriptionAr": "كتل زرقاء ساحرة من الهايدرنجا الهولندية مع الورد الأبيض في فازة زجاجية ثقيلة.",
@@ -1240,9 +1240,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-01",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Compact crystal vase with aromatic spray roses tailored for desk and coffee tables.",
         "descriptionAr": "حجم مدمج أنيق بفازة زجاجية شفافة مناسبة للمكاتب وطاولات القهوة برائحة عطرة.",
@@ -1312,9 +1312,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-02",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Luxury presentation containing authentic Maroki oud with fresh vibrant blooms.",
         "descriptionAr": "صندوق خشبي فاخر بلون فضي يضم أوقية عود مروكي طبيعي وفازة ورد جوري مدمجة.",
@@ -1384,9 +1384,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-03",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Golden metal stand loaded with soft pink roses and celebratory balloon.",
         "descriptionAr": "ستاند معدني ذهبي يحمل كتلة ساحرة من الزهور الوردية الناعمة وبالون تهنئة بقدوم المولودة.",
@@ -1456,9 +1456,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-04",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "/images/hadaya_luxury_gift_set_1791216170853.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg"
+          "/images/hadaya_luxury_gift_set_1791216170853.jpg"
         ],
         "description": "Luxury presentation combining artisan Patchi chocolates, fresh blooms, and congratulations certificate.",
         "descriptionAr": "صندوق أنيق يجمع بين حبات شوكولاتة باتشي الفاخرة وباقة ورد نضرة وبطاقة تهنئة بالشهادة.",
@@ -1492,9 +1492,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-04",
-        "image": "/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg",
+        "image": "/images/hadaya_men_luxury_gift_1791219799100.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg"
+          "/images/hadaya_men_luxury_gift_1791219799100.jpg"
         ],
         "description": "Luxury leatherette box featuring artisan men fragrance, genuine leather wallet, timepiece, and fresh roses.",
         "descriptionAr": "صندوق جلدي أنيق يضم عطراً رجالياً فاخراً، محفظة جلد طبيعي، ساعة أنيقة، قلم مذهب، وباقة ورد طبيعي منسقة بعناية.",
@@ -1561,18 +1561,18 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-15",
-        "image": "/src/assets/images/hibrew_h7a_flagship_machine.png",
+        "image": "/images/hibrew_h7a_flagship_machine.png",
         "galleryUrls": [
-          "/src/assets/images/hibrew_h7a_flagship_machine.png",
-          "/src/assets/images/flagship_coffee_machine_5th.png",
-          "/src/assets/images/product_machine_silver_pro.png",
-          "/src/assets/images/product_machine_compact_black.png"
+          "/images/hibrew_h7a_flagship_machine.png",
+          "/images/flagship_coffee_machine_5th.png",
+          "/images/product_machine_silver_pro.png",
+          "/images/product_machine_compact_black.png"
         ],
         "images": [
-          "/src/assets/images/hibrew_h7a_flagship_machine.png",
-          "/src/assets/images/flagship_coffee_machine_5th.png",
-          "/src/assets/images/product_machine_silver_pro.png",
-          "/src/assets/images/product_machine_compact_black.png"
+          "/images/hibrew_h7a_flagship_machine.png",
+          "/images/flagship_coffee_machine_5th.png",
+          "/images/product_machine_silver_pro.png",
+          "/images/product_machine_compact_black.png"
         ],
         "tags": [
           "hibrew",
@@ -1640,35 +1640,35 @@
             "nameAr": "ستانلس ستيل مصقول",
             "nameEn": "Brushed Steel",
             "hex": "#D1D5DB",
-            "image": "/src/assets/images/hibrew_h7a_flagship_machine.png"
+            "image": "/images/hibrew_h7a_flagship_machine.png"
           },
           {
             "id": "col-hb-h10a-dualboiler-1",
             "nameAr": "أسود مطفي ملوكي",
             "nameEn": "Matte Obsidian",
             "hex": "#18181B",
-            "image": "/src/assets/images/product_machine_compact_black.png"
+            "image": "/images/product_machine_compact_black.png"
           },
           {
             "id": "col-hb-h10a-dualboiler-2",
             "nameAr": "فضي كروم احترافي",
             "nameEn": "Silver Chrome Pro",
             "hex": "#9CA3AF",
-            "image": "/src/assets/images/flagship_coffee_machine_5th.png"
+            "image": "/images/flagship_coffee_machine_5th.png"
           },
           {
             "id": "col-hb-h10a-dualboiler-3",
             "nameAr": "كلاسيك فينتج فضي",
             "nameEn": "Classic Vintage",
             "hex": "#4B5563",
-            "image": "/src/assets/images/product_machine_silver_pro.png"
+            "image": "/images/product_machine_silver_pro.png"
           },
           {
             "id": "col-hb-h10a-dualboiler-4",
             "nameAr": "إصدار التراث الفاخر",
             "nameEn": "Royal Heritage Bronze",
             "hex": "#8C6239",
-            "image": "/src/assets/images/product_machine_delonghi_black.png"
+            "image": "/images/product_machine_delonghi_black.png"
           }
         ],
         "storageOptions": [
@@ -1704,7 +1704,7 @@
             "nameAr": "مطحنة بن هاي برو G5 بتروس مخروطية",
             "price": 389,
             "originalPrice": 599,
-            "image": "/src/assets/images/coffee_grinder_mill_banner_1791218928342.jpg"
+            "image": "/images/coffee_grinder_mill_banner_1791218928342.jpg"
           },
           {
             "id": "bundle-boltfilter",
@@ -1712,7 +1712,7 @@
             "nameAr": "بورتافلتر مكشوف 58مم خشب الجوز",
             "price": 119,
             "originalPrice": 189,
-            "image": "/src/assets/images/coffee_portafilter_boltfilter_1791218943846.jpg"
+            "image": "/images/coffee_portafilter_boltfilter_1791218943846.jpg"
           }
         ],
         "partsShowcase": [
@@ -1724,7 +1724,7 @@
             "titleAr": "هندسة الدبل بويلر المستقل واستخلاص متزامن 20 بار",
             "descriptionEn": "Two independent electronic thermoblocks controlled by smart PID chips. Extract rich golden espresso and steam silky milk microfoam at the same time without temperature drops or wait time.",
             "descriptionAr": "وحدتا تسخين إلكترونيتان مستقلتان تعملان بتقنية PID الذكية؛ وحدة للاستخلاص عند حرارة 92°-94° مئوية، ووحدة مستقلة للتبخير الفوري عند 130° مئوية في آن واحد دون انخفاض في الضغط.",
-            "image": "/src/assets/images/hibrew_barista_pro_exploded_parts_1791364960592.jpg",
+            "image": "/images/hibrew_barista_pro_exploded_parts_1791364960592.jpg",
             "stats": [
               {
                 "labelEn": "Pump Pressure",
@@ -1751,7 +1751,7 @@
             "titleAr": "استخلاص حقيقي بمقبس تجاري 58 ملم وتدفق الكريمة المخملية",
             "descriptionEn": "Watch the thick golden espresso flow steadily at the 9-bar sweet spot. Low-pressure pre-infusion saturates the coffee puck uniformly, delivering zero channeling and café-grade body.",
             "descriptionAr": "شاهد تدفق الإسبريسو الذهبي الثخين عند ضغط 9-12 بار المثالي. يقوم نظام الترطيب المسبق بتشبيع البن تدريجياً لضمان استخلاص متجانس بدون أي قنوات مائية.",
-            "image": "/src/assets/images/coffee_making_crema_flow_1791221127339.jpg",
+            "image": "/images/coffee_making_crema_flow_1791221127339.jpg",
             "stats": [
               {
                 "labelEn": "Portafilter Size",
@@ -1778,7 +1778,7 @@
             "titleAr": "مقياس ضغط استخلاص حقيقي لمراقبة تدفق القهوة لحظياً",
             "descriptionEn": "Vintage analog pressure meter monitoring real extraction resistance between 9 and 15 bar in real-time, helping you dial in your grind size with laboratory precision.",
             "descriptionAr": "مؤشر عقارب كلاسيكي أنيق يعرض ضغط الاستخلاص الفعلي لحظة بلحظة؛ يمنحك رؤية فورية لمنطقة الاستخلاص الذهبي بين 9 و 12 بار للتأكد من تناسق طحنة البن وثبات النكهة في كل فنجان.",
-            "image": "/src/assets/images/hibrew_barista_pro_details_showcase_1791364980884.jpg",
+            "image": "/images/hibrew_barista_pro_details_showcase_1791364980884.jpg",
             "stats": [
               {
                 "labelEn": "Optimal Zone",
@@ -1805,7 +1805,7 @@
             "titleAr": "عصا تبخير تجارية 3 فتحات لتبخير حليب ميكروفوم ورسم اللاتيه آرت",
             "descriptionEn": "Dry 135°C steam injected through 3 laser-calibrated holes creates dense, silky microfoam in under 20 seconds. Perfect vortex swirl enables effortless latte art rosettas and swans.",
             "descriptionAr": "بخار جاف قوي عند 135° مئوية عبر 3 فتحات ليزرية دقيقة يحول الحليب إلى رغوة ميكروفوم حريرية لامعة خلال أقل من 20 ثانية، مما يمكنك من رسم أبدع تصاميم اللاتيه آرت بسهولة.",
-            "image": "/src/assets/images/barista_milk_steaming_1791363367164.jpg",
+            "image": "/images/barista_milk_steaming_1791363367164.jpg",
             "stats": [
               {
                 "labelEn": "Steam Nozzle",
@@ -1832,7 +1832,7 @@
             "titleAr": "هيكل ستانلس ستيل 304 فاخر وضمان شامل سنتين بالمملكة",
             "descriptionEn": "Constructed from heavy gauge 304 food-grade stainless steel with luxury walnut hardwood accents, backed by 2-year authorized agency warranty and immediate spare parts in KSA.",
             "descriptionAr": "هيكل معدني متين من الفولاذ المقاوم للصدأ 304 مع لمسات خشب الجوز الطبيعي وخزان مياه 2.5 لتر كبير، مدعوم بضمان الوكيل المعتمد في المملكة لمدة سنتين مع توفر كامل قطع الغيار والصيانة.",
-            "image": "/src/assets/images/coffee_machine_story_craft_1791221163767.jpg",
+            "image": "/images/coffee_machine_story_craft_1791221163767.jpg",
             "stats": [
               {
                 "labelEn": "Agency Warranty",
@@ -1860,7 +1860,7 @@
           "badgeEn": "OFFICIAL KSA FLAGSHIP",
           "badgeAr": "الإصدار الرائد الرسمي بالمملكة",
           "bgGradient": "from-[#061838] via-[#092558] to-[#030d22]",
-          "heroImage": "/src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg",
+          "heroImage": "/images/coffee_hero_flagship_machine_1791218907782.jpg",
           "featuresEn": [
             "20-Bar Italian ULKA Dual Pump",
             "Dual PID Independent Thermoblocks",
@@ -1896,12 +1896,12 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-15",
-        "image": "/src/assets/images/product_machine_silver_pro.png",
+        "image": "/images/product_machine_silver_pro.png",
         "galleryUrls": [
-          "/src/assets/images/product_machine_silver_pro.png"
+          "/images/product_machine_silver_pro.png"
         ],
         "images": [
-          "/src/assets/images/product_machine_silver_pro.png"
+          "/images/product_machine_silver_pro.png"
         ],
         "tags": [
           "hibrew",
@@ -1951,7 +1951,7 @@
             "nameAr": "ستانلس ستيل مصقول",
             "nameEn": "Brushed Silver",
             "hex": "#E5E7EB",
-            "image": "/src/assets/images/product_machine_silver_pro.png"
+            "image": "/images/product_machine_silver_pro.png"
           }
         ],
         "storageOptions": [
@@ -1998,12 +1998,12 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-15",
-        "image": "/src/assets/images/product_machine_compact_black.png",
+        "image": "/images/product_machine_compact_black.png",
         "galleryUrls": [
-          "/src/assets/images/product_machine_compact_black.png"
+          "/images/product_machine_compact_black.png"
         ],
         "images": [
-          "/src/assets/images/product_machine_compact_black.png"
+          "/images/product_machine_compact_black.png"
         ],
         "tags": [
           "hibrew",
@@ -2053,7 +2053,7 @@
             "nameAr": "أسود مطفي ملوكي",
             "nameEn": "Matte Obsidian",
             "hex": "#18181B",
-            "image": "/src/assets/images/product_machine_compact_black.png"
+            "image": "/images/product_machine_compact_black.png"
           }
         ],
         "storageOptions": [
@@ -2095,12 +2095,12 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-15",
-        "image": "/src/assets/images/product_machine_drip_carafe.png",
+        "image": "/images/product_machine_drip_carafe.png",
         "galleryUrls": [
-          "/src/assets/images/product_machine_drip_carafe.png"
+          "/images/product_machine_drip_carafe.png"
         ],
         "images": [
-          "/src/assets/images/product_machine_drip_carafe.png"
+          "/images/product_machine_drip_carafe.png"
         ],
         "tags": [
           "hibrew",
@@ -2150,7 +2150,7 @@
             "nameAr": "أسود بيانو فاخر",
             "nameEn": "Piano Gloss Black",
             "hex": "#111827",
-            "image": "/src/assets/images/product_machine_drip_carafe.png"
+            "image": "/images/product_machine_drip_carafe.png"
           }
         ],
         "storageOptions": [
@@ -2192,12 +2192,12 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-15",
-        "image": "/src/assets/images/product_machine_delonghi_black.png",
+        "image": "/images/product_machine_delonghi_black.png",
         "galleryUrls": [
-          "/src/assets/images/product_machine_delonghi_black.png"
+          "/images/product_machine_delonghi_black.png"
         ],
         "images": [
-          "/src/assets/images/product_machine_delonghi_black.png"
+          "/images/product_machine_delonghi_black.png"
         ],
         "tags": [
           "hibrew",
@@ -2247,7 +2247,7 @@
             "nameAr": "أسود كربوني مع ستيل",
             "nameEn": "Charcoal Black",
             "hex": "#27272A",
-            "image": "/src/assets/images/product_machine_delonghi_black.png"
+            "image": "/images/product_machine_delonghi_black.png"
           }
         ],
         "storageOptions": [
@@ -3087,9 +3087,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-10",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+          "/images/hadaya_pink_peonies_1791216156090.jpg",
           "https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80"
         ],
         "description": "Charming blush pink Dutch peonies tailored in a handcrafted velvet gift box with silk ribbon.",
@@ -3124,10 +3124,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-11",
-        "image": "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+        "image": "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
-          "/src/assets/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+          "/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
         ],
         "description": "Magnificent heart-shaped red Ecuadorian roses arrangement crafted for unforgettable romantic celebrations.",
         "descriptionAr": "تنسيق على شكل قلب يضم أرقى أنواع الجوري الإكوادوري الأحمر الفاخر للمناسبات الرومانسية الاستثنائية.",
@@ -3164,7 +3164,7 @@
         "image": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
         "galleryUrls": [
           "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg"
         ],
         "description": "Classic luxury black velvet box filled with deep crimson royal Dutch roses and baby breath accents.",
         "descriptionAr": "صندوق مخملي أسود فاخر مرصع بالورود الهولندية الحمراء الداكنة ولمسات الجيبسوفيلا الرقيقة.",
@@ -3198,9 +3198,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-13",
-        "image": "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+        "image": "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
           "https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80"
         ],
         "description": "Breathtaking tall glass vase holding fragrant Casablanca white lilies, Phalaenopsis orchids and eucalyptus.",
@@ -3235,10 +3235,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-14",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "/images/hadaya_luxury_gift_set_1791216170853.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
-          "/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg"
+          "/images/hadaya_luxury_gift_set_1791216170853.jpg",
+          "/images/hadaya_men_luxury_gift_1791219799100.jpg"
         ],
         "description": "Exclusive Haram VIP gift hamper containing luxury Ajwa dates, pure Taif rose oil, artisan Patchi chocolates and fresh floral arrangement.",
         "descriptionAr": "سلة هدايا الحرم المكي الملكية الفاخرة تضم تمر عجوة، دهن ورد طائفي نقي، شوكولاتة باتشي وباقة ورد طبيعي.",
@@ -3275,9 +3275,9 @@
         "image": "https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=85",
         "galleryUrls": [
           "https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=85",
-          "/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg",
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_royal_wedding_flowers_1791300194084.jpg",
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Exquisite bridal bouquet crafted with white garden roses, ivory orchids and silk ribbons for weddings.",
         "descriptionAr": "مسكة عروس ملكية منسقة بعناية فائقة من الورود البيضاء والأوركيد العاجي بشرائط الساتان الإيطالي.",
@@ -3311,10 +3311,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-15",
-        "image": "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+        "image": "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
-          "/src/assets/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+          "/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
         ],
         "description": "Charming fresh Dutch pink and crimson roses in artisan velvet wrap at an exclusive promotional price.",
         "descriptionAr": "باقة مميزة من الورود الطبيعية الهولندية ذات اللون الوردي الرقيق مغلفة بأناقة استثنائية وبسعر مخفض لفترة محدودة.",
@@ -3348,9 +3348,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-16",
-        "image": "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+        "image": "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg"
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg"
         ],
         "description": "Pure white garden roses with botanical eucalyptus greens in chic Korean florist wrap.",
         "descriptionAr": "ورود جورى بيضاء نقية مع لمسات خضراء هادئة في تغليف كوري راقٍ تعبر عن الصفاء والمودة.",
@@ -3384,9 +3384,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-17",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "A delicate combination of peach roses and Dutch tulips with gold satin ribbon.",
         "descriptionAr": "مزيج فاخر من التوليب الهولندي والجوري الخوخي مع شريطة حريرية ذهبية.",
@@ -3456,9 +3456,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-19",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Velvet Ecuadorian red roses paired with an artisan Patchi chocolate gift box at a special discount.",
         "descriptionAr": "باقة جوري مخملية مع علبة شوكولاتة باتشي فاخرة بتخفيض استثنائي لتكتمل فرحة الإهداء.",
@@ -3492,10 +3492,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-20",
-        "image": "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+        "image": "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
-          "/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+          "/images/hadaya_royal_wedding_flowers_1791300194084.jpg"
         ],
         "description": "50 premium long-stem Ecuadorian velvety red roses wrapped in black and gold silk packaging.",
         "descriptionAr": "50 وردة جوري أحمر إكوادوري مخملي طويل الساق مع تغليف أسود ملكي مطرز بالذهب.",
@@ -3529,9 +3529,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-21",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Imported fresh peony stems harmonized with tender baby spray roses.",
         "descriptionAr": "زهور الفاوانيا الوردية المستوردة مع باقة بيبي روز ناعمة بتنسيق أرستقراطي.",
@@ -3565,9 +3565,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-22",
-        "image": "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+        "image": "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg"
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg"
         ],
         "description": "Ivory roses paired with ethereal lisianthus and fragrant eucalyptus foliage.",
         "descriptionAr": "ورود عاجية نقية مع أزهار الليليانثوس الخالص واليوكاليبتوس الفواح.",
@@ -3637,9 +3637,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-24",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg"
+          "https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png"
         ],
         "description": "Opulent leather keepsake box with crimson roses and half a kilo of Patchi chocolates.",
         "descriptionAr": "صندوق فاخر يجمع بين الورد الجوري الأحمر الفاتن ونصف كيلو من شوكولاتة باتشي الفاخرة.",
@@ -3745,9 +3745,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-26",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "/images/hadaya_luxury_gift_set_1791216170853.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg"
+          "/images/hadaya_luxury_gift_set_1791216170853.jpg"
         ],
         "description": "Velvet heart gift box with Ecuadorian roses and dark Belgian cocoa truffles.",
         "descriptionAr": "صندوق بشكل قلب مبطن بالمخمل مع ورد طبيعي وترافل بلجيكي داكن يذوب في الفم.",
@@ -3853,9 +3853,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-27",
-        "image": "/src/assets/images/hadaya_luxury_velvet_cake_1791218716453.jpg",
+        "image": "/images/hadaya_luxury_velvet_cake_1791218716453.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_velvet_cake_1791218716453.jpg"
+          "/images/hadaya_luxury_velvet_cake_1791218716453.jpg"
         ],
         "description": "6 artisan gourmet cupcakes arranged beside fresh pastel roses and birthday candle.",
         "descriptionAr": "6 قطع كب كيك مزينة بحرفية عالية مع تشكيلة ورود الباستيل المبهجة وشمعة ذهبية.",
@@ -3961,9 +3961,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-29",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Black and gold marble tray with crystal floral vase, thermal flask, and Belgian sweets.",
         "descriptionAr": "صينية رخام أسود وذهبي تضم فازة كريستال ورد طبيعي، ترمس قهوة ذهبي، وبوكس حلا بلجيكي.",
@@ -4033,9 +4033,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-30",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Black and gold marble tray with crystal floral vase, thermal flask, and Belgian sweets.",
         "descriptionAr": "صينية رخام أسود وذهبي تضم فازة كريستال ورد طبيعي، ترمس قهوة ذهبي، وبوكس حلا بلجيكي.",
@@ -4105,9 +4105,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-31",
-        "image": "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
+        "image": "/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
+          "/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
         ],
         "description": "Neutral sandy fluted ceramic vase with Ikebana minimalist floral architecture.",
         "descriptionAr": "فازة سيراميك بلون رملي هادئ بتنسيق ياباني إيكيبانا يمنح المكان لمسة هدوء وجمال.",
@@ -4141,9 +4141,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-31",
-        "image": "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
+        "image": "/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
+          "/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
         ],
         "description": "Lush blue Dutch hydrangeas contrasted with pristine white roses in heavy glass vase.",
         "descriptionAr": "كتل زرقاء ساحرة من الهايدرنجا الهولندية مع الورد الأبيض في فازة زجاجية ثقيلة.",
@@ -4177,9 +4177,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-01",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Compact crystal vase with aromatic spray roses tailored for desk and coffee tables.",
         "descriptionAr": "حجم مدمج أنيق بفازة زجاجية شفافة مناسبة للمكاتب وطاولات القهوة برائحة عطرة.",
@@ -4249,9 +4249,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-02",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Luxury presentation containing authentic Maroki oud with fresh vibrant blooms.",
         "descriptionAr": "صندوق خشبي فاخر بلون فضي يضم أوقية عود مروكي طبيعي وفازة ورد جوري مدمجة.",
@@ -4321,9 +4321,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-03",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Golden metal stand loaded with soft pink roses and celebratory balloon.",
         "descriptionAr": "ستاند معدني ذهبي يحمل كتلة ساحرة من الزهور الوردية الناعمة وبالون تهنئة بقدوم المولودة.",
@@ -4393,9 +4393,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-04",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "/images/hadaya_luxury_gift_set_1791216170853.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg"
+          "/images/hadaya_luxury_gift_set_1791216170853.jpg"
         ],
         "description": "Luxury presentation combining artisan Patchi chocolates, fresh blooms, and congratulations certificate.",
         "descriptionAr": "صندوق أنيق يجمع بين حبات شوكولاتة باتشي الفاخرة وباقة ورد نضرة وبطاقة تهنئة بالشهادة.",
@@ -4429,9 +4429,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-04",
-        "image": "/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg",
+        "image": "/images/hadaya_men_luxury_gift_1791219799100.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg"
+          "/images/hadaya_men_luxury_gift_1791219799100.jpg"
         ],
         "description": "Luxury leatherette box featuring artisan men fragrance, genuine leather wallet, timepiece, and fresh roses.",
         "descriptionAr": "صندوق جلدي أنيق يضم عطراً رجالياً فاخراً، محفظة جلد طبيعي، ساعة أنيقة، قلم مذهب، وباقة ورد طبيعي منسقة بعناية.",
@@ -4503,9 +4503,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-10",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+          "/images/hadaya_pink_peonies_1791216156090.jpg",
           "https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80"
         ],
         "description": "Charming blush pink Dutch peonies tailored in a handcrafted velvet gift box with silk ribbon.",
@@ -4540,10 +4540,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-11",
-        "image": "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+        "image": "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
-          "/src/assets/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+          "/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
         ],
         "description": "Magnificent heart-shaped red Ecuadorian roses arrangement crafted for unforgettable romantic celebrations.",
         "descriptionAr": "تنسيق على شكل قلب يضم أرقى أنواع الجوري الإكوادوري الأحمر الفاخر للمناسبات الرومانسية الاستثنائية.",
@@ -4580,7 +4580,7 @@
         "image": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
         "galleryUrls": [
           "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg"
         ],
         "description": "Classic luxury black velvet box filled with deep crimson royal Dutch roses and baby breath accents.",
         "descriptionAr": "صندوق مخملي أسود فاخر مرصع بالورود الهولندية الحمراء الداكنة ولمسات الجيبسوفيلا الرقيقة.",
@@ -4614,9 +4614,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-13",
-        "image": "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+        "image": "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
           "https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80"
         ],
         "description": "Breathtaking tall glass vase holding fragrant Casablanca white lilies, Phalaenopsis orchids and eucalyptus.",
@@ -4651,10 +4651,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-14",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "/images/hadaya_luxury_gift_set_1791216170853.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
-          "/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg"
+          "/images/hadaya_luxury_gift_set_1791216170853.jpg",
+          "/images/hadaya_men_luxury_gift_1791219799100.jpg"
         ],
         "description": "Exclusive Haram VIP gift hamper containing luxury Ajwa dates, pure Taif rose oil, artisan Patchi chocolates and fresh floral arrangement.",
         "descriptionAr": "سلة هدايا الحرم المكي الملكية الفاخرة تضم تمر عجوة، دهن ورد طائفي نقي، شوكولاتة باتشي وباقة ورد طبيعي.",
@@ -4691,9 +4691,9 @@
         "image": "https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=85",
         "galleryUrls": [
           "https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=85",
-          "/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg",
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_royal_wedding_flowers_1791300194084.jpg",
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Exquisite bridal bouquet crafted with white garden roses, ivory orchids and silk ribbons for weddings.",
         "descriptionAr": "مسكة عروس ملكية منسقة بعناية فائقة من الورود البيضاء والأوركيد العاجي بشرائط الساتان الإيطالي.",
@@ -4727,10 +4727,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-15",
-        "image": "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+        "image": "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
-          "/src/assets/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+          "/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
         ],
         "description": "Charming fresh Dutch pink and crimson roses in artisan velvet wrap at an exclusive promotional price.",
         "descriptionAr": "باقة مميزة من الورود الطبيعية الهولندية ذات اللون الوردي الرقيق مغلفة بأناقة استثنائية وبسعر مخفض لفترة محدودة.",
@@ -4764,9 +4764,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-16",
-        "image": "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+        "image": "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg"
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg"
         ],
         "description": "Pure white garden roses with botanical eucalyptus greens in chic Korean florist wrap.",
         "descriptionAr": "ورود جورى بيضاء نقية مع لمسات خضراء هادئة في تغليف كوري راقٍ تعبر عن الصفاء والمودة.",
@@ -4800,9 +4800,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-17",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "A delicate combination of peach roses and Dutch tulips with gold satin ribbon.",
         "descriptionAr": "مزيج فاخر من التوليب الهولندي والجوري الخوخي مع شريطة حريرية ذهبية.",
@@ -4872,9 +4872,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-19",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Velvet Ecuadorian red roses paired with an artisan Patchi chocolate gift box at a special discount.",
         "descriptionAr": "باقة جوري مخملية مع علبة شوكولاتة باتشي فاخرة بتخفيض استثنائي لتكتمل فرحة الإهداء.",
@@ -4908,10 +4908,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-20",
-        "image": "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+        "image": "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
-          "/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+          "/images/hadaya_royal_wedding_flowers_1791300194084.jpg"
         ],
         "description": "50 premium long-stem Ecuadorian velvety red roses wrapped in black and gold silk packaging.",
         "descriptionAr": "50 وردة جوري أحمر إكوادوري مخملي طويل الساق مع تغليف أسود ملكي مطرز بالذهب.",
@@ -4945,9 +4945,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-21",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Imported fresh peony stems harmonized with tender baby spray roses.",
         "descriptionAr": "زهور الفاوانيا الوردية المستوردة مع باقة بيبي روز ناعمة بتنسيق أرستقراطي.",
@@ -4981,9 +4981,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-22",
-        "image": "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+        "image": "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg"
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg"
         ],
         "description": "Ivory roses paired with ethereal lisianthus and fragrant eucalyptus foliage.",
         "descriptionAr": "ورود عاجية نقية مع أزهار الليليانثوس الخالص واليوكاليبتوس الفواح.",
@@ -5053,9 +5053,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-24",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg"
+          "https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png"
         ],
         "description": "Opulent leather keepsake box with crimson roses and half a kilo of Patchi chocolates.",
         "descriptionAr": "صندوق فاخر يجمع بين الورد الجوري الأحمر الفاتن ونصف كيلو من شوكولاتة باتشي الفاخرة.",
@@ -5161,9 +5161,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-26",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "/images/hadaya_luxury_gift_set_1791216170853.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg"
+          "/images/hadaya_luxury_gift_set_1791216170853.jpg"
         ],
         "description": "Velvet heart gift box with Ecuadorian roses and dark Belgian cocoa truffles.",
         "descriptionAr": "صندوق بشكل قلب مبطن بالمخمل مع ورد طبيعي وترافل بلجيكي داكن يذوب في الفم.",
@@ -5269,9 +5269,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-27",
-        "image": "/src/assets/images/hadaya_luxury_velvet_cake_1791218716453.jpg",
+        "image": "/images/hadaya_luxury_velvet_cake_1791218716453.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_velvet_cake_1791218716453.jpg"
+          "/images/hadaya_luxury_velvet_cake_1791218716453.jpg"
         ],
         "description": "6 artisan gourmet cupcakes arranged beside fresh pastel roses and birthday candle.",
         "descriptionAr": "6 قطع كب كيك مزينة بحرفية عالية مع تشكيلة ورود الباستيل المبهجة وشمعة ذهبية.",
@@ -5377,9 +5377,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-29",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Black and gold marble tray with crystal floral vase, thermal flask, and Belgian sweets.",
         "descriptionAr": "صينية رخام أسود وذهبي تضم فازة كريستال ورد طبيعي، ترمس قهوة ذهبي، وبوكس حلا بلجيكي.",
@@ -5449,9 +5449,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-30",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Black and gold marble tray with crystal floral vase, thermal flask, and Belgian sweets.",
         "descriptionAr": "صينية رخام أسود وذهبي تضم فازة كريستال ورد طبيعي، ترمس قهوة ذهبي، وبوكس حلا بلجيكي.",
@@ -5521,9 +5521,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-31",
-        "image": "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
+        "image": "/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
+          "/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
         ],
         "description": "Neutral sandy fluted ceramic vase with Ikebana minimalist floral architecture.",
         "descriptionAr": "فازة سيراميك بلون رملي هادئ بتنسيق ياباني إيكيبانا يمنح المكان لمسة هدوء وجمال.",
@@ -5557,9 +5557,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-31",
-        "image": "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
+        "image": "/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
+          "/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
         ],
         "description": "Lush blue Dutch hydrangeas contrasted with pristine white roses in heavy glass vase.",
         "descriptionAr": "كتل زرقاء ساحرة من الهايدرنجا الهولندية مع الورد الأبيض في فازة زجاجية ثقيلة.",
@@ -5593,9 +5593,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-01",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Compact crystal vase with aromatic spray roses tailored for desk and coffee tables.",
         "descriptionAr": "حجم مدمج أنيق بفازة زجاجية شفافة مناسبة للمكاتب وطاولات القهوة برائحة عطرة.",
@@ -5665,9 +5665,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-02",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Luxury presentation containing authentic Maroki oud with fresh vibrant blooms.",
         "descriptionAr": "صندوق خشبي فاخر بلون فضي يضم أوقية عود مروكي طبيعي وفازة ورد جوري مدمجة.",
@@ -5737,9 +5737,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-03",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Golden metal stand loaded with soft pink roses and celebratory balloon.",
         "descriptionAr": "ستاند معدني ذهبي يحمل كتلة ساحرة من الزهور الوردية الناعمة وبالون تهنئة بقدوم المولودة.",
@@ -5809,9 +5809,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-04",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "/images/hadaya_luxury_gift_set_1791216170853.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg"
+          "/images/hadaya_luxury_gift_set_1791216170853.jpg"
         ],
         "description": "Luxury presentation combining artisan Patchi chocolates, fresh blooms, and congratulations certificate.",
         "descriptionAr": "صندوق أنيق يجمع بين حبات شوكولاتة باتشي الفاخرة وباقة ورد نضرة وبطاقة تهنئة بالشهادة.",
@@ -5845,9 +5845,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-04",
-        "image": "/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg",
+        "image": "/images/hadaya_men_luxury_gift_1791219799100.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg"
+          "/images/hadaya_men_luxury_gift_1791219799100.jpg"
         ],
         "description": "Luxury leatherette box featuring artisan men fragrance, genuine leather wallet, timepiece, and fresh roses.",
         "descriptionAr": "صندوق جلدي أنيق يضم عطراً رجالياً فاخراً، محفظة جلد طبيعي، ساعة أنيقة، قلم مذهب، وباقة ورد طبيعي منسقة بعناية.",
@@ -5919,9 +5919,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-10",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+          "/images/hadaya_pink_peonies_1791216156090.jpg",
           "https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80"
         ],
         "description": "Charming blush pink Dutch peonies tailored in a handcrafted velvet gift box with silk ribbon.",
@@ -5956,10 +5956,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-11",
-        "image": "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+        "image": "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
-          "/src/assets/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+          "/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
         ],
         "description": "Magnificent heart-shaped red Ecuadorian roses arrangement crafted for unforgettable romantic celebrations.",
         "descriptionAr": "تنسيق على شكل قلب يضم أرقى أنواع الجوري الإكوادوري الأحمر الفاخر للمناسبات الرومانسية الاستثنائية.",
@@ -5996,7 +5996,7 @@
         "image": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
         "galleryUrls": [
           "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg"
         ],
         "description": "Classic luxury black velvet box filled with deep crimson royal Dutch roses and baby breath accents.",
         "descriptionAr": "صندوق مخملي أسود فاخر مرصع بالورود الهولندية الحمراء الداكنة ولمسات الجيبسوفيلا الرقيقة.",
@@ -6030,9 +6030,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-13",
-        "image": "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+        "image": "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
           "https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&auto=format&fit=crop&q=80"
         ],
         "description": "Breathtaking tall glass vase holding fragrant Casablanca white lilies, Phalaenopsis orchids and eucalyptus.",
@@ -6067,10 +6067,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-14",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "/images/hadaya_luxury_gift_set_1791216170853.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
-          "/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg"
+          "/images/hadaya_luxury_gift_set_1791216170853.jpg",
+          "/images/hadaya_men_luxury_gift_1791219799100.jpg"
         ],
         "description": "Exclusive Haram VIP gift hamper containing luxury Ajwa dates, pure Taif rose oil, artisan Patchi chocolates and fresh floral arrangement.",
         "descriptionAr": "سلة هدايا الحرم المكي الملكية الفاخرة تضم تمر عجوة، دهن ورد طائفي نقي، شوكولاتة باتشي وباقة ورد طبيعي.",
@@ -6107,9 +6107,9 @@
         "image": "https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=85",
         "galleryUrls": [
           "https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=85",
-          "/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg",
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_royal_wedding_flowers_1791300194084.jpg",
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Exquisite bridal bouquet crafted with white garden roses, ivory orchids and silk ribbons for weddings.",
         "descriptionAr": "مسكة عروس ملكية منسقة بعناية فائقة من الورود البيضاء والأوركيد العاجي بشرائط الساتان الإيطالي.",
@@ -6143,10 +6143,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-15",
-        "image": "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+        "image": "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
-          "/src/assets/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+          "/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg"
         ],
         "description": "Charming fresh Dutch pink and crimson roses in artisan velvet wrap at an exclusive promotional price.",
         "descriptionAr": "باقة مميزة من الورود الطبيعية الهولندية ذات اللون الوردي الرقيق مغلفة بأناقة استثنائية وبسعر مخفض لفترة محدودة.",
@@ -6180,9 +6180,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-16",
-        "image": "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+        "image": "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg"
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg"
         ],
         "description": "Pure white garden roses with botanical eucalyptus greens in chic Korean florist wrap.",
         "descriptionAr": "ورود جورى بيضاء نقية مع لمسات خضراء هادئة في تغليف كوري راقٍ تعبر عن الصفاء والمودة.",
@@ -6216,9 +6216,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-17",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "A delicate combination of peach roses and Dutch tulips with gold satin ribbon.",
         "descriptionAr": "مزيج فاخر من التوليب الهولندي والجوري الخوخي مع شريطة حريرية ذهبية.",
@@ -6288,9 +6288,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-19",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Velvet Ecuadorian red roses paired with an artisan Patchi chocolate gift box at a special discount.",
         "descriptionAr": "باقة جوري مخملية مع علبة شوكولاتة باتشي فاخرة بتخفيض استثنائي لتكتمل فرحة الإهداء.",
@@ -6324,10 +6324,10 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-20",
-        "image": "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+        "image": "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg",
-          "/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg"
+          "/images/hadaya_red_roses_bouquet_1791276749666.jpg",
+          "/images/hadaya_royal_wedding_flowers_1791300194084.jpg"
         ],
         "description": "50 premium long-stem Ecuadorian velvety red roses wrapped in black and gold silk packaging.",
         "descriptionAr": "50 وردة جوري أحمر إكوادوري مخملي طويل الساق مع تغليف أسود ملكي مطرز بالذهب.",
@@ -6361,9 +6361,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-21",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Imported fresh peony stems harmonized with tender baby spray roses.",
         "descriptionAr": "زهور الفاوانيا الوردية المستوردة مع باقة بيبي روز ناعمة بتنسيق أرستقراطي.",
@@ -6397,9 +6397,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-22",
-        "image": "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg",
+        "image": "/images/hadaya_white_roses_bouquet_1791276726730.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg"
+          "/images/hadaya_white_roses_bouquet_1791276726730.jpg"
         ],
         "description": "Ivory roses paired with ethereal lisianthus and fragrant eucalyptus foliage.",
         "descriptionAr": "ورود عاجية نقية مع أزهار الليليانثوس الخالص واليوكاليبتوس الفواح.",
@@ -6469,9 +6469,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-24",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg"
+          "https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png"
         ],
         "description": "Opulent leather keepsake box with crimson roses and half a kilo of Patchi chocolates.",
         "descriptionAr": "صندوق فاخر يجمع بين الورد الجوري الأحمر الفاتن ونصف كيلو من شوكولاتة باتشي الفاخرة.",
@@ -6577,9 +6577,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-26",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "/images/hadaya_luxury_gift_set_1791216170853.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg"
+          "/images/hadaya_luxury_gift_set_1791216170853.jpg"
         ],
         "description": "Velvet heart gift box with Ecuadorian roses and dark Belgian cocoa truffles.",
         "descriptionAr": "صندوق بشكل قلب مبطن بالمخمل مع ورد طبيعي وترافل بلجيكي داكن يذوب في الفم.",
@@ -6685,9 +6685,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-27",
-        "image": "/src/assets/images/hadaya_luxury_velvet_cake_1791218716453.jpg",
+        "image": "/images/hadaya_luxury_velvet_cake_1791218716453.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_velvet_cake_1791218716453.jpg"
+          "/images/hadaya_luxury_velvet_cake_1791218716453.jpg"
         ],
         "description": "6 artisan gourmet cupcakes arranged beside fresh pastel roses and birthday candle.",
         "descriptionAr": "6 قطع كب كيك مزينة بحرفية عالية مع تشكيلة ورود الباستيل المبهجة وشمعة ذهبية.",
@@ -6793,9 +6793,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-29",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Black and gold marble tray with crystal floral vase, thermal flask, and Belgian sweets.",
         "descriptionAr": "صينية رخام أسود وذهبي تضم فازة كريستال ورد طبيعي، ترمس قهوة ذهبي، وبوكس حلا بلجيكي.",
@@ -6865,9 +6865,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-30",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Black and gold marble tray with crystal floral vase, thermal flask, and Belgian sweets.",
         "descriptionAr": "صينية رخام أسود وذهبي تضم فازة كريستال ورد طبيعي، ترمس قهوة ذهبي، وبوكس حلا بلجيكي.",
@@ -6937,9 +6937,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-31",
-        "image": "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
+        "image": "/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
+          "/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
         ],
         "description": "Neutral sandy fluted ceramic vase with Ikebana minimalist floral architecture.",
         "descriptionAr": "فازة سيراميك بلون رملي هادئ بتنسيق ياباني إيكيبانا يمنح المكان لمسة هدوء وجمال.",
@@ -6973,9 +6973,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-01-31",
-        "image": "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
+        "image": "/images/hadaya_white_orchid_penthouse_1791218732789.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
+          "/images/hadaya_white_orchid_penthouse_1791218732789.jpg"
         ],
         "description": "Lush blue Dutch hydrangeas contrasted with pristine white roses in heavy glass vase.",
         "descriptionAr": "كتل زرقاء ساحرة من الهايدرنجا الهولندية مع الورد الأبيض في فازة زجاجية ثقيلة.",
@@ -7009,9 +7009,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-01",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Compact crystal vase with aromatic spray roses tailored for desk and coffee tables.",
         "descriptionAr": "حجم مدمج أنيق بفازة زجاجية شفافة مناسبة للمكاتب وطاولات القهوة برائحة عطرة.",
@@ -7081,9 +7081,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-02",
-        "image": "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg",
+        "image": "/images/hadaya_luxury_gift_noir_1791218956267.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg"
+          "/images/hadaya_luxury_gift_noir_1791218956267.jpg"
         ],
         "description": "Luxury presentation containing authentic Maroki oud with fresh vibrant blooms.",
         "descriptionAr": "صندوق خشبي فاخر بلون فضي يضم أوقية عود مروكي طبيعي وفازة ورد جوري مدمجة.",
@@ -7153,9 +7153,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-03",
-        "image": "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg",
+        "image": "/images/hadaya_pink_peonies_1791216156090.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_pink_peonies_1791216156090.jpg"
+          "/images/hadaya_pink_peonies_1791216156090.jpg"
         ],
         "description": "Golden metal stand loaded with soft pink roses and celebratory balloon.",
         "descriptionAr": "ستاند معدني ذهبي يحمل كتلة ساحرة من الزهور الوردية الناعمة وبالون تهنئة بقدوم المولودة.",
@@ -7225,9 +7225,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-04",
-        "image": "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg",
+        "image": "/images/hadaya_luxury_gift_set_1791216170853.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg"
+          "/images/hadaya_luxury_gift_set_1791216170853.jpg"
         ],
         "description": "Luxury presentation combining artisan Patchi chocolates, fresh blooms, and congratulations certificate.",
         "descriptionAr": "صندوق أنيق يجمع بين حبات شوكولاتة باتشي الفاخرة وباقة ورد نضرة وبطاقة تهنئة بالشهادة.",
@@ -7261,9 +7261,9 @@
         "isActive": true,
         "isStale": false,
         "publishedAt": "2025-02-04",
-        "image": "/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg",
+        "image": "/images/hadaya_men_luxury_gift_1791219799100.jpg",
         "galleryUrls": [
-          "/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg"
+          "/images/hadaya_men_luxury_gift_1791219799100.jpg"
         ],
         "description": "Luxury leatherette box featuring artisan men fragrance, genuine leather wallet, timepiece, and fresh roses.",
         "descriptionAr": "صندوق جلدي أنيق يضم عطراً رجالياً فاخراً، محفظة جلد طبيعي، ساعة أنيقة، قلم مذهب، وباقة ورد طبيعي منسقة بعناية.",
@@ -7308,5 +7308,397 @@
         "seoTitle": "صندوق هدايا نسائية فاخر | هدايا مكة"
       }
     ]
-  }
+  },
+  "categories": [
+    {
+      "id": "cat-nat-bouquets",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Natural Flower Bouquets",
+      "name_ar": "باقات الورود الطبيعية",
+      "slug": "natural-bouquets",
+      "image_url": "https://cdn.salla.sa/form-builder/tWCbNfZyZC271qgyhdROpC6ZdS6rCXbqmtvPD8hx.png",
+      "sort_order": 1,
+      "is_active": true,
+      "meta_title": "باقات الورود الطبيعية | هدايا مكة",
+      "meta_description": "باقات الورود الطبيعية"
+    },
+    {
+      "id": "cat-roses-patchi",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Roses & Patchi Chocolate",
+      "name_ar": "ورد و شوكليت باتشي",
+      "slug": "roses-patchi",
+      "image_url": "https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png",
+      "sort_order": 2,
+      "is_active": true,
+      "meta_title": "ورد و شوكليت باتشي | هدايا مكة",
+      "meta_description": "ورد و شوكليت باتشي"
+    },
+    {
+      "id": "cat-roses-bostani",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Roses & Bostani Chocolate",
+      "name_ar": "ورد وشوكوليت بستاني",
+      "slug": "roses-bostani",
+      "image_url": "https://cdn.salla.sa/form-builder/JEDxluyY7LbYdo5So7sLrPqqupntM3LUhIxV3gXD.png",
+      "sort_order": 3,
+      "is_active": true,
+      "meta_title": "ورد وشوكوليت بستاني | هدايا مكة",
+      "meta_description": "ورد وشوكوليت بستاني"
+    },
+    {
+      "id": "cat-flower-vases",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Natural Flower Vases",
+      "name_ar": "فازات ورد طبيعي",
+      "slug": "flower-vases",
+      "image_url": "https://cdn.salla.sa/form-builder/vMIFvv8ErCIt8W4npNMOB0Oj6Secf5lLWWByluvd.png",
+      "sort_order": 4,
+      "is_active": true,
+      "meta_title": "فازات ورد طبيعي | هدايا مكة",
+      "meta_description": "فازات ورد طبيعي"
+    },
+    {
+      "id": "cat-vases-chocolate",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Flower Vases with Chocolate",
+      "name_ar": "فازات الورود مع شوكليت",
+      "slug": "vases-chocolate",
+      "image_url": "https://cdn.salla.sa/form-builder/qk6gpVW76xoVeFb6kZrmFFGOFOXQ4q8JalQmKw0R.png",
+      "sort_order": 5,
+      "is_active": true,
+      "meta_title": "فازات الورود مع شوكليت | هدايا مكة",
+      "meta_description": "فازات الورود مع شوكليت"
+    },
+    {
+      "id": "cat-roses-fish",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Roses with Aquarium Fish",
+      "name_ar": "ورود مع أسماك زينة",
+      "slug": "roses-fish",
+      "image_url": "https://cdn.salla.sa/form-builder/ykMusuoNPFuZdMPHsJcYHJb6fejLSpaoSZxKGAwh.png",
+      "sort_order": 6,
+      "is_active": true,
+      "meta_title": "ورود مع أسماك زينة | هدايا مكة",
+      "meta_description": "ورود مع أسماك زينة"
+    },
+    {
+      "id": "cat-roses-lovebirds",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Roses with Lovebirds",
+      "name_ar": "ورود مع عصافير الحب",
+      "slug": "roses-lovebirds",
+      "image_url": "https://cdn.salla.sa/form-builder/dZpSzihLrTks3koUrmlpfNV0AcHVSx3bE1KNFQTQ.png",
+      "sort_order": 7,
+      "is_active": true,
+      "meta_title": "ورود مع عصافير الحب | هدايا مكة",
+      "meta_description": "ورود مع عصافير الحب"
+    },
+    {
+      "id": "cat-roses-coffee",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Roses & Coffee Presentation",
+      "name_ar": "تقديمة ورد وقهوة",
+      "slug": "roses-coffee",
+      "image_url": "https://cdn.salla.sa/form-builder/2fomvXwpTYOOx8h3JMZGP3r5dnXelUxxIUDuzepj.png",
+      "sort_order": 8,
+      "is_active": true,
+      "meta_title": "تقديمة ورد وقهوة | هدايا مكة",
+      "meta_description": "تقديمة ورد وقهوة"
+    },
+    {
+      "id": "cat-roses-coffee-sweets",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Roses with Coffee & Sweets",
+      "name_ar": "تقديمة ورد مع قهوة وحلا",
+      "slug": "roses-coffee-sweets",
+      "image_url": "https://cdn.salla.sa/form-builder/zf3HeZ6jT4wON2ZEbeJfdMTc4bMLWQLkFvCndepr.png",
+      "sort_order": 9,
+      "is_active": true,
+      "meta_title": "تقديمة ورد مع قهوة وحلا | هدايا مكة",
+      "meta_description": "تقديمة ورد مع قهوة وحلا"
+    },
+    {
+      "id": "cat-roses-cake",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Roses with Gourmet Cake",
+      "name_ar": "ورد مع كيك",
+      "slug": "roses-cake",
+      "image_url": "https://cdn.salla.sa/form-builder/JnIWUYX47T9XyXPQlFx76ihWwhqD2N3xXKcYBMbh.png",
+      "sort_order": 10,
+      "is_active": true,
+      "meta_title": "ورد مع كيك | هدايا مكة",
+      "meta_description": "ورد مع كيك"
+    },
+    {
+      "id": "cat-korean-cake",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Korean Lunchbox Bento Cake",
+      "name_ar": "تقديمة كيك الكوري",
+      "slug": "korean-cake",
+      "image_url": "https://cdn.salla.sa/form-builder/iN2hGSe4EYU7Jl2Jt6U5uk9swZaHsPbJnnqpNpac.png",
+      "sort_order": 11,
+      "is_active": true,
+      "meta_title": "تقديمة كيك الكوري | هدايا مكة",
+      "meta_description": "تقديمة كيك الكوري"
+    },
+    {
+      "id": "cat-mawajeeb",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Mawajeeb Wooden Plaques & Heritage",
+      "name_ar": "لوحات مواجيب وتراث حجازي",
+      "slug": "mawajeeb",
+      "image_url": "https://cdn.files.salla.network/products/246985580/539625c7-703f-4c13-aa4c-24d982e20865-original.webp",
+      "sort_order": 12,
+      "is_active": true,
+      "meta_title": "لوحات مواجيب وتراث حجازي | هدايا مكة",
+      "meta_description": "لوحات مواجيب وتراث حجازي"
+    },
+    {
+      "id": "cat-newborn",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Newborn Welcome Gifts",
+      "name_ar": "هدايا المواليد",
+      "slug": "newborn",
+      "image_url": "https://cdn.salla.sa/form-builder/h7hTylc4cMiriSfxe2sGsX0mL5Sc7akjxHAAUqHp.png",
+      "sort_order": 13,
+      "is_active": true,
+      "meta_title": "هدايا المواليد | هدايا مكة",
+      "meta_description": "هدايا المواليد"
+    },
+    {
+      "id": "cat-graduation",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Graduation Milestones",
+      "name_ar": "هدايا التخرج",
+      "slug": "graduation",
+      "image_url": "https://cdn.salla.sa/form-builder/unEMJIoOHLnWigTn0DpvQZbQMxNjU4QgVOT2BdUM.png",
+      "sort_order": 14,
+      "is_active": true,
+      "meta_title": "هدايا التخرج | هدايا مكة",
+      "meta_description": "هدايا التخرج"
+    },
+    {
+      "id": "cat-valentine",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Valentine & Love Blooms",
+      "name_ar": "هدايا عيد الحب",
+      "slug": "valentine",
+      "image_url": "https://cdn.salla.sa/form-builder/Y0Yt8LLfhRt46ljjaZjTaANumrZvYodYnv5CGQ7o.png",
+      "sort_order": 15,
+      "is_active": true,
+      "meta_title": "هدايا عيد الحب | هدايا مكة",
+      "meta_description": "هدايا عيد الحب"
+    },
+    {
+      "id": "cat-wedding",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Wedding & Bridal Keepsakes",
+      "name_ar": "هدايا الزواج والعرائس",
+      "slug": "wedding",
+      "image_url": "https://cdn.salla.sa/form-builder/Z8aMbQ8cDkf9OnQakCZwnH4GvpnqLlXsCqBk70ik.png",
+      "sort_order": 16,
+      "is_active": true,
+      "meta_title": "هدايا الزواج والعرائس | هدايا مكة",
+      "meta_description": "هدايا الزواج والعرائس"
+    },
+    {
+      "id": "cat-birthday",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Birthday Celebrations",
+      "name_ar": "هدايا عيد ميلاد",
+      "slug": "birthday",
+      "image_url": "https://cdn.salla.sa/form-builder/nm5BDgkXRslZvqTetu5wTrCTTTTLTrsBhWwjHMyI.png",
+      "sort_order": 17,
+      "is_active": true,
+      "meta_title": "هدايا عيد ميلاد | هدايا مكة",
+      "meta_description": "هدايا عيد ميلاد"
+    },
+    {
+      "id": "cat-men-gifts",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Royal Men Luxury Gifts",
+      "name_ar": "هدايا رجالية ملكية",
+      "slug": "men-gifts",
+      "image_url": "/images/hadaya_men_luxury_gift_1791219799100.jpg",
+      "sort_order": 18,
+      "is_active": true,
+      "meta_title": "هدايا رجالية ملكية | هدايا مكة",
+      "meta_description": "هدايا رجالية ملكية"
+    },
+    {
+      "id": "cat-women-gifts",
+      "store_id": "store-1",
+      "parent_id": null,
+      "name": "Luxury Women Gifts & Perfumes",
+      "name_ar": "هدايا نسائية فاخرة",
+      "slug": "women-gifts",
+      "image_url": "https://cdn.files.salla.network/homepage/246985580/67a93505-20fe-4f5e-ad46-0e0b1d2c4390.webp",
+      "sort_order": 19,
+      "is_active": true,
+      "meta_title": "هدايا نسائية فاخرة | هدايا مكة",
+      "meta_description": "هدايا نسائية فاخرة"
+    },
+    {
+      "id": "cat-hb-machines",
+      "store_id": "store-coffee",
+      "parent_id": null,
+      "name": "Coffee Machines & Espresso",
+      "name_ar": "مكائن القهوة والإسبريسو",
+      "slug": "machines",
+      "image_url": "/images/hibrew_h7a_flagship_machine.png",
+      "sort_order": 1,
+      "is_active": true,
+      "meta_title": "مكائن القهوة والإسبريسو | هاي برو",
+      "meta_description": "مكائن القهوة والإسبريسو"
+    },
+    {
+      "id": "cat-hb-mills",
+      "store_id": "store-coffee",
+      "parent_id": null,
+      "name": "Precision Coffee Mills",
+      "name_ar": "مطاحن القهوة الاحترافية",
+      "slug": "mills",
+      "image_url": "/images/coffee_grinder_mill_banner_1791218928342.jpg",
+      "sort_order": 2,
+      "is_active": true,
+      "meta_title": "مطاحن القهوة الاحترافية | هاي برو",
+      "meta_description": "مطاحن القهوة الاحترافية"
+    },
+    {
+      "id": "cat-hb-cabinets",
+      "store_id": "store-coffee",
+      "parent_id": null,
+      "name": "Luxury Coffee Cabinets & Stations",
+      "name_ar": "دواليب وأركان القهوة الفاخرة",
+      "slug": "cabinets",
+      "image_url": "/images/hero_coffee_corner_cabinet_1791217199146.jpg",
+      "sort_order": 3,
+      "is_active": true,
+      "meta_title": "دواليب وأركان القهوة الفاخرة | هاي برو",
+      "meta_description": "دواليب وأركان القهوة الفاخرة"
+    },
+    {
+      "id": "cat-hb-accessories",
+      "store_id": "store-coffee",
+      "parent_id": null,
+      "name": "Barista Accessories & Ceramic Cups",
+      "name_ar": "مستلزمات الباريستا والأكواب",
+      "slug": "accessories",
+      "image_url": "/images/coffee_accessories_tools_banner_1791218944111.jpg",
+      "sort_order": 4,
+      "is_active": true,
+      "meta_title": "مستلزمات الباريستا والأكواب | هاي برو",
+      "meta_description": "مستلزمات الباريستا والأكواب"
+    },
+    {
+      "id": "cat-hb-offers",
+      "store_id": "store-coffee",
+      "parent_id": null,
+      "name": "Exclusive Offers & Bundles",
+      "name_ar": "العروض والبكجات الحصرية",
+      "slug": "offers",
+      "image_url": "/images/coffee_hero_flagship_machine_1791218907782.jpg",
+      "sort_order": 5,
+      "is_active": true,
+      "meta_title": "العروض والبكجات الحصرية | هاي برو",
+      "meta_description": "العروض والبكجات الحصرية"
+    },
+    {
+      "id": "cat-clothing",
+      "store_id": "store-bleco",
+      "parent_id": null,
+      "name": "Car Seat Covers",
+      "name_ar": "تلابيس مقاعد السيارة",
+      "slug": "car-seat-covers",
+      "image_url": "/images/categories/vip-luxury-seat-covers.jpg",
+      "sort_order": 1,
+      "is_active": true,
+      "meta_title": "تلابيس مقاعد السيارة | متجر السعيدي",
+      "meta_description": "تلابيس مقاعد السيارة"
+    },
+    {
+      "id": "cat-floors",
+      "store_id": "store-bleco",
+      "parent_id": null,
+      "name": "Diamond Car Mats",
+      "name_ar": "أرضيات السيارة الدايموند",
+      "slug": "diamond-car-mats",
+      "image_url": "/images/categories/diamond-floor-mats.jpg",
+      "sort_order": 2,
+      "is_active": true,
+      "meta_title": "أرضيات السيارة الدايموند | متجر السعيدي",
+      "meta_description": "أرضيات السيارة الدايموند"
+    },
+    {
+      "id": "cat-perfumes",
+      "store_id": "store-bleco",
+      "parent_id": null,
+      "name": "Car Air Fresheners",
+      "name_ar": "معطرات وفواحات السيارة",
+      "slug": "car-air-fresheners",
+      "image_url": "/images/categories/car-air-fresheners.jpg",
+      "sort_order": 3,
+      "is_active": true,
+      "meta_title": "معطرات وفواحات السيارة | متجر السعيدي",
+      "meta_description": "معطرات وفواحات السيارة"
+    },
+    {
+      "id": "cat-care",
+      "store_id": "store-bleco",
+      "parent_id": null,
+      "name": "Car Care & Detailing",
+      "name_ar": "منتجات العناية والتلميع",
+      "slug": "car-care-detailing",
+      "image_url": "/images/categories/car-care-bleco.jpg",
+      "sort_order": 4,
+      "is_active": true,
+      "meta_title": "منتجات العناية والتلميع | متجر السعيدي",
+      "meta_description": "منتجات العناية والتلميع"
+    },
+    {
+      "id": "cat-accessories",
+      "store_id": "store-bleco",
+      "parent_id": null,
+      "name": "Accessories & Styling",
+      "name_ar": "زينة واكسسوارات السيارات",
+      "slug": "accessories-styling",
+      "image_url": "/images/categories/car-accessories.jpg",
+      "sort_order": 5,
+      "is_active": true,
+      "meta_title": "زينة واكسسوارات السيارات | متجر السعيدي",
+      "meta_description": "زينة واكسسوارات السيارات"
+    },
+    {
+      "id": "cat-tools",
+      "store_id": "store-bleco",
+      "parent_id": null,
+      "name": "Upholstery Supplies",
+      "name_ar": "أدوات ومستلزمات التنجيد",
+      "slug": "upholstery-supplies",
+      "image_url": "/images/categories/upholstery-tools.jpg",
+      "sort_order": 6,
+      "is_active": true,
+      "meta_title": "أدوات ومستلزمات التنجيد | متجر السعيدي",
+      "meta_description": "أدوات ومستلزمات التنجيد"
+    }
+  ]
 }

@@ -25,6 +25,7 @@ import {
   SlidersHorizontal,
   PlusCircle,
   ArrowRight,
+  Info,
 } from 'lucide-react';
 import { useManualOrderForm } from '../../hooks/useManualOrderForm';
 import { useTenant } from '../../context/TenantContext';
@@ -79,22 +80,45 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
   }, [propProducts, resolvedStoreId, allProducts, currentProducts]);
 
   const initialStoreItems = useMemo(() => {
-    if (catalogProducts && catalogProducts.length > 0) {
-      const p = catalogProducts[0];
+    // Start with a clean empty order (No unwanted products pre-injected)
+    return [];
+  }, []);
+
+  const isCarStore = useMemo(() => {
+    const id = String(resolvedStoreId || '').toLowerCase();
+    const cat = `${activeStore?.categoryEn || ''} ${activeStore?.category || ''}`.toLowerCase();
+    return id.includes('bleco') || id.includes('car') || cat.includes('car') || cat.includes('سيار');
+  }, [resolvedStoreId, activeStore]);
+
+  const isCoffeeStore = useMemo(() => {
+    const id = String(resolvedStoreId || '').toLowerCase();
+    const cat = `${activeStore?.categoryEn || ''} ${activeStore?.category || ''}`.toLowerCase();
+    return id.includes('coffee') || cat.includes('coffee') || cat.includes('قهوة');
+  }, [resolvedStoreId, activeStore]);
+
+  const storeQuickPresets = useMemo(() => {
+    if (isCarStore) {
       return [
-        {
-          id: p.id,
-          name: isAr ? (p.nameAr || p.name) : (p.nameEn || p.name),
-          sku: p.sku || 'SKU-001',
-          price: p.price || 50,
-          quantity: 1,
-          total: p.price || 50,
-          image: p.image,
-        },
+        { nameEn: 'Laser-Cut 5D Diamond Floor Mats (5-Seater)', nameAr: 'أرضيات دايموند 5D تفصيل ليزر (٥ مقاعد - صفين)', price: 380, labelEn: '5 Seats (380 SAR)', labelAr: 'أرضيات ٥ مقاعد (380 ر.س)' },
+        { nameEn: 'Laser-Cut 5D Diamond Floor Mats (5-Seater + Trunk Mat)', nameAr: 'أرضيات دايموند 5D تفصيل ليزر (٥ مقاعد + دعاسة الشنطة)', price: 470, labelEn: '5 Seats + Trunk (470 SAR)', labelAr: 'أرضيات ٥ مقاعد + الشنطة (470 ر.س)' },
+        { nameEn: 'Laser-Cut 5D Diamond Floor Mats (7-Seater Family + Trunk)', nameAr: 'أرضيات دايموند 5D تفصيل ليزر (٧ مقاعد عائلية + دعاسة الشنطة)', price: 530, labelEn: '7 Seats + Trunk (530 SAR)', labelAr: 'أرضيات ٧ مقاعد + الشنطة (530 ر.س)' },
+        { nameEn: 'Laser-Cut 5D Diamond Trunk Mat Only', nameAr: 'دعاسة شنطة سيارة دايموند 5D تفصيل ليزر', price: 150, labelEn: 'Trunk Mat Only (150 SAR)', labelAr: 'دعاسة الشنطة فقط (150 ر.س)' },
       ];
     }
-    return [];
-  }, [catalogProducts, isAr]);
+    if (isCoffeeStore) {
+      return [
+        { nameEn: 'Specialty Roast Coffee Beans (250g)', nameAr: 'حبوب قهوة مختصة فاخرة (٢٥٠ جم)', price: 65, labelEn: 'Specialty Beans 250g (65 SAR)', labelAr: 'حبوب مختصة ٢٥٠ جم (65 ر.س)' },
+        { nameEn: 'Professional Barista Drip Brewing Kit', nameAr: 'طقم باريستا متكامل لتحضير القهوة المقطرة', price: 180, labelEn: 'Barista Drip Kit (180 SAR)', labelAr: 'طقم تقطير باريستا (180 ر.س)' },
+        { nameEn: 'Stainless Precision Espresso Tamper & Station', nameAr: 'مكبس إسبريسو احترافي ستانلس ستيل ومحطة كبس', price: 120, labelEn: 'Espresso Tamper Station (120 SAR)', labelAr: 'محطة كبس إسبريسو (120 ر.س)' },
+      ];
+    }
+    // Gift & Flower Store default presets (Never show automotive car mats on gifts store!)
+    return [
+      { nameEn: 'Handcrafted Luxury Fresh Floral Bouquet', nameAr: 'باقة ورد طبيعي فاخرة منسقة يدوياً', price: 250, labelEn: 'Luxury Floral Bouquet (250 SAR)', labelAr: 'باقة ورد فاخرة (250 ر.س)' },
+      { nameEn: 'Curated Gift Box with Belgian Chocolates', nameAr: 'صندوق إهداء فاخر مع شوكولاتة بلجيكية مختارة', price: 320, labelEn: 'Gift Box + Chocolates (320 SAR)', labelAr: 'صندوق إهداء وشوكولاتة (320 ر.س)' },
+      { nameEn: 'VIP Royal Wedding & Congratulatory Hamper', nameAr: 'بكج ملكي فاخر للتهنئة والزواج والمناسبات السعيدة', price: 450, labelEn: 'VIP Royal Hamper (450 SAR)', labelAr: 'بكج ملكي فاخر (450 ر.س)' },
+    ];
+  }, [isCarStore, isCoffeeStore]);
 
   const {
     countryCode,
@@ -156,6 +180,17 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
     return Array.from(cats);
   }, [catalogProducts]);
 
+  // Category counts map for dynamic accurate count badges
+  const categoryCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    catalogProducts.forEach((p) => {
+      if (p.category) {
+        map[p.category] = (map[p.category] || 0) + 1;
+      }
+    });
+    return map;
+  }, [catalogProducts]);
+
   // Filter products based on search query and category filter
   const filteredProducts = useMemo(() => {
     let list = catalogProducts;
@@ -166,7 +201,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
 
     const query = searchQuery.trim().toLowerCase();
     if (!query) {
-      return list.slice(0, 10); // Show top 10 recommended items if no query
+      return list; // Return all store products for the selected category (or all 39 if 'all')
     }
 
     return list.filter((product) => {
@@ -249,7 +284,8 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
       className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-200"
     >
       <div
-        className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 overflow-hidden flex flex-col max-h-[94vh] text-slate-800 dark:text-slate-100 font-sans"
+        style={{ fontFamily: 'inherit' }}
+        className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 overflow-hidden flex flex-col max-h-[94vh] text-slate-800 dark:text-slate-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── TOP HEADER ── */}
@@ -380,45 +416,45 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
           </section>
 
           {/* ════ SECTION 2: PRODUCTS (REAL SEARCH & AUTO-SUGGEST) ════ */}
-          <section className="space-y-4">
+          <section className="space-y-3.5">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2.5">
-                <span className="w-7 h-7 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold shadow-2xs border border-teal-100/60 dark:border-teal-900/40">
+                <span className="w-8 h-8 rounded-full bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold shadow-2xs border border-teal-100/70 dark:border-teal-900/50">
                   <ShoppingCart className="w-4 h-4" />
                 </span>
-                <div>
-                  <h3 className="font-black text-sm text-slate-900 dark:text-white tracking-tight">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight">
                     {isAr ? 'المنتجات والطلبات' : 'Products & Order Items'}
                   </h3>
+                  {items.length > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-teal-600 text-white shadow-2xs">
+                      {items.reduce((acc, i) => acc + i.quantity, 0)} {isAr ? 'عنصر' : 'items'}
+                    </span>
+                  )}
                 </div>
-                {items.length > 0 && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-teal-600 text-white shadow-2xs">
-                    {items.reduce((acc, i) => acc + i.quantity, 0)} {isAr ? 'عنصر' : 'items'}
-                  </span>
-                )}
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowCustomProductForm(!showCustomProductForm)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs ${
+                  className={`px-3.5 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs ${
                     showCustomProductForm
                       ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
-                      : 'border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <Sparkles className="w-4 h-4 text-amber-500" />
                   <span>{isAr ? '+ منتج مخصص' : '+ Custom Product'}</span>
                 </button>
               </div>
             </div>
 
             {/* ── REAL PRODUCT SEARCH & SUGGESTIONS BAR ── */}
-            <div ref={searchContainerRef} className="relative z-20">
-              <div className="relative flex items-center rounded-2xl border-2 border-teal-500/40 dark:border-teal-500/30 bg-white dark:bg-slate-850 shadow-sm focus-within:border-teal-600 focus-within:ring-4 focus-within:ring-teal-500/15 transition-all">
-                <div className="ps-3.5 pe-2 text-teal-600 dark:text-teal-400 flex items-center pointer-events-none">
-                  <Search className="w-4 h-4" />
+            <div ref={searchContainerRef} className="relative z-20 space-y-2.5">
+              <div className="relative flex items-center rounded-2xl border-2 border-teal-400 dark:border-teal-500/80 bg-white dark:bg-slate-850 shadow-xs focus-within:border-teal-500 focus-within:ring-4 focus-within:ring-teal-400/20 transition-all">
+                <div className="ps-4 pe-2 text-teal-600 dark:text-teal-400 flex items-center pointer-events-none">
+                  <Search className="w-4.5 h-4.5" />
                 </div>
                 <input
                   ref={searchInputRef}
@@ -443,7 +479,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                       setSearchQuery('');
                       searchInputRef.current?.focus();
                     }}
-                    className="p-1.5 me-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    className="p-1.5 me-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -452,10 +488,10 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
 
               {/* Category Quick Filters */}
               {availableCategories.length > 0 && (
-                <div className="flex items-center gap-1.5 mt-2 overflow-x-auto pb-1 no-scrollbar">
-                  <span className="text-[11px] font-bold text-slate-400 me-1 shrink-0">
-                    <Tag className="w-3 h-3 inline me-1" />
-                    {isAr ? 'التصنيفات:' : 'Categories:'}
+                <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar text-xs">
+                  <span className="font-bold text-slate-700 dark:text-slate-300 me-1 shrink-0 flex items-center gap-1">
+                    <Tag className="w-3.5 h-3.5 text-slate-400 inline" />
+                    <span>{isAr ? 'التصنيفات:' : 'Categories:'}</span>
                   </span>
                   <button
                     type="button"
@@ -463,46 +499,74 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                       setSelectedCategory('all');
                       setIsSearchFocused(true);
                     }}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-all cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-xl font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
                       selectedCategory === 'all'
                         ? 'bg-teal-600 text-white shadow-2xs'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        : 'text-slate-700 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
-                    {isAr ? 'الكل' : 'All'} ({catalogProducts.length})
-                  </button>
-                  {availableCategories.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => {
-                        setSelectedCategory(cat);
-                        setIsSearchFocused(true);
-                      }}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-all cursor-pointer ${
-                        selectedCategory === cat
-                          ? 'bg-teal-600 text-white shadow-2xs'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    <span>{isAr ? 'الكل' : 'All'}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        selectedCategory === 'all'
+                          ? 'bg-white/20 text-white'
+                          : 'bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
                       }`}
                     >
-                      {cat}
-                    </button>
-                  ))}
+                      {catalogProducts.length}
+                    </span>
+                  </button>
+                  {availableCategories.map((cat) => {
+                    const count = categoryCounts[cat] || 0;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategory(cat);
+                          setIsSearchFocused(true);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                          selectedCategory === cat
+                            ? 'bg-teal-600 text-white shadow-2xs'
+                            : 'text-slate-700 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <span>{getProductDisplayCategory(cat, locale)}</span>
+                        <span
+                          className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                            selectedCategory === cat
+                              ? 'bg-white/20 text-white'
+                              : 'bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
               {/* ── AUTO-SUGGESTIONS DROPDOWN PANEL ── */}
               {isSearchFocused && (
-                <div className="absolute start-0 end-0 top-full mt-2 bg-white dark:bg-slate-850 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-750 max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 z-50 animate-in fade-in zoom-in-98 duration-150">
-                  <div className="px-4 py-2 bg-slate-50/90 dark:bg-slate-800/90 flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400 sticky top-0 z-10 backdrop-blur-xs">
-                    <span>
-                      {searchQuery
-                        ? isAr
-                          ? `نتائج البحث عن "${searchQuery}" (${filteredProducts.length})`
-                          : `Search results for "${searchQuery}" (${filteredProducts.length})`
-                        : isAr
-                        ? 'المنتجات الممتازة والشائعة في المتجر'
-                        : 'Featured & Popular Store Products'}
+                <div className="absolute start-0 end-0 top-full mt-2 bg-white dark:bg-slate-850 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-750 max-h-96 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 z-50 animate-in fade-in zoom-in-98 duration-150">
+                  <div className="px-4 py-2.5 bg-slate-50/95 dark:bg-slate-800/95 flex items-center justify-between text-[11px] font-bold text-slate-600 dark:text-slate-300 sticky top-0 z-10 backdrop-blur-xs border-b border-slate-200/70 dark:border-slate-750">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+                      <span>
+                        {searchQuery
+                          ? isAr
+                            ? `نتائج البحث عن "${searchQuery}" (${filteredProducts.length})`
+                            : `Search results for "${searchQuery}" (${filteredProducts.length})`
+                          : selectedCategory === 'all'
+                          ? isAr
+                            ? `جميع منتجات كتالوج المتجر (${filteredProducts.length})`
+                            : `All Store Catalog Products (${filteredProducts.length})`
+                          : isAr
+                          ? `${getProductDisplayCategory(selectedCategory, locale)} (${filteredProducts.length})`
+                          : `${getProductDisplayCategory(selectedCategory, locale)} (${filteredProducts.length})`}
+                      </span>
                     </span>
                     <button
                       type="button"
@@ -585,15 +649,15 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                                 <span>SKU: {product.sku || product.id}</span>
                                 <span>•</span>
                                 {isOutOfStock ? (
-                                  <span className="text-rose-500 font-sans font-bold">
+                                  <span className="text-rose-500 font-bold">
                                     {isAr ? 'نفذت الكمية' : 'Out of Stock'}
                                   </span>
                                 ) : isLowStock ? (
-                                  <span className="text-amber-500 font-sans font-bold">
+                                  <span className="text-amber-500 font-bold">
                                     {isAr ? `متبقي ${stockCount} فقط` : `${stockCount} left`}
                                   </span>
                                 ) : (
-                                  <span className="text-emerald-600 dark:text-emerald-400 font-sans font-bold">
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                                     {isAr ? `متوفر (${stockCount})` : `In Stock (${stockCount})`}
                                   </span>
                                 )}
@@ -696,49 +760,24 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                   </div>
                 </div>
 
-                {/* Automotive Presets Chips */}
+                {/* Store-Aware Quick Presets Chips (Zero Data Mixing) */}
                 <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-amber-200/50 text-[10px]">
-                  <span className="text-slate-500 font-bold">{isAr ? 'قوالب سريعة للسيارات:' : 'Quick Auto Presets:'}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCustomName('أرضيات دايموند 5D تفصيل ليزر (٥ مقاعد - صفين)');
-                      setCustomPrice('380');
-                    }}
-                    className="px-2 py-0.5 rounded-md bg-white/80 border border-amber-300 text-slate-800 hover:bg-amber-100 cursor-pointer font-bold"
-                  >
-                    أرضيات ٥ مقاعد (380 ر.س)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCustomName('أرضيات دايموند 5D تفصيل ليزر (٥ مقاعد + دعاسة الشنطة)');
-                      setCustomPrice('470');
-                    }}
-                    className="px-2 py-0.5 rounded-md bg-white/80 border border-amber-300 text-slate-800 hover:bg-amber-100 cursor-pointer font-bold"
-                  >
-                    أرضيات ٥ مقاعد + الشنطة (470 ر.س)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCustomName('أرضيات دايموند 5D تفصيل ليزر (٧ مقاعد عائلية + دعاسة الشنطة)');
-                      setCustomPrice('530');
-                    }}
-                    className="px-2 py-0.5 rounded-md bg-white/80 border border-amber-300 text-slate-800 hover:bg-amber-100 cursor-pointer font-bold"
-                  >
-                    أرضيات ٧ مقاعد + الشنطة (530 ر.س)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCustomName('دعاسة شنطة سيارة دايموند 5D تفصيل ليزر');
-                      setCustomPrice('150');
-                    }}
-                    className="px-2 py-0.5 rounded-md bg-white/80 border border-amber-300 text-slate-800 hover:bg-amber-100 cursor-pointer font-bold"
-                  >
-                    دعاسة الشنطة فقط (150 ر.س)
-                  </button>
+                  <span className="text-slate-500 font-bold">
+                    {isAr ? 'قوالب سريعة للمتجر:' : 'Store Quick Presets:'}
+                  </span>
+                  {storeQuickPresets.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setCustomName(isAr ? preset.nameAr : preset.nameEn);
+                        setCustomPrice(String(preset.price));
+                      }}
+                      className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-slate-800 border border-amber-300 dark:border-amber-700 text-slate-800 dark:text-slate-200 hover:bg-amber-100 dark:hover:bg-slate-700 cursor-pointer font-bold transition-colors"
+                    >
+                      {isAr ? preset.labelAr : preset.labelEn}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -860,91 +899,203 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
           {/* ════ SECTION 3: PAYMENT METHOD & STATUS ════ */}
           <section className="space-y-4">
             <div className="flex items-center gap-2.5">
-              <span className="w-7 h-7 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold shadow-2xs border border-teal-100/60 dark:border-teal-900/40">
+              <span className="w-8 h-8 rounded-full bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold shadow-2xs border border-teal-100/70 dark:border-teal-900/50">
                 <CreditCard className="w-4 h-4" />
               </span>
-              <h3 className="font-black text-sm text-slate-900 dark:text-white tracking-tight">
+              <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white tracking-tight">
                 {isAr ? 'طريقة وحالة الدفع' : 'Payment Method & Status'}
               </h3>
             </div>
 
-            <div className="space-y-3.5">
-              {/* Payment Method Tiles */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  {isAr ? 'طريقة الدفع المختارة' : 'Selected Payment Method'} <span className="text-rose-500">*</span>
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-                  {[
-                    { id: 'mada', labelEn: 'mada', labelAr: 'مدى', icon: 'mada' },
-                    { id: 'apple', labelEn: 'Apple Pay', labelAr: 'أبل باي', icon: 'apple' },
-                    { id: 'visa', labelEn: 'Visa / MC', labelAr: 'فيزا / ماستركارد', icon: 'card' },
-                    { id: 'stc', labelEn: 'stc pay', labelAr: 'اس تي سي باي', icon: 'stc' },
-                    { id: 'cash', labelEn: 'Cash on Delivery', labelAr: 'الدفع عند الاستلام', icon: 'cash' },
-                  ].map((pm) => {
-                    const isSelected = paymentMethod === pm.id;
-                    return (
-                      <button
-                        key={pm.id}
-                        type="button"
-                        onClick={() => setPaymentMethod(pm.id)}
-                        className={`p-3 rounded-2xl border text-xs font-bold flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all ${
-                          isSelected
-                            ? 'border-teal-600 bg-teal-50/90 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 ring-2 ring-teal-500/20 shadow-xs'
-                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200'
-                        }`}
-                      >
-                        {pm.id === 'mada' && (
-                          <span className="w-5 h-4 bg-emerald-600 text-[9px] font-black text-white rounded-xs flex items-center justify-center">
-                            M
-                          </span>
-                        )}
-                        {pm.id === 'apple' && <Smartphone className="w-4 h-4 text-slate-800 dark:text-slate-200" />}
-                        {pm.id === 'visa' && <CreditCard className="w-4 h-4 text-blue-600" />}
-                        {pm.id === 'stc' && (
-                          <span className="px-1 py-0.2 bg-purple-600 text-[8px] font-black text-white rounded-xs">
-                            stc
-                          </span>
-                        )}
-                        {pm.id === 'cash' && <Banknote className="w-4 h-4 text-emerald-600" />}
-                        <span className="text-[11px] leading-tight text-center">
-                          {isAr ? pm.labelAr : pm.labelEn}
-                        </span>
-                      </button>
-                    );
-                  })}
+            <div className="space-y-4">
+              {/* Payment Method Groups (100% Match with Saudi Commerce Spec) */}
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {isAr ? 'طريقة الدفع المختارة' : 'Selected Payment Method'} <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[11px] font-semibold text-teal-600 dark:text-teal-400">
+                    {isAr ? 'متوافق مع بوابات الدفع السعودية' : 'Saudi Payment Gateways Compliant'}
+                  </span>
                 </div>
+
+                {[
+                  {
+                    key: 'cards',
+                    titleEn: '1. Bank Cards and Electronic Payments',
+                    titleAr: '١. البطاقات البنكية والمدفوعات الإلكترونية',
+                    gridCols: 'grid-cols-2 sm:grid-cols-4',
+                    methods: [
+                      { id: 'mada', labelEn: 'mada', labelAr: 'مدى', badge: 'mada', badgeColor: 'bg-[#008272] text-white' },
+                      { id: 'visa', labelEn: 'Visa', labelAr: 'فيزا', badge: 'VISA', badgeColor: 'bg-[#1a1f71] text-white' },
+                      { id: 'mastercard', labelEn: 'Mastercard', labelAr: 'ماستركارد', badge: 'Mastercard', badgeColor: 'bg-gradient-to-r from-red-600 to-amber-500 text-white' },
+                      { id: 'apple_pay', labelEn: 'Apple Pay', labelAr: 'أبل باي', badge: 'Pay', badgeColor: 'bg-black dark:bg-white text-white dark:text-black' },
+                    ],
+                  },
+                  {
+                    key: 'wallets',
+                    titleEn: '2. Digital Wallets',
+                    titleAr: '٢. المحافظ الرقمية',
+                    gridCols: 'grid-cols-1 sm:grid-cols-3',
+                    noteEn: 'Google Pay — subject to availability for the store and integration method',
+                    noteAr: 'Google Pay — خاضع للتوافر للمتجر وطريقة الربط',
+                    methods: [
+                      { id: 'stc_pay', labelEn: 'stc pay', labelAr: 'اس تي سي باي', badge: 'stc pay', badgeColor: 'bg-[#4f008c] text-white' },
+                      { id: 'paypal', labelEn: 'PayPal', labelAr: 'باي بال', badge: 'PayPal', badgeColor: 'bg-[#003087] text-white' },
+                      { id: 'google_pay', labelEn: 'Google Pay', labelAr: 'جوجل باي', badge: 'GPay', badgeColor: 'bg-slate-800 dark:bg-slate-700 text-white' },
+                    ],
+                  },
+                  {
+                    key: 'bnpl',
+                    titleEn: '3. Buy Now, Pay Later (BNPL) & Installments',
+                    titleAr: '٣. الدفع الآجل والأقساط الشهرية (BNPL)',
+                    gridCols: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
+                    noteEn: 'Activation requirements, eligibility, and transaction limits vary depending on the payment provider and the merchant’s account',
+                    noteAr: 'متطلبات التفعيل، شروط الأهلية والحدود الائتمانية تختلف حسب مزود الخدمة وحساب التاجر',
+                    methods: [
+                      { id: 'tabby', labelEn: 'Tabby', labelAr: 'تابي', badge: 'tabby', badgeColor: 'bg-[#3effb3] text-slate-950 font-black' },
+                      { id: 'tamara', labelEn: 'Tamara', labelAr: 'تمارا', badge: 'tamara', badgeColor: 'bg-[#fbb03b] text-slate-950 font-black' },
+                      { id: 'mispay', labelEn: 'Mispay', labelAr: 'مسباي', badge: 'mispay', badgeColor: 'bg-[#5e17eb] text-white font-black' },
+                      { id: 'madfooat', labelEn: 'Madfooat', labelAr: 'مدفوعات', badge: 'madfooat', badgeColor: 'bg-[#009688] text-white font-black' },
+                      { id: 'emkan', labelEn: 'Emkan', labelAr: 'إمكان', badge: 'emkan', badgeColor: 'bg-[#0084b4] text-white font-black' },
+                    ],
+                  },
+                  {
+                    key: 'other',
+                    titleEn: '4. Other Payment Methods',
+                    titleAr: '٤. طرق دفع أخرى',
+                    gridCols: 'grid-cols-1 sm:grid-cols-2',
+                    noteEn: 'Subject to the customer\'s activation and selected payment methods',
+                    noteAr: 'خاضع لتفعيل المتجر وطرق الدفع المحددة من العميل',
+                    methods: [
+                      { id: 'bank_transfer', labelEn: 'Bank Transfer', labelAr: 'تحويل بنكي', icon: 'bank' },
+                      { id: 'cod', labelEn: 'Cash on Delivery (COD)', labelAr: 'الدفع عند الاستلام (COD)', icon: 'cash' },
+                    ],
+                  },
+                ].map((group) => (
+                  <div
+                    key={group.key}
+                    className="space-y-2.5 p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-slate-850/70 border border-slate-200/90 dark:border-slate-800 shadow-2xs transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                        <span>{isAr ? group.titleAr : group.titleEn}</span>
+                      </p>
+                    </div>
+
+                    <div className={`grid ${group.gridCols} gap-2.5`}>
+                      {group.methods.map((pm: any) => {
+                        const isSelected =
+                          paymentMethod === pm.id ||
+                          (pm.id === 'apple_pay' && paymentMethod === 'apple') ||
+                          (pm.id === 'stc_pay' && paymentMethod === 'stc') ||
+                          (pm.id === 'google_pay' && paymentMethod === 'googlepay') ||
+                          (pm.id === 'cod' && (paymentMethod === 'cash' || paymentMethod === 'COD'));
+
+                        return (
+                          <button
+                            key={pm.id}
+                            type="button"
+                            onClick={() => setPaymentMethod(pm.id)}
+                            className={`relative p-3 rounded-2xl border text-center flex flex-col items-center justify-between gap-2 cursor-pointer transition-all duration-200 min-h-[76px] group ${
+                              isSelected
+                                ? 'border-2 border-teal-500 bg-teal-50/70 dark:bg-teal-950/40 text-teal-950 dark:text-teal-200 ring-2 ring-teal-500/20 shadow-xs'
+                                : 'border border-slate-200/90 dark:border-slate-750 bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-800 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-650'
+                            }`}
+                          >
+                            {/* Active selection checkmark in corner */}
+                            {isSelected && (
+                              <span className="absolute top-2 end-2 w-4 h-4 rounded-full bg-teal-600 text-white flex items-center justify-center shadow-xs">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />
+                              </span>
+                            )}
+
+                            {/* Top element: Badge or Icon with fixed height */}
+                            <div className="h-6 flex items-center justify-center">
+                              {pm.badge && (
+                                <span
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wide shadow-2xs ${pm.badgeColor}`}
+                                >
+                                  {pm.badge}
+                                </span>
+                              )}
+                              {pm.icon === 'bank' && <Building2 className="w-5 h-5 text-sky-600 dark:text-sky-400" />}
+                              {pm.icon === 'cash' && <Banknote className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
+                            </div>
+
+                            {/* Bottom label */}
+                            <span className="text-xs font-bold leading-tight text-center">
+                              {isAr ? pm.labelAr : pm.labelEn}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {group.noteEn && (
+                      <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 flex items-center gap-1.5 pt-1">
+                        <Info className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                        <span>{isAr ? group.noteAr : group.noteEn}</span>
+                      </p>
+                    )}
+                  </div>
+                ))}
               </div>
 
               {/* Payment Status Segmented Control */}
-              <div>
+              <div className="pt-2">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                   {isAr ? 'حالة الدفع' : 'Payment Status'} <span className="text-rose-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-3 max-w-md">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setPaymentStatus('Paid')}
-                    className={`py-2.5 px-4 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                    className={`py-3.5 px-4 rounded-2xl border text-xs sm:text-sm font-bold flex items-center justify-between gap-3 cursor-pointer transition-all duration-200 ${
                       paymentStatus === 'Paid'
-                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 ring-2 ring-emerald-500/20 shadow-xs'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 hover:bg-slate-50 text-slate-600 dark:text-slate-300'
+                        ? 'border-2 border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
                     }`}
                   >
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-400/40" />
-                    <span>{isAr ? 'مدفوع بالكامل' : 'Paid in Full'}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-emerald-400/30 shrink-0" />
+                      <div className="text-start">
+                        <p className="font-black text-slate-900 dark:text-white leading-tight">
+                          {isAr ? 'مدفوع بالكامل' : 'Paid in Full'}
+                        </p>
+                        <p className="text-[11px] font-normal text-emerald-700 dark:text-emerald-400 mt-0.5">
+                          {isAr ? 'تم استلام المبلغ بالكامل' : 'Payment confirmed & captured'}
+                        </p>
+                      </div>
+                    </div>
+                    {paymentStatus === 'Paid' && (
+                      <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    )}
                   </button>
+
                   <button
                     type="button"
                     onClick={() => setPaymentStatus('Pending Payment')}
-                    className={`py-2.5 px-4 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                    className={`py-3.5 px-4 rounded-2xl border text-xs sm:text-sm font-bold flex items-center justify-between gap-3 cursor-pointer transition-all duration-200 ${
                       paymentStatus === 'Pending Payment'
-                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 ring-2 ring-amber-500/20 shadow-xs'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 hover:bg-slate-50 text-slate-600 dark:text-slate-300'
+                        ? 'border-2 border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 ring-2 ring-amber-500/20 shadow-xs'
+                        : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
                     }`}
                   >
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-amber-400/40" />
-                    <span>{isAr ? 'بانتظار التحصيل / الدفع' : 'Pending Payment'}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="w-3 h-3 rounded-full bg-amber-500 ring-4 ring-amber-400/30 shrink-0" />
+                      <div className="text-start">
+                        <p className="font-black text-slate-900 dark:text-white leading-tight">
+                          {isAr ? 'بانتظار التحصيل / الدفع' : 'Pending Payment'}
+                        </p>
+                        <p className="text-[11px] font-normal text-amber-700 dark:text-amber-400 mt-0.5">
+                          {isAr ? 'التحصيل عند الاستلام أو لاحقاً' : 'Awaiting collection or COD'}
+                        </p>
+                      </div>
+                    </div>
+                    {paymentStatus === 'Pending Payment' && (
+                      <AlertCircle className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                    )}
                   </button>
                 </div>
               </div>

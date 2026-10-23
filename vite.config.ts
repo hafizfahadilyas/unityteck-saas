@@ -42,6 +42,7 @@ export default defineConfig(() => {
       include: ['react', 'react-dom', 'lucide-react', 'motion', 'date-fns'],
     },
     build: {
+      emptyOutDir: false,
       target: 'esnext',
       minify: 'esbuild',
       cssMinify: true,

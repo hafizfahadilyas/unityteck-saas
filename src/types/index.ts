@@ -43,6 +43,7 @@ export interface Store {
   visitorsCount: number;
   lastActivity: string;
   logo: string;
+  favicon?: string;
   accentColor: string;
   dbIsolation: 'shared_store_id' | 'dedicated_mysql';
   createdAt: string;

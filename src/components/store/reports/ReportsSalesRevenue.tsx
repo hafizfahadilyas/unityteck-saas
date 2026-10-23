@@ -566,9 +566,13 @@ export const ReportsSalesRevenue: React.FC<ReportsSalesRevenueProps> = ({
                   >
                     {/* Tooltip on hover */}
                     {isHovered && (
-                      <div className="absolute -top-12 bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-[10px] font-semibold py-1 px-2 rounded-lg shadow-lg whitespace-nowrap z-30 transition-all pointer-events-none">
-                        <div>{d.label}: {money(d.revenue)}</div>
-                        <div className="text-[9px] text-purple-300 dark:text-purple-600">{d.orders} {isAr ? 'طلبات' : 'orders'}</div>
+                      <div
+                        dir={isAr ? 'rtl' : 'ltr'}
+                        className="absolute -top-14 bg-slate-950/95 text-white text-[11px] font-semibold py-2 px-3 rounded-xl shadow-2xl border border-slate-700/80 backdrop-blur-md whitespace-nowrap z-30 transition-all pointer-events-none w-max min-w-[130px]"
+                      >
+                        <div className="text-slate-400 text-[10px] pb-1 mb-1 border-b border-slate-800">{d.label}</div>
+                        <div className="text-white font-bold">{money(d.revenue)}</div>
+                        <div className="text-[10px] text-purple-300 font-medium">{d.orders} {isAr ? 'طلبات' : 'orders'}</div>
                       </div>
                     )}
 

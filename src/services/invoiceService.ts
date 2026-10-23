@@ -639,7 +639,7 @@ function createInitialDocuments(storeId: string, store?: Partial<Store>): Invoic
             taxRate: 15,
             taxAmount: 210,
             total: 1610,
-            image: '/src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg',
+            image: '/images/coffee_hero_flagship_machine_1791218907782.jpg',
           },
           {
             id: 'item-cof-2',
@@ -653,7 +653,7 @@ function createInitialDocuments(storeId: string, store?: Partial<Store>): Invoic
             taxRate: 15,
             taxAmount: 102,
             total: 782,
-            image: '/src/assets/images/coffee_beans_ethiopian_heirloom_1791218928065.jpg',
+            image: '/images/coffee_beans_ethiopian_heirloom_1791218928065.jpg',
           },
         ],
         subtotal: 2080,

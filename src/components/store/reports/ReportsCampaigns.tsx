@@ -519,10 +519,13 @@ export const ReportsCampaigns: React.FC<ReportsCampaignsProps> = ({
                     className="flex-1 flex flex-col items-center h-full justify-end group cursor-pointer relative z-10"
                   >
                     {isHovered && (
-                      <div className="absolute -top-14 bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-[10px] font-semibold py-1 px-2.5 rounded-lg shadow-lg whitespace-nowrap z-30 pointer-events-none">
-                        <div>{d.label}</div>
-                        <div className="text-emerald-400 dark:text-emerald-600">{isAr ? 'إيرادات:' : 'Revenue:'} {money(d.revenue)}</div>
-                        <div className="text-purple-300 dark:text-purple-600">{isAr ? 'إنفاق:' : 'Spend:'} {money(d.spend)} (ROAS: {d.roas}x)</div>
+                      <div
+                        dir={isAr ? 'rtl' : 'ltr'}
+                        className="absolute -top-16 bg-slate-950/95 text-white text-[11px] font-semibold py-2 px-3 rounded-xl shadow-2xl border border-slate-700/80 backdrop-blur-md whitespace-nowrap z-30 pointer-events-none w-max min-w-[140px]"
+                      >
+                        <div className="text-slate-400 text-[10px] pb-1 mb-1 border-b border-slate-800">{d.label}</div>
+                        <div className="text-emerald-400">{isAr ? 'إيرادات:' : 'Revenue:'} {money(d.revenue)}</div>
+                        <div className="text-purple-300">{isAr ? 'إنفاق:' : 'Spend:'} {money(d.spend)} (ROAS: {d.roas}x)</div>
                       </div>
                     )}
 

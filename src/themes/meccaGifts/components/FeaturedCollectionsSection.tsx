@@ -99,28 +99,28 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
     : [
         {
           id: 'stat-1',
-          image: '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+          image: '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
           value: `+${counts.customers.toLocaleString()}`,
           label: 'Happy Customers',
           labelAr: 'عميل سعيد ومميز',
         },
         {
           id: 'stat-2',
-          image: '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+          image: '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
           value: `+${counts.orders}`,
           label: 'Daily Orders',
           labelAr: 'طلب يومي متجدد',
         },
         {
           id: 'stat-3',
-          image: '/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg',
+          image: '/images/hadaya_luxury_gift_set_1791216170853.jpg',
           value: `+${counts.years}`,
           label: 'Years of Experience',
           labelAr: 'سنوات من الخبرة والعراقة',
         },
         {
           id: 'stat-4',
-          image: '/src/assets/images/hadaya_pink_peonies_1791216156090.jpg',
+          image: '/images/hadaya_pink_peonies_1791216156090.jpg',
           value: `+${counts.categories}`,
           label: 'Gift Categories',
           labelAr: 'تصنيف هدايا حصري',

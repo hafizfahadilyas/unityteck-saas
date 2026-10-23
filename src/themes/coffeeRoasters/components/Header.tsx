@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
+import { PRODUCTS } from '../data/products';
 import { readAllThemeSettings } from '../../settings/themeSettingsStore';
 import {
   Search,
@@ -57,7 +58,8 @@ export const Header: React.FC = () => {
       offers: { latest: [], bundles: [], flash: [] },
     };
 
-    (products || []).forEach((prod) => {
+    const sourceList = (products && products.length > 0) ? products : PRODUCTS;
+    sourceList.forEach((prod) => {
       const catKey = (prod.category || 'machines').toLowerCase();
       const primaryImg =
         prod.colors?.[0]?.image ||
@@ -1161,7 +1163,7 @@ export const Header: React.FC = () => {
 
         {/* 4. HONOR MOBILE DRILLDOWN SLIDE NAVIGATION */}
         {mobileMenuOpen && (
-          <div className="lg:hidden absolute top-full left-0 right-0 w-full h-[calc(100vh-4rem)] max-h-[calc(100dvh-4rem)] bg-white z-[100] border-t border-neutral-200 shadow-[0_25px_50px_rgba(0,0,0,0.22)] overflow-y-auto overscroll-contain text-neutral-800 animate-honor-mega">
+          <div className="lg:hidden fixed top-16 left-0 right-0 bottom-0 w-full bg-white z-[100] border-t border-neutral-200 shadow-[0_25px_50px_rgba(0,0,0,0.22)] overflow-y-auto overscroll-contain text-neutral-800 animate-honor-mega">
             {/* LEVEL 1: Primary Category List */}
             {!mobileSubNavKey ? (
               <div className="p-4 sm:p-6 pb-24 space-y-4">

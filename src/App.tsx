@@ -26,6 +26,7 @@ import {
 } from './status/routes';
 import { useToast } from './components/common/ToastProvider';
 import { applyPortalHead } from './utils/portalHead';
+import { readStoreIdentity } from './themes/settings/storeIdentity';
 import { Lock, ShieldAlert } from 'lucide-react';
 import { isStoreControlEnabled } from './services/storeControlService';
 
@@ -330,7 +331,7 @@ function TabFallback() {
           : isCoffee
           ? (activeStore?.logo && !activeStore.logo.includes('brand-logo')
               ? activeStore.logo
-              : '/src/assets/images/hibrew_h7a_flagship_machine.png')
+              : '/images/hibrew_h7a_flagship_machine.png')
           : (loaderPrefs.logoUrl || activeStore?.logo)
       }
     />
@@ -737,8 +738,11 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       navigate('/admin?store=coffee', { replace: true });
     } else if (path === '/flowers/admin') {
       navigate('/admin?store=flowers', { replace: true });
-    } else if (path === '/store' || path === '/store/') {
-      navigate(`/admin${search}`, { replace: true });
+    } else if (path === '/admin' || path === '/admin/' || path === '/store' || path === '/store/') {
+      const qTab = typeof window !== 'undefined' ? new URLSearchParams(search).get('tab') : null;
+      if (qTab && qTab !== storeTab) {
+        setStoreTab(qTab);
+      }
     } else if (path === '/store/login' && search.includes('tab=control-center')) {
       navigate(session?.portal === 'master' ? `/master${search}` : `/master/login${search}`, { replace: true });
     } else if (path === '/master' || path === '/master/') {
@@ -795,12 +799,14 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     const params = new URLSearchParams(window.location.search);
     const storeParam = (params.get('store') || params.get('demo') || '').toLowerCase().trim();
     const pathnameLower = window.location.pathname.toLowerCase();
+    const hostnameLower = window.location.hostname.toLowerCase();
     const effectiveSlug =
       storeParam ||
-      (pathnameLower.startsWith('/coffee') || pathnameLower.startsWith('/public_html') ? 'coffee' :
+      (pathnameLower.startsWith('/coffee') ? 'coffee' :
        pathnameLower.startsWith('/bleco') || pathnameLower.startsWith('/car') ? 'bleco' :
        pathnameLower.startsWith('/flowers') || pathnameLower.startsWith('/hadaya') ? 'flowers' :
-       (resolvedDomain?.resolved && resolvedDomain.storeId ? resolvedDomain.storeId : ''));
+       (hostnameLower.includes('giftshop-sa.com') || hostnameLower.includes('hadaya') ? 'flowers' :
+       (resolvedDomain?.resolved && resolvedDomain.storeId ? resolvedDomain.storeId : '')));
     if (!effectiveSlug) return;
     const tabParam = params.get('tab');
     const tabQuery = tabParam ? `&tab=${encodeURIComponent(tabParam)}` : '';
@@ -1037,7 +1043,6 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         const urlPath = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
         const hasPathStore =
           urlPath.startsWith('/coffee') ||
-          urlPath.startsWith('/public_html') ||
           urlPath.startsWith('/bleco') ||
           urlPath.startsWith('/car') ||
           urlPath.startsWith('/flowers') ||
@@ -1164,13 +1169,32 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       applyPortalHead({ portal: 'master' });
       return;
     }
+    const identity = activeStore ? readStoreIdentity(activeStore.id, activeStore) : null;
+    const currentFavicon = activeStore?.favicon || identity?.faviconUrl || activeStore?.logo || null;
     applyPortalHead({
       portal: 'store',
       storeName: activeStore?.name || null,
-      // Store custom favicon URL lands when branding fields are wired (S1 / SEO)
-      faviconUrl: null,
+      faviconUrl: currentFavicon,
     });
-  }, [session, mode, activeStore?.name]);
+  }, [session, mode, activeStore?.name, activeStore?.favicon, activeStore?.logo, activeStore?.id]);
+
+  // Listen for live store updates (logo, favicon, name) to update browser tab immediately
+  useEffect(() => {
+    const handleStoreUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{ storeId: string; name?: string; logo?: string; favicon?: string }>;
+      if (customEvent.detail && activeStore && customEvent.detail.storeId === activeStore.id) {
+        if (mode === 'store') {
+          applyPortalHead({
+            portal: 'store',
+            storeName: customEvent.detail.name || activeStore.name,
+            faviconUrl: customEvent.detail.favicon || customEvent.detail.logo || activeStore.favicon,
+          });
+        }
+      }
+    };
+    window.addEventListener('unityteck-store-updated', handleStoreUpdated);
+    return () => window.removeEventListener('unityteck-store-updated', handleStoreUpdated);
+  }, [activeStore, mode]);
 
   const handleLogout = useCallback(() => {
     const wasMaster = session?.portal === 'master';

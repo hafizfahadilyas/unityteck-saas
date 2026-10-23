@@ -439,6 +439,16 @@ export function applySEOToDOM(seo: GeneratedStoreSEO): void {
   }
   jsonLdScript.textContent = JSON.stringify(seo.schema, null, 2);
 
+  // Skip external tracking scripts on local dev environment to prevent offline / ERR_NAME_NOT_RESOLVED delays
+  const isLocalHost = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.endsWith('.local')
+  );
+  if (isLocalHost) {
+    return;
+  }
+
   // Google Tag Manager (GTM) Container Injection
   if (seo.tracking.gtmId && !document.getElementById('gtm-script-tag')) {
     const gtmId = seo.tracking.gtmId;

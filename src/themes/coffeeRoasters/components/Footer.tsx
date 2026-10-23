@@ -151,7 +151,7 @@ export const Footer: React.FC = () => {
               </div>
 
               {/* Input & Subscribe Button */}
-              <form onSubmit={handleSubscribe} className="flex items-center gap-2 max-w-md pt-1">
+              <form onSubmit={handleSubscribe} className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 max-w-md pt-1">
                 <input
                   type={subChannel === 'email' ? 'email' : 'tel'}
                   required
@@ -162,11 +162,11 @@ export const Footer: React.FC = () => {
                   }
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  className="flex-1 bg-neutral-900 border border-neutral-700 focus:border-white px-4 py-3 rounded-full text-white placeholder-neutral-400 text-xs outline-none transition-colors"
+                  className="flex-1 min-w-0 bg-neutral-900 border border-neutral-700 focus:border-white px-4 py-2.5 xs:py-3 rounded-full text-white placeholder-neutral-400 text-xs outline-none transition-colors"
                 />
                 <button
                   type="submit"
-                  className="px-6 py-3 bg-white hover:bg-neutral-200 text-black font-bold text-xs rounded-full transition-all shrink-0 cursor-pointer active:scale-95"
+                  className="px-5 xs:px-6 py-2.5 xs:py-3 bg-white hover:bg-neutral-200 text-black font-bold text-xs rounded-full transition-all shrink-0 cursor-pointer active:scale-95 text-center"
                 >
                   {subSuccess ? (language === 'AR' ? 'تم الاشتراك ✓' : 'Subscribed ✓') : (language === 'AR' ? 'اشتراك' : 'Subscribe')}
                 </button>

@@ -34,6 +34,11 @@ use App\Http\Controllers\Api\GiftingController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', [HealthController::class, 'show']);
+Route::get('/stores', [StoreController::class, 'index']);
+Route::get('/stores/{id}', [StoreController::class, 'show']);
+Route::get('/stores/{storeId}/reviews', function () {
+    return response()->json(['success' => true, 'data' => []]);
+});
 
 // Phase 2.1–2.2 — Holst auth (Sanctum). Separate throttles per action.
 Route::middleware('throttle:8,1')->group(function () {
@@ -64,10 +69,6 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
         [SubscriptionController::class, 'update']
     );
 
-    Route::middleware('role.can:stores.read')->group(function () {
-        Route::get('/stores', [StoreController::class, 'index']);
-        Route::get('/stores/{id}', [StoreController::class, 'show']);
-    });
     Route::middleware('role.can:stores.write')->group(function () {
         Route::post('/stores', [StoreController::class, 'store']);
         Route::patch('/stores/{id}', [StoreController::class, 'update']);

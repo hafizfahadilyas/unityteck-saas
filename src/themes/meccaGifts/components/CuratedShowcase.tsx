@@ -20,7 +20,7 @@ export const CuratedShowcase: React.FC = () => {
       title: 'Luxury',
       arabicTitle: 'اختيارات تفتن',
       category: 'باقات فاخرة',
-      image: '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+      image: '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
       tag: isAr ? 'فخامة' : 'Luxury'
     },
     {
@@ -28,7 +28,7 @@ export const CuratedShowcase: React.FC = () => {
       title: 'Signature',
       arabicTitle: 'اختيارات حصرية',
       category: 'ورد أبيض',
-      image: '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+      image: '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
       tag: isAr ? 'حصري' : 'Signature'
     },
     {

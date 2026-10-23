@@ -34,7 +34,7 @@ export const OccasionAndWhyUsSection: React.FC<OccasionAndWhyUsSectionProps> = (
       titleAr: 'عيد ميلاد',
       subtitle: 'Make it Special',
       subtitleAr: 'اجعله مميزاً',
-      image: '/src/assets/images/hadaya_pink_peonies_1791216156090.jpg',
+      image: '/images/hadaya_pink_peonies_1791216156090.jpg',
       categoryKey: 'ورد و كيك',
     },
     {
@@ -43,7 +43,7 @@ export const OccasionAndWhyUsSection: React.FC<OccasionAndWhyUsSectionProps> = (
       titleAr: 'ذكرى سنوية',
       subtitle: 'Celebrate Love',
       subtitleAr: 'احتفل بالحب',
-      image: '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+      image: '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
       categoryKey: 'ورد أحمر',
     },
     {
@@ -52,7 +52,7 @@ export const OccasionAndWhyUsSection: React.FC<OccasionAndWhyUsSectionProps> = (
       titleAr: 'تهنئة وتخرج',
       subtitle: 'Share the Joy',
       subtitleAr: 'شارك الفرحة',
-      image: '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+      image: '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
       categoryKey: 'باقات فاخرة',
     },
     {
@@ -61,7 +61,7 @@ export const OccasionAndWhyUsSection: React.FC<OccasionAndWhyUsSectionProps> = (
       titleAr: 'زفاف وعقد قران',
       subtitle: 'For a Beautiful Day',
       subtitleAr: 'ليوم لا يُنسى',
-      image: '/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
+      image: '/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
       categoryKey: 'باقات الورود الطبيعية',
     },
     {
@@ -70,7 +70,7 @@ export const OccasionAndWhyUsSection: React.FC<OccasionAndWhyUsSectionProps> = (
       titleAr: 'هدايا مخصصة',
       subtitle: 'Your Idea, Our Care',
       subtitleAr: 'فكرتك وعنايتنا',
-      image: '/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg',
+      image: '/images/hadaya_luxury_gift_set_1791216170853.jpg',
       categoryKey: 'هدايا ملكية فاخرة',
     },
   ];

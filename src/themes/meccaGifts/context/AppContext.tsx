@@ -149,18 +149,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const products: Product[] = useMemo(() => {
     const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
 
-    let sourceProducts = currentProducts;
-    try {
-      if (typeof window !== 'undefined' && activeStore?.id) {
-        const rawMap = localStorage.getItem('unityteck_products_map');
-        if (rawMap) {
-          const map = JSON.parse(rawMap);
-          if (Array.isArray(map[activeStore.id]) && map[activeStore.id].length > 0) {
-            sourceProducts = map[activeStore.id];
+    // Prioritize fresh live tenant catalog. Never overwrite with stale localStorage cache if currentProducts exists.
+    let sourceProducts = (currentProducts && currentProducts.length > 0) ? currentProducts : [];
+    if (sourceProducts.length === 0) {
+      try {
+        if (typeof window !== 'undefined' && activeStore?.id) {
+          const rawMap = localStorage.getItem('unityteck_products_map');
+          if (rawMap) {
+            const map = JSON.parse(rawMap);
+            if (Array.isArray(map[activeStore.id]) && map[activeStore.id].length > 0) {
+              sourceProducts = map[activeStore.id];
+            }
           }
         }
-      }
-    } catch {}
+      } catch {}
+    }
 
     if (sourceProducts && sourceProducts.length > 0) {
       return sourceProducts.map((p) => {
@@ -183,7 +186,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           originalPrice: p.originalPrice ? Number(p.originalPrice) : (p.discountedPrice && p.discountedPrice < p.price ? Number(p.price) : undefined),
           rating: 4.9,
           reviewsCount: p.salesCount || 135,
-          image: p.image || '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+          image: (p.image ? p.image.replace('/src/assets/images/', '/images/') : '/images/hadaya_red_roses_bouquet_1791276749666.jpg'),
           additionalImages: p.galleryUrls && p.galleryUrls.length > 0 ? p.galleryUrls : (p.image ? [p.image] : []),
           category: currentLangCat,
           categoryAr: p.categoryAr || p.category,

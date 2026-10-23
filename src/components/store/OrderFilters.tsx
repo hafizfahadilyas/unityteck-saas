@@ -44,6 +44,7 @@ export interface OrderFilterState {
   shippingStatus: FilterShippingStatus;
   paymentMethod?: string;
   orderSource?: string;
+  status?: string;
 }
 
 export interface OrderFiltersProps {
@@ -243,6 +244,7 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
         {filters.paymentMethod !== undefined && (
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+              <CreditCard className="w-3.5 h-3.5 text-slate-400" />
               <span>{isAr ? 'طريقة الدفع' : 'Payment Method'}</span>
             </label>
             <div className="relative">
@@ -251,24 +253,41 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
                 onChange={(e) => handleUpdate('paymentMethod', e.target.value)}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 appearance-none cursor-pointer pe-8 font-medium"
               >
-                <option value="all">{isAr ? 'جميع طرق الدفع' : 'All Payment Methods'}</option>
-                <option value="mada">{isAr ? 'مدى' : 'mada'}</option>
-                <option value="apple">{isAr ? 'أبل باي' : 'Apple Pay'}</option>
-                <option value="visa">{isAr ? 'فيزا / ماستركارد' : 'Visa / MasterCard'}</option>
-                <option value="cash">{isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery'}</option>
-                <option value="stc">{isAr ? 'اس تي سي باي' : 'stc pay'}</option>
+                <option value="all">{isAr ? 'كافة طرق الدفع' : 'All Payment Methods'}</option>
+                <optgroup label={isAr ? 'البطاقات البنكية والدفع الإلكتروني' : 'Bank Cards & Electronic Payments'}>
+                  <option value="mada">{isAr ? 'مدى' : 'Mada'}</option>
+                  <option value="visa">{isAr ? 'فيزا' : 'Visa'}</option>
+                  <option value="mastercard">{isAr ? 'ماستركارد' : 'Mastercard'}</option>
+                  <option value="apple">{isAr ? 'أبل باي' : 'Apple Pay'}</option>
+                </optgroup>
+                <optgroup label={isAr ? 'المحافظ الرقمية' : 'Digital Wallets'}>
+                  <option value="stc">{isAr ? 'اس تي سي باي' : 'STC Pay'}</option>
+                  <option value="paypal">{isAr ? 'باي بال' : 'PayPal'}</option>
+                  <option value="googlepay">{isAr ? 'جوجل باي' : 'Google Pay'}</option>
+                </optgroup>
+                <optgroup label={isAr ? 'اشتري الآن وادفع لاحقاً والتقسيط' : 'BNPL & Installments'}>
+                  <option value="tabby">{isAr ? 'تابي' : 'Tabby'}</option>
+                  <option value="tamara">{isAr ? 'تمارا' : 'Tamara'}</option>
+                  <option value="mispay">{isAr ? 'مسباي' : 'Mispay'}</option>
+                  <option value="madfooat">{isAr ? 'مدفوعات' : 'Madfooat'}</option>
+                  <option value="emkan">{isAr ? 'إمكان' : 'Emkan'}</option>
+                </optgroup>
+                <optgroup label={isAr ? 'طرق دفع أخرى' : 'Other Payment Methods'}>
+                  <option value="bank">{isAr ? 'تحويل بنكي' : 'Bank Transfer'}</option>
+                  <option value="cash">{isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery'}</option>
+                </optgroup>
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute end-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
         )}
 
-        {/* ── 5. ORDER SOURCE ── */}
+        {/* ── 5. ORDER SOURCE / SALES CHANNEL ── */}
         {filters.orderSource !== undefined && (
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
               <Globe className="w-3.5 h-3.5 text-slate-400" />
-              <span>{isAr ? 'مصدر الطلب' : 'Order Source'}</span>
+              <span>{isAr ? 'قناة البيع / المصدر' : 'Sales Channel / Source'}</span>
             </label>
             <div className="relative">
               <select
@@ -276,15 +295,17 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
                 onChange={(e) => handleUpdate('orderSource', e.target.value)}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 appearance-none cursor-pointer pe-8 font-medium"
               >
-                <option value="all">{isAr ? 'جميع المصادر' : 'All Sources'}</option>
+                <option value="all">{isAr ? 'كافة القنوات' : 'All Channels'}</option>
                 <option value="Instagram">Instagram</option>
                 <option value="Google Ads">Google Ads</option>
-                <option value="Direct">{isAr ? 'مباشر' : 'Direct'}</option>
+                <option value="Direct Visits">{isAr ? 'زيارات مباشرة' : 'Direct Visits'}</option>
                 <option value="TikTok">TikTok</option>
                 <option value="Snapchat">Snapchat</option>
-                <option value="Organic Search">{isAr ? 'بحث طبيعي' : 'Organic Search'}</option>
-                <option value="AI Assistant">{isAr ? 'المساعد الذكي' : 'AI Assistant'}</option>
-                <option value="Referral">{isAr ? 'إحالة' : 'Referral'}</option>
+                <option value="WhatsApp">WhatsApp</option>
+                <option value="Facebook">Facebook</option>
+                <option value="X">{isAr ? 'إكس (تويتر سابقاً)' : 'X (formerly Twitter)'}</option>
+                <option value="YouTube">YouTube</option>
+                <option value="Email Marketing">{isAr ? 'البريد الإلكتروني' : 'Email Marketing'}</option>
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute end-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>

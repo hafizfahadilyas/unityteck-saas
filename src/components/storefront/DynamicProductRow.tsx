@@ -220,7 +220,7 @@ export const DynamicProductRow: React.FC<DynamicProductRowProps> = ({
                   {/* Product Image */}
                   <div className="relative aspect-square rounded-xl sm:rounded-2xl overflow-hidden bg-slate-100 mb-3">
                     <img
-                      src={product.image || '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg'}
+                      src={product.image || '/images/hadaya_red_roses_bouquet_1791276749666.jpg'}
                       alt={name}
                       loading="lazy"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -303,7 +303,7 @@ export const DynamicProductRow: React.FC<DynamicProductRowProps> = ({
                 {/* Product Image */}
                 <div className="relative aspect-square rounded-xl sm:rounded-2xl overflow-hidden bg-slate-100 mb-3">
                   <img
-                    src={product.image || '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg'}
+                    src={product.image || '/images/hadaya_red_roses_bouquet_1791276749666.jpg'}
                     alt={name}
                     loading="lazy"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"

@@ -237,10 +237,10 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const aiInsightsList = customer.aiInsights && customer.aiInsights.length > 0
     ? customer.aiInsights
     : [
-        'High chance to purchase again',
-        'Interested in flowers and gifts',
-        'Prefers offers and discounts',
-        'Active on WhatsApp',
+        isAr ? 'احتمالية عالية لإعادة الشراء' : 'High chance to purchase again',
+        isAr ? 'مهتم بالعروض والمنتجات المميزة' : 'Interested in premium catalog & offers',
+        isAr ? 'يفضل الخصومات والتوصيل السريع' : 'Prefers discounts and fast delivery',
+        isAr ? 'نشط عبر واتساب' : 'Active on WhatsApp',
       ];
 
   return (
@@ -249,7 +249,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       {infoSaveSuccess && (
         <div className="fixed top-5 right-5 z-50 flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-lg animate-in fade-in slide-in-from-top duration-200 text-sm font-medium">
           <CheckCircle2 className="w-4 h-4" />
-          <span>Customer details updated successfully!</span>
+          <span>{isAr ? 'تم تحديث بيانات العميل بنجاح!' : 'Customer details updated successfully!'}</span>
         </div>
       )}
 
@@ -260,7 +260,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-1.5">
             <button
               onClick={onBack}
-              className="inline-flex items-center gap-1 hover:text-teal-600 dark:hover:text-teal-400 transition-colors font-medium"
+              className="inline-flex items-center gap-1 hover:text-teal-600 dark:hover:text-teal-400 transition-colors font-medium cursor-pointer"
             >
               {isAr ? <ArrowRight className="w-3.5 h-3.5" /> : <ArrowLeft className="w-3.5 h-3.5" />}
               <span>{isAr ? 'العملاء' : 'Customers'}</span>
@@ -279,7 +279,9 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 pl-4">
-            View and manage customer information, orders, loyalty points, and more.
+            {isAr
+              ? 'عرض وإدارة بيانات العميل، سجل الطلبات، نقاط المكافآت والمزيد.'
+              : 'View and manage customer information, orders, loyalty points, and more.'}
           </p>
         </div>
 
@@ -293,7 +295,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 shadow-sm transition-all"
           >
             <MessageCircle className="w-4 h-4 text-emerald-500" />
-            <span>Send via WhatsApp</span>
+            <span>{isAr ? 'مراسلة عبر واتساب' : 'Send via WhatsApp'}</span>
           </a>
 
           {/* Email Action */}
@@ -302,7 +304,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-sm transition-all"
           >
             <Mail className="w-4 h-4 text-teal-600" />
-            <span>Send Email</span>
+            <span>{isAr ? 'إرسال بريد إلكتروني' : 'Send Email'}</span>
           </a>
 
           {/* Call Action */}
@@ -311,16 +313,16 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 shadow-sm transition-all"
           >
             <Phone className="w-4 h-4 text-slate-500" />
-            <span>Call Customer</span>
+            <span>{isAr ? 'اتصال بالعميل' : 'Call Customer'}</span>
           </a>
 
           {/* Chat with AI */}
           <button
             onClick={() => setShowAiModal(true)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:border-purple-400 shadow-sm transition-all"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:border-purple-400 shadow-sm transition-all cursor-pointer"
           >
             <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
-            <span>Chat with AI</span>
+            <span>{isAr ? 'محادثة الذكاء الاصطناعي' : 'Chat with AI'}</span>
           </button>
         </div>
       </div>
@@ -385,7 +387,9 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                       {customer.name}
                     </h2>
                     <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
-                      {customer.group === 'VIP' ? 'VIP Customer' : 'Regular Customer'}
+                      {customer.group === 'VIP'
+                        ? isAr ? 'عميل VIP' : 'VIP Customer'
+                        : isAr ? 'عميل عادي' : 'Regular Customer'}
                     </span>
                   </div>
 
@@ -393,18 +397,22 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                     <div className="flex items-center gap-1.5">
                       <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{customer.country || 'Saudi Arabia'}, {customer.city || 'Jazan'}</span>
+                      <span>{isAr ? 'المملكة العربية السعودية' : (customer.country || 'Saudi Arabia')}, {customer.city || (isAr ? 'جازان' : 'Jazan')}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Globe className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{customer.language || 'Arabic'}</span>
+                      <span>{isAr ? 'العربية' : (customer.language || 'Arabic')}</span>
                     </div>
                   </div>
 
                   {/* Member Since */}
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Member since {customer.registeredDate || 'Jul 23, 2026'}</span>
+                    <span>
+                      {isAr
+                        ? `عضو منذ ${customer.registeredDate || '23 يوليو 2026'}`
+                        : `Member since ${customer.registeredDate || 'Jul 23, 2026'}`}
+                    </span>
                   </div>
 
                   {/* Contact Badges Row */}
@@ -415,8 +423,8 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                       <span>{customer.phone || '+966508146695'}</span>
                       <button
                         onClick={() => handleCopy(customer.phone || '+966508146695', 'phone')}
-                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-1 transition-colors"
-                        title="Copy phone"
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-1 transition-colors cursor-pointer"
+                        title={isAr ? 'نسخ رقم الهاتف' : 'Copy phone'}
                       >
                         {copiedField === 'phone' ? (
                           <Check className="w-3.5 h-3.5 text-emerald-500" />
@@ -432,7 +440,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center hover:bg-emerald-100 transition-colors"
-                      title="Open WhatsApp chat"
+                      title={isAr ? 'فتح محادثة واتساب' : 'Open WhatsApp chat'}
                     >
                       <MessageCircle className="w-3.5 h-3.5" />
                     </a>
@@ -443,8 +451,8 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                       <span className="truncate max-w-[170px]">{customer.email || 'naser@example.com'}</span>
                       <button
                         onClick={() => handleCopy(customer.email || 'naser@example.com', 'email')}
-                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-1 transition-colors"
-                        title="Copy email"
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-1 transition-colors cursor-pointer"
+                        title={isAr ? 'نسخ البريد الإلكتروني' : 'Copy email'}
                       >
                         {copiedField === 'email' ? (
                           <Check className="w-3.5 h-3.5 text-emerald-500" />
@@ -462,10 +470,10 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
                     <Bot className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                    <span>AI Insights</span>
+                    <span>{isAr ? 'رؤى الذكاء الاصطناعي' : 'AI Insights'}</span>
                   </div>
                   <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                    Beta
+                    {isAr ? 'تجريبي' : 'Beta'}
                   </span>
                 </div>
 
@@ -491,15 +499,17 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </div>
               </div>
               <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Loyalty Points</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  {isAr ? 'نقاط الولاء' : 'Loyalty Points'}
+                </p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white mt-0.5">{loyaltyPointsCount}</p>
               </div>
               <button
                 onClick={() => setActiveTab('loyalty')}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
               >
-                <span>View History</span>
-                <span className="text-xs">&rarr;</span>
+                <span>{isAr ? 'عرض السجل' : 'View History'}</span>
+                <span className={`text-xs ${isAr ? 'rotate-180' : ''}`}>&rarr;</span>
               </button>
             </div>
 
@@ -511,15 +521,17 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </div>
               </div>
               <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Cashback Balance</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  {isAr ? 'رصيد الكاش باك' : 'Cashback Balance'}
+                </p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white mt-0.5">{money(cashbackAmount)}</p>
               </div>
               <button
                 onClick={() => setActiveTab('wallet')}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
               >
-                <span>View History</span>
-                <span className="text-xs">&rarr;</span>
+                <span>{isAr ? 'عرض السجل' : 'View History'}</span>
+                <span className={`text-xs ${isAr ? 'rotate-180' : ''}`}>&rarr;</span>
               </button>
             </div>
 
@@ -531,15 +543,17 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </div>
               </div>
               <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Available Coupons</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  {isAr ? 'الكوبونات المتاحة' : 'Available Coupons'}
+                </p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white mt-0.5">{availableCouponsCount}</p>
               </div>
               <button
                 onClick={() => setActiveTab('coupons')}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
               >
-                <span>View Coupons</span>
-                <span className="text-xs">&rarr;</span>
+                <span>{isAr ? 'عرض الكوبونات' : 'View Coupons'}</span>
+                <span className={`text-xs ${isAr ? 'rotate-180' : ''}`}>&rarr;</span>
               </button>
             </div>
 
@@ -551,15 +565,17 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </div>
               </div>
               <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Expiring Soon</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  {isAr ? 'تنتهي قريباً' : 'Expiring Soon'}
+                </p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white mt-0.5">{expiringSoonCount}</p>
               </div>
               <button
                 onClick={() => setActiveTab('coupons')}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
               >
-                <span>View Details</span>
-                <span className="text-xs">&rarr;</span>
+                <span>{isAr ? 'عرض التفاصيل' : 'View Details'}</span>
+                <span className={`text-xs ${isAr ? 'rotate-180' : ''}`}>&rarr;</span>
               </button>
             </div>
           </div>
@@ -569,74 +585,76 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             <div className="flex items-center gap-1.5 min-w-max">
               <button
                 onClick={() => setActiveTab('orders')}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                   activeTab === 'orders'
                     ? 'bg-teal-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 <ShoppingCart className="w-4 h-4" />
-                <span>Order History ({customerOrders.length})</span>
+                <span>
+                  {isAr ? `سجل الطلبات (${customerOrders.length})` : `Order History (${customerOrders.length})`}
+                </span>
               </button>
 
               <button
                 onClick={() => setActiveTab('loyalty')}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                   activeTab === 'loyalty'
                     ? 'bg-teal-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 <Crown className="w-4 h-4" />
-                <span>Loyalty Points (2)</span>
+                <span>{isAr ? 'نقاط الولاء (2)' : 'Loyalty Points (2)'}</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('coupons')}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                   activeTab === 'coupons'
                     ? 'bg-teal-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 <Tag className="w-4 h-4" />
-                <span>Coupons ({availableCouponsCount})</span>
+                <span>{isAr ? `الكوبونات (${availableCouponsCount})` : `Coupons (${availableCouponsCount})`}</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('offers')}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                   activeTab === 'offers'
                     ? 'bg-teal-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 <Gift className="w-4 h-4" />
-                <span>Offers (1)</span>
+                <span>{isAr ? 'العروض (1)' : 'Offers (1)'}</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('wallet')}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                   activeTab === 'wallet'
                     ? 'bg-teal-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 <Wallet className="w-4 h-4" />
-                <span>Wallet &amp; Cashback</span>
+                <span>{isAr ? 'المحفظة والكاش باك' : 'Wallet & Cashback'}</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('activity')}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                   activeTab === 'activity'
                     ? 'bg-teal-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 <Activity className="w-4 h-4" />
-                <span>Activity Logs</span>
+                <span>{isAr ? 'سجل النشاط' : 'Activity Logs'}</span>
               </button>
             </div>
           </div>
@@ -651,9 +669,11 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     <ShoppingCart className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">Order History</h3>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      {isAr ? 'سجل الطلبات' : 'Order History'}
+                    </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      A list of all orders placed by this customer.
+                      {isAr ? 'قائمة بجميع طلبات هذا العميل في المتجر.' : 'A list of all orders placed by this customer.'}
                     </p>
                   </div>
                 </div>
@@ -665,10 +685,10 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     onChange={(e) => setOrderFilter(e.target.value as any)}
                     className="appearance-none pl-3.5 pr-8 py-2 rounded-xl text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   >
-                    <option value="all">All Orders</option>
-                    <option value="completed">Completed</option>
-                    <option value="pending">Pending</option>
-                    <option value="cancelled">Cancelled</option>
+                    <option value="all">{isAr ? 'جميع الطلبات' : 'All Orders'}</option>
+                    <option value="completed">{isAr ? 'المكتملة' : 'Completed'}</option>
+                    <option value="pending">{isAr ? 'قيد الانتظار' : 'Pending'}</option>
+                    <option value="cancelled">{isAr ? 'الملغية' : 'Cancelled'}</option>
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
@@ -677,16 +697,16 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               {/* Table / Empty State */}
               {filteredOrders.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-start text-xs">
                     <thead>
                       <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
-                        <th className="py-3 px-3 font-semibold">#</th>
-                        <th className="py-3 px-3 font-semibold">Order Date</th>
-                        <th className="py-3 px-3 font-semibold">Items</th>
-                        <th className="py-3 px-3 font-semibold">Total Amount</th>
-                        <th className="py-3 px-3 font-semibold">Status</th>
-                        <th className="py-3 px-3 font-semibold">Payment Method</th>
-                        <th className="py-3 px-3 font-semibold text-right">Actions</th>
+                        <th className="py-3 px-3 font-semibold text-start">#</th>
+                        <th className="py-3 px-3 font-semibold text-start">{isAr ? 'تاريخ الطلب' : 'Order Date'}</th>
+                        <th className="py-3 px-3 font-semibold text-start">{isAr ? 'المنتجات' : 'Items'}</th>
+                        <th className="py-3 px-3 font-semibold text-start">{isAr ? 'المبلغ الإجمالي' : 'Total Amount'}</th>
+                        <th className="py-3 px-3 font-semibold text-start">{isAr ? 'الحالة' : 'Status'}</th>
+                        <th className="py-3 px-3 font-semibold text-start">{isAr ? 'طريقة الدفع' : 'Payment Method'}</th>
+                        <th className="py-3 px-3 font-semibold text-end">{isAr ? 'الإجراءات' : 'Actions'}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -696,25 +716,25 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                             {ord.orderNumber || `#${idx + 1}`}
                           </td>
                           <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">
-                            {ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : 'Recent'}
+                            {ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : (isAr ? 'حديثاً' : 'Recent')}
                           </td>
                           <td className="py-3.5 px-3 text-slate-700 dark:text-slate-300">
-                            {ord.itemsCount || 1} items
+                            {ord.itemsCount || 1} {isAr ? 'منتج' : 'items'}
                           </td>
                           <td className="py-3.5 px-3 font-bold text-slate-900 dark:text-white">
                             {money(ord.total || 0)}
                           </td>
                           <td className="py-3.5 px-3">
                             <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              {ord.status || 'Completed'}
+                              {isAr ? 'مكتمل' : (ord.status || 'Completed')}
                             </span>
                           </td>
                           <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">
-                            {ord.paymentMethod || 'Mada / Apple Pay'}
+                            {ord.paymentMethod || (isAr ? 'مدى / أبل باي' : 'Mada / Apple Pay')}
                           </td>
-                          <td className="py-3.5 px-3 text-right">
-                            <button className="text-teal-600 hover:text-teal-700 font-semibold text-xs">
-                              View
+                          <td className="py-3.5 px-3 text-end">
+                            <button className="text-teal-600 hover:text-teal-700 font-semibold text-xs cursor-pointer">
+                              {isAr ? 'عرض' : 'View'}
                             </button>
                           </td>
                         </tr>
@@ -729,17 +749,17 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     <FileText className="w-8 h-8 stroke-[1.5]" />
                   </div>
                   <h4 className="text-base font-bold text-slate-800 dark:text-slate-200">
-                    No orders found
+                    {isAr ? 'لا توجد طلبات سابقة' : 'No orders found'}
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-                    This customer hasn't placed any orders yet.
+                    {isAr ? 'لم يقم هذا العميل بإجراء أي طلبات حتى الآن.' : "This customer hasn't placed any orders yet."}
                   </p>
                   <button
-                    onClick={() => alert(`Starting new order creation for ${customer.name} in ${activeStore.name}`)}
-                    className="inline-flex items-center gap-1.5 mt-5 px-4 py-2 rounded-xl text-xs font-semibold bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800 hover:bg-teal-100 transition-colors shadow-sm"
+                    onClick={() => alert(isAr ? `بدء إنشاء طلب جديد للعميل ${customer.name} في متجر ${activeStore.name}` : `Starting new order creation for ${customer.name} in ${activeStore.name}`)}
+                    className="inline-flex items-center gap-1.5 mt-5 px-4 py-2 rounded-xl text-xs font-semibold bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800 hover:bg-teal-100 transition-colors shadow-sm cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Create Order</span>
+                    <span>{isAr ? 'إنشاء طلب' : 'Create Order'}</span>
                   </button>
                 </div>
               )}
@@ -751,41 +771,51 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Loyalty Points Ledger</h3>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    {isAr ? 'سجل نقاط الولاء' : 'Loyalty Points Ledger'}
+                  </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Audit trail of earned, redeemed, and adjusted points.
+                    {isAr ? 'سجل تدقيق للنقاط المكتسبة والمستبدلة والمعدلة.' : 'Audit trail of earned, redeemed, and adjusted points.'}
                   </p>
                 </div>
                 <span className="px-3 py-1 rounded-xl bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 font-bold text-sm border border-teal-200 dark:border-teal-800">
-                  Total: {loyaltyPointsCount} pts
+                  {isAr ? `الإجمالي: ${loyaltyPointsCount} نقطة` : `Total: ${loyaltyPointsCount} pts`}
                 </span>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-start text-xs">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
-                      <th className="py-2.5 px-3">Date</th>
-                      <th className="py-2.5 px-3">Type</th>
-                      <th className="py-2.5 px-3">Points</th>
-                      <th className="py-2.5 px-3">Reference / Reason</th>
-                      <th className="py-2.5 px-3 text-right">Balance</th>
+                      <th className="py-2.5 px-3 text-start">{isAr ? 'التاريخ' : 'Date'}</th>
+                      <th className="py-2.5 px-3 text-start">{isAr ? 'النوع' : 'Type'}</th>
+                      <th className="py-2.5 px-3 text-start">{isAr ? 'النقاط' : 'Points'}</th>
+                      <th className="py-2.5 px-3 text-start">{isAr ? 'المرجع / السبب' : 'Reference / Reason'}</th>
+                      <th className="py-2.5 px-3 text-end">{isAr ? 'الرصيد' : 'Balance'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                     <tr>
                       <td className="py-3 px-3 text-slate-600 dark:text-slate-400">2026/08/15</td>
-                      <td className="py-3 px-3 font-semibold text-emerald-600">Earned (Welcome)</td>
+                      <td className="py-3 px-3 font-semibold text-emerald-600">
+                        {isAr ? 'مكتسبة (هدية ترحيبية)' : 'Earned (Welcome)'}
+                      </td>
                       <td className="py-3 px-3 font-bold text-emerald-600">+100</td>
-                      <td className="py-3 px-3 text-slate-600 dark:text-slate-400">Store Registration Gift</td>
-                      <td className="py-3 px-3 text-right font-mono font-medium">100</td>
+                      <td className="py-3 px-3 text-slate-600 dark:text-slate-400">
+                        {isAr ? 'مكافأة التسجيل بالمتجر' : 'Store Registration Gift'}
+                      </td>
+                      <td className="py-3 px-3 text-end font-mono font-medium">100</td>
                     </tr>
                     <tr>
                       <td className="py-3 px-3 text-slate-600 dark:text-slate-400">2026/09/01</td>
-                      <td className="py-3 px-3 font-semibold text-emerald-600">Earned (Campaign)</td>
+                      <td className="py-3 px-3 font-semibold text-emerald-600">
+                        {isAr ? 'مكتسبة (حملة ترويجية)' : 'Earned (Campaign)'}
+                      </td>
                       <td className="py-3 px-3 font-bold text-emerald-600">+140</td>
-                      <td className="py-3 px-3 text-slate-600 dark:text-slate-400">National Day Bonus</td>
-                      <td className="py-3 px-3 text-right font-mono font-medium">240</td>
+                      <td className="py-3 px-3 text-slate-600 dark:text-slate-400">
+                        {isAr ? 'مكافأة اليوم الوطني' : 'National Day Bonus'}
+                      </td>
+                      <td className="py-3 px-3 text-end font-mono font-medium">240</td>
                     </tr>
                   </tbody>
                 </table>
@@ -798,9 +828,11 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Active Coupons &amp; Vouchers</h3>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    {isAr ? 'الكوبونات وقسائم الشراء النشطة' : 'Active Coupons & Vouchers'}
+                  </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Coupons available for this customer in checkout.
+                    {isAr ? 'كوبونات يمكن للعميل استخدامها عند الدفع.' : 'Coupons available for this customer in checkout.'}
                   </p>
                 </div>
               </div>
@@ -812,13 +844,15 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                       WELCOME15
                     </span>
                     <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                      Active
+                      {isAr ? 'نشط' : 'Active'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300">
-                    15% off first fresh flowers order over SAR 150
+                    {isAr ? 'خصم 15% على أول طلب بقيمة تزيد عن 150 ر.س' : '15% off first order over SAR 150'}
                   </p>
-                  <p className="text-[11px] text-slate-400">Valid until: Nov 30, 2026</p>
+                  <p className="text-[11px] text-slate-400">
+                    {isAr ? 'صالح حتى: 30 نوفمبر 2026' : 'Valid until: Nov 30, 2026'}
+                  </p>
                 </div>
 
                 <div className="border border-purple-200 dark:border-purple-800 bg-purple-50/40 dark:bg-purple-950/20 rounded-xl p-4 space-y-2">
@@ -827,13 +861,15 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                       FREESHIP
                     </span>
                     <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                      Active
+                      {isAr ? 'نشط' : 'Active'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300">
-                    Free refrigerated van delivery across Jazan
+                    {isAr ? 'توصيل مجاني لجميع مناطق المملكة' : 'Free delivery across the region'}
                   </p>
-                  <p className="text-[11px] text-slate-400">Valid until: Dec 31, 2026</p>
+                  <p className="text-[11px] text-slate-400">
+                    {isAr ? 'صالح حتى: 31 ديسمبر 2026' : 'Valid until: Dec 31, 2026'}
+                  </p>
                 </div>
 
                 <div className="border border-rose-200 dark:border-rose-800 bg-rose-50/40 dark:bg-rose-950/20 rounded-xl p-4 space-y-2">
@@ -842,13 +878,15 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                       VIPGIFT20
                     </span>
                     <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
-                      Expiring Soon (3 days)
+                      {isAr ? 'ينتهي قريباً (3 أيام)' : 'Expiring Soon (3 days)'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300">
-                    SAR 20 cashback on patchi chocolate and flower bundle
+                    {isAr ? 'استرداد نقدي 20 ر.س على باقات الهدايا' : 'SAR 20 cashback on special gift packages'}
                   </p>
-                  <p className="text-[11px] text-slate-400">Valid until: Oct 21, 2026</p>
+                  <p className="text-[11px] text-slate-400">
+                    {isAr ? 'صالح حتى: 21 أكتوبر 2026' : 'Valid until: Oct 21, 2026'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -857,13 +895,17 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           {/* Tab 4: Offers */}
           {activeTab === 'offers' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Personalized Offers</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                {isAr ? 'العروض المخصصة للعميل' : 'Personalized Offers'}
+              </h3>
               <div className="border border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20 rounded-xl p-4 space-y-1.5">
                 <span className="text-xs font-bold text-amber-800 dark:text-amber-200">
-                  Weekend Special Bouquet Bundle
+                  {isAr ? 'عرض عطلة نهاية الأسبوع الخاص' : 'Weekend Special Package'}
                 </span>
                 <p className="text-xs text-slate-600 dark:text-slate-300">
-                  Buy any Dutch Rose Bouquet and get a luxury card + Belgian chocolates at 50% discount.
+                  {isAr
+                    ? 'احصل على خصم 50% على الإضافات الفاخرة وبطاقات الإهداء عند طلبك القادم.'
+                    : 'Get 50% discount on luxury gift additions and greeting cards on your next order.'}
                 </p>
               </div>
             </div>
@@ -874,15 +916,21 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Wallet &amp; Cashback Ledger</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Available store credit and cashback balance.</p>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    {isAr ? 'سجل المحفظة والكاش باك' : 'Wallet & Cashback Ledger'}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {isAr ? 'الرصيد المتاح من رصيد المتجر والكاش باك.' : 'Available store credit and cashback balance.'}
+                  </p>
                 </div>
                 <span className="text-base font-bold text-emerald-600">
-                  Balance: {money(cashbackAmount)}
+                  {isAr ? `الرصيد: ${money(cashbackAmount)}` : `Balance: ${money(cashbackAmount)}`}
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                Transactions: Initial cashback credited upon account verification (+SAR 18.00).
+                {isAr
+                  ? 'المعاملات: تم إيداع رصيد كاش باك ترحيبي بعد التحقق من الحساب (+18.00 ر.س).'
+                  : 'Transactions: Initial cashback credited upon account verification (+SAR 18.00).'}
               </p>
             </div>
           )}
@@ -890,20 +938,26 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           {/* Tab 6: Activity Logs */}
           {activeTab === 'activity' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Activity Logs</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                {isAr ? 'سجل النشاط' : 'Activity Logs'}
+              </h3>
               <ul className="space-y-3 text-xs">
                 <li className="flex items-start gap-3">
                   <span className="w-2 h-2 rounded-full bg-teal-500 mt-1.5" />
                   <div>
-                    <p className="font-semibold text-slate-800 dark:text-slate-200">Profile accessed by Store Manager</p>
-                    <p className="text-[11px] text-slate-400">Today, just now</p>
+                    <p className="font-semibold text-slate-800 dark:text-slate-200">
+                      {isAr ? 'تم الاطلاع على ملف العميل بواسطة مدير المتجر' : 'Profile accessed by Store Manager'}
+                    </p>
+                    <p className="text-[11px] text-slate-400">{isAr ? 'اليوم، الآن' : 'Today, just now'}</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700 mt-1.5" />
                   <div>
-                    <p className="font-semibold text-slate-800 dark:text-slate-200">Customer registered via WhatsApp</p>
-                    <p className="text-[11px] text-slate-400">{customer.registeredDate || 'Jul 23, 2026'}</p>
+                    <p className="font-semibold text-slate-800 dark:text-slate-200">
+                      {isAr ? 'تسجيل العميل عبر واتساب' : 'Customer registered via WhatsApp'}
+                    </p>
+                    <p className="text-[11px] text-slate-400">{customer.registeredDate || '2026/07/23'}</p>
                   </div>
                 </li>
               </ul>
@@ -920,14 +974,20 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center">
                   <UserIcon className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Customer Information</h3>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {isAr ? 'بيانات العميل' : 'Customer Information'}
+                </h3>
               </div>
               <button
                 onClick={() => setIsEditingInfo(!isEditingInfo)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-teal-500 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-teal-500 transition-colors cursor-pointer"
               >
                 <Edit2 className="w-3 h-3 text-teal-600" />
-                <span>{isEditingInfo ? 'Cancel' : 'Edit'}</span>
+                <span>
+                  {isEditingInfo
+                    ? isAr ? 'إلغاء' : 'Cancel'
+                    : isAr ? 'تعديل' : 'Edit'}
+                </span>
               </button>
             </div>
 
@@ -974,7 +1034,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                    First Name <span className="text-rose-500">*</span>
+                    {isAr ? 'الاسم الأول' : 'First Name'} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -987,7 +1047,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </div>
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                    Last Name <span className="text-rose-500">*</span>
+                    {isAr ? 'اسم العائلة' : 'Last Name'} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1003,7 +1063,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               {/* Email Address */}
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                  Email Address
+                  {isAr ? 'البريد الإلكتروني' : 'Email Address'}
                 </label>
                 <input
                   type="email"
@@ -1017,7 +1077,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               {/* Phone Number */}
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                  Phone Number
+                  {isAr ? 'رقم الهاتف' : 'Phone Number'}
                 </label>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -1046,7 +1106,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                    Gender
+                    {isAr ? 'الجنس' : 'Gender'}
                   </label>
                   <select
                     disabled={!isEditingInfo}
@@ -1054,14 +1114,14 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     onChange={(e) => setGender(e.target.value as any)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
+                    <option value="Male">{isAr ? 'ذكر' : 'Male'}</option>
+                    <option value="Female">{isAr ? 'أنثى' : 'Female'}</option>
+                    <option value="Other">{isAr ? 'أخرى' : 'Other'}</option>
                   </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                    Country
+                    {isAr ? 'الدولة' : 'Country'}
                   </label>
                   <select
                     disabled={!isEditingInfo}
@@ -1069,9 +1129,9 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     onChange={(e) => setCountry(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   >
-                    <option value="Saudi Arabia">Saudi Arabia</option>
-                    <option value="United Arab Emirates">United Arab Emirates</option>
-                    <option value="Kuwait">Kuwait</option>
+                    <option value="Saudi Arabia">{isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia'}</option>
+                    <option value="United Arab Emirates">{isAr ? 'الإمارات العربية المتحدة' : 'United Arab Emirates'}</option>
+                    <option value="Kuwait">{isAr ? 'الكويت' : 'Kuwait'}</option>
                   </select>
                 </div>
               </div>
@@ -1080,7 +1140,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                    City
+                    {isAr ? 'المدينة' : 'City'}
                   </label>
                   <select
                     disabled={!isEditingInfo}
@@ -1088,16 +1148,16 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     onChange={(e) => setCity(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   >
-                    <option value="Jazan">Jazan</option>
-                    <option value="Makkah">Makkah</option>
-                    <option value="Riyadh">Riyadh</option>
-                    <option value="Jeddah">Jeddah</option>
-                    <option value="Dammam">Dammam</option>
+                    <option value="Jazan">{isAr ? 'جازان' : 'Jazan'}</option>
+                    <option value="Makkah">{isAr ? 'مكة المكرمة' : 'Makkah'}</option>
+                    <option value="Riyadh">{isAr ? 'الرياض' : 'Riyadh'}</option>
+                    <option value="Jeddah">{isAr ? 'جدة' : 'Jeddah'}</option>
+                    <option value="Dammam">{isAr ? 'الدمام' : 'Dammam'}</option>
                   </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                    State
+                    {isAr ? 'المنطقة' : 'State'}
                   </label>
                   <select
                     disabled={!isEditingInfo}
@@ -1105,10 +1165,10 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     onChange={(e) => setState(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   >
-                    <option value="Jazan">Jazan</option>
-                    <option value="Makkah Province">Makkah Province</option>
-                    <option value="Riyadh Province">Riyadh Province</option>
-                    <option value="Eastern Province">Eastern Province</option>
+                    <option value="Jazan">{isAr ? 'منطقة جازان' : 'Jazan'}</option>
+                    <option value="Makkah Province">{isAr ? 'منطقة مكة المكرمة' : 'Makkah Province'}</option>
+                    <option value="Riyadh Province">{isAr ? 'منطقة الرياض' : 'Riyadh Province'}</option>
+                    <option value="Eastern Province">{isAr ? 'المنطقة الشرقية' : 'Eastern Province'}</option>
                   </select>
                 </div>
               </div>
@@ -1116,17 +1176,17 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               {/* Date of Birth */}
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                  Date of Birth
+                  {isAr ? 'تاريخ الميلاد' : 'Date of Birth'}
                 </label>
                 <div className="relative">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Calendar className={`w-3.5 h-3.5 text-slate-400 absolute top-1/2 -translate-y-1/2 pointer-events-none ${isAr ? 'right-3' : 'left-3'}`} />
                   <input
                     type="text"
                     disabled={!isEditingInfo}
                     value={dob}
                     onChange={(e) => setDob(e.target.value)}
                     placeholder="YYYY/MM/DD"
-                    className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                    className={`w-full py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20 ${isAr ? 'pr-9 pl-3' : 'pl-9 pr-3'}`}
                   />
                 </div>
               </div>
@@ -1137,21 +1197,21 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   <button
                     type="submit"
                     disabled={isSavingInfo}
-                    className="flex-1 py-2 px-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs transition-colors shadow-sm flex items-center justify-center gap-1.5"
+                    className="flex-1 py-2 px-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs transition-colors shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     {isSavingInfo ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       <Check className="w-3.5 h-3.5" />
                     )}
-                    <span>Save Changes</span>
+                    <span>{isAr ? 'حفظ التعديلات' : 'Save Changes'}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsEditingInfo(false)}
-                    className="py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 font-semibold text-xs transition-colors"
+                    className="py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 font-semibold text-xs transition-colors cursor-pointer"
                   >
-                    Cancel
+                    {isAr ? 'إلغاء' : 'Cancel'}
                   </button>
                 </div>
               )}
@@ -1165,14 +1225,20 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center">
                   <MessageCircle className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Marketing &amp; Communication</h3>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {isAr ? 'التسويق والتواصل' : 'Marketing & Communication'}
+                </h3>
               </div>
               <button
                 onClick={() => setIsEditingMarketing(!isEditingMarketing)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-teal-500 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-teal-500 transition-colors cursor-pointer"
               >
                 <Edit2 className="w-3 h-3 text-teal-600" />
-                <span>{isEditingMarketing ? 'Done' : 'Edit'}</span>
+                <span>
+                  {isEditingMarketing
+                    ? isAr ? 'تم' : 'Done'
+                    : isAr ? 'تعديل' : 'Edit'}
+                </span>
               </button>
             </div>
 
@@ -1181,19 +1247,21 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <Coins className="w-4 h-4 text-teal-500" />
-                  <span className="font-medium text-slate-700 dark:text-slate-300">Receive marketing emails</span>
+                  <span className="font-medium text-slate-700 dark:text-slate-300">
+                    {isAr ? 'استلام رسائل البريد التسويقية' : 'Receive marketing emails'}
+                  </span>
                 </div>
                 <button
                   type="button"
                   disabled={!isEditingMarketing}
                   onClick={() => handleToggleMarketing('emails', !marketingEmails)}
-                  className={`w-10 h-6 rounded-full transition-colors relative p-0.5 ${
+                  className={`w-10 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer ${
                     marketingEmails ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
                   } disabled:opacity-90`}
                 >
                   <span
                     className={`block w-5 h-5 rounded-full bg-white shadow-sm transform transition-transform ${
-                      marketingEmails ? 'translate-x-4' : 'translate-x-0'
+                      marketingEmails ? (isAr ? '-translate-x-4' : 'translate-x-4') : 'translate-x-0'
                     }`}
                   />
                 </button>
@@ -1203,19 +1271,21 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <MessageCircle className="w-4 h-4 text-emerald-500" />
-                  <span className="font-medium text-slate-700 dark:text-slate-300">Receive WhatsApp messages</span>
+                  <span className="font-medium text-slate-700 dark:text-slate-300">
+                    {isAr ? 'استلام رسائل واتساب' : 'Receive WhatsApp messages'}
+                  </span>
                 </div>
                 <button
                   type="button"
                   disabled={!isEditingMarketing}
                   onClick={() => handleToggleMarketing('whatsapp', !whatsappMessages)}
-                  className={`w-10 h-6 rounded-full transition-colors relative p-0.5 ${
+                  className={`w-10 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer ${
                     whatsappMessages ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
                   } disabled:opacity-90`}
                 >
                   <span
                     className={`block w-5 h-5 rounded-full bg-white shadow-sm transform transition-transform ${
-                      whatsappMessages ? 'translate-x-4' : 'translate-x-0'
+                      whatsappMessages ? (isAr ? '-translate-x-4' : 'translate-x-4') : 'translate-x-0'
                     }`}
                   />
                 </button>
@@ -1225,19 +1295,21 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <MessageCircle className="w-4 h-4 text-slate-400" />
-                  <span className="font-medium text-slate-700 dark:text-slate-300">Receive SMS notifications</span>
+                  <span className="font-medium text-slate-700 dark:text-slate-300">
+                    {isAr ? 'استلام إشعارات SMS' : 'Receive SMS notifications'}
+                  </span>
                 </div>
                 <button
                   type="button"
                   disabled={!isEditingMarketing}
                   onClick={() => handleToggleMarketing('sms', !smsNotifications)}
-                  className={`w-10 h-6 rounded-full transition-colors relative p-0.5 ${
+                  className={`w-10 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer ${
                     smsNotifications ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
                   } disabled:opacity-90`}
                 >
                   <span
                     className={`block w-5 h-5 rounded-full bg-white shadow-sm transform transition-transform ${
-                      smsNotifications ? 'translate-x-4' : 'translate-x-0'
+                      smsNotifications ? (isAr ? '-translate-x-4' : 'translate-x-4') : 'translate-x-0'
                     }`}
                   />
                 </button>
@@ -1252,14 +1324,16 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center">
                   <Tag className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Customer Tags</h3>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {isAr ? 'وسوم العميل' : 'Customer Tags'}
+                </h3>
               </div>
               <button
                 onClick={() => setShowAddTagInput(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-teal-500 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-teal-500 transition-colors cursor-pointer"
               >
                 <Plus className="w-3 h-3 text-teal-600" />
-                <span>Add Tag</span>
+                <span>{isAr ? 'إضافة وسم' : 'Add Tag'}</span>
               </button>
             </div>
 
@@ -1273,7 +1347,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   <span>{tg}</span>
                   <button
                     onClick={() => handleRemoveTag(tg)}
-                    className="text-teal-500 hover:text-teal-700 dark:hover:text-teal-100 transition-colors"
+                    className="text-teal-500 hover:text-teal-700 dark:hover:text-teal-100 transition-colors cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -1288,19 +1362,19 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     value={newTagInput}
                     onChange={(e) => setNewTagInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                    placeholder="Type tag..."
+                    placeholder={isAr ? 'اكتب الوسم...' : 'Type tag...'}
                     autoFocus
                     className="px-2.5 py-1 text-xs rounded-lg border border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
                   />
                   <button
                     onClick={handleAddTag}
-                    className="p-1 rounded-lg bg-teal-600 text-white hover:bg-teal-700"
+                    className="p-1 rounded-lg bg-teal-600 text-white hover:bg-teal-700 cursor-pointer"
                   >
                     <Check className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => setShowAddTagInput(false)}
-                    className="p-1 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                    className="p-1 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -1308,7 +1382,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               ) : (
                 <button
                   onClick={() => setShowAddTagInput(true)}
-                  className="w-7 h-7 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:text-teal-600 hover:border-teal-400 flex items-center justify-center transition-colors"
+                  className="w-7 h-7 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:text-teal-600 hover:border-teal-400 flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -1330,16 +1404,20 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                    AI Customer Intelligence &amp; Retention Assistant
+                    {isAr
+                      ? 'مساعد الذكاء الاصطناعي لتحليل وسلوك العملاء'
+                      : 'AI Customer Intelligence & Retention Assistant'}
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Context: {customer.name} &bull; {activeStore.name}
+                    {isAr
+                      ? `السياق: ${customer.name} • ${activeStore.nameAr || activeStore.name}`
+                      : `Context: ${customer.name} • ${activeStore.nameEn || activeStore.name}`}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowAiModal(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1367,7 +1445,11 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 <div className="flex justify-start">
                   <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl p-3 rounded-bl-sm text-slate-500 flex items-center gap-1.5">
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" />
-                    <span>AI is analyzing customer purchase patterns...</span>
+                    <span>
+                      {isAr
+                        ? 'الذكاء الاصطناعي يقوم بتحليل سلوك ونمط الشراء للعميل...'
+                        : 'AI is analyzing customer purchase patterns...'}
+                    </span>
                   </div>
                 </div>
               )}
@@ -1379,13 +1461,17 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 type="text"
                 value={aiInputText}
                 onChange={(e) => setAiInputText(e.target.value)}
-                placeholder="Ask AI for retention recommendation or personalized coupon..."
+                placeholder={
+                  isAr
+                    ? 'اسأل الذكاء الاصطناعي عن توصية تسويقية أو كوبون ولاء مخصص...'
+                    : 'Ask AI for retention recommendation or personalized coupon...'
+                }
                 className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20"
               />
               <button
                 type="submit"
                 disabled={!aiInputText.trim() || isAiTyping}
-                className="p-2 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white transition-colors"
+                className="p-2 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white transition-colors cursor-pointer"
               >
                 <Send className="w-4 h-4" />
               </button>

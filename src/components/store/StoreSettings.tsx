@@ -44,6 +44,7 @@ import { readAllThemeSettings, writeAllThemeSettings } from '../../themes/settin
 import { readStoreIdentity, writeStoreIdentity, type StoreIdentitySettings } from '../../themes/settings/storeIdentity';
 import { patchAuthSessionUser } from '../../auth/session';
 import { updateWhatsAppSettingsApi } from '../../services/whatsappManagerService';
+import { applyPortalHead } from '../../utils/portalHead';
 
 type SettingsTab = 'general' | 'localization' | 'appearance' | 'custom-order' | 'maintenance' | 'social' | 'subscription' | 'thresholds' | 'notifications';
 
@@ -186,7 +187,9 @@ export const StoreSettings: React.FC = () => {
   const [logoUrl, setLogoUrl] = useState(
     storeIdentity.logoUrl || activeStore.logo || ''
   );
-  const [faviconUrl, setFaviconUrl] = useState('/favicon.svg');
+  const [faviconUrl, setFaviconUrl] = useState(
+    storeIdentity.faviconUrl || activeStore.favicon || '/favicon.svg'
+  );
   const [customDomain, setCustomDomain] = useState(`${activeStore.slug}.saudi-stores.com`);
   const [workspacePath, setWorkspacePath] = useState(
     activeStore.workspacePath || (isCoffee ? COFFEE_STORE_WORKSPACE_PATH : '')
@@ -283,6 +286,7 @@ export const StoreSettings: React.FC = () => {
       taglineAr: isAr ? tagline : (storeIdentity.taglineAr || tagline),
       taglineEn: !isAr ? tagline : (storeIdentity.taglineEn || tagline),
       logoUrl: logoUrl,
+      faviconUrl: faviconUrl,
       email: storeEmail,
       phone: storePhone,
       whatsapp: whatsappNumber,
@@ -301,13 +305,35 @@ export const StoreSettings: React.FC = () => {
       identity: updatedIdentity,
     });
 
-    // 1. Update central store model & backend Hostinger database
+    // 1. Update central store model & backend Hostinger database (with both logo & favicon)
     await updateStoreInfo(activeStore.id, {
       name: storeName,
       ownerEmail: storeEmail,
       phone: storePhone,
       logo: logoUrl,
+      favicon: faviconUrl,
     });
+
+    // 2. Instantly update browser tab title and favicon
+    applyPortalHead({
+      portal: 'store',
+      storeName: storeName,
+      faviconUrl: faviconUrl || logoUrl,
+    });
+
+    // 3. Dispatch live store update event so TopBar & storefronts update immediately
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('unityteck-store-updated', {
+          detail: {
+            storeId: activeStore.id,
+            name: storeName,
+            logo: logoUrl,
+            favicon: faviconUrl,
+          },
+        }),
+      );
+    }
 
     // 2. Auto-sync to SEO Google account & structured schema
     updateStoreSEOConfig(activeStore.id, {

@@ -593,16 +593,17 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   ...savedStore,
                   // Guarantee essential properties from latest master config
                   name: savedStore.name || initStore.name,
-                  nameAr: initStore.nameAr || savedStore.nameAr,
-                  nameEn: initStore.nameEn || savedStore.nameEn,
+                  nameAr: savedStore.nameAr || initStore.nameAr,
+                  nameEn: savedStore.nameEn || initStore.nameEn,
                   category: savedStore.category || initStore.category,
-                  categoryAr: initStore.categoryAr || savedStore.categoryAr,
-                  categoryEn: initStore.categoryEn || savedStore.categoryEn,
+                  categoryAr: savedStore.categoryAr || initStore.categoryAr,
+                  categoryEn: savedStore.categoryEn || initStore.categoryEn,
                   owner: savedStore.owner || initStore.owner,
-                  ownerAr: initStore.ownerAr || savedStore.ownerAr,
-                  ownerEn: initStore.ownerEn || savedStore.ownerEn,
-                  logo: initStore.logo || savedStore.logo,
-                  domain: initStore.domain || savedStore.domain,
+                  ownerAr: savedStore.ownerAr || initStore.ownerAr,
+                  ownerEn: savedStore.ownerEn || initStore.ownerEn,
+                  logo: savedStore.logo || initStore.logo,
+                  favicon: savedStore.favicon || initStore.favicon,
+                  domain: savedStore.domain || initStore.domain,
                   hosting_id: initStore.hosting_id || savedStore.hosting_id,
                   database_id: initStore.database_id || savedStore.database_id,
                   plan: savedStore.plan || initStore.plan,
@@ -610,6 +611,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   productsCount: Math.max(initStore.productsCount || 0, savedStore.productsCount || 0),
                   ordersCount: Math.max(initStore.ordersCount || 0, savedStore.ordersCount || 0),
                   revenue: Math.max(initStore.revenue || 0, savedStore.revenue || 0),
+                  visitorsCount: (initStore.id === 'store-1' && (savedStore.visitorsCount === 1420 || !savedStore.visitorsCount)) ? 0 : Number(savedStore.visitorsCount ?? initStore.visitorsCount ?? 0),
                   workspacePath: initStore.workspacePath || savedStore.workspacePath,
                   languages: savedStore.languages || initStore.languages || { english: true, arabic: true },
                 };
@@ -667,7 +669,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         ) {
           return 'store-bleco';
         }
-        if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html')) {
+        if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee')) {
           return 'store-coffee';
         }
         if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
@@ -689,11 +691,24 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         }
 
+        // On giftshop-sa.com, if no explicit store query/path, store-1 (Flowers) is the canonical default
+        if (effectiveHostname.includes('giftshop-sa.com') || effectiveHostname.includes('hadaya')) {
+          if (!s && !p.startsWith('/coffee') && !p.startsWith('/car') && !p.startsWith('/bleco')) {
+            try {
+              const saved = localStorage.getItem('unityteck_active_store_id');
+              if (saved === 'store-coffee' || saved === 'store-bleco') {
+                localStorage.setItem('unityteck_active_store_id', 'store-1');
+              }
+            } catch {}
+            return 'store-1';
+          }
+        }
+
         // 4. Saved localStorage preference
         const saved = localStorage.getItem('unityteck_active_store_id');
         if (saved && (saved === 'store-bleco' || saved === 'store-coffee' || saved === 'store-1')) {
-          // If on giftshop-sa.com root or base host without explicit store query, ensure store-1 (Flowers) wins
-          if ((!p || p === '/') && !s && effectiveHostname.includes('giftshop-sa.com')) {
+          // If on giftshop-sa.com without explicit store query, ensure store-1 (Flowers) wins
+          if (effectiveHostname.includes('giftshop-sa.com') && !s && !p.startsWith('/coffee') && !p.startsWith('/car')) {
             return 'store-1';
           }
           return saved;
@@ -749,11 +764,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           p.startsWith('/bleco')
         ) {
           targetId = 'store-bleco';
-        } else if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html')) {
+        } else if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee')) {
           targetId = 'store-coffee';
         } else if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
           targetId = 'store-1';
-        } else if (!s && (p === '/' || p === '')) {
+        } else if (!s && (window.location.hostname.includes('giftshop-sa.com') || p === '/' || p === '')) {
           // Default storefront on root for giftshop-sa.com or base host is Hadaya Flowers & Gifts
           targetId = 'store-1';
         } else if (s) {
@@ -831,6 +846,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [productsMap, setProductsMap] = useState<Record<string, Product[]>>(() => {
     try {
       if (typeof localStorage !== 'undefined') {
+        const CURRENT_PRODUCTS_VERSION = 'v5_flowers_2026_canonical';
+        if (localStorage.getItem('unityteck_products_cache_ver') !== CURRENT_PRODUCTS_VERSION) {
+          localStorage.setItem('unityteck_products_cache_ver', CURRENT_PRODUCTS_VERSION);
+          localStorage.removeItem('unityteck_products_map');
+          return isLiveApiActive() ? {} : INITIAL_PRODUCTS;
+        }
+
         const saved = localStorage.getItem('unityteck_products_map');
         if (saved) {
           const parsed = JSON.parse(saved);
@@ -844,6 +866,23 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 updated = true;
               }
             });
+            const flowerProds = parsed['store-1'];
+            const hasOldFlowers =
+              !flowerProds ||
+              !Array.isArray(flowerProds) ||
+              flowerProds.length < 5 ||
+              flowerProds.some(
+                (p: Product) =>
+                  !p.image ||
+                  p.image.startsWith('/src/assets/images') ||
+                  p.image.includes('photo-1518709268805') ||
+                  p.image.includes('photo-1525310072745') ||
+                  p.image.includes('unsplash.com/photo-1563241527')
+              );
+            if (hasOldFlowers) {
+              parsed['store-1'] = INITIAL_PRODUCTS['store-1'];
+              updated = true;
+            }
             const blecoProds = parsed['store-bleco'];
             const hasOldDupCamry = Array.isArray(blecoProds) && blecoProds.some((p: Product) => p.id === 'prod-seat-camry-2025-camel');
             const hasOldEnglishName = Array.isArray(blecoProds) && blecoProds.some((p: Product) => p.name?.startsWith('Car seat covers made of') || p.name?.startsWith('Car seat covers'));
@@ -884,6 +923,23 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     p.galleryUrls = ['/images/hadaya_women_luxury_gift_zedaan.webp'];
                     p.imageVersion = String(Date.now());
                     p.isStale = false;
+                    updated = true;
+                  }
+                  if (p.image && p.image.startsWith('/src/assets/images/')) {
+                    p.image = p.image.replace('/src/assets/images/', '/images/');
+                    updated = true;
+                  }
+                  if (Array.isArray(p.galleryUrls)) {
+                    p.galleryUrls = p.galleryUrls.map((u) => u.startsWith('/src/assets/images/') ? u.replace('/src/assets/images/', '/images/') : u);
+                  }
+                  if ((p.id === 'choc-1' || p.sku === 'HM-CHOC-01') && (!p.image || p.image.includes('hadaya_luxury_gift_set') || p.image.includes('unsplash') || p.image.includes('photo-1513519245088'))) {
+                    p.image = 'https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png';
+                    p.galleryUrls = ['https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png'];
+                    updated = true;
+                  }
+                  if ((p.id === 'choc-4' || p.sku === 'HM-CHOC-04') && (!p.image || p.image.includes('unsplash') || p.image.includes('photo-1513519245088'))) {
+                    p.image = '/images/hadaya_luxury_gift_set_1791216170853.jpg';
+                    p.galleryUrls = ['/images/hadaya_luxury_gift_set_1791216170853.jpg'];
                     updated = true;
                   }
                 });
@@ -2132,11 +2188,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     const sync = () => setAuthTick((n) => n + 1);
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || e.key.startsWith('unityteck_auth_')) {
+        sync();
+      }
+    };
     window.addEventListener('unityteck-auth', sync);
-    window.addEventListener('storage', sync);
+    window.addEventListener('storage', onStorage);
     return () => {
       window.removeEventListener('unityteck-auth', sync);
-      window.removeEventListener('storage', sync);
+      window.removeEventListener('storage', onStorage);
     };
   }, []);
 
@@ -2159,7 +2220,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         productsCount: seeded ? 3 : 0,
         ordersCount: seeded ? 2 : 0,
         revenue: seeded ? 1450 : 0,
-        visitorsCount: seeded ? 120 : 0,
+        visitorsCount: 0,
         lastActivity: 'Just now',
         createdAt: new Date().toISOString().split('T')[0],
       };
@@ -2443,12 +2504,20 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateStoreInfo = async (storeId: string, updates: Partial<Store>) => {
-    setStores(prev => prev.map(s => {
-      if (s.id === storeId) {
-        return { ...s, ...updates };
-      }
-      return s;
-    }));
+    setStores(prev => {
+      const next = prev.map(s => {
+        if (s.id === storeId) {
+          return { ...s, ...updates };
+        }
+        return s;
+      });
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('unityteck_stores', JSON.stringify(next));
+        }
+      } catch {}
+      return next;
+    });
 
     if (dataSourceRef.current === 'api' || isApiEnabled()) {
       try {
@@ -2458,10 +2527,19 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (updates.phone) payload.phone = updates.phone;
         if (updates.category) payload.category = updates.category;
         if (updates.logo) payload.logo = updates.logo;
+        if (updates.favicon) payload.favicon = updates.favicon;
         if (updates.domain) payload.domain = updates.domain;
         if (Object.keys(payload).length > 0) {
           const updated = await tenantApi.updateStore(storeId, payload);
-          setStores(prev => prev.map(s => s.id === storeId ? { ...s, ...updated } : s));
+          setStores(prev => {
+            const next = prev.map(s => s.id === storeId ? { ...s, ...updated } : s);
+            try {
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('unityteck_stores', JSON.stringify(next));
+              }
+            } catch {}
+            return next;
+          });
         }
       } catch (err) {
         console.warn('Backend updateStore failed, state kept in sync locally:', err);
@@ -4625,7 +4703,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       productsCount: 4,
       ordersCount: 3,
       revenue: 2850,
-      visitorsCount: 420,
+      visitorsCount: 0,
       lastActivity: 'Just now',
       logo: 'flower',
       accentColor: '#059669',

@@ -17,13 +17,29 @@ function ensureIconLink(rel: string): HTMLLinkElement {
   return el;
 }
 
+function getFaviconMime(href: string): string {
+  const clean = href.toLowerCase().split('?')[0];
+  if (clean.endsWith('.svg')) return 'image/svg+xml';
+  if (clean.endsWith('.png')) return 'image/png';
+  if (clean.endsWith('.webp')) return 'image/webp';
+  if (clean.endsWith('.jpg') || clean.endsWith('.jpeg')) return 'image/jpeg';
+  if (clean.endsWith('.gif')) return 'image/gif';
+  return 'image/x-icon';
+}
+
 function setFavicon(href: string): void {
+  const mime = getFaviconMime(href);
+
   const icon = ensureIconLink('icon');
-  icon.setAttribute('type', 'image/svg+xml');
+  icon.setAttribute('type', mime);
   icon.setAttribute('href', href);
 
   const shortcut = ensureIconLink('shortcut icon');
+  shortcut.setAttribute('type', mime);
   shortcut.setAttribute('href', href);
+
+  const apple = ensureIconLink('apple-touch-icon');
+  apple.setAttribute('href', href);
 }
 
 export type PortalHeadInput =

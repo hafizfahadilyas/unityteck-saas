@@ -33,7 +33,7 @@ import { useToast } from '../common/ToastProvider';
 import { StoreIdentityForm } from './themeSettings/StoreIdentityForm';
 import { ThemeSettingsMaster } from './themeSettings/ThemeSettingsMaster';
 import { getStoreDisplayName } from '../../utils/storeLocalization';
-import { handleImageError } from '../../utils/imageFallback';
+import { handleImageError, isValidMediaUrl } from '../../utils/imageFallback';
 import { preloadVisualThemeBuilder } from './visualBuilder/preloadVisualBuilder';
 import { ThemeBuilderLoadingShell } from './visualBuilder/ThemeBuilderLoadingShell';
 
@@ -99,7 +99,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
       taglineAr: newThemeTaglineAr.trim() || `ثيم مخصص حصرياً لمتجر ${activeStore.name}`,
       taglineEn: `Exclusive custom theme for ${activeStore.name}`,
       previewColor: newThemeColor,
-      thumbnail: activeStore.logo && activeStore.logo.startsWith('http') ? activeStore.logo : '/theme-mockups/real_storefront_fullpage.png',
+      thumbnail: activeStore.logo && isValidMediaUrl(activeStore.logo) ? activeStore.logo : '/theme-mockups/real_storefront_fullpage.png',
       badge: isAr ? 'ثيم خاص بالمتجر' : 'Private Store Theme',
       badgeAr: 'ثيم خاص بالمتجر',
       badgeEn: 'Private Store Theme',

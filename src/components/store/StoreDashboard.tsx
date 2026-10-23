@@ -170,8 +170,21 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
   }, [currentOrders]);
 
   // Real traffic channels computed from store orders acquisition source
+  // Rule: Hide any traffic source when it has no visits. Move any source to the top of the list whenever it receives a new order or request.
   const trafficChannels = useMemo(() => {
-    if (!currentOrders || currentOrders.length === 0) return [];
+    // Strict Real Data Rule: If store has 0 total visits, every traffic source has 0 visits -> all must be hidden.
+    if (visitorsCount === 0 || !currentOrders || currentOrders.length === 0) {
+      return [];
+    }
+
+    // Determine the most recent order's source to place at the top of the list
+    const sortedOrders = [...currentOrders].sort((a, b) => {
+      const da = new Date(a.date || a.createdAt || 0).getTime();
+      const db = new Date(b.date || b.createdAt || 0).getTime();
+      return db - da;
+    });
+    const latestOrderSource = sortedOrders[0]?.source || 'Direct';
+
     const sourceCounts: Record<string, number> = {};
     currentOrders.forEach((o) => {
       const src = o.source || 'Direct';
@@ -180,19 +193,35 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
 
     const total = currentOrders.length;
     const channelConfigs: Record<string, { nameEn: string; nameAr: string; color: string; iconType: any }> = {
+      Instagram: { nameEn: 'Instagram', nameAr: 'انستغرام', color: '#e1306c', iconType: 'instagram' },
       TikTok: { nameEn: 'TikTok', nameAr: 'تيك توك', color: '#0f172a', iconType: 'tiktok' },
       Snapchat: { nameEn: 'Snapchat', nameAr: 'سناب شات', color: '#f59e0b', iconType: 'snapchat' },
       WhatsApp: { nameEn: 'WhatsApp', nameAr: 'واتساب', color: '#10b981', iconType: 'whatsapp' },
-      Instagram: { nameEn: 'Instagram', nameAr: 'انستغرام', color: '#e1306c', iconType: 'instagram' },
       Facebook: { nameEn: 'Facebook', nameAr: 'فيسبوك', color: '#1877f2', iconType: 'facebook' },
+      Google: { nameEn: 'Google Ads', nameAr: 'إعلانات جوجل', color: '#0284c7', iconType: 'google' },
+      'Google Ads': { nameEn: 'Google Ads', nameAr: 'إعلانات جوجل', color: '#0284c7', iconType: 'google' },
+      'Google Organic Search': { nameEn: 'Google Organic Search', nameAr: 'بحث جوجل المجاني', color: '#059669', iconType: 'google' },
+      'Bing Organic Search': { nameEn: 'Bing Organic Search', nameAr: 'بحث بينج المجاني', color: '#008373', iconType: 'bing' },
+      'Email Marketing': { nameEn: 'Email Marketing', nameAr: 'التسويق عبر البريد', color: '#ea580c', iconType: 'email' },
+      YouTube: { nameEn: 'YouTube', nameAr: 'يوتيوب', color: '#ef4444', iconType: 'youtube' },
+      'X (formerly Twitter)': { nameEn: 'X (formerly Twitter)', nameAr: 'إكس (تويتر سابقاً)', color: '#000000', iconType: 'x' },
+      Twitter: { nameEn: 'X (formerly Twitter)', nameAr: 'إكس (تويتر سابقاً)', color: '#000000', iconType: 'x' },
       Direct: { nameEn: 'Direct Visits', nameAr: 'زيارات مباشرة', color: '#0d9488', iconType: 'direct' },
       'Direct Visits': { nameEn: 'Direct Visits', nameAr: 'زيارات مباشرة', color: '#0d9488', iconType: 'direct' },
-      Google: { nameEn: 'Google Ads', nameAr: 'إعلانات جوجل', color: '#0284c7', iconType: 'other' },
-      'Google Ads': { nameEn: 'Google Ads', nameAr: 'إعلانات جوجل', color: '#0284c7', iconType: 'other' },
-      'Organic Search': { nameEn: 'Organic Search', nameAr: 'بحث مجاني', color: '#059669', iconType: 'other' },
+      'External Referrals': { nameEn: 'External Referrals', nameAr: 'إحالات خارجية', color: '#6366f1', iconType: 'other' },
     };
 
-    return Object.entries(sourceCounts).map(([src, count]) => {
+    // Hide any traffic source when it has no visits (count > 0 only)
+    const activeEntries = Object.entries(sourceCounts).filter(([_, count]) => count > 0);
+
+    // Sort: Move source with new order / request to top, remaining by highest count
+    activeEntries.sort(([srcA, countA], [srcB, countB]) => {
+      if (srcA === latestOrderSource) return -1;
+      if (srcB === latestOrderSource) return 1;
+      return countB - countA;
+    });
+
+    return activeEntries.map(([src, count]) => {
       const cfg = channelConfigs[src] || {
         nameEn: src,
         nameAr: src,
@@ -203,7 +232,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
         id: src.toLowerCase().replace(/\s+/g, '-'),
         name: cfg.nameEn,
         nameAr: cfg.nameAr,
-        percentage: Math.round((count / total) * 100),
+        percentage: Math.max(1, Math.round((count / total) * 100)),
         color: cfg.color,
         iconType: cfg.iconType,
       };
@@ -329,7 +358,14 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
             {/* Card 8: Notifications */}
             <NotificationsCard
               onViewAll={() => onNavigateTab('notifications')}
-              onOpenOrder={() => onNavigateTab('orders')}
+              onOpenOrder={(orderId) => {
+                try { sessionStorage.setItem('target_view_order_id', orderId); } catch {}
+                onNavigateTab('orders');
+              }}
+              onOpenProduct={(productId) => {
+                try { sessionStorage.setItem('target_edit_product_id', productId); } catch {}
+                onNavigateTab('products');
+              }}
               onNavigateTab={onNavigateTab}
               onOpenWhatsApp={(phone, text) => {
                 const cleanedPhone = (phone || '').replace(/[^0-9]/g, '');
@@ -344,7 +380,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
       {/* ── Embedded Orders Table Operations (Full Width Span) ── */}
       <div className="pt-2">
         <DashboardOrdersTable
-          orders={analyticsOrders.length > 0 ? analyticsOrders : currentOrders}
+          orders={currentOrders}
           onNavigateTab={onNavigateTab}
           onOpenCreateOrder={() => setIsCreateOrderModalOpen(true)}
         />

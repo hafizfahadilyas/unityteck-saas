@@ -63,7 +63,7 @@ import { ProductVariationsPanel } from './ProductVariationsPanel';
 import type { ProductColorOption } from '../../types';
 import { SEAT_COLORS, getProductColors } from '../../data/blecoStoreData';
 import { getProductDisplayName, getProductDisplayCategory } from '../../utils/storeLocalization';
-import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
+import { handleImageError, FALLBACK_PRODUCT_IMAGE, cleanImageUrl } from '../../utils/imageFallback';
 import { StoreProductEditorView } from './StoreProductEditorView';
 import { ProductEditDrawer } from './ProductEditDrawer';
 import { ProductFiltersPanel, type ProductFilterCriteria } from './ProductFiltersPanel';
@@ -159,6 +159,22 @@ export const StoreProducts: React.FC = () => {
     window.addEventListener('unityteck-brands-updated', handleBrandsUpdate);
     return () => window.removeEventListener('unityteck-brands-updated', handleBrandsUpdate);
   }, [activeStore.id]);
+
+  React.useEffect(() => {
+    try {
+      const targetId = sessionStorage.getItem('target_edit_product_id');
+      if (targetId && currentProducts.length > 0) {
+        sessionStorage.removeItem('target_edit_product_id');
+        const found = currentProducts.find((p) => p.id === targetId || p.sku === targetId);
+        if (found) {
+          setEditingProductId(found.id);
+          setIsSideDrawerOpen(true);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [currentProducts]);
 
   React.useEffect(() => {
     const handleSubView = (e: any) => {
@@ -834,7 +850,7 @@ export const StoreProducts: React.FC = () => {
                           <div className="flex items-center gap-2.5">
                             {item.image ? (
                               <img
-                                src={item.image}
+                                src={cleanImageUrl(item.image)}
                                 alt={item.name}
                                 loading="lazy"
                                 decoding="async"
@@ -1545,7 +1561,7 @@ export const StoreProducts: React.FC = () => {
                             className="aspect-square w-full rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80 flex items-center justify-center p-3 cursor-pointer group-hover:scale-[1.01] transition-transform overflow-hidden mb-3"
                           >
                             <img
-                              src={prod.image || FALLBACK_PRODUCT_IMAGE}
+                              src={cleanImageUrl(prod.image) || FALLBACK_PRODUCT_IMAGE}
                               alt={getProductDisplayName(prod, locale)}
                               loading="lazy"
                               decoding="async"
@@ -1768,7 +1784,7 @@ export const StoreProducts: React.FC = () => {
                             {visibleColumns.image && (
                               <td className="py-2 px-1.5 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
                                 <img
-                                  src={prod.image || FALLBACK_PRODUCT_IMAGE}
+                                  src={cleanImageUrl(prod.image) || FALLBACK_PRODUCT_IMAGE}
                                   alt={getProductDisplayName(prod, locale)}
                                   loading="lazy"
                                   decoding="async"

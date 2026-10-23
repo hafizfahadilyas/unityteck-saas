@@ -81,7 +81,7 @@ INSERT INTO \`stores\` (
   'ar','rtl','Asia/Riyadh',
   '+966500000001','tariq@wardalmakkah.sa','Tariq Al-Makki','Makkah','Saudi Arabia',
   'Real Fresh Flowers & Luxury Gifts','flower','#059669',
-  'dedicated','dedicated_mysql',39,3,1610.00,1420,
+  'dedicated','dedicated_mysql',39,3,1610.00,0,
   NOW(),NOW()
 )
 ON DUPLICATE KEY UPDATE

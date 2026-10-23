@@ -453,7 +453,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                 id: `cat-${Date.now()}`,
                 name: isAr ? `تصنيف ${newIdx}` : `Category ${newIdx}`,
                 nameEn: `Category ${newIdx}`,
-                image: '/src/assets/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg',
+                image: '/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg',
                 badge: isAr ? 'جديد' : 'New',
                 link: '#catalog',
                 count: 10,

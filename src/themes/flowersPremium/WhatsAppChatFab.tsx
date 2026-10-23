@@ -7,13 +7,23 @@ type Props = {
   lang: string;
   productName?: string;
   isAdmin?: boolean;
+  storeId?: string;
+  storeName?: string;
+  phone?: string;
 };
 
-export const WhatsAppChatFab: React.FC<Props> = ({ lang, productName, isAdmin = false }) => {
+export const WhatsAppChatFab: React.FC<Props> = ({
+  lang,
+  productName,
+  isAdmin = false,
+  storeId = 'store-1',
+  storeName = 'متجر هدايا',
+  phone,
+}) => {
   if (isAdmin) return null;
 
-  const identity = readStoreIdentity('store-1', { name: 'متجر هدايا' });
-  const activePhone = (identity.whatsapp || FLOWERS_WHATSAPP.phone).replace(/[^0-9]/g, '');
+  const identity = readStoreIdentity(storeId, { name: storeName });
+  const activePhone = (phone || identity.whatsapp || FLOWERS_WHATSAPP.phone).replace(/[^0-9]/g, '');
 
   const msg =
     (lang === 'ar' ? FLOWERS_WHATSAPP.defaultMessageAr : FLOWERS_WHATSAPP.defaultMessageEn) +
@@ -34,8 +44,8 @@ export const WhatsAppChatFab: React.FC<Props> = ({ lang, productName, isAdmin = 
   );
 };
 
-export function whatsappOrderHref(lang: string, lines: string[], phoneOverride?: string): string {
-  const identity = readStoreIdentity('store-1', { name: 'متجر هدايا' });
+export function whatsappOrderHref(lang: string, lines: string[], phoneOverride?: string, storeId = 'store-1', storeName = 'متجر هدايا'): string {
+  const identity = readStoreIdentity(storeId, { name: storeName });
   const activePhone = (phoneOverride || identity.whatsapp || FLOWERS_WHATSAPP.phone).replace(/[^0-9]/g, '');
   const header = lang === 'ar' ? FLOWERS_WHATSAPP.defaultMessageAr : FLOWERS_WHATSAPP.defaultMessageEn;
   const body = [header, '', ...lines].join('\n');

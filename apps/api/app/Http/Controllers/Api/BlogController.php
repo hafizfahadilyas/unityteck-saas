@@ -41,7 +41,7 @@ class BlogController extends Controller
                     'comments' => 0,
                     'published_at' => '2026-09-12 09:00:00',
                     'updated_at' => '2026-09-12 09:00:00',
-                    'thumbnail' => 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&auto=format&fit=crop&q=80',
+                    'thumbnail' => '/images/coffee_hero_flagship_machine_1791218907782.webp',
                     'featured' => true,
                     'seo' => [
                         'meta_title' => 'Mastering the V60 Pour-Over Coffee Guide',
@@ -67,7 +67,7 @@ class BlogController extends Controller
                     'comments' => 0,
                     'published_at' => '2026-09-06 16:15:00',
                     'updated_at' => '2026-09-06 16:15:00',
-                    'thumbnail' => 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=800&auto=format&fit=crop&q=80',
+                    'thumbnail' => '/images/saudi_cafe_machine_1791363309148.webp',
                     'featured' => false,
                     'seo' => [
                         'meta_title' => 'Single-Origin Specialty Beans: Ethiopian vs Colombian',
@@ -99,7 +99,7 @@ class BlogController extends Controller
                     'comments' => 0,
                     'published_at' => '2026-09-15 10:00:00',
                     'updated_at' => '2026-09-15 10:00:00',
-                    'thumbnail' => 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=800&auto=format&fit=crop&q=80',
+                    'thumbnail' => '/images/hadaya_saudi_luxury_bouquet_1791300211553.webp',
                     'featured' => true,
                     'seo' => [
                         'meta_title' => 'The Ultimate Guide to Luxury Flowers & Gift Arrangements',
@@ -117,7 +117,7 @@ class BlogController extends Controller
                     'category' => 'Floral Care',
                     'author' => [
                         'name' => 'Sarah Al-Makkawi',
-                        'avatar' => 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80',
+                        'avatar' => '/images/hadaya_white_roses_bouquet_1791276726730.webp',
                         'role' => 'Master Floral Stylist',
                     ],
                     'status' => 'published',
@@ -125,7 +125,7 @@ class BlogController extends Controller
                     'comments' => 0,
                     'published_at' => '2026-09-10 14:30:00',
                     'updated_at' => '2026-09-10 14:30:00',
-                    'thumbnail' => 'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?w=800&auto=format&fit=crop&q=80',
+                    'thumbnail' => '/images/hadaya_royal_wedding_flowers_1791300194084.webp',
                     'featured' => false,
                     'seo' => [
                         'meta_title' => 'How to Keep Fresh Cut Roses Vibrant for 14 Days',

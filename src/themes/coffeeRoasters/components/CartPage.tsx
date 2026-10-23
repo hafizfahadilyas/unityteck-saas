@@ -59,7 +59,7 @@ export const CartPage: React.FC = () => {
   return (
     <div
       dir={language === 'AR' ? 'rtl' : 'ltr'}
-      className="min-h-screen bg-white py-6 sm:py-10 text-start text-neutral-900 selection:bg-neutral-900 selection:text-white"
+      className="min-h-screen bg-white py-6 sm:py-10 pb-28 lg:pb-12 text-start text-neutral-900 selection:bg-neutral-900 selection:text-white"
     >
       <div className="max-w-[1360px] mx-auto px-4 lg:px-8 space-y-6 sm:space-y-8">
         <div className="pb-2 sm:pb-4">
@@ -272,6 +272,28 @@ export const CartPage: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Mobile Sticky Checkout Action Bar (<lg screens) */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-neutral-200/80 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] py-3 px-4">
+        <div className="flex items-center justify-between gap-3 max-w-lg mx-auto">
+          <div className="flex flex-col min-w-0">
+            <span className="text-[10px] text-neutral-500 font-medium">
+              {language === 'AR' ? 'الإجمالي النهائي:' : 'Total Amount:'}
+            </span>
+            <span className="text-base font-black text-neutral-900 font-sans tracking-tight">
+              {language === 'AR' ? `${finalTotal.toLocaleString()}.00 ر.س` : `SAR ${finalTotal.toLocaleString()}.00`}
+            </span>
+          </div>
+
+          <button
+            onClick={() => navigateTo('checkout')}
+            className="px-5 py-2.5 rounded-full bg-black hover:bg-neutral-800 text-white font-bold text-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-md shrink-0"
+          >
+            <span>{language === 'AR' ? 'إنهاء الطلب' : 'Checkout'}</span>
+            <ArrowRight className={`w-3.5 h-3.5 shrink-0 ${language === 'AR' ? 'rotate-180' : ''}`} />
+          </button>
         </div>
       </div>
     </div>

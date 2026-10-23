@@ -60,6 +60,22 @@ export const ReportsNavHeader: React.FC<ReportsNavHeaderProps> = ({
     { key: 'behavior' as ReportTabKey, labelAr: 'سلوك الزوار', labelEn: 'Behavior Analytics', badge: 'Clarity' },
   ];
 
+  const formattedDateRange = React.useMemo(() => {
+    const now = new Date(2026, 9, 14);
+    const past = new Date(now);
+    if (dateRange === '7d') past.setDate(now.getDate() - 7);
+    else if (dateRange === '90d') past.setDate(now.getDate() - 90);
+    else if (dateRange === 'year') past.setMonth(0, 1);
+    else past.setDate(now.getDate() - 30);
+
+    if (isAr) {
+      const arMonths = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+      return `${past.getDate()} ${arMonths[past.getMonth()]} ${past.getFullYear()} - ${now.getDate()} ${arMonths[now.getMonth()]} ${now.getFullYear()}`;
+    }
+    const enMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${enMonths[past.getMonth()]} ${past.getDate()}, ${past.getFullYear()} - ${enMonths[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+  }, [dateRange, isAr]);
+
   return (
     <div className="space-y-4" dir={dir}>
       {/* ═══════════════════════════════════════════════════════════════ */}
@@ -93,7 +109,7 @@ export const ReportsNavHeader: React.FC<ReportsNavHeaderProps> = ({
                 {dateRange === '7d' ? (isAr ? 'آخر 7 أيام' : 'Last 7 days') : dateRange === '90d' ? (isAr ? 'آخر 90 يوم' : 'Last 90 days') : (isAr ? 'آخر 30 يوم' : 'Last 30 days')}
               </span>
               <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 leading-tight">
-                Sep 15, 2026 - Oct 14, 2026
+                {formattedDateRange}
               </span>
             </div>
             <select

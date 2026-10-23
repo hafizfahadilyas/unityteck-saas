@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
+import { isValidMediaUrl } from '../../../utils/imageFallback';
 import {
   Search,
   User,
@@ -171,9 +172,9 @@ export const Header: React.FC<HeaderProps> = ({
 
   const displayLogoUrl =
     isCoffee && (logo.imageUrl?.includes('NKOjvD') || !logo.imageUrl)
-      ? (activeStore?.logo && activeStore.logo.startsWith('http') ? activeStore.logo : 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=400&q=80')
+      ? (activeStore?.logo && isValidMediaUrl(activeStore.logo) ? activeStore.logo : 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=400&q=80')
       : isCar && (logo.imageUrl?.includes('NKOjvD') || !logo.imageUrl)
-      ? (activeStore?.logo && activeStore.logo.startsWith('http') ? activeStore.logo : 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=300&q=80')
+      ? (activeStore?.logo && isValidMediaUrl(activeStore.logo) ? activeStore.logo : 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=300&q=80')
       : isNotHadayaStore && logo.imageUrl?.includes('NKOjvD')
       ? (activeStore?.logo || '')
       : (logo.imageUrl || activeStore?.logo);

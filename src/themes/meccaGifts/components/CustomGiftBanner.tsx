@@ -78,7 +78,7 @@ export const CustomGiftBanner: React.FC<CustomGiftBannerProps> = ({
     ? 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=1200&q=80'
     : isCarStore
     ? 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80'
-    : '/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg';
+    : '/images/hadaya_white_orchid_penthouse_1791218732789.jpg';
 
   const bgImage =
     s.imageUrl ||

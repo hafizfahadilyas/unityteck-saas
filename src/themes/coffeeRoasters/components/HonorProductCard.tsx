@@ -105,7 +105,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
   return (
     <div
       onClick={() => navigateTo('product-detail', String(product.id))}
-      className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-5 border-0 shadow-2xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between group cursor-pointer text-center relative overflow-hidden select-none"
+      className="bg-white rounded-2xl sm:rounded-3xl p-2.5 xs:p-3 sm:p-5 border-0 shadow-2xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between group cursor-pointer text-center relative overflow-hidden select-none"
     >
       {/* 1. TOP HEADER: Product Name */}
       <div className="space-y-1.5 sm:space-y-2.5">

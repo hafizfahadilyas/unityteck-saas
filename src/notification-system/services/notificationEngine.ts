@@ -319,6 +319,66 @@ export class NotificationEngine {
       });
     }
 
+    // 4b. Real SEO & Visibility: Products with 0 or < 10 impressions 1 month after URLs indexed, or very few clicks (PDF Page 3)
+    const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+    const lowImpressionProducts = currentProducts.filter((p) => {
+      if (p.status === 'archived') return false;
+
+      const views = Number(p.viewsCount ?? p.views ?? (p as any).impressions ?? 0);
+      const clicks = Number((p as any).clicksCount ?? (p as any).clicks ?? 0);
+
+      // Verify whether product URL was indexed / published at least 1 month ago
+      const dateStr = (p as any).indexedAt || (p as any).indexingDate || p.publishedAt || (p as any).createdAt || (p as any).created_at;
+      let isOneMonthAfterIndexed = true;
+      if (dateStr) {
+        const pubDate = new Date(dateStr).getTime();
+        if (!isNaN(pubDate)) {
+          isOneMonthAfterIndexed = (nowMs - pubDate) >= ONE_MONTH_MS;
+        }
+      }
+
+      // Condition 1: 0 or fewer than 10 impressions 1 month after URL indexed
+      const hasLowImpressions = isOneMonthAfterIndexed && views < 10;
+      // Condition 2: Very few clicks
+      const hasFewClicks = (views >= 10 && clicks <= 2) || (isOneMonthAfterIndexed && clicks === 0);
+
+      return hasLowImpressions || hasFewClicks;
+    });
+
+    if (lowImpressionProducts.length > 0) {
+      // Pick up to 2 items to ensure alert variety
+      lowImpressionProducts.slice(0, 2).forEach((p, idx) => {
+        items.push({
+          id: `seo-low-impressions-${p.id || p.sku || `sku-${idx}`}`,
+          dedup_key: `seo_impressions_${p.id || p.sku}`,
+          registryCode: 'product_low_impressions',
+          zone: 'zone1_issues',
+          category: 'SEO & Performance',
+          severity: 'warning',
+          status: 'unread',
+          title: `Low Impressions: ${p.name || p.nameAr || 'Product'}`,
+          titleAr: `ضعف ظهور وفهرسة: ${p.nameAr || p.name || 'منتج'}`,
+          description: `Product has fewer than 10 impressions after indexing with low clicks. Review keywords and images to boost ranking.`,
+          descriptionAr: `المنتج لديه أقل من 10 مرات ظهور أو نقرات منخفضة بعد الفهرسة. راجع الكلمات المفتاحية والصور لتحسين الترتيب.`,
+          timestamp: new Date(nowMs - (25 + idx * 5) * 60 * 1000).toISOString(),
+          read: false,
+          dismissed: false,
+          actionLabel: 'Open Product',
+          actionLabelAr: 'فتح المنتج',
+          actionType: 'product',
+          destination: 'products',
+          resolution: 'Open product in editor and optimize search metadata.',
+          solutionText: 'Add descriptive title and alt tags to increase search engine traffic.',
+          solutionTextAr: 'أضف عنواناً تفصيلياً ونصوص بديلة للصور لزيادة الزيارات المجانية من محركات البحث.',
+          metadata: {
+            productId: p.id,
+            productName: p.name || p.nameAr,
+            sku: p.sku,
+          },
+        });
+      });
+    }
+
     // 5. Real Store Configuration & Hosting status checks
     if (activeStore) {
       if (activeStore.ssl_status === 'expired' || activeStore.ssl_status === 'pending') {

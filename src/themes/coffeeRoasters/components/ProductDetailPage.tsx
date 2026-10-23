@@ -298,15 +298,15 @@ export const ProductDetailPage: React.FC = () => {
       const boldWord = words[0] || 'هايبرو';
       const restWords = words.slice(1).join(' ') || 'بارستا برو H7A دبل بويلر';
       return (
-        <span className="inline-flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="font-black text-white text-3xl sm:text-5xl lg:text-6xl tracking-tight">
+        <span className="inline-flex flex-wrap items-baseline gap-x-2.5 sm:gap-x-3 gap-y-1">
+          <span className="font-black text-white text-2xl xs:text-3xl sm:text-5xl lg:text-6xl tracking-tight">
             {boldWord}
           </span>
-          <span className="font-light text-white/95 text-3xl sm:text-5xl lg:text-6xl tracking-tight">
+          <span className="font-light text-white/95 text-2xl xs:text-3xl sm:text-5xl lg:text-6xl tracking-tight">
             {restWords}
           </span>
           {product.category === 'machines' && (
-            <span className="text-xs sm:text-sm font-mono px-2.5 py-0.5 rounded-full border border-white/20 bg-white/10 text-white/80 font-normal">
+            <span className="text-[11px] xs:text-xs sm:text-sm font-mono px-2 sm:px-2.5 py-0.5 rounded-full border border-white/20 bg-white/10 text-white/80 font-normal">
               20 بار
             </span>
           )}
@@ -320,15 +320,15 @@ export const ProductDetailPage: React.FC = () => {
     const restWords = words.slice(1).filter(w => !w.toLowerCase().includes('20-bar')).join(' ') || 'Barista Pro H7A';
 
     return (
-      <span className="inline-flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="font-black tracking-tight text-white uppercase text-3xl sm:text-5xl lg:text-6xl">
+      <span className="inline-flex flex-wrap items-baseline gap-x-2.5 sm:gap-x-3 gap-y-1">
+        <span className="font-black tracking-tight text-white uppercase text-2xl xs:text-3xl sm:text-5xl lg:text-6xl">
           {boldWord}
         </span>
-        <span className="font-light tracking-normal text-white/95 text-3xl sm:text-5xl lg:text-6xl">
+        <span className="font-light tracking-normal text-white/95 text-2xl xs:text-3xl sm:text-5xl lg:text-6xl">
           {restWords}
         </span>
         {product.category === 'machines' && (
-          <span className="text-xs sm:text-sm font-mono px-2.5 py-0.5 rounded-full border border-white/20 bg-white/10 text-white/80 font-normal">
+          <span className="text-[11px] xs:text-xs sm:text-sm font-mono px-2 sm:px-2.5 py-0.5 rounded-full border border-white/20 bg-white/10 text-white/80 font-normal">
             20-BAR
           </span>
         )}
@@ -470,20 +470,20 @@ export const ProductDetailPage: React.FC = () => {
         </div>
 
         {/* Hero Content: Placed on the side (left in LTR, right in RTL) matching Honor Magic8 Pro */}
-        <div className="max-w-[1360px] w-full mx-auto px-4 sm:px-8 lg:px-14 relative z-20 py-16 sm:py-20 lg:py-24">
-          <div className="max-w-xl lg:max-w-2xl space-y-7 text-start">
+        <div className="max-w-[1360px] w-full mx-auto px-4 sm:px-8 lg:px-14 relative z-20 py-12 sm:py-20 lg:py-24">
+          <div className="max-w-xl lg:max-w-2xl space-y-5 sm:space-y-7 text-start">
             {/* Model Title: Honor Typography (Brand BOLD, Model LIGHT) */}
             <h1 className={`honor-heading text-white ${
-              language === 'AR' ? 'leading-[1.4] tracking-normal' : 'leading-tight tracking-[-0.01em]'
+              language === 'AR' ? 'leading-[1.3] sm:leading-[1.4] tracking-normal' : 'leading-tight tracking-[-0.01em]'
             }`}>
               {renderHonorHeading()}
             </h1>
 
             {/* Buy Now & Video Buttons Directly Underneath */}
-            <div className="flex flex-wrap items-center gap-4 pt-1">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 pt-1">
               <button
                 onClick={() => navigateTo('product-buy', product.id)}
-                className="px-8 py-3.5 rounded-full bg-white hover:bg-neutral-100 text-neutral-950 font-black text-sm transition-all transform active:scale-95 shadow-xl hover:shadow-2xl cursor-pointer flex items-center justify-center gap-2"
+                className="px-5 sm:px-8 py-2.5 sm:py-3.5 rounded-full bg-white hover:bg-neutral-100 text-neutral-950 font-black text-xs sm:text-sm transition-all transform active:scale-95 shadow-xl hover:shadow-2xl cursor-pointer flex items-center justify-center gap-2"
               >
                 <ShoppingBag className="w-4 h-4 text-black" />
                 <span>{language === 'AR' ? 'شراء الآن' : 'Buy Now'}</span>
@@ -494,9 +494,9 @@ export const ProductDetailPage: React.FC = () => {
                   const el = document.getElementById('video-demo-section');
                   if (el) el.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="px-6 py-3.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-sm backdrop-blur-md transition-all transform active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+                className="px-4 sm:px-6 py-2.5 sm:py-3.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs sm:text-sm backdrop-blur-md transition-all transform active:scale-95 cursor-pointer flex items-center justify-center gap-2"
               >
-                <Play className="w-4 h-4 fill-current text-white" />
+                <Play className="w-3.5 h-3.5 fill-current text-white" />
                 <span>{language === 'AR' ? 'مشاهدة الفيديو' : 'Click to Watch Video'}</span>
               </button>
             </div>

@@ -1,11 +1,11 @@
 import { Product, Category, OccasionCategory, HeroSlide, Testimonial, Article, AddonOption, Order, OccasionReminder, SavedAddress } from '../types';
 
-export const HERO_BANNER_IMAGE = '/src/assets/images/hadaya_luxury_master_hero_1791217937117.jpg';
-export const PROMO_BANNER_IMAGE = '/src/assets/images/hadaya_promo_banner_1791216140411.jpg';
-export const PINK_PEONIES_IMAGE = '/src/assets/images/hadaya_pink_peonies_1791216156090.jpg';
-export const LUXURY_GIFT_SET_IMAGE = '/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg';
-export const SLIDER_3D_IMAGE = '/src/assets/images/mecca_gifts_luxury_3d_slider_1791217013014.jpg';
-export const REEL_COVER_IMAGE = '/src/assets/images/hadaya_social_reels_cover_1791217960147.jpg';
+export const HERO_BANNER_IMAGE = '/images/hadaya_luxury_master_hero_1791217937117.jpg';
+export const PROMO_BANNER_IMAGE = '/images/hadaya_promo_banner_1791216140411.jpg';
+export const PINK_PEONIES_IMAGE = '/images/hadaya_pink_peonies_1791216156090.jpg';
+export const LUXURY_GIFT_SET_IMAGE = '/images/hadaya_luxury_gift_set_1791216170853.jpg';
+export const SLIDER_3D_IMAGE = '/images/mecca_gifts_luxury_3d_slider_1791217013014.jpg';
+export const REEL_COVER_IMAGE = '/images/hadaya_social_reels_cover_1791217960147.jpg';
 
 export const MECCA_LOGO = 'https://cdn.salla.sa/cdn-cgi/image/fit=scale-down,width=400,height=400,onerror=redirect,format=auto/NKOjvD/2Cnfzx8q23nZJ0tRXo8cUjOa6GP3vTWdrOePAhRl.png';
 export const MECCA_VIDEO = 'https://ik.imagekit.io/053spzomk/video_2025-04-08_16-37-38.mp4?updatedAt=1744119535375';
@@ -76,14 +76,14 @@ export const EIGHT_FEATURED_CATEGORIES = [
     id: 'cat-card-2',
     name: 'ورد أحمر',
     nameEn: 'Red Roses',
-    image: '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+    image: '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
     count: 18
   },
   {
     id: 'cat-card-3',
     name: 'ورد أبيض',
     nameEn: 'White Roses',
-    image: '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+    image: '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
     count: 15
   },
   {
@@ -118,7 +118,7 @@ export const EIGHT_FEATURED_CATEGORIES = [
     id: 'cat-card-8',
     name: 'هدايا رجالية',
     nameEn: 'Men Gifts',
-    image: '/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg',
+    image: '/images/hadaya_men_luxury_gift_1791219799100.jpg',
     count: 12
   }
 ];
@@ -365,7 +365,7 @@ export const DISCOUNTED_BOUQUETS: Product[] = [
     originalPrice: 280,
     rating: 4.9,
     reviewsCount: 168,
-    image: '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+    image: '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
     category: 'باقات فاخرة',
     categoryEn: 'Luxury Bouquets',
     badge: 'خصم 30%',
@@ -383,7 +383,7 @@ export const DISCOUNTED_BOUQUETS: Product[] = [
     originalPrice: 290,
     rating: 5.0,
     reviewsCount: 94,
-    image: '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+    image: '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
     category: 'ورد أبيض',
     categoryEn: 'White Roses',
     badge: 'الأكثر توفيراً',
@@ -437,7 +437,7 @@ export const DISCOUNTED_BOUQUETS: Product[] = [
     originalPrice: 295,
     rating: 5.0,
     reviewsCount: 142,
-    image: '/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg',
+    image: '/images/hadaya_luxury_gift_noir_1791218956267.jpg',
     category: 'باقات فاخرة',
     categoryEn: 'Luxury Bouquets',
     badge: 'وفر 85 ر.س',
@@ -458,7 +458,7 @@ export const NATURAL_BOUQUETS: Product[] = [
     originalPrice: 580,
     rating: 5.0,
     reviewsCount: 230,
-    image: '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+    image: '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
     category: 'ورد أحمر',
     categoryEn: 'Red Roses',
     badge: 'الأكثر مبيعاً',
@@ -494,7 +494,7 @@ export const NATURAL_BOUQUETS: Product[] = [
     originalPrice: 395,
     rating: 4.8,
     reviewsCount: 78,
-    image: '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+    image: '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
     category: 'ورد أبيض',
     categoryEn: 'White Roses',
     badge: 'جديد',
@@ -587,7 +587,7 @@ export const CHOCOLATE_ROSES: Product[] = [
     originalPrice: 420,
     rating: 4.8,
     reviewsCount: 74,
-    image: '/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg',
+    image: '/images/hadaya_luxury_gift_set_1791216170853.jpg',
     category: 'هدايا رومانسية',
     categoryEn: 'Romantic Gifts',
     badge: 'رومانسي',
@@ -644,7 +644,7 @@ export const CAKE_ROSES: Product[] = [
     originalPrice: 370,
     rating: 4.8,
     reviewsCount: 65,
-    image: '/src/assets/images/hadaya_luxury_velvet_cake_1791218716453.jpg',
+    image: '/images/hadaya_luxury_velvet_cake_1791218716453.jpg',
     category: 'عيد ميلاد',
     categoryEn: 'Birthday',
     badge: 'مبهج',
@@ -737,7 +737,7 @@ export const COFFEE_SWEETS_ROSES: Product[] = [
     originalPrice: 560,
     rating: 5.0,
     reviewsCount: 76,
-    image: '/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg',
+    image: '/images/hadaya_luxury_gift_noir_1791218956267.jpg',
     category: 'هدايا رجالية',
     categoryEn: 'Men Gifts',
     badge: 'فاخر جداً',
@@ -776,7 +776,7 @@ export const FLOWER_VASES: Product[] = [
     originalPrice: 420,
     rating: 4.9,
     reviewsCount: 90,
-    image: '/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg',
+    image: '/images/hadaya_white_orchid_penthouse_1791218732789.jpg',
     category: 'باقات فاخرة',
     categoryEn: 'Luxury Bouquets',
     badge: 'تصميم مودرن',
@@ -794,7 +794,7 @@ export const FLOWER_VASES: Product[] = [
     originalPrice: 490,
     rating: 4.8,
     reviewsCount: 84,
-    image: '/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg',
+    image: '/images/hadaya_white_orchid_penthouse_1791218732789.jpg',
     category: 'ورد أبيض',
     categoryEn: 'White Roses',
     badge: 'فاخر',
@@ -854,7 +854,7 @@ export const MAWAJEEB_PRODUCTS: Product[] = [
     originalPrice: 530,
     rating: 4.9,
     reviewsCount: 52,
-    image: '/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg',
+    image: '/images/hadaya_luxury_gift_noir_1791218956267.jpg',
     category: 'لوحات مواجيب',
     categoryEn: 'Mawajeeb Plaques',
     categorySlug: 'mawajeeb',
@@ -944,7 +944,7 @@ export const GRADUATION_PRODUCTS: Product[] = [
     originalPrice: 440,
     rating: 4.9,
     reviewsCount: 96,
-    image: '/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg',
+    image: '/images/hadaya_luxury_gift_set_1791216170853.jpg',
     category: 'هدايا التخرج',
     categoryEn: 'Graduation Gifts',
     categorySlug: 'graduation',
@@ -968,7 +968,7 @@ export const LUXURY_SETS: Product[] = [
     originalPrice: 620,
     rating: 5.0,
     reviewsCount: 168,
-    image: '/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg',
+    image: '/images/hadaya_men_luxury_gift_1791219799100.jpg',
     category: 'هدايا رجالية',
     categoryEn: 'Men Gifts',
     categorySlug: 'men-gifts',
@@ -1016,14 +1016,14 @@ export const FLAGSHIP_BOUQUETS: Product[] = [
     image: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=85',
     galleryUrls: [
       'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=85',
-      '/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
-      '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
-      '/src/assets/images/hadaya_pink_peonies_1791216156090.jpg',
+      '/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
+      '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+      '/images/hadaya_pink_peonies_1791216156090.jpg',
     ],
     additionalImages: [
-      '/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
-      '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
-      '/src/assets/images/hadaya_pink_peonies_1791216156090.jpg',
+      '/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
+      '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+      '/images/hadaya_pink_peonies_1791216156090.jpg',
     ],
     category: 'باقات فاخرة',
     categoryEn: 'Luxury Bouquets',
@@ -1043,7 +1043,7 @@ export const FLAGSHIP_BOUQUETS: Product[] = [
     originalPrice: 520,
     rating: 5.0,
     reviewsCount: 240,
-    image: '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+    image: '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
     category: 'هدايا رومانسية',
     categoryEn: 'Romantic Gifts',
     badge: 'رومانسي',
@@ -1062,7 +1062,7 @@ export const FLAGSHIP_BOUQUETS: Product[] = [
     originalPrice: 420,
     rating: 4.9,
     reviewsCount: 198,
-    image: '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+    image: '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
     category: 'ورد أحمر',
     categoryEn: 'Red Roses',
     badge: 'ملكي',
@@ -1081,7 +1081,7 @@ export const FLAGSHIP_BOUQUETS: Product[] = [
     originalPrice: 350,
     rating: 4.8,
     reviewsCount: 142,
-    image: '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+    image: '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
     category: 'ورد أبيض',
     categoryEn: 'White Roses',
     badge: 'نقاء',
@@ -1100,7 +1100,7 @@ export const FLAGSHIP_BOUQUETS: Product[] = [
     originalPrice: 850,
     rating: 5.0,
     reviewsCount: 110,
-    image: '/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg',
+    image: '/images/hadaya_white_orchid_penthouse_1791218732789.jpg',
     category: 'باقات فاخرة',
     categoryEn: 'Luxury Bouquets',
     badge: 'VIP فاخر',
@@ -1122,14 +1122,14 @@ export const FLAGSHIP_BOUQUETS: Product[] = [
     image: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=85',
     galleryUrls: [
       'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=85',
-      '/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
-      '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
-      '/src/assets/images/hadaya_pink_peonies_1791216156090.jpg',
+      '/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
+      '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+      '/images/hadaya_pink_peonies_1791216156090.jpg',
     ],
     additionalImages: [
-      '/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
-      '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
-      '/src/assets/images/hadaya_pink_peonies_1791216156090.jpg',
+      '/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
+      '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+      '/images/hadaya_pink_peonies_1791216156090.jpg',
     ],
     category: 'ذكرى زواج',
     categoryEn: 'Wedding & Anniversary',
@@ -1179,7 +1179,7 @@ export const ADDON_OPTIONS: AddonOption[] = [
     name: 'بطاقة إهداء فاخرة بختم الشمع والذهب',
     nameEn: 'Wax Sealed Gold Foil Greeting Card',
     price: 25,
-    image: '/src/assets/images/hadaya_luxury_gift_noir_1791218956267.jpg'
+    image: '/images/hadaya_luxury_gift_noir_1791218956267.jpg'
   },
   {
     id: 'addon-balloon',
@@ -1345,3 +1345,4 @@ export const INITIAL_ADDRESSES: SavedAddress[] = [
     isDefault: true
   }
 ];
+

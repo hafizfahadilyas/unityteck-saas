@@ -1,0 +1,11 @@
+650 records bilss
+bills 910 show ho rha he
+
+expot import filter add kkrna har sections ka like customer name date phone no city xyz....
+filter wise deleted like billing total sell total number of bills .....  user admin manger branch delte na hn....  numrical records delteds ho jsyen 
+export import record local cashe number diffrent same account but record mismatch  suparadmin check.
+
+
+customer detilas name number agr bill ban gaaya to reset ho jayn new entry k lye  agr bill nhe bana jb tk jo type lea he wahe rahe..
+
+recent csutomer hide ya dropdwon add krdo by defult hide hogah...

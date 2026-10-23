@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { PrefsSwitcher } from '../common/PrefsSwitcher';
+import { isValidMediaUrl } from '../../utils/imageFallback';
 import { readAuthSession } from '../../auth/session';
 import { useToast } from '../common/ToastProvider';
 import { preloadVisualThemeBuilder } from './visualBuilder/preloadVisualBuilder';
@@ -692,7 +693,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                   borderColor: 'var(--border)',
                 }}
               >
-                {activeStore.logo && activeStore.logo.startsWith('http') ? (
+                {activeStore.logo && isValidMediaUrl(activeStore.logo) ? (
                   <img src={activeStore.logo} alt={storeDisplayName} className="w-full h-full object-cover" />
                 ) : (
                   <span className="font-black text-slate-800">{initials}</span>
@@ -722,7 +723,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                 <div className="flex items-center gap-2.5">
                   <div className="relative shrink-0">
                     <div className="w-10 h-10 rounded-full font-bold flex items-center justify-center text-xs border text-slate-800 bg-white shadow-sm overflow-hidden">
-                      {activeStore.logo && activeStore.logo.startsWith('http') ? (
+                      {activeStore.logo && isValidMediaUrl(activeStore.logo) ? (
                         <img src={activeStore.logo} alt={storeDisplayName} className="w-full h-full object-cover" />
                       ) : (
                         <span className="font-black text-slate-800">{initials}</span>

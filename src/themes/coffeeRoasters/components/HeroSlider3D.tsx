@@ -568,7 +568,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
       className="relative w-full overflow-hidden select-none bg-white text-neutral-900 border-none"
     >
       {/* Responsive Aspect Ratio Stage */}
-      <div className="relative w-full h-[640px] sm:h-[510px] md:h-[550px] lg:h-[600px] xl:h-[640px] bg-white overflow-hidden">
+      <div className="relative w-full h-[580px] xs:h-[620px] sm:h-[510px] md:h-[550px] lg:h-[600px] xl:h-[640px] bg-white overflow-hidden">
         {/* ========================================================================= */}
         {/* 1. SLIDE BACKGROUND IMAGES + OVERLAY                                       */}
         {/* ========================================================================= */}
@@ -612,8 +612,9 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
                 if (isDraggingRef.current) return;
                 navigateTo('product-buy', activeSlide.productId);
               }}
-              className="w-full h-full relative overflow-hidden cursor-pointer group shadow-none bg-white flex flex-col sm:block"
+              className="w-full h-full relative overflow-hidden cursor-pointer group shadow-none bg-white"
             >
+              {/* Full Background Image (Full-bleed on both mobile and desktop with bottom product alignment) */}
               <img
                 src={activeSlide.image}
                 alt={language === 'AR' ? activeSlide.titleAr : activeSlide.titleEn}
@@ -627,11 +628,20 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
                     target.src = activeSlide.fallbackImage;
                   }
                 }}
-                className="order-2 flex-1 min-h-0 w-full sm:h-full object-contain object-center sm:object-cover sm:object-[75%_center] sm:object-[75%_center] md:object-[80%_center] lg:object-right shadow-none transition-transform duration-700 ease-out group-hover:scale-[1.01]"
+                className={`absolute inset-0 w-full h-full object-cover shadow-none transition-transform duration-700 ease-out group-hover:scale-[1.01] ${
+                  language === 'AR'
+                    ? 'object-[center_bottom] sm:object-[25%_center] md:object-[20%_center] lg:object-left'
+                    : 'object-[center_bottom] sm:object-[75%_center] md:object-[80%_center] lg:object-right'
+                }`}
               />
 
-              {/* Text, Price and Action Buttons Overlay */}
-              <div className="order-1 relative pt-5 pb-3 sm:pt-0 sm:pb-0 sm:absolute sm:inset-0 z-20 flex items-center pointer-events-none sm:-translate-y-7 md:-translate-y-9 lg:-translate-y-11">
+              {/* Mobile Soft Top Gradient Scrim for 100% Crisp Text Readability Over BG */}
+              <div
+                className="absolute inset-x-0 top-0 h-80 sm:hidden pointer-events-none bg-gradient-to-b from-white/95 via-white/75 via-65% to-transparent"
+              />
+
+              {/* Text, Price and Action Buttons Overlay (Sitting on top of BG image) */}
+              <div className="absolute inset-0 z-20 flex items-start pt-6 xs:pt-8 sm:items-center sm:pt-0 pointer-events-none sm:-translate-y-7 md:-translate-y-9 lg:-translate-y-11">
                 <div
                   dir="ltr"
                   className="w-full max-w-[1360px] mx-auto px-4 xs:px-5 sm:px-10 md:px-14 lg:px-16 flex justify-start"

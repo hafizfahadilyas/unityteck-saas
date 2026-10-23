@@ -31,7 +31,8 @@ const getArg = (key, fallback) => {
 
 const FTP_HOST = getArg('host', process.env.FTP_HOST);
 const FTP_USER = getArg('user', process.env.FTP_USER);
-const FTP_PASSWORD = getArg('password', process.env.FTP_PASSWORD);
+const rawPassword = getArg('password', process.env.FTP_PASSWORD);
+const FTP_PASSWORD = rawPassword ? rawPassword.replace(/^["']|["']$/g, '').trim() : '';
 const REMOTE_DIR = getArg('dir', process.env.FTP_REMOTE_DIR || process.env.REMOTE_DIR || '/');
 const TARGET_URL = process.env.FTP_TARGET_URL || 'http://giftshop-sa.com/';
 
@@ -112,28 +113,45 @@ async function deploy() {
   }
 
   async function connectClient(ftpClient) {
-    console.log(`📡 Connecting to FTP ${FTP_HOST}:21 ...`);
-    try {
-      await ftpClient.access({
-        host: FTP_HOST,
-        user: FTP_USER,
-        password: FTP_PASSWORD,
-        secure: false,
-      });
-    } catch (plainErr) {
-      console.log(`⚠️ Plain FTP returned (${plainErr.message}), trying FTPS (explicit TLS)...`);
-      await ftpClient.access({
-        host: FTP_HOST,
-        user: FTP_USER,
-        password: FTP_PASSWORD,
-        secure: true,
-        secureOptions: { rejectUnauthorized: false },
-      });
+    let lastErr = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`📡 Connecting to FTP ${FTP_HOST}:21 (attempt ${attempt}/3) ...`);
+        await ftpClient.access({
+          host: FTP_HOST,
+          user: FTP_USER,
+          password: FTP_PASSWORD,
+          secure: false,
+        });
+        console.log('✅ Connected & Authenticated successfully!\n');
+        return;
+      } catch (plainErr) {
+        lastErr = plainErr;
+        console.log(`⚠️ Plain FTP returned (${plainErr.message}), trying FTPS (explicit TLS)...`);
+        try {
+          await ftpClient.access({
+            host: FTP_HOST,
+            user: FTP_USER,
+            password: FTP_PASSWORD,
+            secure: true,
+            secureOptions: { rejectUnauthorized: false },
+          });
+          console.log('✅ Connected & Authenticated via FTPS successfully!\n');
+          return;
+        } catch (tlsErr) {
+          lastErr = tlsErr;
+          console.warn(`⚠️ TLS attempt failed (${tlsErr.message})`);
+          if (attempt < 3) {
+            console.log('⏳ Waiting 2 seconds before retry...');
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+        }
+      }
     }
-    console.log('✅ Connected & Authenticated successfully!\n');
+    throw lastErr;
   }
 
-  let client = new ftp.Client(300000);
+  let client = new ftp.Client(60000);
   client.ftp.verbose = false;
 
   client.trackProgress((info) => {
@@ -169,19 +187,58 @@ async function deploy() {
         }
       }
 
-      // Clean old assets folder if it exists to purge outdated js/css bundles
-      const hasAssetsDir = remoteList.some((item) => item.name === 'assets' && item.isDirectory);
-      if (hasAssetsDir) {
-        console.log(`🧹 Purging outdated ${targetDir}/assets directory...`);
+      // 1. FAST-PATH: Upload critical entry files first (zero downtime)
+      // Upload canonical .htaccess
+      if (fs.existsSync(htaccessDist)) {
         try {
-          await client.removeDir('assets');
-          console.log(`✅ ${targetDir}/assets purged cleanly.`);
-        } catch (rmErr) {
-          console.warn(`⚠️ Could not remove remote assets dir (${rmErr.message}), will overwrite files.`);
+          await client.uploadFrom(htaccessDist, '.htaccess');
+          console.log(`📄 Uploaded canonical SPA .htaccess (RewriteBase /) to ${targetDir}`);
+        } catch (htErr) {
+          console.warn(`⚠️ Notice uploading .htaccess to ${targetDir}:`, htErr.message);
         }
       }
 
-      console.log(`🚀 Uploading fresh dist/ bundle to ${targetDir} ...`);
+      // Upload fresh index.html
+      const indexHtmlDist = path.join(distDir, 'index.html');
+      if (fs.existsSync(indexHtmlDist)) {
+        try {
+          await client.uploadFrom(indexHtmlDist, 'index.html');
+          console.log(`📄 Uploaded fresh index.html to ${targetDir}`);
+        } catch (idxErr) {
+          console.warn(`⚠️ Notice uploading index.html to ${targetDir}:`, idxErr.message);
+        }
+      }
+
+      // Upload fresh api/index.php & api/initial_seed.json
+      const apiPhpDist = path.join(distDir, 'api', 'index.php');
+      const apiSeedDist = path.join(distDir, 'api', 'initial_seed.json');
+      const targetApiDir = targetDir === '/' ? '/api' : `${targetDir}/api`;
+      if (fs.existsSync(apiPhpDist)) {
+        try {
+          await client.ensureDir(targetApiDir);
+          await client.uploadFrom(apiPhpDist, 'index.php');
+          if (fs.existsSync(apiSeedDist)) {
+            await client.uploadFrom(apiSeedDist, 'initial_seed.json');
+          }
+          await client.cd(targetDir);
+          console.log(`🔌 Uploaded fresh api (index.php & initial_seed.json) to ${targetApiDir}`);
+        } catch (apiErr) {
+          console.warn(`⚠️ Notice uploading api/ to ${targetApiDir}:`, apiErr.message);
+        }
+      }
+
+      // 2. Upload assets directory (contains JS and CSS bundles + backward compatibility aliases)
+      const assetsDist = path.join(distDir, 'assets');
+      if (fs.existsSync(assetsDist)) {
+        console.log(`📦 Syncing fresh JS/CSS bundles to ${targetDir}/assets ...`);
+        await client.ensureDir(targetDir === '/' ? '/assets' : `${targetDir}/assets`);
+        await client.uploadFromDir(assetsDist);
+        await client.cd(targetDir);
+        console.log(`✅ ${targetDir}/assets synced cleanly!`);
+      }
+
+      // 3. Sync full remaining dist directory (images, fonts, etc.)
+      console.log(`🚀 Uploading full dist/ content to ${targetDir} ...`);
       let uploaded = false;
       let attempts = 0;
       while (!uploaded && attempts < 3) {
@@ -192,10 +249,10 @@ async function deploy() {
           console.log(`✅ Files uploaded to ${targetDir} successfully!`);
         } catch (uploadErr) {
           console.warn(`⚠️ Upload attempt ${attempts} to ${targetDir} interrupted: ${uploadErr.message}`);
-          if (attempts >= 3) throw uploadErr;
+          if (attempts >= 3) break;
           console.log('🔄 Reconnecting FTP client and resuming upload...');
           client.close();
-          client = new ftp.Client(300000);
+          client = new ftp.Client(60000);
           client.trackProgress((info) => {
             if (info.type === 'upload') {
               const mb = (info.bytesOverall / (1024 * 1024)).toFixed(1);
@@ -204,16 +261,6 @@ async function deploy() {
           });
           await connectClient(client);
           await client.cd(targetDir);
-        }
-      }
-
-      // Ensure canonical .htaccess with RewriteBase / is always uploaded
-      if (fs.existsSync(htaccessDist)) {
-        try {
-          await client.uploadFrom(htaccessDist, '.htaccess');
-          console.log(`📄 Uploaded canonical SPA .htaccess (RewriteBase /) to ${targetDir}`);
-        } catch (htErr) {
-          console.warn(`⚠️ Notice uploading .htaccess to ${targetDir}:`, htErr.message);
         }
       }
     }

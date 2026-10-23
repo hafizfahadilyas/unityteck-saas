@@ -186,7 +186,7 @@ export const FLOWER_STORE_BRANDS: BrandItem[] = [
     description: 'VIP royal gift hampers for men and women with perfumes, jewelry and watches.',
     descriptionEn: 'VIP royal gift hampers for men and women with perfumes, jewelry and watches.',
     descriptionAr: 'أطقم الهدايا الفاخرة للرجال والسيدات مع العطور والمجوهرات والساعات…',
-    logo: '/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg',
+    logo: '/images/hadaya_men_luxury_gift_1791219799100.jpg',
     productsCount: 4,
     showInChannels: true,
     status: 'active',

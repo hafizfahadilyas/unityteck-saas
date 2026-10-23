@@ -12,7 +12,7 @@ import {
   Eye,
   Sparkles,
 } from 'lucide-react';
-import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../../utils/imageFallback';
+import { handleImageError, FALLBACK_PRODUCT_IMAGE, cleanImageUrl } from '../../../utils/imageFallback';
 import { readAllThemeSettings } from '../../settings/themeSettingsStore';
 
 interface ProductCardProps {
@@ -95,7 +95,7 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product }) 
         {/* Image Container with Forest Green Discount Badge */}
         <div className="relative aspect-[4/4.8] overflow-hidden bg-slate-50 dark:bg-slate-950">
           <img
-            src={product.image || FALLBACK_PRODUCT_IMAGE}
+            src={cleanImageUrl(product.image) || FALLBACK_PRODUCT_IMAGE}
             alt={productName}
             itemProp="image"
             onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
@@ -239,7 +239,7 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product }) 
     >
       <div className="absolute inset-0 w-full h-full overflow-hidden bg-[#0d2217]">
         <img
-          src={product.image || FALLBACK_PRODUCT_IMAGE}
+          src={cleanImageUrl(product.image) || FALLBACK_PRODUCT_IMAGE}
           alt={productName}
           itemProp="image"
           onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}

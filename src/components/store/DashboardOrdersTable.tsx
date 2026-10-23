@@ -20,11 +20,19 @@ import {
   RotateCcw,
   Check,
   X,
-  ExternalLink,
-  Smartphone,
+  ChevronDown,
   Globe,
   Store,
   Layers,
+  MessageCircle,
+  Instagram,
+  Facebook,
+  Music2,
+  Ghost,
+  Mail,
+  Building2,
+  Share2,
+  Smartphone,
 } from 'lucide-react';
 import { statusChipStyle } from '../../utils/liveSeries';
 
@@ -42,6 +50,319 @@ interface DashboardOrdersTableProps {
 const PAGE_SIZE = 5;
 
 type SortKey = 'date_desc' | 'date_asc' | 'total_desc' | 'total_asc' | 'id_desc' | 'id_asc';
+
+// ── Status Options ──
+interface StatusItem {
+  id: string;
+  labelEn: string;
+  labelAr: string;
+  icon: (cls?: string) => React.ReactNode;
+}
+
+const STATUS_ITEMS: StatusItem[] = [
+  { id: 'all', labelEn: 'All Statuses', labelAr: 'كافة الحالات', icon: (c) => <Layers className={c || "w-3.5 h-3.5 text-slate-400"} /> },
+  { id: 'completed', labelEn: 'Completed', labelAr: 'مكتمل', icon: (c) => <CheckCircle2 className={c || "w-3.5 h-3.5 text-emerald-500"} /> },
+  { id: 'pending', labelEn: 'Pending', labelAr: 'قيد الانتظار', icon: (c) => <Clock className={c || "w-3.5 h-3.5 text-amber-500"} /> },
+  { id: 'processing', labelEn: 'Processing', labelAr: 'جاري التجهيز', icon: (c) => <Package className={c || "w-3.5 h-3.5 text-blue-500"} /> },
+  { id: 'shipped', labelEn: 'Shipped', labelAr: 'تم الشحن', icon: (c) => <Truck className={c || "w-3.5 h-3.5 text-purple-500"} /> },
+  { id: 'delivered', labelEn: 'Delivered', labelAr: 'تم التوصيل', icon: (c) => <CheckCircle2 className={c || "w-3.5 h-3.5 text-teal-500"} /> },
+  { id: 'cancelled', labelEn: 'Cancelled', labelAr: 'ملغي', icon: (c) => <XCircle className={c || "w-3.5 h-3.5 text-rose-500"} /> },
+];
+
+// ── Payment Categories & Methods (Matching Page 2 & 3 Specification) ──
+interface PaymentMethodItem {
+  id: string;
+  labelEn: string;
+  labelAr: string;
+  badge: (isAr: boolean) => React.ReactNode;
+}
+
+interface PaymentCategoryGroup {
+  groupNum: number;
+  titleEn: string;
+  titleAr: string;
+  items: PaymentMethodItem[];
+}
+
+const PAYMENT_CATEGORIES: PaymentCategoryGroup[] = [
+  {
+    groupNum: 1,
+    titleEn: '1. Bank Cards and Electronic Payments',
+    titleAr: '١. البطاقات البنكية والدفع الإلكتروني',
+    items: [
+      {
+        id: 'mada',
+        labelEn: 'Mada',
+        labelAr: 'مدى',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#008453] text-white text-[9px] font-black shrink-0 tracking-tight">
+            mada
+          </span>
+        ),
+      },
+      {
+        id: 'visa',
+        labelEn: 'Visa',
+        labelAr: 'فيزا',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#1A1F71] text-white text-[9px] font-black shrink-0 italic tracking-wider">
+            VISA
+          </span>
+        ),
+      },
+      {
+        id: 'mastercard',
+        labelEn: 'Mastercard',
+        labelAr: 'ماستركارد',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#EB001B] text-white text-[9px] font-black shrink-0 tracking-tight">
+            MC
+          </span>
+        ),
+      },
+      {
+        id: 'apple',
+        labelEn: 'Apple Pay',
+        labelAr: 'أبل باي',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-slate-950 dark:bg-slate-800 text-white text-[9px] font-bold shrink-0 tracking-tight">
+            Pay
+          </span>
+        ),
+      },
+    ],
+  },
+  {
+    groupNum: 2,
+    titleEn: '2. Digital Wallets',
+    titleAr: '٢. المحافظ الرقمية',
+    items: [
+      {
+        id: 'stc',
+        labelEn: 'STC Pay',
+        labelAr: 'اس تي سي باي',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#4F008C] text-white text-[9px] font-black shrink-0 tracking-tight">
+            stc
+          </span>
+        ),
+      },
+      {
+        id: 'paypal',
+        labelEn: 'PayPal',
+        labelAr: 'باي بال',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#003087] text-white text-[9px] font-black shrink-0 tracking-tight">
+            PayPal
+          </span>
+        ),
+      },
+      {
+        id: 'googlepay',
+        labelEn: 'Google Pay',
+        labelAr: 'جوجل باي',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-slate-900 dark:bg-slate-700 text-white text-[9px] font-black shrink-0 tracking-tight">
+            GPay
+          </span>
+        ),
+      },
+    ],
+  },
+  {
+    groupNum: 3,
+    titleEn: '3. Buy Now, Pay Later (BNPL) & Installments',
+    titleAr: '٣. اشترِ الآن وادفع لاحقاً والتقسيط',
+    items: [
+      {
+        id: 'tabby',
+        labelEn: 'Tabby',
+        labelAr: 'تابي',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#3EFE97] text-slate-950 text-[9px] font-black shrink-0 tracking-tight">
+            Tabby
+          </span>
+        ),
+      },
+      {
+        id: 'tamara',
+        labelEn: 'Tamara',
+        labelAr: 'تمارا',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#F7A738] text-slate-950 text-[9px] font-black shrink-0 tracking-tight">
+            Tamara
+          </span>
+        ),
+      },
+      {
+        id: 'mispay',
+        labelEn: 'Mispay',
+        labelAr: 'مسباي',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#6366F1] text-white text-[9px] font-black shrink-0 tracking-tight">
+            Mispay
+          </span>
+        ),
+      },
+      {
+        id: 'madfooat',
+        labelEn: 'Madfooat',
+        labelAr: 'مدفوعات',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#06B6D4] text-white text-[9px] font-black shrink-0 tracking-tight">
+            Madfooat
+          </span>
+        ),
+      },
+      {
+        id: 'emkan',
+        labelEn: 'Emkan',
+        labelAr: 'إمكان',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#8B5CF6] text-white text-[9px] font-black shrink-0 tracking-tight">
+            Emkan
+          </span>
+        ),
+      },
+    ],
+  },
+  {
+    groupNum: 4,
+    titleEn: '4. Other Payment Methods',
+    titleAr: '٤. طرق دفع أخرى',
+    items: [
+      {
+        id: 'bank',
+        labelEn: 'Bank Transfer',
+        labelAr: 'تحويل بنكي',
+        badge: () => <Building2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />,
+      },
+      {
+        id: 'cash',
+        labelEn: 'Cash on Delivery (COD)',
+        labelAr: 'الدفع عند الاستلام',
+        badge: () => <Banknote className="w-3.5 h-3.5 text-emerald-600 shrink-0" />,
+      },
+    ],
+  },
+];
+
+// Flat list of all payment items for quick lookup
+const ALL_PAYMENT_ITEMS = PAYMENT_CATEGORIES.flatMap((c) => c.items);
+
+// ── Sales Channels (100% Match to Image 1 Right & Specifications) ──
+interface ChannelItem {
+  id: string;
+  labelEn: string;
+  labelAr: string;
+  icon: React.ReactNode;
+}
+
+const SALES_CHANNEL_ITEMS: ChannelItem[] = [
+  {
+    id: 'instagram',
+    labelEn: 'Instagram',
+    labelAr: 'انستغرام',
+    icon: (
+      <span className="w-5 h-5 rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 flex items-center justify-center text-white shrink-0 shadow-2xs">
+        <Instagram className="w-3 h-3 text-white" />
+      </span>
+    ),
+  },
+  {
+    id: 'google',
+    labelEn: 'Google Ads',
+    labelAr: 'إعلانات جوجل',
+    icon: (
+      <span className="w-5 h-5 rounded-full bg-[#1A73E8] flex items-center justify-center text-white shrink-0 shadow-2xs">
+        <Share2 className="w-3 h-3 text-white" />
+      </span>
+    ),
+  },
+  {
+    id: 'direct',
+    labelEn: 'Direct Visits',
+    labelAr: 'زيارات مباشرة',
+    icon: (
+      <span className="w-5 h-5 rounded-full bg-[#0D9488] flex items-center justify-center text-white shrink-0 shadow-2xs">
+        <Globe className="w-3 h-3 text-white" />
+      </span>
+    ),
+  },
+  {
+    id: 'tiktok',
+    labelEn: 'TikTok',
+    labelAr: 'تيك توك',
+    icon: (
+      <span className="w-5 h-5 rounded-full bg-slate-900 dark:bg-black flex items-center justify-center text-white shrink-0 shadow-2xs border border-slate-700">
+        <Music2 className="w-3 h-3 text-white" />
+      </span>
+    ),
+  },
+  {
+    id: 'snapchat',
+    labelEn: 'Snapchat',
+    labelAr: 'سناب شات',
+    icon: (
+      <span className="w-5 h-5 rounded-full bg-[#FFFC00] flex items-center justify-center text-slate-950 shrink-0 shadow-2xs border border-amber-300">
+        <Ghost className="w-3 h-3 text-slate-950 fill-current" />
+      </span>
+    ),
+  },
+  {
+    id: 'whatsapp',
+    labelEn: 'WhatsApp',
+    labelAr: 'واتساب',
+    icon: (
+      <span className="w-5 h-5 rounded-full bg-[#25D366] flex items-center justify-center text-white shrink-0 shadow-2xs">
+        <MessageCircle className="w-3 h-3 text-white" />
+      </span>
+    ),
+  },
+  {
+    id: 'facebook',
+    labelEn: 'Facebook',
+    labelAr: 'فيسبوك',
+    icon: (
+      <span className="w-5 h-5 rounded-full bg-[#1877F2] flex items-center justify-center text-white shrink-0 shadow-2xs">
+        <Facebook className="w-3 h-3 text-white" />
+      </span>
+    ),
+  },
+  {
+    id: 'x',
+    labelEn: 'X (formerly Twitter)',
+    labelAr: 'إكس (تويتر سابقاً)',
+    icon: (
+      <span className="w-5 h-5 rounded-full bg-slate-950 dark:bg-slate-800 flex items-center justify-center text-white shrink-0 shadow-2xs font-black text-[10px]">
+        𝕏
+      </span>
+    ),
+  },
+  {
+    id: 'youtube',
+    labelEn: 'YouTube',
+    labelAr: 'يوتيوب',
+    icon: (
+      <span className="w-5 h-5 rounded-full bg-[#FF0000] flex items-center justify-center text-white shrink-0 shadow-2xs">
+        <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24">
+          <path d="M10 15l5-3-5-3v6z" />
+          <path d="M21.58 7.19a2.5 2.5 0 0 0-1.76-1.77C18.25 5 12 5 12 5s-6.25 0-7.82.42A2.5 2.5 0 0 0 2.42 7.19 26.27 26.27 0 0 0 2 12a26.27 26.27 0 0 0 .42 4.81 2.5 2.5 0 0 0 1.76 1.77C5.75 19 12 19 12 19s6.25 0 7.82-.42a2.5 2.5 0 0 0 1.76-1.77c.28-1.56.42-3.18.42-4.81s-.14-3.25-.42-4.81z" />
+        </svg>
+      </span>
+    ),
+  },
+  {
+    id: 'email',
+    labelEn: 'Email Marketing',
+    labelAr: 'البريد الإلكتروني',
+    icon: (
+      <span className="w-5 h-5 rounded-full bg-[#EA4335] flex items-center justify-center text-white shrink-0 shadow-2xs">
+        <Mail className="w-3 h-3 text-white" />
+      </span>
+    ),
+  },
+];
 
 export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = React.memo(({
   orders,
@@ -63,6 +384,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = React.m
 
   // Popover menus state
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [activeSubMenu, setActiveSubMenu] = useState<'status' | 'payment' | 'channel' | null>(null);
   const [showSortMenu, setShowSortMenu] = useState(false);
 
   const filterRef = useRef<HTMLDivElement>(null);
@@ -73,6 +395,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = React.m
     const handleOutside = (e: MouseEvent) => {
       if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
         setShowFilterMenu(false);
+        setActiveSubMenu(null);
       }
       if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
         setShowSortMenu(false);
@@ -81,6 +404,20 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = React.m
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
   }, []);
+
+  // Selected filter helpers for active labels & icons
+  const selectedStatusItem = useMemo(
+    () => STATUS_ITEMS.find((s) => s.id === statusFilter) || STATUS_ITEMS[0],
+    [statusFilter]
+  );
+  const selectedPaymentItem = useMemo(
+    () => ALL_PAYMENT_ITEMS.find((p) => p.id === paymentFilter) || null,
+    [paymentFilter]
+  );
+  const selectedChannelItem = useMemo(
+    () => SALES_CHANNEL_ITEMS.find((c) => c.id === channelFilter) || null,
+    [channelFilter]
+  );
 
   // Filtered & Sorted orders
   const processedOrders = useMemo(() => {
@@ -111,22 +448,76 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = React.m
 
     // 2. Status filter
     if (statusFilter !== 'all') {
-      list = list.filter((ord) => ord.status?.toLowerCase() === statusFilter.toLowerCase());
+      list = list.filter((ord) => (ord.status || '').toLowerCase() === statusFilter.toLowerCase());
     }
 
-    // 3. Payment filter
+    // 3. Payment filter (Matches all 14 payment methods in English & Arabic)
     if (paymentFilter !== 'all') {
       list = list.filter((ord) => {
         const pm = (ord.paymentMethod || '').toLowerCase();
-        return pm.includes(paymentFilter.toLowerCase());
+        switch (paymentFilter) {
+          case 'mada':
+            return pm.includes('mada') || pm.includes('مدى');
+          case 'visa':
+            return pm.includes('visa') || pm.includes('فيزا');
+          case 'mastercard':
+            return pm.includes('master') || pm.includes('ماستر');
+          case 'apple':
+            return pm.includes('apple') || pm.includes('أبل') || pm.includes('ابل');
+          case 'stc':
+            return pm.includes('stc') || pm.includes('اس تي سي');
+          case 'paypal':
+            return pm.includes('paypal') || pm.includes('باي بال');
+          case 'googlepay':
+            return pm.includes('google') || pm.includes('جوجل') || pm.includes('gpay');
+          case 'tabby':
+            return pm.includes('tabby') || pm.includes('تابي');
+          case 'tamara':
+            return pm.includes('tamara') || pm.includes('تمارا');
+          case 'mispay':
+            return pm.includes('mispay') || pm.includes('مسباي');
+          case 'madfooat':
+            return pm.includes('madfooat') || pm.includes('مدفوعات');
+          case 'emkan':
+            return pm.includes('emkan') || pm.includes('إمكان') || pm.includes('امكان');
+          case 'bank':
+            return pm.includes('bank') || pm.includes('تحويل') || pm.includes('transfer');
+          case 'cash':
+            return pm.includes('cash') || pm.includes('cod') || pm.includes('استلام');
+          default:
+            return pm.includes(paymentFilter.toLowerCase());
+        }
       });
     }
 
-    // 4. Channel filter
+    // 4. Channel filter (Matches all 10 marketing & sales channels)
     if (channelFilter !== 'all') {
       list = list.filter((ord) => {
         const src = (ord.source || 'Storefront').toLowerCase();
-        return src.includes(channelFilter.toLowerCase());
+        switch (channelFilter) {
+          case 'instagram':
+            return src.includes('instagram') || src.includes('انستغرام') || src.includes('انستقرام');
+          case 'google':
+            return src.includes('google') || src.includes('ads') || src.includes('جوجل') || src.includes('إعلان');
+          case 'direct':
+            return src.includes('direct') || src.includes('مباشر') || src.includes('website') || src.includes('storefront') || src.includes('متجر');
+          case 'tiktok':
+            return src.includes('tiktok') || src.includes('تيك');
+          case 'snapchat':
+            return src.includes('snapchat') || src.includes('سناب');
+          case 'whatsapp':
+            return src.includes('whatsapp') || src.includes('واتساب') || src.includes('واتس');
+          case 'facebook':
+            return src.includes('facebook') || src.includes('فيسبوك');
+          case 'x':
+            return src.includes('twitter') || src.includes('تويتر') || src.includes('إكس') || src.includes('اكس') || src === 'x';
+          case 'youtube':
+            return src.includes('youtube') || src.includes('يوتيوب');
+          case 'email':
+            return src.includes('email') || src.includes('mail') || src.includes('بريد');
+          default:
+            return src.includes(channelFilter.toLowerCase());
+        }
       });
     }
 
@@ -187,6 +578,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = React.m
     setPaymentFilter('all');
     setChannelFilter('all');
     setSortKey('date_desc');
+    setActiveSubMenu(null);
   };
 
   const getStatusIcon = (status: string) => {
@@ -214,6 +606,90 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = React.m
 
   const getChannelBadge = (source?: string) => {
     const src = (source || 'Storefront').toLowerCase();
+    if (src.includes('instagram') || src.includes('انستغرام')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-gradient-to-r from-amber-500/15 via-rose-500/15 to-purple-600/15 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50">
+          <Instagram className="w-2.5 h-2.5" />
+          {isAr ? 'انستغرام' : 'Instagram'}
+        </span>
+      );
+    }
+    if (src.includes('google') || src.includes('جوجل')) {
+      const isAds = src.includes('ads') || src.includes('إعلان');
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200 dark:border-sky-800/40">
+          <Search className="w-2.5 h-2.5" />
+          {isAds ? (isAr ? 'إعلانات جوجل' : 'Google Ads') : (isAr ? 'بحث جوجل' : 'Google Organic')}
+        </span>
+      );
+    }
+    if (src.includes('tiktok') || src.includes('تيك')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-900 text-white dark:bg-slate-800 border border-slate-700">
+          <Music2 className="w-2.5 h-2.5" />
+          {isAr ? 'تيك توك' : 'TikTok'}
+        </span>
+      );
+    }
+    if (src.includes('snapchat') || src.includes('سناب')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40">
+          <Ghost className="w-2.5 h-2.5" />
+          {isAr ? 'سناب شات' : 'Snapchat'}
+        </span>
+      );
+    }
+    if (src.includes('whatsapp') || src.includes('واتساب')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
+          <MessageCircle className="w-2.5 h-2.5" />
+          {isAr ? 'واتساب' : 'WhatsApp'}
+        </span>
+      );
+    }
+    if (src.includes('facebook') || src.includes('فيسبوك')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40">
+          <Facebook className="w-2.5 h-2.5" />
+          {isAr ? 'فيسبوك' : 'Facebook'}
+        </span>
+      );
+    }
+    if (src.includes('twitter') || src.includes('تويتر') || src.includes('x') || src.includes('إكس')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-900 text-white dark:bg-slate-800 border border-slate-700">
+          <span className="font-bold text-[10px]">𝕏</span>
+          {isAr ? 'إكس (تويتر سابقاً)' : 'X (formerly Twitter)'}
+        </span>
+      );
+    }
+    if (src.includes('youtube') || src.includes('يوتيوب')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800/40">
+          <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24">
+            <path d="M10 15l5-3-5-3v6z" />
+            <path d="M21.58 7.19a2.5 2.5 0 0 0-1.76-1.77C18.25 5 12 5 12 5s-6.25 0-7.82.42A2.5 2.5 0 0 0 2.42 7.19 26.27 26.27 0 0 0 2 12a26.27 26.27 0 0 0 .42 4.81 2.5 2.5 0 0 0 1.76 1.77C5.75 19 12 19 12 19s6.25 0 7.82-.42a2.5 2.5 0 0 0 1.76-1.77c.28-1.56.42-3.18.42-4.81s-.14-3.25-.42-4.81z" />
+          </svg>
+          {isAr ? 'يوتيوب' : 'YouTube'}
+        </span>
+      );
+    }
+    if (src.includes('direct') || src.includes('مباشر')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800/40">
+          <Globe className="w-2.5 h-2.5" />
+          {isAr ? 'زيارات مباشرة' : 'Direct Visits'}
+        </span>
+      );
+    }
+    if (src.includes('email') || src.includes('بريد')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 border border-orange-200 dark:border-orange-800/40">
+          <Mail className="w-2.5 h-2.5" />
+          {isAr ? 'البريد الإلكتروني' : 'Email Marketing'}
+        </span>
+      );
+    }
     if (src.includes('salla') || src.includes('سلة')) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
@@ -265,15 +741,55 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = React.m
     if (pm.includes('mada') || pm.includes('مدى')) {
       return (
         <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-          <CreditCard className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <span className="w-4 h-3 rounded-xs bg-emerald-600 text-white text-[8px] font-black flex items-center justify-center shrink-0">M</span>
           <span className="text-xs truncate">{isAr ? 'مدى' : 'Mada'}</span>
+        </div>
+      );
+    }
+    if (pm.includes('mastercard') || pm.includes('ماستركارد')) {
+      return (
+        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+          <span className="w-4 h-3 rounded-xs bg-orange-600 text-white text-[8px] font-black flex items-center justify-center shrink-0">MC</span>
+          <span className="text-xs truncate">{isAr ? 'ماستركارد' : 'Mastercard'}</span>
+        </div>
+      );
+    }
+    if (pm.includes('visa') || pm.includes('فيزا')) {
+      return (
+        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+          <CreditCard className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+          <span className="text-xs truncate">{isAr ? 'فيزا' : 'Visa'}</span>
+        </div>
+      );
+    }
+    if (pm.includes('stc') || pm.includes('اس تي سي')) {
+      return (
+        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#4F008C] text-white text-[9px] font-black shrink-0 tracking-tight">stc</span>
+          <span className="text-xs truncate">{isAr ? 'اس تي سي باي' : 'STC Pay'}</span>
+        </div>
+      );
+    }
+    if (pm.includes('paypal') || pm.includes('باي بال')) {
+      return (
+        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#003087] text-white text-[9px] font-black shrink-0 tracking-tight">PayPal</span>
+          <span className="text-xs truncate">{isAr ? 'باي بال' : 'PayPal'}</span>
+        </div>
+      );
+    }
+    if (pm.includes('google') || pm.includes('جوجل') || pm.includes('gpay')) {
+      return (
+        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+          <span className="px-1.5 py-0.5 rounded-xs bg-slate-900 dark:bg-slate-700 text-white text-[9px] font-black shrink-0 tracking-tight">GPay</span>
+          <span className="text-xs truncate">{isAr ? 'جوجل باي' : 'Google Pay'}</span>
         </div>
       );
     }
     if (pm.includes('tamara') || pm.includes('تمارا')) {
       return (
         <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-          <CreditCard className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#F7A738] text-slate-950 text-[9px] font-black shrink-0 tracking-tight">Tamara</span>
           <span className="text-xs truncate">{isAr ? 'تمارا' : 'Tamara'}</span>
         </div>
       );
@@ -281,8 +797,40 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = React.m
     if (pm.includes('tabby') || pm.includes('تابي')) {
       return (
         <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-          <CreditCard className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#3EFE97] text-slate-950 text-[9px] font-black shrink-0 tracking-tight">Tabby</span>
           <span className="text-xs truncate">{isAr ? 'تابي' : 'Tabby'}</span>
+        </div>
+      );
+    }
+    if (pm.includes('mispay') || pm.includes('مسباي')) {
+      return (
+        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#6366F1] text-white text-[9px] font-black shrink-0 tracking-tight">Mispay</span>
+          <span className="text-xs truncate">{isAr ? 'مسباي' : 'Mispay'}</span>
+        </div>
+      );
+    }
+    if (pm.includes('madfooat') || pm.includes('مدفوعات')) {
+      return (
+        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#06B6D4] text-white text-[9px] font-black shrink-0 tracking-tight">Madfooat</span>
+          <span className="text-xs truncate">{isAr ? 'مدفوعات' : 'Madfooat'}</span>
+        </div>
+      );
+    }
+    if (pm.includes('emkan') || pm.includes('إمكان')) {
+      return (
+        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#8B5CF6] text-white text-[9px] font-black shrink-0 tracking-tight">Emkan</span>
+          <span className="text-xs truncate">{isAr ? 'إمكان' : 'Emkan'}</span>
+        </div>
+      );
+    }
+    if (pm.includes('bank') || pm.includes('تحويل')) {
+      return (
+        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+          <Building2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+          <span className="text-xs truncate">{isAr ? 'تحويل بنكي' : 'Bank Transfer'}</span>
         </div>
       );
     }
@@ -373,20 +921,23 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = React.m
 
             {showFilterMenu && (
               <div
-                className="absolute end-0 mt-2 w-64 p-3 rounded-2xl border shadow-xl z-40 text-xs space-y-3 animate-in fade-in zoom-in-95 duration-150"
+                className="absolute end-0 mt-2 w-72 sm:w-80 p-3.5 sm:p-4 rounded-2xl border shadow-2xl z-50 text-xs space-y-3.5 animate-in fade-in zoom-in-95 duration-150"
                 style={{
                   background: 'var(--surface)',
                   borderColor: 'var(--border)',
                   color: 'var(--text)',
                 }}
               >
-                <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: 'var(--border)' }}>
-                  <span className="font-bold text-xs">{isAr ? 'تصفية الطلبات' : 'Filter Orders'}</span>
+                {/* Popover Header */}
+                <div className="flex items-center justify-between pb-2.5 border-b" style={{ borderColor: 'var(--border)' }}>
+                  <span className="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white">
+                    {isAr ? 'تصفية الطلبات' : 'Filter Orders'}
+                  </span>
                   {hasActiveFilters && (
                     <button
                       type="button"
                       onClick={resetAllFilters}
-                      className="text-[11px] text-rose-500 hover:underline flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
                     >
                       <RotateCcw className="w-3 h-3" />
                       <span>{isAr ? 'إعادة ضبط' : 'Reset'}</span>
@@ -394,63 +945,261 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = React.m
                   )}
                 </div>
 
-                {/* Status Filter */}
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+                {/* 1. Status Dropdown */}
+                <div className="relative">
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1.5">
                     {isAr ? 'الحالة' : 'Status'}
                   </label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSubMenu((prev) => (prev === 'status' ? null : 'status'))}
+                    className="w-full px-3 py-2 text-xs rounded-xl border flex items-center justify-between transition-all cursor-pointer shadow-2xs hover:border-teal-500/60"
+                    style={{
+                      background: 'var(--input-bg)',
+                      borderColor: activeSubMenu === 'status' ? '#007b83' : 'var(--border)',
+                      color: 'var(--input-fg)',
+                    }}
                   >
-                    <option value="all">{isAr ? 'كافة الحالات' : 'All Statuses'}</option>
-                    <option value="completed">{isAr ? 'مكتمل' : 'Completed'}</option>
-                    <option value="pending">{isAr ? 'قيد الانتظار' : 'Pending'}</option>
-                    <option value="processing">{isAr ? 'جاري التجهيز' : 'Processing'}</option>
-                    <option value="shipped">{isAr ? 'تم الشحن' : 'Shipped'}</option>
-                    <option value="cancelled">{isAr ? 'ملغي' : 'Cancelled'}</option>
-                  </select>
+                    <div className="flex items-center gap-2 truncate">
+                      {selectedStatusItem?.icon()}
+                      <span className="truncate font-semibold">
+                        {isAr ? selectedStatusItem?.labelAr : selectedStatusItem?.labelEn}
+                      </span>
+                    </div>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
+                        activeSubMenu === 'status' ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {activeSubMenu === 'status' && (
+                    <div
+                      className="absolute start-0 top-full mt-1.5 w-full rounded-xl border shadow-2xl p-1 z-50 max-h-56 overflow-y-auto animate-in fade-in duration-100"
+                      style={{
+                        background: 'var(--surface)',
+                        borderColor: 'var(--border)',
+                      }}
+                    >
+                      {STATUS_ITEMS.map((item) => {
+                        const isSelected = statusFilter === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              setStatusFilter(item.id);
+                              setActiveSubMenu(null);
+                            }}
+                            className={`w-full px-3 py-2 rounded-lg text-start flex items-center justify-between text-xs transition-colors cursor-pointer ${
+                              isSelected
+                                ? 'bg-blue-600 text-white font-bold'
+                                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              {item.icon(isSelected ? 'w-3.5 h-3.5 text-white' : undefined)}
+                              <span className="truncate">{isAr ? item.labelAr : item.labelEn}</span>
+                            </div>
+                            {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
-                {/* Payment Filter */}
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+                {/* 2. Payment Method Dropdown (Grouped 100% same as Page 2 & 3 specification) */}
+                <div className="relative">
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1.5">
                     {isAr ? 'طريقة الدفع' : 'Payment Method'}
                   </label>
-                  <select
-                    value={paymentFilter}
-                    onChange={(e) => setPaymentFilter(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSubMenu((prev) => (prev === 'payment' ? null : 'payment'))}
+                    className="w-full px-3 py-2 text-xs rounded-xl border flex items-center justify-between transition-all cursor-pointer shadow-2xs hover:border-teal-500/60"
+                    style={{
+                      background: 'var(--input-bg)',
+                      borderColor: activeSubMenu === 'payment' ? '#007b83' : 'var(--border)',
+                      color: 'var(--input-fg)',
+                    }}
                   >
-                    <option value="all">{isAr ? 'كافة طرق الدفع' : 'All Payment Methods'}</option>
-                    <option value="mada">{isAr ? 'مدى' : 'Mada'}</option>
-                    <option value="apple">{isAr ? 'أبل باي' : 'Apple Pay'}</option>
-                    <option value="tamara">{isAr ? 'تمارا' : 'Tamara'}</option>
-                    <option value="tabby">{isAr ? 'تابي' : 'Tabby'}</option>
-                    <option value="cash">{isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery'}</option>
-                  </select>
+                    <div className="flex items-center gap-2 truncate">
+                      {paymentFilter === 'all' ? (
+                        <CreditCard className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      ) : (
+                        selectedPaymentItem?.badge(isAr)
+                      )}
+                      <span className="truncate font-semibold">
+                        {paymentFilter === 'all'
+                          ? (isAr ? 'كافة طرق الدفع' : 'All Payment Methods')
+                          : (isAr ? selectedPaymentItem?.labelAr : selectedPaymentItem?.labelEn)}
+                      </span>
+                    </div>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
+                        activeSubMenu === 'payment' ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {activeSubMenu === 'payment' && (
+                    <div
+                      className="absolute start-0 top-full mt-1.5 w-full rounded-xl border shadow-2xl p-1 z-50 max-h-64 overflow-y-auto animate-in fade-in duration-100"
+                      style={{
+                        background: 'var(--surface)',
+                        borderColor: 'var(--border)',
+                      }}
+                    >
+                      {/* All option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPaymentFilter('all');
+                          setActiveSubMenu(null);
+                        }}
+                        className={`w-full px-3 py-2 rounded-lg text-start flex items-center justify-between text-xs transition-colors cursor-pointer mb-1 ${
+                          paymentFilter === 'all'
+                            ? 'bg-blue-600 text-white font-bold'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <CreditCard className={`w-3.5 h-3.5 shrink-0 ${paymentFilter === 'all' ? 'text-white' : 'text-slate-400'}`} />
+                          <span>{isAr ? 'كافة طرق الدفع' : 'All Payment Methods'}</span>
+                        </div>
+                        {paymentFilter === 'all' && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                      </button>
+
+                      {/* Categories */}
+                      {PAYMENT_CATEGORIES.map((category) => (
+                        <div key={category.groupNum} className="mt-2 border-t pt-1.5" style={{ borderColor: 'var(--border)' }}>
+                          <div className="px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            {isAr ? category.titleAr : category.titleEn}
+                          </div>
+                          <div className="space-y-0.5">
+                            {category.items.map((method) => {
+                              const isSelected = paymentFilter === method.id;
+                              return (
+                                <button
+                                  key={method.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setPaymentFilter(method.id);
+                                    setActiveSubMenu(null);
+                                  }}
+                                  className={`w-full px-3 py-1.5 rounded-lg text-start flex items-center justify-between text-xs transition-colors cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-blue-600 text-white font-bold'
+                                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 truncate">
+                                    <span className="shrink-0">{method.badge(isAr)}</span>
+                                    <span className="truncate">{isAr ? method.labelAr : method.labelEn}</span>
+                                  </div>
+                                  {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {/* Channel Filter */}
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+                {/* 3. Sales Channel Dropdown (100% Pixel Perfect to Image 1 Right) */}
+                <div className="relative">
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1.5">
                     {isAr ? 'قناة البيع' : 'Sales Channel'}
                   </label>
-                  <select
-                    value={channelFilter}
-                    onChange={(e) => setChannelFilter(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSubMenu((prev) => (prev === 'channel' ? null : 'channel'))}
+                    className="w-full px-3 py-2 text-xs rounded-xl border flex items-center justify-between transition-all cursor-pointer shadow-2xs hover:border-teal-500/60"
+                    style={{
+                      background: 'var(--input-bg)',
+                      borderColor: activeSubMenu === 'channel' ? '#007b83' : 'var(--border)',
+                      color: 'var(--input-fg)',
+                    }}
                   >
-                    <option value="all">{isAr ? 'كافة القنوات' : 'All Channels'}</option>
-                    <option value="store">{isAr ? 'المتجر الإلكتروني' : 'Online Store'}</option>
-                    <option value="salla">{isAr ? 'سلة' : 'Salla'}</option>
-                    <option value="woo">{isAr ? 'ووكومرس' : 'WooCommerce'}</option>
-                    <option value="app">{isAr ? 'تطبيق الجوال' : 'Mobile App'}</option>
-                  </select>
+                    <div className="flex items-center gap-2 truncate">
+                      {channelFilter === 'all' ? (
+                        <Layers className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      ) : (
+                        selectedChannelItem?.icon
+                      )}
+                      <span className="truncate font-semibold">
+                        {channelFilter === 'all'
+                          ? (isAr ? 'كافة القنوات' : 'All Channels')
+                          : (isAr ? selectedChannelItem?.labelAr : selectedChannelItem?.labelEn)}
+                      </span>
+                    </div>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
+                        activeSubMenu === 'channel' ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {activeSubMenu === 'channel' && (
+                    <div
+                      className="absolute start-0 top-full mt-1.5 w-full rounded-xl border shadow-2xl p-1 z-50 max-h-60 overflow-y-auto animate-in fade-in duration-100"
+                      style={{
+                        background: 'var(--surface)',
+                        borderColor: 'var(--border)',
+                      }}
+                    >
+                      {/* All Channels Option (Selected in royal blue matching image 1 right) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChannelFilter('all');
+                          setActiveSubMenu(null);
+                        }}
+                        className={`w-full px-3 py-2 rounded-lg text-start flex items-center justify-between text-xs transition-colors cursor-pointer ${
+                          channelFilter === 'all'
+                            ? 'bg-blue-600 text-white font-bold'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Layers className={`w-3.5 h-3.5 shrink-0 ${channelFilter === 'all' ? 'text-white' : 'text-slate-400'}`} />
+                          <span>{isAr ? 'كافة القنوات' : 'All Channels'}</span>
+                        </div>
+                        {channelFilter === 'all' && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                      </button>
+
+                      {/* Social & Marketing Channels with Branded Icons */}
+                      <div className="pt-1 space-y-0.5">
+                        {SALES_CHANNEL_ITEMS.map((ch) => {
+                          const isSelected = channelFilter === ch.id;
+                          return (
+                            <button
+                              key={ch.id}
+                              type="button"
+                              onClick={() => {
+                                setChannelFilter(ch.id);
+                                setActiveSubMenu(null);
+                              }}
+                              className={`w-full px-3 py-1.5 rounded-lg text-start flex items-center justify-between text-xs transition-colors cursor-pointer ${
+                                isSelected
+                                  ? 'bg-blue-600 text-white font-bold'
+                                  : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 truncate">
+                                <span className="shrink-0">{ch.icon}</span>
+                                <span className="truncate">{isAr ? ch.labelAr : ch.labelEn}</span>
+                              </div>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -550,16 +1299,18 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = React.m
             </span>
           )}
           {paymentFilter !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border text-[11px]">
-              <span>{paymentFilter}</span>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+              {selectedPaymentItem?.badge(isAr)}
+              <span>{selectedPaymentItem ? (isAr ? selectedPaymentItem.labelAr : selectedPaymentItem.labelEn) : paymentFilter}</span>
               <button type="button" onClick={() => setPaymentFilter('all')} className="cursor-pointer text-slate-400 hover:text-slate-600">
                 <X className="w-3 h-3" />
               </button>
             </span>
           )}
           {channelFilter !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border text-[11px]">
-              <span>{channelFilter}</span>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+              <span className="scale-75 origin-center">{selectedChannelItem?.icon}</span>
+              <span>{selectedChannelItem ? (isAr ? selectedChannelItem.labelAr : selectedChannelItem.labelEn) : channelFilter}</span>
               <button type="button" onClick={() => setChannelFilter('all')} className="cursor-pointer text-slate-400 hover:text-slate-600">
                 <X className="w-3 h-3" />
               </button>
@@ -577,14 +1328,21 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = React.m
 
       {/* ── Table Content ── */}
       {processedOrders.length === 0 ? (
-        /* Empty State Matching Image 1 */
+        /* Genuine Empty State (Zero Mock Data) */
         <div className="py-14 px-4 text-center">
           <div className="w-12 h-12 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
             <ShoppingCart className="w-6 h-6" />
           </div>
-          <h4 className="font-bold text-sm mb-1 text-slate-600 dark:text-slate-300">
-            {isAr ? 'لا توجد طلبات تطابق الفلتر المحدد' : 'No orders match the selected filter'}
+          <h4 className="font-bold text-sm mb-1 text-slate-700 dark:text-slate-200">
+            {hasActiveFilters
+              ? (isAr ? 'لا توجد طلبات تطابق الفلتر المحدد' : 'No orders match the selected filter')
+              : (isAr ? 'لا توجد سجلات حالياً' : 'No records found')}
           </h4>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+            {hasActiveFilters
+              ? (isAr ? 'جرّب تعديل خيارات التصفية أو مسح الفلاتر لعرض الطلبات.' : 'Try adjusting your filters or resetting them to view orders.')
+              : (isAr ? 'لم يتم تسجيل أي طلبات في قاعدة البيانات لهذا المتجر حتى الآن.' : 'No customer orders have been recorded in the database for this store yet.')}
+          </p>
           {hasActiveFilters && (
             <button
               type="button"

@@ -1190,7 +1190,8 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
     if (b.type === 'text_editor' || b.type === 'w_text') {
       const isCallout = b.templateStyle?.includes('callout') || b.settings.boxStyle === 'callout';
       const isTwoCol = b.settings.columns === 2 || b.templateStyle?.includes('two') || b.templateStyle?.includes('editorial');
-      const text = isAr ? (b.settings.textAr || b.settings.contentAr || 'تفاصيل ومحتوى مخصص للقسم بتنسيق متقدم يعكس فخامة متجر هدايا مكة وخدماته الملكية...') : (b.settings.textEn || b.settings.contentEn || 'Custom formatted editorial paragraph text reflecting the luxury of Mecca gifts store...');
+      const storeDisplayName = (isAr ? activeStore?.nameAr : activeStore?.nameEn) || activeStore?.name || (isAr ? 'المتجر' : 'Store');
+      const text = isAr ? (b.settings.textAr || b.settings.contentAr || `تفاصيل ومحتوى مخصص للقسم بتنسيق متقدم يعكس فخامة ${storeDisplayName} وخدماته المميزة...`) : (b.settings.textEn || b.settings.contentEn || `Custom formatted editorial paragraph text reflecting the quality and services of ${storeDisplayName}...`);
       const fontSize = b.settings.fontSize || 15;
       const textColor = b.settings.textColor || (isCallout ? '#FAF9F5' : '#334155');
       const bgColor = isCallout ? (b.settings.bgColor || '#102a1c') : undefined;
@@ -2159,7 +2160,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       const defaultImg = isCoffeeStore
         ? 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80'
         : isFlowerStore
-        ? '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg'
+        ? '/images/hadaya_red_roses_bouquet_1791276749666.jpg'
         : 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80';
       const defaultCatAr = isCoffeeStore ? 'حبوب القهوة المختصة' : isFlowerStore ? 'باقات الورود الطبيعية' : 'منتجات المتجر';
       const defaultCatEn = isCoffeeStore ? 'Specialty Coffee Beans' : isFlowerStore ? 'Natural Flower Bouquets' : 'Store Products';

@@ -4,12 +4,14 @@
  */
 
 import { bumpStore } from '../../api/cacheTags';
+import { isValidMediaUrl } from '../../utils/imageFallback';
 
 export type StoreIdentitySettings = {
   storeName: string;
   taglineEn: string;
   taglineAr: string;
   logoUrl: string;
+  faviconUrl?: string;
   phone: string;
   whatsapp: string;
   email: string;
@@ -27,6 +29,7 @@ export function defaultStoreIdentity(store?: {
   name?: string;
   ownerEmail?: string;
   logo?: string;
+  favicon?: string;
 }): StoreIdentitySettings {
   const safeStore = store || { id: '', name: '' };
   const storeId = safeStore.id || '';
@@ -48,9 +51,9 @@ export function defaultStoreIdentity(store?: {
       storeName: storeName || 'متجر مكائن ومستلزمات القهوة (HiBrew KSA)',
       taglineEn: 'HiBrew KSA Official Coffee Store · 20-Bar Machines, Precision Mills & Barista Gear',
       taglineAr: 'متخصصون في بيع مكائن القهوة و مستلزماتها ذات جودة عالية و بسعر مناسب ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية',
-      logoUrl: (safeStore.logo && safeStore.logo.startsWith('http'))
+      logoUrl: (safeStore.logo && isValidMediaUrl(safeStore.logo))
         ? safeStore.logo
-        : '/src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg',
+        : '/images/coffee_hero_flagship_machine_1791218907782.jpg',
       phone: '+966 11 489 2030',
       whatsapp: '+966 54 987 6543',
       email: safeStore.ownerEmail || 'info@specialtycoffee.sa',
@@ -60,6 +63,7 @@ export function defaultStoreIdentity(store?: {
       commercialReg: '1010892410',
       vatNumber: '31048821900003',
       instagram: 'https://instagram.com/hibrew.ksa',
+      faviconUrl: safeStore.favicon || '/favicon.svg',
       updatedAt: new Date().toISOString(),
     };
   }
@@ -69,7 +73,7 @@ export function defaultStoreIdentity(store?: {
       storeName: storeName || 'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو)',
       taglineEn: 'Luxury Car Upholstery, Tailored Seat Covers & 5D/7D Diamond Floor Mats',
       taglineAr: 'تنجيد وتلابيس مراتب وتفصيل أرضيات دايموند 5D واكسسوارات سيارات',
-      logoUrl: (safeStore.logo && safeStore.logo.startsWith('http'))
+      logoUrl: (safeStore.logo && isValidMediaUrl(safeStore.logo))
         ? safeStore.logo
         : 'https://cdn.salla.sa/cdn-cgi/image/fit=scale-down,width=400,height=400,onerror=redirect,format=auto/wYYVD/OZbzrkkW0icMZlcDNOiZnU4PSjwq6WxXgCkwT0PQ.png',
       phone: '+966 59 775 7086',
@@ -81,6 +85,7 @@ export function defaultStoreIdentity(store?: {
       commercialReg: '7005616136',
       vatNumber: '0000180462',
       instagram: 'https://instagram.com/tanjeedmakkah',
+      faviconUrl: safeStore.favicon || '/favicon.svg',
       updatedAt: new Date().toISOString(),
     };
   }
@@ -89,7 +94,7 @@ export function defaultStoreIdentity(store?: {
     storeName: storeName || 'هدايا مكة',
     taglineEn: 'Fresh natural flowers & Holy Haram gifts',
     taglineAr: 'باقات ورد طبيعي وهدايا الحرم المكي الشريف',
-    logoUrl: (safeStore.logo && safeStore.logo.startsWith('http')) ? safeStore.logo : 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=300&q=80',
+    logoUrl: (safeStore.logo && isValidMediaUrl(safeStore.logo)) ? safeStore.logo : 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=300&q=80',
     phone: '+966 12 555 8920',
     whatsapp: '+966 50 442 8819',
     email: safeStore.ownerEmail || 'giftshop2030m@gmail.com',
@@ -99,6 +104,7 @@ export function defaultStoreIdentity(store?: {
     commercialReg: '4031099241',
     vatNumber: '30048821900003',
     instagram: 'https://instagram.com/giftshop2030m',
+    faviconUrl: safeStore.favicon || '/favicon.svg',
     updatedAt: new Date().toISOString(),
   };
 }
@@ -107,7 +113,7 @@ const storageKey = (storeId: string) => `unityteck_theme_identity_${storeId}`;
 
 export function readStoreIdentity(
   storeId?: string,
-  fallback?: { id?: string; name?: string; ownerEmail?: string; logo?: string },
+  fallback?: { id?: string; name?: string; ownerEmail?: string; logo?: string; favicon?: string },
 ): StoreIdentitySettings {
   const safeStoreId = storeId || fallback?.id || '';
   const fallbackWithId = {
@@ -115,6 +121,7 @@ export function readStoreIdentity(
     name: fallback?.name || '',
     ownerEmail: fallback?.ownerEmail,
     logo: fallback?.logo,
+    favicon: fallback?.favicon,
   };
   try {
     if (safeStoreId) {

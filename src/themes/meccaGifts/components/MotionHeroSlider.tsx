@@ -30,7 +30,7 @@ export const DEFAULT_FLOWER_SLIDES: HeroSlideItem[] = [
     primaryBtn: 'Shop Now',
     primaryBtnAr: 'تسوق الآن',
     primaryLink: '#catalog',
-    image: '/src/assets/images/hadaya_hero_penthouse_1791216115794.jpg',
+    image: '/images/hadaya_hero_penthouse_1791216115794.jpg',
     category: 'باقات الورود الطبيعية',
   },
   {
@@ -45,7 +45,7 @@ export const DEFAULT_FLOWER_SLIDES: HeroSlideItem[] = [
     secondaryBtn: 'Learn More',
     secondaryBtnAr: 'اعرف المزيد',
     secondaryLink: '#about',
-    image: '/src/assets/images/hadaya_luxury_master_hero_1791217937117.jpg',
+    image: '/images/hadaya_luxury_master_hero_1791217937117.jpg',
     category: 'ورد وشوكولاتة بلجيكية فاخرة',
   },
   {
@@ -57,7 +57,7 @@ export const DEFAULT_FLOWER_SLIDES: HeroSlideItem[] = [
     primaryBtn: 'Shop Now',
     primaryBtnAr: 'تسوق الآن',
     primaryLink: '#catalog',
-    image: '/src/assets/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
+    image: '/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
     category: 'باقات فاخرة',
   },
 ];
@@ -157,7 +157,16 @@ export const MotionHeroSlider: React.FC<MotionHeroSliderProps> = ({
           secondaryBtn: s.secondaryBtn,
           secondaryBtnAr: s.secondaryBtnAr,
           secondaryLink: s.secondaryLink,
-          image: s.image,
+          image: (() => {
+            const rawImg = s.image || '';
+            let cleanImg = rawImg.startsWith('/src/assets/images/') ? rawImg.replace('/src/assets/images/', '/images/') : rawImg;
+            if (cleanImg.includes('photo-1518709268805-4e9042af9f23')) {
+              cleanImg = '/images/hadaya_luxury_master_hero_1791217937117.jpg';
+            } else if (cleanImg.includes('photo-1525310072745-f49212b5ac6d')) {
+              cleanImg = '/images/hadaya_royal_wedding_flowers_1791300194084.jpg';
+            }
+            return cleanImg || (isCoffee ? '/hero_coffee_banner_white_1.jpg' : '/images/hadaya_luxury_master_hero_1791217937117.jpg');
+          })(),
           category: isCoffee ? 'حبوب القهوة المختصة' : 'باقات الورود الطبيعية',
         }));
       }

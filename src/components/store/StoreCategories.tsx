@@ -287,7 +287,7 @@ export const MECCA_CATEGORIES_SEED: StoreCategory[] = [
     name: 'Men Luxury Gifts',
     nameAr: 'هدايا رجالية ملكية',
     slug: 'men-gifts',
-    imageUrl: '/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg',
+    imageUrl: '/images/hadaya_men_luxury_gift_1791219799100.jpg',
     sortOrder: 180,
     metaTitle: 'أطقم هدايا رجالية فاخرة | هدايا مكة',
     metaDescription: 'صناديق جلدية ملكية تضم عطور وساعات ومحافظ فاخرة مع ورد طبيعي.',
@@ -300,10 +300,50 @@ export const MECCA_CATEGORIES_SEED: StoreCategory[] = [
     name: 'Women Luxury Gifts',
     nameAr: 'هدايا نسائية فاخرة',
     slug: 'women-gifts',
-    imageUrl: '/src/assets/images/hadaya_women_luxury_gift_1791219815272.jpg',
+    imageUrl: '/images/hadaya_women_luxury_gift_zedaan.webp',
     sortOrder: 190,
     metaTitle: 'أطقم هدايا نسائية راقية | هدايا مكة',
     metaDescription: 'صناديق مخملية تضم عطور ومجوهرات زركون مع زهور البيوني الفاتنة.',
+    isActive: true,
+  },
+  // --- Nested Sub-Categories for Mecca Gifts Store ---
+  {
+    id: 'sub-c1-peonies',
+    storeId: 'store-1',
+    parentId: 'c-1',
+    name: 'Dutch Peonies & Hydrangeas',
+    nameAr: 'بيوني وهيدرانجيا هولندي',
+    slug: 'dutch-peonies',
+    imageUrl: 'https://cdn.salla.sa/form-builder/tWCbNfZyZC271qgyhdROpC6ZdS6rCXbqmtvPD8hx.png',
+    sortOrder: 15,
+    metaTitle: 'بيوني وهيدرانجيا هولندي طبيعي | هدايا مكة',
+    metaDescription: 'تنسيقات زهور البيوني الهولندية المستوردة مع الهيدرانجيا الوردية.',
+    isActive: true,
+  },
+  {
+    id: 'sub-c1-roses',
+    storeId: 'store-1',
+    parentId: 'c-1',
+    name: 'Ecuadorian Long Stem Red Roses',
+    nameAr: 'جوري إكوادوري أحمر ملكي',
+    slug: 'ecuadorian-red-roses',
+    imageUrl: '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
+    sortOrder: 16,
+    metaTitle: 'جوري إكوادوري أحمر ملكي طويل الساق | هدايا مكة',
+    metaDescription: 'أفخر باقات الورد الجوري الإكوادوري الأحمر الفاتن لعيد الحب والمناسبات.',
+    isActive: true,
+  },
+  {
+    id: 'sub-c4-crystal',
+    storeId: 'store-1',
+    parentId: 'c-4',
+    name: 'Bohemian Crystal Vases',
+    nameAr: 'فازات كريستال بوهيمي فاخرة',
+    slug: 'bohemian-crystal-vases',
+    imageUrl: 'https://cdn.salla.sa/form-builder/vMIFvv8ErCIt8W4npNMOB0Oj6Secf5lLWWByluvd.png',
+    sortOrder: 45,
+    metaTitle: 'فازات كريستال بوهيمي | هدايا مكة',
+    metaDescription: 'فازات كريستال بوهيمي منقوشة يدوياً للمجالس الراقية.',
     isActive: true,
   },
 ];
@@ -387,6 +427,33 @@ const BLECO_CATEGORIES_SEED: StoreCategory[] = [
     metaDescription: 'مبارم وكلبسات ومشدات تثبيت مراتب أصلية مع أدوات الفك والتركيب بدون خدوش.',
     isActive: true,
   },
+  // --- Nested Sub-Categories for Bleco / Car Services Store ---
+  {
+    id: 'sub-blc-1-nappa',
+    storeId: 'store-bleco',
+    parentId: 'cat-blc-1',
+    name: 'German Nappa Leather Upholstery',
+    nameAr: 'جلد ألماني نابا فاخر',
+    slug: 'german-nappa-leather',
+    imageUrl: '/images/categories/vip-luxury-seat-covers.jpg',
+    sortOrder: 12,
+    metaTitle: 'تنجيد جلد ألماني نابا | متجر السعيدي',
+    metaDescription: 'جلد ألماني نابا طبيعي مقاوم للحرارة والتشقق مع ضمان ٥ سنوات.',
+    isActive: true,
+  },
+  {
+    id: 'sub-blc-2-7seater',
+    storeId: 'store-bleco',
+    parentId: 'cat-blc-2',
+    name: '7-Seater Family & Trunk Protection Mats',
+    nameAr: 'أرضيات ٧ مقاعد عائلية وحماية الشنطة',
+    slug: '7-seater-laser-mats',
+    imageUrl: '/images/categories/vip-5d-laser-mats.jpg',
+    sortOrder: 22,
+    metaTitle: 'أرضيات ٧ مقاعد ليزر تفصيل | متجر السعيدي',
+    metaDescription: 'تغطية شاملة لجميع صفوف السيارات العائلية ودعاسة الشنطة المرتفعة.',
+    isActive: true,
+  },
 ];
 
 const MOCK_SEED: StoreCategory[] = MECCA_CATEGORIES_SEED;
@@ -424,7 +491,7 @@ export const StoreCategories: React.FC = () => {
       if (isApiEnabled()) {
         try {
           const list = await tenantApi.fetchCategories(activeStore.id, { all: true });
-          if (Array.isArray(list)) {
+          if (Array.isArray(list) && list.length > 0) {
             setRows(list);
             return;
           }
@@ -439,17 +506,45 @@ export const StoreCategories: React.FC = () => {
         const raw = localStorage.getItem(savedKey);
         if (raw) savedList = JSON.parse(raw);
       } catch {}
-      if (savedList && Array.isArray(savedList)) {
+      if (savedList && Array.isArray(savedList) && savedList.length > 0) {
         setRows(savedList);
       } else {
-        setRows([]);
+      const isCoffee =
+        activeStore.id === 'store-coffee' ||
+        activeStore.slug === 'coffee-store' ||
+        activeStore.slug === 'hibrew-coffee' ||
+        /قهوة|coffee|hibrew/i.test(activeStore.name) ||
+        /قهوة|coffee|hibrew/i.test(activeStore.nameAr ?? '') ||
+        /قهوة|coffee|hibrew/i.test(activeStore.nameEn ?? '');
+      const isBleco =
+        activeStore.id === 'store-bleco' ||
+        activeStore.slug === 'bleco-car' ||
+        activeStore.slug === 'alsaeedi-cars' ||
+        /سيارات|car|bleco/i.test(activeStore.name) ||
+        /سيارات|car|bleco/i.test(activeStore.nameAr ?? '') ||
+        /سيارات|car|bleco/i.test(activeStore.nameEn ?? '');
+      const isMakkah = !isCoffee && !isBleco;
+
+      const defaultSeed = isMakkah
+        ? MECCA_CATEGORIES_SEED
+        : isCoffee
+        ? COFFEE_CATEGORIES_SEED
+        : isBleco
+        ? BLECO_CATEGORIES_SEED
+        : MECCA_CATEGORIES_SEED;
+      setRows(defaultSeed);
+      if (defaultSeed.length > 0) {
+        try {
+          localStorage.setItem(savedKey, JSON.stringify(defaultSeed));
+        } catch {}
+      }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load categories');
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [activeStore.id]);
+  }, [activeStore.id, activeStore.slug]);
 
   useEffect(() => {
     void load();
@@ -597,12 +692,20 @@ export const StoreCategories: React.FC = () => {
       if (isApiEnabled()) {
         if (editingId) {
           const updated = await tenantApi.updateCategory(activeStore.id, editingId, payload);
-          setRows((prev) => prev.map((r) => (r.id === editingId ? updated : r)));
+          setRows((prev) => {
+            const next = prev.map((r) => (r.id === editingId ? updated : r));
+            try { localStorage.setItem(`unityteck_store_categories_${activeStore.id}`, JSON.stringify(next)); } catch {}
+            return next;
+          });
           bumpStore(activeStore.id, 'categories');
           toast(isAr ? 'تم تحديث التصنيف بنجاح' : 'Category updated successfully', 'success');
         } else {
           const created = await tenantApi.createCategory(activeStore.id, payload);
-          setRows((prev) => [...prev, created]);
+          setRows((prev) => {
+            const next = [...prev, created];
+            try { localStorage.setItem(`unityteck_store_categories_${activeStore.id}`, JSON.stringify(next)); } catch {}
+            return next;
+          });
           bumpStore(activeStore.id, 'categories');
           toast(isAr ? 'تم إنشاء التصنيف بنجاح' : 'Category created successfully', 'success');
         }
@@ -680,9 +783,7 @@ export const StoreCategories: React.FC = () => {
         .filter((r) => r.id !== id)
         .map((r) => (r.parentId === id ? { ...r, parentId: null } : r));
       setRows(next);
-      if (!isApiEnabled()) {
-        try { localStorage.setItem(`unityteck_store_categories_${activeStore.id}`, JSON.stringify(next)); } catch {}
-      }
+      try { localStorage.setItem(`unityteck_store_categories_${activeStore.id}`, JSON.stringify(next)); } catch {}
       bumpStore(activeStore.id, 'categories');
       setConfirmDeleteId(null);
       toast(isAr ? 'تم حذف التصنيف بنجاح' : 'Category deleted successfully', 'success');
@@ -714,9 +815,17 @@ export const StoreCategories: React.FC = () => {
             </span>
           )}
           <div className="min-w-0">
-            <span className="font-bold text-slate-900 dark:text-white block truncate">
-              {isAr ? (c.nameAr || c.name) : (c.name || c.nameAr)}
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {c.parentId && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 shrink-0">
+                  <Layers className="w-2.5 h-2.5" />
+                  {isAr ? 'تصنيف فرعي' : 'Subcategory'}
+                </span>
+              )}
+              <span className="font-bold text-slate-900 dark:text-white block truncate">
+                {isAr ? (c.nameAr || c.name) : (c.name || c.nameAr)}
+              </span>
+            </div>
             {isAr ? (
               c.name && c.name !== c.nameAr ? (
                 <span className="text-[10px] text-slate-400 block truncate" dir="ltr">

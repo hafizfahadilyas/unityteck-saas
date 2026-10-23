@@ -74,6 +74,7 @@ import { generateZatcaTlvBase64, generateInvoiceHashSha256 } from '../../utils/z
 import { formatDisplayDate, formatDisplayTime } from '../../utils/dateLocale';
 import { CreateStoreOrderModal } from './CreateStoreOrderModal';
 import { OrderFilters, type OrderFilterState } from './OrderFilters';
+import { OrderFilterMenu } from './orders/OrderFilterMenu';
 import { WindowedPagination } from '../common/WindowedPagination';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE, resolveProductThumbnail } from '../../utils/imageFallback';
 import {
@@ -117,6 +118,7 @@ export const StoreOrders: React.FC = () => {
     shippingStatus: 'all',
     paymentMethod: 'all',
     orderSource: 'all',
+    status: 'all',
   });
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all');
   const [selectedSource, setSelectedSource] = useState<string>('all');
@@ -393,12 +395,81 @@ export const StoreOrders: React.FC = () => {
         o.customerPhone.includes(q);
 
       const effectivePaymentMethod = orderFilters.paymentMethod || selectedPaymentMethod;
-      const matchesPayment =
-        effectivePaymentMethod === 'all' ||
-        o.paymentMethod.toLowerCase().includes(effectivePaymentMethod.toLowerCase());
+      const matchesPayment = (() => {
+        if (!effectivePaymentMethod || effectivePaymentMethod === 'all') return true;
+        const pm = (o.paymentMethod || '').toLowerCase();
+        switch (effectivePaymentMethod.toLowerCase()) {
+          case 'mada':
+            return pm.includes('mada') || pm.includes('مدى');
+          case 'visa':
+            return pm.includes('visa') || pm.includes('فيزا');
+          case 'mastercard':
+            return pm.includes('master') || pm.includes('ماستر');
+          case 'apple':
+            return pm.includes('apple') || pm.includes('أبل') || pm.includes('ابل');
+          case 'stc':
+            return pm.includes('stc') || pm.includes('اس تي سي');
+          case 'paypal':
+            return pm.includes('paypal') || pm.includes('باي بال');
+          case 'googlepay':
+            return pm.includes('google') || pm.includes('جوجل') || pm.includes('gpay');
+          case 'tabby':
+            return pm.includes('tabby') || pm.includes('تابي');
+          case 'tamara':
+            return pm.includes('tamara') || pm.includes('تمارا');
+          case 'mispay':
+            return pm.includes('mispay') || pm.includes('مسباي');
+          case 'madfooat':
+            return pm.includes('madfooat') || pm.includes('مدفوعات');
+          case 'emkan':
+            return pm.includes('emkan') || pm.includes('إمكان') || pm.includes('امكان');
+          case 'bank':
+            return pm.includes('bank') || pm.includes('تحويل') || pm.includes('transfer');
+          case 'cash':
+            return pm.includes('cash') || pm.includes('cod') || pm.includes('استلام');
+          default:
+            return pm.includes(effectivePaymentMethod.toLowerCase());
+        }
+      })();
 
       const effectiveSource = orderFilters.orderSource || selectedSource;
-      const matchesSource = effectiveSource === 'all' || o.source === effectiveSource;
+      const matchesSource = (() => {
+        if (!effectiveSource || effectiveSource === 'all') return true;
+        const src = (o.source || '').toLowerCase();
+        switch (effectiveSource.toLowerCase()) {
+          case 'instagram':
+            return src.includes('instagram') || src.includes('انستغرام') || src.includes('انستقرام');
+          case 'google':
+          case 'google ads':
+            return src.includes('google') || src.includes('ads') || src.includes('جوجل') || src.includes('إعلان');
+          case 'direct':
+          case 'direct visits':
+            return src.includes('direct') || src.includes('مباشر') || src.includes('website') || src.includes('storefront');
+          case 'tiktok':
+            return src.includes('tiktok') || src.includes('تيك');
+          case 'snapchat':
+            return src.includes('snapchat') || src.includes('سناب');
+          case 'whatsapp':
+            return src.includes('whatsapp') || src.includes('واتساب') || src.includes('واتس');
+          case 'facebook':
+            return src.includes('facebook') || src.includes('فيسبوك');
+          case 'x':
+            return src.includes('twitter') || src.includes('تويتر') || src.includes('إكس') || src.includes('اكس') || src === 'x';
+          case 'youtube':
+            return src.includes('youtube') || src.includes('يوتيوب');
+          case 'email':
+          case 'email marketing':
+            return src.includes('email') || src.includes('mail') || src.includes('بريد');
+          default:
+            return src.includes(effectiveSource.toLowerCase());
+        }
+      })();
+
+      const matchesCustomStatus = (() => {
+        if (!orderFilters.status || orderFilters.status === 'all') return true;
+        const s = (o.status || '').toLowerCase();
+        return s === orderFilters.status.toLowerCase();
+      })();
 
       // Payment Status filter
       const matchesPaymentStatus = (() => {
@@ -475,7 +546,8 @@ export const StoreOrders: React.FC = () => {
         !matchesSource ||
         !matchesPaymentStatus ||
         !matchesShippingStatus ||
-        !matchesDate
+        !matchesDate ||
+        !matchesCustomStatus
       ) {
         return false;
       }
@@ -2126,6 +2198,44 @@ export const StoreOrders: React.FC = () => {
             )}
           </div>
 
+          {/* Filter Orders Popover Button (100% same-to-same with PDF Page 2 & 3) */}
+          <OrderFilterMenu
+            statusFilter={orderFilters.status || 'all'}
+            onStatusChange={(status) => {
+              setOrderFilters((prev) => ({ ...prev, status }));
+              setPage(1);
+            }}
+            paymentFilter={orderFilters.paymentMethod || 'all'}
+            onPaymentChange={(payment) => {
+              setOrderFilters((prev) => ({ ...prev, paymentMethod: payment }));
+              setSelectedPaymentMethod(payment);
+              setPage(1);
+            }}
+            channelFilter={orderFilters.orderSource || 'all'}
+            onChannelChange={(channel) => {
+              setOrderFilters((prev) => ({ ...prev, orderSource: channel }));
+              setSelectedSource(channel);
+              setPage(1);
+            }}
+            onReset={() => {
+              setOrderFilters((prev) => ({
+                ...prev,
+                status: 'all',
+                paymentMethod: 'all',
+                orderSource: 'all',
+              }));
+              setSelectedPaymentMethod('all');
+              setSelectedSource('all');
+              setPage(1);
+            }}
+            hasActiveFilters={Boolean(
+              (orderFilters.status && orderFilters.status !== 'all') ||
+              (orderFilters.paymentMethod && orderFilters.paymentMethod !== 'all') ||
+              (orderFilters.orderSource && orderFilters.orderSource !== 'all')
+            )}
+            className="shrink-0"
+          />
+
           {/* Order Tools Dropdown Button */}
           <div className="relative shrink-0">
             <button
@@ -2407,15 +2517,19 @@ export const StoreOrders: React.FC = () => {
             </button>
 
             {openFilterDropdown === 'source' && (
-              <div className="absolute start-0 top-full mt-1.5 w-44 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 z-50 text-xs">
+              <div className="absolute start-0 top-full mt-1.5 w-52 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 z-50 text-xs max-h-60 overflow-y-auto">
                 {[
-                  { value: 'all', label: isAr ? 'جميع المصادر' : 'All Sources' },
-                  { value: 'Instagram', label: 'Instagram' },
-                  { value: 'Website', label: 'Website' },
-                  { value: 'TikTok', label: 'TikTok' },
-                  { value: 'Snapchat', label: 'Snapchat' },
-                  { value: 'WhatsApp', label: 'WhatsApp' },
-                  { value: 'Direct', label: 'Direct' },
+                  { value: 'all', label: isAr ? 'كافة القنوات' : 'All Channels' },
+                  { value: 'Instagram', label: isAr ? 'انستغرام' : 'Instagram' },
+                  { value: 'Google Ads', label: isAr ? 'إعلانات جوجل' : 'Google Ads' },
+                  { value: 'Direct Visits', label: isAr ? 'زيارات مباشرة' : 'Direct Visits' },
+                  { value: 'TikTok', label: isAr ? 'تيك توك' : 'TikTok' },
+                  { value: 'Snapchat', label: isAr ? 'سناب شات' : 'Snapchat' },
+                  { value: 'WhatsApp', label: isAr ? 'واتساب' : 'WhatsApp' },
+                  { value: 'Facebook', label: isAr ? 'فيسبوك' : 'Facebook' },
+                  { value: 'X', label: isAr ? 'إكس (تويتر سابقاً)' : 'X (formerly Twitter)' },
+                  { value: 'YouTube', label: isAr ? 'يوتيوب' : 'YouTube' },
+                  { value: 'Email Marketing', label: isAr ? 'البريد الإلكتروني' : 'Email Marketing' },
                 ].map((opt) => (
                   <button
                     key={opt.value}
@@ -3062,11 +3176,11 @@ export const StoreOrders: React.FC = () => {
             orderNumber: shippingLabelOrder.orderNumber,
             orderDate: shippingLabelOrder.date || new Date().toISOString().split('T')[0],
             sender: {
-              name: activeStore.name || 'Makkah Gifts & Luxury Flowers Est.',
-              nameAr: activeStore.nameAr || 'مؤسسة هدايا مكة والزهور الفاخرة',
-              phone: '+966 12 555 8899',
-              address: 'Ibrahim Al-Khalil Road, Jabal Omar District',
-              city: 'Makkah',
+              name: activeStore.name || (activeStore.id === 'store-coffee' ? 'HiBrew Specialty Coffee' : activeStore.id === 'store-bleco' ? 'Bleco Automotive' : 'Hadaya Mecca Est.'),
+              nameAr: activeStore.nameAr || (activeStore.id === 'store-coffee' ? 'هاي برو للقهوة المختصة' : activeStore.id === 'store-bleco' ? 'بليكو لخدمات السيارات' : 'مؤسسة هدايا مكة والزهور'),
+              phone: (activeStore as any).phone || (activeStore.id === 'store-coffee' ? '+966 11 489 2030' : activeStore.id === 'store-bleco' ? '+966 59 775 7086' : '+966 12 555 8899'),
+              address: (activeStore as any).address || (activeStore.id === 'store-coffee' ? 'King Fahd Road, Riyadh' : activeStore.id === 'store-bleco' ? 'Industrial Area, Jeddah' : 'Ibrahim Al-Khalil Road, Jabal Omar District'),
+              city: (activeStore as any).city || (activeStore.id === 'store-coffee' ? 'Riyadh' : activeStore.id === 'store-bleco' ? 'Jeddah' : 'Makkah'),
               country: 'Saudi Arabia',
             },
             recipient: {

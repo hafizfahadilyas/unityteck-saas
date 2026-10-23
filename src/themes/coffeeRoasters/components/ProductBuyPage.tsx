@@ -468,7 +468,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   ];
 
   return (
-    <div className="min-h-screen bg-white text-neutral-900 text-start pb-24 selection:bg-neutral-900 selection:text-white w-full max-w-full">
+    <div className="min-h-screen bg-white text-neutral-900 text-start pb-28 lg:pb-24 selection:bg-neutral-900 selection:text-white w-full max-w-full">
       {/* ========================================================================= */}
       {/* 1. HONOR-STYLE STICKY SUB-BAR (Back Button, Breadcrumbs, Multi-Sections)  */}
       {/* ========================================================================= */}
@@ -626,14 +626,14 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 </span>
               </div>
 
-              {/* Side Floating Gift Preview Card (Matches Image 1 Right Side Gift Box) */}
+              {/* Side Floating Gift Preview Card (Desktop & Tablet view) */}
               <div
                 onMouseEnter={() => setIsHoveringImage(false)}
                 onMouseMove={(e) => {
                   e.stopPropagation();
                   setIsHoveringImage(false);
                 }}
-                className="absolute top-1/2 -translate-y-1/2 right-2 sm:right-6 z-20 w-[94px] sm:w-[106px] h-[184px] sm:h-[198px] rounded-[22px] bg-[#ECECEE] p-2.5 pt-5 pb-3 flex flex-col items-center justify-between pointer-events-auto transition-transform hover:scale-105 shadow-2xs cursor-default"
+                className="hidden sm:flex absolute top-1/2 -translate-y-1/2 right-2 sm:right-6 z-20 w-[94px] sm:w-[106px] h-[184px] sm:h-[198px] rounded-[22px] bg-[#ECECEE] p-2.5 pt-5 pb-3 flex-col items-center justify-between pointer-events-auto transition-transform hover:scale-105 shadow-2xs cursor-default"
               >
                 {/* Floating Top Circular Gift Icon (Coffee brown circle with white gift box) */}
                 <div className="absolute -top-3.5 sm:-top-4 left-1/2 -translate-x-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#8B5A2B] text-white flex items-center justify-center shadow-xs">
@@ -676,7 +676,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               <img
                 src={currentDisplayImage}
                 alt={product.name}
-                className="max-h-[320px] sm:max-h-[380px] w-auto max-w-[80%] object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.06)] group-hover:scale-105 transition-transform duration-300"
+                className="max-h-[300px] sm:max-h-[380px] w-auto max-w-[95%] sm:max-w-[80%] object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.06)] group-hover:scale-105 transition-transform duration-300"
                 referrerPolicy="no-referrer"
               />
 
@@ -702,8 +702,28 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               )}
             </div>
 
+            {/* Mobile Only Clean Horizontal Gift Strip (Zero Overlap on Mobile screen) */}
+            <div className="sm:hidden w-full flex items-center justify-between bg-neutral-50 border border-neutral-200/80 rounded-xl px-3 py-2 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-[#8B5A2B] text-white flex items-center justify-center shrink-0">
+                  <Gift className="w-3 h-3" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-[11px] text-neutral-900 leading-tight">
+                    {language === 'AR' ? 'بكج هدايا الباريستا المجاني' : 'Free Barista Bonus Kit'}
+                  </span>
+                  <span className="text-[10px] text-neutral-500">
+                    {language === 'AR' ? 'تامبر 30 باوند + إبريق تبخير ستانلس' : '30lb Tamper + Frothing Pitcher'}
+                  </span>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md shrink-0">
+                {language === 'AR' ? 'بقيمة 457 ر.س مجاناً' : 'SAR 457 Free'}
+              </span>
+            </div>
+
             {/* Coffee Brown Promotional Installment Wave Banner (Exact 1:1 Match with Image 1) */}
-            <div className="w-full h-[54px] sm:h-[60px] rounded-2xl sm:rounded-[20px] overflow-hidden relative flex items-center justify-between select-none shadow-2xs" dir="ltr">
+            <div className="w-full h-[52px] sm:h-[60px] rounded-2xl sm:rounded-[20px] overflow-hidden relative flex items-center justify-between select-none shadow-2xs" dir="ltr">
               {/* Dual-Tone SVG Wave Background */}
               <svg
                 className="absolute inset-0 w-full h-full pointer-events-none"
@@ -725,19 +745,19 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               </svg>
 
               {/* Left Side: Installment Content + Star (Matches Image 1) */}
-              <div className="relative pl-4 sm:pl-6 text-white text-left flex flex-col justify-center z-10 shrink-0">
-                <span className="text-[11px] sm:text-xs font-semibold leading-tight text-white drop-shadow-2xs">
+              <div className="relative pl-3 xs:pl-4 sm:pl-6 text-white text-left flex flex-col justify-center z-10 shrink-0">
+                <span className="text-[9.5px] xs:text-[11px] sm:text-xs font-semibold leading-tight text-white drop-shadow-2xs">
                   {language === 'AR'
                     ? `أو يبدأ من ${(totalPrice / 12).toFixed(2)} ر.س شهرياً`
-                    : `or starts from SAR ${(totalPrice / 12).toFixed(2)}/month`}
+                    : `or starts from SAR ${(totalPrice / 12).toFixed(2)}/mo`}
                 </span>
-                <span className="text-[10px] sm:text-[11px] text-white/95 font-medium leading-tight mt-0.5">
+                <span className="text-[8.5px] xs:text-[10px] sm:text-[11px] text-white/95 font-medium leading-tight mt-0.5">
                   {language === 'AR' ? '(بدون فوائد)' : '(interest free)'}
                 </span>
 
                 {/* Decorative Sparkle Star on Left */}
                 <svg
-                  className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/80 fill-white absolute -left-1 sm:left-1 bottom-0.5 pointer-events-none"
+                  className="w-3 h-3 sm:w-4 sm:h-4 text-white/80 fill-white absolute -left-1 sm:left-1 bottom-0.5 pointer-events-none"
                   viewBox="0 0 24 24"
                 >
                   <path d="M12 2L13.8 9.2L21 11L13.8 12.8L12 20L10.2 12.8L3 11L10.2 9.2L12 2Z" />
@@ -745,15 +765,15 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               </div>
 
               {/* Right Side: Price Content + Dual Sparkles (Matches Image 1) */}
-              <div className="relative pr-4 sm:pr-6 flex items-center gap-1.5 z-10 shrink-0">
-                <span className="text-xl sm:text-2xl font-black text-white font-sans tracking-wide">
+              <div className="relative pr-3 xs:pr-4 sm:pr-6 flex items-center gap-1 sm:gap-1.5 z-10 shrink-0">
+                <span className="text-base xs:text-lg sm:text-2xl font-black text-white font-sans tracking-wide">
                   {language === 'AR' ? `${totalPrice.toLocaleString()} ر.س` : `SAR ${totalPrice.toLocaleString()}`}
                 </span>
-                <div className="relative ml-1 shrink-0">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white fill-white drop-shadow-2xs" viewBox="0 0 24 24">
+                <div className="relative ml-0.5 sm:ml-1 shrink-0">
+                  <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white fill-white drop-shadow-2xs" viewBox="0 0 24 24">
                     <path d="M12 2L13.8 9.2L21 11L13.8 12.8L12 20L10.2 12.8L3 11L10.2 9.2L12 2Z" />
                   </svg>
-                  <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white/90 fill-white absolute -top-1 -right-1.5" viewBox="0 0 24 24">
+                  <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white/90 fill-white absolute -top-1 -right-1.5" viewBox="0 0 24 24">
                     <path d="M12 2L13.8 9.2L21 11L13.8 12.8L12 20L10.2 12.8L3 11L10.2 9.2L12 2Z" />
                   </svg>
                 </div>
@@ -1800,6 +1820,48 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
             })}
           </div>
         </section>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 8. MOBILE FIXED BOTTOM BUY BAR (< lg screens)                             */}
+      {/* ========================================================================= */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-neutral-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] py-2.5 px-4 safe-area-pb">
+        <div className="flex items-center justify-between gap-3 max-w-lg mx-auto">
+          {/* Price & savings */}
+          <div className="flex flex-col min-w-0">
+            <span className="text-[10px] text-neutral-500 font-medium truncate">
+              {language === 'AR' && product.nameAr ? product.nameAr : product.name}
+            </span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base font-black text-neutral-900 font-sans tracking-tight">
+                {language === 'AR' ? `${totalPrice.toLocaleString()} ر.س` : `SAR ${totalPrice.toLocaleString()}`}
+              </span>
+              {savingsSAR > 0 && (
+                <span className="text-[10px] text-red-600 font-bold font-sans">
+                  {language === 'AR' ? `وفر ${savingsSAR} ر.س` : `Save SAR ${savingsSAR}`}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleAddToCart}
+              className="px-3.5 py-2.5 rounded-full border border-neutral-300 hover:border-black bg-white text-neutral-900 font-bold text-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-2xs"
+              title={language === 'AR' ? 'أضف للسلة' : 'Add to Bag'}
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span className="hidden xs:inline">{language === 'AR' ? 'للسلة' : 'Bag'}</span>
+            </button>
+            <button
+              onClick={handleInstantBuy}
+              className="px-5 py-2.5 rounded-full bg-black hover:bg-neutral-800 text-white font-bold text-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-md"
+            >
+              <span>{language === 'AR' ? 'شراء الآن' : 'Buy Now'}</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

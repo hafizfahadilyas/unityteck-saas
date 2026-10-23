@@ -1,3 +1,5 @@
+import { isValidMediaUrl } from '../../utils/imageFallback';
+
 export interface HeaderAnnouncementMessage {
   id: string;
   textAr: string;
@@ -710,7 +712,7 @@ export function getDefaultHeaderSettings(store?: any, themeId?: string): HeaderC
   if (isCoffee) {
     const sNameAr = store?.nameAr || store?.name || 'متجر القهوة المختصة';
     const sNameEn = store?.nameEn || store?.name || 'Specialty Coffee Roasters';
-    const logoImg = store?.logo && store.logo.startsWith('http') ? store.logo : COFFEE_HEADER_SETTINGS.logo.imageUrl;
+    const logoImg = store?.logo && isValidMediaUrl(store.logo) ? store.logo : COFFEE_HEADER_SETTINGS.logo.imageUrl;
     return {
       ...COFFEE_HEADER_SETTINGS,
       logo: {
@@ -733,7 +735,7 @@ export function getDefaultHeaderSettings(store?: any, themeId?: string): HeaderC
   if (isCar) {
     const sNameAr = store?.nameAr || store?.name || 'مؤسسة بلاكو للتجارة';
     const sNameEn = store?.nameEn || store?.name || 'Blacko Car Styling';
-    const logoImg = store?.logo && store.logo.startsWith('http') ? store.logo : AUTO_HEADER_SETTINGS.logo.imageUrl;
+    const logoImg = store?.logo && isValidMediaUrl(store.logo) ? store.logo : AUTO_HEADER_SETTINGS.logo.imageUrl;
     return {
       ...AUTO_HEADER_SETTINGS,
       logo: {
@@ -756,7 +758,7 @@ export function getDefaultHeaderSettings(store?: any, themeId?: string): HeaderC
   if (isHadayaFlowers) {
     const sNameAr = store?.nameAr || store?.name || DEFAULT_HEADER_SETTINGS.logo.titleAr;
     const sNameEn = store?.nameEn || store?.name || DEFAULT_HEADER_SETTINGS.logo.titleEn;
-    const logoImg = store?.logo && store.logo.startsWith('http') ? store.logo : DEFAULT_HEADER_SETTINGS.logo.imageUrl;
+    const logoImg = store?.logo && isValidMediaUrl(store.logo) ? store.logo : DEFAULT_HEADER_SETTINGS.logo.imageUrl;
     return {
       ...DEFAULT_HEADER_SETTINGS,
       logo: {
@@ -825,7 +827,7 @@ export function getDefaultHeaderSettings(store?: any, themeId?: string): HeaderC
     },
     logo: {
       mode: 'image_and_text',
-      imageUrl: store?.logo && store.logo.startsWith('http') ? store.logo : '',
+      imageUrl: store?.logo && isValidMediaUrl(store.logo) ? store.logo : '',
       logoHeight: 44,
       logoWidth: 44,
       titleAr: storeDisplayNameAr,

@@ -227,6 +227,32 @@ function useNotificationsInternal(): NotificationsContextValue {
         if (opened) return;
       }
 
+      if (item.actionType === 'product' || item.destination === 'products') {
+        const prodId = item.metadata?.productId || (item as any).productId;
+        if (prodId) {
+          try {
+            sessionStorage.setItem('target_edit_product_id', String(prodId));
+          } catch {}
+        }
+        if (onNavigateTab) {
+          onNavigateTab('products');
+        }
+        return;
+      }
+
+      if (item.destination === 'orders') {
+        const orderId = item.metadata?.orderNumber || item.metadata?.orderId || item.id;
+        if (orderId) {
+          try {
+            sessionStorage.setItem('target_view_order_id', String(orderId));
+          } catch {}
+        }
+        if (onNavigateTab) {
+          onNavigateTab('orders');
+        }
+        return;
+      }
+
       // Default navigate
       if (onNavigateTab && item.destination) {
         onNavigateTab(item.destination);

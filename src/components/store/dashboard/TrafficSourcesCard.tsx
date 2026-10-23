@@ -9,6 +9,9 @@ import {
   Facebook,
   Ghost,
   Music2,
+  Search,
+  Mail,
+  Video,
 } from 'lucide-react';
 import { usePrefs } from '../../../i18n/PrefsContext';
 
@@ -18,7 +21,7 @@ export interface TrafficChannel {
   nameAr: string;
   percentage: number;
   color: string;
-  iconType: 'tiktok' | 'snapchat' | 'whatsapp' | 'instagram' | 'facebook' | 'other' | 'direct';
+  iconType: 'tiktok' | 'snapchat' | 'whatsapp' | 'instagram' | 'facebook' | 'google' | 'bing' | 'youtube' | 'x' | 'email' | 'other' | 'direct';
 }
 
 interface TrafficSourcesCardProps {
@@ -83,6 +86,36 @@ export const TrafficSourcesCard: React.FC<TrafficSourcesCardProps> = React.memo(
             <Facebook className="w-2.5 h-2.5 fill-current" />
           </div>
         );
+      case 'google':
+        return (
+          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+            <Search className="w-2.5 h-2.5" />
+          </div>
+        );
+      case 'bing':
+        return (
+          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-teal-700 text-white flex items-center justify-center shrink-0 shadow-2xs">
+            <Search className="w-2.5 h-2.5" />
+          </div>
+        );
+      case 'youtube':
+        return (
+          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+            <Video className="w-2.5 h-2.5" />
+          </div>
+        );
+      case 'x':
+        return (
+          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 flex items-center justify-center shrink-0 shadow-2xs font-black text-[9px]">
+            𝕏
+          </div>
+        );
+      case 'email':
+        return (
+          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-orange-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+            <Mail className="w-2.5 h-2.5" />
+          </div>
+        );
       case 'direct':
         return (
           <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
@@ -126,64 +159,75 @@ export const TrafficSourcesCard: React.FC<TrafficSourcesCardProps> = React.memo(
         </button>
       </div>
 
-      {/* ── Donut Chart + Channel List or Clean Empty State ── */}
-      {list.length === 0 ? (
-        <div className="py-12 px-4 text-center flex flex-col items-center justify-center my-auto">
-          <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-[#006d77] dark:text-teal-300 flex items-center justify-center border border-teal-200/50 dark:border-teal-800/40 mb-2.5">
-            <Link2 className="w-5 h-5 text-slate-400 dark:text-slate-500" />
-          </div>
-          <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
-            {isAr ? 'لا توجد مصادر زيارات مسجلة بعد' : 'No traffic sources recorded yet'}
-          </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-[240px]">
-            {isAr ? 'ستظهر هنا نسب الزيارات من المنصات والشبكات مع تفاعل الزوار' : 'Traffic breakdown will appear as visitors arrive from social and direct channels'}
-          </p>
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col justify-center min-w-0">
-          <div className="flex flex-row items-center justify-between gap-3 sm:gap-4 w-full min-w-0">
-            {/* Donut Chart */}
-            <div className="relative w-28 h-28 sm:w-32 sm:h-32 shrink-0 flex items-center justify-center self-center">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                {donutSegments.map((seg, i) => {
-                  const dasharray = `${(seg.pct / 100) * circumference} ${circumference}`;
-                  const dashoffset = -((accumulated / 100) * circumference);
-                  accumulated += seg.pct;
-                  return (
-                    <circle
-                      key={i}
-                      cx="50"
-                      cy="50"
-                      r={radius}
-                      fill="transparent"
-                      stroke={seg.color}
-                      strokeWidth={strokeWidth}
-                      strokeDasharray={dasharray}
-                      strokeDashoffset={dashoffset}
-                      className="transition-all duration-300 hover:opacity-90"
-                    />
-                  );
-                })}
-              </svg>
+      {/* ── Donut Chart + Channel List (Strict: Hide any traffic source when it has no visits) ── */}
+      <div className="flex-1 flex flex-col justify-center min-w-0">
+        <div className="flex flex-row items-center justify-between gap-3 sm:gap-4 w-full min-w-0">
+          {/* Donut Chart */}
+          <div className="relative w-28 h-28 sm:w-32 sm:h-32 shrink-0 flex items-center justify-center self-center">
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+              {/* Background / Neutral Track */}
+              <circle
+                cx="50"
+                cy="50"
+                r={radius}
+                fill="transparent"
+                stroke="currentColor"
+                strokeWidth={strokeWidth}
+                className={donutSegments.length === 0 ? 'text-slate-100 dark:text-slate-800' : 'text-slate-50 dark:text-slate-800/50'}
+              />
+              {/* Active Segments */}
+              {donutSegments.map((seg, i) => {
+                const dasharray = `${(seg.pct / 100) * circumference} ${circumference}`;
+                const dashoffset = -((accumulated / 100) * circumference);
+                accumulated += seg.pct;
+                return (
+                  <circle
+                    key={i}
+                    cx="50"
+                    cy="50"
+                    r={radius}
+                    fill="transparent"
+                    stroke={seg.color}
+                    strokeWidth={strokeWidth}
+                    strokeDasharray={dasharray}
+                    strokeDashoffset={dashoffset}
+                    className="transition-all duration-300 hover:opacity-90"
+                  />
+                );
+              })}
+            </svg>
 
-              {/* Center Label */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                <span className="text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-200 tracking-wider">
-                  {isAr ? 'إجمالي الزيارات' : 'Total Visits'}
+            {/* Center Label (100% Match with PDF Page 1) */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+              <span className="text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-200 tracking-wider">
+                {isAr ? 'إجمالي الزيارات' : 'Total Visits'}
+              </span>
+              <span className="text-sm sm:text-base md:text-lg font-black text-slate-950 dark:text-white tabular-nums tracking-tight">
+                {totalVisits.toLocaleString()}
+              </span>
+              {growthPercentage > 0 && (
+                <span className="text-[10px] sm:text-xs font-black text-emerald-700 dark:text-emerald-300 flex items-center gap-0.5">
+                  <span>↑</span>
+                  <span>{growthPercentage}%</span>
                 </span>
-                <span className="text-sm sm:text-base md:text-lg font-black text-slate-950 dark:text-white tabular-nums tracking-tight">
-                  {totalVisits.toLocaleString()}
-                </span>
-                {growthPercentage > 0 && (
-                  <span className="text-[10px] sm:text-xs font-black text-emerald-700 dark:text-emerald-300 flex items-center gap-0.5">
-                    <span>↑</span>
-                    <span>{growthPercentage}%</span>
-                  </span>
-                )}
-              </div>
+              )}
             </div>
+          </div>
 
-            {/* Channels List */}
+          {/* Channels List or Genuine Empty State (Sources with 0 visits hidden) */}
+          {list.length === 0 ? (
+            <div className="flex-1 flex flex-col justify-center items-center text-center p-3 sm:p-4 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60 my-auto">
+              <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 flex items-center justify-center border border-teal-200/50 dark:border-teal-800/40 mb-1.5">
+                <Link2 className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+              </div>
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                {isAr ? 'لا توجد مصادر زيارات مسجلة بعد' : 'No traffic sources recorded yet'}
+              </p>
+              <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1 max-w-[200px] leading-tight">
+                {isAr ? 'يتم إخفاء أي مصدر ليس لديه زيارات فعلية' : 'Any traffic source without visits is automatically hidden'}
+              </p>
+            </div>
+          ) : (
             <div className="flex-1 w-full space-y-1.5 sm:space-y-2 min-w-0">
               {list.map((ch) => (
                 <div
@@ -205,9 +249,9 @@ export const TrafficSourcesCard: React.FC<TrafficSourcesCardProps> = React.memo(
                 </div>
               ))}
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 });

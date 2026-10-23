@@ -200,7 +200,7 @@ class DatabaseSeeder extends Seeder
                 'products_count' => 6,
                 'orders_count' => 3,
                 'revenue' => 1610,
-                'visitors_count' => 1420,
+                'visitors_count' => 0,
             ]
         );
 
@@ -531,7 +531,7 @@ class DatabaseSeeder extends Seeder
                 'sort_order' => 180,
                 'meta_title' => 'أطقم هدايا رجالية فاخرة | هدايا مكة',
                 'meta_description' => 'صناديق جلدية ملكية تضم عطور وساعات ومحافظ فاخرة مع ورد طبيعي.',
-                'image_url' => '/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg',
+                'image_url' => '/images/hadaya_men_luxury_gift_1791219799100.jpg',
             ],
             [
                 'id' => 'occ-8',
@@ -542,7 +542,7 @@ class DatabaseSeeder extends Seeder
                 'sort_order' => 190,
                 'meta_title' => 'أطقم هدايا نسائية راقية | هدايا مكة',
                 'meta_description' => 'صناديق مخملية تضم عطور ومجوهرات زركون مع زهور البيوني الفاتنة.',
-                'image_url' => '/src/assets/images/hadaya_women_luxury_gift_1791219815272.jpg',
+                'image_url' => '/images/hadaya_women_luxury_gift_1791219815272.jpg',
             ],
         ];
         foreach ($categorySeeds as $c) {
@@ -1069,7 +1069,7 @@ class DatabaseSeeder extends Seeder
                 'city' => 'Riyadh',
                 'country' => 'Saudi Arabia',
                 'category' => 'Coffee Machines, Precision Mills, Barista Tools & Luxury Stations',
-                'logo' => '/src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg',
+                'logo' => '/images/coffee_hero_flagship_machine_1791218907782.jpg',
                 'accent_color' => '#7c2d12',
                 'hosting_mode' => 'shared',
                 'db_isolation' => 'shared_store_id',
@@ -1147,7 +1147,7 @@ class DatabaseSeeder extends Seeder
                 'sort_order' => 10,
                 'meta_title' => 'مكائن القهوة والإسبريسو | هاي برو السعودية',
                 'meta_description' => 'مكائن قهوة دبل بويلر 20 بار ومكائن كبسولات ومحمولة بضمان الوكيل سنتين.',
-                'image_url' => '/src/assets/images/hibrew_h7a_flagship_machine.png',
+                'image_url' => '/images/hibrew_h7a_flagship_machine.png',
             ],
             [
                 'id' => 'cat-hb-mills',
@@ -1158,7 +1158,7 @@ class DatabaseSeeder extends Seeder
                 'sort_order' => 20,
                 'meta_title' => 'مطاحن القهوة الاحترافية | هاي برو السعودية',
                 'meta_description' => 'مطاحن بن مخروطية ومسطحة بدرجات طحن ميكرونية متقدمة.',
-                'image_url' => '/src/assets/images/coffee_grinder_mill_banner_1791218928342.jpg',
+                'image_url' => '/images/coffee_grinder_mill_banner_1791218928342.jpg',
             ],
             [
                 'id' => 'cat-hb-cabinets',
@@ -1169,7 +1169,7 @@ class DatabaseSeeder extends Seeder
                 'sort_order' => 30,
                 'meta_title' => 'دواليب وأركان القهوة الفاخرة | هاي برو السعودية',
                 'meta_description' => 'دواليب خشب البلوط المضلع وأركان قهوة منزلية مخصصة مع إضاءة ليد مخفية.',
-                'image_url' => '/src/assets/images/hero_coffee_corner_cabinet_1791217199146.jpg',
+                'image_url' => '/images/hero_coffee_corner_cabinet_1791217199146.jpg',
             ],
             [
                 'id' => 'cat-hb-accessories',
@@ -1180,7 +1180,7 @@ class DatabaseSeeder extends Seeder
                 'sort_order' => 40,
                 'meta_title' => 'مستلزمات الباريستا والأكواب | هاي برو السعودية',
                 'meta_description' => 'مستلزمات باريستا احترافية مقاس 58 ملم وأكواب سيراميك صناعة يدوية.',
-                'image_url' => '/src/assets/images/coffee_accessories_tools_banner_1791218944111.jpg',
+                'image_url' => '/images/coffee_accessories_tools_banner_1791218944111.jpg',
             ],
             [
                 'id' => 'cat-hb-offers',
@@ -1191,7 +1191,7 @@ class DatabaseSeeder extends Seeder
                 'sort_order' => 50,
                 'meta_title' => 'العروض والبكجات الحصرية | هاي برو السعودية',
                 'meta_description' => 'عروض متكاملة للمكائن والمطاحن وأدوات الترشيح بأفضل الأسعار في المملكة.',
-                'image_url' => '/src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg',
+                'image_url' => '/images/coffee_hero_flagship_machine_1791218907782.jpg',
             ],
         ];
 

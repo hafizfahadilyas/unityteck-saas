@@ -240,7 +240,7 @@ export const StoreCustomers: React.FC = () => {
             <span className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
               <MessageCircle className="w-3 h-3" />
             </span>
-            <span>WhatsApp (+966)</span>
+            <span>{isAr ? 'واتساب (+966)' : 'WhatsApp (+966)'}</span>
           </div>
         );
       case 'Instagram':
@@ -249,7 +249,7 @@ export const StoreCustomers: React.FC = () => {
             <span className="w-5 h-5 rounded-full bg-pink-100 flex items-center justify-center text-pink-600">
               <InstagramIcon className="w-3 h-3" />
             </span>
-            <span>Instagram KSA</span>
+            <span>{isAr ? 'إنستغرام' : 'Instagram'}</span>
           </div>
         );
       case 'Google Ads':
@@ -258,7 +258,7 @@ export const StoreCustomers: React.FC = () => {
             <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-[10px]">
               G
             </span>
-            <span>Google Ads</span>
+            <span>{isAr ? 'إعلانات جوجل' : 'Google Ads'}</span>
           </div>
         );
       case 'Facebook':
@@ -267,7 +267,7 @@ export const StoreCustomers: React.FC = () => {
             <span className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-[10px]">
               f
             </span>
-            <span>Facebook KSA</span>
+            <span>{isAr ? 'فيسبوك' : 'Facebook'}</span>
           </div>
         );
       case 'Direct':
@@ -276,7 +276,7 @@ export const StoreCustomers: React.FC = () => {
             <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
               <Link2 className="w-3 h-3" />
             </span>
-            <span>Direct</span>
+            <span>{isAr ? 'مباشر' : 'Direct'}</span>
           </div>
         );
       case 'TikTok':
@@ -285,7 +285,7 @@ export const StoreCustomers: React.FC = () => {
             <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center">
               <Music className="w-3 h-3" />
             </span>
-            <span>TikTok</span>
+            <span>{isAr ? 'تيك توك' : 'TikTok'}</span>
           </div>
         );
       case 'Referral':
@@ -294,7 +294,7 @@ export const StoreCustomers: React.FC = () => {
             <span className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
               <Share2 className="w-3 h-3" />
             </span>
-            <span>Referral</span>
+            <span>{isAr ? 'إحالة / ترشيح' : 'Referral'}</span>
           </div>
         );
       case 'Snapchat':
@@ -303,7 +303,7 @@ export const StoreCustomers: React.FC = () => {
             <span className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
               <Globe className="w-3 h-3" />
             </span>
-            <span>Snapchat</span>
+            <span>{isAr ? 'سناب شات' : 'Snapchat'}</span>
           </div>
         );
       default:
@@ -312,7 +312,7 @@ export const StoreCustomers: React.FC = () => {
             <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
               <Compass className="w-3 h-3" />
             </span>
-            <span>Organic</span>
+            <span>{isAr ? 'بحث عضوي' : 'Organic'}</span>
           </div>
         );
     }
@@ -325,31 +325,31 @@ export const StoreCustomers: React.FC = () => {
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
             <Crown className="w-3 h-3 text-amber-500 fill-amber-500" />
-            VIP
+            {isAr ? 'VIP' : 'VIP'}
           </span>
         );
       case 'Active':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            Active
+            {isAr ? 'نشط' : 'Active'}
           </span>
         );
       case 'New':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-            New
+            {isAr ? 'جديد' : 'New'}
           </span>
         );
       case 'Inactive':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-            Inactive
+            {isAr ? 'غير نشط' : 'Inactive'}
           </span>
         );
       case 'Cancelled':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-            Cancelled
+            {isAr ? 'ملغي' : 'Cancelled'}
           </span>
         );
     }
@@ -421,7 +421,9 @@ export const StoreCustomers: React.FC = () => {
           {/* Total Customers */}
           <div className="p-4 bg-blue-50/70 hover:bg-blue-50/90 dark:bg-sky-950/40 rounded-2xl border border-blue-200/80 dark:border-sky-900/60 shadow-xs flex flex-col justify-between transition-all">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Total Customers</span>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                {isAr ? 'إجمالي العملاء' : 'Total Customers'}
+              </span>
               <div className="p-2 bg-blue-100 dark:bg-sky-900/60 text-blue-700 dark:text-sky-300 rounded-xl shadow-2xs">
                 <Users className="w-4 h-4" />
               </div>
@@ -435,7 +437,7 @@ export const StoreCustomers: React.FC = () => {
           <div className="p-4 bg-emerald-50/70 hover:bg-emerald-50/90 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/60 shadow-xs flex flex-col justify-between transition-all">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                New This Month <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                {isAr ? 'جدد هذا الشهر' : 'New This Month'} <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
               </span>
               <div className="p-2 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-xl shadow-2xs">
                 <UserPlus className="w-4 h-4" />
@@ -446,7 +448,7 @@ export const StoreCustomers: React.FC = () => {
                 {newThisMonth}
               </span>
               <span className="text-xs text-emerald-700 dark:text-emerald-400 font-bold flex items-center">
-                <TrendingUp className="w-3.5 h-3.5 mr-0.5 inline" />
+                <TrendingUp className="w-3.5 h-3.5 mr-0.5 inline rtl:rotate-180" />
                 <span>12%</span>
               </span>
             </div>
@@ -456,7 +458,7 @@ export const StoreCustomers: React.FC = () => {
           <div className="p-4 bg-amber-50/70 hover:bg-amber-50/90 dark:bg-amber-950/40 rounded-2xl border border-amber-200/80 dark:border-amber-900/60 shadow-xs flex flex-col justify-between transition-all">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                Active Customers <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                {isAr ? 'العملاء النشطون' : 'Active Customers'} <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
               </span>
               <div className="p-2 bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 rounded-xl shadow-2xs">
                 <Crown className="w-4 h-4" />
@@ -470,7 +472,9 @@ export const StoreCustomers: React.FC = () => {
           {/* VIP Customers */}
           <div className="p-4 bg-purple-50/70 hover:bg-purple-50/90 dark:bg-purple-950/40 rounded-2xl border border-purple-200/80 dark:border-purple-900/60 shadow-xs flex flex-col justify-between transition-all">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">VIP Customers</span>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                {isAr ? 'عملاء VIP' : 'VIP Customers'}
+              </span>
               <div className="p-2 bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 rounded-xl shadow-2xs">
                 <Award className="w-4 h-4" />
               </div>
@@ -490,17 +494,19 @@ export const StoreCustomers: React.FC = () => {
                 <div className="p-1 rounded-md bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
                   <Download className="w-3.5 h-3.5" />
                 </div>
-                <span>Export Customers</span>
+                <span>{isAr ? 'تصدير العملاء' : 'Export Customers'}</span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium leading-snug">
-                Export your customers data to a file. Includes: name, phone, email, city, status and more.
+                {isAr
+                  ? 'تصدير بيانات عملائك إلى ملف. تشمل: الاسم، الهاتف، البريد، المدينة، الحالة والمزيد.'
+                  : 'Export your customers data to a file. Includes: name, phone, email, city, status and more.'}
               </p>
             </div>
             <button
               onClick={() => setShowExportModal(true)}
               className="mt-3 w-full py-1.5 px-3 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-slate-700 text-emerald-900 dark:text-emerald-300 rounded-lg text-xs font-bold shadow-2xs transition-colors cursor-pointer"
             >
-              Export Customers
+              {isAr ? 'تصدير العملاء' : 'Export Customers'}
             </button>
           </div>
 
@@ -511,17 +517,19 @@ export const StoreCustomers: React.FC = () => {
                 <div className="p-1 rounded-md bg-blue-100 dark:bg-sky-900/60 text-blue-700 dark:text-sky-300">
                   <Upload className="w-3.5 h-3.5" />
                 </div>
-                <span>Import Customers</span>
+                <span>{isAr ? 'استيراد العملاء' : 'Import Customers'}</span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium leading-snug">
-                Add a large number of customers at once. Use a file to import customers from another store.
+                {isAr
+                  ? 'إضافة عدد كبير من العملاء دفعة واحدة. استخدم ملف لاستيراد العملاء من متجر آخر.'
+                  : 'Add a large number of customers at once. Use a file to import customers from another store.'}
               </p>
             </div>
             <button
               onClick={() => setShowImportModal(true)}
               className="mt-3 w-full py-1.5 px-3 bg-white dark:bg-slate-800 border border-blue-300 dark:border-sky-700 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-900 dark:text-sky-300 rounded-lg text-xs font-bold shadow-2xs transition-colors cursor-pointer"
             >
-              Import Customers
+              {isAr ? 'استيراد العملاء' : 'Import Customers'}
             </button>
           </div>
         </div>
@@ -557,6 +565,17 @@ export const StoreCustomers: React.FC = () => {
             });
             const sarWorth = (prof.coinsBalance / (loyaltySettings.coinsPerSar || 10)).toFixed(1);
 
+            const formatTier = (tier: string) => {
+              if (!isAr) return tier;
+              switch (tier.toLowerCase()) {
+                case 'silver': return 'فضي';
+                case 'gold': return 'ذهبي';
+                case 'platinum': return 'بلاتيني';
+                case 'bronze': return 'برونزي';
+                default: return tier;
+              }
+            };
+
             return (
               <div
                 key={cust.id}
@@ -566,13 +585,13 @@ export const StoreCustomers: React.FC = () => {
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-black text-xs truncate">{cust.name}</span>
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                      {prof.loyaltyCardNumber} ({prof.loyaltyTier})
+                      {prof.loyaltyCardNumber} ({formatTier(prof.loyaltyTier)})
                     </span>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
                     <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                      {prof.city}, KSA {prof.locationAllowed ? '✓ GPS' : ''}
+                      {prof.city}، {isAr ? 'المملكة' : 'KSA'} {prof.locationAllowed ? (isAr ? '✓ محدد' : '✓ GPS') : ''}
                     </span>
                     <span
                       className={`px-2 py-0.5 rounded-md ${
@@ -587,8 +606,8 @@ export const StoreCustomers: React.FC = () => {
                     </span>
                     <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400">
                       {((cust as any).ordersCount ?? (cust as any).totalOrders ?? (cust as any).orders ?? 0) > 0
-                        ? isAr ? 'أكمل الدفع (Checkout ✓)' : 'Checked Out ✓'
-                        : isAr ? 'أضاف للسلة (Cart Active)' : 'Added to Cart'}
+                        ? isAr ? 'أكمل الدفع ✓' : 'Checked Out ✓'
+                        : isAr ? 'أضاف للسلة' : 'Cart Active'}
                     </span>
                   </div>
 
@@ -597,7 +616,9 @@ export const StoreCustomers: React.FC = () => {
                       {isAr ? 'رصيد العملات والبطاقات:' : 'Coins & Saved Cards:'}
                     </span>
                     <span className="font-mono font-black text-emerald-600 dark:text-emerald-400">
-                      {prof.coinsBalance} Coins ({sarWorth} SAR) · {prof.savedCards.length} Card
+                      {isAr
+                        ? `${prof.coinsBalance} عملة (${sarWorth} ر.س) · ${prof.savedCards.length} بطاقة`
+                        : `${prof.coinsBalance} Coins (${sarWorth} SAR) · ${prof.savedCards.length} Card`}
                     </span>
                   </div>
                 </div>
@@ -639,52 +660,58 @@ export const StoreCustomers: React.FC = () => {
       </div>
 
       {/* Advanced Filters Panel matching 08_customers.png */}
-      <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+      <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
           <Filter className="w-4 h-4 text-slate-500" />
-          <span>Advanced Filters</span>
+          <span>{isAr ? 'تصفية متقدمة' : 'Advanced Filters'}</span>
         </div>
 
         {/* Row 1: Search, Gender, Country */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
           <div className="sm:col-span-6">
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Search</label>
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+              {isAr ? 'بحث' : 'Search'}
+            </label>
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className={`w-3.5 h-3.5 text-slate-400 absolute top-1/2 -translate-y-1/2 ${isAr ? 'right-3' : 'left-3'}`} />
               <input
                 type="text"
-                placeholder="Customer name, phone number, or email..."
+                placeholder={isAr ? 'اسم العميل، رقم الهاتف، أو البريد الإلكتروني...' : 'Customer name, phone number, or email...'}
                 value={filterSearch}
                 onChange={(e) => setFilterSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-900"
+                className={`w-full py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-900 dark:text-white ${isAr ? 'pr-8 pl-3' : 'pl-8 pr-3'}`}
               />
             </div>
           </div>
 
           <div className="sm:col-span-3">
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Gender</label>
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+              {isAr ? 'الجنس' : 'Gender'}
+            </label>
             <select
               value={genderFilter}
               onChange={(e) => setGenderFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800"
+              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none text-slate-800 dark:text-slate-200"
             >
-              <option value="All">All</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
+              <option value="All">{isAr ? 'الكل' : 'All'}</option>
+              <option value="Male">{isAr ? 'ذكر' : 'Male'}</option>
+              <option value="Female">{isAr ? 'أنثى' : 'Female'}</option>
             </select>
           </div>
 
           <div className="sm:col-span-3">
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Country</label>
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+              {isAr ? 'الدولة' : 'Country'}
+            </label>
             <select
               value={countryFilter}
               onChange={(e) => setCountryFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800"
+              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none text-slate-800 dark:text-slate-200"
             >
-              <option value="All">All</option>
-              <option value="Saudi Arabia">Saudi Arabia</option>
-              <option value="UAE">United Arab Emirates</option>
-              <option value="Kuwait">Kuwait</option>
+              <option value="All">{isAr ? 'الكل' : 'All'}</option>
+              <option value="Saudi Arabia">{isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia'}</option>
+              <option value="UAE">{isAr ? 'الإمارات العربية المتحدة' : 'United Arab Emirates'}</option>
+              <option value="Kuwait">{isAr ? 'الكويت' : 'Kuwait'}</option>
             </select>
           </div>
         </div>
@@ -692,52 +719,58 @@ export const StoreCustomers: React.FC = () => {
         {/* Row 2: City, Customer Source, Customer Group */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
           <div className="sm:col-span-4">
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">City</label>
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+              {isAr ? 'المدينة' : 'City'}
+            </label>
             <select
               value={cityFilter}
               onChange={(e) => setCityFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800"
+              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none text-slate-800 dark:text-slate-200"
             >
-              <option value="All">All</option>
-              <option value="Jeddah">Jeddah</option>
-              <option value="Riyadh">Riyadh</option>
-              <option value="Makkah">Makkah</option>
-              <option value="Taif">Taif</option>
-              <option value="Dammam">Dammam</option>
-              <option value="Madinah">Madinah</option>
-              <option value="Al-Khobar">Al-Khobar</option>
+              <option value="All">{isAr ? 'الكل' : 'All'}</option>
+              <option value="Jeddah">{isAr ? 'جدة' : 'Jeddah'}</option>
+              <option value="Riyadh">{isAr ? 'الرياض' : 'Riyadh'}</option>
+              <option value="Makkah">{isAr ? 'مكة المكرمة' : 'Makkah'}</option>
+              <option value="Taif">{isAr ? 'الطائف' : 'Taif'}</option>
+              <option value="Dammam">{isAr ? 'الدمام' : 'Dammam'}</option>
+              <option value="Madinah">{isAr ? 'المدينة المنورة' : 'Madinah'}</option>
+              <option value="Al-Khobar">{isAr ? 'الخبر' : 'Al-Khobar'}</option>
             </select>
           </div>
 
           <div className="sm:col-span-4">
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Customer Source</label>
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+              {isAr ? 'مصدر العميل' : 'Customer Source'}
+            </label>
             <select
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800"
+              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none text-slate-800 dark:text-slate-200"
             >
-              <option value="All">All</option>
-              <option value="Instagram">Instagram</option>
-              <option value="Google Ads">Google Ads</option>
-              <option value="Direct">Direct</option>
-              <option value="TikTok">TikTok</option>
-              <option value="Referral">Referral</option>
-              <option value="Snapchat">Snapchat</option>
-              <option value="Other">Other</option>
+              <option value="All">{isAr ? 'الكل' : 'All'}</option>
+              <option value="Instagram">{isAr ? 'إنستغرام' : 'Instagram'}</option>
+              <option value="Google Ads">{isAr ? 'إعلانات جوجل' : 'Google Ads'}</option>
+              <option value="Direct">{isAr ? 'مباشر' : 'Direct'}</option>
+              <option value="TikTok">{isAr ? 'تيك توك' : 'TikTok'}</option>
+              <option value="Referral">{isAr ? 'إحالة / ترشيح' : 'Referral'}</option>
+              <option value="Snapchat">{isAr ? 'سناب شات' : 'Snapchat'}</option>
+              <option value="Other">{isAr ? 'أخرى' : 'Other'}</option>
             </select>
           </div>
 
           <div className="sm:col-span-4">
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Customer Group</label>
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+              {isAr ? 'مجموعة العميل' : 'Customer Group'}
+            </label>
             <select
               value={groupFilter}
               onChange={(e) => setGroupFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800"
+              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none text-slate-800 dark:text-slate-200"
             >
-              <option value="All">All</option>
-              <option value="VIP">VIP</option>
-              <option value="Regular">Regular</option>
-              <option value="Wholesale">Wholesale</option>
+              <option value="All">{isAr ? 'الكل' : 'All'}</option>
+              <option value="VIP">{isAr ? 'عملاء VIP' : 'VIP'}</option>
+              <option value="Regular">{isAr ? 'عادي' : 'Regular'}</option>
+              <option value="Wholesale">{isAr ? 'جملة' : 'Wholesale'}</option>
             </select>
           </div>
         </div>
@@ -746,20 +779,22 @@ export const StoreCustomers: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pt-1">
           <div className="flex items-center gap-2">
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Account Creation Date</label>
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                {isAr ? 'تاريخ إنشاء الحساب' : 'Account Creation Date'}
+              </label>
               <div className="flex items-center gap-2">
                 <input
                   type="date"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700"
+                  className="px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200"
                 />
-                <span className="text-slate-400 text-xs">to</span>
+                <span className="text-slate-400 text-xs">{isAr ? 'إلى' : 'to'}</span>
                 <input
                   type="date"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700"
+                  className="px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200"
                 />
               </div>
             </div>
@@ -768,15 +803,15 @@ export const StoreCustomers: React.FC = () => {
           <div className="flex items-center gap-2 self-end">
             <button
               onClick={handleResetFilters}
-              className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              className="px-3.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-              <span>Reset Filters</span>
+              <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${isAr ? 'rotate-180' : ''}`} />
+              <span>{isAr ? 'إعادة ضبط' : 'Reset Filters'}</span>
             </button>
             <button
-              className="px-4 py-1.5 bg-[#0b3b82] hover:bg-[#093270] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+              className="px-4 py-1.5 bg-[#0b3b82] hover:bg-[#093270] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
             >
-              <span>Apply Filters</span>
+              <span>{isAr ? 'تطبيق الفلتر' : 'Apply Filters'}</span>
               <Filter className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -784,43 +819,47 @@ export const StoreCustomers: React.FC = () => {
       </div>
 
       {/* Customer Data Table matching 08_customers.png */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden">
         {/* Table Top Toolbar */}
-        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <select
               value={bulkAction}
               onChange={(e) => setBulkAction(e.target.value)}
-              className="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none"
+              className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none"
             >
-              <option value="">Bulk Actions</option>
-              <option value="make_vip">Mark as VIP</option>
-              <option value="make_active">Mark Active</option>
-              <option value="delete">Delete Selected</option>
+              <option value="">{isAr ? 'إجراءات جماعية' : 'Bulk Actions'}</option>
+              <option value="make_vip">{isAr ? 'تعيين كـ VIP' : 'Mark as VIP'}</option>
+              <option value="make_active">{isAr ? 'تعيين كنشط' : 'Mark Active'}</option>
+              <option value="delete">{isAr ? 'حذف المحدد' : 'Delete Selected'}</option>
             </select>
 
             <button
               onClick={handleApplyBulk}
               disabled={!bulkAction || selectedIds.length === 0}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-800 rounded-lg text-xs font-medium transition-colors"
+              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-medium transition-colors cursor-pointer"
             >
-              Apply
+              {isAr ? 'تطبيق' : 'Apply'}
             </button>
           </div>
 
-          <div className="text-xs text-slate-500">
-            Showing {fromRow} – {toRow} of {filteredCustomers.length.toLocaleString()} customers
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            {isAr
+              ? `عرض ${fromRow} – ${toRow} من أصل ${filteredCustomers.length.toLocaleString()} عميل`
+              : `Showing ${fromRow} – ${toRow} of ${filteredCustomers.length.toLocaleString()} customers`}
             {filteredCustomers.length !== totalCount
-              ? ` (filtered from ${totalCount.toLocaleString()})`
+              ? isAr
+                ? ` (مصفاة من ${totalCount.toLocaleString()})`
+                : ` (filtered from ${totalCount.toLocaleString()})`
               : ''}
           </div>
         </div>
 
         {/* Table Grid */}
         <div className="overflow-x-auto scrollbar-thin">
-          <table className="w-full text-left text-xs min-w-[850px]">
+          <table className="w-full text-start text-xs min-w-[850px]">
             <thead>
-              <tr className="border-b border-slate-100 text-slate-400 font-semibold text-[11px] bg-slate-50/50">
+              <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-400 font-semibold text-[11px] bg-slate-50/50 dark:bg-slate-800/40">
                 <th className="py-3 px-4 w-10">
                   <input
                     type="checkbox"
@@ -832,23 +871,25 @@ export const StoreCustomers: React.FC = () => {
                     className="rounded text-blue-600 focus:ring-blue-500"
                   />
                 </th>
-                <th className="py-3 pr-3 font-semibold">Customer</th>
-                <th className="py-3 px-2 font-semibold">Status</th>
-                <th className="py-3 px-2 font-semibold">City</th>
-                <th className="py-3 px-2 font-semibold">Source</th>
-                <th className="py-3 px-2 font-semibold text-center">Total Orders</th>
-                <th className="py-3 px-2 font-semibold text-right">Total Spending</th>
-                <th className="py-3 px-2 font-semibold text-right">Registered</th>
-                <th className="py-3 px-2 font-semibold text-right">Avg. Order Value</th>
-                <th className="py-3 px-2 font-semibold text-right">Last Order</th>
-                <th className="py-3 px-4 text-center">Actions</th>
+                <th className="py-3 px-2 font-semibold text-start">{isAr ? 'العميل' : 'Customer'}</th>
+                <th className="py-3 px-2 font-semibold text-start">{isAr ? 'الحالة' : 'Status'}</th>
+                <th className="py-3 px-2 font-semibold text-start">{isAr ? 'المدينة' : 'City'}</th>
+                <th className="py-3 px-2 font-semibold text-start">{isAr ? 'المصدر' : 'Source'}</th>
+                <th className="py-3 px-2 font-semibold text-center">{isAr ? 'إجمالي الطلبات' : 'Total Orders'}</th>
+                <th className="py-3 px-2 font-semibold text-end">{isAr ? 'إجمالي الإنفاق' : 'Total Spending'}</th>
+                <th className="py-3 px-2 font-semibold text-end">{isAr ? 'متوسط السلة' : 'Avg. Order Value'}</th>
+                <th className="py-3 px-2 font-semibold text-end">{isAr ? 'تاريخ التسجيل' : 'Registered'}</th>
+                <th className="py-3 px-2 font-semibold text-end">{isAr ? 'آخر طلب' : 'Last Order'}</th>
+                <th className="py-3 px-4 text-center">{isAr ? 'الإجراءات' : 'Actions'}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
               {pageCustomers.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-12 text-center text-slate-400">
-                    No customers found in this store matching filters.
+                    {isAr
+                      ? 'لم يتم العثور على أي عملاء مطابقين لخيارات التصفية.'
+                      : 'No customers found in this store matching filters.'}
                   </td>
                 </tr>
               ) : (
@@ -858,8 +899,8 @@ export const StoreCustomers: React.FC = () => {
                   return (
                     <tr
                       key={cust.id || cust.email || `cust-${custIdx}`}
-                      className={`hover:bg-blue-50/30 transition-colors ${
-                        isSelected ? 'bg-blue-50/40' : ''
+                      className={`hover:bg-blue-50/30 dark:hover:bg-slate-800/40 transition-colors ${
+                        isSelected ? 'bg-blue-50/40 dark:bg-slate-800/60' : ''
                       }`}
                     >
                       <td className="py-3 px-4">
@@ -872,7 +913,7 @@ export const StoreCustomers: React.FC = () => {
                       </td>
 
                       {/* Customer Name, Avatar & Phone */}
-                      <td className="py-3 pr-3">
+                      <td className="py-3 px-2">
                         <div className="flex items-center gap-2.5">
                           <button
                             type="button"
@@ -920,7 +961,7 @@ export const StoreCustomers: React.FC = () => {
                       </td>
 
                       {/* City */}
-                      <td className="py-3 px-2 text-slate-600 font-medium">
+                      <td className="py-3 px-2 text-slate-600 dark:text-slate-300 font-medium">
                         {cust.city}
                       </td>
 
@@ -930,27 +971,27 @@ export const StoreCustomers: React.FC = () => {
                       </td>
 
                       {/* Total Orders */}
-                      <td className="py-3 px-2 text-center font-bold tabular-nums text-slate-900">
+                      <td className="py-3 px-2 text-center font-bold tabular-nums text-slate-900 dark:text-white">
                         {cust.totalOrders}
                       </td>
 
                       {/* Total Spending */}
-                      <td className="py-3 px-2 text-right font-extrabold tabular-nums text-slate-900">
+                      <td className="py-3 px-2 text-end font-extrabold tabular-nums text-slate-900 dark:text-white">
                         {money(cust.totalSpending)}
                       </td>
 
-                      {/* Registered */}
-                      <td className="py-3 px-2 text-right tabular-nums text-slate-600">
+                      {/* Avg Order Value */}
+                      <td className="py-3 px-2 text-end tabular-nums text-slate-600 dark:text-slate-300">
                         {money(cust.avgOrderValue)}
                       </td>
 
-                      {/* Avg Order Value (Date registered column in ref) */}
-                      <td className="py-3 px-2 text-right tabular-nums text-slate-500">
+                      {/* Registered Date */}
+                      <td className="py-3 px-2 text-end tabular-nums text-slate-500 dark:text-slate-400">
                         {cust.registeredDate}
                       </td>
 
                       {/* Last Order */}
-                      <td className="py-3 px-2 text-right tabular-nums text-slate-500">
+                      <td className="py-3 px-2 text-end tabular-nums text-slate-500 dark:text-slate-400">
                         {cust.lastOrderDate}
                       </td>
 
@@ -958,22 +999,22 @@ export const StoreCustomers: React.FC = () => {
                       <td className="py-3 px-4 text-center relative">
                         <button
                           onClick={() => setActiveMenuId(activeMenuId === cust.id ? null : cust.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                         >
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
 
                         {activeMenuId === cust.id && (
-                          <div className="absolute right-4 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-30 text-left text-xs">
+                          <div className={`absolute mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1 z-30 text-start text-xs ${isAr ? 'left-4' : 'right-4'}`}>
                             <button
                               onClick={() => {
                                 setSelectedCustomerId(cust.id);
                                 setActiveMenuId(null);
                               }}
-                              className="w-full px-3 py-1.5 hover:bg-teal-50 flex items-center gap-1.5 text-teal-700 font-semibold"
+                              className="w-full px-3 py-1.5 hover:bg-teal-50 dark:hover:bg-slate-700 flex items-center gap-1.5 text-teal-700 dark:text-teal-400 font-semibold cursor-pointer"
                             >
-                              <Eye className="w-3.5 h-3.5 text-teal-600" />
-                              <span>View Profile &amp; Rewards</span>
+                              <Eye className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                              <span>{isAr ? 'عرض الملف والمكافآت' : 'View Profile & Rewards'}</span>
                             </button>
                             <button
                               onClick={() => {
@@ -982,20 +1023,24 @@ export const StoreCustomers: React.FC = () => {
                                 });
                                 setActiveMenuId(null);
                               }}
-                              className="w-full px-3 py-1.5 hover:bg-slate-50 flex items-center gap-1.5 text-slate-700"
+                              className="w-full px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-1.5 text-slate-700 dark:text-slate-200 cursor-pointer"
                             >
                               <Crown className="w-3.5 h-3.5 text-amber-500" />
-                              <span>{cust.status === 'VIP' ? 'Demote VIP' : 'Promote VIP'}</span>
+                              <span>
+                                {isAr
+                                  ? cust.status === 'VIP' ? 'إلغاء صفة VIP' : 'ترقية إلى VIP'
+                                  : cust.status === 'VIP' ? 'Demote VIP' : 'Promote VIP'}
+                              </span>
                             </button>
                             <button
                               onClick={() => {
                                 deleteCustomer(cust.id);
                                 setActiveMenuId(null);
                               }}
-                              className="w-full px-3 py-1.5 hover:bg-rose-50 flex items-center gap-1.5 text-rose-600"
+                              className="w-full px-3 py-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-1.5 text-rose-600 dark:text-rose-400 cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                              <span>Delete</span>
+                              <span>{isAr ? 'حذف العميل' : 'Delete'}</span>
                             </button>
                           </div>
                         )}
@@ -1009,13 +1054,13 @@ export const StoreCustomers: React.FC = () => {
         </div>
 
         {/* Table Bottom Pagination */}
-        <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500">
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
           <label className="flex items-center gap-1.5">
-            <span>Show</span>
+            <span>{isAr ? 'عرض' : 'Show'}</span>
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none"
+              className="px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none"
             >
               {[10, 25, 50, 100].map((n) => (
                 <option key={n} value={n}>
@@ -1023,20 +1068,23 @@ export const StoreCustomers: React.FC = () => {
                 </option>
               ))}
             </select>
-            <span>entries</span>
+            <span>{isAr ? 'سجلات' : 'entries'}</span>
           </label>
 
           <div className="flex items-center gap-1">
-            <span className="mr-3">
-              Showing {fromRow} – {toRow} of {filteredCustomers.length.toLocaleString()}
+            <span className="mx-2">
+              {isAr
+                ? `عرض ${fromRow} – ${toRow} من أصل ${filteredCustomers.length.toLocaleString()}`
+                : `Showing ${fromRow} – ${toRow} of ${filteredCustomers.length.toLocaleString()}`}
             </span>
             <button
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="p-1 rounded hover:bg-slate-100 disabled:opacity-40"
+              className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 cursor-pointer"
+              title={isAr ? 'الصفحة السابقة' : 'Previous page'}
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />
             </button>
             {Array.from({ length: Math.min(5, lastPage) }, (_, i) => {
               let pageNum: number;
@@ -1049,10 +1097,10 @@ export const StoreCustomers: React.FC = () => {
                   key={pageNum}
                   type="button"
                   onClick={() => setPage(pageNum)}
-                  className={`w-6 h-6 rounded text-xs flex items-center justify-center font-bold ${
+                  className={`w-6 h-6 rounded text-xs flex items-center justify-center font-bold cursor-pointer ${
                     page === pageNum
                       ? 'bg-[#0b3b82] text-white'
-                      : 'hover:bg-slate-100 text-slate-700'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200'
                   }`}
                 >
                   {pageNum}
@@ -1063,9 +1111,10 @@ export const StoreCustomers: React.FC = () => {
               type="button"
               disabled={page >= lastPage}
               onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
-              className="p-1 rounded hover:bg-slate-100 disabled:opacity-40"
+              className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 cursor-pointer"
+              title={isAr ? 'الصفحة التالية' : 'Next page'}
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />
             </button>
           </div>
         </div>
@@ -1074,89 +1123,101 @@ export const StoreCustomers: React.FC = () => {
       {/* Add Customer Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="bg-[#0b1b36] px-5 py-4 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-400" />
-                <h3 className="font-bold text-base">Add New Customer</h3>
+                <h3 className="font-bold text-base">
+                  {isAr ? 'إضافة عميل جديد' : 'Add New Customer'}
+                </h3>
               </div>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white"
+                className="p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleAddSubmit} className="p-5 space-y-3.5 text-xs text-slate-700">
+            <form onSubmit={handleAddSubmit} className="p-5 space-y-3.5 text-xs text-slate-700 dark:text-slate-200">
               <div>
-                <label className="block font-semibold mb-1">Customer Full Name *</label>
+                <label className="block font-semibold mb-1">
+                  {isAr ? 'الاسم الكامل للعميل *' : 'Customer Full Name *'}
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Faisal Al-Otaibi"
+                  placeholder={isAr ? 'مثال: فيصل العتيبي' : 'e.g. Faisal Al-Otaibi'}
                   value={newCustName}
                   onChange={(e) => setNewCustName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1">Phone Number</label>
+                  <label className="block font-semibold mb-1">
+                    {isAr ? 'رقم الهاتف *' : 'Phone Number *'}
+                  </label>
                   <input
                     type="text"
                     required
                     value={newCustPhone}
                     onChange={(e) => setNewCustPhone(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1">City</label>
+                  <label className="block font-semibold mb-1">
+                    {isAr ? 'المدينة' : 'City'}
+                  </label>
                   <select
                     value={newCustCity}
                     onChange={(e) => setNewCustCity(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
-                    <option value="Riyadh">Riyadh</option>
-                    <option value="Jeddah">Jeddah</option>
-                    <option value="Dammam">Dammam</option>
-                    <option value="Makkah">Makkah</option>
-                    <option value="Madinah">Madinah</option>
-                    <option value="Taif">Taif</option>
+                    <option value="Riyadh">{isAr ? 'الرياض' : 'Riyadh'}</option>
+                    <option value="Jeddah">{isAr ? 'جدة' : 'Jeddah'}</option>
+                    <option value="Dammam">{isAr ? 'الدمام' : 'Dammam'}</option>
+                    <option value="Makkah">{isAr ? 'مكة المكرمة' : 'Makkah'}</option>
+                    <option value="Madinah">{isAr ? 'المدينة المنورة' : 'Madinah'}</option>
+                    <option value="Taif">{isAr ? 'الطائف' : 'Taif'}</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1">Acquisition Source</label>
+                  <label className="block font-semibold mb-1">
+                    {isAr ? 'مصدر الاستقطاب' : 'Acquisition Source'}
+                  </label>
                   <select
                     value={newCustSource}
                     onChange={(e) => setNewCustSource(e.target.value as CustomerSource)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
-                    <option value="Instagram">Instagram</option>
-                    <option value="Google Ads">Google Ads</option>
-                    <option value="TikTok">TikTok</option>
-                    <option value="Direct">Direct</option>
-                    <option value="Referral">Referral</option>
-                    <option value="Snapchat">Snapchat</option>
-                    <option value="Other">Other</option>
+                    <option value="Instagram">{isAr ? 'إنستغرام' : 'Instagram'}</option>
+                    <option value="Google Ads">{isAr ? 'إعلانات جوجل' : 'Google Ads'}</option>
+                    <option value="TikTok">{isAr ? 'تيك توك' : 'TikTok'}</option>
+                    <option value="Direct">{isAr ? 'مباشر' : 'Direct'}</option>
+                    <option value="Referral">{isAr ? 'إحالة / ترشيح' : 'Referral'}</option>
+                    <option value="Snapchat">{isAr ? 'سناب شات' : 'Snapchat'}</option>
+                    <option value="Other">{isAr ? 'أخرى' : 'Other'}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block font-semibold mb-1">Initial Status</label>
+                  <label className="block font-semibold mb-1">
+                    {isAr ? 'الحالة المبدئية' : 'Initial Status'}
+                  </label>
                   <select
                     value={newCustStatus}
                     onChange={(e) => setNewCustStatus(e.target.value as CustomerStatus)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
-                    <option value="Active">Active</option>
-                    <option value="VIP">VIP</option>
-                    <option value="New">New</option>
+                    <option value="Active">{isAr ? 'نشط' : 'Active'}</option>
+                    <option value="VIP">{isAr ? 'VIP' : 'VIP'}</option>
+                    <option value="New">{isAr ? 'جديد' : 'New'}</option>
                   </select>
                 </div>
               </div>
@@ -1165,8 +1226,8 @@ export const StoreCustomers: React.FC = () => {
                 <label className="block font-semibold mb-1">
                   {isAr ? 'صورة الملف الشخصي (اختياري)' : 'Profile Photo (Optional)'}
                 </label>
-                <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-200 shrink-0 border border-slate-300">
+                <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 border border-slate-300 dark:border-slate-600">
                     <img
                       src={newCustAvatar || getArabCustomerAvatar({ name: newCustName, gender: newCustGender })}
                       alt={isAr ? 'معاينة صورة العميل الجديد' : 'New customer profile photo preview'}
@@ -1178,10 +1239,10 @@ export const StoreCustomers: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <input
                       type="url"
-                      placeholder="https://... or auto-assigned Arab portrait"
+                      placeholder={isAr ? 'رابط الصورة https:// أو صورة عربية افتراضية تلقائية' : 'https://... or auto-assigned Arab portrait'}
                       value={newCustAvatar}
                       onChange={(e) => setNewCustAvatar(e.target.value)}
-                      className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-lg text-slate-800 focus:outline-none"
+                      className="w-full px-2.5 py-1 text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -1191,16 +1252,16 @@ export const StoreCustomers: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100"
+                  className="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                 >
-                  Cancel
+                  {isAr ? 'إلغاء' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  Save Customer
+                  <span>{isAr ? 'حفظ العميل' : 'Save Customer'}</span>
                 </button>
               </div>
             </form>
@@ -1211,29 +1272,37 @@ export const StoreCustomers: React.FC = () => {
       {/* Export Modal */}
       {showExportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5 text-center border border-slate-200">
-            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-sm w-full p-5 text-center border border-slate-200 dark:border-slate-800">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-3">
               <FileSpreadsheet className="w-6 h-6" />
             </div>
-            <h3 className="font-bold text-base text-slate-900">Export Customer Dataset</h3>
-            <p className="text-xs text-slate-500 mt-1 mb-4 leading-relaxed">
-              Generating export for <span className="font-semibold text-slate-700">{activeStore.name}</span> with {filteredCustomers.length} records in CSV format.
+            <h3 className="font-bold text-base text-slate-900 dark:text-white">
+              {isAr ? 'تصدير بيانات العملاء' : 'Export Customer Dataset'}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4 leading-relaxed">
+              {isAr
+                ? `جاري تجهيز التصدير لمتجر ${activeStore.nameAr || activeStore.name} بعدد ${filteredCustomers.length} سجل بصيغة CSV.`
+                : `Generating export for ${activeStore.nameEn || activeStore.name} with ${filteredCustomers.length} records in CSV format.`}
             </p>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowExportModal(false)}
-                className="flex-1 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="flex-1 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
               >
-                Close
+                {isAr ? 'إغلاق' : 'Close'}
               </button>
               <button
                 onClick={() => {
-                  alert(`Export complete for ${activeStore.name}: ${filteredCustomers.length} customers downloaded.`);
+                  alert(
+                    isAr
+                      ? `اكتمل التصدير لمتجر ${activeStore.nameAr || activeStore.name}: تم تنزيل بيانات ${filteredCustomers.length} عميل.`
+                      : `Export complete for ${activeStore.nameEn || activeStore.name}: ${filteredCustomers.length} customers downloaded.`
+                  );
                   setShowExportModal(false);
                 }}
-                className="flex-1 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
+                className="flex-1 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg cursor-pointer"
               >
-                Download CSV
+                {isAr ? 'تحميل ملف CSV' : 'Download CSV'}
               </button>
             </div>
           </div>
@@ -1243,32 +1312,40 @@ export const StoreCustomers: React.FC = () => {
       {/* Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5 text-center border border-slate-200">
-            <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-sm w-full p-5 text-center border border-slate-200 dark:border-slate-800">
+            <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-sky-950/40 text-blue-600 dark:text-sky-400 flex items-center justify-center mx-auto mb-3">
               <Upload className="w-6 h-6" />
             </div>
-            <h3 className="font-bold text-base text-slate-900">Import Customers</h3>
-            <p className="text-xs text-slate-500 mt-1 mb-4 leading-relaxed">
-              Upload a CSV file containing columns: Name, Phone, Email, City, Source.
+            <h3 className="font-bold text-base text-slate-900 dark:text-white">
+              {isAr ? 'استيراد العملاء' : 'Import Customers'}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4 leading-relaxed">
+              {isAr
+                ? 'قم برفع ملف CSV يحتوي على الأعمدة: الاسم، الهاتف، البريد الإلكتروني، المدينة، المصدر.'
+                : 'Upload a CSV file containing columns: Name, Phone, Email, City, Source.'}
             </p>
-            <div className="p-4 border-2 border-dashed border-slate-200 rounded-xl mb-4 bg-slate-50 text-slate-400 text-xs">
-              Drag & Drop file here or browse
+            <div className="p-4 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl mb-4 bg-slate-50 dark:bg-slate-800 text-slate-400 text-xs">
+              {isAr ? 'اسحب وأفلت الملف هنا أو تصفح الملفات' : 'Drag & Drop file here or browse'}
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowImportModal(false)}
-                className="flex-1 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="flex-1 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
               >
-                Cancel
+                {isAr ? 'إلغاء' : 'Cancel'}
               </button>
               <button
                 onClick={() => {
-                  alert(`Import processed into store ${activeStore.name} successfully.`);
+                  alert(
+                    isAr
+                      ? `تمت معالجة استيراد العملاء لمتجر ${activeStore.nameAr || activeStore.name} بنجاح.`
+                      : `Import processed into store ${activeStore.nameEn || activeStore.name} successfully.`
+                  );
                   setShowImportModal(false);
                 }}
-                className="flex-1 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                className="flex-1 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer"
               >
-                Start Import
+                {isAr ? 'بدء الاستيراد' : 'Start Import'}
               </button>
             </div>
           </div>
