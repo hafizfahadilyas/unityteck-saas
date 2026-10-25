@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import type { Order, OrderStatus } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { localeMixedLabel } from '../../utils/localeMixedLabel';
 import { AdminPageShell } from '../common/AdminPageHeader';
 import {
   ShoppingCart,
@@ -1395,7 +1396,7 @@ export const StoreOrders: React.FC = () => {
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-blue-600 text-white">
                           {o.shippingCompany.substring(0, 4).toUpperCase()}
                         </span>
-                        <span>{o.shippingCompany}</span>
+                        <span>{localeMixedLabel(o.shippingCompany, isAr)}</span>
                       </>
                     ) : (
                       <span className="text-slate-600 dark:text-slate-400 font-bold italic">{isAr ? 'لم تحدد شركة الشحن' : 'Not Assigned'}</span>

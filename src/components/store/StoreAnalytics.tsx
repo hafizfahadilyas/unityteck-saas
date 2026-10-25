@@ -146,9 +146,9 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
         id: p.id,
         rank: idx + 1,
         name: p.name,
-        orders: p.salesCount || Math.max(1, 24 - idx * 4),
-        revenue: (p.price || 150) * (p.salesCount || Math.max(1, 24 - idx * 4)),
-        img: p.image || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=100&q=80',
+        orders: Number(p.salesCount) || 0,
+        revenue: (Number(p.price) || 0) * (Number(p.salesCount) || 0),
+        img: p.image || '',
       }));
     }
 
@@ -238,11 +238,11 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
         { label: isAr ? 'الأجهزة اللوحية' : 'Tablet', value: Number(((tablet / total) * 100).toFixed(1)), color: '#a855f7', formattedValue: `${((tablet / total) * 100).toFixed(1)}%` },
       ];
     }
-    // If not connected to GA4, we calculate from order source user-agents or standard breakdown
+    // No GA4 device data — genuine zeros (zero-mock)
     return [
-      { label: isAr ? 'الجوال' : 'Mobile', value: 72.5, color: '#3b82f6', formattedValue: '72.5%' },
-      { label: isAr ? 'الكمبيوتر' : 'Desktop', value: 24.1, color: '#10b981', formattedValue: '24.1%' },
-      { label: isAr ? 'الأجهزة اللوحية' : 'Tablet', value: 3.4, color: '#a855f7', formattedValue: '3.4%' },
+      { label: isAr ? 'الجوال' : 'Mobile', value: 0, color: '#3b82f6', formattedValue: '0%' },
+      { label: isAr ? 'الكمبيوتر' : 'Desktop', value: 0, color: '#10b981', formattedValue: '0%' },
+      { label: isAr ? 'الأجهزة اللوحية' : 'Tablet', value: 0, color: '#a855f7', formattedValue: '0%' },
     ];
   }, [gaData, isAr]);
 
@@ -282,7 +282,8 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
     const locMap: Record<string, { orders: number; revenue: number }> = {};
     let totalRev = 0;
     storeOrders.forEach((o) => {
-      const loc = o.deliveryLocation || 'Riyadh';
+      const loc = (o.deliveryLocation || '').trim();
+      if (!loc) return;
       if (!locMap[loc]) locMap[loc] = { orders: 0, revenue: 0 };
       locMap[loc].orders += 1;
       locMap[loc].revenue += o.total;
@@ -290,24 +291,16 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
     });
 
     const entries = Object.entries(locMap).sort((a, b) => b[1].revenue - a[1].revenue);
-    if (entries.length > 0) {
-      return entries.slice(0, 5).map(([name, stat], idx) => ({
-        id: String(idx + 1),
-        rank: idx + 1,
-        name,
-        orders: stat.orders,
-        revenue: stat.revenue,
-        share: `${((stat.revenue / (totalRev || 1)) * 100).toFixed(1)}%`,
-      }));
-    }
-
-    return [
-      { id: '1', rank: 1, name: isAr ? 'الرياض' : 'Riyadh', orders: 12, revenue: 3200, share: '45.0%' },
-      { id: '2', rank: 2, name: isAr ? 'مكة المكرمة' : 'Makkah', orders: 8, revenue: 2100, share: '29.5%' },
-      { id: '3', rank: 3, name: isAr ? 'جدة' : 'Jeddah', orders: 5, revenue: 1400, share: '19.6%' },
-      { id: '4', rank: 4, name: isAr ? 'الدمام' : 'Dammam', orders: 2, revenue: 420, share: '5.9%' },
-    ];
-  }, [storeOrders, isAr]);
+    if (entries.length === 0) return [];
+    return entries.slice(0, 5).map(([name, stat], idx) => ({
+      id: String(idx + 1),
+      rank: idx + 1,
+      name,
+      orders: stat.orders,
+      revenue: stat.revenue,
+      share: `${((stat.revenue / (totalRev || 1)) * 100).toFixed(1)}%`,
+    }));
+  }, [storeOrders]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
@@ -380,19 +373,19 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
             <div className="text-center px-3 py-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
               <span className="text-[10px] text-slate-500 block">{isAr ? 'مستخدمون الآن' : 'Active Users (30m)'}</span>
               <span className="font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
-                {gaData?.realtimeUsers ?? 1}
+                {gaData?.realtimeUsers ?? 0}
               </span>
             </div>
             <div className="text-center px-3 py-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
               <span className="text-[10px] text-slate-500 block">{isAr ? 'إجمالي الجلسات' : 'Sessions'}</span>
               <span className="font-black text-blue-600 dark:text-blue-400 tabular-nums">
-                {gaData?.sessions ? gaData.sessions.toLocaleString() : (storeOrders.length * 7).toLocaleString()}
+                {gaData?.sessions ? gaData.sessions.toLocaleString() : '0'}
               </span>
             </div>
             <div className="text-center px-3 py-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
               <span className="text-[10px] text-slate-500 block">{isAr ? 'مستخدمون جدد' : 'New Users'}</span>
               <span className="font-black text-purple-600 dark:text-purple-400 tabular-nums">
-                {gaData?.newUsers ? gaData.newUsers.toLocaleString() : Math.max(1, Math.round(storeOrders.length * 4.5)).toLocaleString()}
+                {gaData?.newUsers ? gaData.newUsers.toLocaleString() : '0'}
               </span>
             </div>
           </div>

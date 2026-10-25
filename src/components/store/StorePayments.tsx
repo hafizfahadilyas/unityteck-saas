@@ -82,8 +82,8 @@ export const StorePayments: React.FC = () => {
   // Modal for gateway API credentials configuration
   const [showGatewayModal, setShowGatewayModal] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<PaymentProviderKey>('mada');
-  const [gatewayTitle, setGatewayTitle] = useState('Mada (مدى)');
-  const [gatewayMerchantId, setGatewayMerchantId] = useState('MADA-MK-88190');
+  const [gatewayTitle, setGatewayTitle] = useState('');
+  const [gatewayMerchantId, setGatewayMerchantId] = useState('');
   const [gatewayPublicKey, setGatewayPublicKey] = useState('');
   const [gatewaySecretKey, setGatewaySecretKey] = useState('');
   const [gatewayWebhookSecret, setGatewayWebhookSecret] = useState('');

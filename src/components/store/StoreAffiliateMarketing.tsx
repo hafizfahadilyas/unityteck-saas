@@ -210,7 +210,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
         totalOrders: storeOrders.length,
         totalCommission: Math.round(salesTotal * 0.1),
         affiliatesCount: 0,
-        affiliateVisits: storeOrders.length * 20,
+        affiliateVisits: 0,
         conversionRate: storeOrders.length > 0 ? 5.0 : 0.0,
         salesGrowth: storeOrders.length > 0 ? '+12%' : '0%',
         ordersGrowth: storeOrders.length > 0 ? '+18%' : '0%',

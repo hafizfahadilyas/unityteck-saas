@@ -1176,9 +1176,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [blogs] = useState<PlatformBlog[]>(() => (isLiveApiActive() ? [] : INITIAL_BLOGS));
 
   // SEO & Google Account / Analytics / Indexing configs
-  const [seoConfigs, setSeoConfigs] = useState<Record<string, StoreSEOConfig>>(() =>
-    isLiveApiActive() ? {} : INITIAL_SEO_CONFIGS,
-  );
+  // Never hydrate fake SEO metrics (clicks/GA/GTM) — empty until API or merchant save
+  const [seoConfigs, setSeoConfigs] = useState<Record<string, StoreSEOConfig>>(() => ({}));
 
   // Central Media Library (Store isolated with automated cross-niche healing)
   const [mediaMap, setMediaMap] = useState<Record<string, MediaAsset[]>>(() => {
@@ -2000,7 +1999,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Isolated Payment Transactions
   const currentPaymentTransactions = useMemo(() => {
-    return paymentTransactionsMap[activeStoreId] || paymentTransactionsMap['store-1'] || [];
+    return paymentTransactionsMap[activeStoreId] || [];
   }, [paymentTransactionsMap, activeStoreId, cacheEpoch]);
 
   // Isolated Media for currently selected store

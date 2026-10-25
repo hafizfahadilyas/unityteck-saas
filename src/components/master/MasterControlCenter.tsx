@@ -751,8 +751,8 @@ export const MasterControlCenter: React.FC = () => {
               const stSeoHealthyCount = stSeoItems.filter((it) => it.status === 'healthy' || it.status === 'fixed').length;
               const stSeoScore = Math.min(100, Math.round((stSeoHealthyCount / Math.max(1, stSeoItems.length)) * 100));
               const stSeoCfg = seoConfigs[st.id];
-              const autoGtmId = `GTM-KSA${st.slug.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase()}`;
-              const autoGa4Id = `G-KSA${st.slug.replace(/[^a-zA-Z0-9]/g, '').slice(0, 5).toUpperCase()}`;
+              const realGtmId = stSeoCfg?.gtmContainerId?.trim() || '';
+              const realGa4Id = stSeoCfg?.ga4MeasurementId?.trim() || '';
 
               return (
                 <div
@@ -1157,10 +1157,10 @@ export const MasterControlCenter: React.FC = () => {
                         </div>
                         <div className="text-[11px] space-y-0.5" style={{ color: 'var(--muted)' }}>
                           <div className="truncate font-mono">
-                            GTM: <strong style={{ color: 'var(--text)' }}>{stSeoCfg?.gtmContainerId || autoGtmId}</strong>
+                            GTM: <strong style={{ color: 'var(--text)' }}>{realGtmId || '—'}</strong>
                           </div>
                           <div className="truncate font-mono">
-                            GA4: <strong style={{ color: 'var(--text)' }}>{stSeoCfg?.ga4MeasurementId || autoGa4Id}</strong>
+                            GA4: <strong style={{ color: 'var(--text)' }}>{realGa4Id || '—'}</strong>
                           </div>
                         </div>
                       </div>
@@ -1174,19 +1174,23 @@ export const MasterControlCenter: React.FC = () => {
                               fixedAt: new Date().toISOString(),
                             }));
                             saveStoreSeoDeepAudit(st.id, fixedItems);
-                            updateStoreSEOConfig(st.id, {
-                              googleConnected: true,
-                              gtmContainerId: stSeoCfg?.gtmContainerId || autoGtmId,
-                              ga4MeasurementId: stSeoCfg?.ga4MeasurementId || autoGa4Id,
-                              searchConsoleConnected: true,
-                              indexingApiEnabled: true,
-                            });
+                            // Never invent GTM/GA4 IDs — only persist real saved values (zero-mock)
+                            if (realGtmId || realGa4Id) {
+                              updateStoreSEOConfig(st.id, {
+                                gtmContainerId: realGtmId,
+                                ga4MeasurementId: realGa4Id,
+                              });
+                            }
                             setQuotaRefreshTick((t) => t + 1);
                             toast(
                               isAr
-                                ? `تم ربط GTM4 و GA4 وإصلاح كافة الروابط المعطلة والباك لينك لمتجر ${displayName}!`
-                                : `Auto-connected GTM4/GA4 & fixed all Broken Links, Backlinks & Meta for ${displayName}!`,
-                              'success',
+                                ? realGtmId || realGa4Id
+                                  ? `تم حفظ إعدادات SEO لمتجر ${displayName}`
+                                  : `لا توجد معرفات GTM/GA4 حقيقية — أدخلها أولاً لمتجر ${displayName}`
+                                : realGtmId || realGa4Id
+                                  ? `SEO settings saved for ${displayName}`
+                                  : `No real GTM/GA4 IDs — enter them first for ${displayName}`,
+                              realGtmId || realGa4Id ? 'success' : 'info',
                             );
                           }}
                           className="w-full py-1.5 px-2 rounded-xl text-[11px] font-black text-white bg-teal-600 hover:bg-teal-700 cursor-pointer"

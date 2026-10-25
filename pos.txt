@@ -1,11 +1,36 @@
-650 records bilss
-bills 910 show ho rha he
+type namme fahad live billes show hn total realed names  slect 1 ..multiple selects options..
+same as number eamil ......matcch data show ho jaye..  optionals
 
-expot import filter add kkrna har sections ka like customer name date phone no city xyz....
-filter wise deleted like billing total sell total number of bills .....  user admin manger branch delte na hn....  numrical records delteds ho jsyen 
-export import record local cashe number diffrent same account but record mismatch  suparadmin check.
+multiple select export import clomn like custumer and billing
+
+customer api issues  bugs 1st today
 
 
-customer detilas name number agr bill ban gaaya to reset ho jayn new entry k lye  agr bill nhe bana jb tk jo type lea he wahe rahe..
+phle backup cvs ya kese b formate lnge than hard delest permnt se phle create bsckup option add than hard deleted permnt...
+.all 
 
-recent csutomer hide ya dropdwon add krdo by defult hide hogah...
+delete se phle poche kea apne backup lea ya nhe than delt hn are u sure popop...
+
+
+waha k data nhe ana chaye old wale project k testing checking ...  old pos to new pos
+
+
+biller bil jo he same biller k pas jayn   bug fix  
+fahad 
+top 5 bill me sb k show hn rha he syn me .. jo biller he just use k show hnge isolted kese or ka bill kese or ko nhe show hn..
+bug fix 2nd ............
+syn instant hona chayeee  foran abhi bhoot time leta hn syn me full instnt hn neno scnd me....ultra fast
+customer name phon no show nhe ho rha dehsbord me ......save b nhe ho rha...  bugs he 
+bill ek banaya tha but show nhe howa custmer detils show ho gya tha...bugs 
+
+
+
+
+
+
+to show the banner.
+/api/customers?tenantId=bcd53d45-9121-441d-9d6d-280afba68e18&storeId=19cb06b9-4ed7-439e-bd2e-afff5ee815fa&branchId=1c73a03a-4f85-4c0b-9309-2ecd33a1072d&limit=500&offset=0&activeOnly=0:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+/api/customers?tenantId=bcd53d45-9121-441d-9d6d-280afba68e18&storeId=19cb06b9-4ed7-439e-bd2e-afff5ee815fa&branchId=2e409904-4656-4342-b458-6774305fa4f5&limit=500&offset=0&activeOnly=0:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+
+
+

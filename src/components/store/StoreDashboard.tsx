@@ -79,9 +79,8 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
     return Number(activeStore.visitorsCount) || 0;
   }, [activeStore.visitorsCount]);
 
-  const estimatedProfit = useMemo(() => {
-    return Math.round(liveRevenue * 0.35);
-  }, [liveRevenue]);
+  // No invented margin — profit only when real COGS exists (else 0 / empty chart)
+  const estimatedProfit = useMemo(() => 0, []);
 
   // Daily points for Sales vs Estimated Profit chart calculated from real orders
   const salesProfitPoints = useMemo<DailySalesProfitPoint[]>(() => {
@@ -94,7 +93,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
       const pts = Array.from(map.entries()).map(([date, total]) => ({
         date: date.length > 5 ? date.slice(5) : date,
         sales: total,
-        profit: Math.round(total * 0.35),
+        profit: 0,
         isLabelPoint: true,
       }));
       return pts.slice(0, 14);

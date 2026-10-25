@@ -91,10 +91,10 @@ export const StoreReports: React.FC = () => {
   const storeProducts = (allProducts && allProducts[activeStore.id]) || [];
 
   const computedTotalSales = storeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-  const computedNetSales = Math.round(computedTotalSales * 0.85); // minus tax & standard operational margin
+  const computedNetSales = computedTotalSales;
   const computedTotalOrders = storeOrders.length;
-  const computedCustomersCount = storeCustomers.length || (storeOrders.length > 0 ? Math.max(1, Math.round(storeOrders.length * 0.8)) : 0);
-  const computedVisits = Number(activeStore.visitorsCount) || (storeOrders.length > 0 ? storeOrders.length * 15 : 0);
+  const computedCustomersCount = storeCustomers.length;
+  const computedVisits = Number(activeStore.visitorsCount) || 0;
 
   // Main KPI cards from 11_reports.png
   const mainKpis = [
@@ -103,7 +103,7 @@ export const StoreReports: React.FC = () => {
       label: isAr ? 'إجمالي المبيعات' : 'Total Sales',
       value: computedTotalSales,
       isMoney: true,
-      change: computedTotalSales > 0 ? '+14%' : '0%',
+      change: '0%',
       positive: true,
       icon: ShoppingCart,
       color: 'emerald',
@@ -300,7 +300,7 @@ export const StoreReports: React.FC = () => {
 
     const salesKpis = [
       { label: isAr ? 'إجمالي المبيعات (شامل الخصومات)' : 'Total Sales (Including Discounts)', value: computedTotalSales, change: computedTotalSales > 0 ? '+12%' : '0%', color: 'emerald', icon: ShoppingCart },
-      { label: isAr ? 'كوبونات الخصم' : 'Discount Coupons', value: totalDiscounts, change: totalDiscounts > 0 ? '+18%' : '0%', color: 'rose', icon: Percent },
+      { label: isAr ? 'كوبونات الخصم' : 'Discount Coupons', value: totalDiscounts, change: '0%', color: 'rose', icon: Percent },
       { label: isAr ? 'إجمالي المبيعات' : 'Total Sales', value: computedTotalSales, change: computedTotalSales > 0 ? '+11%' : '0%', color: 'blue', icon: ShoppingBag },
       { label: isAr ? 'تكلفة المنتجات' : 'Product Costs', value: Math.round(computedTotalSales * 0.45), change: computedTotalSales > 0 ? '+7%' : '0%', color: 'amber', icon: Package },
       { label: isAr ? 'الشحن والتوصيل' : 'Shipping', value: totalShipping, change: totalShipping > 0 ? '+9%' : '0%', color: 'purple', icon: Truck },
@@ -671,7 +671,7 @@ export const StoreReports: React.FC = () => {
   // ═══════════════════════════════════════════════════════════════════
   if (selectedCategory === 'marketing' || selectedCategory === 'Marketing Reports' || selectedCategory === 'تقرير التسويق والطلب') {
     const mktKpis = [
-      { label: isAr ? 'إجمالي مبيعات التسويق' : 'Total Marketing Sales', value: computedTotalSales, change: computedTotalSales > 0 ? '+18%' : '0%', isMoney: true, icon: Megaphone, color: 'emerald' },
+      { label: isAr ? 'إجمالي مبيعات التسويق' : 'Total Marketing Sales', value: computedTotalSales, change: '0%', isMoney: true, icon: Megaphone, color: 'emerald' },
       { label: isAr ? 'إجمالي الإنفاق الإعلاني' : 'Total Ad Spend', value: Math.round(computedTotalSales * 0.22), change: computedTotalSales > 0 ? '+6%' : '0%', isMoney: true, icon: Target, color: 'rose' },
       { label: isAr ? 'العائد على الإنفاق ROAS' : 'ROAS', value: computedTotalSales > 0 ? '4.5x' : '0.0x', change: computedTotalSales > 0 ? '+22%' : '0%', isMoney: false, icon: TrendingUp, color: 'blue' },
       { label: isAr ? 'عملاء جدد من الحملات' : 'New Customers from Marketing', value: computedCustomersCount, change: computedCustomersCount > 0 ? '+24%' : '0%', isMoney: false, icon: Users, color: 'purple' },

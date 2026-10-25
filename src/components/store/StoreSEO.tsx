@@ -394,62 +394,18 @@ export const StoreSEO: React.FC = () => {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  // Instant Verified Partner Connect (100% Reliable without custom cloud console)
-  const handleInstantGoogleConnect = (email: string) => {
-    setIsAuthenticating(true);
-    setOauthError(null);
-    setTimeout(() => {
-      setIsAuthenticating(false);
-      setShowConnectModal(false);
-      const resolvedEmail = email.trim();
-      if (!resolvedEmail) return;
-      connectGoogleAccount(activeStore.id, resolvedEmail);
-      updateStoreSEOConfig(activeStore.id, {
-        googleConnected: true,
-        googleAccountEmail: resolvedEmail,
-        connectedAt: new Date().toISOString().split('T')[0],
-        searchConsoleConnected: true,
-        searchConsoleVerificationTag: `google-site-verification=${activeStore.slug}-KSA-${Math.floor(100000 + Math.random() * 900000)}`,
-        ga4MeasurementId: ga4Id || `G-${activeStore.slug.slice(0, 5).toUpperCase()}99`,
-        gtmContainerId: gtmId || `GTM-${activeStore.slug.slice(0, 4).toUpperCase()}82`,
-        indexingApiEnabled: true,
-        totalSearchClicks: 0,
-        totalSearchImpressions: 0,
-        avgCtr: 0,
-        avgPosition: 0,
-        indexedUrlsCount: 0,
-      });
-
-      saveStoreGoogleState(activeStore.id, {
-        connected: true,
-        accessToken: 'gsc_live_verified_partner_token',
-        expiresAt: Date.now() + 3600000 * 24 * 30,
-        accountEmail: resolvedEmail,
-        accountName: resolvedEmail.split('@')[0],
-        accountPicture: null,
-        ga4PropertyId: 'properties/398210451',
-        ga4MeasurementId: `G-${activeStore.slug.slice(0, 5).toUpperCase()}99`,
-        gscSiteUrl: `sc-domain:${activeStore.custom_domain || `${activeStore.slug}.saasdomain.com`}`,
-        gtmAccountId: 'accounts/60291084',
-        gtmContainerId: `GTM-${activeStore.slug.slice(0, 4).toUpperCase()}82`,
-        indexingEnabled: true,
-        psiScoreMobile: 96,
-        psiScoreDesktop: 99,
-        fcp: '0.8s',
-        lcp: '1.2s',
-        cls: '0.002',
-        fid: '28ms',
-        inp: '1.1s',
-        lastSyncedAt: new Date().toLocaleString(),
-      });
-
-      toast(
-        isAr
-          ? `تم ربط وتوثيق خدمات Google لـ (${resolvedEmail}) بنجاح`
-          : `Google Site Kit successfully connected for ${resolvedEmail}`,
-        'success',
-      );
-    }, 600);
+  // Instant connect disabled (zero-mock KSA) — require real OAuth Client ID
+  const handleInstantGoogleConnect = (_email: string) => {
+    setIsAuthenticating(false);
+    setOauthError(
+      isAr
+        ? 'الربط الفوري المعطّل. أدخل Client ID الحقيقي من Google Cloud ثم استخدم OAuth.'
+        : 'Instant connect is disabled. Enter a real Google Cloud Client ID and use OAuth.',
+    );
+    toast(
+      isAr ? 'غير مسموح بالبيانات الوهمية — استخدم OAuth الحقيقي' : 'Fake Instant connect blocked — use real Google OAuth',
+      'error',
+    );
   };
 
   // Real OAuth Connect Trigger
@@ -468,14 +424,18 @@ export const StoreSEO: React.FC = () => {
           googleConnected: true,
           googleAccountEmail: userProfile.email,
           connectedAt: new Date().toISOString().split('T')[0],
-          searchConsoleConnected: true,
-          searchConsoleVerificationTag: `google-site-verification=${activeStore.slug}-KSA-${Math.floor(100000 + Math.random() * 900000)}`,
-          ga4MeasurementId: ga4Id || `G-${activeStore.slug.slice(0, 5).toUpperCase()}99`,
-          gtmContainerId: gtmId || `GTM-${activeStore.slug.slice(0, 4).toUpperCase()}82`,
-          indexingApiEnabled: true,
+          searchConsoleConnected: false,
+          searchConsoleVerificationTag: currentSEOConfig.searchConsoleVerificationTag || '',
+          ga4MeasurementId: ga4Id || currentSEOConfig.ga4MeasurementId || '',
+          gtmContainerId: gtmId || currentSEOConfig.gtmContainerId || '',
+          indexingApiEnabled: false,
+          totalSearchClicks: 0,
+          totalSearchImpressions: 0,
+          avgCtr: 0,
+          avgPosition: 0,
+          indexedUrlsCount: 0,
         });
 
-        // Save local Google state
         saveStoreGoogleState(activeStore.id, {
           connected: true,
           accessToken: tokenResp.access_token,
@@ -483,19 +443,19 @@ export const StoreSEO: React.FC = () => {
           accountEmail: userProfile.email,
           accountName: userProfile.name,
           accountPicture: userProfile.picture || null,
-          ga4PropertyId: 'properties/398210451',
-          ga4MeasurementId: `G-${activeStore.slug.slice(0, 5).toUpperCase()}99`,
-          gscSiteUrl: `sc-domain:${activeStore.slug}.saasdomain.com`,
-          gtmAccountId: 'accounts/60291084',
-          gtmContainerId: `GTM-${activeStore.slug.slice(0, 4).toUpperCase()}82`,
-          indexingEnabled: true,
-          psiScoreMobile: 94,
-          psiScoreDesktop: 99,
-          fcp: '0.8s',
-          lcp: '1.4s',
-          cls: '0.005',
-          fid: '32ms',
-          inp: '1.2s',
+          ga4PropertyId: null,
+          ga4MeasurementId: ga4Id || currentSEOConfig.ga4MeasurementId || null,
+          gscSiteUrl: null,
+          gtmAccountId: null,
+          gtmContainerId: gtmId || currentSEOConfig.gtmContainerId || null,
+          indexingEnabled: false,
+          psiScoreMobile: 0,
+          psiScoreDesktop: 0,
+          fcp: '—',
+          lcp: '—',
+          cls: '—',
+          fid: '—',
+          inp: '—',
           lastSyncedAt: new Date().toLocaleString(),
         });
       },
@@ -1493,58 +1453,74 @@ export const StoreSEO: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-5 bg-blue-50/70 hover:bg-blue-50/90 dark:bg-blue-950/30 rounded-2xl border border-blue-200/80 dark:border-blue-900/40 shadow-2xs space-y-2 transition-all">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-blue-200">
-                  <span>Google Search Clicks</span>
-                  <span className="text-[10px] text-emerald-800 dark:text-emerald-300 font-bold bg-emerald-100/80 dark:bg-emerald-900/50 px-2 py-0.5 rounded-full">
-                    Real Data
+                  <span>{isAr ? 'نقرات بحث Google' : 'Google Search Clicks'}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    {currentSEOConfig.totalSearchClicks > 0
+                      ? (isAr ? 'بيانات حقيقية' : 'Real Data')
+                      : (isAr ? 'بانتظار المزامنة' : 'Waiting for Sync')}
                   </span>
                 </div>
                 <div className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
                   {currentSEOConfig.totalSearchClicks > 0 ? currentSEOConfig.totalSearchClicks.toLocaleString() : '0'}
                 </div>
-                <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium block">Verified organic search visitors</span>
+                <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium block">
+                  {isAr ? 'زوار البحث العضوي' : 'Organic search visitors'}
+                </span>
               </div>
 
               <div className="p-5 bg-emerald-50/70 hover:bg-emerald-50/90 dark:bg-emerald-950/30 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/40 shadow-2xs space-y-2 transition-all">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-emerald-200">
-                  <span>Search Impressions</span>
-                  <span className="text-[10px] text-emerald-800 dark:text-emerald-300 font-bold bg-emerald-100/80 dark:bg-emerald-900/50 px-2 py-0.5 rounded-full">
-                    Real Data
+                  <span>{isAr ? 'مرات الظهور' : 'Search Impressions'}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    {currentSEOConfig.totalSearchImpressions > 0
+                      ? (isAr ? 'بيانات حقيقية' : 'Real Data')
+                      : (isAr ? 'بانتظار المزامنة' : 'Waiting for Sync')}
                   </span>
                 </div>
                 <div className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
                   {currentSEOConfig.totalSearchImpressions > 0 ? currentSEOConfig.totalSearchImpressions.toLocaleString() : '0'}
                 </div>
-                <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium block">Store impressions on google.com.sa</span>
+                <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium block">
+                  {isAr ? 'مرات الظهور على Google' : 'Impressions on Google'}
+                </span>
               </div>
 
               <div className="p-5 bg-purple-50/70 hover:bg-purple-50/90 dark:bg-purple-950/30 rounded-2xl border border-purple-200/80 dark:border-purple-900/40 shadow-2xs space-y-2 transition-all">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-purple-200">
-                  <span>Average Google CTR</span>
-                  <span className="text-[10px] text-purple-800 dark:text-purple-300 font-bold bg-purple-100/80 dark:bg-purple-900/50 px-2 py-0.5 rounded-full">
-                    GSC Verified
+                  <span>{isAr ? 'متوسط CTR' : 'Average Google CTR'}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    {currentSEOConfig.avgCtr > 0
+                      ? (isAr ? 'موثّق GSC' : 'GSC Verified')
+                      : (isAr ? 'بانتظار المزامنة' : 'Waiting for Sync')}
                   </span>
                 </div>
                 <div className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
                   {currentSEOConfig.avgCtr ? `${currentSEOConfig.avgCtr}%` : '0.0%'}
                 </div>
-                <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium block">Organic click-through rate</span>
+                <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium block">
+                  {isAr ? 'معدل النقر العضوي' : 'Organic click-through rate'}
+                </span>
               </div>
 
               <div className="p-5 bg-amber-50/70 hover:bg-amber-50/90 dark:bg-amber-950/30 rounded-2xl border border-amber-200/80 dark:border-amber-900/40 shadow-2xs space-y-2 transition-all">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-amber-200">
-                  <span>Google Indexing Status</span>
-                  <span className="text-[10px] text-amber-800 dark:text-amber-300 font-bold bg-amber-100/80 dark:bg-amber-900/50 px-2 py-0.5 rounded-full">
-                    Connected
+                  <span>{isAr ? 'حالة الفهرسة' : 'Google Indexing Status'}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    {currentSEOConfig.indexedUrlsCount > 0
+                      ? (isAr ? 'متصل' : 'Connected')
+                      : (isAr ? 'لا توجد روابط' : 'No URLs')}
                   </span>
                 </div>
                 <div className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
-                  {currentSEOConfig.indexedUrlsCount} URLs
+                  {currentSEOConfig.indexedUrlsCount || 0} {isAr ? 'رابط' : 'URLs'}
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 pt-2 font-medium">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Last ping: {currentSEOConfig.lastIndexingPing}</span>
+                  <span>{isAr ? 'آخر تنبيه:' : 'Last ping:'} {currentSEOConfig.lastIndexingPing || (isAr ? 'أبداً' : 'Never')}</span>
                 </div>
-                <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium block">Official Search Console site</span>
+                <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium block">
+                  {isAr ? 'Search Console' : 'Search Console site'}
+                </span>
               </div>
             </div>
           )}

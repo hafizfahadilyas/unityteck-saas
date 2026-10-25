@@ -1,0 +1,26 @@
+---
+description: Unityteck KSA SaaS — absolute zero fake/mock/hardcoded/dummy data; Saudi production company; fix-only no rebuild
+alwaysApply: true
+---
+
+# Zero Mock · Saudi Production SaaS (LOCKED)
+
+**Company:** Unityteck — Saudi Arabia based multi-store e-commerce SaaS.  
+**Plan:** `docs/29-dashboard-zero-mock-fix-plan.md`
+
+## Absolute ban (no exceptions)
+- **NO** fake / mock / dummy / hardcoded commerce metrics, SEO clicks, GA4/GTM IDs, PSI scores, campaigns, growth %, invented visit multipliers (`orders×N`).
+- **NO** Instant Google / fake OAuth tokens / auto-seed “connected” for any store.
+- **NO** `INITIAL_*` hydration on live API / production path.
+- Empty API/DB → genuine empty: **No records found** / Not Connected / Waiting for Data — never decorate with fake numbers.
+
+## Isolation
+- Every store-scoped row: `store_id`. Never fall back to `store-1`, flower brands, Flora Luxe, or giftshop identity for other tenants.
+
+## UI / i18n
+- Preserve pixel UI (designs/). No rebuild Master/Store/storefront.
+- EN = full English LTR chrome; AR = full Arabic RTL chrome. No EN+AR mixed in one chrome string. Content: dual `*_en` / `*_ar` when bilingual.
+
+## Stack
+- Real Hostinger MySQL + Laravel API only. Dark + Light tokens. Fix masla only — inspect → reuse → extend.
+---

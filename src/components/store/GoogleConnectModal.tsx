@@ -341,26 +341,23 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
       };
 
       if (mode === 'instant' || !customClientIdInput.trim() || customClientIdInput.includes('unityteck-ecommerce')) {
-        initiateInstantGoogleConnect({
-          email: targetEmail,
-          storeSlug: activeStore.slug,
-          onSuccess: handleTokenReceived,
-        });
-      } else {
-        initiateRealGoogleOAuth({
-          storeSlug: activeStore.slug,
-          clientId: customClientIdInput.trim(),
-          onSuccess: handleTokenReceived,
-          onError: (err) => {
-            // If OAuth popup encounters any roadblock, seamlessly fallback to instant connect
-            initiateInstantGoogleConnect({
-              email: targetEmail,
-              storeSlug: activeStore.slug,
-              onSuccess: handleTokenReceived,
-            });
-          },
-        });
+        setIsLoading(false);
+        setErrorMessage(
+          isAr
+            ? 'الربط الفوري معطّل. أدخل Google OAuth Client ID الحقيقي.'
+            : 'Instant connect disabled. Enter a real Google OAuth Client ID.',
+        );
+        return;
       }
+      initiateRealGoogleOAuth({
+        storeSlug: activeStore.slug,
+        clientId: customClientIdInput.trim(),
+        onSuccess: handleTokenReceived,
+        onError: (err) => {
+          setIsLoading(false);
+          setErrorMessage(err || 'Google OAuth failed');
+        },
+      });
     } catch (e: any) {
       setIsLoading(false);
       setErrorMessage(e?.message || 'Error initializing Google authentication');
@@ -375,9 +372,18 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
     setErrorMessage(null);
 
     try {
-      const ga4Val = selectedGA4MeasurementId || `G-${activeStore.slug.slice(0, 5).toUpperCase()}99`;
-      const gtmVal = selectedGTM || `GTM-${activeStore.slug.slice(0, 4).toUpperCase()}82`;
-      const gscVal = selectedGSC || `sc-domain:${activeStore.custom_domain || `${activeStore.slug}.saasdomain.com`}`;
+      const ga4Val = selectedGA4MeasurementId || '';
+      const gtmVal = selectedGTM || '';
+      const gscVal = selectedGSC || '';
+      if (!ga4Val && !gtmVal && !gscVal) {
+        setIsSyncing(false);
+        setErrorMessage(
+          isAr
+            ? 'اختر أو أدخل معرّفات GA4 / GTM / Search Console الحقيقية.'
+            : 'Select or enter real GA4 / GTM / Search Console IDs.',
+        );
+        return;
+      }
 
       // 1. Save properties on server
       await saveGoogleProperties(activeStore.id, {

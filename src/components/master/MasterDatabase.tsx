@@ -32,6 +32,7 @@ import {
 
 import { usePrefs } from '../../i18n/PrefsContext';
 import { getStoreDisplayName } from '../../utils/storeLocalization';
+import { fetchHealth } from '../../api/tenantApi';
 
 export const MasterDatabase: React.FC = () => {
   const { stores, allProducts, allOrders, allStoreCustomers, activeStore } = useTenant();
@@ -45,11 +46,7 @@ export const MasterDatabase: React.FC = () => {
     success: boolean;
     latency: number;
     message: string;
-  } | null>({
-    success: true,
-    latency: 18,
-    message: 'Hostinger Cloud MySQL 8.0.35 connected with SSL TLSv1.3 and InnoDB strict mode.',
-  });
+  } | null>(null);
 
   // Active view tab in Database Center
   const [activeTab, setActiveTab] = useState<'overview' | 'schema' | 'seed' | 'inspector' | 'env'>('overview');
@@ -59,17 +56,37 @@ export const MasterDatabase: React.FC = () => {
   const [selectedTable, setSelectedTable] = useState<'stores' | 'products' | 'orders' | 'customers'>('products');
   const [selectedTenantFilter, setSelectedTenantFilter] = useState<string>('all');
 
-  const handleTestConnection = () => {
+  const handleTestConnection = async () => {
     setIsTesting(true);
     setTestResult(null);
-    setTimeout(() => {
-      setIsTesting(false);
+    const started = performance.now();
+    try {
+      const health = await fetchHealth();
+      const latency = Math.round(performance.now() - started);
+      const ok = health && (health.status === 'ok' || health.status === 'healthy' || health.ok === true || !health.error);
       setTestResult({
-        success: true,
-        latency: Math.floor(Math.random() * 8) + 14,
-        message: `Successfully authenticated to Hostinger MySQL (${dbConfig.database} on ${dbConfig.host}). Foreign key integrity verified.`,
+        success: Boolean(ok),
+        latency,
+        message: ok
+          ? (isAr
+              ? `تم التحقق عبر API /health بنجاح (${latency}ms) — ${dbConfig.host}/${dbConfig.database}`
+              : `API /health OK (${latency}ms). Config target: ${dbConfig.host}/${dbConfig.database}`)
+          : (isAr
+              ? `فشل التحقق: ${String(health?.error || health?.message || 'unknown')}`
+              : `Health check failed: ${String(health?.error || health?.message || 'unknown')}`),
       });
-    }, 700);
+    } catch (err) {
+      const latency = Math.round(performance.now() - started);
+      setTestResult({
+        success: false,
+        latency,
+        message: isAr
+          ? `تعذر الاتصال بالـ API: ${err instanceof Error ? err.message : 'error'}`
+          : `API unreachable: ${err instanceof Error ? err.message : 'error'}`,
+      });
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   const handleCopy = (text: string, type: string) => {

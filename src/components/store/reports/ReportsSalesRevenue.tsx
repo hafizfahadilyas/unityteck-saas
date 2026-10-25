@@ -106,7 +106,7 @@ export const ReportsSalesRevenue: React.FC<ReportsSalesRevenueProps> = ({
   const netRevenue = apiData?.kpis?.net_revenue ?? rawNetRevenue;
   const profitMargin = apiData?.kpis?.profit_margin ?? (totalRevenue > 0 ? '30.8%' : '0%');
 
-  const revGrowth = apiData?.kpis?.revenue_growth ?? (totalRevenue > 0 ? '+12.8%' : '0%');
+  const revGrowth = apiData?.kpis?.revenue_growth ?? '0%';
   const ordersGrowth = apiData?.kpis?.orders_growth ?? (totalOrders > 0 ? '+8.4%' : '0%');
   const aovGrowth = apiData?.kpis?.aov_growth ?? (aov > 0 ? '+15.2%' : '0%');
   const netGrowth = apiData?.kpis?.net_growth ?? (netRevenue > 0 ? '+13.6%' : '0%');

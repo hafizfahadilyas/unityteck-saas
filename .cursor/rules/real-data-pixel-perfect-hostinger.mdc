@@ -5,11 +5,13 @@ alwaysApply: true
 
 # STRICT PRODUCTION & PIXEL-PERFECT UI/UX RULES (LOCKED)
 
-## 1. Zero Dummy / Mock Data Policy (MANDATORY)
-- **NO FAKE / DUMMY / HARDCODED DATA**: Never create fake arrays or mock objects to simulate features.
+## 1. Zero Dummy / Mock Data Policy (MANDATORY) — Saudi production company
+- **Unityteck = KSA SaaS.** Production truth only. See also `.cursor/rules/zero-mock-saudi-saas.mdc` + `docs/29-dashboard-zero-mock-fix-plan.md`.
+- **NO FAKE / DUMMY / HARDCODED / MOCK DATA**: Never create fake arrays, invent KPIs, Instant Google tokens, or decorate empty APIs. **Not allowed. Zero exceptions.**
 - **NO FAKE LOCAL CACHE**: Do not bypass real APIs by saving fake states to localStorage or static mocks.
 - **REAL HOSTINGER MYSQL & API ONLY**: All data must flow directly through the live Hostinger database schema (`srv1422.hstgr.io` / `u920689430_giftshop`) and Laravel backend APIs with strict `store_id` multi-tenant isolation.
 - **ERROR HANDLING**: If an API or database field is missing or empty, render genuine empty states or handle null gracefully; NEVER inject artificial dummy placeholders.
+- **NO REBUILD**: Fix broken data paths only — preserve Master/Store pixel UI.
 
 ## 2. 100% Pixel-Perfect UI/UX Alignment
 - Reference mockups and design docs in `C:\Users\fahad\Downloads\مجلد جديد (8)\مجلد جديد (8)` are the **absolute visual truth**:

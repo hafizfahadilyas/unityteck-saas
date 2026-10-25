@@ -62,29 +62,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
     const targetName = nameInput.trim() || (targetEmail.includes('@') ? targetEmail.split('@')[0] : 'alfahad');
 
     const clientId = getStoredGoogleClientId();
-    if (clientId && !clientId.includes('unityteck-ecommerce')) {
-      initiateRealGoogleOAuth({
-        storeSlug: 'hadaya-mecca',
-        clientId,
-        onSuccess: onGoogleSuccess,
-        onError: () => {
-          // Fallback to instant verified google connect with real user details
-          initiateInstantGoogleConnect({
-            email: targetEmail,
-            name: targetName,
-            storeSlug: 'hadaya-mecca',
-            onSuccess: onGoogleSuccess,
-          });
-        },
-      });
-    } else {
-      initiateInstantGoogleConnect({
-        email: targetEmail,
-        name: targetName,
-        storeSlug: 'hadaya-mecca',
-        onSuccess: onGoogleSuccess,
-      });
+    if (!clientId || clientId.includes('unityteck-ecommerce')) {
+      setLoading(false);
+      setFeedback('Configure a real Google OAuth Client ID to continue.');
+      return;
     }
+    initiateRealGoogleOAuth({
+      storeSlug: 'hadaya-mecca',
+      clientId,
+      onSuccess: onGoogleSuccess,
+      onError: (err) => {
+        setLoading(false);
+        setFeedback(err || 'Google sign-in failed.');
+      },
+    });
   };
 
   const handleSendEmailOtp = (e: React.FormEvent) => {

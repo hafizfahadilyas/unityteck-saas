@@ -536,16 +536,10 @@ export function getStoreBrands(storeId: string, storeSlug?: string, category?: s
   const slug = (storeSlug || '').toLowerCase();
   const cat = (category || '').toLowerCase();
 
-  if (sid === 'store-bleco' || slug.includes('bleco') || slug.includes('car') || cat.includes('car') || cat.includes('auto')) {
-    return CAR_STORE_BRANDS;
-  }
-  if (sid === 'store-coffee' || slug.includes('coffee') || slug.includes('hibrew') || cat.includes('coffee')) {
-    return COFFEE_STORE_BRANDS;
-  }
-  if (sid === 'store-1' || slug.includes('flower') || slug.includes('hadaya') || cat.includes('flower') || cat.includes('gift')) {
-    return FLOWER_STORE_BRANDS;
-  }
-  // Rule 1: Genuine empty state for any other store — never force mock flowers!
+  // Zero-mock: no niche hardcoded brand catalogs — empty until merchant saves / API
+  void sid;
+  void slug;
+  void cat;
   return [];
 }
 
@@ -565,16 +559,9 @@ export function getStoreCustomFields(storeId: string, storeSlug?: string, catego
   const slug = (storeSlug || '').toLowerCase();
   const cat = (category || '').toLowerCase();
 
-  if (sid === 'store-bleco' || slug.includes('bleco') || slug.includes('car') || cat.includes('car') || cat.includes('auto')) {
-    return CAR_CUSTOM_FIELDS;
-  }
-  if (sid === 'store-coffee' || slug.includes('coffee') || slug.includes('hibrew') || cat.includes('coffee')) {
-    return COFFEE_CUSTOM_FIELDS;
-  }
-  if (sid === 'store-1' || slug.includes('flower') || slug.includes('hadaya') || cat.includes('flower') || cat.includes('gift')) {
-    return FLOWER_CUSTOM_FIELDS;
-  }
-  // Rule 1: Genuine empty state for any other store
+  void sid;
+  void slug;
+  void cat;
   return [];
 }
 

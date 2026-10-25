@@ -83,34 +83,18 @@ export function setStoredGoogleClientId(clientId: string): void {
 export function getStoreGoogleState(storeId: string): GoogleConnectedState | null {
   try {
     const raw = localStorage.getItem(`${GOOGLE_AUTH_STORAGE_PREFIX}${storeId}`);
-    if (raw) return JSON.parse(raw) as GoogleConnectedState;
-    if (storeId === 'store-1') {
-      const state: GoogleConnectedState = {
-        connected: true,
-        accessToken: 'gsc_live_verified_partner_token',
-        expiresAt: Date.now() + 3600000 * 24 * 30,
-        accountEmail: 'giftshop2030m@gmail.com',
-        accountName: 'متجر هدايا',
-        accountPicture: null,
-        ga4PropertyId: 'properties/920689430',
-        ga4MeasurementId: 'G-HADAY99',
-        gscSiteUrl: 'sc-domain:giftshop-sa.com',
-        gtmAccountId: 'accounts/920689430',
-        gtmContainerId: 'GTM-HDYA82',
-        indexingEnabled: true,
-        psiScoreMobile: 97,
-        psiScoreDesktop: 99,
-        fcp: '0.8s',
-        lcp: '1.1s',
-        cls: '0.001',
-        fid: '22ms',
-        inp: '0.9s',
-        lastSyncedAt: new Date().toLocaleString(),
-      };
-      saveStoreGoogleState(storeId, state);
-      return state;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as GoogleConnectedState;
+    // Reject legacy fake partner tokens — never treat them as connected
+    if (
+      !parsed?.accessToken ||
+      parsed.accessToken.startsWith('gsc_live_verified') ||
+      parsed.accessToken.includes('unityteck_verified')
+    ) {
+      clearStoreGoogleState(storeId);
+      return null;
     }
-    return null;
+    return parsed;
   } catch {
     return null;
   }
@@ -129,38 +113,22 @@ export function clearStoreGoogleState(storeId: string): void {
 }
 
 /**
- * Initiates Instant Google Partner Connection (100% Reliable without Cloud Console roadblocks)
+ * Instant Google connect is DISABLED (zero-mock KSA rule).
+ * Callers must use real OAuth with a valid Google Client ID.
  */
 export function initiateInstantGoogleConnect(options: {
   email?: string;
   name?: string;
   storeSlug: string;
   onSuccess: (token: GoogleAuthTokenResponse, profile: GoogleUserProfile) => void;
+  onError?: (error: string) => void;
 }) {
-  const targetEmail = options.email?.trim() || 'merchant.official@gmail.com';
-  const namePart = options.name?.trim() || (targetEmail.includes('@') ? targetEmail.split('@')[0] : 'Merchant');
-  const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-
-  setTimeout(() => {
-    const token: GoogleAuthTokenResponse = {
-      access_token: `ya29.a0AfH6SMB_unityteck_verified_${Date.now()}`,
-      token_type: 'Bearer',
-      expires_in: 86400 * 30, // 30 days
-      scope: GOOGLE_OAUTH_SCOPES,
-    };
-
-    const profile: GoogleUserProfile = {
-      id: `google_user_${Date.now()}`,
-      email: targetEmail,
-      verified_email: true,
-      name: formattedName,
-      given_name: formattedName,
-      picture: `https://ui-avatars.com/api/?name=${encodeURIComponent(formattedName)}&background=0D8ABC&color=fff&size=128`,
-      locale: 'en',
-    };
-
-    options.onSuccess(token, profile);
-  }, 400);
+  const msg =
+    'Fake Instant Google connect is disabled. Configure a real Google OAuth Client ID (VITE_GOOGLE_CLIENT_ID).';
+  if (options.onError) {
+    options.onError(msg);
+  }
+  // Never mint fake tokens / profiles
 }
 
 /**
@@ -175,12 +143,10 @@ export async function initiateRealGoogleOAuth(options: {
   const clientId = options.clientId || getStoredGoogleClientId();
   const redirectUri = window.location.origin;
 
-  // If standard placeholder client ID, fall back to seamless instant verification
   if (!clientId || clientId.includes('unityteck-ecommerce')) {
-    initiateInstantGoogleConnect({
-      storeSlug: options.storeSlug,
-      onSuccess: options.onSuccess,
-    });
+    options.onError(
+      'Configure a real Google OAuth Client ID. Placeholder / Instant connect is not allowed.',
+    );
     return;
   }
 
@@ -207,11 +173,7 @@ export async function initiateRealGoogleOAuth(options: {
   );
 
   if (!popup) {
-    // Popup blocked: fallback to instant connect smoothly
-    initiateInstantGoogleConnect({
-      storeSlug: options.storeSlug,
-      onSuccess: options.onSuccess,
-    });
+    options.onError('Google sign-in popup was blocked. Allow popups and try again.');
     return;
   }
 
@@ -249,10 +211,7 @@ export async function initiateRealGoogleOAuth(options: {
                 profile,
               );
             } else {
-              initiateInstantGoogleConnect({
-                storeSlug: options.storeSlug,
-                onSuccess: options.onSuccess,
-              });
+              options.onError('Could not verify Google account profile. Try again.');
             }
           } else {
             options.onError('No access token returned by Google.');
@@ -323,133 +282,27 @@ export interface PageSpeedAuditResult {
 }
 
 /**
- * Realistic Lighthouse & Core Web Vitals generator based on actual giftshop-sa.com audits
+ * Empty PageSpeed result when live Google PSI is unavailable (zero-mock).
  */
-function generateCalculatedPageSpeedMetrics(strategy: 'mobile' | 'desktop', targetUrl: string, storeId?: string): PageSpeedAuditResult {
-  const isMobile = strategy === 'mobile';
-  
-  const perfScore = isMobile ? 60 : 75;
-  const accScore = isMobile ? 83 : 88;
-  const bpScore = 100;
-  const seoScore = 92;
-
-  const issues: PageSpeedAuditIssue[] = [
-    {
-      id: 'render-blocking-resources',
-      category: 'performance',
-      title: 'Render-blocking requests',
-      displayValue: 'Est savings of 240 ms',
-      description: 'Resources are blocking the first paint of your page. Delivering critical JS/CSS inline and deferring non-critical styles speeds up page rendering.',
-      whyItMatters: 'Directly delays First Contentful Paint (FCP) and Largest Contentful Paint (LCP) on mobile 4G networks.',
-      recommendedFix: 'Preload critical Google fonts asynchronously, eliminate synchronous CSS import cascades, and defer analytics scripts.',
-      aiFixCode: '<link rel="stylesheet" href="fonts.css" media="print" onload="this.media=\'all\'" />',
-      canAutoFix: true,
-      status: 'pending',
-    },
-    {
-      id: 'improve-image-delivery',
-      category: 'performance',
-      title: 'Improve image delivery',
-      displayValue: 'Est savings of 948 KiB',
-      description: 'Image formats like WebP and AVIF often provide better compression than PNG or JPEG, which means faster downloads and less data consumption.',
-      whyItMatters: 'Heavy uncompressed images consume mobile bandwidth and increase LCP download duration significantly.',
-      recommendedFix: 'Serve WebP/AVIF images with responsive srcset, specify loading="lazy" for below-the-fold media, and set fetchpriority="high" on the hero banner.',
-      aiFixCode: '<img src="bouquet.webp" loading="lazy" decoding="async" fetchpriority="high" />',
-      canAutoFix: true,
-      status: 'pending',
-    },
-    {
-      id: 'prohibited-aria',
-      category: 'accessibility',
-      title: 'Elements use prohibited ARIA attributes',
-      displayValue: 'Needs Fix',
-      description: 'Elements must only use supported ARIA attributes according to their assigned role and the HTML5 ARIA specification.',
-      whyItMatters: 'Assistive technologies and screen readers will misinterpret UI controls or fail to read interactive components correctly.',
-      recommendedFix: 'Remove role="button" or aria-expanded on parent containers containing nested interactive buttons; use role="region" or role="group".',
-      aiFixCode: '<div role="region" aria-label="Media Showcase">...</div>',
-      canAutoFix: true,
-      status: 'pending',
-    },
-    {
-      id: 'color-contrast',
-      category: 'accessibility',
-      title: 'Background and foreground colors do not have a sufficient contrast ratio',
-      displayValue: 'Needs Fix',
-      description: 'Low-contrast text is difficult or impossible for many users to read, violating WCAG 2.1 AA requirements (4.5:1 ratio).',
-      whyItMatters: 'Reduces readability for shoppers in bright sunlight or on mobile OLED/LCD displays.',
-      recommendedFix: 'Adjust muted text colors from text-white/50 to text-white/90 and enhance button label contrast.',
-      aiFixCode: 'className="text-white/90 font-medium"',
-      canAutoFix: true,
-      status: 'pending',
-    },
-    {
-      id: 'touch-targets',
-      category: 'accessibility',
-      title: 'Touch targets do not have sufficient size or spacing',
-      displayValue: 'Needs Fix',
-      description: 'Touch targets (buttons, links, icon toggles) should be at least 48px by 48px or have adequate touch padding to prevent mis-clicks.',
-      whyItMatters: 'Makes tapping navigation and checkout buttons difficult for mobile shoppers, hurting conversion rates.',
-      recommendedFix: 'Ensure all bottom navigation tabs and action buttons have min-w-[48px] min-h-[48px] touch targets.',
-      aiFixCode: 'className="min-w-[48px] min-h-[48px] flex items-center justify-center"',
-      canAutoFix: true,
-      status: 'pending',
-    },
-    {
-      id: 'heading-order',
-      category: 'accessibility',
-      title: 'Heading elements are not in a sequentially-descending order',
-      displayValue: 'Needs Fix',
-      description: 'Properly ordered headings (H1 -> H2 -> H3) convey the structural hierarchy of the page to screen readers and Google search crawlers.',
-      whyItMatters: 'Skipping heading levels confuses search engine crawlers and screen readers indexing the store structure.',
-      recommendedFix: 'Set the main hero title as <h1>, category sections as <h2>, and product/card titles as <h3>.',
-      aiFixCode: '<h1 className="text-2xl font-bold font-serif">...</h1>',
-      canAutoFix: true,
-      status: 'pending',
-    },
-    {
-      id: 'video-captions',
-      category: 'accessibility',
-      title: 'Video elements contain a track element with [kind="captions"]',
-      displayValue: 'Needs Fix',
-      description: 'All HTML5 video elements should provide captions/subtitles track elements for deaf or hard-of-hearing users.',
-      whyItMatters: 'Mandatory standard for WCAG 2.1 accessibility and improves rich media indexing by Google.',
-      recommendedFix: 'Add <track kind="captions" srcLang="ar" label="العربية" default /> inside all <video> tags.',
-      aiFixCode: '<video ...><track kind="captions" src="data:text/vtt,WEBVTT" srcLang="ar" default /></video>',
-      canAutoFix: true,
-      status: 'pending',
-    },
-    {
-      id: 'forced-reflow',
-      category: 'performance',
-      title: 'Forced reflow & LCP request discovery',
-      displayValue: 'Est savings of 0.4s',
-      description: 'Avoid layout thrashing and ensure hero elements are discoverable in the initial HTML payload without waiting for script waterfalls.',
-      whyItMatters: 'Eliminates layout shifts (CLS) and accelerates Largest Contentful Paint (LCP).',
-      recommendedFix: 'Specify explicit aspect-ratio and width/height attributes on hero banners and slider slides.',
-      aiFixCode: 'aspect-video w-full object-cover',
-      canAutoFix: true,
-      status: 'pending',
-    }
-  ];
-
+function generateCalculatedPageSpeedMetrics(strategy: 'mobile' | 'desktop', targetUrl: string, _storeId?: string): PageSpeedAuditResult {
   return {
-    performanceScore: perfScore,
-    accessibilityScore: accScore,
-    bestPracticesScore: bpScore,
-    seoScore: seoScore,
-    agenticBrowsingScore: '1/4',
-    fcp: isMobile ? '1.8 s' : '0.9 s',
-    lcp: isMobile ? '3.4 s' : '1.9 s',
-    cls: isMobile ? '0.015' : '0.005',
-    fid: isMobile ? '45 ms' : '16 ms',
-    inp: isMobile ? '1.8 s' : '0.8 s',
-    speedIndex: isMobile ? '3.2 s' : '1.4 s',
-    tbt: isMobile ? '240 ms' : '60 ms',
-    passedAuditsCount: isMobile ? 38 : 44,
+    performanceScore: 0,
+    seoScore: 0,
+    accessibilityScore: 0,
+    bestPracticesScore: 0,
+    agenticBrowsingScore: '—',
+    fcp: '—',
+    lcp: '—',
+    cls: '—',
+    fid: '—',
+    inp: '—',
+    speedIndex: '—',
+    tbt: '—',
+    passedAuditsCount: 0,
     auditedUrl: targetUrl,
     auditedAt: new Date().toLocaleTimeString(),
     strategy,
-    issues,
+    issues: [],
   };
 }
 
@@ -500,10 +353,10 @@ export async function fetchGooglePageSpeedInsights(
         const data = await res.json();
         const lr = data.lighthouseResult || {};
         
-        const perfScore = Math.round((lr.categories?.performance?.score ?? 0.60) * 100);
-        const seoScore = Math.round((lr.categories?.seo?.score ?? 0.92) * 100);
-        const accScore = Math.round((lr.categories?.accessibility?.score ?? 0.83) * 100);
-        const bpScore = Math.round((lr.categories?.['best-practices']?.score ?? 1.0) * 100);
+        const perfScore = Math.round((lr.categories?.performance?.score ?? 0) * 100);
+        const seoScore = Math.round((lr.categories?.seo?.score ?? 0) * 100);
+        const accScore = Math.round((lr.categories?.accessibility?.score ?? 0) * 100);
+        const bpScore = Math.round((lr.categories?.['best-practices']?.score ?? 0) * 100);
         const audits = lr.audits || {};
 
         const extractedIssues: PageSpeedAuditIssue[] = Object.values(audits)
@@ -533,18 +386,18 @@ export async function fetchGooglePageSpeedInsights(
           accessibilityScore: accScore,
           bestPracticesScore: bpScore,
           agenticBrowsingScore: '1/4',
-          fcp: audits['first-contentful-paint']?.displayValue || (strategy === 'mobile' ? '1.8 s' : '0.9 s'),
-          lcp: audits['largest-contentful-paint']?.displayValue || (strategy === 'mobile' ? '3.4 s' : '1.9 s'),
-          cls: audits['cumulative-layout-shift']?.displayValue || (strategy === 'mobile' ? '0.015' : '0.005'),
-          fid: audits['max-potential-fid']?.displayValue || (strategy === 'mobile' ? '45 ms' : '16 ms'),
-          inp: audits['interactive']?.displayValue || (strategy === 'mobile' ? '1.8 s' : '0.8 s'),
-          speedIndex: audits['speed-index']?.displayValue || (strategy === 'mobile' ? '3.2 s' : '1.4 s'),
-          tbt: audits['total-blocking-time']?.displayValue || (strategy === 'mobile' ? '240 ms' : '60 ms'),
-          passedAuditsCount: Object.values(audits).filter((a: any) => a.score === 1).length || 38,
+          fcp: audits['first-contentful-paint']?.displayValue || '—',
+          lcp: audits['largest-contentful-paint']?.displayValue || '—',
+          cls: audits['cumulative-layout-shift']?.displayValue || '—',
+          fid: audits['max-potential-fid']?.displayValue || '—',
+          inp: audits['interactive']?.displayValue || '—',
+          speedIndex: audits['speed-index']?.displayValue || '—',
+          tbt: audits['total-blocking-time']?.displayValue || '—',
+          passedAuditsCount: Object.values(audits).filter((a: any) => a.score === 1).length,
           auditedUrl: cleanUrl,
           auditedAt: new Date().toLocaleTimeString(),
           strategy,
-          issues: extractedIssues.length > 0 ? extractedIssues : generateCalculatedPageSpeedMetrics(strategy, cleanUrl, storeId).issues,
+          issues: extractedIssues,
         };
 
         pagespeedCache[cacheKey] = { data: rawResult, timestamp: Date.now() };
@@ -555,9 +408,8 @@ export async function fetchGooglePageSpeedInsights(
     console.warn('PageSpeed API live query attempt, returning accurate real metrics:', err);
   }
 
-  // Instant accurate Lighthouse Core Web Vitals calculated results matching real live test
+  // Live PSI unavailable — genuine empty (zero-mock), not invented scores
   const defaultResult = generateCalculatedPageSpeedMetrics(strategy, cleanUrl, storeId);
-  pagespeedCache[cacheKey] = { data: defaultResult, timestamp: Date.now() };
   return applySavedFixesToResult(defaultResult, storeId);
 }
 
@@ -597,19 +449,9 @@ function applySavedFixesToResult(result: PageSpeedAuditResult, storeId?: string)
   const allFixed = updatedIssues.every((i) => i.status === 'fixed');
   const fixedCount = updatedIssues.filter((i) => i.status === 'fixed').length;
 
-  if (allFixed || fixedCount >= updatedIssues.length) {
+  if (allFixed || (updatedIssues.length > 0 && fixedCount >= updatedIssues.length)) {
     return {
       ...result,
-      performanceScore: result.strategy === 'mobile' ? 96 : 99,
-      accessibilityScore: 98,
-      bestPracticesScore: 100,
-      seoScore: 100,
-      agenticBrowsingScore: '4/4',
-      lcp: result.strategy === 'mobile' ? '1.2 s' : '0.7 s',
-      fcp: result.strategy === 'mobile' ? '0.8 s' : '0.4 s',
-      cls: '0.002',
-      tbt: '20 ms',
-      speedIndex: result.strategy === 'mobile' ? '1.1 s' : '0.6 s',
       issues: updatedIssues,
     };
   }

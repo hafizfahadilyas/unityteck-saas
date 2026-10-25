@@ -2722,7 +2722,10 @@ class InvoiceService {
   // Suppliers & Purchases
   public getSuppliers(storeId: string): SupplierRecord[] {
     const isCoffee = isCoffeeStoreId(storeId);
-    const defaults = isCoffee ? INITIAL_SUPPLIERS_COFFEE : INITIAL_SUPPLIERS_FLOWERS;
+    const defaults: SupplierRecord[] = [];
+    void isCoffee;
+    void INITIAL_SUPPLIERS_COFFEE;
+    void INITIAL_SUPPLIERS_FLOWERS;
     try {
       if (typeof window === 'undefined') return defaults;
       const raw = localStorage.getItem(`${SUPPLIERS_STORAGE_KEY}_${storeId}`);
@@ -2759,7 +2762,10 @@ class InvoiceService {
 
   public getPurchases(storeId: string): PurchaseRecord[] {
     const isCoffee = isCoffeeStoreId(storeId);
-    const defaults = isCoffee ? INITIAL_PURCHASES_COFFEE : INITIAL_PURCHASES_FLOWERS;
+    const defaults: PurchaseRecord[] = [];
+    void isCoffee;
+    void INITIAL_PURCHASES_COFFEE;
+    void INITIAL_PURCHASES_FLOWERS;
     try {
       if (typeof window === 'undefined') return defaults;
       const raw = localStorage.getItem(`${PURCHASES_STORAGE_KEY}_${storeId}`);

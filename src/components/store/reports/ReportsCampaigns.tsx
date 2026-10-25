@@ -87,22 +87,24 @@ export const ReportsCampaigns: React.FC<ReportsCampaignsProps> = ({
   const rawTotalRevenue = storeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
   const rawTotalOrders = storeOrders.length;
 
-  // Resolved metrics
-  const totalAdSpend = apiData?.kpis?.total_ad_spend ?? (rawTotalRevenue > 0 ? Math.round((rawTotalRevenue * 0.736) / 3.23) : 0);
-  const campaignRevenue = apiData?.kpis?.campaign_revenue ?? (rawTotalRevenue > 0 ? Math.round(rawTotalRevenue * 0.736) : 0);
+  // Resolved metrics — API only; never invent spend/ROAS from store revenue (zero-mock)
+  void rawTotalRevenue;
+  void rawTotalOrders;
+  const totalAdSpend = apiData?.kpis?.total_ad_spend ?? 0;
+  const campaignRevenue = apiData?.kpis?.campaign_revenue ?? 0;
   const roas = apiData?.kpis?.roas ?? (totalAdSpend > 0 ? Math.round((campaignRevenue / totalAdSpend) * 100) / 100 : 0);
-  const campaignOrders = apiData?.kpis?.campaign_orders ?? (rawTotalOrders > 0 ? Math.round(rawTotalOrders * 0.73) : 0);
+  const campaignOrders = apiData?.kpis?.campaign_orders ?? 0;
   const costPerOrder = apiData?.kpis?.cost_per_order ?? (campaignOrders > 0 ? Math.round((totalAdSpend / campaignOrders) * 100) / 100 : 0);
 
-  const spendGrowth = apiData?.kpis?.spend_growth ?? (totalAdSpend > 0 ? '+6.2%' : '0%');
-  const revGrowth = apiData?.kpis?.revenue_growth ?? (campaignRevenue > 0 ? '+18.6%' : '0%');
-  const roasGrowth = apiData?.kpis?.roas_growth ?? (roas > 0 ? '+11.7%' : '0%');
-  const ordersGrowth = apiData?.kpis?.orders_growth ?? (campaignOrders > 0 ? '+15.2%' : '0%');
-  const cpoGrowth = apiData?.kpis?.cpo_growth ?? (costPerOrder > 0 ? '-7.8%' : '0%');
+  const spendGrowth = apiData?.kpis?.spend_growth ?? '0%';
+  const revGrowth = apiData?.kpis?.revenue_growth ?? '0%';
+  const roasGrowth = apiData?.kpis?.roas_growth ?? '0%';
+  const ordersGrowth = apiData?.kpis?.orders_growth ?? '0%';
+  const cpoGrowth = apiData?.kpis?.cpo_growth ?? '0%';
 
-  const prevSpend = apiData?.kpis?.prev_spend ?? Math.round(totalAdSpend * 0.94);
-  const prevRev = apiData?.kpis?.prev_campaign_revenue ?? Math.round(campaignRevenue * 0.84);
-  const prevOrders = apiData?.kpis?.prev_orders ?? Math.round(campaignOrders * 0.86);
+  const prevSpend = apiData?.kpis?.prev_spend ?? 0;
+  const prevRev = apiData?.kpis?.prev_campaign_revenue ?? 0;
+  const prevOrders = apiData?.kpis?.prev_orders ?? 0;
 
   // Daily Trend
   const trendData = useMemo(() => {

@@ -10,6 +10,26 @@ import * as fs from 'fs';
 import { fileURLToPath } from 'url';
 import http from 'http';
 import https from 'https';
+import dns from 'dns';
+
+const dnsResolver = new dns.Resolver();
+dnsResolver.setServers(['8.8.8.8', '1.1.1.1']);
+
+function fallbackLookup(hostname, options, callback) {
+  if (typeof options === 'function') {
+    callback = options;
+    options = {};
+  }
+  dnsResolver.resolve4(hostname, (err, addresses) => {
+    if (err || !addresses || !addresses.length) {
+      return dns.lookup(hostname, options, callback);
+    }
+    if (options && options.all) {
+      return callback(null, addresses.map((a) => ({ address: a, family: 4 })));
+    }
+    return callback(null, addresses[0], 4);
+  });
+}
 
 import dotenv from 'dotenv';
 
@@ -63,7 +83,7 @@ async function verifyLiveSite(url) {
   return new Promise((resolve) => {
     console.log(`\n🔎 Verifying live response from ${url} ...`);
     const getter = url.startsWith('https') ? https : http;
-    const req = getter.get(url, { timeout: 10000 }, (res) => {
+    const req = getter.get(url, { lookup: fallbackLookup, timeout: 10000 }, (res) => {
       let body = '';
       res.on('data', (chunk) => { body += chunk; });
       res.on('end', () => {
@@ -151,7 +171,7 @@ async function deploy() {
     throw lastErr;
   }
 
-  let client = new ftp.Client(60000);
+  let client = new ftp.Client(120000);
   client.ftp.verbose = false;
 
   client.trackProgress((info) => {
@@ -164,7 +184,7 @@ async function deploy() {
   try {
     await connectClient(client);
 
-    const TARGET_DIRS = ['/', '/public_html'];
+    const TARGET_DIRS = ['/public_html'];
 
     for (const targetDir of TARGET_DIRS) {
       console.log(`\n====================================================`);
@@ -172,33 +192,29 @@ async function deploy() {
       console.log(`====================================================`);
       await client.cd(targetDir);
       const remoteList = await client.list();
-      console.log(`📂 Found in ${targetDir}: ${remoteList.map((i) => i.name).join(', ') || '(empty)'}`);
 
-      // Purge empty coffee dir from root if present so SPA rewrite for /coffee is never blocked
-      if (targetDir === '/') {
-        const hasCoffeeDir = remoteList.some((item) => item.name === 'coffee' && item.isDirectory);
-        if (hasCoffeeDir) {
-          try {
-            await client.removeDir('coffee');
-            console.log('🧹 Purged phantom empty /coffee directory to enable clean SPA routing.');
-          } catch (cErr) {
-            console.warn('⚠️ Notice removing /coffee dir:', cErr.message);
-          }
+      // Purge phantom empty coffee dir if present so SPA rewrite for /coffee is never blocked
+      const hasCoffeeDir = remoteList.some((item) => item.name === 'coffee' && item.isDirectory);
+      if (hasCoffeeDir) {
+        try {
+          await client.removeDir('coffee');
+          console.log(`🧹 Purged phantom empty ${targetDir}/coffee directory to enable clean SPA routing.`);
+        } catch (cErr) {
+          console.warn('⚠️ Notice removing /coffee dir:', cErr.message);
         }
       }
 
-      // 1. FAST-PATH: Upload critical entry files first (zero downtime)
-      // Upload canonical .htaccess
+      // 1. FAST-PATH: Upload canonical .htaccess
       if (fs.existsSync(htaccessDist)) {
         try {
           await client.uploadFrom(htaccessDist, '.htaccess');
-          console.log(`📄 Uploaded canonical SPA .htaccess (RewriteBase /) to ${targetDir}`);
+          console.log(`📄 Uploaded canonical SPA .htaccess to ${targetDir}`);
         } catch (htErr) {
           console.warn(`⚠️ Notice uploading .htaccess to ${targetDir}:`, htErr.message);
         }
       }
 
-      // Upload fresh index.html
+      // 2. FAST-PATH: Upload fresh index.html
       const indexHtmlDist = path.join(distDir, 'index.html');
       if (fs.existsSync(indexHtmlDist)) {
         try {
@@ -209,58 +225,101 @@ async function deploy() {
         }
       }
 
-      // Upload fresh api/index.php & api/initial_seed.json
+      // 3. FAST-PATH: Upload fresh api/
       const apiPhpDist = path.join(distDir, 'api', 'index.php');
       const apiSeedDist = path.join(distDir, 'api', 'initial_seed.json');
-      const targetApiDir = targetDir === '/' ? '/api' : `${targetDir}/api`;
       if (fs.existsSync(apiPhpDist)) {
         try {
-          await client.ensureDir(targetApiDir);
+          await client.ensureDir('api');
           await client.uploadFrom(apiPhpDist, 'index.php');
           if (fs.existsSync(apiSeedDist)) {
             await client.uploadFrom(apiSeedDist, 'initial_seed.json');
           }
           await client.cd(targetDir);
-          console.log(`🔌 Uploaded fresh api (index.php & initial_seed.json) to ${targetApiDir}`);
+          console.log(`🔌 Uploaded fresh api (index.php & initial_seed.json) to ${targetDir}/api`);
         } catch (apiErr) {
-          console.warn(`⚠️ Notice uploading api/ to ${targetApiDir}:`, apiErr.message);
+          console.warn(`⚠️ Notice uploading api/ to ${targetDir}/api:`, apiErr.message);
+          await client.cd(targetDir);
         }
       }
 
-      // 2. Upload assets directory (contains JS and CSS bundles + backward compatibility aliases)
+      // 4. Upload JS/CSS assets bundle with incremental sync & auto-cleanup
       const assetsDist = path.join(distDir, 'assets');
       if (fs.existsSync(assetsDist)) {
         console.log(`📦 Syncing fresh JS/CSS bundles to ${targetDir}/assets ...`);
-        await client.ensureDir(targetDir === '/' ? '/assets' : `${targetDir}/assets`);
-        await client.uploadFromDir(assetsDist);
         await client.cd(targetDir);
-        console.log(`✅ ${targetDir}/assets synced cleanly!`);
+        await client.ensureDir('assets');
+        await client.cd(`${targetDir}/assets`);
+
+        // List remote files in assets
+        const remoteItems = await client.list();
+        const remoteMap = new Map();
+        for (const item of remoteItems) {
+          if (item.name.startsWith('.in.')) {
+            try {
+              await client.remove(item.name);
+              console.log(`🧹 Purged stale upload temporary file: ${item.name}`);
+            } catch (_) {}
+          } else {
+            remoteMap.set(item.name, item.size);
+          }
+        }
+
+        const localFiles = fs.readdirSync(assetsDist);
+        let uploadedAssets = 0;
+        let skippedAssets = 0;
+
+        for (const file of localFiles) {
+          const localFilePath = path.join(assetsDist, file);
+          const stat = fs.statSync(localFilePath);
+          if (stat.isDirectory()) continue;
+
+          // If remote file exists with identical size, skip it
+          if (remoteMap.get(file) === stat.size) {
+            skippedAssets++;
+            continue;
+          }
+
+          let fileUploaded = false;
+          for (let attempt = 1; attempt <= 4; attempt++) {
+            try {
+              // Ensure stale temp file is removed before upload attempt
+              try { await client.remove(`.in.${file}.`); } catch (_) {}
+              await client.uploadFrom(localFilePath, file);
+              fileUploaded = true;
+              uploadedAssets++;
+              break;
+            } catch (fileErr) {
+              console.warn(`\n⚠️ Upload interrupted for ${file} (attempt ${attempt}/4): ${fileErr.message}`);
+              if (attempt >= 4) throw fileErr;
+              console.log('🔄 Reconnecting FTP client...');
+              try { client.close(); } catch (_) {}
+              client = new ftp.Client(120000);
+              client.ftp.verbose = false;
+              client.trackProgress((info) => {
+                if (info.type === 'upload') {
+                  const mb = (info.bytesOverall / (1024 * 1024)).toFixed(1);
+                  process.stdout.write(`\r📤 Transferring: ${info.name.padEnd(35).slice(0, 35)} [${mb} MB total]`);
+                }
+              });
+              await connectClient(client);
+              await client.cd(`${targetDir}/assets`);
+              try { await client.remove(`.in.${file}.`); } catch (_) {}
+            }
+          }
+        }
+        await client.cd(targetDir);
+        console.log(`\n✅ Assets sync complete: ${uploadedAssets} fresh files uploaded, ${skippedAssets} unchanged skipped.`);
       }
 
-      // 3. Sync full remaining dist directory (images, fonts, etc.)
-      console.log(`🚀 Uploading full dist/ content to ${targetDir} ...`);
-      let uploaded = false;
-      let attempts = 0;
-      while (!uploaded && attempts < 3) {
-        try {
-          attempts++;
-          await client.uploadFromDir(distDir);
-          uploaded = true;
-          console.log(`✅ Files uploaded to ${targetDir} successfully!`);
-        } catch (uploadErr) {
-          console.warn(`⚠️ Upload attempt ${attempts} to ${targetDir} interrupted: ${uploadErr.message}`);
-          if (attempts >= 3) break;
-          console.log('🔄 Reconnecting FTP client and resuming upload...');
-          client.close();
-          client = new ftp.Client(60000);
-          client.trackProgress((info) => {
-            if (info.type === 'upload') {
-              const mb = (info.bytesOverall / (1024 * 1024)).toFixed(1);
-              process.stdout.write(`\r📤 Transferring: ${info.name.padEnd(35).slice(0, 35)} [${mb} MB total]`);
-            }
-          });
-          await connectClient(client);
-          await client.cd(targetDir);
+      // 5. Upload root SEO & static files
+      const rootFilesToSync = ['robots.txt', 'sitemap.xml', 'favicon.ico', 'favicon.svg'];
+      for (const rf of rootFilesToSync) {
+        const localRf = path.join(distDir, rf);
+        if (fs.existsSync(localRf)) {
+          try {
+            await client.uploadFrom(localRf, rf);
+          } catch (_) {}
         }
       }
     }

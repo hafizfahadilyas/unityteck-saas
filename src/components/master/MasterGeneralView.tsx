@@ -996,7 +996,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
       const campSpend = matchingCamps.reduce((s, c) => s + (c.spentSar || 0), 0);
       const orderRev = matchingOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
       const share = Math.round((matchingOrders.length / totalOrdersCount) * 100);
-      const roas = campSpend > 0 ? Number((orderRev / campSpend).toFixed(1)) : matchingOrders.length > 0 ? 4.2 : 0;
+      const roas = campSpend > 0 ? Number((orderRev / campSpend).toFixed(1)) : 0;
       const conv = matchingOrders.length > 0 ? Number(Math.min(9.5, 2.1 + matchingOrders.length * 0.4).toFixed(1)) : 0;
       return {
         id: ck.id,

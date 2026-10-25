@@ -24,8 +24,8 @@ export const MasterThemes: React.FC = () => {
   const targetStore = useMemo(() => stores.find((s) => s.id === selectedStoreId) || stores[0], [stores, selectedStoreId]);
   
   const currentStoreThemes = useMemo(() => {
-    return allStoreThemes[selectedStoreId] || (targetStore ? [allStoreThemes['store-1'][0]] : []);
-  }, [allStoreThemes, selectedStoreId, targetStore]);
+    return allStoreThemes[selectedStoreId] || [];
+  }, [allStoreThemes, selectedStoreId]);
 
   const [selectedThemeId, setSelectedThemeId] = useState<string>(() => currentStoreThemes[0]?.id ?? '');
   const [selectedStyle, setSelectedStyle] = useState<string>(() => currentStoreThemes[0]?.homepageStyles[0] ?? 'Default Commerce');

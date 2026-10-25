@@ -97,16 +97,18 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
   const totalRevenue = apiData?.kpis?.total_revenue ?? storeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
   const totalOrders = apiData?.kpis?.total_orders ?? storeOrders.length;
   const aov = apiData?.kpis?.aov ?? (totalOrders > 0 ? Number((totalRevenue / totalOrders).toFixed(2)) : 0);
-  const totalVisits = Number(activeStore.visitorsCount) || (totalOrders > 0 ? totalOrders * 20 : 0);
-  const conversionRate = apiData?.kpis?.conversion_rate_numeric ?? (totalVisits > 0 ? Number(((totalOrders / totalVisits) * 100).toFixed(1)) : (totalOrders > 0 ? 3.6 : 0));
+  const totalVisits = Number(activeStore.visitorsCount) || 0;
+  const conversionRate =
+    apiData?.kpis?.conversion_rate_numeric ??
+    (totalVisits > 0 ? Number(((totalOrders / totalVisits) * 100).toFixed(1)) : 0);
   const newCustomersCount = apiData?.kpis?.new_customers ?? storeCustomers.length;
-  const netProfitEstimated = apiData?.kpis?.net_profit_estimated ?? Math.round(totalRevenue * 0.308);
+  const netProfitEstimated = apiData?.kpis?.net_profit_estimated ?? 0;
 
-  const prevRevenue = apiData?.kpis?.prev_revenue ?? (totalRevenue > 0 ? Math.round(totalRevenue * 0.88) : 0);
-  const prevOrders = apiData?.kpis?.prev_orders ?? (totalOrders > 0 ? Math.round(totalOrders * 0.92) : 0);
-  const prevAov = apiData?.kpis?.prev_aov ?? (aov > 0 ? Number((aov * 0.87).toFixed(2)) : 0);
-  const prevCustomers = apiData?.kpis?.prev_customers ?? (newCustomersCount > 0 ? Math.round(newCustomersCount * 0.82) : 0);
-  const prevProfit = Math.round(prevRevenue * 0.29);
+  const prevRevenue = apiData?.kpis?.prev_revenue ?? 0;
+  const prevOrders = apiData?.kpis?.prev_orders ?? 0;
+  const prevAov = apiData?.kpis?.prev_aov ?? 0;
+  const prevCustomers = apiData?.kpis?.prev_customers ?? 0;
+  const prevProfit = apiData?.kpis?.prev_profit ?? 0;
 
   // Time-series Trend Data for Dual Chart
   const trendPoints = useMemo(() => {
@@ -370,7 +372,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
               {money(totalRevenue)}
             </div>
             <div className="mt-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 flex-wrap">
-              <span>{totalRevenue > 0 ? '↑ 12.8%' : '0%'}</span>
+              <span>0%</span>
               <span className="text-slate-400 dark:text-slate-500 font-normal">
                 {isAr ? 'مقارنة بـ' : 'vs'} {money(prevRevenue)}
               </span>

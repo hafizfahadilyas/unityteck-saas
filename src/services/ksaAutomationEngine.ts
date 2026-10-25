@@ -581,59 +581,11 @@ export function getStoreSeoDeepAudit(
   } catch {
     // fallback
   }
-  const baseUrl = `https://${storeSlug || 'store'}.saudi-stores.com`;
-  return [
-    {
-      id: 'audit-broken-1',
-      type: 'broken_link',
-      urlOrTarget: `${baseUrl}/old-promo-banner`,
-      issueEn: '404 Broken Internal Link detected in legacy promo route',
-      issueAr: 'تم رصد رابط داخلي معطل (404) في مسار العروض القديم',
-      fixActionEn: 'Auto-apply 301 Permanent Redirect to active /catalog',
-      fixActionAr: 'تطبيق تحويل دائم 301 تلقائياً إلى صفحة الكتالوج النشطة',
-      status: 'warning',
-    },
-    {
-      id: 'audit-heading-1',
-      type: 'heading_h1_h2',
-      urlOrTarget: `${baseUrl}/`,
-      issueEn: `Homepage & Category H1/H2 hierarchy check for "${storeName}"`,
-      issueAr: `فحص ترويسات H1 و H2 للصفحة الرئيسية والأقسام لمتجر "${storeName}"`,
-      fixActionEn: 'Enforce single semantic H1 & localized H2 product headings',
-      fixActionAr: 'توحيد ترويسة H1 الدلالية وضبط عناوين H2 الفرعية للمنتجات',
-      status: 'warning',
-    },
-    {
-      id: 'audit-alt-1',
-      type: 'missing_alt',
-      urlOrTarget: `${productsCount} Catalog Images`,
-      issueEn: 'Ensure all product & media images contain bilingual KSA SEO alt tags',
-      issueAr: 'التأكد من احتواء جميع صور المنتجات والوسائط على نص بديل (Alt) ثنائي اللغة',
-      fixActionEn: 'Auto-inject dynamic store & product name into image alt attributes',
-      fixActionAr: 'حقن اسم المتجر والمنتج تلقائياً في وسم Alt لكافة الصور',
-      status: 'warning',
-    },
-    {
-      id: 'audit-backlink-1',
-      type: 'backlink',
-      urlOrTarget: `saudi-directories.sa -> ${baseUrl}`,
-      issueEn: 'Canonical & Referral Backlink equity verification',
-      issueAr: 'التحقق من الروابط الخلفية (Backlinks) ووسم Canonical الأساسي',
-      fixActionEn: 'Lock self-referencing canonical tags & verify referral attribution',
-      fixActionAr: 'تثبيت وسم Canonical الأساسي وتوثيق الروابط المرجعية',
-      status: 'healthy',
-    },
-    {
-      id: 'audit-sitemap-1',
-      type: 'sitemap_index',
-      urlOrTarget: `${baseUrl}/sitemap.xml`,
-      issueEn: 'Automated Google Indexing API Queue (5-Min Anti-Block Timer)',
-      issueAr: 'طابور فهرسة Google التلقائي (مؤقت حماية 5 دقائق لمنع الحظر)',
-      fixActionEn: 'Sync sitemap.xml & enable 5-minute safe indexing ping timer',
-      fixActionAr: 'مزامنة خريطة الموقع وتفعيل مؤقت الفهرسة الآمن كل 5 دقائق',
-      status: 'healthy',
-    },
-  ];
+  // Zero-mock: no fabricated audit rows — empty until a real crawl/API exists
+  void storeName;
+  void storeSlug;
+  void productsCount;
+  return [];
 }
 
 export function saveStoreSeoDeepAudit(storeId: string, items: SeoDeepAuditItem[]): void {

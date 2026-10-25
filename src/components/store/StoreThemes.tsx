@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { readAllThemeSettings, writeAllThemeSettings } from '../../themes/settings/themeSettingsStore';
 import { planHasFullThemes, planInfoForStore } from '../../auth/plans';
-import { DEFAULT_COMMERCE_THEME_ID, defaultThemeSettings } from '../../auth/defaultTheme';
+import { DEFAULT_COMMERCE_THEME_ID, defaultThemeSettings, getDefaultStoreTheme } from '../../auth/defaultTheme';
 import { useToast } from '../common/ToastProvider';
 import { StoreIdentityForm } from './themeSettings/StoreIdentityForm';
 import { ThemeSettingsMaster } from './themeSettings/ThemeSettingsMaster';
@@ -203,7 +203,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
     }
   }, [activeStore?.id]);
 
-  const currentThemeId = storeActiveTheme[activeStore.id] || DEFAULT_COMMERCE_THEME_ID;
+  const currentThemeId = storeActiveTheme[activeStore.id] || getDefaultStoreTheme(activeStore.id);
   const currentStyle = storeActiveHomepage[activeStore.id] || pack.homepage_style;
 
   const isCarStore =

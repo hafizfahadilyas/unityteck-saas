@@ -149,21 +149,21 @@ export const ShippingZonesRatesView: React.FC = () => {
       const avgRate =
         matchingZones.length > 0
           ? matchingZones.reduce((sum, z) => sum + z.rate, 0) / matchingZones.length
-          : def.defaultBaseRate;
+          : 0;
       const ratePerKg =
-        matchingZones.length > 0 ? (matchingZones[0].ratePerKg ?? def.defaultRatePerKg) : def.defaultRatePerKg;
+        matchingZones.length > 0 ? (matchingZones[0].ratePerKg ?? 0) : 0;
 
       return {
         id: def.id,
         nameEn: def.nameEn,
         nameAr: def.nameAr,
-        cities: cities.length > 0 ? cities : def.sampleCities.slice(0, 3),
-        cityCount: matchingZones.length > 0 ? matchingZones.length : (currentShipping.length > 0 ? 0 : def.sampleCities.length),
+        cities,
+        cityCount: matchingZones.length,
         baseRate: Math.round(avgRate * 100) / 100,
         baseWeightKg: 1,
         additionalRate: ratePerKg,
         additionalWeightKg: 1,
-        isActive: matchingZones.length > 0 ? matchingZones.some((z) => z.status === 'active') : true,
+        isActive: matchingZones.some((z) => z.status === 'active'),
         color: def.color,
       };
     });
@@ -176,7 +176,7 @@ export const ShippingZonesRatesView: React.FC = () => {
   }, [regions, selectedZoneId]);
 
   // Real Summary Metrics
-  const totalZonesCount = currentShipping.length > 0 ? currentShipping.length : regions.length;
+  const totalZonesCount = currentShipping.length;
   const totalCitiesCovered = useMemo(() => {
     if (currentShipping.length > 0) {
       return new Set(currentShipping.map((z) => z.cityName.toLowerCase())).size;

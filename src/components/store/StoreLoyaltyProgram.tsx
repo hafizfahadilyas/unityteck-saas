@@ -178,7 +178,7 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
       // Clean fallback using real tenant context customers and orders
       const storeCustomers = (allStoreCustomers && allStoreCustomers[activeStore.id]) || [];
       const storeOrders = currentOrders.filter((o) => (o.storeId || (o as any).store_id) === activeStore.id);
-      const pointsIssued = storeOrders.length * 15;
+      const pointsIssued = 0;
 
       setSummary({
         contributionToSales: storeOrders.length > 0 ? '18%' : '0%',
@@ -186,10 +186,10 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
         totalRedeemed: 0,
         pointsIssued: pointsIssued,
         registeredCustomers: storeCustomers.length,
-        salesGrowth: storeOrders.length > 0 ? '↑ 6% vs prev' : '0%',
-        ordersGrowth: storeOrders.length > 0 ? '↑ 15% vs prev' : '0%',
+        salesGrowth: '0%',
+        ordersGrowth: '0%',
         redeemedGrowth: '0%',
-        pointsGrowth: pointsIssued > 0 ? '↑ 18% vs prev' : '0%',
+        pointsGrowth: '0%',
         customersStatus: storeCustomers.length > 0 ? 'Active' : 'Inactive',
       });
       setRewards([]);
