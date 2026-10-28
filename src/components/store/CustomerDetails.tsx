@@ -5,7 +5,6 @@ import { Customer, Order } from '../../types';
 import {
   ArrowLeft,
   ArrowRight,
-  MessageCircle,
   Mail,
   Phone,
   Sparkles,
@@ -35,10 +34,13 @@ import {
   Camera,
   Upload,
   Image as ImageIcon,
+  Megaphone,
+  Smartphone,
 } from 'lucide-react';
 import { CustomerAvatarUploadModal } from './CustomerAvatarUploadModal';
 import { getArabCustomerAvatar, getCustomerSeoAlt } from '../../utils/customerAvatars';
 import { handleImageError } from '../../utils/imageFallback';
+import { WhatsAppBrandIcon } from '../common/BrandIcons';
 
 interface CustomerDetailsProps {
   customer: Customer;
@@ -83,11 +85,11 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   );
   const [email, setEmail] = useState(customer.email || '');
   const [phone, setPhone] = useState(customer.phone?.replace(/^\+966\s?/, '') || '');
-  const [gender, setGender] = useState(customer.gender || 'Male');
-  const [country, setCountry] = useState(customer.country || 'Saudi Arabia');
-  const [city, setCity] = useState(customer.city || 'Jazan');
-  const [state, setState] = useState(customer.state || 'Jazan');
-  const [dob, setDob] = useState(customer.dob || '2005/07/31');
+  const [gender, setGender] = useState(customer.gender || '');
+  const [country, setCountry] = useState(customer.country || '');
+  const [city, setCity] = useState(customer.city || '');
+  const [state, setState] = useState(customer.state || '');
+  const [dob, setDob] = useState(customer.dob || '');
   const [isSavingInfo, setIsSavingInfo] = useState(false);
   const [infoSaveSuccess, setInfoSaveSuccess] = useState(false);
 
@@ -97,10 +99,8 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [whatsappMessages, setWhatsappMessages] = useState(customer.whatsappMessages ?? true);
   const [smsNotifications, setSmsNotifications] = useState(customer.smsNotifications ?? false);
 
-  // Tags State
-  const [tags, setTags] = useState<string[]>(
-    customer.tags || ['Flower Lover', 'Regular Customer', 'Interested in Offers']
-  );
+  // Tags State — only real tags from customer record (no English dummy defaults)
+  const [tags, setTags] = useState<string[]>(Array.isArray(customer.tags) ? customer.tags : []);
   const [newTagInput, setNewTagInput] = useState('');
   const [showAddTagInput, setShowAddTagInput] = useState(false);
 
@@ -228,20 +228,55 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     }, 900);
   };
 
-  const cleanPhoneForWa = customer.phone?.replace(/[^0-9]/g, '') || '966508146695';
-  const loyaltyPointsCount = customer.loyaltyPoints ?? 240;
-  const cashbackAmount = customer.cashbackBalance ?? 18.0;
-  const availableCouponsCount = customer.availableCoupons ?? Math.max(storeCoupons.length, 3);
-  const expiringSoonCount = customer.expiringSoonCount ?? 1;
+  const cleanPhoneForWa = (customer.phone || '').replace(/[^0-9]/g, '');
+  const hasPhone = cleanPhoneForWa.length >= 9;
+  const hasEmail = Boolean(customer.email && customer.email.trim());
 
-  const aiInsightsList = customer.aiInsights && customer.aiInsights.length > 0
-    ? customer.aiInsights
-    : [
-        isAr ? 'احتمالية عالية لإعادة الشراء' : 'High chance to purchase again',
-        isAr ? 'مهتم بالعروض والمنتجات المميزة' : 'Interested in premium catalog & offers',
-        isAr ? 'يفضل الخصومات والتوصيل السريع' : 'Prefers discounts and fast delivery',
-        isAr ? 'نشط عبر واتساب' : 'Active on WhatsApp',
-      ];
+  const loyaltyPointsCount = customer.loyaltyPoints ?? 0;
+  const cashbackAmount = customer.cashbackBalance ?? 0;
+  const availableCouponsCount = customer.availableCoupons ?? storeCoupons.length;
+  const expiringSoonCount = customer.expiringSoonCount ?? 0;
+
+  const localizePlace = (value?: string) => {
+    if (!value || !value.trim()) return isAr ? 'غير محدد' : 'Not set';
+    const v = value.trim();
+    if (/saudi\s*arabia/i.test(v) || v === 'KSA' || v === 'SA') {
+      return isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia';
+    }
+    if (/^jazan$/i.test(v) || v === 'جازان') return isAr ? 'جازان' : 'Jazan';
+    if (/^riyadh$/i.test(v) || v === 'الرياض') return isAr ? 'الرياض' : 'Riyadh';
+    if (/^jeddah$/i.test(v) || v === 'جدة') return isAr ? 'جدة' : 'Jeddah';
+    if (/^makkah|mecca$/i.test(v) || v === 'مكة') return isAr ? 'مكة المكرمة' : 'Makkah';
+    if (/^madinah|medina$/i.test(v) || v === 'المدينة') return isAr ? 'المدينة المنورة' : 'Madinah';
+    return v;
+  };
+
+  const languageLabel = (() => {
+    const lang = (customer.language || '').trim();
+    if (!lang) return isAr ? 'غير محدد' : 'Not set';
+    if (/^ar|arabic|عربي/i.test(lang)) return isAr ? 'العربية' : 'Arabic';
+    if (/^en|english|إنجليزي/i.test(lang)) return isAr ? 'الإنجليزية' : 'English';
+    return lang;
+  })();
+
+  const aiInsightsList =
+    customer.aiInsights && customer.aiInsights.length > 0
+      ? customer.aiInsights
+      : [
+          isAr
+            ? `طلبات مكتملة: ${customerOrders.filter((o) => ['delivered', 'completed'].includes(String(o.status).toLowerCase())).length}`
+            : `Completed orders: ${customerOrders.filter((o) => ['delivered', 'completed'].includes(String(o.status).toLowerCase())).length}`,
+          isAr
+            ? `إجمالي الإنفاق: ${money(customer.totalSpending || 0)}`
+            : `Lifetime spent: ${money(customer.totalSpending || 0)}`,
+          hasPhone
+            ? isAr
+              ? 'رقم واتساب متوفر للتواصل'
+              : 'WhatsApp number available'
+            : isAr
+              ? 'لا يوجد رقم هاتف مسجّل'
+              : 'No phone on file',
+        ];
 
   return (
     <div className="space-y-5 p-4 sm:p-6 lg:p-8 bg-slate-50/50 dark:bg-slate-950/40 min-h-screen">
@@ -287,34 +322,37 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
         {/* Action Buttons Row */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* WhatsApp Action */}
-          <a
-            href={`https://wa.me/${cleanPhoneForWa}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 shadow-sm transition-all"
-          >
-            <MessageCircle className="w-4 h-4 text-emerald-500" />
-            <span>{isAr ? 'مراسلة عبر واتساب' : 'Send via WhatsApp'}</span>
-          </a>
+          {hasPhone && (
+            <a
+              href={`https://wa.me/${cleanPhoneForWa}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 shadow-sm transition-all"
+            >
+              <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
+              <span>{isAr ? 'مراسلة عبر واتساب' : 'Send via WhatsApp'}</span>
+            </a>
+          )}
 
-          {/* Email Action */}
-          <a
-            href={`mailto:${customer.email}`}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-sm transition-all"
-          >
-            <Mail className="w-4 h-4 text-teal-600" />
-            <span>{isAr ? 'إرسال بريد إلكتروني' : 'Send Email'}</span>
-          </a>
+          {hasEmail && (
+            <a
+              href={`mailto:${customer.email}`}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-sm transition-all"
+            >
+              <Mail className="w-4 h-4 text-teal-600" />
+              <span>{isAr ? 'إرسال بريد إلكتروني' : 'Send Email'}</span>
+            </a>
+          )}
 
-          {/* Call Action */}
-          <a
-            href={`tel:${customer.phone}`}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 shadow-sm transition-all"
-          >
-            <Phone className="w-4 h-4 text-slate-500" />
-            <span>{isAr ? 'اتصال بالعميل' : 'Call Customer'}</span>
-          </a>
+          {hasPhone && (
+            <a
+              href={`tel:${customer.phone}`}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 shadow-sm transition-all"
+            >
+              <Phone className="w-4 h-4 text-slate-500" />
+              <span>{isAr ? 'اتصال بالعميل' : 'Call Customer'}</span>
+            </a>
+          )}
 
           {/* Chat with AI */}
           <button
@@ -393,74 +431,94 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     </span>
                   </div>
 
-                  {/* Location & Language */}
+                  {/* Location & Language — locale-consistent, no EN/AR mix */}
                   <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                     <div className="flex items-center gap-1.5">
                       <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{isAr ? 'المملكة العربية السعودية' : (customer.country || 'Saudi Arabia')}, {customer.city || (isAr ? 'جازان' : 'Jazan')}</span>
+                      <span>
+                        {localizePlace(customer.country)}
+                        {customer.city ? `, ${localizePlace(customer.city)}` : ''}
+                      </span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Globe className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{isAr ? 'العربية' : (customer.language || 'Arabic')}</span>
+                      <span>{languageLabel}</span>
                     </div>
                   </div>
 
-                  {/* Member Since */}
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    <span>
-                      {isAr
-                        ? `عضو منذ ${customer.registeredDate || '23 يوليو 2026'}`
-                        : `Member since ${customer.registeredDate || 'Jul 23, 2026'}`}
-                    </span>
-                  </div>
+                  {/* Member Since — only real registered date */}
+                  {customer.registeredDate ? (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      <span>
+                        {isAr
+                          ? `عضو منذ ${customer.registeredDate}`
+                          : `Member since ${customer.registeredDate}`}
+                      </span>
+                    </div>
+                  ) : null}
 
                   {/* Contact Badges Row */}
                   <div className="flex flex-wrap items-center gap-2 pt-2">
-                    {/* Phone pill */}
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
-                      <Phone className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{customer.phone || '+966508146695'}</span>
-                      <button
-                        onClick={() => handleCopy(customer.phone || '+966508146695', 'phone')}
-                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-1 transition-colors cursor-pointer"
-                        title={isAr ? 'نسخ رقم الهاتف' : 'Copy phone'}
-                      >
-                        {copiedField === 'phone' ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-500" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
+                    {hasPhone ? (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
+                        <Phone className="w-3.5 h-3.5 text-slate-400" />
+                        <span dir="ltr">{customer.phone}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(customer.phone!, 'phone')}
+                          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ms-1 transition-colors cursor-pointer"
+                          title={isAr ? 'نسخ رقم الهاتف' : 'Copy phone'}
+                        >
+                          {copiedField === 'phone' ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-slate-400">
+                        {isAr ? 'لا يوجد رقم هاتف' : 'No phone on file'}
+                      </span>
+                    )}
 
-                    {/* WhatsApp Quick Icon */}
-                    <a
-                      href={`https://wa.me/${cleanPhoneForWa}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center hover:bg-emerald-100 transition-colors"
-                      title={isAr ? 'فتح محادثة واتساب' : 'Open WhatsApp chat'}
-                    >
-                      <MessageCircle className="w-3.5 h-3.5" />
-                    </a>
-
-                    {/* Email pill */}
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
-                      <Mail className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="truncate max-w-[170px]">{customer.email || 'naser@example.com'}</span>
-                      <button
-                        onClick={() => handleCopy(customer.email || 'naser@example.com', 'email')}
-                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-1 transition-colors cursor-pointer"
-                        title={isAr ? 'نسخ البريد الإلكتروني' : 'Copy email'}
+                    {hasPhone && (
+                      <a
+                        href={`https://wa.me/${cleanPhoneForWa}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-7 h-7 rounded-lg bg-[#25D366]/15 text-[#25D366] border border-[#25D366]/30 flex items-center justify-center hover:bg-[#25D366]/25 transition-colors"
+                        title={isAr ? 'فتح محادثة واتساب' : 'Open WhatsApp chat'}
                       >
-                        {copiedField === 'email' ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-500" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
+                        <WhatsAppBrandIcon className="w-3.5 h-3.5" title="WhatsApp" />
+                      </a>
+                    )}
+
+                    {hasEmail ? (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
+                        <Mail className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="truncate max-w-[170px]" dir="ltr">
+                          {customer.email}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(customer.email!, 'email')}
+                          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ms-1 transition-colors cursor-pointer"
+                          title={isAr ? 'نسخ البريد الإلكتروني' : 'Copy email'}
+                        >
+                          {copiedField === 'email' ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-slate-400">
+                        {isAr ? 'لا يوجد بريد إلكتروني' : 'No email on file'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1091,14 +1149,17 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     onChange={(e) => setPhone(e.target.value)}
                     className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20 font-mono"
                   />
-                  <a
-                    href={`https://wa.me/${cleanPhoneForWa}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition-colors"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" />
-                  </a>
+                  {hasPhone && (
+                    <a
+                      href={`https://wa.me/${cleanPhoneForWa}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-xl bg-[#25D366]/15 text-[#25D366] border border-[#25D366]/30 hover:bg-[#25D366]/25 transition-colors"
+                      title={isAr ? 'واتساب' : 'WhatsApp'}
+                    >
+                      <WhatsAppBrandIcon className="w-3.5 h-3.5" title="WhatsApp" />
+                    </a>
+                  )}
                 </div>
               </div>
 
@@ -1223,7 +1284,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center">
-                  <MessageCircle className="w-4 h-4" />
+                  <Megaphone className="w-4 h-4" />
                 </div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                   {isAr ? 'التسويق والتواصل' : 'Marketing & Communication'}
@@ -1270,7 +1331,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               {/* WhatsApp Messages */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <MessageCircle className="w-4 h-4 text-emerald-500" />
+                  <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
                   <span className="font-medium text-slate-700 dark:text-slate-300">
                     {isAr ? 'استلام رسائل واتساب' : 'Receive WhatsApp messages'}
                   </span>
@@ -1294,7 +1355,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               {/* SMS Notifications */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <MessageCircle className="w-4 h-4 text-slate-400" />
+                  <Smartphone className="w-4 h-4 text-slate-400" />
                   <span className="font-medium text-slate-700 dark:text-slate-300">
                     {isAr ? 'استلام إشعارات SMS' : 'Receive SMS notifications'}
                   </span>
@@ -1337,14 +1398,23 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               </button>
             </div>
 
-            {/* Tag Chips */}
+            {/* Tag Chips — localized labels, no EN/AR mix */}
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              {tags.map((tg) => (
+              {tags.map((tg) => {
+                const tagLabelMap: Record<string, { en: string; ar: string }> = {
+                  flower_lover: { en: 'Flower lover', ar: 'محب للزهور' },
+                  regular_customer: { en: 'Regular customer', ar: 'عميل منتظم' },
+                  offers: { en: 'Interested in offers', ar: 'مهتم بالعروض' },
+                  vip: { en: 'VIP', ar: 'عميل مميز' },
+                };
+                const mapped = tagLabelMap[tg];
+                const label = mapped ? (isAr ? mapped.ar : mapped.en) : tg;
+                return (
                 <span
                   key={tg}
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-teal-50/70 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800 text-xs font-medium"
                 >
-                  <span>{tg}</span>
+                  <span>{label}</span>
                   <button
                     onClick={() => handleRemoveTag(tg)}
                     className="text-teal-500 hover:text-teal-700 dark:hover:text-teal-100 transition-colors cursor-pointer"
@@ -1352,7 +1422,8 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     <X className="w-3 h-3" />
                   </button>
                 </span>
-              ))}
+              );
+              })}
 
               {/* Inline Add Tag Input */}
               {showAddTagInput ? (

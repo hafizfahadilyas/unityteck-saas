@@ -136,7 +136,11 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
         'role.can:coupons.write',
         'plan.feature:coupons',
         'subscription.writable',
-    ])->patch('/coupons/{id}', [CouponController::class, 'update']);
+    ])->group(function () {
+        Route::post('/coupons', [CouponController::class, 'store']);
+        Route::patch('/coupons/{id}', [CouponController::class, 'update']);
+        Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
+    });
 
     Route::middleware(['role.can:shipping.read', 'plan.feature:shipping'])->get('/shipping', [ShippingController::class, 'index']);
     Route::middleware([
@@ -262,6 +266,9 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     // Saudi WhatsApp & SMS Transactional Notifications (Phase 6.4)
     Route::get('/notifications/settings', [NotificationSettingsController::class, 'getSettings']);
     Route::put('/notifications/settings', [NotificationSettingsController::class, 'updateSettings']);
+    Route::post('/notifications/test', [NotificationSettingsController::class, 'sendTestNotification']);
+    Route::get('/notifications/deliveries', [NotificationSettingsController::class, 'listDeliveries']);
+    Route::post('/notifications/deliveries/mark-read', [NotificationSettingsController::class, 'markDeliveriesRead']);
 });
 
 // Store-scoped WhatsApp Store Management & Messaging Center (Strict X-Store-Id isolation)

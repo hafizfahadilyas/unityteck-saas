@@ -11,7 +11,6 @@ import {
   Globe,
   Share2,
   Ghost,
-  MessageCircle,
   Facebook,
   Mail,
   Music2,
@@ -23,6 +22,12 @@ import {
   Layers,
 } from 'lucide-react';
 import { usePrefs } from '../../../i18n/PrefsContext';
+import { WhatsAppBrandIcon } from '../../common/BrandIcons';
+import {
+  localizeOrderStatus,
+  localizePaymentMethod,
+  localizeSalesChannel,
+} from '../../../utils/domainLabels';
 
 export interface StatusItem {
   id: string;
@@ -313,7 +318,7 @@ export const SALES_CHANNEL_ITEMS: ChannelItem[] = [
     labelAr: 'واتساب',
     icon: (
       <span className="w-5 h-5 rounded-full bg-[#25D366] flex items-center justify-center text-white shrink-0 shadow-2xs">
-        <MessageCircle className="w-3 h-3 text-white" />
+        <WhatsAppBrandIcon className="w-3 h-3 text-white" title="WhatsApp" />
       </span>
     ),
   },
@@ -385,8 +390,30 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
   hasActiveFilters,
   className = '',
 }) => {
-  const { locale } = usePrefs();
+  const { locale, t } = usePrefs();
   const isAr = locale === 'ar';
+
+  const statusLabel = (item: StatusItem) =>
+    item.id === 'all' ? t('allStatuses') : localizeOrderStatus(item.id, locale) || (isAr ? item.labelAr : item.labelEn);
+
+  const paymentLabel = (item: PaymentItem) => {
+    const localized = localizePaymentMethod(item.labelEn || item.id, locale);
+    if (isAr && (localized === item.labelEn || localized === item.id)) return item.labelAr;
+    return localized || (isAr ? item.labelAr : item.labelEn);
+  };
+
+  const channelLabel = (item: ChannelItem) => {
+    const probe = item.labelEn || item.id;
+    const localized = localizeSalesChannel(probe, locale);
+    const generic = isAr ? 'المتجر الإلكتروني' : 'Online Store';
+    if (!localized || localized === generic) {
+      if (/direct|store|online|storefront|متجر/i.test(probe)) {
+        return localized || (isAr ? item.labelAr : item.labelEn);
+      }
+      return isAr ? item.labelAr : item.labelEn;
+    }
+    return localized;
+  };
 
   const [isOpen, setIsOpen] = useState(false);
   const [activeSubMenu, setActiveSubMenu] = useState<'status' | 'payment' | 'channel' | null>(null);
@@ -429,7 +456,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
         }`}
       >
         <Filter className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-        <span>{isAr ? 'تصفية' : 'Filter'}</span>
+        <span>{t('filters')}</span>
         {hasActiveFilters && (
           <span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />
         )}
@@ -448,7 +475,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between pb-2.5 border-b" style={{ borderColor: 'var(--border)' }}>
             <span className="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white">
-              {isAr ? 'تصفية الطلبات' : 'Filter Orders'}
+              {t('filterOrders')}
             </span>
             {hasActiveFilters && (
               <button
@@ -460,7 +487,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
                 className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
               >
                 <RotateCcw className="w-3 h-3" />
-                <span>{isAr ? 'إعادة ضبط' : 'Reset'}</span>
+                <span>{t('resetLabel')}</span>
               </button>
             )}
           </div>
@@ -468,7 +495,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
           {/* 1. Status Dropdown */}
           <div className="relative">
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1.5">
-              {isAr ? 'الحالة' : 'Status'}
+              {t('statusCol')}
             </label>
             <button
               type="button"
@@ -483,7 +510,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
               <div className="flex items-center gap-2 truncate">
                 {selectedStatusItem?.icon()}
                 <span className="truncate font-semibold">
-                  {isAr ? selectedStatusItem?.labelAr : selectedStatusItem?.labelEn}
+                  {selectedStatusItem ? statusLabel(selectedStatusItem) : t('allStatuses')}
                 </span>
               </div>
               <ChevronDown
@@ -519,7 +546,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
                     >
                       <div className="flex items-center gap-2 truncate">
                         {item.icon(isSelected ? 'w-3.5 h-3.5 text-white' : undefined)}
-                        <span className="truncate">{isAr ? item.labelAr : item.labelEn}</span>
+                        <span className="truncate">{statusLabel(item)}</span>
                       </div>
                       {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
                     </button>
@@ -532,7 +559,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
           {/* 2. Payment Method Dropdown */}
           <div className="relative">
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1.5">
-              {isAr ? 'طريقة الدفع' : 'Payment Method'}
+              {t('paymentMethod')}
             </label>
             <button
               type="button"
@@ -552,8 +579,8 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
                 )}
                 <span className="truncate font-semibold">
                   {paymentFilter === 'all'
-                    ? (isAr ? 'كافة طرق الدفع' : 'All Payment Methods')
-                    : (isAr ? selectedPaymentItem?.labelAr : selectedPaymentItem?.labelEn)}
+                    ? t('allPaymentMethods')
+                    : (selectedPaymentItem ? paymentLabel(selectedPaymentItem) : t('allPaymentMethods'))}
                 </span>
               </div>
               <ChevronDown
@@ -586,7 +613,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
                 >
                   <div className="flex items-center gap-2">
                     <CreditCard className={`w-3.5 h-3.5 shrink-0 ${paymentFilter === 'all' ? 'text-white' : 'text-slate-400'}`} />
-                    <span>{isAr ? 'كافة طرق الدفع' : 'All Payment Methods'}</span>
+                    <span>{t('allPaymentMethods')}</span>
                   </div>
                   {paymentFilter === 'all' && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
                 </button>
@@ -616,7 +643,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
                           >
                             <div className="flex items-center gap-2 truncate">
                               <span className="shrink-0">{method.badge(isAr)}</span>
-                              <span className="truncate">{isAr ? method.labelAr : method.labelEn}</span>
+                              <span className="truncate">{paymentLabel(method)}</span>
                             </div>
                             {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
                           </button>
@@ -632,7 +659,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
           {/* 3. Sales Channel Dropdown (100% Match to PDF Page 2 & 3) */}
           <div className="relative">
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1.5">
-              {isAr ? 'قناة البيع' : 'Sales Channel'}
+              {t('salesChannel')}
             </label>
             <button
               type="button"
@@ -652,8 +679,8 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
                 )}
                 <span className="truncate font-semibold">
                   {channelFilter === 'all'
-                    ? (isAr ? 'كافة القنوات' : 'All Channels')
-                    : (isAr ? selectedChannelItem?.labelAr : selectedChannelItem?.labelEn)}
+                    ? t('allChannels')
+                    : (selectedChannelItem ? channelLabel(selectedChannelItem) : t('allChannels'))}
                 </span>
               </div>
               <ChevronDown
@@ -686,7 +713,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
                 >
                   <div className="flex items-center gap-2">
                     <Layers className={`w-3.5 h-3.5 shrink-0 ${channelFilter === 'all' ? 'text-white' : 'text-slate-400'}`} />
-                    <span>{isAr ? 'كافة القنوات' : 'All Channels'}</span>
+                    <span>{t('allChannels')}</span>
                   </div>
                   {channelFilter === 'all' && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
                 </button>
@@ -709,7 +736,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
                     >
                       <div className="flex items-center gap-2 truncate">
                         {item.icon}
-                        <span className="truncate">{isAr ? item.labelAr : item.labelEn}</span>
+                        <span className="truncate">{channelLabel(item)}</span>
                       </div>
                       {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
                     </button>

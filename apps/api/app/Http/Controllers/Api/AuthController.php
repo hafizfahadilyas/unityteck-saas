@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -71,14 +72,13 @@ class AuthController extends Controller
         $input = strtolower(trim($data['email']));
 
         $aliasMap = [
-            'admin@giftshop-sa.com' => 'giftshop2030m@gmail.com',
-            'makkah' => 'giftshop2030m@gmail.com',
-            'ward' => 'giftshop2030m@gmail.com',
-            'flowers' => 'giftshop2030m@gmail.com',
-            'gifts' => 'giftshop2030m@gmail.com',
-            'giftshop' => 'giftshop2030m@gmail.com',
-            'giftshop2030m@gmail.com' => 'giftshop2030m@gmail.com',
-            'tariq@wardalmakkah.sa' => 'giftshop2030m@gmail.com',
+            'admin@giftshop-sa.com' => 'tariq@wardalmakkah.sa',
+            'makkah' => 'tariq@wardalmakkah.sa',
+            'ward' => 'tariq@wardalmakkah.sa',
+            'flowers' => 'tariq@wardalmakkah.sa',
+            'gifts' => 'tariq@wardalmakkah.sa',
+            'giftshop' => 'tariq@wardalmakkah.sa',
+            'giftshop2030m@gmail.com' => 'tariq@wardalmakkah.sa',
             'admin@bleco.sa' => 'owner@tanjeedmakkah.com',
             'bleco' => 'owner@tanjeedmakkah.com',
             'car' => 'owner@tanjeedmakkah.com',
@@ -357,7 +357,7 @@ class AuthController extends Controller
         $public = [
             'ok' => true,
             'message' => 'If that email exists, a code was sent.',
-            'delivery' => 'stubbed',
+            'delivery' => 'email',
             'expires_in' => self::OTP_TTL_MINUTES * 60,
         ];
 
@@ -382,13 +382,39 @@ class AuthController extends Controller
             'expires_at' => now()->addMinutes(self::OTP_TTL_MINUTES),
         ]);
 
-        Log::info('auth.otp_stub', [
-            'email' => $email,
-            'portal' => $data['portal'],
-            'purpose' => $data['purpose'],
-        ]);
+        $subject = $data['purpose'] === 'reset'
+            ? 'UnityTeck password reset code'
+            : 'UnityTeck login verification code';
+        $html = '<p>Your verification code is <strong style="font-size:20px;letter-spacing:3px">'
+            . e($code)
+            . '</strong>.</p><p>This code expires in '
+            . self::OTP_TTL_MINUTES
+            . ' minutes. If you did not request it, ignore this email.</p>';
 
-        if ($this->shouldRevealStubSecrets()) {
+        $delivery = 'failed';
+        try {
+            $mailer = (string) config('mail.default', 'log');
+            Mail::mailer($mailer)->html($html, function ($message) use ($email, $subject) {
+                $message->to($email)->subject($subject);
+            });
+            $delivery = in_array($mailer, ['log', 'array'], true) ? 'logged' : 'email';
+            Log::info('auth.otp_email_sent', [
+                'email' => $email,
+                'portal' => $data['portal'],
+                'purpose' => $data['purpose'],
+                'mailer' => $mailer,
+            ]);
+        } catch (\Throwable $e) {
+            $delivery = 'failed';
+            Log::warning('auth.otp_email_failed', [
+                'email' => $email,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        $public['delivery'] = $delivery;
+
+        if ($this->shouldRevealStubSecrets() || $delivery !== 'email') {
             $public['dev_code'] = $code;
         }
 

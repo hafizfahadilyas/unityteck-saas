@@ -2,9 +2,6 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
 import {
-  Instagram,
-  Twitter,
-  MessageCircle,
   Mail,
   Heart,
   CheckCircle2,
@@ -13,6 +10,19 @@ import {
   Edit3,
 } from 'lucide-react';
 import { MECCA_WHATSAPP } from '../data/mockData';
+import {
+  InstagramBrandIcon,
+  XBrandIcon,
+  TikTokIcon,
+  WhatsAppBrandIcon,
+} from '../../../components/common/BrandIcons';
+import {
+  MadaIcon,
+  ApplePayIcon,
+  VisaIcon,
+  TabbyIcon,
+  TamaraIcon,
+} from '../../coffeeRoasters/components/PaymentIcons';
 
 export interface FooterCustomProps {
   isBuilderMode?: boolean;
@@ -135,9 +145,7 @@ export const Footer: React.FC<FooterCustomProps> = ({
               onClick={() => {
                 if (isBuilderMode) return;
                 setCurrentPage('home');
-                window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
-                document.documentElement.scrollTop = 0;
-                document.body.scrollTop = 0;
+                window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               className="cursor-pointer select-none"
             >
@@ -185,7 +193,7 @@ export const Footer: React.FC<FooterCustomProps> = ({
                 className="w-8 h-8 rounded-full bg-white/10 hover:bg-[#d4af37] text-white hover:text-[#0b241a] flex items-center justify-center transition-colors shadow-2xs"
                 aria-label="Instagram"
               >
-                <Instagram className="w-4 h-4" />
+                <InstagramBrandIcon className="w-4 h-4" />
               </a>
               <a
                 href={twitterUrl}
@@ -194,16 +202,16 @@ export const Footer: React.FC<FooterCustomProps> = ({
                 className="w-8 h-8 rounded-full bg-white/10 hover:bg-[#d4af37] text-white hover:text-[#0b241a] flex items-center justify-center transition-colors shadow-2xs"
                 aria-label="X Twitter"
               >
-                <Twitter className="w-4 h-4" />
+                <XBrandIcon className="w-4 h-4" />
               </a>
               <a
                 href={tiktokUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-[#d4af37] text-white hover:text-[#0b241a] flex items-center justify-center transition-colors shadow-2xs text-xs font-bold font-mono"
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-[#d4af37] text-white hover:text-[#0b241a] flex items-center justify-center transition-colors shadow-2xs"
                 aria-label="TikTok"
               >
-                ♪
+                <TikTokIcon className="w-4 h-4" />
               </a>
               <a
                 href={`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}`}
@@ -212,11 +220,11 @@ export const Footer: React.FC<FooterCustomProps> = ({
                 className="w-8 h-8 rounded-full bg-[#25D366]/25 hover:bg-[#25D366] text-[#25D366] hover:text-white flex items-center justify-center transition-colors shadow-2xs"
                 aria-label="WhatsApp"
               >
-                <MessageCircle className="w-4 h-4" />
+                <WhatsAppBrandIcon className="w-4 h-4" />
               </a>
             </div>
 
-            {/* Payment Method Badges */}
+            {/* Payment Method Badges — real Saudi / BNPL marks */}
             <div
               onClick={(e) => {
                 if (isBuilderMode) {
@@ -228,11 +236,11 @@ export const Footer: React.FC<FooterCustomProps> = ({
                 isBuilderMode ? 'p-1 rounded-xl hover:bg-white/10' : ''
               } ${isBuilderMode && selectedSubElement === 'payments' ? 'ring-2 ring-amber-400 bg-white/10' : ''}`}
             >
-              <span className="px-2 py-0.5 rounded bg-white text-[#0b241a] font-mono">VISA</span>
-              <span className="px-2 py-0.5 rounded bg-white text-[#0b241a] font-mono">mada</span>
-              <span className="px-2 py-0.5 rounded bg-white text-[#0b241a] font-mono">Pay</span>
-              <span className="px-2 py-0.5 rounded bg-[#2ecc71] text-white font-mono">tabby</span>
-              <span className="px-2 py-0.5 rounded bg-[#ff6b6b] text-white font-mono">tamara</span>
+              <VisaIcon className="h-6 w-auto" />
+              <MadaIcon className="h-6 w-auto" />
+              <ApplePayIcon className="h-6 w-auto" />
+              <TabbyIcon className="h-6 w-auto" />
+              <TamaraIcon className="h-6 w-auto" />
             </div>
           </div>
 
@@ -260,9 +268,7 @@ export const Footer: React.FC<FooterCustomProps> = ({
                   onClick={() => {
                     if (isBuilderMode) return;
                     setCurrentPage('home');
-                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
-                    document.documentElement.scrollTop = 0;
-                    document.body.scrollTop = 0;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className="hover:text-white transition-colors cursor-pointer"
                 >
@@ -275,9 +281,7 @@ export const Footer: React.FC<FooterCustomProps> = ({
                   onClick={() => {
                     if (isBuilderMode) return;
                     setCurrentPage('about');
-                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
-                    document.documentElement.scrollTop = 0;
-                    document.body.scrollTop = 0;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className="hover:text-white transition-colors cursor-pointer"
                 >
@@ -290,9 +294,7 @@ export const Footer: React.FC<FooterCustomProps> = ({
                   onClick={() => {
                     if (isBuilderMode) return;
                     setCurrentPage('catalog');
-                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
-                    document.documentElement.scrollTop = 0;
-                    document.body.scrollTop = 0;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className="hover:text-white transition-colors cursor-pointer"
                 >
@@ -305,9 +307,7 @@ export const Footer: React.FC<FooterCustomProps> = ({
                   onClick={() => {
                     if (isBuilderMode) return;
                     setCurrentPage('track-order');
-                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
-                    document.documentElement.scrollTop = 0;
-                    document.body.scrollTop = 0;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className="hover:text-white transition-colors cursor-pointer"
                 >
@@ -320,9 +320,7 @@ export const Footer: React.FC<FooterCustomProps> = ({
                   onClick={() => {
                     if (isBuilderMode) return;
                     setCurrentPage('contact');
-                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
-                    document.documentElement.scrollTop = 0;
-                    document.body.scrollTop = 0;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className="hover:text-white transition-colors cursor-pointer"
                 >
@@ -335,9 +333,7 @@ export const Footer: React.FC<FooterCustomProps> = ({
                   onClick={() => {
                     if (isBuilderMode) return;
                     setCurrentPage('privacy');
-                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
-                    document.documentElement.scrollTop = 0;
-                    document.body.scrollTop = 0;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className="hover:text-white transition-colors cursor-pointer"
                 >
@@ -369,9 +365,7 @@ export const Footer: React.FC<FooterCustomProps> = ({
                       if (isBuilderMode) return;
                       setSelectedCategory(cat);
                       setCurrentPage('catalog');
-                      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
-                      document.documentElement.scrollTop = 0;
-                      document.body.scrollTop = 0;
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     className="hover:text-white transition-colors cursor-pointer"
                   >

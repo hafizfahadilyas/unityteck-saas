@@ -458,8 +458,96 @@ export class NotificationEngine {
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // ZONE 2: Marketing Opportunities & Insights (Derived from Real Data)
+    // ZONE 2: Order lifecycle + Marketing (Derived from Real Data)
+    // Customer Email/WhatsApp/SMS are sent by Laravel NotificationService;
+    // merchant inbox mirrors recent ship / cancel / return activity here.
     // ─────────────────────────────────────────────────────────────────
+
+    const recentShipped = currentOrders.filter((o) =>
+      ['shipped', 'out_for_delivery'].includes(String(o.status || '').toLowerCase()),
+    );
+    if (recentShipped.length > 0) {
+      const ord = recentShipped[0];
+      items.push({
+        id: `mkt-shipped-${ord.id || ord.orderNumber}`,
+        dedup_key: `order_shipped_${ord.orderNumber || ord.id}`,
+        registryCode: 'order_shipped_merchant',
+        zone: 'zone2_marketing',
+        category: 'Orders',
+        severity: 'info',
+        status: 'unread',
+        title: `Order shipped: #${ord.orderNumber || ord.id}`,
+        titleAr: `تم شحن الطلب: #${ord.orderNumber || ord.id}`,
+        description: `Customer ${ord.customer || ord.customerName || ''} notified via Email / WhatsApp / SMS (tracking: ${ord.trackingNumber || ord.awb || 'pending'}).`,
+        descriptionAr: `تم إشعار العميل ${ord.customer || ord.customerName || ''} عبر الإيميل / واتساب / SMS (تتبع: ${ord.trackingNumber || ord.awb || 'قيد الإصدار'}).`,
+        timestamp: toSafeISO(ord.updatedAt || ord.date, nowMs - 15 * 60 * 1000),
+        read: false,
+        dismissed: false,
+        actionLabel: 'View Order',
+        actionLabelAr: 'عرض الطلب',
+        actionType: 'navigate',
+        destination: 'orders',
+        metadata: { orderNumber: ord.orderNumber || ord.id },
+      });
+    }
+
+    const recentCancelled = currentOrders.filter((o) =>
+      ['cancelled', 'canceled', 'cancellation_requested'].includes(String(o.status || '').toLowerCase()),
+    );
+    if (recentCancelled.length > 0) {
+      const ord = recentCancelled[0];
+      items.push({
+        id: `mkt-cancel-${ord.id || ord.orderNumber}`,
+        dedup_key: `order_cancelled_${ord.orderNumber || ord.id}`,
+        registryCode: 'order_cancelled_merchant',
+        zone: 'zone2_marketing',
+        category: 'Orders',
+        severity: 'warning',
+        status: 'unread',
+        title: `Order cancelled: #${ord.orderNumber || ord.id}`,
+        titleAr: `تم إلغاء الطلب: #${ord.orderNumber || ord.id}`,
+        description: `Cancellation notice queued to customer channels for #${ord.orderNumber || ord.id}.`,
+        descriptionAr: `تم جدولة إشعار الإلغاء للعميل عبر القنوات المتاحة للطلب #${ord.orderNumber || ord.id}.`,
+        timestamp: toSafeISO(ord.updatedAt || ord.date, nowMs - 25 * 60 * 1000),
+        read: false,
+        dismissed: false,
+        actionLabel: 'Review Order',
+        actionLabelAr: 'مراجعة الطلب',
+        actionType: 'navigate',
+        destination: 'orders',
+        metadata: { orderNumber: ord.orderNumber || ord.id },
+      });
+    }
+
+    const recentReturns = currentOrders.filter((o) =>
+      ['returned', 'refunded'].includes(String(o.status || '').toLowerCase()) ||
+      String(o.refundStatus || '').toLowerCase() === 'refunded',
+    );
+    if (recentReturns.length > 0) {
+      const ord = recentReturns[0];
+      items.push({
+        id: `mkt-return-${ord.id || ord.orderNumber}`,
+        dedup_key: `order_returned_${ord.orderNumber || ord.id}`,
+        registryCode: 'order_refunded_merchant',
+        zone: 'zone1_issues',
+        category: 'Orders',
+        severity: 'warning',
+        status: 'unread',
+        title: `Return / refund: #${ord.orderNumber || ord.id}`,
+        titleAr: `إرجاع / استرداد: #${ord.orderNumber || ord.id}`,
+        description: `Customer return processed (${ord.total || 0} SAR). Email / WhatsApp / SMS refund notice dispatched.`,
+        descriptionAr: `تم معالجة إرجاع العميل (${ord.total || 0} ر.س). أُرسل إشعار الاسترداد عبر الإيميل / واتساب / SMS.`,
+        timestamp: toSafeISO(ord.returnedAt || ord.updatedAt || ord.date, nowMs - 40 * 60 * 1000),
+        read: false,
+        dismissed: false,
+        actionLabel: 'View Returns',
+        actionLabelAr: 'عرض المرتجعات',
+        actionType: 'navigate',
+        destination: 'orders',
+        filterParam: 'returned',
+        metadata: { orderNumber: ord.orderNumber || ord.id },
+      });
+    }
 
     // 1. Real New/Inactive Customer Lead Opportunity
     const potentialLeads = currentCustomers.filter(

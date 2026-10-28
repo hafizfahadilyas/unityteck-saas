@@ -619,8 +619,8 @@ export const StorePromotionalOffers: React.FC<StorePromotionalOffersProps> = ({ 
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {isAr
-              ? `إدارة العروض الترويجية والخصومات الموجهة لمتجر ${activeStore.name}`
-              : `Manage promotional campaigns and targeted discounts for ${activeStore.name}`}
+              ? 'إدارة العروض الترويجية والخصومات الموجهة'
+              : 'Manage promotional campaigns and targeted discounts'}
           </p>
         </div>
 

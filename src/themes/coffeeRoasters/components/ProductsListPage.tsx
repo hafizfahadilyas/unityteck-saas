@@ -734,7 +734,7 @@ export const ProductsListPage: React.FC = () => {
                   <div
                     key={product.id}
                     data-slide-index={pIdx}
-                    className="w-[85vw] max-w-[340px] shrink-0 snap-center bg-white rounded-3xl p-4 flex flex-col justify-between items-center text-center border-0 shadow-sm relative overflow-hidden select-none"
+                    className="w-[85vw] max-w-[340px] shrink-0 snap-center bg-white rounded-3xl p-4 flex flex-col justify-between items-center text-center border border-neutral-200/80 shadow-sm relative overflow-hidden select-none"
                   >
                     {/* 1. TOP IMAGE (Angled / Tilted Top-Left matching Image 2) */}
                     <div
@@ -805,14 +805,14 @@ export const ProductsListPage: React.FC = () => {
                     </div>
 
                     {/* Bottom Quick Action: Add to Cart */}
-                    <div className="w-full pt-2 border-0 flex items-center justify-between gap-2 text-xs">
+                    <div className="w-full pt-2 border-t border-neutral-100 flex items-center justify-between gap-2 text-xs">
                       <button
                         type="button"
                         onClick={(e) => handleAddToCart(e, product)}
-                        className={`flex-1 py-1.5 px-3 rounded-full font-bold text-xs border-0 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 ${
+                        className={`flex-1 py-1.5 px-3 rounded-full font-bold text-xs border transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 ${
                           isJustAdded
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-800 border-neutral-200'
                         }`}
                       >
                         {isJustAdded ? (
@@ -887,7 +887,7 @@ export const ProductsListPage: React.FC = () => {
               return (
                 <div
                   key={product.id}
-                  className="bg-white rounded-2xl p-5 border-0 shadow-xs hover:shadow-md transition-all flex items-center justify-between gap-6 group"
+                  className="bg-white rounded-2xl p-5 border border-neutral-200/80 shadow-xs hover:shadow-md transition-all flex items-center justify-between gap-6 group"
                 >
                   {/* Left: Thumbnail & Main Info */}
                   <div className="flex items-center gap-5 flex-1 min-w-0">
@@ -957,10 +957,10 @@ export const ProductsListPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={(e) => handleAddToCart(e, product)}
-                      className={`px-5 py-2.5 font-bold text-xs rounded-full border-0 transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 ${
+                      className={`px-5 py-2.5 font-bold text-xs rounded-full border transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 ${
                         isJustAdded
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-900'
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-white hover:bg-neutral-50 text-neutral-900 border-neutral-300'
                       }`}
                     >
                       {isJustAdded ? (
@@ -1000,7 +1000,7 @@ export const ProductsListPage: React.FC = () => {
       <section className="bg-transparent pt-2 pb-10 sm:pb-14 px-4 sm:px-8">
         <div className="max-w-[1400px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-5 text-center">
           
-          <div className="space-y-1 bg-white rounded-2xl border-0 shadow-sm px-3 py-5 sm:py-6 min-w-0">
+          <div className="space-y-1 bg-white rounded-2xl border border-neutral-200/70 shadow-sm px-3 py-5 sm:py-6 min-w-0">
             <p className="text-xs sm:text-sm font-bold text-neutral-900">
               {isAr ? 'شحن سريع لجميع المدن' : 'Express KSA Delivery'}
             </p>
@@ -1009,7 +1009,7 @@ export const ProductsListPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="space-y-1 bg-white rounded-2xl border-0 shadow-sm px-3 py-5 sm:py-6 min-w-0">
+          <div className="space-y-1 bg-white rounded-2xl border border-neutral-200/70 shadow-sm px-3 py-5 sm:py-6 min-w-0">
             <p className="text-xs sm:text-sm font-bold text-neutral-900">
               {isAr ? 'ضمان رسمي سنتين' : 'Official 2-Year Warranty'}
             </p>
@@ -1018,7 +1018,7 @@ export const ProductsListPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="space-y-1 bg-white rounded-2xl border-0 shadow-sm px-3 py-5 sm:py-6 min-w-0">
+          <div className="space-y-1 bg-white rounded-2xl border border-neutral-200/70 shadow-sm px-3 py-5 sm:py-6 min-w-0">
             <p className="text-xs sm:text-sm font-bold text-neutral-900">
               {isAr ? 'طرق دفع مرنة وآمنة' : 'Flexible & Secure Payment'}
             </p>
@@ -1027,7 +1027,7 @@ export const ProductsListPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="space-y-1 bg-white rounded-2xl border-0 shadow-sm px-3 py-5 sm:py-6 min-w-0">
+          <div className="space-y-1 bg-white rounded-2xl border border-neutral-200/70 shadow-sm px-3 py-5 sm:py-6 min-w-0">
             <p className="text-xs sm:text-sm font-bold text-neutral-900">
               {isAr ? 'دعم فني واستشارات باريستا' : 'Pro Barista Consultation'}
             </p>

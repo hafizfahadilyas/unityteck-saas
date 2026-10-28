@@ -34,7 +34,6 @@ import {
   PanelLeftOpen,
   BarChart3,
   FileText,
-  MessageCircle,
   Image as ImageIcon,
   Archive,
   Bell,
@@ -46,25 +45,19 @@ import {
   X,
 } from 'lucide-react';
 import { useNotifications } from '../../notification-system';
+import { WhatsAppBrandIcon } from '../common/BrandIcons';
 
 interface StoreSidebarProps {
   currentTab: string;
   onSelectTab: (tab: string) => void;
-  mobileOpen?: boolean;
-  onCloseMobile?: () => void;
 }
 
 /**
  * S2 — Store Sidebar: same Holst density as Master (docs/21 paired).
  * Store brand label · canTab + plan · Saudi footer (S1b).
- * Supports hide/show toggle — collapses to icon-only rail on desktop and full slide-out drawer on mobile.
+ * Supports hide/show toggle — collapses to icon-only rail.
  */
-export const StoreSidebar: React.FC<StoreSidebarProps> = ({
-  currentTab,
-  onSelectTab,
-  mobileOpen = false,
-  onCloseMobile,
-}) => {
+export const StoreSidebar: React.FC<StoreSidebarProps> = ({ currentTab, onSelectTab }) => {
   const { activeStore, switchToMaster, canAccessMaster } = useTenant();
   const { t, locale } = usePrefs();
   const isAr = locale === 'ar';
@@ -90,19 +83,12 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       /* storage may be unavailable */
     }
     onSelectTab('seo');
-    if (onCloseMobile) {
-      onCloseMobile();
-    }
     window.setTimeout(() => {
       window.dispatchEvent(new CustomEvent('unityteck-seo-view', { detail: view }));
     }, 60);
   };
 
   /** Deep-link into StoreShipping internal sub-tabs */
-  const handleTabPrefetch = (_tab: string) => {
-    // Eager prefetch placeholder for smooth tab transitions
-  };
-
   const openShippingView = (view: 'shipments' | 'labels' | 'zones' | 'returns' | 'carriers' | 'methods') => {
     try {
       sessionStorage.setItem('unityteck-shipping-view', view);
@@ -110,9 +96,6 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       /* storage may be unavailable */
     }
     onSelectTab('shipping');
-    if (onCloseMobile) {
-      onCloseMobile();
-    }
     window.setTimeout(() => {
       window.dispatchEvent(new CustomEvent('unityteck-shipping-view', { detail: view }));
     }, 60);
@@ -170,7 +153,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       { id: 'reports', icon: FileText },
       { id: 'invoices', icon: ReceiptText },
       { id: 'notifications', icon: Bell, badge: unreadCounts.total },
-      { id: 'whatsapp', icon: MessageCircle },
+      { id: 'whatsapp', icon: WhatsAppBrandIcon },
       { id: 'seo', icon: Search },
       { id: 'shipping', icon: Truck },
       { id: 'payments', icon: CreditCard },
@@ -194,131 +177,101 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
   const sub = resolveSubscription(activeStore.id);
 
   return (
-    <>
-      {/* Mobile Backdrop Overlay */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 lg:hidden animate-in fade-in duration-200"
-          onClick={onCloseMobile}
-          aria-hidden="true"
-        />
-      )}
-
-      <aside
-        className={`unity-aside select-none border-e transition-[width,transform] duration-200 ${
-          mobileOpen
-            ? 'fixed inset-y-0 start-0 z-50 w-72 shadow-2xl flex flex-col'
-            : 'hidden lg:flex flex-col shrink-0'
-        }`}
-        style={{
-          width: mobileOpen ? '18rem' : collapsed ? '3.5rem' : '16rem',
-          borderColor: 'var(--portal-800)',
-          fontFamily: 'var(--font-ui)',
-          overflow: 'hidden',
-        }}
-        data-chrome="store-sidebar"
-        data-collapsed={collapsed && !mobileOpen ? 'true' : 'false'}
+    <aside
+      className="unity-aside flex flex-col shrink-0 select-none border-e transition-[width] duration-200"
+      style={{
+        width: collapsed ? '3.5rem' : '16rem',
+        borderColor: 'var(--portal-800)',
+        fontFamily: 'var(--font-ui)',
+        overflow: 'hidden',
+      }}
+      data-chrome="store-sidebar"
+      data-collapsed={collapsed ? 'true' : 'false'}
+    >
+      {/* Header with store brand + toggle */}
+      <div
+        className="h-16 px-3 flex items-center gap-2 border-b shrink-0"
+        style={{ borderColor: 'var(--portal-800)' }}
       >
-        {/* Header with store brand + toggle */}
-        <div
-          className={`h-16 flex items-center border-b shrink-0 ${
-            collapsed && !mobileOpen ? 'px-1.5 justify-center' : 'px-3 gap-2'
-          }`}
-          style={{ borderColor: 'var(--portal-800)' }}
-        >
-          {collapsed && !mobileOpen ? (
-            <button
-              type="button"
-              onClick={() => setCollapsed(false)}
-              className="unity-sidebar-toggle flex items-center justify-center p-2 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 transition-all cursor-pointer shadow-xs"
-              title={isAr ? 'توسيع الشريط الجانبي' : 'Expand sidebar'}
-              aria-label={isAr ? 'توسيع الشريط الجانبي' : 'Expand sidebar'}
-            >
-              <PanelLeftOpen className="w-5 h-5 text-emerald-400 rtl:rotate-180" aria-hidden />
-            </button>
-          ) : (
-            <>
-              <div className="unity-icon-box w-9 h-9 flex items-center justify-center shadow-md shrink-0">
-                <Store className="w-5 h-5" aria-hidden />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="font-extrabold text-[15px] text-white tracking-tight leading-tight truncate">
-                  {getStoreDisplayName(activeStore, isAr ? 'ar' : 'en')}
-                </h2>
-                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                  <span className="text-[9px] font-medium" style={{ color: 'var(--portal-400)' }}>
-                    {t('storeAdmin')}
-                  </span>
-                  <span
-                    className="text-[8px] px-1.5 py-0.5 rounded uppercase font-medium"
-                    style={{
-                      background: 'color-mix(in srgb, var(--portal-800) 80%, transparent)',
-                      color: 'var(--portal-200)',
-                    }}
-                  >
-                    {activeStore.plan === 'pro'
-                      ? t('planPro')
-                      : activeStore.plan === 'custom'
-                        ? t('planEnterprise')
-                        : activeStore.plan === 'free'
-                          ? t('planFree')
-                          : activeStore.plan}
-                  </span>
-                  <span
-                    className="text-[8px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wide"
-                    style={{
-                      background:
-                        sub.status === 'active' || sub.status === 'trial'
-                          ? 'color-mix(in srgb, #34d399 25%, transparent)'
-                          : sub.status === 'grace'
-                            ? 'color-mix(in srgb, #fbbf24 30%, transparent)'
-                            : 'color-mix(in srgb, #f87171 30%, transparent)',
-                      color:
-                        sub.status === 'active' || sub.status === 'trial'
-                          ? '#A7F3D0'
-                          : sub.status === 'grace'
-                            ? '#FDE68A'
-                            : '#FECACA',
-                    }}
-                  >
-                    {sub.status === 'active'
-                      ? t('statusActive')
-                      : sub.status === 'trial'
-                        ? t('statusTrial')
-                        : sub.status === 'grace'
-                          ? t('statusGrace')
-                          : sub.status === 'expired'
-                            ? t('statusExpired')
-                            : sub.status}
-                  </span>
-                </div>
-              </div>
-
-              {/* Toggle / Close Button */}
-              {mobileOpen ? (
-                <button
-                  type="button"
-                  onClick={onCloseMobile}
-                  className="lg:hidden p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors ms-auto cursor-pointer"
-                  title={isAr ? 'إغلاق القائمة' : 'Close Sidebar'}
-                  aria-label={isAr ? 'إغلاق القائمة' : 'Close Sidebar'}
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setCollapsed(true)}
-                  className="unity-sidebar-toggle ms-auto hidden lg:flex"
-                  aria-label={isAr ? 'طي الشريط الجانبي' : 'Collapse sidebar'}
-                  title={isAr ? 'طي الشريط الجانبي' : 'Collapse sidebar'}
-                >
-                  <PanelLeftClose className="w-4 h-4 rtl:rotate-180" aria-hidden />
-                </button>
-              )}
-            </>
-          )}
+        <div className="unity-icon-box w-9 h-9 flex items-center justify-center shadow-md shrink-0">
+          <Store className="w-5 h-5" aria-hidden />
         </div>
+        {!collapsed && (
+          <div className="min-w-0 flex-1">
+            <h2 className="font-extrabold text-[15px] text-white tracking-tight leading-tight truncate">
+              {getStoreDisplayName(activeStore, isAr ? 'ar' : 'en')}
+            </h2>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <span className="text-[9px] font-medium" style={{ color: 'var(--portal-400)' }}>
+                {t('storeAdmin')}
+              </span>
+              <span
+                className="text-[8px] px-1.5 py-0.5 rounded uppercase font-medium"
+                style={{
+                  background: 'color-mix(in srgb, var(--portal-800) 80%, transparent)',
+                  color: 'var(--portal-200)',
+                }}
+              >
+                {activeStore.plan === 'pro'
+                  ? t('planPro')
+                  : activeStore.plan === 'custom'
+                    ? t('planEnterprise')
+                    : activeStore.plan === 'free'
+                      ? t('planFree')
+                      : activeStore.plan}
+              </span>
+              <span
+                className="text-[8px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wide"
+                style={{
+                  background:
+                    sub.status === 'active' || sub.status === 'trial'
+                      ? 'color-mix(in srgb, #34d399 25%, transparent)'
+                      : sub.status === 'grace'
+                        ? 'color-mix(in srgb, #fbbf24 30%, transparent)'
+                        : 'color-mix(in srgb, #f87171 30%, transparent)',
+                  color:
+                    sub.status === 'active' || sub.status === 'trial'
+                      ? '#A7F3D0'
+                      : sub.status === 'grace'
+                        ? '#FDE68A'
+                        : '#FECACA',
+                }}
+              >
+                {sub.status === 'active'
+                  ? t('statusActive')
+                  : sub.status === 'trial'
+                    ? t('statusTrial')
+                    : sub.status === 'grace'
+                      ? t('statusGrace')
+                      : sub.status === 'expired'
+                        ? t('statusExpired')
+                        : sub.status}
+              </span>
+            </div>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          className="unity-sidebar-toggle ms-auto"
+          aria-label={
+            collapsed
+              ? isAr ? 'توسيع الشريط الجانبي' : 'Expand sidebar'
+              : isAr ? 'طي الشريط الجانبي' : 'Collapse sidebar'
+          }
+          title={
+            collapsed
+              ? isAr ? 'توسيع الشريط الجانبي' : 'Expand sidebar'
+              : isAr ? 'طي الشريط الجانبي' : 'Collapse sidebar'
+          }
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="w-4 h-4 rtl:rotate-180" aria-hidden />
+          ) : (
+            <PanelLeftClose className="w-4 h-4 rtl:rotate-180" aria-hidden />
+          )}
+        </button>
+      </div>
 
       {!collapsed && canAccessMaster && (
         <div className="px-2.5 pt-2 shrink-0">
@@ -359,13 +312,6 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
               : currentTab === item.id;
           const isSubmenuOpen = Boolean(openSubmenus[item.id]);
 
-          const handleNavClick = (tabId: string) => {
-            onSelectTab(tabId);
-            if (mobileOpen) {
-              onCloseMobile?.();
-            }
-          };
-
           return (
             <div key={item.id} className="space-y-0.5">
               <button
@@ -379,7 +325,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                       setOpenSubmenus((prev) => ({ ...prev, [item.id]: true }));
                     }
                   } else {
-                    handleNavClick(item.id);
+                    onSelectTab(item.id);
                   }
                 }}
                 aria-current={isActive ? 'page' : undefined}
@@ -432,9 +378,8 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 <div className="ps-7 pe-1 space-y-0.5 py-1">
                   <button
                     type="button"
-                    onMouseEnter={() => handleTabPrefetch('products')}
                     onClick={() => {
-                      handleNavClick('products');
+                      onSelectTab('products');
                       window.dispatchEvent(new CustomEvent('unityteck-product-view', { detail: 'list' }));
                     }}
                     className={`w-full text-start py-1.5 px-2 rounded-lg text-[11.5px] transition-colors flex items-center gap-2 cursor-pointer ${
@@ -448,7 +393,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleNavClick('media')}
+                    onClick={() => onSelectTab('media')}
                     className={`w-full text-start py-1.5 px-2 rounded-lg text-[11.5px] transition-colors flex items-center gap-2 cursor-pointer ${
                       currentTab === 'media'
                         ? 'font-bold text-white bg-white/15 shadow-xs'
@@ -460,8 +405,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                   </button>
                   <button
                     type="button"
-                    onMouseEnter={() => handleTabPrefetch('categories')}
-                    onClick={() => handleNavClick('categories')}
+                    onClick={() => onSelectTab('categories')}
                     className={`w-full text-start py-1.5 px-2 rounded-lg text-[11.5px] transition-colors flex items-center gap-2 cursor-pointer ${
                       currentTab === 'categories'
                         ? 'font-bold text-white bg-white/15 shadow-xs'
@@ -474,7 +418,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      handleNavClick('brands');
+                      onSelectTab('brands');
                       window.dispatchEvent(new CustomEvent('unityteck-product-view', { detail: 'brands' }));
                     }}
                     className={`w-full text-start py-1.5 px-2 rounded-lg text-[11.5px] transition-colors flex items-center gap-2 cursor-pointer ${
@@ -494,7 +438,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 <div className="ps-7 pe-1 space-y-0.5 py-1">
                   <button
                     type="button"
-                    onClick={() => handleNavClick('themes')}
+                    onClick={() => onSelectTab('themes')}
                     className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shrink-0" />
@@ -502,7 +446,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleNavClick('appstore')}
+                    onClick={() => onSelectTab('appstore')}
                     className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
@@ -516,7 +460,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 <div className="ps-7 pe-1 space-y-0.5 py-1">
                   <button
                     type="button"
-                    onClick={() => handleNavClick('seo')}
+                    onClick={() => onSelectTab('seo')}
                     className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
@@ -524,7 +468,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleNavClick('seo')}
+                    onClick={() => onSelectTab('seo')}
                     className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
@@ -556,7 +500,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                       <button
                         key={sub.id}
                         type="button"
-                        onClick={() => handleNavClick(sub.id)}
+                        onClick={() => onSelectTab(sub.id)}
                         className={`w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-2 cursor-pointer ${
                           isSubActive
                             ? 'text-white bg-white/20 shadow-xs font-bold'
@@ -587,7 +531,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                       key={sub.id}
                       type="button"
                       onClick={() => {
-                        handleNavClick('whatsapp');
+                        onSelectTab('whatsapp');
                         window.dispatchEvent(new CustomEvent('unityteck-whatsapp-view', { detail: sub.id }));
                       }}
                       className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
@@ -719,6 +663,5 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
         </>
       )}
     </aside>
-  </>
-);
+  );
 };

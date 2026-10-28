@@ -530,8 +530,7 @@ export const StorePayments: React.FC = () => {
             </h1>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            {isAr ? 'طرق الدفع وبوابات الدفع والعروض لمتجر ' : 'Payment methods, gateways and offers for '}
-            <strong className="text-teal-700 dark:text-teal-300">{(isAr ? activeStore.nameAr : activeStore.nameEn) || activeStore.name}</strong>
+            {isAr ? 'طرق الدفع وبوابات الدفع والعروض' : 'Payment methods, gateways and offers'}
           </p>
         </div>
 

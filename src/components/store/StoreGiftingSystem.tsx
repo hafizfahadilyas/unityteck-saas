@@ -247,8 +247,8 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
             {isAr
-              ? `إدارة شاملة لخيارات الإهداء، كروت المعايدة، باقات التغليف الفاخر وتتبع التوصيل لمتجر ${activeStore.name}`
-              : `Comprehensive gift customization, card templates, luxury packaging, and recipient fulfillment for ${activeStore.name}`}
+              ? 'إدارة شاملة لخيارات الإهداء، كروت المعايدة، باقات التغليف الفاخر وتتبع التوصيل'
+              : 'Comprehensive gift customization, card templates, luxury packaging, and recipient fulfillment'}
           </p>
         </div>
 

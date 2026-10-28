@@ -6,7 +6,7 @@ import { useToast } from '../common/ToastProvider';
 import { MediaPickerModal } from '../common/MediaPickerModal';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
 import { optimizeImageFile } from '../../utils/mediaOptimizer';
-import { RichTextEditor } from '../common/RichTextEditor';
+import { RichTextEditor, looksLikeHtml, PRODUCT_DESCRIPTION_PROSE_CLASS } from '../common/RichTextEditor';
 import { getProductDisplayCategory } from '../../utils/storeLocalization';
 import * as tenantApi from '../../api/tenantApi';
 import { isApiEnabled } from '../../api/client';
@@ -47,6 +47,8 @@ import {
 
 export interface StoreProductEditorViewProps {
   product: Product;
+  /** create = blank manual add form; edit = existing product */
+  mode?: 'create' | 'edit';
   storeName: string;
   storeSlug?: string;
   storeId?: string;
@@ -114,6 +116,7 @@ const SECTIONS: SectionConfig[] = [
 
 export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   product,
+  mode = 'edit',
   storeName,
   storeSlug = 'store',
   storeId = '',
@@ -128,6 +131,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const { t, locale, currency, money } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
+  const isCreateMode = mode === 'create';
 
   // ── Form State ──
   const [name, setName] = useState(product.name || '');
@@ -135,11 +139,32 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const [category, setCategory] = useState(product.category || (categories[0] || 'General'));
   const [brand, setBrand] = useState(product.brand || availableBrands[0] || storeName);
   const [productType, setProductType] = useState(product.productType || 'Physical Product');
-  const [description, setDescription] = useState(product.description || product.subtitle || '');
+  const [subtitle, setSubtitle] = useState(product.subtitle || '');
+  const [description, setDescription] = useState(product.description || '');
+  const [isFeatured, setIsFeatured] = useState(
+    Boolean(
+      product.isFeatured ||
+        product.badge === 'featured' ||
+        (Array.isArray(product.tags) && product.tags.includes('featured')),
+    ),
+  );
 
-  // ── Pricing State ──
-  const [price, setPrice] = useState<number>(product.price ?? 0);
-  const [discountedPrice, setDiscountedPrice] = useState<number>(product.discountedPrice ?? product.price ?? 0);
+  // ── Pricing State (regular + optional sale; synced with API original_price) ──
+  const [price, setPrice] = useState<number>(() => {
+    if (product.originalPrice && product.originalPrice > (product.price ?? 0)) {
+      return product.originalPrice;
+    }
+    return product.price ?? 0;
+  });
+  const [discountedPrice, setDiscountedPrice] = useState<number>(() => {
+    if (product.discountedPrice && product.discountedPrice > 0) {
+      return product.discountedPrice;
+    }
+    if (product.originalPrice && product.originalPrice > (product.price ?? 0)) {
+      return product.price ?? 0;
+    }
+    return 0;
+  });
   const [taxRate, setTaxRate] = useState<number>(product.taxRate ?? 15);
 
   // ── Inventory & Shipping State ──
@@ -1152,15 +1177,22 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       return;
     }
 
+    const regular = Number(price) || 0;
+    const sale = Number(discountedPrice) || 0;
+    const onSale = sale > 0 && sale < regular;
+
     const payload: Partial<Product> = {
       name,
       sku,
       category,
       brand,
       productType,
+      subtitle: subtitle.trim() || null,
       description,
-      price: Number(price),
-      discountedPrice: Number(discountedPrice),
+      isFeatured,
+      price: regular,
+      discountedPrice: onSale ? sale : 0,
+      originalPrice: onSale ? regular : null,
       taxRate: Number(taxRate),
       stock: Number(stock),
       lowStockAlert: Number(lowStockAlert),
@@ -1213,11 +1245,17 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           <div className="flex items-center gap-3">
             <div className="w-1.5 h-8 bg-teal-600 rounded-full shrink-0" />
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
-              {isAr ? 'تعديل المنتج' : 'Edit Product'}
+              {isCreateMode
+                ? isAr
+                  ? 'إضافة منتج جديد'
+                  : 'Add New Product'
+                : isAr
+                  ? 'تعديل المنتج'
+                  : 'Edit Product'}
             </h1>
           </div>
 
-          {/* Breadcrumbs: < Products > Edit Product */}
+          {/* Breadcrumbs: < Products > Add/Edit Product */}
           <div className="flex items-center gap-1.5 text-xs mt-1.5 ps-4 font-semibold" style={{ color: 'var(--muted)' }}>
             <button
               type="button"
@@ -1230,12 +1268,26 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             </button>
             <span>&gt;</span>
             <span className="font-bold" style={{ color: 'var(--text)' }}>
-              {isAr ? 'تعديل المنتج' : 'Edit Product'}
+              {isCreateMode
+                ? isAr
+                  ? 'إضافة منتج'
+                  : 'Add Product'
+                : isAr
+                  ? 'تعديل المنتج'
+                  : 'Edit Product'}
             </span>
+            {product.productType ? (
+              <>
+                <span>&gt;</span>
+                <span className="font-semibold" style={{ color: 'var(--accent)' }}>
+                  {product.productType}
+                </span>
+              </>
+            ) : null}
           </div>
         </div>
 
-        {/* Top Right Action Buttons: Preview, Duplicate, View on Store, Save Changes */}
+        {/* Top Right Action Buttons: Preview, Duplicate, View on Store, Save */}
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* Preview Button */}
           <button
@@ -1247,39 +1299,43 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             <span>{isAr ? 'معاينة' : 'Preview'}</span>
           </button>
 
-          {/* Duplicate Button */}
-          <button
-            type="button"
-            onClick={() => {
-              if (onDuplicate) {
-                onDuplicate(product);
-              } else {
-                toast(
-                  isAr ? 'تم نسخ بيانات المنتج لتكراره' : 'Duplicated product draft created',
-                  'success'
-                );
-              }
-            }}
-            className="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 flex items-center gap-2 cursor-pointer shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-          >
-            <Copy className="w-4 h-4 text-slate-500" />
-            <span>{isAr ? 'نسخ' : 'Duplicate'}</span>
-          </button>
+          {/* Duplicate Button — edit only */}
+          {!isCreateMode && (
+            <button
+              type="button"
+              onClick={() => {
+                if (onDuplicate) {
+                  onDuplicate(product);
+                } else {
+                  toast(
+                    isAr ? 'تم نسخ بيانات المنتج لتكراره' : 'Duplicated product draft created',
+                    'success'
+                  );
+                }
+              }}
+              className="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 flex items-center gap-2 cursor-pointer shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            >
+              <Copy className="w-4 h-4 text-slate-500" />
+              <span>{isAr ? 'نسخ' : 'Duplicate'}</span>
+            </button>
+          )}
 
-          {/* View on Store Button */}
-          <button
-            type="button"
-            onClick={() => {
-              const url = `/store/${storeSlug}?product=${product.id}`;
-              window.open(url, '_blank');
-            }}
-            className="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 flex items-center gap-2 cursor-pointer shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-          >
-            <ExternalLink className="w-4 h-4 text-slate-500" />
-            <span>{isAr ? 'عرض في المتجر' : 'View on Store'}</span>
-          </button>
+          {/* View on Store Button — edit only */}
+          {!isCreateMode && (
+            <button
+              type="button"
+              onClick={() => {
+                const url = `/store/${storeSlug}?product=${product.id}`;
+                window.open(url, '_blank');
+              }}
+              className="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 flex items-center gap-2 cursor-pointer shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4 text-slate-500" />
+              <span>{isAr ? 'عرض في المتجر' : 'View on Store'}</span>
+            </button>
+          )}
 
-          {/* Save Changes Solid Teal Button */}
+          {/* Save / Create Solid Teal Button */}
           <button
             type="button"
             onClick={() => handleSubmit()}
@@ -1287,7 +1343,15 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             className="px-5 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-all hover:opacity-95 bg-teal-700 hover:bg-teal-800 disabled:opacity-50"
           >
             <Save className="w-4 h-4 shrink-0" />
-            <span>{isAr ? 'حفظ التغييرات' : 'Save Changes'}</span>
+            <span>
+              {isCreateMode
+                ? isAr
+                  ? 'إنشاء المنتج'
+                  : 'Create Product'
+                : isAr
+                  ? 'حفظ التغييرات'
+                  : 'Save Changes'}
+            </span>
           </button>
         </div>
       </div>
@@ -1647,14 +1711,43 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </div>
               </div>
 
-              {/* Form Row 3: Short Description with 0/200 Counter */}
+              {/* Subtitle (plain) + full rich description */}
+              <div>
+                <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                  {isAr ? 'العنوان الفرعي' : 'Subtitle'}
+                </label>
+                <input
+                  type="text"
+                  value={subtitle}
+                  onChange={(e) => setSubtitle(e.target.value)}
+                  maxLength={200}
+                  placeholder={
+                    isAr
+                      ? 'سطر قصير يظهر تحت اسم المنتج في صفحة المنتج والبطاقات...'
+                      : 'Short line under the product name on PDP and cards...'
+                  }
+                  className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                />
+                <p className="text-[10px] mt-0.5 font-mono" style={{ color: 'var(--muted)' }}>
+                  {subtitle.length}/200
+                </p>
+              </div>
+
               <div>
                 <RichTextEditor
-                  label={isAr ? 'الوصف والتفاصيل' : 'Description'}
+                  label={isAr ? 'الوصف الكامل (عناوين SEO، صور، فيديو)' : 'Full Description (SEO headings, images, video)'}
                   value={description}
                   onChange={setDescription}
-                  placeholder={isAr ? 'اكتب وصف المنتج ومواصفاته الفنية...' : 'High-quality product details and specifications...'}
+                  placeholder={
+                    isAr
+                      ? 'اكتب وصف المنتج مع عناوين H1–H6 وصور وفيديو...'
+                      : 'Write product details with H1–H6 headings, images, and video...'
+                  }
                   isAr={isAr}
+                  enableHeadings
+                  enableMedia
+                  minHeight={180}
                 />
               </div>
             </div>
@@ -2611,6 +2704,40 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </div>
               </div>
 
+              {/* Feature / highlight product */}
+              <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-950/20 mb-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                    {isAr ? 'تمييز / إبراز المنتج' : 'Highlight / Feature product'}
+                  </p>
+                  <p className="text-[10px] text-amber-700/80 dark:text-amber-300/70 mt-0.5">
+                    {isAr
+                      ? 'يظهر في أقسام المنتجات المميزة والمجموعات Featured'
+                      : 'Appears in Featured homepage sections and collections'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isFeatured}
+                  onClick={() => {
+                    const next = !isFeatured;
+                    setIsFeatured(next);
+                    if (next && !badge) setBadge('featured');
+                    if (!next && badge === 'featured') setBadge('');
+                  }}
+                  className={`relative w-11 h-6 rounded-full transition-colors shrink-0 cursor-pointer ${
+                    isFeatured ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                      isFeatured ? 'start-5' : 'start-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+
               {/* Product Badge / Highlight Ribbon */}
               <div>
                 <label className="text-xs font-bold block mb-1.5" style={{ color: 'var(--text)' }}>
@@ -2631,7 +2758,10 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                       <button
                         key={bItem.id}
                         type="button"
-                        onClick={() => setBadge(bItem.id)}
+                        onClick={() => {
+                          setBadge(bItem.id);
+                          if (bItem.id === 'featured') setIsFeatured(true);
+                        }}
                         className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all text-start flex items-center justify-between cursor-pointer ${
                           isSelected
                             ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-700 dark:text-emerald-400 shadow-xs'
@@ -2841,9 +2971,21 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   <h2 className="text-2xl font-bold mt-1" style={{ color: 'var(--text)' }}>
                     {name}
                   </h2>
-                  <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                    {description || 'No description provided.'}
-                  </p>
+                  {subtitle && (
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
+                      {subtitle}
+                    </p>
+                  )}
+                  {looksLikeHtml(description) ? (
+                    <div
+                      className={`text-xs text-slate-500 mt-2 ${PRODUCT_DESCRIPTION_PROSE_CLASS}`}
+                      dangerouslySetInnerHTML={{ __html: description }}
+                    />
+                  ) : (
+                    <p className="text-xs text-slate-500 mt-2 leading-relaxed whitespace-pre-line">
+                      {description || 'No description provided.'}
+                    </p>
+                  )}
 
                   <div className="mt-4 flex items-baseline gap-3">
                     <span className="text-2xl font-black text-teal-700 dark:text-teal-400">

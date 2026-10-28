@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Save, Check, RotateCcw, Palette, Upload, Phone, MessageCircle, ArrowUp } from 'lucide-react';
+import { Save, Check, RotateCcw, Palette, Upload, Phone, ArrowUp } from 'lucide-react';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { WhatsAppBrandIcon } from '../../common/BrandIcons';
 import {
   readAllThemeSettings,
   writeAllThemeSettings,
@@ -405,7 +406,7 @@ export const StoreColorsForm: React.FC = () => {
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <MessageCircle className="w-4 h-4 text-emerald-600" />
+                  <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
                   <div>
                     <span className="text-xs font-bold block">{isAr ? 'زر محادثة واتساب' : 'WhatsApp Contact Button'}</span>
                     <span className="text-[11px] text-muted">{isAr ? 'زر عائم مباشر لمراسلة الدعم' : 'Direct floating WhatsApp chat'}</span>

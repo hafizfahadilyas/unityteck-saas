@@ -372,7 +372,7 @@ export const DISCOUNTED_BOUQUETS: Product[] = [
     badgeEn: '30% Off',
     description: 'باقة مميزة من الورود الطبيعية الهولندية ذات اللون الوردي الرقيق مغلفة بأناقة استثنائية وبسعر مخفض لفترة محدودة.',
     descriptionEn: 'Charming fresh Dutch pink roses in artisan velvet wrap at an exclusive promotional price.',
-    flowerTypes: ['جوري وردي هولندي', 'بيبي روز', 'يوكاليبتوس'],
+    flowerTypes: ['جوري وردي هولندي', 'ورود رذاذ صغيرة', 'يوكاليبتوس'],
     inStock: true
   },
   {
@@ -426,7 +426,7 @@ export const DISCOUNTED_BOUQUETS: Product[] = [
     badgeEn: 'Sale',
     description: 'ألوان مشرقة تبعث السعادة والبهجة في النفس لتكون أحلى بداية ليوم من تحب.',
     descriptionEn: 'Radiant vibrant Ecuadorian blooms spreading morning positivity and warmth.',
-    flowerTypes: ['جوري أحمر', 'بيبي روز مشمشي'],
+    flowerTypes: ['جوري أحمر', 'ورود رذاذ مشمشية'],
     inStock: true
   },
   {
@@ -470,7 +470,7 @@ export const NATURAL_BOUQUETS: Product[] = [
   },
   {
     id: 'nat-2',
-    name: 'بستان الفاوانيا والبيبي روز',
+    name: 'بستان الفاوانيا والورود الرذاذية الصغيرة',
     nameEn: 'Peonies & Spray Roses Garden',
     price: 380,
     originalPrice: 440,
@@ -481,9 +481,9 @@ export const NATURAL_BOUQUETS: Product[] = [
     categoryEn: 'Luxury Bouquets',
     badge: 'حصري',
     badgeEn: 'Exclusive',
-    description: 'زهور الفاوانيا الوردية المستوردة مع باقة بيبي روز ناعمة بتنسيق أرستقراطي.',
+    description: 'زهور الفاوانيا الوردية المستوردة مع باقة ورود رذاذ صغيرة ناعمة بتنسيق أرستقراطي.',
     descriptionEn: 'Imported fresh peony stems harmonized with tender baby spray roses.',
-    flowerTypes: ['بيوني وردي', 'بيبي روز هولندي'],
+    flowerTypes: ['بيوني وردي', 'ورود رذاذ هولندية'],
     inStock: true
   },
   {
@@ -620,7 +620,7 @@ export const CAKE_ROSES: Product[] = [
   },
   {
     id: 'cake-2',
-    name: 'كعكة الريد فيلفيت الملكية مع الورد الأحمر',
+    name: 'كعكة الكيك الأحمر المخملي الملكية مع الورد الأحمر',
     nameEn: 'Royal Red Velvet Cake & Red Roses',
     price: 390,
     originalPrice: 460,
@@ -638,7 +638,7 @@ export const CAKE_ROSES: Product[] = [
   },
   {
     id: 'cake-3',
-    name: 'بوكس الكب كيك الفاخر مع ورود الباستيل',
+    name: 'بوكس كعك الكؤوس الفاخر مع ورود الباستيل',
     nameEn: 'Pastel Blooms & Cupcakes Box',
     price: 310,
     originalPrice: 370,
@@ -649,9 +649,9 @@ export const CAKE_ROSES: Product[] = [
     categoryEn: 'Birthday',
     badge: 'مبهج',
     badgeEn: 'Celebration',
-    description: '6 قطع كب كيك مزينة بحرفية عالية مع تشكيلة ورود الباستيل المبهجة وشمعة ذهبية.',
+    description: '6 قطع كعك الكؤوس مزينة بحرفية عالية مع تشكيلة ورود الباستيل المبهجة وشمعة ذهبية.',
     descriptionEn: '6 artisan gourmet cupcakes arranged beside fresh pastel roses and birthday candle.',
-    flowerTypes: ['بيبي روز باستيل', 'كب كيك فاخر'],
+    flowerTypes: ['ورود رذاذ باستيل', 'كعك الكؤوس فاخر'],
     inStock: true
   },
   {
@@ -783,7 +783,7 @@ export const FLOWER_VASES: Product[] = [
     badgeEn: 'Modern Design',
     description: 'فازة سيراميك بلون رملي هادئ بتنسيق ياباني إيكيبانا يمنح المكان لمسة هدوء وجمال.',
     descriptionEn: 'Neutral sandy fluted ceramic vase with Ikebana minimalist floral architecture.',
-    flowerTypes: ['هايدرنجا', 'بيبي روز'],
+    flowerTypes: ['هايدرنجا', 'ورود رذاذ صغيرة'],
     inStock: true
   },
   {
@@ -806,7 +806,7 @@ export const FLOWER_VASES: Product[] = [
   },
   {
     id: 'vase-4',
-    name: 'فازة بيبي روز متعددة الألوان للمكاتب',
+    name: 'فازة ورود رذاذ صغيرة متعددة الألوان للمكاتب',
     nameEn: 'Multicolor Spray Rose Desk Vase',
     price: 290,
     originalPrice: 340,
@@ -819,7 +819,7 @@ export const FLOWER_VASES: Product[] = [
     badgeEn: 'Office Perfect',
     description: 'حجم مدمج أنيق بفازة زجاجية شفافة مناسبة للمكاتب وطاولات القهوة برائحة عطرة.',
     descriptionEn: 'Compact crystal vase with aromatic spray roses tailored for desk and coffee tables.',
-    flowerTypes: ['بيبي روز هولندي مشكل'],
+    flowerTypes: ['ورود رذاذ هولندية مشكلة'],
     inStock: true
   }
 ];
@@ -843,7 +843,7 @@ export const MAWAJEEB_PRODUCTS: Product[] = [
     badgeEn: 'Hijazi Heritage',
     description: 'لوحة مواجيب خشبية محفورة يدوياً بأبيات ترحيبية حجازية ومطعمة بالورد الطبيعي الإكوادوري.',
     descriptionEn: 'Hand-carved wooden plaque with traditional Hijazi greeting poems and natural roses.',
-    flowerTypes: ['جوري أحمر', 'بيبي روز'],
+    flowerTypes: ['جوري أحمر', 'ورود رذاذ صغيرة'],
     inStock: true
   },
   {
@@ -886,14 +886,14 @@ export const NEWBORN_PRODUCTS: Product[] = [
     tags: ['مواليد', 'مولود', 'أزرق', 'أبيض', 'دبدوب'],
     badge: 'مبروك المولود',
     badgeEn: 'Baby Boy',
-    description: 'تنسيق أنيق من البيبي روز الأبيض والأزرق مع دبدوب قطيفة فاخر وبطاقة تهنئة خاصة.',
+    description: 'تنسيق أنيق من الالورود الرذاذية البيضاء والأزرق مع دبدوب قطيفة فاخر وبطاقة تهنئة خاصة.',
     descriptionEn: 'Tender baby spray roses paired with a soft plush teddy bear and congrats card.',
-    flowerTypes: ['بيبي روز', 'هايدرنجا زرقاء'],
+    flowerTypes: ['ورود رذاذ صغيرة', 'هايدرنجا زرقاء'],
     inStock: true
   },
   {
     id: 'new-2',
-    name: 'ستاند ورد استقبال المولودة الأميرة (بيبي روز وردي)',
+    name: 'ستاند ورد استقبال المولودة الأميرة (ورود رذاذ وردية)',
     nameEn: 'Royal Baby Girl Reception Floral Stand',
     price: 340,
     originalPrice: 410,
@@ -904,12 +904,12 @@ export const NEWBORN_PRODUCTS: Product[] = [
     categoryEn: 'Newborn Gifts',
     categorySlug: 'newborn',
     occasions: ['هدايا المواليد', 'استقبال مستشفى'],
-    tags: ['مواليد', 'مولودة', 'وردي', 'بيبي روز'],
+    tags: ['مواليد', 'مولودة', 'وردي', 'ورود رذاذ صغيرة'],
     badge: 'أميرة جديدة',
     badgeEn: 'Baby Girl',
     description: 'ستاند معدني ذهبي يحمل كتلة ساحرة من الزهور الوردية الناعمة وبالون تهنئة بقدوم المولودة.',
     descriptionEn: 'Golden metal stand loaded with soft pink roses and celebratory balloon.',
-    flowerTypes: ['بيوني وردي', 'بيبي روز'],
+    flowerTypes: ['بيوني وردي', 'ورود رذاذ صغيرة'],
     inStock: true
   }
 ];
@@ -978,7 +978,7 @@ export const LUXURY_SETS: Product[] = [
     badgeEn: 'Best for Men',
     description: 'صندوق جلدي أنيق يضم عطراً رجالياً فاخراً، محفظة جلد طبيعي، ساعة أنيقة، قلم مذهب، وباقة ورد طبيعي منسقة بعناية.',
     descriptionEn: 'Luxury leatherette box featuring artisan men fragrance, genuine leather wallet, timepiece, and fresh roses.',
-    flowerTypes: ['بيبي روز وردي', 'كرزنثيموم أخضر'],
+    flowerTypes: ['ورود رذاذ وردية', 'كرزنثيموم أخضر'],
     inStock: true
   },
   {
@@ -1037,7 +1037,7 @@ export const FLAGSHIP_BOUQUETS: Product[] = [
   },
   {
     id: 'wm-val-06',
-    name: 'تنسيق قلب الورد الرومانسي (فالنتين)',
+    name: 'تنسيق قلب الورد الرومانسي لعيد الحب',
     nameEn: 'Valentine Rose Heart Arrangement',
     price: 420,
     originalPrice: 520,
@@ -1094,7 +1094,7 @@ export const FLAGSHIP_BOUQUETS: Product[] = [
   },
   {
     id: 'wm-vip-03',
-    name: 'فازة كريستال ملكية لكبار الشخصيات VIP',
+    name: 'فازة كريستال ملكية لكبار الشخصيات',
     nameEn: 'Royal Crystal Grand VIP Floor Vase',
     price: 680,
     originalPrice: 850,
@@ -1103,7 +1103,7 @@ export const FLAGSHIP_BOUQUETS: Product[] = [
     image: '/images/hadaya_white_orchid_penthouse_1791218732789.jpg',
     category: 'باقات فاخرة',
     categoryEn: 'Luxury Bouquets',
-    badge: 'VIP فاخر',
+    badge: 'فاخر لكبار الشخصيات',
     badgeEn: 'VIP Luxury',
     description: 'تنسيق استثنائي من الورود الهولندية النادرة وأزهار الأوركيد البيضاء في فازة كريستال فاخرة تناسب القصور والمجالس.',
     descriptionEn: 'Showcase statement arrangement featuring imported white orchids, hydrangeas, and roses in heavy crystal vase.',

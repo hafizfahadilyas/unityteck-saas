@@ -30,7 +30,6 @@ import {
   type AdvancedSliderSettings,
   type SliderSlide,
 } from '../../../themes/settings/themeSettingsStore';
-import { MediaUploadField } from '../../common/MediaUploadField';
 
 const BUTTON_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   ShoppingBag,
@@ -564,15 +563,19 @@ export const AdvancedSliderForm: React.FC = () => {
 
       {/* SUB-SECTION 3: IMAGE & MEDIA */}
       {activeControlTab === 'media' && (
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in duration-200 shadow-2xs text-xs">
-          <MediaUploadField
-            label={isAr ? 'صورة الشريحة الرئيسية (بانر السلايدر)' : 'Hero Slide Banner Image'}
-            value={activeSlide.image || ''}
-            onChange={(url) => updateActiveSlide({ image: url })}
-            aspectRatio="banner"
-            initialFolder="banners"
-            recommendedSize="1920 × 750 px"
-          />
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3.5 animate-in fade-in duration-200 shadow-2xs text-xs">
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 block mb-1">
+              {isAr ? 'رابط صورة البانر (URL)' : 'Banner Image URL'}
+            </label>
+            <input
+              type="text"
+              value={activeSlide.image || ''}
+              onChange={(e) => updateActiveSlide({ image: e.target.value })}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono text-slate-900 dark:text-white"
+              dir="ltr"
+            />
+          </div>
 
           {/* Preset fast galleries tailored to active store */}
           <div>

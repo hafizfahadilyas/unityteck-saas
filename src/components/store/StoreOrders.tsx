@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTenant } from '../../context/TenantContext';
 import type { Order, OrderStatus } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
-import { localeMixedLabel } from '../../utils/localeMixedLabel';
 import { AdminPageShell } from '../common/AdminPageHeader';
+import { displayOrderNumber } from '../../utils/orderNumber';
 import {
   ShoppingCart,
   CheckCircle,
@@ -20,11 +21,9 @@ import {
   Edit,
   Trash2,
   Copy,
-  Instagram,
   Globe,
   Share2,
   Bot,
-  MessageCircle,
   CreditCard,
   Check,
   Phone,
@@ -32,9 +31,7 @@ import {
   MapPin,
   Package,
   ShoppingBag,
-  Smartphone,
   Banknote,
-  Ghost,
   TrendingUp,
   TrendingDown,
   X,
@@ -60,7 +57,16 @@ import { useToast } from '../common/ToastProvider';
 import { RetailInvoiceModal } from '../common/RetailInvoiceModal';
 import { InvoicePreviewModal } from './invoices/InvoicePreviewModal';
 import { invoiceService, getStoreInvoiceProfile } from '../../services/invoiceService';
-import { getCustomerDisplayName, getLocalizedAddress } from '../../utils/storeLocalization';
+import { getCustomerDisplayName, getLocalizedAddress, getLocalizedItemName } from '../../utils/storeLocalization';
+import {
+  localizeOrderStatus,
+  localizePaymentMethod,
+  localizeSalesChannel,
+  localizePaymentStatus,
+  localizeShippingStatus,
+  localizeShippingCompany,
+} from '../../utils/domainLabels';
+import { localeMixedLabel } from '../../utils/localeMixedLabel';
 import type { InvoiceDocument } from '../../types/invoices';
 import { EditOrderModal } from '../common/EditOrderModal';
 import { ReturnsManager } from './orders/ReturnsManager';
@@ -73,18 +79,21 @@ import { AutomaticAssignmentModal } from './orders/AutomaticAssignmentModal';
 import type { CourierCarrierCode } from '../../utils/courierBarcode';
 import { generateZatcaTlvBase64, generateInvoiceHashSha256 } from '../../utils/zatca';
 import { formatDisplayDate, formatDisplayTime } from '../../utils/dateLocale';
+import { formatRelativeTime } from '../../notification-system/utils/dateFilters';
+import { getOrderDate, orderStatusGrowth, parseOrderDate } from '../../utils/liveSeries';
 import { CreateStoreOrderModal } from './CreateStoreOrderModal';
 import { OrderFilters, type OrderFilterState } from './OrderFilters';
-import { OrderFilterMenu } from './orders/OrderFilterMenu';
 import { WindowedPagination } from '../common/WindowedPagination';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE, resolveProductThumbnail } from '../../utils/imageFallback';
+import { OrderSourceIcon, ShippingCarrierIcon } from '../common/BrandIcons';
 import {
-  getStoreOrderPolicy,
-  saveStoreOrderPolicy,
-  checkWhatsAppClientCooldown,
-  recordWhatsAppClientSent,
-  type StoreOrderPolicyState,
-} from '../../services/ksaAutomationEngine';
+  MadaIcon,
+  ApplePayIcon,
+  StcPayIcon,
+  VisaIcon,
+  MastercardIcon,
+  CodIcon,
+} from '../../themes/coffeeRoasters/components/PaymentIcons';
 
 /**
  * StoreOrders — Store Admin Order Management (100% Pixel Perfect to Mockups 04 & 05)
@@ -119,18 +128,9 @@ export const StoreOrders: React.FC = () => {
     shippingStatus: 'all',
     paymentMethod: 'all',
     orderSource: 'all',
-    status: 'all',
   });
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all');
   const [selectedSource, setSelectedSource] = useState<string>('all');
-  const [orderPolicy, setOrderPolicy] = useState<StoreOrderPolicyState>(() =>
-    getStoreOrderPolicy(activeStore?.id || ''),
-  );
-  const [waCooldownTick, setWaCooldownTick] = useState(0);
-
-  React.useEffect(() => {
-    setOrderPolicy(getStoreOrderPolicy(activeStore?.id || ''));
-  }, [activeStore?.id]);
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [page, setPage] = useState(1);
@@ -139,17 +139,40 @@ export const StoreOrders: React.FC = () => {
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
+  const [actionMenuPos, setActionMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!activeActionMenuId) return;
+    const close = () => {
+      setActiveActionMenuId(null);
+      setActionMenuPos(null);
+    };
+    const onPointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (actionMenuRef.current?.contains(target)) return;
+      if ((target as HTMLElement)?.closest?.('[data-order-actions-trigger]')) return;
+      close();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [activeActionMenuId]);
 
   // Modals state
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
-  const [invoiceConfig, setInvoiceConfig] = useState<any>(() => invoiceService.getTemplateConfig(activeStore?.id, activeStore));
-
-  React.useEffect(() => {
-    if (activeStore?.id) {
-      setInvoiceConfig(invoiceService.getTemplateConfig(activeStore.id, activeStore));
-    }
-  }, [activeStore?.id]);
+  const [invoiceConfig, setInvoiceConfig] = useState<any>(() => invoiceService.getTemplateConfig(activeStore.id));
   const [showEditOrderModal, setShowEditOrderModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [showReturnsModal, setShowReturnsModal] = useState(false);
@@ -169,6 +192,40 @@ export const StoreOrders: React.FC = () => {
   const [openFilterDropdown, setOpenFilterDropdown] = useState<'date' | 'payment' | 'shipping' | 'source' | null>(null);
 
   const isAr = locale === 'ar';
+
+  // Refresh relative "untouched" timers every minute
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const isUntouchedOrderStatus = (order: Order): boolean => {
+    const s = String(order.status || '').toLowerCase().replace(/[\s-]+/g, '_');
+    if (s === 'pending' || s === 'awaiting_payment') return true;
+    return (order as { customStatusId?: string }).customStatusId === 'under_review';
+  };
+
+  const resolveOrderCreatedAt = (order: Order): Date | null => {
+    if (order.createdAt) {
+      const fromCreated = parseOrderDate(order.createdAt);
+      if (fromCreated) return fromCreated;
+    }
+    if (order.date && order.time) {
+      const combined = parseOrderDate(`${order.date} ${order.time}`);
+      if (combined) return combined;
+    }
+    return getOrderDate(order);
+  };
+
+  const formatUntouchedLabel = (order: Order): string | null => {
+    void nowTick; // keep relative labels fresh on tick
+    if (!isUntouchedOrderStatus(order)) return null;
+    const created = resolveOrderCreatedAt(order);
+    if (!created) return null;
+    const relative = formatRelativeTime(created.toISOString(), locale);
+    return isAr ? `بدون معالجة · ${relative}` : `Untouched · ${relative}`;
+  };
 
   const productThumbnailMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -341,7 +398,8 @@ export const StoreOrders: React.FC = () => {
   // ── 4 KPI Summary Cards matching Image 1 & Mockup 04 (Store Scoped) ──
   const kpi = useMemo(() => {
     const total = activeOrders.length;
-    const pending = activeOrders.filter((o) => o.status === 'pending').length;
+    const pendingOrders = activeOrders.filter((o) => isUntouchedOrderStatus(o));
+    const pending = pendingOrders.length;
     const inProgress = activeOrders.filter(
       (o) => o.status === 'processing' || o.status === 'shipped' || o.status === 'out_for_delivery'
     ).length;
@@ -349,8 +407,73 @@ export const StoreOrders: React.FC = () => {
       (o) => o.status === 'completed' || o.status === 'delivered',
     ).length;
 
-    return { total, pending, inProgress, delivered };
-  }, [activeOrders]);
+    const totalGrowth = orderStatusGrowth(activeOrders);
+    const pendingGrowth = orderStatusGrowth(activeOrders, (o) => isUntouchedOrderStatus(o));
+    const inProgressGrowth = orderStatusGrowth(
+      activeOrders,
+      (o) => o.status === 'processing' || o.status === 'shipped' || o.status === 'out_for_delivery',
+    );
+    const deliveredGrowth = orderStatusGrowth(
+      activeOrders,
+      (o) => o.status === 'completed' || o.status === 'delivered',
+    );
+
+    let oldestPendingLabel: string | null = null;
+    if (pendingOrders.length > 0) {
+      let oldest: Date | null = null;
+      for (const o of pendingOrders) {
+        const d = resolveOrderCreatedAt(o);
+        if (!d) continue;
+        if (!oldest || d.getTime() < oldest.getTime()) oldest = d;
+      }
+      if (oldest) {
+        const relative = formatRelativeTime(oldest.toISOString(), locale);
+        oldestPendingLabel = isAr
+          ? `أقدم بدون معالجة · ${relative}`
+          : `Oldest untouched · ${relative}`;
+      }
+    }
+
+    return {
+      total,
+      pending,
+      inProgress,
+      delivered,
+      oldestPendingLabel,
+      totalGrowth,
+      pendingGrowth,
+      inProgressGrowth,
+      deliveredGrowth,
+    };
+  }, [activeOrders, isAr, locale, nowTick]);
+
+  const renderKpiTrend = (
+    growth: { pct: number; hasData: boolean },
+    opts?: { preferDownWhenNegative?: boolean },
+  ) => {
+    const vsLabel = isAr ? 'مقارنة بآخر 30 يوم' : 'vs. last 30 days';
+    if (!growth.hasData) {
+      return (
+        <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1">
+          {isAr ? 'لا بيانات مقارنة بعد' : 'No comparison data yet'}
+        </div>
+      );
+    }
+    const up = growth.pct >= 0;
+    const Icon = up ? TrendingUp : TrendingDown;
+    const tone =
+      up
+        ? 'text-emerald-700 dark:text-emerald-400'
+        : 'text-rose-700 dark:text-rose-400';
+    void opts;
+    return (
+      <div className={`text-[10px] font-bold mt-1 flex items-center gap-0.5 ${tone}`}>
+        <Icon className="w-3 h-3" />
+        <span>{Math.abs(growth.pct)}%</span>
+        <span className="font-medium text-slate-500 dark:text-slate-400">{vsLabel}</span>
+      </div>
+    );
+  };
 
   // ── Status Tabs with Counts matching Image 1 ──
   const STATUS_TABS = useMemo(() => {
@@ -396,81 +519,12 @@ export const StoreOrders: React.FC = () => {
         o.customerPhone.includes(q);
 
       const effectivePaymentMethod = orderFilters.paymentMethod || selectedPaymentMethod;
-      const matchesPayment = (() => {
-        if (!effectivePaymentMethod || effectivePaymentMethod === 'all') return true;
-        const pm = (o.paymentMethod || '').toLowerCase();
-        switch (effectivePaymentMethod.toLowerCase()) {
-          case 'mada':
-            return pm.includes('mada') || pm.includes('مدى');
-          case 'visa':
-            return pm.includes('visa') || pm.includes('فيزا');
-          case 'mastercard':
-            return pm.includes('master') || pm.includes('ماستر');
-          case 'apple':
-            return pm.includes('apple') || pm.includes('أبل') || pm.includes('ابل');
-          case 'stc':
-            return pm.includes('stc') || pm.includes('اس تي سي');
-          case 'paypal':
-            return pm.includes('paypal') || pm.includes('باي بال');
-          case 'googlepay':
-            return pm.includes('google') || pm.includes('جوجل') || pm.includes('gpay');
-          case 'tabby':
-            return pm.includes('tabby') || pm.includes('تابي');
-          case 'tamara':
-            return pm.includes('tamara') || pm.includes('تمارا');
-          case 'mispay':
-            return pm.includes('mispay') || pm.includes('مسباي');
-          case 'madfooat':
-            return pm.includes('madfooat') || pm.includes('مدفوعات');
-          case 'emkan':
-            return pm.includes('emkan') || pm.includes('إمكان') || pm.includes('امكان');
-          case 'bank':
-            return pm.includes('bank') || pm.includes('تحويل') || pm.includes('transfer');
-          case 'cash':
-            return pm.includes('cash') || pm.includes('cod') || pm.includes('استلام');
-          default:
-            return pm.includes(effectivePaymentMethod.toLowerCase());
-        }
-      })();
+      const matchesPayment =
+        effectivePaymentMethod === 'all' ||
+        o.paymentMethod.toLowerCase().includes(effectivePaymentMethod.toLowerCase());
 
       const effectiveSource = orderFilters.orderSource || selectedSource;
-      const matchesSource = (() => {
-        if (!effectiveSource || effectiveSource === 'all') return true;
-        const src = (o.source || '').toLowerCase();
-        switch (effectiveSource.toLowerCase()) {
-          case 'instagram':
-            return src.includes('instagram') || src.includes('انستغرام') || src.includes('انستقرام');
-          case 'google':
-          case 'google ads':
-            return src.includes('google') || src.includes('ads') || src.includes('جوجل') || src.includes('إعلان');
-          case 'direct':
-          case 'direct visits':
-            return src.includes('direct') || src.includes('مباشر') || src.includes('website') || src.includes('storefront');
-          case 'tiktok':
-            return src.includes('tiktok') || src.includes('تيك');
-          case 'snapchat':
-            return src.includes('snapchat') || src.includes('سناب');
-          case 'whatsapp':
-            return src.includes('whatsapp') || src.includes('واتساب') || src.includes('واتس');
-          case 'facebook':
-            return src.includes('facebook') || src.includes('فيسبوك');
-          case 'x':
-            return src.includes('twitter') || src.includes('تويتر') || src.includes('إكس') || src.includes('اكس') || src === 'x';
-          case 'youtube':
-            return src.includes('youtube') || src.includes('يوتيوب');
-          case 'email':
-          case 'email marketing':
-            return src.includes('email') || src.includes('mail') || src.includes('بريد');
-          default:
-            return src.includes(effectiveSource.toLowerCase());
-        }
-      })();
-
-      const matchesCustomStatus = (() => {
-        if (!orderFilters.status || orderFilters.status === 'all') return true;
-        const s = (o.status || '').toLowerCase();
-        return s === orderFilters.status.toLowerCase();
-      })();
+      const matchesSource = effectiveSource === 'all' || o.source === effectiveSource;
 
       // Payment Status filter
       const matchesPaymentStatus = (() => {
@@ -547,8 +601,7 @@ export const StoreOrders: React.FC = () => {
         !matchesSource ||
         !matchesPaymentStatus ||
         !matchesShippingStatus ||
-        !matchesDate ||
-        !matchesCustomStatus
+        !matchesDate
       ) {
         return false;
       }
@@ -686,18 +739,20 @@ export const StoreOrders: React.FC = () => {
       toast(isAr ? 'لا توجد طلبات للتصدير' : 'No orders to export', 'error');
       return;
     }
-    const headers = ['Order Number', 'Date', 'Customer Name', 'Phone', 'Products', 'Total Amount', 'Payment Method', 'Payment Status', 'Order Status', 'Source'];
+    const headers = isAr
+      ? ['رقم الطلب', 'التاريخ', 'اسم العميل', 'الهاتف', 'المنتجات', 'المبلغ الإجمالي', 'طريقة الدفع', 'حالة الدفع', 'حالة الطلب', 'المصدر']
+      : ['Order Number', 'Date', 'Customer Name', 'Phone', 'Products', 'Total Amount', 'Payment Method', 'Payment Status', 'Order Status', 'Source'];
     const rows = ordersToExport.map((o) => [
       o.orderNumber,
       o.date,
-      `"${(o.customerName || '').replace(/"/g, '""')}"`,
+      `"${(getCustomerDisplayName(o.customerName, locale) || '').replace(/"/g, '""')}"`,
       `"${(o.customerPhone || '').replace(/"/g, '""')}"`,
-      `"${(o.items?.map((it) => `${it.name} x${it.quantity}`).join('; ') || (o as any).itemsSummary || 'Product x 1').replace(/"/g, '""')}"`,
+      `"${(o.items?.map((it) => `${getLocalizedItemName(it, locale)} x${it.quantity}`).join('; ') || localeMixedLabel((o as any).itemsSummary, isAr) || (isAr ? 'منتج x 1' : 'Product x 1')).replace(/"/g, '""')}"`,
       o.total,
-      o.paymentMethod,
-      o.paymentStatus || '',
-      o.status,
-      o.source,
+      localizePaymentMethod(o.paymentMethod, locale),
+      localizePaymentStatus(o.paymentStatus, locale),
+      localizeOrderStatus(o.status, locale),
+      localizeSalesChannel(o.source, locale),
     ]);
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -738,53 +793,21 @@ export const StoreOrders: React.FC = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // ── Source Icon Renderer ──
+  // ── Source Icon Renderer (real brand marks) ──
   const getSourceIcon = (source: string) => {
-    switch (source) {
-      case 'Instagram':
-        return <Instagram className="w-4 h-4 text-pink-500 shrink-0" />;
-      case 'Facebook':
-        return (
-          <svg className="w-4 h-4 text-blue-600 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-          </svg>
-        );
-      case 'Google Ads':
-        return (
-          <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-700 font-black text-[10px] flex items-center justify-center shrink-0">
-            G
-          </span>
-        );
-      case 'WhatsApp':
-        return <MessageCircle className="w-4 h-4 text-emerald-500 shrink-0" />;
-      case 'TikTok':
-        return (
-          <span className="w-4 h-4 rounded bg-black text-white font-black text-[9px] flex items-center justify-center shrink-0">
-            TT
-          </span>
-        );
-      case 'Snapchat':
-        return <Ghost className="w-4 h-4 text-amber-500 shrink-0" />;
-      case 'AI Assistant':
-        return <Bot className="w-4 h-4 text-cyan-600 shrink-0" />;
-      case 'Referral':
-        return <Share2 className="w-4 h-4 text-purple-600 shrink-0" />;
-      case 'Organic Search':
-        return <Search className="w-4 h-4 text-emerald-600 shrink-0" />;
-      default:
-        return <Globe className="w-4 h-4 text-slate-400 shrink-0" />;
-    }
+    if (source === 'AI Assistant') return <Bot className="w-4 h-4 text-cyan-600 shrink-0" />;
+    if (source === 'Referral') return <Share2 className="w-4 h-4 text-purple-600 shrink-0" />;
+    if (source === 'Organic Search') return <Search className="w-4 h-4 text-emerald-600 shrink-0" />;
+    return <OrderSourceIcon source={source} className="w-4 h-4 shrink-0" />;
   };
 
-  // ── Payment Badge Renderer ──
+  // ── Payment Badge Renderer (Saudi brand marks) ──
   const getPaymentBadge = (method: string) => {
     const m = (method || '').toLowerCase();
     if (m.includes('mada')) {
       return (
         <span className="inline-flex items-center gap-1.5 font-bold text-xs">
-          <span className="w-5 h-3.5 bg-emerald-600 rounded-xs text-[8px] text-white flex items-center justify-center font-black">
-            M
-          </span>
+          <MadaIcon className="h-5 w-auto" />
           <span style={{ color: 'var(--text)' }}>{locale === 'en' ? 'mada' : 'مدى'}</span>
         </span>
       );
@@ -792,30 +815,30 @@ export const StoreOrders: React.FC = () => {
     if (m.includes('apple')) {
       return (
         <span className="inline-flex items-center gap-1.5 font-bold text-xs" style={{ color: 'var(--text)' }}>
-          <Smartphone className="w-3.5 h-3.5 text-slate-800 dark:text-slate-200" />
+          <ApplePayIcon className="h-5 w-auto" />
           <span>{t('applePay')}</span>
         </span>
       );
     }
     if (m.includes('stc')) {
       return (
-        <span className="inline-flex items-center gap-1.5 font-bold text-xs text-purple-600">
-          <span className="font-black text-[10px]">stc</span>
-          <span>pay</span>
+        <span className="inline-flex items-center gap-1.5 font-bold text-xs">
+          <StcPayIcon className="h-5 w-auto" />
         </span>
       );
     }
-    if (m.includes('visa')) {
+    if (m.includes('visa') || m.includes('mc') || m.includes('master')) {
       return (
-        <span className="inline-flex items-center gap-1.5 font-black text-xs text-blue-700">
-          VISA
+        <span className="inline-flex items-center gap-1 font-bold text-xs">
+          <VisaIcon className="h-5 w-auto" />
+          <MastercardIcon className="h-5 w-auto" />
         </span>
       );
     }
     if (m.includes('cash') || m.includes('cod')) {
       return (
         <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-emerald-700 dark:text-emerald-400">
-          <Banknote className="w-3.5 h-3.5" />
+          <CodIcon className="h-5 w-auto" />
           <span>{t('cashOnDelivery')}</span>
         </span>
       );
@@ -880,7 +903,7 @@ export const StoreOrders: React.FC = () => {
       case 'canceled':
         return (
           <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#FEEBEB] text-[#DC2626] border border-[#FECACA] dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800 whitespace-nowrap">
-            {isAr ? 'ملغي' : 'Cancelled'}
+            {t('cancelledTab')}
           </span>
         );
       case 'returned':
@@ -892,7 +915,7 @@ export const StoreOrders: React.FC = () => {
       default:
         return (
           <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 whitespace-nowrap">
-            {status}
+            {localizeOrderStatus(status, locale)}
           </span>
         );
     }
@@ -1153,9 +1176,9 @@ export const StoreOrders: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-xs text-amber-800 dark:text-amber-300 mt-1 leading-relaxed">
-                  {isAr
-                    ? `قام العميل (${o.customerName}) بطلب إلغاء هذا الطلب (${o.orderNumber}) بمبلغ إجمالي (${money(o.total)}). يرجى مراجعة الطلب والموافقة على الإلغاء واعتماد استرداد المبلغ أو رفض الطلب ومواصلة التجهيز.`
-                    : `Customer (${o.customerName}) requested cancellation for order (${o.orderNumber}) total (${money(o.total)}). Please review and approve refund or reject to continue.`}
+                    {isAr
+                    ? `قام العميل (${getCustomerDisplayName(o.customerName, locale)}) بطلب إلغاء هذا الطلب (${o.orderNumber}) بمبلغ إجمالي (${money(o.total)}). يرجى مراجعة الطلب والموافقة على الإلغاء واعتماد استرداد المبلغ أو رفض الطلب ومواصلة التجهيز.`
+                    : `Customer (${getCustomerDisplayName(o.customerName, locale)}) requested cancellation for order (${o.orderNumber}) total (${money(o.total)}). Please review and approve refund or reject to continue.`}
                 </p>
                 {o.cancelReason && (
                   <p className="text-[11px] font-mono text-amber-950 dark:text-amber-100 bg-amber-100/60 dark:bg-amber-900/40 px-3 py-1.5 rounded-lg mt-2 inline-block border border-amber-200">
@@ -1255,7 +1278,7 @@ export const StoreOrders: React.FC = () => {
                 {t('orderSource')}
               </span>
               <span className="text-xs sm:text-sm font-bold truncate block" style={{ color: 'var(--text)' }}>
-                {o.source || 'Instagram'}
+                {localizeSalesChannel(o.source || 'Instagram', locale)}
               </span>
               {(o.medium || o.campaign) && (
                 <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold truncate block">
@@ -1277,11 +1300,11 @@ export const StoreOrders: React.FC = () => {
             </span>
             <span className="text-slate-400">→</span>
             <span className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 shadow-2xs text-slate-800 dark:text-slate-200">
-              {o.customerName}
+              {getCustomerDisplayName(o.customerName, locale)}
             </span>
             <span className="text-slate-400">→</span>
             <span className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 shadow-2xs text-slate-800 dark:text-slate-200 truncate max-w-[140px]">
-              {items[0]?.name || 'Products'}
+              {items[0] ? getLocalizedItemName(items[0], locale) : (isAr ? 'منتجات' : 'Products')}
             </span>
             <span className="text-slate-400">→</span>
             <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 font-black">
@@ -1289,7 +1312,7 @@ export const StoreOrders: React.FC = () => {
             </span>
             <span className="text-slate-400">→</span>
             <span className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 font-bold">
-              {o.source || 'Direct'}
+              {localizeSalesChannel(o.source || 'Direct', locale)}
             </span>
             <span className="text-slate-400">→</span>
             <span className="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/70 text-indigo-800 dark:text-indigo-300 font-semibold">
@@ -1333,7 +1356,7 @@ export const StoreOrders: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-black text-sm text-slate-950 dark:text-white leading-tight">
-                      {o.customerName}
+                      {getCustomerDisplayName(o.customerName, locale)}
                     </h3>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 mt-1 inline-block">
                       {o.customerType ? (o.customerType.toLowerCase().includes('return') ? t('returningCustomer') : o.customerType) : t('returningCustomer')}
@@ -1358,7 +1381,7 @@ export const StoreOrders: React.FC = () => {
                 </div>
                 <div className="flex items-start gap-2 pt-1 font-semibold text-slate-800 dark:text-slate-200">
                   <MapPin className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0 mt-0.5" />
-                  <span>{o.deliveryLocation || (isAr ? 'الرياض، حي العليا، طريق الملك فهد، مبنى 123' : 'Riyadh, Al Olaya District, King Fahd Road, Building 123')}</span>
+                  <span>{getLocalizedAddress(o.deliveryLocation, locale) || (isAr ? 'الرياض، حي العليا، طريق الملك فهد، مبنى 123' : 'Riyadh, Al Olaya District, King Fahd Road, Building 123')}</span>
                 </div>
               </div>
             </div>
@@ -1393,10 +1416,8 @@ export const StoreOrders: React.FC = () => {
                   <span className="font-black flex items-center gap-1.5 text-slate-950 dark:text-white">
                     {o.shippingCompany ? (
                       <>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-blue-600 text-white">
-                          {o.shippingCompany.substring(0, 4).toUpperCase()}
-                        </span>
-                        <span>{localeMixedLabel(o.shippingCompany, isAr)}</span>
+                        <ShippingCarrierIcon carrier={o.shippingCompany} />
+                        <span>{localizeShippingCompany(o.shippingCompany, locale)}</span>
                       </>
                     ) : (
                       <span className="text-slate-600 dark:text-slate-400 font-bold italic">{isAr ? 'لم تحدد شركة الشحن' : 'Not Assigned'}</span>
@@ -1452,7 +1473,7 @@ export const StoreOrders: React.FC = () => {
                     {t('shippingAddress')}
                   </span>
                   <p className="leading-relaxed text-xs font-bold text-slate-950 dark:text-white">
-                    {o.shippingAddress || o.deliveryLocation || (isAr ? 'الرياض، حي العليا، طريق الملك فهد، مبنى 123، المملكة العربية السعودية' : 'Riyadh, Al Olaya District, King Fahd Road, Building 123, Riyadh 12211, Saudi Arabia')}
+                    {getLocalizedAddress(o.shippingAddress || o.deliveryLocation, locale) || (isAr ? 'الرياض، حي العليا، طريق الملك فهد، مبنى 123، المملكة العربية السعودية' : 'Riyadh, Al Olaya District, King Fahd Road, Building 123, Riyadh 12211, Saudi Arabia')}
                   </p>
                 </div>
               </div>
@@ -1580,14 +1601,14 @@ export const StoreOrders: React.FC = () => {
                           <div className="flex items-center gap-2.5">
                             <img
                               src={resolveProductThumbnail(it)}
-                              alt={isAr ? (it.nameAr || it.name) : (it.nameEn || it.name)}
+                              alt={getLocalizedItemName(it, locale)}
                               onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                               className="w-9 h-9 rounded-xl object-cover shrink-0 border"
                               style={{ borderColor: 'var(--border)' }}
                             />
                             <div className="min-w-0">
                               <span className="font-black text-xs block truncate max-w-[140px] text-slate-950 dark:text-white">
-                                {isAr ? (it.nameAr || it.name) : (it.nameEn || it.name)}
+                                {getLocalizedItemName(it, locale)}
                               </span>
                               <span className="text-[10px] font-mono font-bold block text-slate-700 dark:text-slate-300 mt-0.5">
                                 SKU: {it.sku || `SKU-${idx + 1}`}
@@ -1911,7 +1932,7 @@ export const StoreOrders: React.FC = () => {
             {t('orderManagement')}
           </h1>
           <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--muted)' }}>
-            {t('orderManagementSub')} · <strong style={{ color: 'var(--text)' }}>{(isAr ? activeStore.nameAr : activeStore.nameEn) || activeStore.name}</strong>
+            {t('orderManagementSub')}
           </p>
         </div>
 
@@ -1956,11 +1977,7 @@ export const StoreOrders: React.FC = () => {
             <div className="text-xl sm:text-2xl font-black tabular-nums leading-none mt-1 text-slate-900 dark:text-white">
               {kpi.total.toLocaleString()}
             </div>
-            <div className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 mt-1 flex items-center gap-0.5">
-              <TrendingUp className="w-3 h-3" />
-              <span>12%</span>
-              <span className="font-medium text-slate-500 dark:text-slate-400">{isAr ? 'مقارنة بآخر 30 يوم' : 'vs. last 30 days'}</span>
-            </div>
+            {renderKpiTrend(kpi.totalGrowth)}
           </div>
         </div>
 
@@ -1976,11 +1993,14 @@ export const StoreOrders: React.FC = () => {
             <div className="text-xl sm:text-2xl font-black tabular-nums leading-none mt-1 text-slate-900 dark:text-white">
               {kpi.pending.toLocaleString()}
             </div>
-            <div className="text-[10px] font-bold text-rose-700 dark:text-rose-400 mt-1 flex items-center gap-0.5">
-              <TrendingDown className="w-3 h-3" />
-              <span>8%</span>
-              <span className="font-medium text-slate-500 dark:text-slate-400">{isAr ? 'مقارنة بآخر 30 يوم' : 'vs. last 30 days'}</span>
-            </div>
+            {kpi.oldestPendingLabel ? (
+              <div className="text-[10px] font-bold text-amber-800 dark:text-amber-300 mt-1 flex items-center gap-0.5 min-w-0">
+                <Clock className="w-3 h-3 shrink-0" />
+                <span className="truncate font-medium">{kpi.oldestPendingLabel}</span>
+              </div>
+            ) : (
+              renderKpiTrend(kpi.pendingGrowth)
+            )}
           </div>
         </div>
 
@@ -1996,11 +2016,7 @@ export const StoreOrders: React.FC = () => {
             <div className="text-xl sm:text-2xl font-black tabular-nums leading-none mt-1 text-slate-900 dark:text-white">
               {kpi.inProgress.toLocaleString()}
             </div>
-            <div className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 mt-1 flex items-center gap-0.5">
-              <TrendingUp className="w-3 h-3" />
-              <span>5%</span>
-              <span className="font-medium text-slate-500 dark:text-slate-400">{isAr ? 'مقارنة بآخر 30 يوم' : 'vs. last 30 days'}</span>
-            </div>
+            {renderKpiTrend(kpi.inProgressGrowth)}
           </div>
         </div>
 
@@ -2016,150 +2032,8 @@ export const StoreOrders: React.FC = () => {
             <div className="text-xl sm:text-2xl font-black tabular-nums leading-none mt-1 text-slate-900 dark:text-white">
               {kpi.delivered.toLocaleString()}
             </div>
-            <div className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 mt-1 flex items-center gap-0.5">
-              <TrendingUp className="w-3 h-3" />
-              <span>14%</span>
-              <span className="font-medium text-slate-500 dark:text-slate-400">{isAr ? 'مقارنة بآخر 30 يوم' : 'vs. last 30 days'}</span>
-            </div>
+            {renderKpiTrend(kpi.deliveredGrowth)}
           </div>
-        </div>
-      </div>
-
-      {/* ── SHIPPING, CANCELLATION POLICY, AUTO EMAIL/BELL & 1-CLICK WHATSAPP TRACKING (24H CLIENT TIMER) ── */}
-      <div
-        className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4"
-        data-tick={waCooldownTick}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-          <div>
-            <h3 className="text-sm font-black text-slate-900 dark:text-white">
-              {isAr
-                ? 'سياسة الشحن والتتبع والإلغاء + رسائل الواتساب التلقائية (مؤقت 24 ساعة لكل عميل) وتنبيهات البريد'
-                : 'Shipping, Tracking & Cancellation Policy + 1-Click WhatsApp (24h Client Timer) & Auto Email/Bell'}
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {isAr
-                ? 'تحكم كامل للعميل وصاحب المتجر والماستر: إرسال حالة الشحن بضغطة زر مع حماية الرقم من الحظر وإشعارات البريد الإلكتروني الفورية.'
-                : '3-Way Live Tracking (Customer, Store Owner & Master Admin) with 1-Click Pre-Made WhatsApp Shipping Msg & Email/Dashboard Alerts.'}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              const targetOrd = currentOrders[0];
-              const phone = targetOrd?.customerPhone || '+966501234567';
-              const ordNum = targetOrd?.orderNumber || targetOrd?.id || 'ORD-1001';
-              const custName = targetOrd?.customerName || 'Valued Customer';
-              const cooldown = checkWhatsAppClientCooldown(activeStore.id, phone);
-
-              if (!cooldown.allowed) {
-                toast(
-                  isAr
-                    ? `مؤقت الحماية (24 ساعة) نشط لهذا العميل (${phone}): يمكن إرسال الرسالة التلقائية القادمة غداً بعد ${cooldown.remainingFormatted}`
-                    : `24h Anti-Ban Client Timer Active for ${phone}: Next automated msg allowed tomorrow in ${cooldown.remainingFormatted}!`,
-                  'error',
-                );
-                return;
-              }
-
-              recordWhatsAppClientSent(activeStore.id, phone);
-              setWaCooldownTick((t) => t + 1);
-              const trackUrl = `https://${activeStore.slug || 'store'}.saudi-stores.com/track/${ordNum}`;
-              const preMadeMsg = isAr
-                ? `مرحباً ${custName}، تم شحن طلبك رقم ${ordNum} من متجر ${activeStore.name} عبر ${orderPolicy.shippingCarrierDefault}. تتبع شحنتك مباشرة: ${trackUrl}`
-                : `Hello ${custName}, your order #${ordNum} from ${activeStore.name} has been shipped via ${orderPolicy.shippingCarrierDefault}. Track live here: ${trackUrl}`;
-
-              const cleanPhone = phone.replace(/[^\d]/g, '');
-              window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(preMadeMsg)}`, '_blank');
-              toast(
-                isAr
-                  ? `تم إرسال رسالة تتبع الشحن الجاهزة للعميل وتفعيل مؤقت الحماية (24 ساعة) + إرسال إشعار البريد ولوحة التحكم!`
-                  : `Pre-made Shipping Tracking WhatsApp sent + 24h Client Timer started + Auto Email & Dashboard Notification dispatched!`,
-                'success',
-              );
-            }}
-            className="px-4 py-2.5 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 cursor-pointer flex items-center gap-2 shadow-sm"
-          >
-            <MessageCircle className="w-4 h-4" />
-            <span>
-              {isAr
-                ? 'إرسال رسالة شحن وتتبع جاهزة (1-Click WhatsApp + مؤقت 24 ساعة)'
-                : '1-Click Pre-Made Shipping Tracking Msg (24h Client Timer)'}
-            </span>
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-          <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
-            <label className="text-[11px] font-bold text-slate-500 block">
-              {isAr ? 'مهلة إلغاء الطلب للعميل (ساعات)' : 'Customer Cancel Window (Hours)'}
-            </label>
-            <input
-              type="number"
-              min={0}
-              max={72}
-              value={orderPolicy.cancelWindowHours}
-              onChange={(e) => {
-                const next = { ...orderPolicy, cancelWindowHours: Number(e.target.value) };
-                setOrderPolicy(next);
-                saveStoreOrderPolicy(activeStore.id, next);
-              }}
-              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 font-mono font-bold"
-            />
-          </div>
-
-          <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
-            <label className="text-[11px] font-bold text-slate-500 block">
-              {isAr ? 'شركة الشحن الافتراضية (السعودية)' : 'Default KSA Shipping Carrier'}
-            </label>
-            <input
-              type="text"
-              value={orderPolicy.shippingCarrierDefault}
-              onChange={(e) => {
-                const next = { ...orderPolicy, shippingCarrierDefault: e.target.value };
-                setOrderPolicy(next);
-                saveStoreOrderPolicy(activeStore.id, next);
-              }}
-              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 font-bold"
-            />
-          </div>
-
-          <label className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between cursor-pointer">
-            <span className="font-bold">
-              {isAr ? 'إيميل تلقائي عند الطلب والاكتمال' : 'Auto Email on Submit & Done'}
-            </span>
-            <input
-              type="checkbox"
-              checked={orderPolicy.autoEmailOnOrderSubmit}
-              onChange={(e) => {
-                const next = {
-                  ...orderPolicy,
-                  autoEmailOnOrderSubmit: e.target.checked,
-                  autoEmailOnOrderDone: e.target.checked,
-                };
-                setOrderPolicy(next);
-                saveStoreOrderPolicy(activeStore.id, next);
-              }}
-              className="accent-emerald-600 w-4 h-4"
-            />
-          </label>
-
-          <label className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between cursor-pointer">
-            <span className="font-bold">
-              {isAr ? 'السماح للعميل بإلغاء الطلب قبل الشحن' : 'Allow Customer Cancel Before Ship'}
-            </span>
-            <input
-              type="checkbox"
-              checked={orderPolicy.allowCustomerCancel}
-              onChange={(e) => {
-                const next = { ...orderPolicy, allowCustomerCancel: e.target.checked };
-                setOrderPolicy(next);
-                saveStoreOrderPolicy(activeStore.id, next);
-              }}
-              className="accent-emerald-600 w-4 h-4"
-            />
-          </label>
         </div>
       </div>
 
@@ -2198,44 +2072,6 @@ export const StoreOrders: React.FC = () => {
               </button>
             )}
           </div>
-
-          {/* Filter Orders Popover Button (100% same-to-same with PDF Page 2 & 3) */}
-          <OrderFilterMenu
-            statusFilter={orderFilters.status || 'all'}
-            onStatusChange={(status) => {
-              setOrderFilters((prev) => ({ ...prev, status }));
-              setPage(1);
-            }}
-            paymentFilter={orderFilters.paymentMethod || 'all'}
-            onPaymentChange={(payment) => {
-              setOrderFilters((prev) => ({ ...prev, paymentMethod: payment }));
-              setSelectedPaymentMethod(payment);
-              setPage(1);
-            }}
-            channelFilter={orderFilters.orderSource || 'all'}
-            onChannelChange={(channel) => {
-              setOrderFilters((prev) => ({ ...prev, orderSource: channel }));
-              setSelectedSource(channel);
-              setPage(1);
-            }}
-            onReset={() => {
-              setOrderFilters((prev) => ({
-                ...prev,
-                status: 'all',
-                paymentMethod: 'all',
-                orderSource: 'all',
-              }));
-              setSelectedPaymentMethod('all');
-              setSelectedSource('all');
-              setPage(1);
-            }}
-            hasActiveFilters={Boolean(
-              (orderFilters.status && orderFilters.status !== 'all') ||
-              (orderFilters.paymentMethod && orderFilters.paymentMethod !== 'all') ||
-              (orderFilters.orderSource && orderFilters.orderSource !== 'all')
-            )}
-            className="shrink-0"
-          />
 
           {/* Order Tools Dropdown Button */}
           <div className="relative shrink-0">
@@ -2411,7 +2247,12 @@ export const StoreOrders: React.FC = () => {
               <span>
                 {orderFilters.paymentStatus === 'all'
                   ? (isAr ? 'حالة الدفع' : 'Payment Status')
-                  : orderFilters.paymentStatus}
+                  : ({
+                      Paid: localizePaymentStatus('Paid', locale),
+                      'Pending Payment': isAr ? 'بانتظار الدفع' : 'Pending Payment',
+                      'Payment Failed': isAr ? 'فشلت عملية الدفع' : 'Payment Failed',
+                      Refunded: localizePaymentStatus('Refunded', locale),
+                    } as Record<string, string>)[orderFilters.paymentStatus] || localizePaymentStatus(orderFilters.paymentStatus, locale)}
               </span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
@@ -2420,10 +2261,10 @@ export const StoreOrders: React.FC = () => {
               <div className="absolute start-0 top-full mt-1.5 w-44 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 z-50 text-xs">
                 {[
                   { value: 'all', label: isAr ? 'جميع حالات الدفع' : 'All Payment Statuses' },
-                  { value: 'Paid', label: isAr ? 'مدفوع' : 'Paid' },
+                  { value: 'Paid', label: localizePaymentStatus('Paid', locale) },
                   { value: 'Pending Payment', label: isAr ? 'بانتظار الدفع' : 'Pending Payment' },
                   { value: 'Payment Failed', label: isAr ? 'فشلت عملية الدفع' : 'Payment Failed' },
-                  { value: 'Refunded', label: isAr ? 'مسترجع' : 'Refunded' },
+                  { value: 'Refunded', label: localizePaymentStatus('Refunded', locale) },
                 ].map((opt) => (
                   <button
                     key={opt.value}
@@ -2461,7 +2302,13 @@ export const StoreOrders: React.FC = () => {
               <span>
                 {orderFilters.shippingStatus === 'all'
                   ? (isAr ? 'حالة الشحن' : 'Shipping Status')
-                  : orderFilters.shippingStatus}
+                  : ({
+                      'Not Shipped': isAr ? 'لم يتم الشحن' : 'Not Shipped',
+                      'Ready to Ship': isAr ? 'جاهز للشحن' : 'Ready to Ship',
+                      'Handed to Carrier': isAr ? 'تم التسليم للشحن' : 'Handed to Carrier',
+                      'In Transit': localizeShippingStatus('In Transit', locale),
+                      Delivered: localizeShippingStatus('Delivered', locale),
+                    } as Record<string, string>)[orderFilters.shippingStatus] || localizeShippingStatus(orderFilters.shippingStatus, locale)}
               </span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
@@ -2473,8 +2320,8 @@ export const StoreOrders: React.FC = () => {
                   { value: 'Not Shipped', label: isAr ? 'لم يتم الشحن' : 'Not Shipped' },
                   { value: 'Ready to Ship', label: isAr ? 'جاهز للشحن' : 'Ready to Ship' },
                   { value: 'Handed to Carrier', label: isAr ? 'تم التسليم للشحن' : 'Handed to Carrier' },
-                  { value: 'In Transit', label: isAr ? 'قيد التوصيل' : 'In Transit' },
-                  { value: 'Delivered', label: isAr ? 'تم التوصيل' : 'Delivered' },
+                  { value: 'In Transit', label: localizeShippingStatus('In Transit', locale) },
+                  { value: 'Delivered', label: localizeShippingStatus('Delivered', locale) },
                 ].map((opt) => (
                   <button
                     key={opt.value}
@@ -2511,26 +2358,22 @@ export const StoreOrders: React.FC = () => {
               <Globe className="w-3.5 h-3.5 text-teal-600" />
               <span>
                 {selectedSource === 'all'
-                  ? (isAr ? 'مصدر الطلب' : 'Order Source')
-                  : selectedSource}
+                  ? t('orderSource')
+                  : localizeSalesChannel(selectedSource, locale)}
               </span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 
             {openFilterDropdown === 'source' && (
-              <div className="absolute start-0 top-full mt-1.5 w-52 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 z-50 text-xs max-h-60 overflow-y-auto">
+              <div className="absolute start-0 top-full mt-1.5 w-44 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 z-50 text-xs">
                 {[
-                  { value: 'all', label: isAr ? 'كافة القنوات' : 'All Channels' },
-                  { value: 'Instagram', label: isAr ? 'انستغرام' : 'Instagram' },
-                  { value: 'Google Ads', label: isAr ? 'إعلانات جوجل' : 'Google Ads' },
-                  { value: 'Direct Visits', label: isAr ? 'زيارات مباشرة' : 'Direct Visits' },
-                  { value: 'TikTok', label: isAr ? 'تيك توك' : 'TikTok' },
-                  { value: 'Snapchat', label: isAr ? 'سناب شات' : 'Snapchat' },
-                  { value: 'WhatsApp', label: isAr ? 'واتساب' : 'WhatsApp' },
-                  { value: 'Facebook', label: isAr ? 'فيسبوك' : 'Facebook' },
-                  { value: 'X', label: isAr ? 'إكس (تويتر سابقاً)' : 'X (formerly Twitter)' },
-                  { value: 'YouTube', label: isAr ? 'يوتيوب' : 'YouTube' },
-                  { value: 'Email Marketing', label: isAr ? 'البريد الإلكتروني' : 'Email Marketing' },
+                  { value: 'all', label: isAr ? 'جميع المصادر' : 'All Sources' },
+                  { value: 'Instagram', label: 'Instagram' },
+                  { value: 'Website', label: 'Website' },
+                  { value: 'TikTok', label: 'TikTok' },
+                  { value: 'Snapchat', label: 'Snapchat' },
+                  { value: 'WhatsApp', label: 'WhatsApp' },
+                  { value: 'Direct', label: 'Direct' },
                 ].map((opt) => (
                   <button
                     key={opt.value}
@@ -2737,8 +2580,8 @@ export const StoreOrders: React.FC = () => {
           </div>
         )}
 
-        {/* ── ORDERS TABLE (Mockup 04) ── */}
-        <div className="overflow-x-auto pt-1 w-full">
+        {/* ── ORDERS TABLE (Mockup 04) — overflow-x only; action menu uses fixed portal (no overlap) ── */}
+        <div className="overflow-x-auto overflow-y-visible pt-1 w-full relative z-0">
           <table className="w-full min-w-[960px] text-start text-xs border-separate border-spacing-0">
             <thead>
               <tr>
@@ -2829,22 +2672,23 @@ export const StoreOrders: React.FC = () => {
                         />
                       </td>
 
-                      {/* # Order No. (Clicking opens Order Details) */}
+                      {/* # Order No. (Clicking opens Order Details) — sequential #001+ */}
                       <td className="py-2.5 px-2 font-mono font-bold text-xs whitespace-nowrap min-w-[90px]" style={{ borderBottom: '1px solid var(--border)' }}>
                         <button
                           type="button"
                           onClick={() => setSelectedOrder(ord)}
-                          className="hover:underline cursor-pointer font-bold text-xs text-start leading-tight"
+                          className="hover:underline cursor-pointer font-bold text-xs text-start leading-tight tabular-nums"
                           style={{ color: 'var(--accent)' }}
+                          title={ord.orderNumber}
                         >
-                          {ord.orderNumber}
+                          {displayOrderNumber(ord.orderNumber)}
                         </button>
                       </td>
 
                       {/* Customer: Name & Phone below */}
                       <td className="py-2.5 px-2 min-w-[130px]" style={{ borderBottom: '1px solid var(--border)' }}>
-                        <div className="font-bold text-xs line-clamp-2 max-w-[160px] break-words leading-tight" title={ord.customerName} style={{ color: 'var(--text)' }}>
-                          {ord.customerName}
+                        <div className="font-bold text-xs line-clamp-2 max-w-[160px] break-words leading-tight" title={getCustomerDisplayName(ord.customerName, locale)} style={{ color: 'var(--text)' }}>
+                          {getCustomerDisplayName(ord.customerName, locale)}
                         </div>
                         <div className="text-[11px] font-mono mt-0.5 whitespace-nowrap leading-tight" style={{ color: 'var(--muted)' }}>
                           {ord.customerPhone}
@@ -2861,8 +2705,8 @@ export const StoreOrders: React.FC = () => {
                             className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shrink-0 mt-0.5"
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="font-bold text-xs line-clamp-2 max-w-[180px] break-words leading-tight" title={itemsList[0]?.name || (ord as any).itemsSummary || 'Order Item'} style={{ color: 'var(--text)' }}>
-                              {itemsList[0]?.name || (ord as any).itemsSummary || 'Order Item'}
+                            <div className="font-bold text-xs line-clamp-2 max-w-[180px] break-words leading-tight" title={itemsList[0] ? getLocalizedItemName(itemsList[0], locale) : (localeMixedLabel((ord as any).itemsSummary, isAr) || (isAr ? 'عنصر الطلب' : 'Order Item'))} style={{ color: 'var(--text)' }}>
+                              {itemsList[0] ? getLocalizedItemName(itemsList[0], locale) : (localeMixedLabel((ord as any).itemsSummary, isAr) || (isAr ? 'عنصر الطلب' : 'Order Item'))}
                             </div>
                             <div className="text-[11px] text-slate-500 font-mono mt-0.5 whitespace-nowrap">
                               x {itemsList[0]?.quantity || 1}
@@ -2890,15 +2734,30 @@ export const StoreOrders: React.FC = () => {
                       </td>
 
                       {/* Order Status */}
-                      <td className="py-2.5 px-2 whitespace-nowrap min-w-[95px] text-start" style={{ borderBottom: '1px solid var(--border)' }}>
-                        {getStatusBadge(ord.status)}
+                      <td className="py-2.5 px-2 min-w-[95px] text-start" style={{ borderBottom: '1px solid var(--border)' }}>
+                        <div className="flex flex-col items-start gap-1">
+                          {getStatusBadge(ord.status)}
+                          {(() => {
+                            const untouched = formatUntouchedLabel(ord);
+                            if (!untouched) return null;
+                            return (
+                              <span
+                                className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 whitespace-nowrap"
+                                title={untouched}
+                              >
+                                <Clock className="w-3 h-3 shrink-0" />
+                                {untouched}
+                              </span>
+                            );
+                          })()}
+                        </div>
                       </td>
 
                       {/* Order Source */}
                       <td className="py-2.5 px-2 whitespace-nowrap min-w-[100px] text-start" style={{ borderBottom: '1px solid var(--border)' }}>
                         <div className="flex items-center gap-1.5 font-medium text-xs whitespace-nowrap" style={{ color: 'var(--text)' }}>
                           {getSourceIcon(ord.source)}
-                          <span>{ord.source}</span>
+                          <span>{localizeSalesChannel(ord.source, locale)}</span>
                         </div>
                       </td>
 
@@ -2912,8 +2771,8 @@ export const StoreOrders: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* Actions: ... Popover Menu (Matching Image 1) */}
-                      <td className="py-2.5 px-2 text-center whitespace-nowrap relative w-16 min-w-[65px]" style={{ borderBottom: '1px solid var(--border)' }}>
+                      {/* Actions — menu opens via fixed portal (avoids table overflow overlap) */}
+                      <td className="py-2.5 px-2 text-center whitespace-nowrap w-16 min-w-[65px]" style={{ borderBottom: '1px solid var(--border)' }}>
                         <div className="inline-flex items-center justify-center gap-1 w-full">
                           <button
                             type="button"
@@ -2925,140 +2784,36 @@ export const StoreOrders: React.FC = () => {
                             <Eye className="w-3.5 h-3.5" />
                           </button>
 
-                          <div className="relative shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => setActiveActionMenuId(activeActionMenuId === ord.id ? null : ord.id)}
-                              className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors"
-                              style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
-                              title="More Actions"
-                            >
-                              <MoreHorizontal className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* Dropdown Action Popover (Matching Image 1) */}
-                            {activeActionMenuId === ord.id && (
-                              <div
-                                className="absolute end-0 top-8 z-50 w-48 rounded-xl border p-1 shadow-xl text-xs font-semibold animate-in fade-in duration-100 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedOrder(ord);
-                                    setActiveActionMenuId(null);
-                                  }}
-                                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
-                                >
-                                  <Eye className="w-3.5 h-3.5 text-blue-500" />
-                                  <span>{isAr ? 'عرض التفاصيل' : 'View Details'}</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingOrder(ord);
-                                    setShowEditOrderModal(true);
-                                    setActiveActionMenuId(null);
-                                  }}
-                                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
-                                >
-                                  <Edit className="w-3.5 h-3.5 text-teal-500" />
-                                  <span>{isAr ? 'تعديل الطلب' : 'Edit Order'}</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setInvoiceOrder(ord);
-                                    setShowInvoiceModal(true);
-                                    setActiveActionMenuId(null);
-                                  }}
-                                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
-                                >
-                                  <Printer className="w-3.5 h-3.5 text-emerald-500" />
-                                  <span>{isAr ? 'طباعة فاتورة' : 'Print Invoice'}</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    copyToClipboard(ord.orderNumber, ord.id);
-                                    setActiveActionMenuId(null);
-                                  }}
-                                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
-                                >
-                                  <Copy className="w-3.5 h-3.5 text-slate-400" />
-                                  <span>{isAr ? 'نسخ رقم الطلب' : 'Copy Order Number'}</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setShippingLabelOrder(ord);
-                                    setShowShippingLabelModal(true);
-                                    setActiveActionMenuId(null);
-                                  }}
-                                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
-                                >
-                                  <Truck className="w-3.5 h-3.5 text-sky-500" />
-                                  <span>{isAr ? 'تحديث حالة التوصيل' : 'Update Delivery Status'}</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setShowCodLedgerModal(true);
-                                    setActiveActionMenuId(null);
-                                  }}
-                                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
-                                >
-                                  <CreditCard className="w-3.5 h-3.5 text-amber-500" />
-                                  <span>{isAr ? 'عرض الدفع المالي' : 'View Payment'}</span>
-                                </button>
-
-                                <div className="h-[1px] my-1 bg-slate-100 dark:bg-slate-800" />
-
-                                {ord.isArchived ? (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setActiveActionMenuId(null);
-                                        handleRestoreSingleOrder(ord);
-                                      }}
-                                      className="w-full text-start px-3 py-2 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-2 cursor-pointer"
-                                    >
-                                      <RotateCcw className="w-3.5 h-3.5" />
-                                      <span>{t('restoreOrder') || (isAr ? 'استعادة الطلب' : 'Restore Order')}</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setActiveActionMenuId(null);
-                                        handlePermanentDeleteSingleOrder(ord);
-                                      }}
-                                      className="w-full text-start px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                      <span>{t('permanentDeleteOrder') || (isAr ? 'حذف نهائي' : 'Delete Permanently')}</span>
-                                    </button>
-                                  </>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveActionMenuId(null);
-                                      handleArchiveSingleOrder(ord);
-                                    }}
-                                    className="w-full text-start px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-                                  >
-                                    <Archive className="w-3.5 h-3.5 text-slate-500" />
-                                    <span>{isAr ? 'أرشفة الطلب' : 'Archive Order'}</span>
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                          <button
+                            type="button"
+                            data-order-actions-trigger
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeActionMenuId === ord.id) {
+                                setActiveActionMenuId(null);
+                                setActionMenuPos(null);
+                                return;
+                              }
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const menuW = 192;
+                              const left = Math.max(
+                                8,
+                                Math.min(rect.right - menuW, window.innerWidth - menuW - 8),
+                              );
+                              const spaceBelow = window.innerHeight - rect.bottom;
+                              const top =
+                                spaceBelow < 280 && rect.top > 280
+                                  ? Math.max(8, rect.top - 280)
+                                  : rect.bottom + 4;
+                              setActionMenuPos({ top, left });
+                              setActiveActionMenuId(ord.id);
+                            }}
+                            className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors shrink-0"
+                            style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+                            title="More Actions"
+                          >
+                            <MoreHorizontal className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -3082,6 +2837,150 @@ export const StoreOrders: React.FC = () => {
           pageSizeOptions={[10, 20, 50, 100]}
         />
       </div>
+
+      {/* Fixed portal action menu — never overlaps Order No. / table cells */}
+      {activeActionMenuId &&
+        actionMenuPos &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          (() => {
+            const ord =
+              pagedOrders.find((o) => o.id === activeActionMenuId) ||
+              currentOrders.find((o) => o.id === activeActionMenuId);
+            if (!ord) return null;
+            const closeMenu = () => {
+              setActiveActionMenuId(null);
+              setActionMenuPos(null);
+            };
+            return (
+              <div
+                ref={actionMenuRef}
+                role="menu"
+                className="fixed z-[9999] w-48 rounded-xl border p-1 shadow-xl text-xs font-semibold bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                style={{ top: actionMenuPos.top, left: actionMenuPos.left }}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setSelectedOrder(ord);
+                    closeMenu();
+                  }}
+                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
+                >
+                  <Eye className="w-3.5 h-3.5 text-blue-500" />
+                  <span>{isAr ? 'عرض التفاصيل' : 'View Details'}</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setEditingOrder(ord);
+                    setShowEditOrderModal(true);
+                    closeMenu();
+                  }}
+                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
+                >
+                  <Edit className="w-3.5 h-3.5 text-teal-500" />
+                  <span>{isAr ? 'تعديل الطلب' : 'Edit Order'}</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setInvoiceOrder(ord);
+                    setShowInvoiceModal(true);
+                    closeMenu();
+                  }}
+                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
+                >
+                  <Printer className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>{isAr ? 'طباعة فاتورة' : 'Print Invoice'}</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    copyToClipboard(displayOrderNumber(ord.orderNumber), ord.id);
+                    closeMenu();
+                  }}
+                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
+                >
+                  <Copy className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{isAr ? 'نسخ رقم الطلب' : 'Copy Order Number'}</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShippingLabelOrder(ord);
+                    setShowShippingLabelModal(true);
+                    closeMenu();
+                  }}
+                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
+                >
+                  <Truck className="w-3.5 h-3.5 text-sky-500" />
+                  <span>{isAr ? 'تحديث حالة التوصيل' : 'Update Delivery Status'}</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowCodLedgerModal(true);
+                    closeMenu();
+                  }}
+                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
+                >
+                  <CreditCard className="w-3.5 h-3.5 text-amber-500" />
+                  <span>{isAr ? 'عرض الدفع المالي' : 'View Payment'}</span>
+                </button>
+                <div className="h-[1px] my-1 bg-slate-100 dark:bg-slate-800" />
+                {ord.isArchived ? (
+                  <>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        closeMenu();
+                        handleRestoreSingleOrder(ord);
+                      }}
+                      className="w-full text-start px-3 py-2 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-2 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>{t('restoreOrder') || (isAr ? 'استعادة الطلب' : 'Restore Order')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        closeMenu();
+                        handlePermanentDeleteSingleOrder(ord);
+                      }}
+                      className="w-full text-start px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{t('permanentDeleteOrder') || (isAr ? 'حذف نهائي' : 'Delete Permanently')}</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      closeMenu();
+                      handleArchiveSingleOrder(ord);
+                    }}
+                    className="w-full text-start px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Archive className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{isAr ? 'أرشفة الطلب' : 'Archive Order'}</span>
+                  </button>
+                )}
+              </div>
+            );
+          })(),
+          document.body,
+        )}
 
       {/* ── NEW ORDER MODAL (Store scoped) ── */}
       {showNewOrderModal && (
@@ -3177,11 +3076,11 @@ export const StoreOrders: React.FC = () => {
             orderNumber: shippingLabelOrder.orderNumber,
             orderDate: shippingLabelOrder.date || new Date().toISOString().split('T')[0],
             sender: {
-              name: activeStore.name || (activeStore.id === 'store-coffee' ? 'HiBrew Specialty Coffee' : activeStore.id === 'store-bleco' ? 'Bleco Automotive' : 'Hadaya Mecca Est.'),
-              nameAr: activeStore.nameAr || (activeStore.id === 'store-coffee' ? 'هاي برو للقهوة المختصة' : activeStore.id === 'store-bleco' ? 'بليكو لخدمات السيارات' : 'مؤسسة هدايا مكة والزهور'),
-              phone: (activeStore as any).phone || (activeStore.id === 'store-coffee' ? '+966 11 489 2030' : activeStore.id === 'store-bleco' ? '+966 59 775 7086' : '+966 12 555 8899'),
-              address: (activeStore as any).address || (activeStore.id === 'store-coffee' ? 'King Fahd Road, Riyadh' : activeStore.id === 'store-bleco' ? 'Industrial Area, Jeddah' : 'Ibrahim Al-Khalil Road, Jabal Omar District'),
-              city: (activeStore as any).city || (activeStore.id === 'store-coffee' ? 'Riyadh' : activeStore.id === 'store-bleco' ? 'Jeddah' : 'Makkah'),
+              name: activeStore.name || 'Makkah Gifts & Luxury Flowers Est.',
+              nameAr: activeStore.nameAr || 'مؤسسة هدايا مكة والزهور الفاخرة',
+              phone: '+966 12 555 8899',
+              address: 'Ibrahim Al-Khalil Road, Jabal Omar District',
+              city: 'Makkah',
               country: 'Saudi Arabia',
             },
             recipient: {

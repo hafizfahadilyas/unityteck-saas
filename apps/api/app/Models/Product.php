@@ -23,6 +23,8 @@ class Product extends Model
         'name_ar',
         'slug',
         'description',
+        'subtitle',
+        'subtitle_ar',
         'price',
         'weight_kg',
         'original_price',
@@ -37,11 +39,13 @@ class Product extends Model
         'video_url',
         'tags',
         'badge',
+        'badge_en',
         'seo_title',
         'seo_description',
         'seo_keywords',
         'status',
         'is_active',
+        'is_featured',
     ];
 
     protected function casts(): array
@@ -53,6 +57,7 @@ class Product extends Model
             'cost_price' => 'decimal:2',
             'stock' => 'integer',
             'is_active' => 'boolean',
+            'is_featured' => 'boolean',
             'gallery_urls' => 'array',
             'tags' => 'array',
         ];

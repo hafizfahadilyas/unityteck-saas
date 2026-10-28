@@ -631,7 +631,7 @@ export const SingleProductView: React.FC<Props> = ({
           <div className="space-y-4 text-xs sm:text-sm leading-relaxed text-slate-600 dark:text-slate-300">
             {product.description && /<[a-z][\s\S]*>/i.test(product.description) ? (
               <div
-                className="rich-text-content leading-relaxed text-slate-600 dark:text-slate-300 [&_ul]:list-disc [&_ul]:ps-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:ps-5 [&_ol]:my-2 [&_a]:text-emerald-600 [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_u]:underline"
+                className="rich-text-content leading-relaxed text-slate-600 dark:text-slate-300 [&_ul]:list-disc [&_ul]:ps-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:ps-5 [&_ol]:my-2 [&_a]:text-emerald-600 [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_u]:underline [&_h1]:text-2xl [&_h1]:font-black [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:my-2.5 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_h4]:text-base [&_h4]:font-bold [&_h4]:my-2 [&_h5]:text-sm [&_h5]:font-bold [&_h5]:my-1.5 [&_h6]:text-xs [&_h6]:font-bold [&_h6]:my-1.5 [&_p]:my-2 [&_img]:max-w-full [&_img]:rounded-xl [&_img]:my-3 [&_video]:max-w-full [&_video]:rounded-xl [&_video]:my-3 [&_iframe]:max-w-full [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded-xl [&_iframe]:my-3"
                 dangerouslySetInnerHTML={{ __html: product.description }}
               />
             ) : (

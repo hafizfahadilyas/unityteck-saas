@@ -99,7 +99,7 @@ export const BellDropdown: React.FC<BellDropdownProps> = ({
       {isOpen && (
         <div
           role="menu"
-          className="absolute end-0 mt-2 w-80 sm:w-96 rounded-2xl border shadow-2xl z-50 text-xs overflow-hidden backdrop-blur-md animate-in fade-in zoom-in-95 duration-150"
+          className="absolute end-0 mt-2 w-[min(100vw-1rem,26rem)] sm:w-[28rem] max-w-[calc(100vw-1rem)] rounded-2xl border shadow-2xl z-50 text-xs overflow-hidden backdrop-blur-md animate-in fade-in zoom-in-95 duration-150"
           style={{
             background: 'var(--surface)',
             borderColor: 'var(--border)',
@@ -126,12 +126,15 @@ export const BellDropdown: React.FC<BellDropdownProps> = ({
             </button>
           </div>
 
-          {/* 4 Tabs: All / Issues / Marketing / Urgent */}
-          <div className="flex items-center border-b px-2 pt-1 gap-1 bg-slate-50/50 dark:bg-slate-900/50" style={{ borderColor: 'var(--border)' }}>
+          {/* 4 Tabs: All / Issues / Marketing / Urgent — equal columns, no wrap squeeze */}
+          <div
+            className="grid grid-cols-4 border-b bg-slate-50/50 dark:bg-slate-900/50"
+            style={{ borderColor: 'var(--border)' }}
+          >
             {[
               { id: 'all' as const, labelEn: 'All', labelAr: 'الكل', count: unreadCounts.total },
-              { id: 'zone1_issues' as const, labelEn: 'Issues', labelAr: 'التنبيهات', count: unreadCounts.zone1 },
-              { id: 'zone2_marketing' as const, labelEn: 'Marketing', labelAr: 'التسويق', count: unreadCounts.zone2 },
+              { id: 'zone1_issues' as const, labelEn: 'Issues', labelAr: 'تنبيهات', count: unreadCounts.zone1 },
+              { id: 'zone2_marketing' as const, labelEn: 'Marketing', labelAr: 'تسويق', count: unreadCounts.zone2 },
               { id: 'zone3_urgent' as const, labelEn: 'Urgent', labelAr: 'عاجل', count: unreadCounts.zone3 },
             ].map((tab) => {
               const active = activeTab === tab.id;
@@ -140,24 +143,26 @@ export const BellDropdown: React.FC<BellDropdownProps> = ({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 py-1.5 text-center text-[11px] font-bold border-b-2 transition-colors cursor-pointer ${
+                  className={`py-2 px-1 text-center text-[10px] sm:text-[11px] font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
                     active
                       ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
                       : 'border-transparent text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  <span>{isAr ? tab.labelAr : tab.labelEn}</span>
-                  {tab.count > 0 && (
-                    <span className="ms-1 px-1 rounded-full text-[9px] bg-slate-200 dark:bg-slate-700">
-                      {tab.count}
-                    </span>
-                  )}
+                  <span className="inline-flex items-center justify-center gap-0.5">
+                    <span>{isAr ? tab.labelAr : tab.labelEn}</span>
+                    {tab.count > 0 && (
+                      <span className="px-1 min-w-[16px] rounded-full text-[9px] bg-slate-200 dark:bg-slate-700 leading-4">
+                        {tab.count}
+                      </span>
+                    )}
+                  </span>
                 </button>
               );
             })}
           </div>
 
-          {/* Body: Last 10 notifications */}
+          {/* Body: Last 10 — aligned title/time row */}
           <div className="max-h-[360px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 custom-scrollbar">
             {currentTabItems.length === 0 ? (
               <div className="py-8 text-center text-xs text-slate-400">
@@ -171,21 +176,24 @@ export const BellDropdown: React.FC<BellDropdownProps> = ({
                     handleAction(item, onNavigateTab);
                     setIsOpen(false);
                   }}
-                  className={`p-3 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 ${
-                    item.read ? 'opacity-70' : 'bg-emerald-50/20 font-semibold'
+                  className={`px-4 py-3 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 ${
+                    item.read ? 'opacity-70' : 'bg-emerald-50/20'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-xs font-bold truncate leading-snug" style={{ color: 'var(--text)' }}>
+                  <div className="grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-1">
+                    <span
+                      className={`text-xs leading-snug line-clamp-2 ${item.read ? 'font-semibold' : 'font-bold'}`}
+                      style={{ color: 'var(--text)' }}
+                    >
                       {isAr ? item.titleAr || item.title : item.title}
                     </span>
-                    <span className="text-[10px] text-slate-400 shrink-0">
+                    <span className="text-[10px] text-slate-400 whitespace-nowrap pt-0.5 text-end">
                       {formatRelativeTime(item.timestamp, locale)}
                     </span>
+                    <p className="text-[11px] text-slate-500 line-clamp-2 col-span-2 leading-relaxed">
+                      {isAr ? item.descriptionAr || item.description : item.description}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">
-                    {isAr ? item.descriptionAr || item.description : item.description}
-                  </p>
                 </div>
               ))
             )}

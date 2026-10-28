@@ -23,6 +23,7 @@ class ProductController extends Controller
         'stock',
         'status',
         'category',
+        'is_featured',
         'updated_at',
         'created_at',
     ];
@@ -42,6 +43,10 @@ class ProductController extends Controller
 
         if ($request->query('is_active') !== null && $request->query('is_active') !== '') {
             $query->where('is_active', filter_var($request->query('is_active'), FILTER_VALIDATE_BOOLEAN));
+        }
+
+        if ($request->query('is_featured') !== null && $request->query('is_featured') !== '') {
+            $query->where('is_featured', filter_var($request->query('is_featured'), FILTER_VALIDATE_BOOLEAN));
         }
 
         if ($category = $request->query('category')) {
@@ -171,6 +176,7 @@ class ProductController extends Controller
         $data['stock'] = $data['stock'] ?? 0;
         $data['status'] = $data['status'] ?? 'draft';
         $data['is_active'] = $data['is_active'] ?? true;
+        $data['is_featured'] = $data['is_featured'] ?? false;
         $data['gallery_urls'] = $data['gallery_urls'] ?? [];
         $data['tags'] = $data['tags'] ?? [];
 
@@ -257,6 +263,8 @@ class ProductController extends Controller
             'name_ar' => ['nullable', 'string', 'max:255'],
             'slug' => ['nullable', 'string', 'max:191'],
             'description' => ['nullable', 'string'],
+            'subtitle' => ['nullable', 'string', 'max:500'],
+            'subtitle_ar' => ['nullable', 'string', 'max:500'],
             'price' => [$req, 'numeric', 'min:0'],
             'weight_kg' => ['nullable', 'numeric', 'min:0'],
             'original_price' => ['nullable', 'numeric', 'min:0'],
@@ -280,6 +288,7 @@ class ProductController extends Controller
             'seo_keywords' => ['nullable', 'string', 'max:500'],
             'status' => ['nullable', Rule::in(['published', 'draft', 'archived'])],
             'is_active' => ['nullable', 'boolean'],
+            'is_featured' => ['nullable', 'boolean'],
         ];
     }
 

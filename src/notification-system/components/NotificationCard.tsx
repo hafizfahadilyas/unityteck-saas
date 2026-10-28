@@ -13,7 +13,6 @@ import {
   Clock,
   Trash2,
   ExternalLink,
-  MessageCircle,
   AlertTriangle,
   ShoppingCart,
   Tag,
@@ -32,6 +31,7 @@ import { getCategoryTheme } from '../config/colorMap';
 import { formatRelativeTime } from '../utils/dateFilters';
 import { WhatsAppService } from '../services/whatsappService';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { WhatsAppBrandIcon } from '../../components/common/BrandIcons';
 
 interface NotificationCardProps {
   notification: NotificationItem;
@@ -130,18 +130,19 @@ export const NotificationCard: React.FC<NotificationCardProps> = memo(({
             {renderCategoryIcon()}
           </div>
 
-          {/* 3. Content block */}
+          {/* 3. Content block — title + time aligned on one row (mobile) */}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap mb-0.5">
-              <span className="lg:hidden text-[11px] font-medium text-slate-400 dark:text-slate-500">
-                {relativeTime} ·
-              </span>
+            <div className="grid grid-cols-[1fr_auto] items-start gap-x-2 gap-y-1 mb-0.5">
               <h4
-                className="text-sm font-bold truncate leading-snug tracking-tight"
+                className="text-sm font-bold line-clamp-2 leading-snug tracking-tight"
                 style={{ color: 'var(--text)' }}
               >
                 {titleText}
               </h4>
+              <span className="lg:hidden text-[10px] font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap pt-0.5 text-end">
+                {relativeTime}
+              </span>
+              <div className="col-span-2 flex items-center gap-2 flex-wrap">
 
               {/* STRICT RULE 2: Stale Data & Verified Data Badges */}
               {notification.dataSource && (
@@ -159,6 +160,7 @@ export const NotificationCard: React.FC<NotificationCardProps> = memo(({
                   )}
                 </div>
               )}
+              </div>
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
@@ -192,7 +194,7 @@ export const NotificationCard: React.FC<NotificationCardProps> = memo(({
               onClick={() => onAction(notification)}
               className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-md transition-all duration-150 cursor-pointer active:scale-95"
             >
-              <MessageCircle className="w-3.5 h-3.5" />
+              <WhatsAppBrandIcon className="w-3.5 h-3.5" title="WhatsApp" />
               <span>{actionText}</span>
             </button>
           ) : (

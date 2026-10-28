@@ -30,6 +30,44 @@ import {
   Star,
 } from 'lucide-react';
 
+/** Edit-panel sections merchants can show/hide via the Products toolbar Filter. */
+export type ProductEditSectionKey =
+  | 'images'
+  | 'basic'
+  | 'pricing'
+  | 'inventory'
+  | 'variations'
+  | 'variationInventory'
+  | 'customFields'
+  | 'seo';
+
+/** Default: all sections visible in Large Image (grid) and List edit drawers. */
+export const DEFAULT_PRODUCT_EDIT_SECTIONS: Record<ProductEditSectionKey, boolean> = {
+  images: true,
+  basic: true,
+  pricing: true,
+  inventory: true,
+  variations: true,
+  variationInventory: true,
+  customFields: true,
+  seo: true,
+};
+
+export const PRODUCT_EDIT_SECTION_OPTIONS: {
+  id: ProductEditSectionKey;
+  labelEn: string;
+  labelAr: string;
+}[] = [
+  { id: 'images', labelEn: 'Product Images', labelAr: 'صور المنتج' },
+  { id: 'basic', labelEn: 'Product Name & Basic Info', labelAr: 'اسم المنتج والمعلومات الأساسية' },
+  { id: 'pricing', labelEn: 'Price & Pricing', labelAr: 'السعر والتسعير' },
+  { id: 'inventory', labelEn: 'Inventory & Shipping', labelAr: 'المخزون والشحن' },
+  { id: 'variations', labelEn: 'Product Options & Variations', labelAr: 'خيارات وتنوعات المنتج' },
+  { id: 'variationInventory', labelEn: 'Variation Inventory', labelAr: 'مخزون التنوعات' },
+  { id: 'customFields', labelEn: 'Custom Fields', labelAr: 'الحقول المخصصة' },
+  { id: 'seo', labelEn: 'SEO Settings', labelAr: 'إعدادات تحسين محركات البحث (SEO)' },
+];
+
 export interface ProductEditDrawerProps {
   isOpen: boolean;
   product: Product | null;
@@ -41,6 +79,8 @@ export interface ProductEditDrawerProps {
   onExpandFullView?: () => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
+  /** Global field visibility from toolbar Filter (applies to all products). */
+  visibleSections?: Record<ProductEditSectionKey, boolean>;
 }
 
 export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
@@ -54,6 +94,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
   onExpandFullView,
   onDelete,
   onDuplicate,
+  visibleSections = DEFAULT_PRODUCT_EDIT_SECTIONS,
 }) => {
   const { t, locale, money } = usePrefs();
   const { toast } = useToast();
@@ -71,25 +112,17 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
     seo: false,
   });
 
-  // Section Enabled (toggles)
-  const [sectionsEnabled, setSectionsEnabled] = useState<Record<string, boolean>>({
-    images: true,
-    basic: true,
-    pricing: true,
-    inventory: true,
-    variations: true,
-    variationInventory: true,
-    customFields: true,
-    seo: true,
-  });
+  const isSectionVisible = (key: ProductEditSectionKey) => visibleSections[key] !== false;
 
   // Form Fields
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
-  const [shortDescription, setShortDescription] = useState('');
+  const [subtitle, setSubtitle] = useState('');
+  const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [brand, setBrand] = useState('');
   const [badge, setBadge] = useState<string>('');
+  const [isFeatured, setIsFeatured] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
 
   // Pricing
@@ -129,10 +162,18 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
     if (product) {
       setName(product.name || '');
       setSku(product.sku || '');
-      setShortDescription(product.subtitle || (typeof product.description === 'string' ? product.description.slice(0, 200) : ''));
+      setSubtitle(product.subtitle || '');
+      setDescription(typeof product.description === 'string' ? product.description : '');
       setCategory(product.category || (categories[0] || ''));
       setBrand(product.brand || '');
       setBadge(product.badge || '');
+      setIsFeatured(
+        Boolean(
+          product.isFeatured ||
+            product.badge === 'featured' ||
+            (Array.isArray(product.tags) && product.tags.includes('featured')),
+        ),
+      );
       setTags(Array.isArray(product.tags) ? product.tags : []);
 
       setPrice(product.price ?? 0);
@@ -167,11 +208,6 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
 
   const toggleAccordion = (secKey: string) => {
     setSectionsOpen((prev) => ({ ...prev, [secKey]: !prev[secKey] }));
-  };
-
-  const toggleSectionSwitch = (secKey: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSectionsEnabled((prev) => ({ ...prev, [secKey]: !prev[secKey] }));
   };
 
   // Instant direct file upload from computer for Main Image (Auto-Optimized to WebP in KB)
@@ -404,11 +440,12 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
     const updatedData: Partial<Product> = {
       name,
       sku,
-      subtitle: shortDescription,
-      description: shortDescription,
+      subtitle: subtitle.trim() || null,
+      description: description || null,
       category,
       brand,
       badge: badge || undefined,
+      isFeatured,
       tags,
       price: Number(price) || 0,
       discountedPrice: salePrice !== '' ? Number(salePrice) : undefined,
@@ -467,6 +504,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
         {/* ── Accordion Sections List (Scrollable Area) ── */}
         <div className="flex-1 overflow-y-auto custom-scroll p-4 space-y-3.5">
           {/* 1. Product Images */}
+          {isSectionVisible('images') && (
           <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/50">
             <div
               onClick={() => toggleAccordion('images')}
@@ -487,19 +525,6 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
 
               <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={(e) => toggleSectionSwitch('images', e)}
-                  className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer p-0.5 ${
-                    sectionsEnabled.images ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                  }`}
-                >
-                  <span
-                    className={`w-3.5 h-3.5 rounded-full bg-white shadow block transition-transform transform ${
-                      sectionsEnabled.images ? 'translate-x-3.5 rtl:-translate-x-3.5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
                 {sectionsOpen.images ? (
                   <ChevronUp className="w-4 h-4 text-slate-400" />
                 ) : (
@@ -508,7 +533,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
             </div>
 
-            {sectionsOpen.images && sectionsEnabled.images && (
+            {sectionsOpen.images && (
               <div className="p-3.5 pt-0 space-y-3 border-t border-slate-100 dark:border-slate-800/80">
                 {/* Hidden File Inputs for Zero-lag Instant Selection */}
                 <input
@@ -703,8 +728,10 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
             )}
           </div>
+          )}
 
           {/* 2. Basic Information */}
+          {isSectionVisible('basic') && (
           <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/50">
             <div
               onClick={() => toggleAccordion('basic')}
@@ -725,19 +752,6 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
 
               <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={(e) => toggleSectionSwitch('basic', e)}
-                  className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer p-0.5 ${
-                    sectionsEnabled.basic ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                  }`}
-                >
-                  <span
-                    className={`w-3.5 h-3.5 rounded-full bg-white shadow block transition-transform transform ${
-                      sectionsEnabled.basic ? 'translate-x-3.5 rtl:-translate-x-3.5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
                 {sectionsOpen.basic ? (
                   <ChevronUp className="w-4 h-4 text-slate-400" />
                 ) : (
@@ -746,7 +760,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
             </div>
 
-            {sectionsOpen.basic && sectionsEnabled.basic && (
+            {sectionsOpen.basic && (
               <div className="p-3.5 pt-0 space-y-3 border-t border-slate-100 dark:border-slate-800/80">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
@@ -777,16 +791,73 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                 </div>
 
                 <div>
-                  <RichTextEditor
-                    label={isAr ? 'الوصف' : 'Description'}
-                    value={shortDescription}
-                    onChange={setShortDescription}
-                    placeholder="Product description..."
-                    minHeight={90}
-                    isAr={isAr}
+                  <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                    {isAr ? 'العنوان الفرعي' : 'Subtitle'}
+                  </label>
+                  <input
+                    type="text"
+                    value={subtitle}
+                    onChange={(e) => setSubtitle(e.target.value)}
                     maxLength={200}
-                    showCodeToggle={false}
+                    placeholder={
+                      isAr
+                        ? 'سطر قصير يظهر تحت اسم المنتج...'
+                        : 'Short line under the product name...'
+                    }
+                    className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-teal-500"
                   />
+                  <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{subtitle.length}/200</p>
+                </div>
+
+                <div>
+                  <RichTextEditor
+                    label={isAr ? 'الوصف الكامل (H1–H6، صور، فيديو)' : 'Full Description (H1–H6, images, video)'}
+                    value={description}
+                    onChange={setDescription}
+                    placeholder={
+                      isAr
+                        ? 'اكتب وصفاً منسقاً مع عناوين وصور وفيديو...'
+                        : 'Write a rich description with headings, images, and video...'
+                    }
+                    minHeight={140}
+                    isAr={isAr}
+                    enableHeadings
+                    enableMedia
+                  />
+                </div>
+
+                {/* Feature / highlight on homepage */}
+                <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-950/20">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold text-amber-900 dark:text-amber-200">
+                      {isAr ? 'تمييز / إبراز المنتج' : 'Highlight / Feature product'}
+                    </p>
+                    <p className="text-[10px] text-amber-700/80 dark:text-amber-300/70">
+                      {isAr
+                        ? 'يظهر في أقسام المنتجات المميزة بالصفحة الرئيسية'
+                        : 'Shows in homepage Featured product sections'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isFeatured}
+                    onClick={() => {
+                      const next = !isFeatured;
+                      setIsFeatured(next);
+                      if (next && !badge) setBadge('featured');
+                      if (!next && badge === 'featured') setBadge('');
+                    }}
+                    className={`relative w-10 h-5 rounded-full transition-colors shrink-0 cursor-pointer ${
+                      isFeatured ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                        isFeatured ? 'start-5' : 'start-0.5'
+                      }`}
+                    />
+                  </button>
                 </div>
 
                 {/* Highlight Badge */}
@@ -808,7 +879,10 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                         <button
                           key={bItem.id}
                           type="button"
-                          onClick={() => setBadge(bItem.id)}
+                          onClick={() => {
+                            setBadge(bItem.id);
+                            if (bItem.id === 'featured') setIsFeatured(true);
+                          }}
                           className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all text-start flex items-center justify-between cursor-pointer ${
                             isSel
                               ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-teal-700 dark:text-teal-300 shadow-xs'
@@ -865,7 +939,10 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
             )}
           </div>
 
+          )}
+
           {/* 3. Pricing */}
+          {isSectionVisible('pricing') && (
           <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/50">
             <div
               onClick={() => toggleAccordion('pricing')}
@@ -886,19 +963,6 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
 
               <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={(e) => toggleSectionSwitch('pricing', e)}
-                  className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer p-0.5 ${
-                    sectionsEnabled.pricing ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                  }`}
-                >
-                  <span
-                    className={`w-3.5 h-3.5 rounded-full bg-white shadow block transition-transform transform ${
-                      sectionsEnabled.pricing ? 'translate-x-3.5 rtl:-translate-x-3.5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
                 {sectionsOpen.pricing ? (
                   <ChevronUp className="w-4 h-4 text-slate-400" />
                 ) : (
@@ -907,7 +971,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
             </div>
 
-            {sectionsOpen.pricing && sectionsEnabled.pricing && (
+            {sectionsOpen.pricing && (
               <div className="p-3.5 pt-0 grid grid-cols-1 sm:grid-cols-3 gap-2.5 border-t border-slate-100 dark:border-slate-800/80">
                 <div>
                   <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
@@ -955,8 +1019,10 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
             )}
           </div>
+          )}
 
           {/* 4. Inventory & Shipping */}
+          {isSectionVisible('inventory') && (
           <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/50">
             <div
               onClick={() => toggleAccordion('inventory')}
@@ -977,19 +1043,6 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
 
               <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={(e) => toggleSectionSwitch('inventory', e)}
-                  className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer p-0.5 ${
-                    sectionsEnabled.inventory ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                  }`}
-                >
-                  <span
-                    className={`w-3.5 h-3.5 rounded-full bg-white shadow block transition-transform transform ${
-                      sectionsEnabled.inventory ? 'translate-x-3.5 rtl:-translate-x-3.5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
                 {sectionsOpen.inventory ? (
                   <ChevronUp className="w-4 h-4 text-slate-400" />
                 ) : (
@@ -998,7 +1051,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
             </div>
 
-            {sectionsOpen.inventory && sectionsEnabled.inventory && (
+            {sectionsOpen.inventory && (
               <div className="p-3.5 pt-0 space-y-2.5 border-t border-slate-100 dark:border-slate-800/80">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
@@ -1066,7 +1119,10 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
             )}
           </div>
 
+          )}
+
           {/* 5. Product Options & Variations */}
+          {isSectionVisible('variations') && (
           <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/50">
             <div
               onClick={() => toggleAccordion('variations')}
@@ -1084,19 +1140,6 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
 
               <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={(e) => toggleSectionSwitch('variations', e)}
-                  className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer p-0.5 ${
-                    sectionsEnabled.variations ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                  }`}
-                >
-                  <span
-                    className={`w-3.5 h-3.5 rounded-full bg-white shadow block transition-transform transform ${
-                      sectionsEnabled.variations ? 'translate-x-3.5 rtl:-translate-x-3.5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
                 {sectionsOpen.variations ? (
                   <ChevronUp className="w-4 h-4 text-slate-400" />
                 ) : (
@@ -1105,7 +1148,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
             </div>
 
-            {sectionsOpen.variations && sectionsEnabled.variations && (
+            {sectionsOpen.variations && (
               <div className="p-3.5 pt-0 border-t border-slate-100 dark:border-slate-800/80">
                 <p className="text-[11px] text-slate-500 mb-2">
                   {isAr ? 'إدارة الألوان والمقاسات والخيارات المتعددة.' : 'Configure sizes, colors, and options for this catalog item.'}
@@ -1126,7 +1169,10 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
             )}
           </div>
 
+          )}
+
           {/* 6. Variation Inventory */}
+          {isSectionVisible('variationInventory') && (
           <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/50">
             <div
               onClick={() => toggleAccordion('variationInventory')}
@@ -1144,19 +1190,6 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
 
               <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={(e) => toggleSectionSwitch('variationInventory', e)}
-                  className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer p-0.5 ${
-                    sectionsEnabled.variationInventory ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                  }`}
-                >
-                  <span
-                    className={`w-3.5 h-3.5 rounded-full bg-white shadow block transition-transform transform ${
-                      sectionsEnabled.variationInventory ? 'translate-x-3.5 rtl:-translate-x-3.5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
                 {sectionsOpen.variationInventory ? (
                   <ChevronUp className="w-4 h-4 text-slate-400" />
                 ) : (
@@ -1165,7 +1198,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
             </div>
 
-            {sectionsOpen.variationInventory && sectionsEnabled.variationInventory && (
+            {sectionsOpen.variationInventory && (
               <div className="p-3.5 pt-0 border-t border-slate-100 dark:border-slate-800/80">
                 <p className="text-[11px] text-slate-500">
                   {isAr ? 'تتبع المخزون والأسعار الخاصة بكل لون أو مقاس.' : 'Track stock levels and custom prices per SKU variation.'}
@@ -1174,7 +1207,10 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
             )}
           </div>
 
+          )}
+
           {/* 7. Custom Fields */}
+          {isSectionVisible('customFields') && (
           <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/50">
             <div
               onClick={() => toggleAccordion('customFields')}
@@ -1192,19 +1228,6 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
 
               <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={(e) => toggleSectionSwitch('customFields', e)}
-                  className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer p-0.5 ${
-                    sectionsEnabled.customFields ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                  }`}
-                >
-                  <span
-                    className={`w-3.5 h-3.5 rounded-full bg-white shadow block transition-transform transform ${
-                      sectionsEnabled.customFields ? 'translate-x-3.5 rtl:-translate-x-3.5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
                 {sectionsOpen.customFields ? (
                   <ChevronUp className="w-4 h-4 text-slate-400" />
                 ) : (
@@ -1213,7 +1236,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
             </div>
 
-            {sectionsOpen.customFields && sectionsEnabled.customFields && (
+            {sectionsOpen.customFields && (
               <div className="p-3.5 pt-0 space-y-2 border-t border-slate-100 dark:border-slate-800/80">
                 {customFields.map((f, idx) => (
                   <div key={f.id || idx} className="flex items-center gap-2">
@@ -1260,7 +1283,10 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
             )}
           </div>
 
+          )}
+
           {/* 8. SEO Settings */}
+          {isSectionVisible('seo') && (
           <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/50">
             <div
               onClick={() => toggleAccordion('seo')}
@@ -1278,19 +1304,6 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
 
               <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={(e) => toggleSectionSwitch('seo', e)}
-                  className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer p-0.5 ${
-                    sectionsEnabled.seo ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                  }`}
-                >
-                  <span
-                    className={`w-3.5 h-3.5 rounded-full bg-white shadow block transition-transform transform ${
-                      sectionsEnabled.seo ? 'translate-x-3.5 rtl:-translate-x-3.5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
                 {sectionsOpen.seo ? (
                   <ChevronUp className="w-4 h-4 text-slate-400" />
                 ) : (
@@ -1299,7 +1312,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
             </div>
 
-            {sectionsOpen.seo && sectionsEnabled.seo && (
+            {sectionsOpen.seo && (
               <div className="p-3.5 pt-0 space-y-2.5 border-t border-slate-100 dark:border-slate-800/80">
                 <div>
                   <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
@@ -1326,6 +1339,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               </div>
             )}
           </div>
+          )}
         </div>
 
         {/* ── Fixed Bottom Actions Footer ── */}

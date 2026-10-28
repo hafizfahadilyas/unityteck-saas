@@ -801,6 +801,7 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
   const [name, setName] = useState(product.name || '');
   const [subtitle, setSubtitle] = useState(product.subtitle || '');
   const [description, setDescription] = useState(product.description || '');
+  const [isFeatured, setIsFeatured] = useState(Boolean(product.isFeatured));
   const [productType, setProductType] = useState(product.productType || 'Physical Product');
   const [brand, setBrand] = useState(product.brand || 'Nike');
   const [category, setCategory] = useState(product.category || 'Sneakers');
@@ -851,6 +852,7 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
       name,
       subtitle,
       description,
+      isFeatured,
       productType,
       brand,
       category,
@@ -1077,7 +1079,37 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
                 onChange={setDescription}
                 placeholder="High-quality commercial espresso machine with dual thermoblocks..."
                 isAr={isAr}
+                enableHeadings
+                enableMedia
               />
+            </div>
+
+            <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-950/20">
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                  {isAr ? 'تمييز / إبراز المنتج' : 'Highlight / Feature product'}
+                </p>
+                <p className="text-[10px] text-amber-700/80 dark:text-amber-300/70 mt-0.5">
+                  {isAr
+                    ? 'يظهر في أقسام المنتجات المميزة'
+                    : 'Shows in Featured product sections'}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isFeatured}
+                onClick={() => setIsFeatured(!isFeatured)}
+                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 cursor-pointer ${
+                  isFeatured ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                    isFeatured ? 'start-5' : 'start-0.5'
+                  }`}
+                />
+              </button>
             </div>
 
             {/* 3-Column Select Row: Type, Brand, Category */}

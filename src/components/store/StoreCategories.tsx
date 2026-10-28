@@ -56,294 +56,377 @@ function formFrom(c: StoreCategory): FormState {
   };
 }
 
+/** Hierarchy aligned with database/hostinger/02_seed.sql + DatabaseSeeder.php */
 export const MECCA_CATEGORIES_SEED: StoreCategory[] = [
-  // --- 11 Main Store Categories ---
+  // --- Parent groups ---
   {
-    id: 'c-1',
+    id: 'cat-group-flowers',
     storeId: 'store-1',
     parentId: null,
+    name: 'Natural Flowers',
+    nameAr: 'الزهور الطبيعية',
+    slug: 'natural-flowers',
+    imageUrl: 'https://cdn.salla.sa/form-builder/tWCbNfZyZC271qgyhdROpC6ZdS6rCXbqmtvPD8hx.png',
+    sortOrder: 1,
+    metaTitle: 'الزهور الطبيعية | هدايا مكة',
+    metaDescription: 'باقات وفازات ورود طبيعية وتنسيقات مبتكرة في مكة المكرمة.',
+    metaTitleEn: 'Natural Flowers | Hadaya Makkah',
+    metaDescriptionEn: 'Natural rose bouquets, vases, and creative floral arrangements in Makkah.',
+    isActive: true,
+  },
+  {
+    id: 'cat-group-chocolate',
+    storeId: 'store-1',
+    parentId: null,
+    name: 'Roses and Chocolate',
+    nameAr: 'ورد وشوكولاتة',
+    slug: 'roses-and-chocolate',
+    imageUrl: 'https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png',
+    sortOrder: 2,
+    metaTitle: 'ورد وشوكولاتة | هدايا مكة',
+    metaDescription: 'تنسيقات الورد مع شوكولاتة باتشي وبستاني الفاخرة.',
+    metaTitleEn: 'Roses and Chocolate | Hadaya Makkah',
+    metaDescriptionEn: 'Rose arrangements with luxury Patchi and Bostani chocolates.',
+    isActive: true,
+  },
+  {
+    id: 'cat-group-hospitality',
+    storeId: 'store-1',
+    parentId: null,
+    name: 'Hospitality Presents',
+    nameAr: 'تقديمات الضيافة',
+    slug: 'hospitality-presents',
+    imageUrl: 'https://cdn.salla.sa/form-builder/2fomvXwpTYOOx8h3JMZGP3r5dnXelUxxIUDuzepj.png',
+    sortOrder: 3,
+    metaTitle: 'تقديمات الضيافة | هدايا مكة',
+    metaDescription: 'تقديمات ورد وقهوة وحلا وكيك للضيافة الحجازية الأصيلة.',
+    metaTitleEn: 'Hospitality Presents | Hadaya Makkah',
+    metaDescriptionEn: 'Roses with coffee, sweets, and cakes for authentic Hijazi hospitality.',
+    isActive: true,
+  },
+  {
+    id: 'cat-group-occasions',
+    storeId: 'store-1',
+    parentId: null,
+    name: 'Occasions',
+    nameAr: 'المناسبات',
+    slug: 'occasions',
+    imageUrl: 'https://cdn.salla.sa/form-builder/Y0Yt8LLfhRt46ljjaZjTaANumrZvYodYnv5CGQ7o.png',
+    sortOrder: 4,
+    metaTitle: 'هدايا المناسبات | هدايا مكة',
+    metaDescription: 'هدايا المواليد والتخرج وعيد الحب والزواج وأعياد الميلاد.',
+    metaTitleEn: 'Occasion Gifts | Hadaya Makkah',
+    metaDescriptionEn: 'Gifts for newborns, graduation, Valentine, weddings, and birthdays.',
+    isActive: true,
+  },
+  {
+    id: 'cat-group-luxury',
+    storeId: 'store-1',
+    parentId: null,
+    name: 'Luxury Gifts',
+    nameAr: 'الهدايا الفاخرة',
+    slug: 'luxury-gifts',
+    imageUrl: '/images/hadaya_men_luxury_gift_1791219799100.jpg',
+    sortOrder: 5,
+    metaTitle: 'الهدايا الفاخرة | هدايا مكة',
+    metaDescription: 'أطقم هدايا رجالية ونسائية ملكية مع ورد طبيعي.',
+    metaTitleEn: 'Luxury Gifts | Hadaya Makkah',
+    metaDescriptionEn: 'Royal men and women gift sets with natural flowers.',
+    isActive: true,
+  },
+
+  // --- Natural Flowers children ---
+  {
+    id: 'cat-nat-bouquets',
+    storeId: 'store-1',
+    parentId: 'cat-group-flowers',
     name: 'Natural Flower Bouquets',
     nameAr: 'باقات الورود الطبيعية',
     slug: 'natural-bouquets',
     imageUrl: 'https://cdn.salla.sa/form-builder/tWCbNfZyZC271qgyhdROpC6ZdS6rCXbqmtvPD8hx.png',
-    sortOrder: 10,
+    sortOrder: 1,
     metaTitle: 'باقات الورود الطبيعية | هدايا مكة',
     metaDescription: 'أجود باقات الورد الطبيعي الهولندي والإكوادوري في مكة المكرمة.',
+    metaTitleEn: 'Natural Flower Bouquets | Hadaya Makkah',
+    metaDescriptionEn: 'Premium Dutch and Ecuadorian natural rose bouquets in Makkah.',
     isActive: true,
   },
   {
-    id: 'c-2',
+    id: 'cat-flower-vases',
     storeId: 'store-1',
-    parentId: null,
-    name: 'Roses & Patchi Chocolate',
-    nameAr: 'ورد و شوكليت باتشي',
-    slug: 'roses-patchi',
-    imageUrl: 'https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png',
-    sortOrder: 20,
-    metaTitle: 'ورد وشوكولاتة باتشي | هدايا مكة',
-    metaDescription: 'تناغم شوكولاتة باتشي الفاخرة وباقات الجوري الملكية.',
-    isActive: true,
-  },
-  {
-    id: 'c-3',
-    storeId: 'store-1',
-    parentId: null,
-    name: 'Roses & Bostani Chocolate',
-    nameAr: 'ورد وشوكوليت بستاني',
-    slug: 'roses-bostani',
-    imageUrl: 'https://cdn.salla.sa/form-builder/JEDxluyY7LbYdo5So7sLrPqqupntM3LUhIxV3gXD.png',
-    sortOrder: 30,
-    metaTitle: 'ورد وشوكوليت بستاني الفاخر | هدايا مكة',
-    metaDescription: 'شوكولاتة بستاني البلجيكية الراقية مع تنسيق الجوري الزهري.',
-    isActive: true,
-  },
-  {
-    id: 'c-4',
-    storeId: 'store-1',
-    parentId: null,
+    parentId: 'cat-group-flowers',
     name: 'Natural Flower Vases',
     nameAr: 'فازات ورد طبيعي',
     slug: 'flower-vases',
     imageUrl: 'https://cdn.salla.sa/form-builder/vMIFvv8ErCIt8W4npNMOB0Oj6Secf5lLWWByluvd.png',
-    sortOrder: 40,
+    sortOrder: 2,
     metaTitle: 'فازات ورد طبيعي كريستال | هدايا مكة',
     metaDescription: 'فازات كريستالية وسيراميك راقية لتزيين المجالس وطاولات القهوة.',
+    metaTitleEn: 'Crystal Natural Flower Vases | Hadaya Makkah',
+    metaDescriptionEn: 'Elegant crystal and ceramic vases for majlis and coffee tables.',
     isActive: true,
   },
   {
-    id: 'c-5',
+    id: 'cat-vases-chocolate',
     storeId: 'store-1',
-    parentId: null,
+    parentId: 'cat-group-flowers',
     name: 'Flower Vases with Chocolate',
     nameAr: 'فازات الورود مع شوكليت',
     slug: 'vases-chocolate',
     imageUrl: 'https://cdn.salla.sa/form-builder/qk6gpVW76xoVeFb6kZrmFFGOFOXQ4q8JalQmKw0R.png',
-    sortOrder: 50,
+    sortOrder: 3,
     metaTitle: 'فازات الورود مع الشوكولاتة | هدايا مكة',
     metaDescription: 'توليفة فخمة تجمع بين الفازات الكريستالية والشوكولاتة السويسرية.',
+    metaTitleEn: 'Flower Vases with Chocolate | Hadaya Makkah',
+    metaDescriptionEn: 'Luxury crystal vases paired with Swiss chocolate.',
     isActive: true,
   },
   {
-    id: 'c-6',
+    id: 'cat-roses-fish',
     storeId: 'store-1',
-    parentId: null,
+    parentId: 'cat-group-flowers',
     name: 'Roses with Aquarium Fish',
     nameAr: 'ورود مع أسماك زينة',
     slug: 'roses-fish',
     imageUrl: 'https://cdn.salla.sa/form-builder/ykMusuoNPFuZdMPHsJcYHJb6fejLSpaoSZxKGAwh.png',
-    sortOrder: 60,
+    sortOrder: 4,
     metaTitle: 'ورود مع أسماك زينة هدايا مبتكرة | هدايا مكة',
     metaDescription: 'ابتكار حجازي فريد يجمع بين حوض أسماك الزينة وتنسيق الزهور الطبيعية.',
+    metaTitleEn: 'Roses with Aquarium Fish | Hadaya Makkah',
+    metaDescriptionEn: 'Unique Hijazi gifts combining aquarium fish with natural flowers.',
     isActive: true,
   },
   {
-    id: 'c-7',
+    id: 'cat-roses-lovebirds',
     storeId: 'store-1',
-    parentId: null,
+    parentId: 'cat-group-flowers',
     name: 'Roses with Lovebirds',
     nameAr: 'ورود مع عصافير الحب',
     slug: 'roses-lovebirds',
     imageUrl: 'https://cdn.salla.sa/form-builder/dZpSzihLrTks3koUrmlpfNV0AcHVSx3bE1KNFQTQ.png',
-    sortOrder: 70,
+    sortOrder: 5,
     metaTitle: 'ورود مع عصافير الحب | هدايا مكة',
     metaDescription: 'هدية رومانسية حية مع قفص عصافير الحب وباقة الجوري الفاتنة.',
+    metaTitleEn: 'Roses with Lovebirds | Hadaya Makkah',
+    metaDescriptionEn: 'Living romantic gift with lovebirds and a stunning rose bouquet.',
+    isActive: true,
+  },
+
+  // --- Roses and Chocolate children ---
+  {
+    id: 'cat-roses-patchi',
+    storeId: 'store-1',
+    parentId: 'cat-group-chocolate',
+    name: 'Roses & Patchi Chocolate',
+    nameAr: 'ورد و شوكليت باتشي',
+    slug: 'roses-patchi',
+    imageUrl: 'https://cdn.salla.sa/form-builder/vXd8gFVPfRavCrvqEUF68BHdHHn8pqj3mMglFTIt.png',
+    sortOrder: 1,
+    metaTitle: 'ورد وشوكولاتة باتشي | هدايا مكة',
+    metaDescription: 'تناغم شوكولاتة باتشي الفاخرة وباقات الجوري الملكية.',
+    metaTitleEn: 'Roses & Patchi Chocolate | Hadaya Makkah',
+    metaDescriptionEn: 'Luxury Patchi chocolate paired with royal rose bouquets.',
     isActive: true,
   },
   {
-    id: 'c-8',
+    id: 'cat-roses-bostani',
     storeId: 'store-1',
-    parentId: null,
+    parentId: 'cat-group-chocolate',
+    name: 'Roses & Bostani Chocolate',
+    nameAr: 'ورد وشوكوليت بستاني',
+    slug: 'roses-bostani',
+    imageUrl: 'https://cdn.salla.sa/form-builder/JEDxluyY7LbYdo5So7sLrPqqupntM3LUhIxV3gXD.png',
+    sortOrder: 2,
+    metaTitle: 'ورد وشوكوليت بستاني الفاخر | هدايا مكة',
+    metaDescription: 'شوكولاتة بستاني البلجيكية الراقية مع تنسيق الجوري الزهري.',
+    metaTitleEn: 'Roses & Bostani Chocolate | Hadaya Makkah',
+    metaDescriptionEn: 'Belgian Bostani chocolate with elegant rose arrangements.',
+    isActive: true,
+  },
+
+  // --- Hospitality children ---
+  {
+    id: 'cat-roses-coffee',
+    storeId: 'store-1',
+    parentId: 'cat-group-hospitality',
     name: 'Roses & Coffee Presentation',
     nameAr: 'تقديمة ورد وقهوة',
     slug: 'roses-coffee',
     imageUrl: 'https://cdn.salla.sa/form-builder/2fomvXwpTYOOx8h3JMZGP3r5dnXelUxxIUDuzepj.png',
-    sortOrder: 80,
+    sortOrder: 1,
     metaTitle: 'تقديمة ورد وقهوة سعودية أصيلة | هدايا مكة',
     metaDescription: 'أصالة الضيافة الحجازية مع القهوة المختصة والزهور الطبيعية.',
+    metaTitleEn: 'Roses & Saudi Coffee Presentation | Hadaya Makkah',
+    metaDescriptionEn: 'Authentic Hijazi hospitality with specialty coffee and natural flowers.',
     isActive: true,
   },
   {
-    id: 'c-9',
+    id: 'cat-roses-coffee-sweets',
     storeId: 'store-1',
-    parentId: null,
+    parentId: 'cat-group-hospitality',
     name: 'Roses with Coffee & Sweets',
     nameAr: 'تقديمة ورد مع قهوة وحلا',
     slug: 'roses-coffee-sweets',
     imageUrl: 'https://cdn.salla.sa/form-builder/zf3HeZ6jT4wON2ZEbeJfdMTc4bMLWQLkFvCndepr.png',
-    sortOrder: 90,
+    sortOrder: 2,
     metaTitle: 'تقديمة ورد مع قهوة وحلا | هدايا مكة',
     metaDescription: 'صينية الضيافة الملكية بالقهوة والحلويات الفاخرة وباقة الورد.',
+    metaTitleEn: 'Roses with Coffee & Sweets | Hadaya Makkah',
+    metaDescriptionEn: 'Royal hospitality tray with coffee, sweets, and a rose bouquet.',
     isActive: true,
   },
   {
-    id: 'c-10',
+    id: 'cat-roses-cake',
     storeId: 'store-1',
-    parentId: null,
+    parentId: 'cat-group-hospitality',
     name: 'Roses with Gourmet Cake',
     nameAr: 'ورد مع كيك',
     slug: 'roses-cake',
     imageUrl: 'https://cdn.salla.sa/form-builder/JnIWUYX47T9XyXPQlFx76ihWwhqD2N3xXKcYBMbh.png',
-    sortOrder: 100,
+    sortOrder: 3,
     metaTitle: 'ورد وكيك احتفال | هدايا مكة',
     metaDescription: 'كعكات الريد فيلفت والميلاد مع باقات الورد الجوري الملكي.',
+    metaTitleEn: 'Roses & Celebration Cake | Hadaya Makkah',
+    metaDescriptionEn: 'Red velvet and birthday cakes with royal rose bouquets.',
     isActive: true,
   },
   {
-    id: 'c-11',
+    id: 'cat-korean-cake',
     storeId: 'store-1',
-    parentId: null,
+    parentId: 'cat-group-hospitality',
     name: 'Korean Lunchbox Bento Cake',
     nameAr: 'تقديمة كيك الكوري',
     slug: 'korean-cake',
     imageUrl: 'https://cdn.salla.sa/form-builder/iN2hGSe4EYU7Jl2Jt6U5uk9swZaHsPbJnnqpNpac.png',
-    sortOrder: 110,
+    sortOrder: 4,
     metaTitle: 'تقديمة كيك الكوري اللطيف | هدايا مكة',
     metaDescription: 'بينتو كيك كوري لعبارات الحب والمفاجآت مع باقة ورد يد صغيرة.',
+    metaTitleEn: 'Korean Lunchbox Bento Cake | Hadaya Makkah',
+    metaDescriptionEn: 'Cute Korean bento cakes for love notes and surprises with mini roses.',
     isActive: true,
   },
-  // --- Occasion Categories ---
+
+  // --- Occasions children ---
   {
-    id: 'occ-1',
+    id: 'cat-mawajeeb',
     storeId: 'store-1',
-    parentId: null,
-    name: 'Mawajeeb Wooden Plaques',
+    parentId: 'cat-group-occasions',
+    name: 'Mawajeeb Wooden Plaques & Heritage',
     nameAr: 'لوحات مواجيب وتراث حجازي',
     slug: 'mawajeeb',
     imageUrl: 'https://cdn.files.salla.network/products/246985580/539625c7-703f-4c13-aa4c-24d982e20865-original.webp',
-    sortOrder: 120,
+    sortOrder: 1,
     metaTitle: 'لوحات مواجيب | هدايا مكة',
     metaDescription: 'لوحات تذكارية وتراث حجازي عريق مع ورد وبخور مروكي.',
+    metaTitleEn: 'Mawajeeb Wooden Plaques | Hadaya Makkah',
+    metaDescriptionEn: 'Hijazi heritage commemorative plaques with roses and Maroki oud.',
     isActive: true,
   },
   {
-    id: 'occ-2',
+    id: 'cat-newborn',
     storeId: 'store-1',
-    parentId: null,
+    parentId: 'cat-group-occasions',
     name: 'Newborn Welcome Gifts',
     nameAr: 'هدايا المواليد',
     slug: 'newborn',
     imageUrl: 'https://cdn.salla.sa/form-builder/h7hTylc4cMiriSfxe2sGsX0mL5Sc7akjxHAAUqHp.png',
-    sortOrder: 130,
+    sortOrder: 2,
     metaTitle: 'هدايا استقبال المواليد | هدايا مكة',
     metaDescription: 'باقات ودببة ناعمة وستاندات استقبال المواليد الجدد في المشافي والمنازل.',
+    metaTitleEn: 'Newborn Welcome Gifts | Hadaya Makkah',
+    metaDescriptionEn: 'Soft bouquets, bears, and welcome stands for newborns at hospitals and homes.',
     isActive: true,
   },
   {
-    id: 'occ-3',
+    id: 'cat-graduation',
     storeId: 'store-1',
-    parentId: null,
+    parentId: 'cat-group-occasions',
     name: 'Graduation Milestones',
     nameAr: 'هدايا التخرج',
     slug: 'graduation',
     imageUrl: 'https://cdn.salla.sa/form-builder/unEMJIoOHLnWigTn0DpvQZbQMxNjU4QgVOT2BdUM.png',
-    sortOrder: 140,
+    sortOrder: 3,
     metaTitle: 'هدايا التخرج الملكية | هدايا مكة',
     metaDescription: 'باقات تخرج مذهبة مع قبعة ووشاح وبوكسات شوكولاتة باتشي.',
+    metaTitleEn: 'Royal Graduation Gifts | Hadaya Makkah',
+    metaDescriptionEn: 'Gilded graduation bouquets with cap, sash, and Patchi chocolate boxes.',
     isActive: true,
   },
   {
-    id: 'occ-4',
+    id: 'cat-valentine',
     storeId: 'store-1',
-    parentId: null,
-    name: 'Valentine & Romantic Gifts',
-    nameAr: 'هدايا عيد الحب والرومانسية',
+    parentId: 'cat-group-occasions',
+    name: 'Valentine & Love Blooms',
+    nameAr: 'هدايا عيد الحب',
     slug: 'valentine',
     imageUrl: 'https://cdn.salla.sa/form-builder/Y0Yt8LLfhRt46ljjaZjTaANumrZvYodYnv5CGQ7o.png',
-    sortOrder: 150,
+    sortOrder: 4,
     metaTitle: 'هدايا عيد الحب والرومانسية | هدايا مكة',
     metaDescription: 'أجمل بوكسات الورد الأحمر المخملي والشوكولاتة البلجيكية الفاخرة.',
+    metaTitleEn: 'Valentine & Romance Gifts | Hadaya Makkah',
+    metaDescriptionEn: 'Velvet red rose boxes and luxury Belgian chocolate for Valentine.',
     isActive: true,
   },
   {
-    id: 'occ-5',
+    id: 'cat-wedding',
     storeId: 'store-1',
-    parentId: null,
+    parentId: 'cat-group-occasions',
     name: 'Wedding & Bridal Keepsakes',
     nameAr: 'هدايا الزواج والعرائس',
     slug: 'wedding',
     imageUrl: 'https://cdn.salla.sa/form-builder/Z8aMbQ8cDkf9OnQakCZwnH4GvpnqLlXsCqBk70ik.png',
-    sortOrder: 160,
+    sortOrder: 5,
     metaTitle: 'مسكات وباقات عرائس الزواج | هدايا مكة',
     metaDescription: 'مسكات العرائس الفاخرة باللؤلؤ والزهور الإكوادورية البيضاء المستوردة.',
+    metaTitleEn: 'Wedding & Bridal Keepsakes | Hadaya Makkah',
+    metaDescriptionEn: 'Luxury bridal bouquets with pearls and imported Ecuadorian white flowers.',
     isActive: true,
   },
   {
-    id: 'occ-6',
+    id: 'cat-birthday',
     storeId: 'store-1',
-    parentId: null,
+    parentId: 'cat-group-occasions',
     name: 'Birthday Celebrations',
     nameAr: 'هدايا عيد ميلاد',
     slug: 'birthday',
     imageUrl: 'https://cdn.salla.sa/form-builder/nm5BDgkXRslZvqTetu5wTrCTTTTLTrsBhWwjHMyI.png',
-    sortOrder: 170,
+    sortOrder: 6,
     metaTitle: 'هدايا عيد ميلاد مميزة | هدايا مكة',
     metaDescription: 'مفاجآت أعياد الميلاد مع الكيك والبالونات الهيليوم وباقات الورد المبهجة.',
+    metaTitleEn: 'Birthday Celebration Gifts | Hadaya Makkah',
+    metaDescriptionEn: 'Birthday surprises with cake, helium balloons, and cheerful rose bouquets.',
     isActive: true,
   },
+
+  // --- Luxury Gifts children ---
   {
-    id: 'occ-7',
+    id: 'cat-men-gifts',
     storeId: 'store-1',
-    parentId: null,
-    name: 'Men Luxury Gifts',
+    parentId: 'cat-group-luxury',
+    name: 'Royal Men Luxury Gifts',
     nameAr: 'هدايا رجالية ملكية',
     slug: 'men-gifts',
     imageUrl: '/images/hadaya_men_luxury_gift_1791219799100.jpg',
-    sortOrder: 180,
+    sortOrder: 1,
     metaTitle: 'أطقم هدايا رجالية فاخرة | هدايا مكة',
     metaDescription: 'صناديق جلدية ملكية تضم عطور وساعات ومحافظ فاخرة مع ورد طبيعي.',
+    metaTitleEn: 'Royal Men Luxury Gift Sets | Hadaya Makkah',
+    metaDescriptionEn: 'Royal leather boxes with perfume, watches, wallets, and natural roses.',
     isActive: true,
   },
   {
-    id: 'occ-8',
+    id: 'cat-women-gifts',
     storeId: 'store-1',
-    parentId: null,
-    name: 'Women Luxury Gifts',
+    parentId: 'cat-group-luxury',
+    name: 'Luxury Women Gifts & Perfumes',
     nameAr: 'هدايا نسائية فاخرة',
     slug: 'women-gifts',
-    imageUrl: '/images/hadaya_women_luxury_gift_zedaan.webp',
-    sortOrder: 190,
+    imageUrl: 'https://cdn.files.salla.network/homepage/246985580/67a93505-20fe-4f5e-ad46-0e0b1d2c4390.webp',
+    sortOrder: 2,
     metaTitle: 'أطقم هدايا نسائية راقية | هدايا مكة',
     metaDescription: 'صناديق مخملية تضم عطور ومجوهرات زركون مع زهور البيوني الفاتنة.',
-    isActive: true,
-  },
-  // --- Nested Sub-Categories for Mecca Gifts Store ---
-  {
-    id: 'sub-c1-peonies',
-    storeId: 'store-1',
-    parentId: 'c-1',
-    name: 'Dutch Peonies & Hydrangeas',
-    nameAr: 'بيوني وهيدرانجيا هولندي',
-    slug: 'dutch-peonies',
-    imageUrl: 'https://cdn.salla.sa/form-builder/tWCbNfZyZC271qgyhdROpC6ZdS6rCXbqmtvPD8hx.png',
-    sortOrder: 15,
-    metaTitle: 'بيوني وهيدرانجيا هولندي طبيعي | هدايا مكة',
-    metaDescription: 'تنسيقات زهور البيوني الهولندية المستوردة مع الهيدرانجيا الوردية.',
-    isActive: true,
-  },
-  {
-    id: 'sub-c1-roses',
-    storeId: 'store-1',
-    parentId: 'c-1',
-    name: 'Ecuadorian Long Stem Red Roses',
-    nameAr: 'جوري إكوادوري أحمر ملكي',
-    slug: 'ecuadorian-red-roses',
-    imageUrl: '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
-    sortOrder: 16,
-    metaTitle: 'جوري إكوادوري أحمر ملكي طويل الساق | هدايا مكة',
-    metaDescription: 'أفخر باقات الورد الجوري الإكوادوري الأحمر الفاتن لعيد الحب والمناسبات.',
-    isActive: true,
-  },
-  {
-    id: 'sub-c4-crystal',
-    storeId: 'store-1',
-    parentId: 'c-4',
-    name: 'Bohemian Crystal Vases',
-    nameAr: 'فازات كريستال بوهيمي فاخرة',
-    slug: 'bohemian-crystal-vases',
-    imageUrl: 'https://cdn.salla.sa/form-builder/vMIFvv8ErCIt8W4npNMOB0Oj6Secf5lLWWByluvd.png',
-    sortOrder: 45,
-    metaTitle: 'فازات كريستال بوهيمي | هدايا مكة',
-    metaDescription: 'فازات كريستال بوهيمي منقوشة يدوياً للمجالس الراقية.',
+    metaTitleEn: 'Luxury Women Gift Sets | Hadaya Makkah',
+    metaDescriptionEn: 'Velvet boxes with perfume, zircon jewelry, and peony blooms.',
     isActive: true,
   },
 ];
@@ -360,6 +443,8 @@ const BLECO_CATEGORIES_SEED: StoreCategory[] = [
     sortOrder: 10,
     metaTitle: 'تنجيد وتلابيس المقاعد | متجر السعيدي',
     metaDescription: 'تفصيل وتنجيد مقاعد كامل بأفخر أنواع الجلود الألمانية والأصلية مع تطريز ليزري فائق الدقة مطابق للوكالة.',
+    metaTitleEn: 'Custom Tailored Seat Covers | Al-Saeedi Store',
+    metaDescriptionEn: 'Full custom seat upholstery in premium German leather with laser embroidery matching OEM specs.',
     isActive: true,
   },
   {
@@ -373,6 +458,8 @@ const BLECO_CATEGORIES_SEED: StoreCategory[] = [
     sortOrder: 20,
     metaTitle: 'أرضيات ودعاسات 5D ليزر ودايموند | متجر السعيدي',
     metaDescription: 'أرضيات تفصيل ليزري تغطي كامل مساحة السيارة مع حماية متعددة الطبقات وعازل تام للسوائل والأتربة.',
+    metaTitleEn: '5D Diamond & Laser Floor Mats | Al-Saeedi Store',
+    metaDescriptionEn: 'Laser-cut full-coverage mats with multi-layer protection against liquids and dust.',
     isActive: true,
   },
   {
@@ -386,6 +473,8 @@ const BLECO_CATEGORIES_SEED: StoreCategory[] = [
     sortOrder: 30,
     metaTitle: 'معطرات وفواحات السيارة الذكية | متجر السعيدي',
     metaDescription: 'فواحات إلكترونية ذكية وزيوت عطرية فرنسية تدوم طويلاً صممت خصيصاً لأجواء الخليج.',
+    metaTitleEn: 'Smart Car Air Fresheners & Diffusers | Al-Saeedi Store',
+    metaDescriptionEn: 'Smart electronic diffusers and long-lasting French oils for Gulf climates.',
     isActive: true,
   },
   {
@@ -399,6 +488,8 @@ const BLECO_CATEGORIES_SEED: StoreCategory[] = [
     sortOrder: 40,
     metaTitle: 'منتجات العناية بالسيارات والتلميع | متجر السعيدي',
     metaDescription: 'شامبوهات نانو وملمعات جلد وطبلون وكفرات احترافية تحافظ على لمعان الوكالة.',
+    metaTitleEn: 'Car Care & Detailing Products | Al-Saeedi Store',
+    metaDescriptionEn: 'Nano shampoos and pro leather, dashboard, and tire polishes that keep OEM shine.',
     isActive: true,
   },
   {
@@ -412,6 +503,8 @@ const BLECO_CATEGORIES_SEED: StoreCategory[] = [
     sortOrder: 50,
     metaTitle: 'زينة واكسسوارات السيارات الفاخرة | متجر السعيدي',
     metaDescription: 'ستائر تظليل ليزر، شماسات عازلة للشمس، قواعد جوال، ومبردات متنقلة.',
+    metaTitleEn: 'Luxury Car Accessories & Styling | Al-Saeedi Store',
+    metaDescriptionEn: 'Laser tint curtains, sun shields, phone mounts, and portable coolers.',
     isActive: true,
   },
   {
@@ -425,33 +518,8 @@ const BLECO_CATEGORIES_SEED: StoreCategory[] = [
     sortOrder: 60,
     metaTitle: 'أدوات ومستلزمات التنجيد والتركيب | متجر السعيدي',
     metaDescription: 'مبارم وكلبسات ومشدات تثبيت مراتب أصلية مع أدوات الفك والتركيب بدون خدوش.',
-    isActive: true,
-  },
-  // --- Nested Sub-Categories for Bleco / Car Services Store ---
-  {
-    id: 'sub-blc-1-nappa',
-    storeId: 'store-bleco',
-    parentId: 'cat-blc-1',
-    name: 'German Nappa Leather Upholstery',
-    nameAr: 'جلد ألماني نابا فاخر',
-    slug: 'german-nappa-leather',
-    imageUrl: '/images/categories/vip-luxury-seat-covers.jpg',
-    sortOrder: 12,
-    metaTitle: 'تنجيد جلد ألماني نابا | متجر السعيدي',
-    metaDescription: 'جلد ألماني نابا طبيعي مقاوم للحرارة والتشقق مع ضمان ٥ سنوات.',
-    isActive: true,
-  },
-  {
-    id: 'sub-blc-2-7seater',
-    storeId: 'store-bleco',
-    parentId: 'cat-blc-2',
-    name: '7-Seater Family & Trunk Protection Mats',
-    nameAr: 'أرضيات ٧ مقاعد عائلية وحماية الشنطة',
-    slug: '7-seater-laser-mats',
-    imageUrl: '/images/categories/vip-5d-laser-mats.jpg',
-    sortOrder: 22,
-    metaTitle: 'أرضيات ٧ مقاعد ليزر تفصيل | متجر السعيدي',
-    metaDescription: 'تغطية شاملة لجميع صفوف السيارات العائلية ودعاسة الشنطة المرتفعة.',
+    metaTitleEn: 'Upholstery Supplies & Hardware | Al-Saeedi Store',
+    metaDescriptionEn: 'OEM clips, fasteners, and install tools for scratch-free upholstery work.',
     isActive: true,
   },
 ];
@@ -507,44 +575,38 @@ export const StoreCategories: React.FC = () => {
         if (raw) savedList = JSON.parse(raw);
       } catch {}
       if (savedList && Array.isArray(savedList) && savedList.length > 0) {
+        if (activeStore.id === 'store-coffee' && (savedList.length < 5 || savedList.some((c) => c.id === 'cat-cof-1'))) {
+          savedList = null;
+        }
+        // Discard flat dummy Mecca seed (c-1..c-19) and replace with hierarchical cat-* seed
+        if (
+          savedList &&
+          savedList.some((c) => /^c-\d+$/.test(c.id))
+        ) {
+          savedList = null;
+        }
+      }
+      if (savedList && Array.isArray(savedList) && savedList.length > 0) {
         setRows(savedList);
       } else {
-      const isCoffee =
-        activeStore.id === 'store-coffee' ||
-        activeStore.slug === 'coffee-store' ||
-        activeStore.slug === 'hibrew-coffee' ||
-        /قهوة|coffee|hibrew/i.test(activeStore.name) ||
-        /قهوة|coffee|hibrew/i.test(activeStore.nameAr ?? '') ||
-        /قهوة|coffee|hibrew/i.test(activeStore.nameEn ?? '');
-      const isBleco =
-        activeStore.id === 'store-bleco' ||
-        activeStore.slug === 'bleco-car' ||
-        activeStore.slug === 'alsaeedi-cars' ||
-        /سيارات|car|bleco/i.test(activeStore.name) ||
-        /سيارات|car|bleco/i.test(activeStore.nameAr ?? '') ||
-        /سيارات|car|bleco/i.test(activeStore.nameEn ?? '');
-      const isMakkah = !isCoffee && !isBleco;
-
-      const defaultSeed = isMakkah
-        ? MECCA_CATEGORIES_SEED
-        : isCoffee
-        ? COFFEE_CATEGORIES_SEED
-        : isBleco
-        ? BLECO_CATEGORIES_SEED
-        : MECCA_CATEGORIES_SEED;
-      setRows(defaultSeed);
-      if (defaultSeed.length > 0) {
+        const seed =
+          activeStore.id === 'store-coffee'
+            ? COFFEE_CATEGORIES_SEED
+            : activeStore.id === 'store-bleco'
+            ? BLECO_CATEGORIES_SEED
+            : MECCA_CATEGORIES_SEED;
+        const mapped = seed.map((c) => ({ ...c, storeId: activeStore.id }));
+        setRows(mapped);
         try {
-          localStorage.setItem(savedKey, JSON.stringify(defaultSeed));
+          localStorage.setItem(savedKey, JSON.stringify(mapped));
         } catch {}
-      }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load categories');
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [activeStore.id, activeStore.slug]);
+  }, [activeStore.id]);
 
   useEffect(() => {
     void load();
@@ -583,9 +645,9 @@ export const StoreCategories: React.FC = () => {
 
   const nameById = useMemo(() => {
     const m = new Map<string, string>();
-    rows.forEach((r) => m.set(r.id, r.name));
+    rows.forEach((r) => m.set(r.id, isAr ? (r.nameAr || r.name) : (r.name || r.nameAr || '')));
     return m;
-  }, [rows]);
+  }, [rows, isAr]);
 
   const roots = useMemo(
     () => rows.filter((r) => !r.parentId).sort((a, b) => a.sortOrder - b.sortOrder),
@@ -692,22 +754,14 @@ export const StoreCategories: React.FC = () => {
       if (isApiEnabled()) {
         if (editingId) {
           const updated = await tenantApi.updateCategory(activeStore.id, editingId, payload);
-          setRows((prev) => {
-            const next = prev.map((r) => (r.id === editingId ? updated : r));
-            try { localStorage.setItem(`unityteck_store_categories_${activeStore.id}`, JSON.stringify(next)); } catch {}
-            return next;
-          });
+          setRows((prev) => prev.map((r) => (r.id === editingId ? updated : r)));
           bumpStore(activeStore.id, 'categories');
-          toast(isAr ? 'تم تحديث التصنيف بنجاح' : 'Category updated successfully', 'success');
+          toast('Category updated', 'success');
         } else {
           const created = await tenantApi.createCategory(activeStore.id, payload);
-          setRows((prev) => {
-            const next = [...prev, created];
-            try { localStorage.setItem(`unityteck_store_categories_${activeStore.id}`, JSON.stringify(next)); } catch {}
-            return next;
-          });
+          setRows((prev) => [...prev, created]);
           bumpStore(activeStore.id, 'categories');
-          toast(isAr ? 'تم إنشاء التصنيف بنجاح' : 'Category created successfully', 'success');
+          toast('Category created', 'success');
         }
       } else {
         const savedKey = `unityteck_store_categories_${activeStore.id}`;
@@ -734,7 +788,7 @@ export const StoreCategories: React.FC = () => {
             window.dispatchEvent(new CustomEvent('unityteck-categories-updated', { detail: { storeId: activeStore.id, categories: next } }));
           } catch {}
           bumpStore(activeStore.id, 'categories');
-          toast(isAr ? 'تم تحديث التصنيف بنجاح' : 'Category updated successfully', 'success');
+          toast('Category updated', 'success');
         } else {
           const created: StoreCategory = {
             id: `cat-${Date.now()}`,
@@ -756,13 +810,13 @@ export const StoreCategories: React.FC = () => {
             window.dispatchEvent(new CustomEvent('unityteck-categories-updated', { detail: { storeId: activeStore.id, categories: next } }));
           } catch {}
           bumpStore(activeStore.id, 'categories');
-          toast(isAr ? 'تم إنشاء التصنيف بنجاح' : 'Category created successfully', 'success');
+          toast('Category created', 'success');
         }
       }
       setShowModal(false);
       setEditingId(null);
     } catch (err) {
-      toast(err instanceof Error ? err.message : (isAr ? 'فشل حفظ التصنيف' : 'Save category failed'), 'error');
+      toast(err instanceof Error ? err.message : 'Save category failed', 'error');
     } finally {
       setSaving(false);
     }
@@ -772,7 +826,7 @@ export const StoreCategories: React.FC = () => {
     if (denyMutate()) return;
     if (confirmDeleteId !== id) {
       setConfirmDeleteId(id);
-      toast(isAr ? 'اضغط على زر الحذف مرة أخرى للتأكيد' : 'Click delete again to confirm', 'info');
+      toast('Click delete again to confirm', 'info');
       return;
     }
     try {
@@ -783,12 +837,14 @@ export const StoreCategories: React.FC = () => {
         .filter((r) => r.id !== id)
         .map((r) => (r.parentId === id ? { ...r, parentId: null } : r));
       setRows(next);
-      try { localStorage.setItem(`unityteck_store_categories_${activeStore.id}`, JSON.stringify(next)); } catch {}
+      if (!isApiEnabled()) {
+        try { localStorage.setItem(`unityteck_store_categories_${activeStore.id}`, JSON.stringify(next)); } catch {}
+      }
       bumpStore(activeStore.id, 'categories');
       setConfirmDeleteId(null);
-      toast(isAr ? 'تم حذف التصنيف بنجاح' : 'Category deleted successfully', 'success');
+      toast('Category deleted', 'success');
     } catch (err) {
-      toast(err instanceof Error ? err.message : (isAr ? 'فشل الحذف' : 'Delete failed'), 'error');
+      toast(err instanceof Error ? err.message : 'Delete failed', 'error');
     }
   };
 
@@ -804,8 +860,6 @@ export const StoreCategories: React.FC = () => {
             <img
               src={c.imageUrl}
               alt={c.name}
-              loading="lazy"
-              decoding="async"
               onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
               className="w-10 h-10 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shrink-0"
             />
@@ -815,30 +869,9 @@ export const StoreCategories: React.FC = () => {
             </span>
           )}
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {c.parentId && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 shrink-0">
-                  <Layers className="w-2.5 h-2.5" />
-                  {isAr ? 'تصنيف فرعي' : 'Subcategory'}
-                </span>
-              )}
-              <span className="font-bold text-slate-900 dark:text-white block truncate">
-                {isAr ? (c.nameAr || c.name) : (c.name || c.nameAr)}
-              </span>
-            </div>
-            {isAr ? (
-              c.name && c.name !== c.nameAr ? (
-                <span className="text-[10px] text-slate-400 block truncate" dir="ltr">
-                  {c.name}
-                </span>
-              ) : null
-            ) : (
-              c.nameAr ? (
-                <span className="text-[10px] text-slate-400 block truncate" dir="rtl">
-                  {c.nameAr}
-                </span>
-              ) : null
-            )}
+            <span className="font-bold text-slate-900 dark:text-white block truncate">
+              {isAr ? (c.nameAr || c.name) : (c.name || c.nameAr)}
+            </span>
           </div>
         </div>
       ),
@@ -872,7 +905,9 @@ export const StoreCategories: React.FC = () => {
       header: isAr ? 'سيو (SEO)' : 'SEO',
       render: (c) => (
         <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[140px] inline-block">
-          {c.metaTitle || '—'}
+          {isAr
+            ? (c.metaTitle || '—')
+            : (c.metaTitleEn || (c.name ? `${c.name} | Makkah Gifts` : null) || '—')}
         </span>
       ),
     },
@@ -944,8 +979,8 @@ export const StoreCategories: React.FC = () => {
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {isAr
-              ? `شجرة التصنيفات لمتجر ${activeStore.name} · الصور · تحسين محركات البحث SEO · الترتيب`
-              : `Store-scoped taxonomy for ${activeStore.name} · image · SEO · sort · subcategories`}
+              ? 'شجرة التصنيفات · الصور · تحسين محركات البحث SEO · الترتيب'
+              : 'Category taxonomy · image · SEO · sort · subcategories'}
           </p>
         </div>
         <button

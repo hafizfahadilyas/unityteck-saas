@@ -18,7 +18,6 @@ import {
   Briefcase,
   Eye,
   MoreVertical,
-  MessageCircle,
   Mail,
   Smartphone,
   Edit2,
@@ -50,6 +49,9 @@ import {
   Italic,
   GitBranch,
 } from 'lucide-react';
+import { formatRelativeTime } from '../../notification-system/utils/dateFilters';
+import { parseOrderDate, periodCountGrowth } from '../../utils/liveSeries';
+import { WhatsAppBrandIcon } from '../common/BrandIcons';
 
 interface StoreAbandonedCartsProps {
   onNavigateTab?: (tab: string) => void;
@@ -160,8 +162,11 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
           customerPhone: o.customerPhone || (cust ? cust.phone : '+966 50 000 0000'),
           cartValue: o.total || 0,
           source: (o as any).source || 'Online Store',
-          abandonedAt: o.createdAt || new Date().toISOString(),
-          lastActivity: isAr ? 'منذ ساعتين' : '2 hours ago',
+          abandonedAt: o.createdAt || o.date || new Date().toISOString(),
+          lastActivity: (() => {
+            const ts = o.createdAt || (o.date && o.time ? `${o.date} ${o.time}` : o.date);
+            return ts ? formatRelativeTime(String(ts), locale) : (isAr ? 'الآن' : 'Just now');
+          })(),
           status: 'Recoverable' as const,
           remindersSent: 0,
           itemsCount: o.items?.length || 1,
@@ -169,7 +174,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
         };
       });
     return list;
-  }, [currentOrders, storeCustomers, isAr]);
+  }, [currentOrders, storeCustomers, isAr, locale]);
 
   // Filtered abandoned carts
   const filtered = useMemo(() => {
@@ -188,6 +193,14 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
   // Statistics calculated from real store data
   const totalCarts = abandonedCarts.length;
   const recoverableValue = abandonedCarts.reduce((acc, c) => acc + c.cartValue, 0);
+  const cartsGrowth = useMemo(
+    () => periodCountGrowth(abandonedCarts, (c) => parseOrderDate(c.abandonedAt)),
+    [abandonedCarts],
+  );
+  // Pending carts are currently all recoverable; recovered reminders not tracked yet → 0
+  const recoveredCount = 0;
+  const recoverablePct = totalCarts > 0 ? 100 : 0;
+  const recoveredPct = totalCarts > 0 ? Math.round((recoveredCount / totalCarts) * 1000) / 10 : 0;
 
   // Pagination
   const lastPage = Math.max(1, Math.ceil(filtered.length / pageSize) || 1);
@@ -281,8 +294,8 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {isAr
-              ? `عرض وإدارة السلات غير المكتملة، إرسال تذكيرات آلية واستعادة المبيعات لمتجر ${activeStore.name}`
-              : `View and manage abandoned carts, send reminders and recover lost sales`}
+              ? 'عرض وإدارة السلات غير المكتملة، إرسال تذكيرات آلية واستعادة المبيعات'
+              : 'View and manage abandoned carts, send reminders and recover lost sales'}
           </p>
         </div>
 
@@ -329,10 +342,20 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
           <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">
             {totalCarts}
           </div>
-          <span className="text-[10px] text-rose-500 dark:text-rose-400 flex items-center gap-0.5 font-bold">
-            <TrendingDown className="w-3 h-3" />
-            <span>12% {isAr ? 'مقارنة بالسابق' : 'vs prev'}</span>
-          </span>
+          {cartsGrowth.hasData ? (
+            <span className={`text-[10px] flex items-center gap-0.5 font-bold ${
+              cartsGrowth.pct >= 0
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-rose-500 dark:text-rose-400'
+            }`}>
+              {cartsGrowth.pct >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              <span>{Math.abs(cartsGrowth.pct)}% {isAr ? 'مقارنة بالسابق' : 'vs prev'}</span>
+            </span>
+          ) : (
+            <span className="text-[10px] text-slate-400 font-medium">
+              {isAr ? 'لا بيانات مقارنة بعد' : 'No comparison data yet'}
+            </span>
+          )}
         </div>
 
         {/* New Carts */}
@@ -412,7 +435,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
           </div>
           <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5">
             <TrendingUp className="w-3 h-3" />
-            <span>25.6%</span>
+            <span>{recoveredPct}%</span>
           </span>
         </div>
 
@@ -429,7 +452,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
           </div>
           <span className="text-[10px] text-teal-600 dark:text-teal-400 font-bold flex items-center gap-0.5">
             <TrendingUp className="w-3 h-3" />
-            <span>74.4%</span>
+            <span>{recoverablePct}%</span>
           </span>
         </div>
       </div>
@@ -768,7 +791,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
             <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700/60">
               <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-semibold">
                 <span className="text-slate-400 text-[11px]">{isAr ? 'القناة:' : 'Channel:'}</span>
-                <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />
+                <WhatsAppBrandIcon className="w-3.5 h-3.5 text-[#25D366]" title="WhatsApp" />
                 <span>WhatsApp</span>
               </div>
               <button
@@ -1507,7 +1530,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
                 1
               </div>
               <div className="flex items-center gap-2">
-                <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />
+                <WhatsAppBrandIcon className="w-3.5 h-3.5 text-[#25D366]" title="WhatsApp" />
                 <div>
                   <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
                     {isAr ? 'التذكير الأول' : 'First Reminder'}
@@ -1879,7 +1902,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
             <div className="p-5 space-y-3 text-xs">
               <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
                 <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <MessageCircle className="w-4 h-4 text-emerald-500" />
+                  <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
                   <span>WhatsApp Business API</span>
                 </div>
                 <p className="text-slate-500 text-[11px]">

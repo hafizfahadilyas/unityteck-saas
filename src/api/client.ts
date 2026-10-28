@@ -3,7 +3,7 @@
  * Empty / disabled env → mock mode in TenantContext.
  */
 
-import { getAuthToken, clearAuthSession, readAuthSession } from '../auth/session';
+import { getAuthToken, clearAuthSession } from '../auth/session';
 
 export function getApiBase(): string {
   const url = import.meta.env.VITE_API_URL as string | undefined;
@@ -69,16 +69,17 @@ export async function apiFetch<T>(
     headers['Content-Type'] = 'application/json';
   }
 
+  if (portal === 'master') {
+    headers['X-Portal'] = 'master';
+  } else if (storeId) {
+    headers['X-Store-Id'] = storeId;
+  }
+
   const isPublicEndpoint =
     Boolean(skipAuth) ||
-    path.startsWith('/products') ||
-    path.startsWith('/categories') ||
-    path.startsWith('/stores') ||
-    path.startsWith('/upload') ||
     path.startsWith('/storefront') ||
     path.startsWith('/health') ||
     path.startsWith('/auth/otp') ||
-    path.startsWith('/auth/me') ||
     path.startsWith('/auth/forgot') ||
     path.startsWith('/auth/reset') ||
     path.startsWith('/auth/master/login') ||
@@ -87,17 +88,6 @@ export async function apiFetch<T>(
     path.startsWith('/resolve-domain') ||
     path.startsWith('/whatsapp') ||
     path.includes('/blog/');
-
-  if (portal === 'master') {
-    headers['X-Portal'] = 'master';
-  } else if (storeId) {
-    headers['X-Store-Id'] = storeId;
-  } else if (!isPublicEndpoint) {
-    const session = readAuthSession();
-    if (session?.portal === 'store' && session.storeId) {
-      headers['X-Store-Id'] = session.storeId;
-    }
-  }
 
   const token = getAuthToken();
   if (token && !token.startsWith('mock-')) {

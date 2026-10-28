@@ -1,19 +1,16 @@
 import React from 'react';
-import {
-  Link2,
-  ChevronRight,
-  MessageCircle,
-  Share2,
-  Globe,
-  Instagram,
-  Facebook,
-  Ghost,
-  Music2,
-  Search,
-  Mail,
-  Video,
-} from 'lucide-react';
+import { Link2, ChevronRight, Share2, Globe, Search, Mail, Video } from 'lucide-react';
 import { usePrefs } from '../../../i18n/PrefsContext';
+import {
+  TikTokIcon,
+  SnapchatIcon,
+  WhatsAppBrandIcon,
+  InstagramBrandIcon,
+  FacebookBrandIcon,
+  GoogleAdsIcon,
+  XBrandIcon,
+  YouTubeBrandIcon,
+} from '../../common/BrandIcons';
 
 export interface TrafficChannel {
   id: string;
@@ -55,76 +52,77 @@ export const TrafficSourcesCard: React.FC<TrafficSourcesCardProps> = React.memo(
   let accumulated = 0;
 
   const renderChannelIcon = (type: string) => {
+    const shell = 'w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full flex items-center justify-center shrink-0 shadow-2xs';
     switch (type) {
       case 'tiktok':
         return (
-          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <Music2 className="w-2.5 h-2.5" />
+          <div className={`${shell} bg-slate-900 dark:bg-slate-800 text-white`}>
+            <TikTokIcon className="w-2.5 h-2.5" />
           </div>
         );
       case 'snapchat':
         return (
-          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 shadow-2xs">
-            <Ghost className="w-2.5 h-2.5 fill-current" />
+          <div className={`${shell} bg-amber-400 text-slate-950`}>
+            <SnapchatIcon className="w-2.5 h-2.5" />
           </div>
         );
       case 'whatsapp':
         return (
-          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <MessageCircle className="w-2.5 h-2.5" />
+          <div className={`${shell} bg-emerald-500 text-white`}>
+            <WhatsAppBrandIcon className="w-2.5 h-2.5" />
           </div>
         );
       case 'instagram':
         return (
-          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <Instagram className="w-2.5 h-2.5" />
+          <div className={`${shell} bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white`}>
+            <InstagramBrandIcon className="w-2.5 h-2.5" />
           </div>
         );
       case 'facebook':
         return (
-          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <Facebook className="w-2.5 h-2.5 fill-current" />
+          <div className={`${shell} bg-blue-600 text-white`}>
+            <FacebookBrandIcon className="w-2.5 h-2.5" />
           </div>
         );
       case 'google':
         return (
-          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <Search className="w-2.5 h-2.5" />
+          <div className={`${shell} bg-white border border-slate-200 dark:border-slate-700`}>
+            <GoogleAdsIcon className="w-3 h-3" />
           </div>
         );
       case 'bing':
         return (
-          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-teal-700 text-white flex items-center justify-center shrink-0 shadow-2xs">
+          <div className={`${shell} bg-teal-700 text-white`}>
             <Search className="w-2.5 h-2.5" />
           </div>
         );
       case 'youtube':
         return (
-          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <Video className="w-2.5 h-2.5" />
+          <div className={`${shell} bg-rose-600 text-white`}>
+            <YouTubeBrandIcon className="w-2.5 h-2.5" />
           </div>
         );
       case 'x':
         return (
-          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 flex items-center justify-center shrink-0 shadow-2xs font-black text-[9px]">
-            𝕏
+          <div className={`${shell} bg-slate-950 dark:bg-white text-white dark:text-slate-950`}>
+            <XBrandIcon className="w-2.5 h-2.5" />
           </div>
         );
       case 'email':
         return (
-          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-orange-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+          <div className={`${shell} bg-orange-600 text-white`}>
             <Mail className="w-2.5 h-2.5" />
           </div>
         );
       case 'direct':
         return (
-          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+          <div className={`${shell} bg-teal-600 text-white`}>
             <Globe className="w-2.5 h-2.5" />
           </div>
         );
       default:
         return (
-          <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-slate-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+          <div className={`${shell} bg-slate-500 text-white`}>
             <Share2 className="w-2.5 h-2.5" />
           </div>
         );
@@ -132,7 +130,7 @@ export const TrafficSourcesCard: React.FC<TrafficSourcesCardProps> = React.memo(
   };
 
   return (
-    <div className="p-4 sm:p-5 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs flex flex-col h-full">
+    <div className="p-3.5 sm:p-4 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs flex flex-col h-full min-h-[260px] max-h-[320px]">
       {/* ── Card Header ── */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800/80 mb-3">
         <div className="flex items-center gap-2">
@@ -159,9 +157,9 @@ export const TrafficSourcesCard: React.FC<TrafficSourcesCardProps> = React.memo(
         </button>
       </div>
 
-      {/* ── Donut Chart + Channel List (Strict: Hide any traffic source when it has no visits) ── */}
-      <div className="flex-1 flex flex-col justify-center min-w-0">
-        <div className="flex flex-row items-center justify-between gap-3 sm:gap-4 w-full min-w-0">
+      {/* ── Donut Chart + Channel List (live order sources only; 0% channels hidden upstream) ── */}
+      <div className="flex-1 flex flex-col justify-center min-w-0 min-h-0 overflow-hidden">
+        <div className="flex flex-row items-center justify-between gap-2 sm:gap-3 w-full min-w-0 h-full">
           {/* Donut Chart */}
           <div className="relative w-28 h-28 sm:w-32 sm:h-32 shrink-0 flex items-center justify-center self-center">
             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -228,7 +226,7 @@ export const TrafficSourcesCard: React.FC<TrafficSourcesCardProps> = React.memo(
               </p>
             </div>
           ) : (
-            <div className="flex-1 w-full space-y-1.5 sm:space-y-2 min-w-0">
+            <div className="flex-1 w-full space-y-1 sm:space-y-1.5 min-w-0 max-h-full overflow-y-auto overscroll-contain [scrollbar-width:thin]">
               {list.map((ch) => (
                 <div
                   key={ch.id}

@@ -7,8 +7,6 @@ import {
   fetchCartInterceptCustomerProfileApi,
   CartInterceptCustomerRewards,
 } from '../../../api/tenantApi';
-import { CustomerLoyaltyProfileSection } from '../../../components/storefront/CustomerLoyaltyProfileSection';
-
 import {
   User,
   ShoppingBag,
@@ -529,13 +527,6 @@ export const UserCrmPage: React.FC = () => {
       {/* TAB: Loyalty Points Card & Rewards */}
       {activeTab === 'loyalty' && (
         <div className="space-y-6">
-          <CustomerLoyaltyProfileSection
-            storeId={activeStore?.id || 'store-1'}
-            customerId={user?.email || 'customer'}
-            customerName={user?.name}
-            customerEmail={user?.email}
-          />
-
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold font-serif text-[#102a1c]">

@@ -43,8 +43,11 @@ export const TamaraIcon: React.FC<PaymentIconProps> = ({ className = "h-5 w-auto
 );
 
 export const StcPayIcon: React.FC<PaymentIconProps> = ({ className = "h-5 w-auto" }) => (
-  <div className={`inline-flex items-center justify-center bg-[#4f008c] text-white px-2 py-1 rounded font-semibold text-[10px] tracking-tight ${className}`} title="stc pay">
-    <span>stc pay</span>
+  <div className={`inline-flex items-center justify-center bg-[#4f008c] text-white px-2 py-1 rounded ${className}`} title="stc pay">
+    <svg viewBox="0 0 72 20" className="h-3.5 w-auto" fill="none" aria-hidden>
+      <text x="0" y="14" fontSize="12" fontWeight="800" fill="#ffffff" fontFamily="Arial, sans-serif" letterSpacing="-0.5">stc</text>
+      <text x="28" y="14" fontSize="11" fontWeight="600" fill="#ffffff" fontFamily="Arial, sans-serif">pay</text>
+    </svg>
   </div>
 );
 

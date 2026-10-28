@@ -188,6 +188,8 @@ export interface Product {
   descriptionEn?: string | null;
   subtitle?: string | null;
   subtitleAr?: string | null;
+  /** Homepage / collection featuring (independent of badge ribbon) */
+  isFeatured?: boolean;
   productType?: string;
   weight?: string | number | null;
   type?: string;
@@ -289,21 +291,27 @@ export interface StoreCategory {
   slug: string;
   imageUrl: string | null;
   sortOrder: number;
+  /** Arabic SEO title (legacy DB `meta_title` when bilingual columns are absent). */
   metaTitle: string | null;
   metaDescription: string | null;
+  /** Optional English SEO title for locale-isolated UI without a DB migration. */
+  metaTitleEn?: string | null;
+  metaDescriptionEn?: string | null;
   isActive: boolean;
 }
 
 export type OrderStatus = 
   | 'pending' 
-  | 'processing' 
+  | 'processing'
+  | 'preparing'
   | 'shipped' 
   | 'out_for_delivery' 
   | 'delivered' 
   | 'completed' 
   | 'cancellation_requested'
   | 'cancelled' 
-  | 'returned';
+  | 'returned'
+  | 'refunded';
 
 export type OrderSource =
   | 'Instagram'
@@ -328,6 +336,8 @@ export type PaymentMethod =
   | 'Mada'
   | 'Visa/MC'
   | 'COD'
+  | 'Tabby'
+  | 'Tamara'
   | string;
 
 export interface OrderItemDetail {
@@ -874,6 +884,20 @@ export interface NotificationChannelConfig {
   sender_id?: string;
   auto_notify_customer: boolean;
   auto_notify_merchant: boolean;
+  connected?: boolean;
+  allow_platform_mail?: boolean;
+  from_address?: string;
+  from_name?: string;
+  smtp?: {
+    host?: string;
+    port?: number;
+    encryption?: string;
+    username?: string;
+    password?: string;
+    from_address?: string;
+    from_name?: string;
+    password_set?: boolean;
+  };
 }
 
 export interface NotificationTemplateItem {
@@ -884,6 +908,10 @@ export interface NotificationTemplateItem {
   sms_template_en: string;
   whatsapp_template_ar: string;
   whatsapp_template_en: string;
+  email_subject_ar?: string;
+  email_subject_en?: string;
+  email_body_ar?: string;
+  email_body_en?: string;
 }
 
 export interface StoreNotificationSettings {
@@ -891,9 +919,12 @@ export interface StoreNotificationSettings {
   channels: {
     whatsapp: NotificationChannelConfig;
     sms: NotificationChannelConfig;
+    email?: NotificationChannelConfig;
   };
   templates: Record<string, NotificationTemplateItem>;
   merchant_alert_phones: string[];
+  merchant_alert_emails?: string[];
+  locale?: string;
 }
 
 export * from './media';

@@ -42,7 +42,7 @@ export const DEMO_CREDENTIALS = {
   store: {
     email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STORE_ADMIN_EMAIL) || 'giftshop2030m@gmail.com',
     password: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STORE_ADMIN_PASSWORD) || 'MakkahStore@2026!Secure',
-    name: 'متجر هدايا',
+    name: 'Makkah Gifts Store',
     storeId: 'store-1',
     aliases: [
       'giftshop2030m@gmail.com',
@@ -438,12 +438,12 @@ function mockLogin(
       'store',
       {
         id: 'user-store-1',
-        name: 'متجر هدايا',
+        name: isSupport ? 'Makkah Gifts Support' : 'Makkah Gifts Store',
         email: seeded.email,
         role: isSupport ? 'support' : 'manager',
       },
       'store-1',
-      'متجر هدايا',
+      'Makkah Flowers',
       'mock-store-token',
     );
   }

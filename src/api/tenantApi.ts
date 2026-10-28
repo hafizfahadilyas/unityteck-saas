@@ -195,6 +195,8 @@ export type CreateProductPayload = {
   image_url?: string;
   original_price?: number | null;
   description?: string | null;
+  subtitle?: string | null;
+  subtitle_ar?: string | null;
   gallery_urls?: string[];
   video_url?: string | null;
   tags?: string[];
@@ -205,6 +207,7 @@ export type CreateProductPayload = {
   seo_keywords?: string | null;
   status?: Product['status'];
   is_active?: boolean;
+  is_featured?: boolean;
 };
 
 export type UpdateProductPayload = Partial<CreateProductPayload>;
@@ -346,6 +349,14 @@ function mapCategory(row: Record<string, unknown>): StoreCategory {
       row.meta_description == null || row.meta_description === ''
         ? null
         : String(row.meta_description),
+    metaTitleEn:
+      row.meta_title_en == null || row.meta_title_en === ''
+        ? undefined
+        : String(row.meta_title_en),
+    metaDescriptionEn:
+      row.meta_description_en == null || row.meta_description_en === ''
+        ? undefined
+        : String(row.meta_description_en),
     isActive: row.is_active === undefined ? true : Boolean(row.is_active),
   };
 }
@@ -638,6 +649,50 @@ export async function fetchCoupons(storeId: string): Promise<CouponItem[]> {
     storeId,
   });
   return (res.data ?? []).map(mapCoupon);
+}
+
+export type CreateCouponPayload = {
+  code: string;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  min_order_amount?: number;
+  max_uses?: number | null;
+  status?: CouponItem['status'];
+  is_active?: boolean;
+  expires_at?: string | null;
+};
+
+export type UpdateCouponPayload = Partial<CreateCouponPayload> & {
+  usage_count?: number;
+};
+
+export async function createCoupon(
+  storeId: string,
+  payload: CreateCouponPayload,
+): Promise<CouponItem> {
+  const res = await apiFetch<ItemResponse<ApiCouponRow>>('/coupons', {
+    method: 'POST',
+    storeId,
+    body: payload,
+  });
+  return mapCoupon(res.data);
+}
+
+export async function updateCoupon(
+  storeId: string,
+  id: string,
+  payload: UpdateCouponPayload,
+): Promise<CouponItem> {
+  const res = await apiFetch<ItemResponse<ApiCouponRow>>(`/coupons/${id}`, {
+    method: 'PATCH',
+    storeId,
+    body: payload,
+  });
+  return mapCoupon(res.data);
+}
+
+export async function deleteCoupon(storeId: string, id: string): Promise<void> {
+  await apiFetch(`/coupons/${id}`, { method: 'DELETE', storeId });
 }
 
 export async function fetchShipping(storeId: string): Promise<ShippingZone[]> {
@@ -1527,7 +1582,13 @@ export async function fetchNotificationSettingsApi(
  * Update store notification channels and custom templates (Phase 6.4)
  */
 export async function updateNotificationSettingsApi(
-  payload: { channels: any; templates: any; merchant_alert_phones?: string[] },
+  payload: {
+    channels: any;
+    templates: any;
+    merchant_alert_phones?: string[];
+    merchant_alert_emails?: string[];
+    locale?: string;
+  },
   storeId?: string
 ): Promise<{ success: boolean; message: string; data?: any }> {
   return apiFetch<{ success: boolean; message: string; data?: any }>('/notifications/settings', {
@@ -1538,15 +1599,56 @@ export async function updateNotificationSettingsApi(
 }
 
 /**
- * Send simulated test WhatsApp / SMS alert (Phase 6.4)
+ * Send real test WhatsApp / SMS / Email alert (requires connected store channels)
  */
 export async function sendTestNotificationApi(
-  payload: { event: string; recipient_phone: string; channel: 'whatsapp' | 'sms' | 'both'; order_id?: string },
+  payload: {
+    event: string;
+    recipient_phone?: string;
+    recipient_email?: string;
+    channel: 'whatsapp' | 'sms' | 'email' | 'both' | 'all';
+    order_id?: string;
+  },
   storeId?: string
-): Promise<{ success: boolean; data: any; message?: string }> {
-  return apiFetch<{ success: boolean; data: any; message?: string }>('/notifications/test', {
+): Promise<{ success: boolean; data: any; message?: string; any_sent?: boolean }> {
+  return apiFetch<{ success: boolean; data: any; message?: string; any_sent?: boolean }>(
+    '/notifications/test',
+    {
+      method: 'POST',
+      body: payload,
+      storeId,
+    }
+  );
+}
+
+/** Real customer Email / WhatsApp / SMS delivery log for notification manage page */
+export async function fetchNotificationDeliveriesApi(
+  storeId?: string,
+  params?: {
+    channel?: 'all' | 'whatsapp' | 'sms' | 'email';
+    status?: 'all' | 'sent' | 'failed' | 'skipped';
+    event?: string;
+    unread_only?: boolean;
+    limit?: number;
+  }
+): Promise<{ success: boolean; data: { store_id: string; summary: any; items: any[] } }> {
+  const query = new URLSearchParams();
+  if (params?.channel && params.channel !== 'all') query.set('channel', params.channel);
+  if (params?.status && params.status !== 'all') query.set('status', params.status);
+  if (params?.event) query.set('event', params.event);
+  if (params?.unread_only) query.set('unread_only', '1');
+  if (params?.limit) query.set('limit', String(params.limit));
+  const q = query.toString() ? `?${query.toString()}` : '';
+  return apiFetch(`/notifications/deliveries${q}`, { storeId });
+}
+
+export async function markNotificationDeliveriesReadApi(
+  storeId?: string,
+  payload?: { ids?: string[]; all?: boolean }
+): Promise<{ success: boolean; updated: number }> {
+  return apiFetch('/notifications/deliveries/mark-read', {
     method: 'POST',
-    body: payload,
+    body: payload || { all: true },
     storeId,
   });
 }

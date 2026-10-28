@@ -7,7 +7,6 @@ import { useToast } from '../../common/ToastProvider';
 import {
   Printer,
   Download,
-  Share2,
   X,
   SlidersHorizontal,
   ExternalLink,
@@ -19,6 +18,7 @@ import {
   Building,
   RotateCcw,
 } from 'lucide-react';
+import { WhatsAppBrandIcon } from '../../common/BrandIcons';
 
 interface InvoicePreviewModalProps {
   isOpen: boolean;
@@ -179,7 +179,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                 onClick={handleShareWhatsApp}
                 className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
               >
-                <Share2 className="w-3.5 h-3.5" />
+                <WhatsAppBrandIcon className="w-3.5 h-3.5" title="WhatsApp" />
                 <span className="hidden sm:inline">{isAr ? 'مشاركة واتساب' : 'WhatsApp'}</span>
               </button>
             )}
@@ -209,9 +209,11 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ms-1 cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ms-1"
+              title={isAr ? 'إغلاق' : 'Close'}
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
+              <span>{isAr ? 'إغلاق' : 'Close'}</span>
             </button>
           </div>
         </div>

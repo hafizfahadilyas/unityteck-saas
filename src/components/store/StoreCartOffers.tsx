@@ -657,8 +657,8 @@ export const StoreCartOffers: React.FC<StoreCartOffersProps> = ({ onNavigateTab 
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {isAr
-              ? `إنشاء وإدارة عروض البيع التلقائي والخصم في السلة لمتجر ${activeStore.name}`
-              : `Create and manage automated cart-level upsell rules for ${activeStore.name}`}
+              ? 'إنشاء وإدارة عروض البيع التلقائي والخصم في السلة'
+              : 'Create and manage automated cart-level upsell rules'}
           </p>
         </div>
 

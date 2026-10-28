@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Clock,
   Mail,
-  MessageCircle,
   Sparkles,
   ShieldCheck,
   Truck,
@@ -14,6 +13,7 @@ import {
   Heart,
 } from 'lucide-react';
 import { MECCA_LOGO, MECCA_WHATSAPP } from '../../data/hadayaMeccaData';
+import { WhatsAppBrandIcon } from '../common/BrandIcons';
 
 export interface MaintenanceConfig {
   enabled: boolean;
@@ -235,7 +235,7 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2.5 px-6 py-3 rounded-full bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-sm shadow-xl transition-all transform hover:-translate-y-0.5"
             >
-              <MessageCircle className="w-5 h-5 fill-white" />
+              <WhatsAppBrandIcon className="w-5 h-5 text-white" title="WhatsApp" />
               <span>
                 {isAr
                   ? 'للطلبات الفورية الخاصة عبر واتساب (خدمة ٢٤/٧)'

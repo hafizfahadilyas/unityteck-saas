@@ -16,6 +16,7 @@ alwaysApply: true
 
 ## Isolation
 - Every store-scoped row: `store_id`. Never fall back to `store-1`, flower brands, Flora Luxe, or giftshop identity for other tenants.
+- **Messaging isolation (locked):** WhatsApp Cloud, SMS gateway, email SMTP, message templates, merchant alert phones/emails, and dashboard notifications are **per `store_id` only**. Store A not connected ≠ use Store B’s WhatsApp/email. No silent cross-tenant credential borrow. Disconnected channel → skip for that store only; others keep working.
 
 ## UI / i18n
 - Preserve pixel UI (designs/). No rebuild Master/Store/storefront.

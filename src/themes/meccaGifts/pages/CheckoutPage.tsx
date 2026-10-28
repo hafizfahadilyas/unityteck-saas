@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useTenant } from '../../../context/TenantContext';
 import {
   ShieldCheck,
   Truck,
@@ -16,6 +17,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { PaymentGatewaySelector, type PaymentMethodId } from '../../../components/storefront/checkout/PaymentGatewaySelector';
+import { resolveBankCardDiscount } from '../../../utils/bankOffers';
 
 export const CheckoutPage: React.FC = () => {
   const {
@@ -32,6 +34,7 @@ export const CheckoutPage: React.FC = () => {
     applyCouponCode,
     removeAppliedCoupon
   } = useApp();
+  const { activeStore } = useTenant();
 
   const isAr = language === 'ar';
   const [promoCode, setPromoCode] = useState('');
@@ -67,7 +70,33 @@ export const CheckoutPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const shipping = freeShippingRemaining === 0 ? 0 : 35;
-  const total = Math.max(0, cartSubtotal + shipping - appliedDiscount);
+  const paymentLabel =
+    paymentMethod === 'mada'
+      ? 'مدى (Mada)'
+      : paymentMethod === 'apple_pay'
+        ? 'Apple Pay'
+        : paymentMethod === 'tabby'
+          ? 'تابي (Tabby)'
+          : paymentMethod === 'tamara'
+            ? 'تمارا (Tamara)'
+            : paymentMethod === 'card'
+              ? 'فيزا / ماستركارد'
+              : 'الدفع عند الاستلام';
+
+  const cartItemCount = cart.reduce((n, i) => n + (i.quantity || 1), 0);
+  const bankCard = useMemo(
+    () =>
+      resolveBankCardDiscount(
+        activeStore?.id || 'store-1',
+        cartSubtotal,
+        cartItemCount,
+        paymentMethod === 'card' ? 'Credit Cards' : paymentMethod,
+      ),
+    [activeStore?.id, cartSubtotal, cartItemCount, paymentMethod],
+  );
+
+  const totalDiscount = appliedDiscount + bankCard.discount;
+  const total = Math.max(0, cartSubtotal + shipping - totalDiscount);
 
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,20 +111,9 @@ export const CheckoutPage: React.FC = () => {
         deliveryDate,
         deliveryTimeSlot,
         isAnonymousSender,
-        paymentMethod:
-          paymentMethod === 'mada'
-            ? 'مدى (Mada)'
-            : paymentMethod === 'apple_pay'
-            ? 'Apple Pay'
-            : paymentMethod === 'tabby'
-            ? 'تابي (Tabby)'
-            : paymentMethod === 'tamara'
-            ? 'تمارا (Tamara)'
-            : paymentMethod === 'card'
-            ? 'فيزا / ماستركارد'
-            : 'الدفع عند الاستلام',
+        paymentMethod: paymentLabel,
         cardMessage,
-        discount: appliedDiscount
+        discount: totalDiscount
       });
       setIsSubmitting(false);
     }, 800);
@@ -434,8 +452,19 @@ export const CheckoutPage: React.FC = () => {
               </div>
               {appliedDiscount > 0 && (
                 <div className="flex justify-between text-[#8b263e] font-semibold">
-                  <span>{isAr ? 'خصم الكوبون:' : 'Coupon Discount:'}</span>
+                  <span>
+                    {isAr ? 'خصم الكوبون' : 'Coupon'}
+                    {appliedCoupon ? ` (${appliedCoupon.code})` : ''}:
+                  </span>
                   <span className="font-mono">-{appliedDiscount} {isAr ? 'ر.س' : 'SAR'}</span>
+                </div>
+              )}
+              {bankCard.discount > 0 && bankCard.offer && (
+                <div className="flex justify-between text-teal-700 font-semibold">
+                  <span>
+                    {isAr ? 'خصم البطاقة البنكية' : 'Card discount'} ({bankCard.offer.bankName}):
+                  </span>
+                  <span className="font-mono">-{bankCard.discount} {isAr ? 'ر.س' : 'SAR'}</span>
                 </div>
               )}
               <div className="flex justify-between">

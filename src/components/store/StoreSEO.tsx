@@ -1019,9 +1019,8 @@ export const StoreSEO: React.FC = () => {
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {isAr
-                  ? 'تم الفحص مباشرة عبر Google PageSpeed API لمتجر '
-                  : 'Audited directly via Google PageSpeed Insights API for '}
-                <strong className="text-emerald-700 dark:text-emerald-400">{(isAr ? activeStore.nameAr : activeStore.nameEn) || activeStore.name}</strong>
+                  ? 'تم الفحص مباشرة عبر Google PageSpeed API'
+                  : 'Audited directly via Google PageSpeed Insights API'}
               </p>
             </div>
 

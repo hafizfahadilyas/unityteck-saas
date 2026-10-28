@@ -186,7 +186,7 @@ export const FLOWER_STORE_BRANDS: BrandItem[] = [
     description: 'VIP royal gift hampers for men and women with perfumes, jewelry and watches.',
     descriptionEn: 'VIP royal gift hampers for men and women with perfumes, jewelry and watches.',
     descriptionAr: 'أطقم الهدايا الفاخرة للرجال والسيدات مع العطور والمجوهرات والساعات…',
-    logo: '/images/hadaya_men_luxury_gift_1791219799100.jpg',
+    logo: '/src/assets/images/hadaya_men_luxury_gift_1791219799100.jpg',
     productsCount: 4,
     showInChannels: true,
     status: 'active',
@@ -536,10 +536,16 @@ export function getStoreBrands(storeId: string, storeSlug?: string, category?: s
   const slug = (storeSlug || '').toLowerCase();
   const cat = (category || '').toLowerCase();
 
-  // Zero-mock: no niche hardcoded brand catalogs — empty until merchant saves / API
-  void sid;
-  void slug;
-  void cat;
+  if (sid === 'store-bleco' || slug.includes('bleco') || slug.includes('car') || cat.includes('car') || cat.includes('auto')) {
+    return CAR_STORE_BRANDS;
+  }
+  if (sid === 'store-coffee' || slug.includes('coffee') || slug.includes('hibrew') || cat.includes('coffee')) {
+    return COFFEE_STORE_BRANDS;
+  }
+  if (sid === 'store-1' || slug.includes('flower') || slug.includes('hadaya') || cat.includes('flower') || cat.includes('gift')) {
+    return FLOWER_STORE_BRANDS;
+  }
+  // Rule 1: Genuine empty state for any other store — never force mock flowers!
   return [];
 }
 
@@ -559,9 +565,16 @@ export function getStoreCustomFields(storeId: string, storeSlug?: string, catego
   const slug = (storeSlug || '').toLowerCase();
   const cat = (category || '').toLowerCase();
 
-  void sid;
-  void slug;
-  void cat;
+  if (sid === 'store-bleco' || slug.includes('bleco') || slug.includes('car') || cat.includes('car') || cat.includes('auto')) {
+    return CAR_CUSTOM_FIELDS;
+  }
+  if (sid === 'store-coffee' || slug.includes('coffee') || slug.includes('hibrew') || cat.includes('coffee')) {
+    return COFFEE_CUSTOM_FIELDS;
+  }
+  if (sid === 'store-1' || slug.includes('flower') || slug.includes('hadaya') || cat.includes('flower') || cat.includes('gift')) {
+    return FLOWER_CUSTOM_FIELDS;
+  }
+  // Rule 1: Genuine empty state for any other store
   return [];
 }
 

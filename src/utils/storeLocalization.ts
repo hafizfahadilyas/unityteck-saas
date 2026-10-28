@@ -361,28 +361,16 @@ const CUSTOMER_NAME_EN_MAP: Record<string, string> = {
   'أحمد بن محمد القحطاني': 'Ahmed Al-Qahtani',
   'أحمد القحطاني': 'Ahmed Al-Qahtani',
   'أحمد محمد': 'Ahmed Mohammed',
-  'أحمد علي': 'Ahmed Ali',
   'سارة أحمد': 'Sarah Ahmed',
-  'سارة محمد': 'Sara Mohammed',
   'محمد علي': 'Mohammed Ali',
-  'محمد عبدالله': 'Mohammed Abdullah',
   'ريم خالد': 'Reem Khalid',
-  'ريم فهد': 'Reem Fahad',
   'عبد الله الشمري': 'Abdullah Al-Shammari',
   'عبد الرحمن الشمري': 'Abdulrahman Al-Shammari',
   'فيصل المطيري': 'Faisal Al-Mutairi',
-  'فيصل أحمد': 'Faisal Ahmed',
   'منى العتيبي': 'Mona Al-Otaibi',
-  'منى القحطاني': 'Mona Al-Qahtani',
   'خالد الدوسري': 'Khalid Al-Dossari',
-  'خالد سعد': 'Khaled Saad',
   'فهد العنزي': 'Fahad Al-Enezi',
-  'عمر العنزي': 'Omar Al-Enzi',
-  'يارا سالم': 'Yara Salem',
-  'لمى عبدالله': 'Lama Abdullah',
-  'علي حسن': 'Ali Hassan',
   'نورة سعد': 'Noura Saad',
-  'نورة خالد': 'Nora Khaled',
   'سارة المحمدي': 'Sarah Al-Mohammadi',
   'بدر بن خالد العتيبي': 'Bader Al-Otaibi',
   'هند بنت ماجد التميمي': 'Hind Al-Tamimi',
@@ -393,58 +381,32 @@ const CUSTOMER_NAME_EN_MAP: Record<string, string> = {
   'حسان الزهراني': 'Hassan Al-Zahrani',
   'حسن الزهراني': 'Hassan Al-Zahrani',
   'طارق المنصور': 'Tariq Al-Mansoor',
-  'طارق المكي': 'Tariq Al-Makki',
-  'سارة الحربي': 'Sarah Al-Harbi',
-  'فهد المالكي': 'Fahad Al-Malki',
-};
-
-const CUSTOMER_NAME_AR_MAP: Record<string, string> = {
-  'Ahmed Ali': 'أحمد علي',
-  'Omar Al-Enzi': 'عمر العنزي',
-  'Omar Al-Enezi': 'عمر العنزي',
-  'Yara Salem': 'يارا سالم',
-  'Mona Al-Qahtani': 'منى القحطاني',
-  'Faisal Ahmed': 'فيصل أحمد',
-  'Lama Abdullah': 'لمى عبدالله',
-  'Khaled Saad': 'خالد سعد',
-  'Reem Fahad': 'ريم فهد',
-  'Ali Hassan': 'علي حسن',
-  'Sara Mohammed': 'سارة محمد',
-  'Mohammed Abdullah': 'محمد عبدالله',
-  'Nora Khaled': 'نورة خالد',
-  'Rayan Al-Sulaiman': 'ريان السليمان',
-  'Noura Al-Qahtani': 'نورة القحطاني',
-  'Sultan Al-Ghamdi': 'سلطان الغامدي',
-  'Sarah Ahmed': 'سارة أحمد',
-  'Mohammed Ali': 'محمد علي',
-  'Reem Khalid': 'ريم خالد',
-  'Abdullah Al-Shammari': 'عبدالله الشمري',
-  'Abdulrahman Al-Shammari': 'عبدالرحمن الشمري',
-  'Faisal Al-Mutairi': 'فيصل المطيري',
-  'Mona Al-Otaibi': 'منى العتيبي',
-  'Khalid Al-Dossari': 'خالد الدوسري',
-  'Fahad Al-Enezi': 'فهد العنزي',
-  'Noura Saad': 'نورة سعد',
-  'Bader Al-Otaibi': 'بدر العتيبي',
-  'Hind Al-Tamimi': 'هند التميمي',
-  'Meshal Al-Dossari': 'مشعل الدوسري',
-  'Ahmed Al-Qahtani': 'أحمد القحطاني',
-  'Ahmed Mohammed': 'أحمد محمد',
-  'Tariq Al-Makki': 'طارق المكي',
-  'Sarah Al-Harbi': 'سارة الحربي',
-  'Fahad Al-Malki': 'فهد المالكي',
+  'سارة عبد العزيز الشريف': 'Sarah Abdulaziz Al-Sharif',
+  'محمد أنس القحطاني': 'Mohammed Anas Al-Qahtani',
+  'فاطمة الشهري': 'Fatima Al-Shehri',
+  'عبد الله السعيد': 'Abdullah Al-Saeed',
+  'نورة الدوسري': 'Noura Al-Dossari',
+  'خالد بن ناصر الغامدي': 'Khalid Al-Ghamdi',
+  'الأمير فيصل بن خالد آل سعود': 'Prince Faisal bin Khalid Al Saud',
+  'ماجد بن ناصر الحربي': 'Majed Al-Harbi',
+  'خالد بن عبد الرحمن الدوسري': 'Khalid Al-Dossari',
+  'بندر بن عبد الله السبيعي': 'Bandar Al-Subaie',
+  'تركي بن سعد العتيبي': 'Turki Al-Otaibi',
+  'سعد بن فهد الغامدي': 'Saad Al-Ghamdi',
+  'عبد العزيز بن سعود المقرن': 'Abdulaziz Al-Muqrin',
+  'محمد بن يحيى الشهري': 'Mohammed Al-Shehri',
+  'نواف بن فهد العنزي': 'Nawaf Al-Enezi',
+  'سلمان بن ظافر القحطاني': 'Salman Al-Qahtani',
+  'فهد بن منصور المطيري': 'Fahad Al-Mutairi',
+  'ياسر بن عبد الله الزهراني': 'Yasser Al-Zahrani',
+  'عبد الله بن حمد الهاجري': 'Abdullah Al-Hajri',
+  'حمد بن راشد المري': 'Hamad Al-Marri',
 };
 
 export function getCustomerDisplayName(rawName?: string | null, locale: string = 'ar'): string {
   if (!rawName) return locale === 'ar' ? 'عميل المتجر' : 'Store Customer';
   const trimmed = rawName.trim();
   if (locale === 'ar') {
-    // If name is English, look up Arabic translation
-    if (CUSTOMER_NAME_AR_MAP[trimmed]) return CUSTOMER_NAME_AR_MAP[trimmed];
-    const normalized = Object.keys(CUSTOMER_NAME_AR_MAP).find(
-      (k) => k.toLowerCase() === trimmed.toLowerCase(),
-    );
-    if (normalized) return CUSTOMER_NAME_AR_MAP[normalized];
     return trimmed;
   }
   // If in English and name is Arabic, look up transliterated English name
@@ -453,99 +415,14 @@ export function getCustomerDisplayName(rawName?: string | null, locale: string =
     // Try matching without bin / bint
     const simplified = trimmed.replace(/\s+(بن|بنت)\s+/g, ' ');
     if (CUSTOMER_NAME_EN_MAP[simplified]) return CUSTOMER_NAME_EN_MAP[simplified];
-    // Generic clean transliteration fallback
-    const firstWord = trimmed.split(' ')[0];
-    if (CUSTOMER_NAME_EN_MAP[firstWord]) return CUSTOMER_NAME_EN_MAP[firstWord];
-    return trimmed;
+    // Match by last family-name token when full form is unmapped
+    const parts = trimmed.split(/\s+/).filter(Boolean);
+    const lastToken = parts[parts.length - 1];
+    if (lastToken && CUSTOMER_NAME_EN_MAP[lastToken]) return CUSTOMER_NAME_EN_MAP[lastToken];
+    // Avoid dumping unmapped Arabic into the English UI
+    return 'Store Customer';
   }
   return trimmed;
-}
-
-/**
- * Localizes WhatsApp transactional and marketing message texts based on locale.
- * Ensures 100% Arabic in Arabic mode and 100% English in English mode.
- */
-export function getLocalizedWhatsAppMessage(rawContent?: string | null, locale: string = 'ar'): string {
-  if (!rawContent) return '';
-  const text = rawContent.trim();
-  const isAr = locale === 'ar';
-
-  if (isAr) {
-    if (/[\u0600-\u06FF]/.test(text) && !/[a-zA-Z]/.test(text.replace(/https?:\/\/\S+/g, ''))) {
-      return text;
-    }
-
-    if (/wrapped and is on its way to Fairmont Hotel/i.test(text)) {
-      return 'تم تجهيز وتغليف باقتك الفاخرة بعناية وهي الآن في طريقها إلى فندق فيرمونت، مكة المكرمة.';
-    }
-    if (/FIRST15/i.test(text)) {
-      return 'استمتع بخصم 15% على أول طلب لك باستخدام كود القسيمة: FIRST15 عند إتمام الطلب!';
-    }
-    if (/address in Medina.*verify reception/i.test(text)) {
-      return 'تحديث الشحن: طلبك في طريقه إلى عنوانك بالمدينة المنورة. يُرجى التحقق من الاستلام مع مندوب التوصيل.';
-    }
-    if (/llection is now live.*Explore exclusively/i.test(text)) {
-      return 'التشكيلة الملكية الفاخرة الجديدة متاحة الآن! تصفحها واكتشف أرقى المنتجات الحصرية عبر موقعنا.';
-    }
-    if (/approved.*Courier will visit you between 4-6 PM/i.test(text)) {
-      return 'تمت الموافقة على طلب الإرجاع. سيقوم مندوب شركة الشحن بزيارتكم للاستلام بين 4-6 مساءً.';
-    }
-    if (/free greeting card calligraphy/i.test(text)) {
-      return 'مرحباً! لاحظنا وجود منتجات فاخرة في سلتك. أكمل طلبك اليوم لتحصل على كتابة كرت إهداء مجاني بخط يدوي فاخر!';
-    }
-    if (/awaiting bank transfer verification/i.test(text) || /pay\/10279/i.test(text)) {
-      return 'تحديث الدفع: تذكير لطيف بشأن الطلب #10279 بانتظار تأكيد التحويل البنكي. رابط السداد: https://giftshop-sa.com/pay/10279';
-    }
-    if (/Natural Flower Bouquet with Patchi Chocolate is confirmed/i.test(text) || /Patchi Chocolate/i.test(text)) {
-      return 'تم تأكيد طلبك #10278: باقة الزهور الطبيعية مع شوكولاتة باتشي الفاخرة ومجدولة للتسليم في الموعد.';
-    }
-    if (/VIP20/i.test(text)) {
-      return 'خصم حصري 20% على جميع أطقم شوكولاتة بستاني الفاخرة! استخدم كود الخصم VIP20 اليوم عند الطلب.';
-    }
-    if (/Royal Dutch Velvet Rose collection/i.test(text)) {
-      return 'اكتشف مجموعتنا الملكية الجديدة من الجوري المخملي مع توصيل فاخر مجاني في جميع أنحاء مكة هذا الأسبوع!';
-    }
-    if (/heading to Jabal Omar/i.test(text)) {
-      return 'تحديث التوصيل: استلم مندوبنا الطلب #10280 وهو في طريقه الآن إلى منطقة جبل عمر، مكة المكرمة.';
-    }
-    if (/Your bouquet is being prepared with love/i.test(text)) {
-      return 'تأكيد الطلب #10283. شكراً لاختياركم متجرنا! باقتكم الفاخرة قيد التجهيز والتنسيق بكل حب وإتقان.';
-    }
-    if (/Message undeliverable/i.test(text)) {
-      return 'تعذر تسليم الرسالة: رقم الهاتف غير متاح حالياً أو غير مفعل على تطبيق واتساب.';
-    }
-    return text;
-  } else {
-    // English mode
-    if (/تم تجهيز وتغليف باقتك الفاخرة|فيرمونت/i.test(text)) {
-      return 'Your luxury bouquet has been freshly wrapped and is on its way to Fairmont Hotel, Makkah.';
-    }
-    if (/FIRST15/i.test(text)) {
-      return 'Enjoy a 15% discount on your first order with voucher FIRST15 upon checkout!';
-    }
-    if (/المدينة المنورة.*مندوب/i.test(text)) {
-      return 'Delivery update: Your order is on its way to your address in Medina. Please verify reception with driver.';
-    }
-    if (/التشكيلة الملكية|متاحة الآن/i.test(text)) {
-      return 'New luxury collection is now live! Explore exclusively on our website.';
-    }
-    if (/طلب الإرجاع|مندوب شركة الشحن/i.test(text)) {
-      return 'Your return request has been approved. Courier will visit you between 4-6 PM.';
-    }
-    if (/كرت إهداء مجاني/i.test(text)) {
-      return 'Hi! Complete your order today and get free handwritten luxury greeting card calligraphy!';
-    }
-    if (/تأكيد التحويل البنكي|رابط السداد/i.test(text)) {
-      return 'Payment update: Friendly reminder for order #10279 awaiting bank transfer verification. Link: https://giftshop-sa.com/pay/10279';
-    }
-    if (/باتشي/i.test(text)) {
-      return 'Order confirmation #10278: Natural flower bouquet with luxury Patchi chocolate is confirmed and scheduled.';
-    }
-    if (/VIP20/i.test(text)) {
-      return 'Exclusive 20% discount on luxury gift sets! Use code VIP20 today.';
-    }
-    return text;
-  }
 }
 
 export const ITEM_NAME_MAP_EN: Record<string, string> = {
@@ -589,11 +466,29 @@ export const ITEM_NAME_MAP_EN: Record<string, string> = {
   'تشكيلة ترفل باتشي الملكية الفاخرة 500 جم': 'Patchi Luxury Truffles Collection 500g',
   'فازة كريستال بزهور الأوركيد والبيبي روز': 'Crystal Orchid & Baby Rose Vase',
   'سلة هدايا العيد الملكية الفاخرة': 'Royal Festive Luxury Gift Basket',
+  'صندوق بيوني هولندي وردي ناعم': 'Soft Pink Dutch Peony Box',
+  'شوكولاتة باتشي فاخرة مع تغليف إهداء ملكي': 'Luxury Patchi Chocolate with Royal Gift Wrapping',
+  'باقة جوري إكوادوري أحمر ملكي ٥٠ وردة': 'Royal Ecuadorian Red Rose Bouquet 50 Stems',
+  'فازة أوركيد بيضاء ملكية مزدوجة الساق': 'Royal Double-Stem White Orchid Vase',
+  'صندوق تخرج مبهج مع بالونات وقبعة تخرج مطرزة': 'Graduation Gift Box with Balloons & Embroidered Cap',
+  'باقة VIP زهور هيدرانجيا مع شوكولاتة باتشي': 'VIP Hydrangea Bouquet with Patchi Chocolate',
+  'توليب هولندي أبيض في فازة سيراميك إيطالية': 'Dutch White Tulips in Italian Ceramic Vase',
+  'زجاجة كولد برو منقوع بارد مركز ٥٠٠ مل': 'Cold Brew Coffee Concentrate 500ml',
 
   // Car store products
   'تلبيس مقاعد جلد ألماني فاخر مقاوم للحرارة': 'German Thermal-Resistant Leather Seat Covers',
   'طقم أرضيات دايموند خماسي الأبعاد 5D': '5D Diamond Precision Custom Floor Mats',
   'داش كام أمامية وخلفية بدقة 4K مع GPS': 'Front & Rear 4K Dashcam with GPS & Parking Mode',
+  'بكج اليوم الوطني الذهبي (تنجيد كراسي + أرضيات 7D + وسائد إهداء)': 'Golden National Day Package (Seats + 7D Mats + Gift Pillows)',
+  'طقم تنجيد كراسي ملكي كامل جلد نابا ألماني فاخر': 'Full Royal Nappa German Leather Seat Cover Set',
+  'أرضيات ودعاسات دايموند 7D تغطية شاملة مع دواسة معدنية': '7D Diamond Full-Coverage Floor Mats with Metal Pedal',
+  'بطانة وعازل الشنطة الخلفية ثلاثي الأبعاد مضاد للسوائل': '3D Waterproof Trunk Liner & Insulator',
+  'خدمة الفحص والتركيب المنزلي السريع لكبار الشخصيات': 'VIP On-Site Inspection & Installation Service',
+  'تلبيس وتخشيب ديكورات الأبواب وسقف الكانتارا الرياضي': 'Door Trim & Alcantara Sport Ceiling Kit',
+  'غلاف وتلبيس مقود جلد مثقب مع خياطة يدوية دقيقة': 'Perforated Leather Steering Wrap with Hand Stitching',
+  'مجموعة نانو سيراميك ألمانية لحماية وترطيب المقاعد الجلدية': 'German Nano-Ceramic Leather Seat Protection Kit',
+  'غطاء طبلون جلد ليزري مخصص حماية من حرارة شمس الخليج': 'Custom Laser Leather Dashboard Cover (Gulf Heat Shield)',
+  'طقم وسائد الرقبة والقطنية ميموري فوم جلد فاخر': 'Luxury Memory-Foam Neck & Lumbar Leather Pillow Set',
 };
 
 export const ADDRESS_MAP_EN: Record<string, string> = {

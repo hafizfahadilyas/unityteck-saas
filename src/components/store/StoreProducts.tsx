@@ -15,7 +15,6 @@ import {
   Edit,
   Trash2,
   Copy,
-  Save,
   UploadCloud,
   Check,
   TrendingUp,
@@ -63,10 +62,40 @@ import { ProductVariationsPanel } from './ProductVariationsPanel';
 import type { ProductColorOption } from '../../types';
 import { SEAT_COLORS, getProductColors } from '../../data/blecoStoreData';
 import { getProductDisplayName, getProductDisplayCategory } from '../../utils/storeLocalization';
-import { handleImageError, FALLBACK_PRODUCT_IMAGE, cleanImageUrl } from '../../utils/imageFallback';
+import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
+import {
+  parseOrderDate,
+  periodCountGrowth,
+} from '../../utils/liveSeries';
 import { StoreProductEditorView } from './StoreProductEditorView';
-import { ProductEditDrawer } from './ProductEditDrawer';
+import {
+  ProductEditDrawer,
+  DEFAULT_PRODUCT_EDIT_SECTIONS,
+  PRODUCT_EDIT_SECTION_OPTIONS,
+  type ProductEditSectionKey,
+} from './ProductEditDrawer';
 import { ProductFiltersPanel, type ProductFilterCriteria } from './ProductFiltersPanel';
+
+const EDIT_FIELDS_STORAGE_PREFIX = 'unityteck_product_edit_fields_';
+
+function loadEditFieldVisibility(storeId: string): Record<ProductEditSectionKey, boolean> {
+  try {
+    const raw = localStorage.getItem(`${EDIT_FIELDS_STORAGE_PREFIX}${storeId}`);
+    if (!raw) return { ...DEFAULT_PRODUCT_EDIT_SECTIONS };
+    const parsed = JSON.parse(raw) as Partial<Record<ProductEditSectionKey, boolean>>;
+    return { ...DEFAULT_PRODUCT_EDIT_SECTIONS, ...parsed };
+  } catch {
+    return { ...DEFAULT_PRODUCT_EDIT_SECTIONS };
+  }
+}
+
+function saveEditFieldVisibility(storeId: string, value: Record<ProductEditSectionKey, boolean>) {
+  try {
+    localStorage.setItem(`${EDIT_FIELDS_STORAGE_PREFIX}${storeId}`, JSON.stringify(value));
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
 
 /**
  * StoreProducts — Store Admin Products & Catalog Directory & Editor
@@ -95,6 +124,8 @@ export const StoreProducts: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isSideDrawerOpen, setIsSideDrawerOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  /** Unsaved manual create draft — never persisted until user clicks Save */
+  const [creatingProduct, setCreatingProduct] = useState<Product | null>(null);
 
   // List View Controls
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -102,13 +133,13 @@ export const StoreProducts: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
-  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
 
   // Makdah Flowers Catalog Table & Inline Edit State (Spec Section 6 & 9)
   const [isInlineEdit, setIsInlineEdit] = useState(false);
   const [showColumnsPopover, setShowColumnsPopover] = useState(false);
+  const [showFieldsFilterPopover, setShowFieldsFilterPopover] = useState(false);
   const [columnSearch, setColumnSearch] = useState('');
   const [sortBy, setSortBy] = useState<string>('date-desc');
   const [bulkAction, setBulkAction] = useState<string>('');
@@ -127,6 +158,20 @@ export const StoreProducts: React.FC = () => {
     salesCount: false,
     actions: true,
   });
+
+  // Edit-panel field visibility (Filter) — shared by Grid (Large Image) & List views
+  const [visibleEditSections, setVisibleEditSections] = useState<Record<ProductEditSectionKey, boolean>>(
+    () => loadEditFieldVisibility(activeStore.id)
+  );
+
+  const applyEditSectionVisibility = (next: Record<ProductEditSectionKey, boolean>) => {
+    setVisibleEditSections(next);
+    saveEditFieldVisibility(activeStore.id, next);
+  };
+
+  React.useEffect(() => {
+    setVisibleEditSections(loadEditFieldVisibility(activeStore.id));
+  }, [activeStore.id]);
 
   // Advanced Filters & Deleted Products (Mockup / Screenshot 4 & Filters Panel)
   const [filterCriteria, setFilterCriteria] = useState<ProductFilterCriteria>({
@@ -161,22 +206,6 @@ export const StoreProducts: React.FC = () => {
   }, [activeStore.id]);
 
   React.useEffect(() => {
-    try {
-      const targetId = sessionStorage.getItem('target_edit_product_id');
-      if (targetId && currentProducts.length > 0) {
-        sessionStorage.removeItem('target_edit_product_id');
-        const found = currentProducts.find((p) => p.id === targetId || p.sku === targetId);
-        if (found) {
-          setEditingProductId(found.id);
-          setIsSideDrawerOpen(true);
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, [currentProducts]);
-
-  React.useEffect(() => {
     const handleSubView = (e: any) => {
       if (e.detail) {
         setCurrentView(e.detail);
@@ -186,11 +215,13 @@ export const StoreProducts: React.FC = () => {
     return () => window.removeEventListener('unityteck-product-view', handleSubView);
   }, []);
 
-  // Current editing product
+  // Current editing product (existing) or unsaved create draft
   const editingProduct = useMemo(() => {
+    if (creatingProduct) return creatingProduct;
     if (!editingProductId) return null;
     return currentProducts.find((p) => p.id === editingProductId) || null;
-  }, [currentProducts, editingProductId]);
+  }, [creatingProduct, currentProducts, editingProductId]);
+  const isCreatingProduct = Boolean(creatingProduct);
 
   // ── 4 KPI Summary Cards matching Mockup 06 (Store Scoped) ──
   const kpi = useMemo(() => {
@@ -201,7 +232,18 @@ export const StoreProducts: React.FC = () => {
     const outOfStock = currentProducts.filter((p) => p.stock === 0).length;
     const draft = currentProducts.filter((p) => p.status === 'draft').length;
 
-    return { total, active, outOfStock, draft };
+    const productDate = (p: (typeof currentProducts)[number]) =>
+      parseOrderDate(p.publishedAt) || parseOrderDate((p as { createdAt?: string }).createdAt);
+
+    const totalGrowth = periodCountGrowth(currentProducts, productDate);
+    const activeGrowth = periodCountGrowth(
+      currentProducts,
+      productDate,
+      (p) => (p.status === 'published' || (p as { status?: string }).status === 'active') && p.stock > 0,
+    );
+    const outOfStockGrowth = periodCountGrowth(currentProducts, productDate, (p) => p.stock === 0);
+
+    return { total, active, outOfStock, draft, totalGrowth, activeGrowth, outOfStockGrowth };
   }, [currentProducts]);
 
   // Unique categories for filtering
@@ -382,6 +424,7 @@ export const StoreProducts: React.FC = () => {
 
   // Open Edit Mode (Side Drawer or Full View)
   const handleOpenEdit = (product: Product, openAsFullPage = false) => {
+    setCreatingProduct(null);
     setEditingProductId(product.id);
     if (openAsFullPage) {
       setCurrentView('edit');
@@ -402,11 +445,13 @@ export const StoreProducts: React.FC = () => {
       toast(planGate.message, 'error');
       return;
     }
+    setCreatingProduct(null);
+    setEditingProductId(null);
     setCurrentView('type-picker');
   };
 
-  // Create Product with selected type (from Image 4 -> Image 3)
-  const handleCreateProductWithType = (typeTitle: string) => {
+  // Open blank product editor for selected type (manual fill — no auto fake create)
+  const handleCreateProductWithType = (typeKey: string, typeTitle: string) => {
     if (!sub.writable) {
       toast(sub.message ?? t('subNotWritable'), 'error');
       return;
@@ -416,43 +461,51 @@ export const StoreProducts: React.FC = () => {
       return;
     }
 
-    const newId = `prod-${Date.now()}`;
-    const newProduct: Product = {
-      id: newId,
+    const noShippingTypes = new Set([
+      'digital-product',
+      'gift-card',
+      'custom-service',
+      'booking',
+      'template',
+    ]);
+
+    const draft: Product = {
+      id: `draft-${Date.now()}`,
       storeId: activeStore.id,
-      name: isAr ? `${typeTitle} جديد` : `New ${typeTitle}`,
-      subtitle: isAr ? 'منتج مميز عالي الجودة' : 'Premium catalog item',
-      sku: `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
-      category: categories[0] || 'Bouquets',
-      price: 199,
-      discountedPrice: 149,
-      costPrice: 85,
+      name: '',
+      sku: '',
+      category: categories[0] || 'General',
+      price: 0,
+      discountedPrice: 0,
+      costPrice: 0,
       taxRate: 15,
-      stock: 25,
+      stock: 0,
       status: 'draft',
       isActive: true,
       isStale: false,
-      publishedAt: new Date().toISOString(),
-      image: FALLBACK_PRODUCT_IMAGE,
-      galleryUrls: [FALLBACK_PRODUCT_IMAGE],
-      description: isAr
-        ? 'يوفر هذا المنتج أعلى معايير الجودة والتصميم العصري مع ضمان شامل وراحة لا مثيل لها.'
-        : 'Delivers all-day comfort with a modern aesthetic, crafted with top-tier materials.',
+      publishedAt: '',
+      image: '',
+      galleryUrls: [],
+      description: '',
+      subtitle: '',
       productType: typeTitle,
-      brand: activeStore.name,
+      type: typeKey,
+      brand: '',
       countryOfOrigin: 'Saudi Arabia',
-      requiresShipping: typeTitle !== 'Digital Product' && typeTitle !== 'Gift Card',
-      trackInventory: true,
+      requiresShipping: !noShippingTypes.has(typeKey),
+      trackInventory: typeKey !== 'digital-product' && typeKey !== 'gift-card',
       salesCount: 0,
-      customUrl: `product-${Date.now().toString().slice(-4)}`,
-      seoTitle: isAr ? `${typeTitle} فاخر | ${activeStore.name}` : `New ${typeTitle} | ${activeStore.name}`,
-      seoDescription: isAr ? 'تسوق أفضل المنتجات بأفضل الأسعار.' : 'Shop top rated products with fast delivery.',
+      customUrl: '',
+      seoTitle: '',
+      seoDescription: '',
+      tags: [],
+      isFeatured: false,
     };
 
-    addProduct(newProduct, activeStore.id);
-    setEditingProductId(newId);
+    setCreatingProduct(draft);
+    setEditingProductId(null);
+    setIsSideDrawerOpen(false);
     setCurrentView('edit');
-    toast(t('productCreatedSuccess'), 'success');
   };
 
   // Delete product handler
@@ -543,6 +596,7 @@ export const StoreProducts: React.FC = () => {
     return (
       <StoreProductEditorView
         product={editingProduct}
+        mode={isCreatingProduct ? 'create' : 'edit'}
         storeName={activeStore.name}
         storeSlug={activeStore.slug}
         storeId={activeStore.id}
@@ -550,29 +604,68 @@ export const StoreProducts: React.FC = () => {
         categories={categories}
         availableBrands={availableStoreBrands.map((b: any) => (typeof b === 'string' ? b : (b.nameEn || b.nameAr || '')))}
         onBack={() => {
+          if (isCreatingProduct) {
+            setCreatingProduct(null);
+            setCurrentView('type-picker');
+            return;
+          }
           setCurrentView('list');
           setEditingProductId(null);
         }}
         onSave={(updatedData) => {
+          if (isCreatingProduct) {
+            const { id: _id, storeId: _storeId, publishedAt: _publishedAt, isStale: _isStale, ...restDraft } =
+              editingProduct;
+            addProduct(
+              {
+                ...restDraft,
+                ...updatedData,
+                name: (updatedData.name ?? restDraft.name ?? '').trim(),
+                sku: (updatedData.sku ?? restDraft.sku ?? '').trim(),
+                status: updatedData.status ?? 'draft',
+                isActive: updatedData.isActive ?? true,
+                image: updatedData.image || FALLBACK_PRODUCT_IMAGE,
+                galleryUrls: (updatedData.galleryUrls || []).filter(Boolean),
+                salesCount: 0,
+              },
+              activeStore.id,
+            );
+            setCreatingProduct(null);
+            setEditingProductId(null);
+            setCurrentView('list');
+            toast(t('productCreatedSuccess'), 'success');
+            return;
+          }
           updateProduct(editingProduct.id, updatedData, activeStore.id);
           toast(t('productSavedSuccess'), 'success');
         }}
-        onDelete={() => handleDeleteProduct(editingProduct)}
-        onDuplicate={(prod) => {
-          const duplicateId = `prod_${Date.now()}`;
-          const duplicateProduct: Product = {
-            ...prod,
-            id: duplicateId,
-            storeId: activeStore.id,
-            name: `${prod.name} (Copy)`,
-            sku: `${prod.sku}-COPY`,
-            publishedAt: new Date().toISOString(),
-            isStale: false,
-          };
-          addProduct(duplicateProduct, activeStore.id);
-          setEditingProductId(duplicateId);
-          toast(isAr ? 'تم نسخ المنتج بنجاح' : 'Product duplicated successfully', 'success');
+        onDelete={() => {
+          if (isCreatingProduct) {
+            setCreatingProduct(null);
+            setCurrentView('type-picker');
+            return;
+          }
+          handleDeleteProduct(editingProduct);
         }}
+        onDuplicate={
+          isCreatingProduct
+            ? undefined
+            : (prod) => {
+                const duplicateId = `prod_${Date.now()}`;
+                const duplicateProduct: Product = {
+                  ...prod,
+                  id: duplicateId,
+                  storeId: activeStore.id,
+                  name: `${prod.name} (Copy)`,
+                  sku: `${prod.sku}-COPY`,
+                  publishedAt: new Date().toISOString(),
+                  isStale: false,
+                };
+                addProduct(duplicateProduct, activeStore.id);
+                setEditingProductId(duplicateId);
+                toast(isAr ? 'تم نسخ المنتج بنجاح' : 'Product duplicated successfully', 'success');
+              }
+        }
       />
     );
   }
@@ -581,7 +674,7 @@ export const StoreProducts: React.FC = () => {
   if (currentView === 'type-picker') {
     return (
       <ProductTypePicker
-        onSelectType={(_key, title) => handleCreateProductWithType(title)}
+        onSelectType={(key, title) => handleCreateProductWithType(key, title)}
         onBack={() => setCurrentView('list')}
       />
     );
@@ -850,11 +943,8 @@ export const StoreProducts: React.FC = () => {
                           <div className="flex items-center gap-2.5">
                             {item.image ? (
                               <img
-                                src={cleanImageUrl(item.image)}
+                                src={item.image}
                                 alt={item.name}
-                                loading="lazy"
-                                decoding="async"
-                                onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                                 className="w-9 h-9 rounded-xl object-cover border border-slate-200 shrink-0"
                               />
                             ) : (
@@ -996,14 +1086,14 @@ export const StoreProducts: React.FC = () => {
       {/* ── Connected Local Project Workspace Banner ── */}
       <ConnectedWorkspaceBanner page="products" />
 
-      {/* ── TOP HEADER — Title & Subtitle + Search + Filters + Add Product Button ── */}
+      {/* ── TOP HEADER — Title & Subtitle + Search + Bulk Upload + Add Product Button ── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight" style={{ color: 'var(--text)' }}>
             {t('productsTitle')}
           </h1>
           <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--muted)' }}>
-            {t('productsSubtitle')} · <strong style={{ color: 'var(--text)' }}>{(isAr ? activeStore.nameAr : activeStore.nameEn) || activeStore.name}</strong>
+            {t('productsSubtitle')}
           </p>
         </div>
 
@@ -1046,21 +1136,6 @@ export const StoreProducts: React.FC = () => {
             )}
           </div>
 
-          {/* Filters Toggle Button */}
-          <button
-            type="button"
-            onClick={() => setShowFilterDrawer(!showFilterDrawer)}
-            className="px-3.5 py-2 text-xs font-bold rounded-xl border flex items-center gap-1.5 shadow-xs cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-            style={{
-              background: showFilterDrawer ? 'var(--hover-bg)' : 'var(--surface)',
-              borderColor: 'var(--border)',
-              color: 'var(--text)',
-            }}
-          >
-            <Filter className="w-3.5 h-3.5 text-slate-500" />
-            <span>{t('filterLabel')}</span>
-          </button>
-
           {/* Bulk Upload Google Sheet / CSV Button */}
           <button
             type="button"
@@ -1084,32 +1159,6 @@ export const StoreProducts: React.FC = () => {
         </div>
       </div>
 
-      {/* ── EXPANDABLE PRODUCT FILTERS PANEL (100% Matching Reference Screenshot) ── */}
-      {showFilterDrawer && (
-        <div className="animate-in fade-in slide-in-from-top-2 duration-150">
-          <ProductFiltersPanel
-            storeId={activeStore.id}
-            criteria={filterCriteria}
-            onCriteriaChange={setFilterCriteria}
-            onApply={() => toast(isAr ? 'تم تطبيق الفلاتر على قائمة المنتجات' : 'Filters applied to catalog', 'success')}
-            onClear={() => {
-              setFilterCriteria({
-                channel: 'All',
-                brand: 'All',
-                search: '',
-                productType: 'All',
-                category: 'All',
-                status: 'All',
-              });
-              setSelectedCategory('all');
-            }}
-            availableBrands={availableStoreBrands}
-            availableCategories={categories}
-            showHeader={false}
-          />
-        </div>
-      )}
-
       {/* ── 4 KPI CARDS DEDICATED GRID (Mockup 06 - Soft Pastel Tints & High Contrast) ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Products (Soft Blue) */}
@@ -1126,10 +1175,16 @@ export const StoreProducts: React.FC = () => {
             <span className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
               {kpi.total.toLocaleString()}
             </span>
-            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-0.5 bg-emerald-100/70 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>12%</span>
-            </span>
+            {kpi.totalGrowth.hasData ? (
+              <span className={`text-xs font-bold flex items-center gap-0.5 px-2 py-0.5 rounded-md ${
+                kpi.totalGrowth.pct >= 0
+                  ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-950/50'
+                  : 'text-rose-700 dark:text-rose-400 bg-rose-100/70 dark:bg-rose-950/50'
+              }`}>
+                {kpi.totalGrowth.pct >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                <span>{Math.abs(kpi.totalGrowth.pct)}%</span>
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -1147,10 +1202,16 @@ export const StoreProducts: React.FC = () => {
             <span className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
               {kpi.active.toLocaleString()}
             </span>
-            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-0.5 bg-emerald-100/70 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>8%</span>
-            </span>
+            {kpi.activeGrowth.hasData ? (
+              <span className={`text-xs font-bold flex items-center gap-0.5 px-2 py-0.5 rounded-md ${
+                kpi.activeGrowth.pct >= 0
+                  ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-950/50'
+                  : 'text-rose-700 dark:text-rose-400 bg-rose-100/70 dark:bg-rose-950/50'
+              }`}>
+                {kpi.activeGrowth.pct >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                <span>{Math.abs(kpi.activeGrowth.pct)}%</span>
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -1168,10 +1229,16 @@ export const StoreProducts: React.FC = () => {
             <span className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
               {kpi.outOfStock.toLocaleString()}
             </span>
-            <span className="text-xs font-bold text-rose-700 dark:text-rose-400 flex items-center gap-0.5 bg-rose-100/70 dark:bg-rose-950/50 px-2 py-0.5 rounded-md">
-              <TrendingDown className="w-3.5 h-3.5" />
-              <span>2%</span>
-            </span>
+            {kpi.outOfStockGrowth.hasData ? (
+              <span className={`text-xs font-bold flex items-center gap-0.5 px-2 py-0.5 rounded-md ${
+                kpi.outOfStockGrowth.pct >= 0
+                  ? 'text-rose-700 dark:text-rose-400 bg-rose-100/70 dark:bg-rose-950/50'
+                  : 'text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-950/50'
+              }`}>
+                {kpi.outOfStockGrowth.pct >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                <span>{Math.abs(kpi.outOfStockGrowth.pct)}%</span>
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -1262,6 +1329,101 @@ export const StoreProducts: React.FC = () => {
                   </button>
                 </div>
 
+                {/* Edit Fields Filter — toggle off hides that section in the edit drawer */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFieldsFilterPopover(!showFieldsFilterPopover);
+                      setShowColumnsPopover(false);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors ${
+                      showFieldsFilterPopover
+                        ? 'bg-teal-50 border-teal-300 text-teal-700 dark:bg-teal-950/40 dark:border-teal-800 dark:text-teal-300'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+                    }`}
+                    title={isAr ? 'تخصيص حقول التعديل الظاهرة' : 'Customize which edit fields are visible'}
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>{isAr ? 'تصفية الحقول' : 'Filter'}</span>
+                  </button>
+
+                  {showFieldsFilterPopover && (
+                    <div className="absolute start-0 top-full mt-2 w-72 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-3 z-50 animate-in fade-in duration-100 space-y-2.5">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                        <div>
+                          <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                            {isAr ? 'تصفية حقول التعديل' : 'Filter Edit Fields'}
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            {isAr
+                              ? 'إيقاف أي قسم يخفيه من لوحة التعديل فوراً'
+                              : 'Turn off a section to hide it from the edit panel'}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowFieldsFilterPopover(false)}
+                          className="text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="max-h-64 overflow-y-auto space-y-1 custom-scroll pe-1">
+                        {PRODUCT_EDIT_SECTION_OPTIONS.map((opt) => {
+                          const isOn = visibleEditSections[opt.id] !== false;
+                          return (
+                            <label
+                              key={opt.id}
+                              className="flex items-center justify-between gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs"
+                            >
+                              <span className="text-slate-700 dark:text-slate-300 font-medium">
+                                {isAr ? opt.labelAr : opt.labelEn}
+                              </span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={isOn}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  applyEditSectionVisibility({
+                                    ...visibleEditSections,
+                                    [opt.id]: !isOn,
+                                  });
+                                }}
+                                className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer p-0.5 shrink-0 ${
+                                  isOn
+                                    ? 'bg-teal-600'
+                                    : 'bg-slate-200 dark:bg-slate-700'
+                                }`}
+                              >
+                                <span
+                                  className={`w-3.5 h-3.5 rounded-full bg-white shadow block transition-transform transform ${
+                                    isOn
+                                      ? 'translate-x-3.5 rtl:-translate-x-3.5'
+                                      : 'translate-x-0'
+                                  }`}
+                                />
+                              </button>
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end">
+                        <button
+                          type="button"
+                          onClick={() => applyEditSectionVisibility({ ...DEFAULT_PRODUCT_EDIT_SECTIONS })}
+                          className="text-[11px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:underline cursor-pointer"
+                        >
+                          {isAr ? 'إظهار الكل' : 'Show All'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {selectedProductIds.length > 0 && (
                   <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
                     {selectedProductIds.length} {isAr ? 'محدد' : 'selected'}
@@ -1296,7 +1458,10 @@ export const StoreProducts: React.FC = () => {
                 <div className="relative">
                   <button
                     type="button"
-                    onClick={() => setShowColumnsPopover(!showColumnsPopover)}
+                    onClick={() => {
+                      setShowColumnsPopover(!showColumnsPopover);
+                      setShowFieldsFilterPopover(false);
+                    }}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors ${
                       showColumnsPopover
                         ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300'
@@ -1561,10 +1726,8 @@ export const StoreProducts: React.FC = () => {
                             className="aspect-square w-full rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80 flex items-center justify-center p-3 cursor-pointer group-hover:scale-[1.01] transition-transform overflow-hidden mb-3"
                           >
                             <img
-                              src={cleanImageUrl(prod.image) || FALLBACK_PRODUCT_IMAGE}
+                              src={prod.image || FALLBACK_PRODUCT_IMAGE}
                               alt={getProductDisplayName(prod, locale)}
-                              loading="lazy"
-                              decoding="async"
                               onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                               className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
                             />
@@ -1784,10 +1947,8 @@ export const StoreProducts: React.FC = () => {
                             {visibleColumns.image && (
                               <td className="py-2 px-1.5 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
                                 <img
-                                  src={cleanImageUrl(prod.image) || FALLBACK_PRODUCT_IMAGE}
+                                  src={prod.image || FALLBACK_PRODUCT_IMAGE}
                                   alt={getProductDisplayName(prod, locale)}
-                                  loading="lazy"
-                                  decoding="async"
                                   onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                                   className="w-8 h-8 rounded-lg object-contain border mx-auto bg-slate-50 dark:bg-slate-800 p-0.5"
                                   style={{ borderColor: 'var(--border)' }}
@@ -2156,6 +2317,7 @@ export const StoreProducts: React.FC = () => {
               storeId={activeStore.id}
               categories={categories}
               availableBrands={availableStoreBrands}
+              visibleSections={visibleEditSections}
               onClose={() => {
                 setIsSideDrawerOpen(false);
                 setEditingProductId(null);

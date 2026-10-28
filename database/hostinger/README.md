@@ -4,9 +4,16 @@ Phase 1 SQL aligned with `apps/api/database/migrations` + `DatabaseSeeder`.
 
 ## Import order (phpMyAdmin)
 
-1. Select the Hostinger MySQL database.
+1. Select the Hostinger MySQL database (`u920689430_giftshop` — live giftshop).
 2. Import **`01_schema.sql`** (CREATE TABLE IF NOT EXISTS + migration bookkeeping).
-3. Import **`02_seed.sql`** (plans, master user, store-1, products, customers, orders).
+3. Import **`02_seed.sql`** (plans, master user, 3 stores, parent + child categories EN/AR, products with images, customers, orders).
+
+`02_seed.sql` categories are hierarchical (`parent_id`):
+- **store-1**: Natural Flowers / Chocolate / Hospitality / Occasions / Luxury → subcategories
+- **store-coffee**: Machines & Mills / Accessories & Offers → subcategories
+- **store-bleco**: Interior / Care → subcategories
+
+Re-importing `02_seed.sql` uses `ON DUPLICATE KEY UPDATE` (safe upsert for category `parent_id` + catalog rows).
 
 ## Point Laravel at Hostinger
 
@@ -16,8 +23,8 @@ In `apps/api/.env`:
 DB_CONNECTION=mysql
 DB_HOST=srv1422.hstgr.io
 DB_PORT=3306
-DB_DATABASE=u948210332_unityteck_shop
-DB_USERNAME=u948210332_dbadmin
+DB_DATABASE=u920689430_giftshop
+DB_USERNAME=u920689430_giftshop
 DB_PASSWORD=your_hostinger_db_password_here
 APP_URL=http://127.0.0.1:8010
 ```

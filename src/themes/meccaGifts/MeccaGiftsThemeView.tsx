@@ -27,7 +27,16 @@ import { InvoiceAlertModal } from './components/InvoiceAlertModal';
 import { AuthModal } from './components/AuthModal';
 import { CartInterceptModal } from './components/CartInterceptModal';
 
-
+import {
+  DISCOUNTED_BOUQUETS,
+  NATURAL_BOUQUETS,
+  CHOCOLATE_ROSES,
+  CAKE_ROSES,
+  COFFEE_SWEETS_ROSES,
+  FLOWER_VASES,
+  MAWAJEEB_PRODUCTS,
+  LUXURY_SETS,
+} from './data/mockData';
 
 import { CatalogPage } from './pages/CatalogPage';
 import { ProductDetailPage } from './pages/ProductDetailPage';
@@ -83,47 +92,50 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
     };
   }, []);
 
-  const currentStoreId = activeStore?.id || 'store-1';
-
   const activeBlocks = useMemo(() => {
-    return getLiveOrStoredBlocks(currentStoreId, 'theme-flora-luxe', activeStore).filter(
+    return getLiveOrStoredBlocks(activeStore.id, 'theme-flora-luxe', activeStore).filter(
       (b) => b.visible !== false && b.type !== 'header' && b.type !== 'footer'
     );
-  }, [currentStoreId, activeStore, blocksTick]);
+  }, [activeStore.id, activeStore, blocksTick]);
 
   const themeSettings = useMemo(() => {
-    return readAllThemeSettings(currentStoreId, activeStore);
-  }, [currentStoreId, activeStore]);
+    return readAllThemeSettings(activeStore.id, activeStore);
+  }, [activeStore.id, activeStore]);
 
   const isMaintenance = Boolean(themeSettings.maintenance?.enabled && !isAdminBypass);
 
-// Dynamic products per section derived strictly from store catalog (Zero Dummy / Mock Data)
+  // Dynamic products per section derived from store catalog with rich fallbacks
   const sectionProducts = useMemo(() => {
     const list = products && products.length > 0 ? products : [];
+    const isDefaultThemeStore = activeStore.id === 'store-1' || (activeStore as any)?.themeId === 'theme-flora-luxe' || (activeStore as any)?.themeId === 'theme-mecca-gifts';
 
-    const filterByKeywords = (keywords: string[], maxLimit: number = 6) => {
+    const filterByKeywords = (keywords: string[], fallback: Product[], maxLimit: number = 6) => {
       const matched = list.filter((p) => {
-        const text = `${p.name} ${p.nameAr || ''} ${p.nameEn || ''} ${p.category} ${p.categoryAr || ''} ${p.categoryEn || ''} ${p.badge || ''} ${(p.tags || []).join(' ')}`.toLowerCase();
+        const text = `${p.name} ${p.nameEn || ''} ${p.category} ${p.categoryEn || ''} ${(p.tags || []).join(' ')}`.toLowerCase();
         return keywords.some((k) => text.includes(k.toLowerCase()));
       });
       if (matched.length >= maxLimit) return matched.slice(0, maxLimit);
       const existingIds = new Set(matched.map((m) => m.id));
       const catalogRemaining = list.filter((p) => !existingIds.has(p.id));
       const pool = [...matched, ...catalogRemaining];
-      return pool.slice(0, maxLimit);
+      if (pool.length >= maxLimit || !isDefaultThemeStore) {
+        return pool.slice(0, maxLimit);
+      }
+      const rest = fallback.filter((f) => !existingIds.has(f.id));
+      return [...pool, ...rest].slice(0, maxLimit);
     };
 
     return {
-      discounted: filterByKeywords(['مخفض', 'عرض', 'خصم', 'promo', 'discount', 'sale', 'off'], 6),
-      natural: filterByKeywords(['طبيعي', 'باقة', 'rose', 'bouquet', 'peony', 'valent', 'flowers', 'floral'], 6),
-      luxury: filterByKeywords(['ملكي', 'سلة', 'طقم', 'vip', 'hamper', 'luxury', 'men', 'نساء', 'box', 'gift'], 6),
-      chocolate: filterByKeywords(['شوكول', 'باتشي', 'بستاني', 'choc', 'chocolate'], 6),
-      cake: filterByKeywords(['كيك', 'حلا', 'cake', 'sweet'], 6),
-      coffee: filterByKeywords(['قهوة', 'ضيافة', 'coffee'], 6),
-      vases: filterByKeywords(['فاز', 'كريستال', 'lily', 'orchid', 'vase'], 6),
-      mawajeeb: filterByKeywords(['مواجيب', 'تراث', 'خشب', 'بخور', 'plaque'], 4),
+      discounted: filterByKeywords(['مخفض', 'عرض', 'خصم', 'promo', 'discount'], DISCOUNTED_BOUQUETS, 6),
+      natural: filterByKeywords(['طبيعي', 'باقة', 'rose', 'bouquet', 'peony', 'valent'], NATURAL_BOUQUETS, 6),
+      luxury: filterByKeywords(['ملكي', 'سلة', 'طقم', 'vip', 'hamper', 'luxury', 'men', 'نساء'], LUXURY_SETS, 6),
+      chocolate: filterByKeywords(['شوكول', 'باتشي', 'بستاني', 'choc'], CHOCOLATE_ROSES, 6),
+      cake: filterByKeywords(['كيك', 'حلا', 'cake', 'ريد فيلفت', 'ميلاد'], CAKE_ROSES, 6),
+      coffee: filterByKeywords(['قهوة', 'ضيافة', 'coffee'], COFFEE_SWEETS_ROSES, 6),
+      vases: filterByKeywords(['فاز', 'كريستال', 'lily', 'orchid', 'vase'], FLOWER_VASES, 6),
+      mawajeeb: filterByKeywords(['مواجيب', 'تراث', 'خشب', 'بخور'], MAWAJEEB_PRODUCTS, 4),
     };
-  }, [products]);
+  }, [products, activeStore.id, (activeStore as any)?.themeId]);
 
   // Sync locale with prefs
   useEffect(() => {
@@ -140,24 +152,6 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
       setCurrentPage(initialPage);
     }
   }, [initialPage, setCurrentPage]);
-
-  // Ensure view is scrolled strictly to top header on any page change or refresh
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if ('scrollRestoration' in window.history) {
-        window.history.scrollRestoration = 'manual';
-      }
-      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
-      document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0;
-      const t = setTimeout(() => {
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-      }, 50);
-      return () => clearTimeout(t);
-    }
-  }, [currentPage]);
 
   if (isMaintenance) {
     return (
@@ -179,7 +173,7 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
       case 'circle_categories':
         return <TopCircularCategories key={b.id} />;
       case 'best_sellers':
-        return <BestSellersSection key={b.id} settings={b.settings} />;
+        return <BestSellersSection key={b.id} />;
       case 'promo_countdown_banner':
       case 'special_offer':
         return <PromoCountdownBanner key={b.id} />;
@@ -231,39 +225,16 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
           />
         );
       case 'trending_this_week':
-        return (
-          <TrendingThisWeekSection
-            key={b.id}
-            blockId={b.id}
-            settings={b.settings}
-            titleAr={b.settings?.titleAr || b.titleAr}
-            titleEn={b.settings?.titleEn || b.titleEn}
-            subtitleAr={b.settings?.subtitleAr}
-            subtitleEn={b.settings?.subtitleEn}
-          />
-        );
+        return <TrendingThisWeekSection key={b.id} />;
       case 'occasion_why_us':
-        return <OccasionAndWhyUsSection key={b.id} settings={b.settings} />;
+        return <OccasionAndWhyUsSection key={b.id} />;
       case 'custom_gift_banner':
-        return (
-          <CustomGiftBanner
-            key={b.id}
-            settings={b.settings}
-            titleAr={b.settings?.titleAr || b.titleAr}
-            titleEn={b.settings?.titleEn || b.titleEn}
-            subtitleAr={b.settings?.subtitleAr}
-            subtitleEn={b.settings?.subtitleEn}
-            imageUrl={b.settings?.imageUrl}
-            buttonTextAr={b.settings?.buttonTextAr}
-            buttonTextEn={b.settings?.buttonTextEn}
-            buttonUrl={b.settings?.buttonUrl}
-          />
-        );
+        return <CustomGiftBanner key={b.id} />;
       case 'promo_banners_pair':
-        return <PromoBannersPair key={b.id} settings={b.settings} />;
+        return <PromoBannersPair key={b.id} />;
       case 'featured_collections':
       case 'metrics_section':
-        return <FeaturedCollectionsSection key={b.id} settings={b.settings} />;
+        return <FeaturedCollectionsSection key={b.id} />;
       case 'reviews':
       case 'testimonials':
         return <TestimonialsSection key={b.id} />;
@@ -286,11 +257,11 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
       <ThemePreloader
         enabled={themeSettings.colors?.enableLoadingScreen ?? false}
         isLoading={false}
-        storeName={activeStore?.name || 'Hadaya Mecca'}
-        storeNameAr={activeStore?.nameAr || activeStore?.name || 'هدايا مكة'}
+        storeName={activeStore.name}
+        storeNameAr={activeStore.name}
         title={themeSettings.colors?.loadingTitle}
         subtitle={themeSettings.colors?.loadingSubtitle}
-        logoUrl={themeSettings.colors?.loadingLogoUrl || activeStore?.logo || MECCA_LOGO}
+        logoUrl={themeSettings.colors?.loadingLogoUrl || activeStore.logo || MECCA_LOGO}
       />
 
       {/* Toast Notification Alert */}

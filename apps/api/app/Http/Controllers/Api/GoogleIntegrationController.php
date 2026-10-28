@@ -120,19 +120,89 @@ class GoogleIntegrationController extends Controller
         $seo->google_connected_at = now();
         $seo->save();
 
-        // Discover available properties
+        // Discover available properties (Site Kit style)
         $ga4Properties = $this->googleService->discoverAnalyticsProperties($accessToken);
         $gscSites = $this->googleService->discoverSearchConsoleProperties($accessToken);
         $gtmContainers = $this->googleService->discoverTagManagerContainers($accessToken);
         $adsAccounts = $this->googleService->discoverGoogleAdsAccounts($accessToken);
 
-        // Auto-select best matches if store has a domain
         $store = Store::find($storeId);
-        $storeSlug = $store ? $store->slug : '';
+        $picks = $this->googleService->pickSiteKitDefaults(
+            $store,
+            $ga4Properties,
+            $gscSites,
+            $gtmContainers,
+            $adsAccounts
+        );
+
+        // Auto-link discovered tools (never invent IDs)
+        $integration->ga4_property_id = $picks['ga4_property_id'] ?: $integration->ga4_property_id;
+        $integration->ga4_property_name = $picks['ga4_property_name'] ?: $integration->ga4_property_name;
+        if (!empty($picks['ga4_measurement_id'])) {
+            $integration->ga4_measurement_id = $picks['ga4_measurement_id'];
+        }
+        $integration->gsc_site_url = $picks['gsc_site_url'] ?: $integration->gsc_site_url;
+        $integration->gtm_account_id = $picks['gtm_account_id'] ?: $integration->gtm_account_id;
+        $integration->gtm_container_id = $picks['gtm_container_id'] ?: $integration->gtm_container_id;
+        $integration->google_ads_customer_id = $picks['google_ads_customer_id'] ?: $integration->google_ads_customer_id;
+        $integration->google_ads_account_name = $picks['google_ads_account_name'] ?: $integration->google_ads_account_name;
+        $integration->save();
+
+        $seo->google_connected = true;
+        $seo->google_account_email = $email;
+        $seo->google_connected_at = now();
+        if (!empty($integration->ga4_measurement_id)) {
+            $seo->ga4_measurement_id = $integration->ga4_measurement_id;
+        }
+        if (!empty($integration->gtm_container_id)) {
+            $seo->gtm_container_id = $integration->gtm_container_id;
+        }
+        if (!empty($integration->gsc_site_url)) {
+            $seo->search_console_connected = true;
+            $seo->indexing_api_enabled = true;
+        }
+        if (!empty($picks['sitemap_url'])) {
+            $seo->sitemap_enabled = true;
+            $seo->sitemap_url = $picks['sitemap_url'];
+        }
+        $seo->save();
+
+        // Sitemap + homepage indexing ping (real APIs; fail soft if not verified yet)
+        $sitemapSubmitted = false;
+        $indexingPinged = false;
+        if ($accessToken && !empty($integration->gsc_site_url) && !empty($picks['sitemap_url'])) {
+            $sitemapSubmitted = $this->googleService->submitSitemapToSearchConsole(
+                $accessToken,
+                $integration->gsc_site_url,
+                $picks['sitemap_url']
+            );
+        }
+        if ($accessToken && !empty($picks['store_public_url'])) {
+            $indexingPinged = $this->googleService->requestUrlIndexing(
+                $accessToken,
+                rtrim($picks['store_public_url'], '/') . '/'
+            );
+        }
+
+        // Auto sync console / analytics / ads snapshots / PageSpeed
+        $syncResult = $this->runLiveSync($storeId, $integration->fresh());
 
         return response()->json([
-            'message' => 'Google account connected successfully',
+            'message' => 'Google Site Kit connected — tools auto-linked and sync started',
             'integration' => $integration->fresh(),
+            'site_kit' => [
+                'mode' => 'auto',
+                'store_public_url' => $picks['store_public_url'],
+                'sitemap_url' => $picks['sitemap_url'],
+                'sitemap_submitted' => $sitemapSubmitted,
+                'indexing_homepage_pinged' => $indexingPinged,
+                'linked' => [
+                    'ga4' => !empty($integration->ga4_property_id),
+                    'search_console' => !empty($integration->gsc_site_url),
+                    'gtm' => !empty($integration->gtm_container_id),
+                    'ads' => !empty($integration->google_ads_customer_id),
+                ],
+            ],
             'discovered_properties' => [
                 'analytics' => $ga4Properties,
                 'search_console' => $gscSites,
@@ -140,11 +210,13 @@ class GoogleIntegrationController extends Controller
                 'google_ads' => $adsAccounts,
             ],
             'auto_selection' => [
-                'suggested_ga4' => !empty($ga4Properties) ? $ga4Properties[0]['propertyId'] : null,
-                'suggested_gsc' => !empty($gscSites) ? $gscSites[0]['siteUrl'] : null,
-                'suggested_gtm' => !empty($gtmContainers) ? $gtmContainers[0]['containerId'] : null,
-                'suggested_ads' => !empty($adsAccounts) ? $adsAccounts[0]['customerId'] : null,
+                'suggested_ga4' => $picks['ga4_property_id'],
+                'suggested_gsc' => $picks['gsc_site_url'],
+                'suggested_gtm' => $picks['gtm_container_id'],
+                'suggested_ads' => $picks['google_ads_customer_id'],
+                'sitemap_url' => $picks['sitemap_url'],
             ],
+            'sync' => $syncResult,
         ]);
     }
 
@@ -260,14 +332,23 @@ class GoogleIntegrationController extends Controller
         }
         if (!empty($data['gsc_site_url'])) {
             $seo->search_console_connected = true;
-            $seo->search_console_tag = "google-site-verification={$storeId}-verified";
+            $seo->indexing_api_enabled = true;
+            // Never invent verification meta — merchant pastes real GSC HTML tag if needed
+        }
+        $store = Store::find($storeId);
+        $base = $this->googleService->resolveStorePublicBaseUrl($store);
+        if ($base !== '') {
+            $seo->sitemap_enabled = true;
+            $seo->sitemap_url = rtrim($base, '/') . '/sitemap.xml';
         }
         $seo->save();
 
-        // Perform initial sync in background / response
+        $sync = $this->runLiveSync($storeId, $integration->fresh());
+
         return response()->json([
             'message' => 'Google properties successfully saved',
             'integration' => $integration->fresh(),
+            'sync' => $sync,
         ]);
     }
 
@@ -288,43 +369,87 @@ class GoogleIntegrationController extends Controller
             ], 400);
         }
 
+        $result = $this->runLiveSync($storeId, $integration);
+        if (!empty($result['error'])) {
+            return response()->json(['error' => $result['error']], 500);
+        }
+
+        return response()->json([
+            'message' => 'Real Google data synced successfully',
+            'last_synced_at' => $result['last_synced_at'] ?? now()->toIso8601String(),
+            'integration' => $integration->fresh(),
+            'modules' => $result['modules'] ?? [],
+        ]);
+    }
+
+    /**
+     * Shared Site Kit sync: Analytics + Search Console + PageSpeed (+ soft Ads flag).
+     * Empty modules stay null — never invent metrics.
+     *
+     * @return array{ok?: bool, error?: string, last_synced_at?: string, modules?: array}
+     */
+    protected function runLiveSync(string $storeId, StoreGoogleIntegration $integration): array
+    {
         $token = $this->googleService->getValidToken($integration);
         $integration->update(['sync_status' => 'syncing']);
 
         $store = Store::find($storeId);
-        $storeUrl = $store && $store->custom_domain
-            ? "https://{$store->custom_domain}"
-            : "https://" . ($store ? $store->slug : 'demo') . ".saasdomain.com";
+        $storeUrl = $this->googleService->resolveStorePublicBaseUrl($store);
 
         try {
-            // 1. Sync GA4 Report if configured
+            $modules = [
+                'analytics' => false,
+                'search_console' => false,
+                'pagespeed' => false,
+                'ads' => !empty($integration->google_ads_customer_id),
+                'sitemap' => false,
+            ];
+
             $analyticsSnapshot = null;
             if ($token && $integration->ga4_property_id) {
                 $analyticsSnapshot = $this->googleService->fetchAnalyticsReport(
                     $token,
                     $integration->ga4_property_id
                 );
-                $realtimeUsers = $this->googleService->fetchAnalyticsRealtime(
-                    $token,
-                    $integration->ga4_property_id
-                );
-                $analyticsSnapshot['realtimeUsers'] = $realtimeUsers;
+                if (!empty($analyticsSnapshot)) {
+                    $analyticsSnapshot['realtimeUsers'] = $this->googleService->fetchAnalyticsRealtime(
+                        $token,
+                        $integration->ga4_property_id
+                    );
+                    $modules['analytics'] = true;
+                }
             }
 
-            // 2. Sync Search Console if configured
             $searchConsoleSnapshot = null;
             if ($token && $integration->gsc_site_url) {
                 $searchConsoleSnapshot = $this->googleService->fetchSearchConsolePerformance(
                     $token,
                     $integration->gsc_site_url
                 );
+                if (!empty($searchConsoleSnapshot)) {
+                    $modules['search_console'] = true;
+                }
+
+                $seoRow = SeoConfig::withoutGlobalScope('store')->where('store_id', $storeId)->first();
+                $sitemapUrl = $seoRow?->sitemap_url;
+                if (!$sitemapUrl && $storeUrl !== '') {
+                    $sitemapUrl = rtrim($storeUrl, '/') . '/sitemap.xml';
+                }
+                if ($sitemapUrl) {
+                    $modules['sitemap'] = $this->googleService->submitSitemapToSearchConsole(
+                        $token,
+                        $integration->gsc_site_url,
+                        $sitemapUrl
+                    );
+                }
             }
 
-            // 3. Sync Real PageSpeed Mobile & Desktop
-            $psiMobile = $this->googleService->runPageSpeedAudit($storeUrl, 'mobile');
-            $psiDesktop = $this->googleService->runPageSpeedAudit($storeUrl, 'desktop');
+            $psiMobile = $storeUrl !== '' ? $this->googleService->runPageSpeedAudit($storeUrl, 'mobile') : null;
+            $psiDesktop = $storeUrl !== '' ? $this->googleService->runPageSpeedAudit($storeUrl, 'desktop') : null;
+            if ($psiMobile || $psiDesktop) {
+                $modules['pagespeed'] = true;
+            }
 
-            // Save snapshots to integration
             $integration->update([
                 'sync_status' => 'synced',
                 'last_synced_at' => now(),
@@ -335,9 +460,12 @@ class GoogleIntegrationController extends Controller
                 'pagespeed_desktop_snapshot' => $psiDesktop ?: $integration->pagespeed_desktop_snapshot,
             ]);
 
-            // Sync Search Console metrics into SeoConfig
-            if ($searchConsoleSnapshot && !empty($searchConsoleSnapshot['queries'])) {
+            if ($searchConsoleSnapshot && !empty($searchConsoleSnapshot['dates'])) {
                 $seo = SeoConfig::withoutGlobalScope('store')->firstOrNew(['store_id' => $storeId]);
+                if (!$seo->exists) {
+                    $seo->id = $this->newId('seo');
+                    $seo->store_id = $storeId;
+                }
                 $topQueries = array_slice(array_map(function ($q) {
                     return [
                         'query' => $q['keys'][0] ?? 'keyword',
@@ -345,37 +473,34 @@ class GoogleIntegrationController extends Controller
                         'impressions' => (int) ($q['impressions'] ?? 0),
                         'position' => round($q['position'] ?? 0, 1),
                     ];
-                }, $searchConsoleSnapshot['queries']), 0, 10);
+                }, $searchConsoleSnapshot['queries'] ?? []), 0, 10);
 
-                $totalClicks = array_sum(array_column($searchConsoleSnapshot['dates'] ?? [], 'clicks'));
-                $totalImpressions = array_sum(array_column($searchConsoleSnapshot['dates'] ?? [], 'impressions'));
+                $totalClicks = (int) array_sum(array_map(fn ($r) => (int) ($r['clicks'] ?? 0), $searchConsoleSnapshot['dates'] ?? []));
+                $totalImpressions = (int) array_sum(array_map(fn ($r) => (int) ($r['impressions'] ?? 0), $searchConsoleSnapshot['dates'] ?? []));
                 $avgCtr = $totalImpressions > 0 ? round(($totalClicks / $totalImpressions) * 100, 1) : 0;
 
-                $extra = $seo->extra ?: [];
+                $extra = is_array($seo->extra) ? $seo->extra : [];
                 $extra['total_search_clicks'] = $totalClicks;
                 $extra['total_search_impressions'] = $totalImpressions;
                 $extra['avg_ctr'] = $avgCtr;
                 $extra['top_queries'] = $topQueries;
                 $extra['last_indexing_ping'] = now()->toDateTimeString();
-
                 $seo->extra = $extra;
                 $seo->save();
             }
 
-            return response()->json([
-                'message' => 'Real Google data synced successfully',
+            return [
+                'ok' => true,
                 'last_synced_at' => now()->toIso8601String(),
-                'integration' => $integration->fresh(),
-            ]);
+                'modules' => $modules,
+            ];
         } catch (\Throwable $e) {
             $integration->update([
                 'sync_status' => 'error',
                 'last_error' => $e->getMessage(),
             ]);
 
-            return response()->json([
-                'error' => 'Sync failed: ' . $e->getMessage(),
-            ], 500);
+            return ['error' => 'Sync failed: ' . $e->getMessage()];
         }
     }
 

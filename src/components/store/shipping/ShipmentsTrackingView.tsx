@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { CourierShippingLabelModal } from '../orders/CourierShippingLabelModal';
 import type { ShippingLabelData, CourierCarrierCode } from '../../../utils/courierBarcode';
+import { getCustomerDisplayName } from '../../../utils/storeLocalization';
 
 interface ShipmentsTrackingViewProps {
   onNavigateToLabels?: (orderId?: string) => void;
@@ -76,7 +77,7 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
     const list = (currentShipments || []).map((s: any) => {
       const order = orderMap.get(s.orderId) || s.order;
       const orderNum = order?.orderNumber || (s.orderId.startsWith('#') ? s.orderId : `#${s.orderId.slice(-8)}`);
-      const custName = order?.customerName || order?.customer?.name || 'Customer';
+      const custName = getCustomerDisplayName(order?.customerName || order?.customer?.name, locale);
       const custPhone = order?.customerPhone || order?.customer?.phone || '+966 500 000 000';
       const city = s.destinationAddress?.city || order?.city || (typeof order?.shippingAddress === 'string' ? order.shippingAddress : order?.shippingAddress?.city) || 'Riyadh';
       const orderDate = s.createdAt || order?.createdAt || new Date().toISOString();
@@ -135,7 +136,7 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
             city: orderCity,
           },
           createdAt: ord.createdAt || new Date().toISOString(),
-          customerName: ord.customerName || anyOrd.customer?.name || 'Customer',
+          customerName: getCustomerDisplayName(ord.customerName || anyOrd.customer?.name, locale),
           customerPhone: ord.customerPhone || anyOrd.customer?.phone || '+966 500 000 000',
           city: orderCity,
           orderNumber: ord.orderNumber || (ord.id.startsWith('#') ? ord.id : `#${ord.id.slice(-8)}`),
@@ -156,7 +157,7 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
     });
 
     return list;
-  }, [currentShipments, currentOrders, activeStore?.id, isAr]);
+  }, [currentShipments, currentOrders, activeStore?.id, isAr, locale]);
 
   // Real KPI Calculations
   const stats = useMemo(() => {

@@ -9,6 +9,12 @@ import {
   Globe,
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
+import {
+  localizePaymentMethod,
+  localizePaymentStatus,
+  localizeSalesChannel,
+  localizeShippingStatus,
+} from '../../utils/domainLabels';
 
 export type DateRangePreset =
   | 'all'
@@ -60,7 +66,7 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
   onReset,
   isOpen = true,
 }) => {
-  const { locale, dir } = usePrefs();
+  const { t, locale, dir } = usePrefs();
   const isAr = locale === 'ar';
 
   if (!isOpen) return null;
@@ -76,10 +82,10 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
 
   const paymentStatusOptions: { value: FilterPaymentStatus; label: string }[] = [
     { value: 'all', label: isAr ? 'جميع حالات الدفع' : 'All Payment Statuses' },
-    { value: 'Paid', label: isAr ? 'مدفوع' : 'Paid' },
+    { value: 'Paid', label: t('paidStatus') || localizePaymentStatus('Paid', locale) },
     { value: 'Pending Payment', label: isAr ? 'بانتظار الدفع' : 'Pending Payment' },
     { value: 'Payment Failed', label: isAr ? 'فشلت عملية الدفع' : 'Payment Failed' },
-    { value: 'Refunded', label: isAr ? 'مسترجع' : 'Refunded' },
+    { value: 'Refunded', label: localizePaymentStatus('Refunded', locale) },
     { value: 'Partially Refunded', label: isAr ? 'مسترجع جزئياً' : 'Partially Refunded' },
   ];
 
@@ -88,8 +94,8 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
     { value: 'Not Shipped', label: isAr ? 'لم يتم الشحن' : 'Not Shipped' },
     { value: 'Ready to Ship', label: isAr ? 'جاهز للشحن' : 'Ready to Ship' },
     { value: 'Handed to Carrier', label: isAr ? 'تم التسليم لشركة الشحن' : 'Handed to Carrier' },
-    { value: 'In Transit', label: isAr ? 'قيد النقل والتوصيل' : 'In Transit' },
-    { value: 'Delivered', label: isAr ? 'تم التوصيل بنجاح' : 'Delivered' },
+    { value: 'In Transit', label: localizeShippingStatus('In Transit', locale) },
+    { value: 'Delivered', label: localizeShippingStatus('Delivered', locale) },
     { value: 'Delivery Failed', label: isAr ? 'تعذر التوصيل' : 'Delivery Failed' },
     { value: 'Delayed', label: isAr ? 'متأخر' : 'Delayed' },
   ];
@@ -135,7 +141,7 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
           className="text-xs font-semibold text-slate-500 hover:text-rose-600 flex items-center gap-1.5 transition-colors cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          <span>{isAr ? 'إعادة ضبط الفلاتر' : 'Reset Filters'}</span>
+          <span>{t('resetFilters')}</span>
         </button>
       </div>
 
@@ -144,7 +150,7 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
         <div className="space-y-1.5">
           <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <span>{isAr ? 'تاريخ الطلب' : 'Order Date'}</span>
+            <span>{t('orderDate')}</span>
           </label>
           <div className="relative">
             <select
@@ -196,7 +202,7 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
         <div className="space-y-1.5">
           <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
             <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-            <span>{isAr ? 'حالة الدفع' : 'Payment Status'}</span>
+            <span>{t('paymentStatus')}</span>
           </label>
           <div className="relative">
             <select
@@ -220,7 +226,7 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
         <div className="space-y-1.5">
           <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
             <Truck className="w-3.5 h-3.5 text-slate-400" />
-            <span>{isAr ? 'حالة الشحن والتوصيل' : 'Shipping Status'}</span>
+            <span>{t('shippingStatus')}</span>
           </label>
           <div className="relative">
             <select
@@ -245,7 +251,7 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
               <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-              <span>{isAr ? 'طريقة الدفع' : 'Payment Method'}</span>
+              <span>{t('paymentMethod')}</span>
             </label>
             <div className="relative">
               <select
@@ -253,28 +259,28 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
                 onChange={(e) => handleUpdate('paymentMethod', e.target.value)}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 appearance-none cursor-pointer pe-8 font-medium"
               >
-                <option value="all">{isAr ? 'كافة طرق الدفع' : 'All Payment Methods'}</option>
+                <option value="all">{t('allPaymentMethods')}</option>
                 <optgroup label={isAr ? 'البطاقات البنكية والدفع الإلكتروني' : 'Bank Cards & Electronic Payments'}>
-                  <option value="mada">{isAr ? 'مدى' : 'Mada'}</option>
-                  <option value="visa">{isAr ? 'فيزا' : 'Visa'}</option>
-                  <option value="mastercard">{isAr ? 'ماستركارد' : 'Mastercard'}</option>
-                  <option value="apple">{isAr ? 'أبل باي' : 'Apple Pay'}</option>
+                  <option value="mada">{localizePaymentMethod('mada', locale)}</option>
+                  <option value="visa">{localizePaymentMethod('visa', locale)}</option>
+                  <option value="mastercard">{localizePaymentMethod('mastercard', locale)}</option>
+                  <option value="apple">{localizePaymentMethod('apple', locale)}</option>
                 </optgroup>
                 <optgroup label={isAr ? 'المحافظ الرقمية' : 'Digital Wallets'}>
-                  <option value="stc">{isAr ? 'اس تي سي باي' : 'STC Pay'}</option>
+                  <option value="stc">{localizePaymentMethod('stc', locale)}</option>
                   <option value="paypal">{isAr ? 'باي بال' : 'PayPal'}</option>
                   <option value="googlepay">{isAr ? 'جوجل باي' : 'Google Pay'}</option>
                 </optgroup>
                 <optgroup label={isAr ? 'اشتري الآن وادفع لاحقاً والتقسيط' : 'BNPL & Installments'}>
-                  <option value="tabby">{isAr ? 'تابي' : 'Tabby'}</option>
-                  <option value="tamara">{isAr ? 'تمارا' : 'Tamara'}</option>
+                  <option value="tabby">{localizePaymentMethod('tabby', locale)}</option>
+                  <option value="tamara">{localizePaymentMethod('tamara', locale)}</option>
                   <option value="mispay">{isAr ? 'مسباي' : 'Mispay'}</option>
                   <option value="madfooat">{isAr ? 'مدفوعات' : 'Madfooat'}</option>
                   <option value="emkan">{isAr ? 'إمكان' : 'Emkan'}</option>
                 </optgroup>
                 <optgroup label={isAr ? 'طرق دفع أخرى' : 'Other Payment Methods'}>
-                  <option value="bank">{isAr ? 'تحويل بنكي' : 'Bank Transfer'}</option>
-                  <option value="cash">{isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery'}</option>
+                  <option value="bank">{localizePaymentMethod('bank', locale)}</option>
+                  <option value="cash">{t('cashOnDelivery') || localizePaymentMethod('cash', locale)}</option>
                 </optgroup>
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute end-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -287,7 +293,7 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
               <Globe className="w-3.5 h-3.5 text-slate-400" />
-              <span>{isAr ? 'قناة البيع / المصدر' : 'Sales Channel / Source'}</span>
+              <span>{t('salesChannel')}</span>
             </label>
             <div className="relative">
               <select
@@ -295,16 +301,16 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
                 onChange={(e) => handleUpdate('orderSource', e.target.value)}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 appearance-none cursor-pointer pe-8 font-medium"
               >
-                <option value="all">{isAr ? 'كافة القنوات' : 'All Channels'}</option>
-                <option value="Instagram">Instagram</option>
-                <option value="Google Ads">Google Ads</option>
-                <option value="Direct Visits">{isAr ? 'زيارات مباشرة' : 'Direct Visits'}</option>
-                <option value="TikTok">TikTok</option>
-                <option value="Snapchat">Snapchat</option>
-                <option value="WhatsApp">WhatsApp</option>
-                <option value="Facebook">Facebook</option>
+                <option value="all">{t('allChannels')}</option>
+                <option value="Instagram">{localizeSalesChannel('Instagram', locale)}</option>
+                <option value="Google Ads">{localizeSalesChannel('Google Ads', locale)}</option>
+                <option value="Direct Visits">{localizeSalesChannel('Direct Visits', locale)}</option>
+                <option value="TikTok">{localizeSalesChannel('TikTok', locale)}</option>
+                <option value="Snapchat">{isAr ? 'سناب شات' : 'Snapchat'}</option>
+                <option value="WhatsApp">{localizeSalesChannel('WhatsApp', locale)}</option>
+                <option value="Facebook">{localizeSalesChannel('Facebook', locale)}</option>
                 <option value="X">{isAr ? 'إكس (تويتر سابقاً)' : 'X (formerly Twitter)'}</option>
-                <option value="YouTube">YouTube</option>
+                <option value="YouTube">{isAr ? 'يوتيوب' : 'YouTube'}</option>
                 <option value="Email Marketing">{isAr ? 'البريد الإلكتروني' : 'Email Marketing'}</option>
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute end-3 top-1/2 -translate-y-1/2 pointer-events-none" />

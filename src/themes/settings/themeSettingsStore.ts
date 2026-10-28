@@ -229,8 +229,6 @@ export interface ProductTabsSettings {
   tabs: string[];
   displayType: 'list' | 'slider';
   numberOfProducts: number;
-  columnsCount?: number;
-  collectionFilter?: string;
   displayViewAll: boolean;
 }
 
@@ -458,9 +456,6 @@ export interface ProductCardsSettings {
   showNotifyMe: boolean;
   showDiscountPercentage: boolean;
   showProductRating: boolean;
-  cardDesignPreset?: 'royal-luxury' | 'classic' | 'minimal';
-  showFeatureBadges?: boolean;
-  showWhatsAppButton?: boolean;
 }
 
 export interface CustomProductsSettings {
@@ -471,8 +466,6 @@ export interface CustomProductsSettings {
   displayType: 'list' | 'slider';
   productType: 'latest' | 'featured' | 'discounts';
   numberOfProducts: number;
-  columnsCount?: number;
-  collectionFilter?: string;
   displayViewAll: boolean;
 }
 
@@ -534,15 +527,6 @@ export interface MaintenanceModeSettings {
   whatsappNumber: string;
 }
 
-export interface CustomOrderSettings {
-  enabled: boolean;
-  whatsappNumber: string;
-  whatsappMessageAr: string;
-  whatsappMessageEn: string;
-  buttonLabelAr?: string;
-  buttonLabelEn?: string;
-}
-
 export interface AllThemeSettings {
   identity: StoreIdentitySettings;
   general: GeneralOptionsSettings;
@@ -564,7 +548,6 @@ export interface AllThemeSettings {
   statistics: StoreStatisticsSettings;
   customHeader?: HeaderCustomSettings;
   maintenance?: MaintenanceModeSettings;
-  customOrder?: CustomOrderSettings;
   updatedAt: string;
 }
 
@@ -778,7 +761,7 @@ function buildRawDefaultThemeSettings(fallback: {
         {
           id: 'slide-flowers-1',
           type: 'image',
-          image: '/images/hadaya_luxury_master_hero_1791217937117.jpg',
+          image: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80',
           title: 'Discover Luxury Floral Bouquets',
           titleAr: 'أفخم باقات الورد الطبيعي والهدايا الملكية',
           titleEn: 'Discover Luxury Floral Bouquets',
@@ -801,7 +784,7 @@ function buildRawDefaultThemeSettings(fallback: {
         {
           id: 'slide-flowers-2',
           type: 'image',
-          image: '/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
+          image: 'https://images.unsplash.com/photo-1525310072745-f49212b5ac6d?auto=format&fit=crop&w=1920&q=80',
           title: 'Royal Lily & Orchid Elegance',
           titleAr: 'تشكيلة الليليوم والأوركيد الملكية الفاخرة',
           titleEn: 'Royal Lily & Orchid Elegance',
@@ -820,29 +803,6 @@ function buildRawDefaultThemeSettings(fallback: {
           badge: 'Bestseller',
           badgeAr: 'الأكثر مبيعاً',
           badgeEn: 'Bestseller',
-        },
-        {
-          id: 'slide-flowers-3',
-          type: 'image',
-          image: '/images/hadaya_hero_penthouse_1791216115794.jpg',
-          title: 'Penthouse Collection & VIP Gifts',
-          titleAr: 'تشكيلة البنتهاوس والهدايا الملكية الخاصة',
-          titleEn: 'Penthouse Collection & VIP Gifts',
-          subtitle: 'Handcrafted luxury arrangements paired with artisan sweets and custom bespoke cards.',
-          subtitleAr: 'تنسيقات فاخرة تجمع بين أرقى أنواع الزهور والحلويات الفاخرة وبطاقات الإهداء.',
-          subtitleEn: 'Handcrafted luxury arrangements paired with artisan sweets and custom bespoke cards.',
-          buttonText: 'Shop VIP Gifts',
-          buttonTextAr: 'تسوق هدايا VIP',
-          buttonTextEn: 'Shop VIP Gifts',
-          buttonUrl: '#store-products-grid',
-          buttonBgColor: '#065f46',
-          buttonTextColor: '#FFFFFF',
-          buttonIcon: 'ShoppingBag',
-          buttonStyle: 'filled',
-          buttonBorderRadius: 12,
-          badge: 'VIP Collection',
-          badgeAr: 'تشكيلة VIP',
-          badgeEn: 'VIP Collection',
         },
       ];
 
@@ -1000,8 +960,6 @@ function buildRawDefaultThemeSettings(fallback: {
       tabs: ['Best Selling', 'Latest', 'Discounts', 'Bridal', 'Luxury Vases', 'Accessories'],
       displayType: 'slider',
       numberOfProducts: 8,
-      columnsCount: 4,
-      collectionFilter: 'all',
       displayViewAll: true,
     },
     detailedProducts: {
@@ -1333,9 +1291,6 @@ function buildRawDefaultThemeSettings(fallback: {
       showNotifyMe: true,
       showDiscountPercentage: true,
       showProductRating: true,
-      cardDesignPreset: (!isCoffee && !isCar) ? 'royal-luxury' : 'classic',
-      showFeatureBadges: (!isCoffee && !isCar) ? true : false,
-      showWhatsAppButton: true,
     },
     customProducts: {
       enabled: true,
@@ -1345,8 +1300,6 @@ function buildRawDefaultThemeSettings(fallback: {
       displayType: 'slider',
       productType: 'featured',
       numberOfProducts: 8,
-      columnsCount: 4,
-      collectionFilter: 'all',
       displayViewAll: true,
     },
     specialOffer: {
@@ -1429,18 +1382,6 @@ function buildRawDefaultThemeSettings(fallback: {
       showEmailSubscribe: true,
       whatsappNumber: '+966581617712',
     },
-    customOrder: {
-      enabled: false,
-      whatsappNumber: (fallback as any)?.whatsapp || (fallback as any)?.phone || '966549876543',
-      whatsappMessageAr: isCoffee
-        ? 'السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم'
-        : 'السلام عليكم، أود الاستفسار بخصوص تفصيل طلب مخصص',
-      whatsappMessageEn: isCoffee
-        ? 'Hello, I would like to inquire about placing a custom coffee corner order.'
-        : 'Hello, I would like to inquire about placing a custom order.',
-      buttonLabelAr: isCoffee ? 'تفصيل حسب الطلب · تصميم وتنفيذ' : 'طلب مخصص وتفصيل',
-      buttonLabelEn: isCoffee ? 'Custom Made · Design & Build' : 'Custom Made to Order',
-    },
     updatedAt: new Date().toISOString(),
   };
 }
@@ -1483,7 +1424,6 @@ const CONTENT_SECTION_KEYS = [
   'specialOffer',
   'statistics',
   'maintenance',
-  'customOrder',
 ] as const;
 
 export function defaultThemeSettingsMap(fallback: {
@@ -1544,29 +1484,12 @@ export function resolveStoreActiveThemeId(storeId: string): string | undefined {
   return undefined;
 }
 
-const themeSettingsCache = new Map<string, AllThemeSettings>();
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => {
-    if (!e.key || e.key.startsWith('unityteck_theme_settings_') || e.key === 'unityteck_store_active_theme_map') {
-      themeSettingsCache.clear();
-    }
-  });
-  window.addEventListener('unityteck-theme-settings', () => {
-    themeSettingsCache.clear();
-  });
-}
-
 export function readAllThemeSettings(
   storeId: string,
   fallbackStore: { name: string; ownerEmail?: string; logo?: string; accentColor?: string },
   explicitThemeId?: string,
 ): AllThemeSettings {
   const targetThemeId = explicitThemeId || resolveStoreActiveThemeId(storeId);
-  const cacheKey = `${storeId}::${targetThemeId || ''}::${fallbackStore?.name || ''}`;
-  const cached = themeSettingsCache.get(cacheKey);
-  if (cached) return cached;
-
   const defaults = defaultThemeSettingsMap({ ...fallbackStore, id: storeId } as any);
 
   // If a theme manifest exists, adapt default colors to match that theme's branding
@@ -1626,7 +1549,7 @@ export function readAllThemeSettings(
         ? defaults.slider
         : (parsed.slider || defaults.slider);
 
-      const result: AllThemeSettings = {
+      return {
         ...defaults,
         ...parsed,
         identity: { ...defaults.identity, ...(parsed.identity || {}) },
@@ -1649,15 +1572,11 @@ export function readAllThemeSettings(
         statistics: { ...defaults.statistics, ...(parsed.statistics || {}) },
         customHeader: safeCustomHeader,
         maintenance: { ...(defaults.maintenance || {}), ...(parsed.maintenance || {}) },
-        customOrder: { ...(defaults.customOrder || {}), ...(parsed.customOrder || {}) },
       };
-      themeSettingsCache.set(cacheKey, result);
-      return result;
     }
   } catch {
     /* fallback to defaults */
   }
-  themeSettingsCache.set(cacheKey, defaults);
   return defaults;
 }
 
@@ -1666,7 +1585,6 @@ export function writeAllThemeSettings(
   settings: AllThemeSettings,
   explicitThemeId?: string,
 ): void {
-  themeSettingsCache.clear();
   const targetThemeId = explicitThemeId || resolveStoreActiveThemeId(storeId);
   const next = { ...settings, updatedAt: new Date().toISOString() };
 

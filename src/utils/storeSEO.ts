@@ -59,7 +59,7 @@ export function generateStoreSEO(options: {
 
   const isCoffeeStore = store.id === 'store-coffee' || store.slug?.includes('coffee') || store.slug?.includes('hibrew');
   const isCarStore = store.id === 'store-bleco' || store.slug?.includes('alsaeedi') || store.slug?.includes('car') || store.slug?.includes('bleco');
-  const isFlowerStore = store.id === 'store-1' || store.id === 'store-mecca' || store.slug?.includes('flower') || store.slug?.includes('gift') || store.category?.toLowerCase().includes('flower') || store.category?.toLowerCase().includes('gift') || (store.categoryAr && (store.categoryAr.includes('ورد') || store.categoryAr.includes('زهور')));
+  const isFlowerStore = store.id === 'store-mecca' || store.slug?.includes('flower') || store.slug?.includes('gift') || store.category?.toLowerCase().includes('flower') || store.category?.toLowerCase().includes('gift') || (store.categoryAr && (store.categoryAr.includes('ورد') || store.categoryAr.includes('زهور')));
 
   // Tracking IDs (from store config or live active store)
   const ga4Id = seoConfig?.ga4MeasurementId || (store as any).ga4_id || undefined;
@@ -438,16 +438,6 @@ export function applySEOToDOM(seo: GeneratedStoreSEO): void {
     document.head.appendChild(jsonLdScript);
   }
   jsonLdScript.textContent = JSON.stringify(seo.schema, null, 2);
-
-  // Skip external tracking scripts on local dev environment to prevent offline / ERR_NAME_NOT_RESOLVED delays
-  const isLocalHost = typeof window !== 'undefined' && (
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1' ||
-    window.location.hostname.endsWith('.local')
-  );
-  if (isLocalHost) {
-    return;
-  }
 
   // Google Tag Manager (GTM) Container Injection
   if (seo.tracking.gtmId && !document.getElementById('gtm-script-tag')) {

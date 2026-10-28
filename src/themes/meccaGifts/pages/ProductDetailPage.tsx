@@ -661,10 +661,31 @@ export const ProductDetailPage: React.FC = () => {
               <span className="font-bold text-[#102a1c] dark:text-emerald-400 shrink-0">{isAr ? 'تابي' : 'Tabby'}</span>
             </div>
 
-            {/* Description */}
-            <p className="text-xs text-[#555] dark:text-slate-400 leading-relaxed mt-3">
-              {isAr ? (product.descriptionAr || product.description) : (product.descriptionEn || product.description)}
-            </p>
+            {/* Subtitle + Description (HTML-aware for H1–H6 / media) */}
+            {(product.subtitle || product.subtitleAr) && (
+              <p className="text-sm font-medium text-[#495057] dark:text-slate-300 mt-2">
+                {isAr ? (product.subtitleAr || product.subtitle) : (product.subtitle || product.subtitleAr)}
+              </p>
+            )}
+            {(() => {
+              const desc = isAr
+                ? (product.descriptionAr || product.description)
+                : (product.descriptionEn || product.description);
+              if (!desc) return null;
+              if (/<[a-z][\s\S]*>/i.test(String(desc))) {
+                return (
+                  <div
+                    className="text-xs text-[#555] dark:text-slate-400 leading-relaxed mt-3 [&_ul]:list-disc [&_ul]:ps-5 [&_ol]:list-decimal [&_ol]:ps-5 [&_a]:underline [&_h1]:text-xl [&_h1]:font-black [&_h2]:text-lg [&_h2]:font-extrabold [&_h3]:text-base [&_h3]:font-bold [&_h4]:font-bold [&_h5]:font-bold [&_h6]:font-bold [&_img]:max-w-full [&_img]:rounded-xl [&_img]:my-2 [&_video]:max-w-full [&_video]:rounded-xl [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded-xl"
+                    dangerouslySetInnerHTML={{ __html: String(desc) }}
+                  />
+                );
+              }
+              return (
+                <p className="text-xs text-[#555] dark:text-slate-400 leading-relaxed mt-3 whitespace-pre-line">
+                  {desc}
+                </p>
+              );
+            })()}
           </div>
 
           {/* Custom Order Section */}

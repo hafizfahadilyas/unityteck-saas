@@ -30,15 +30,16 @@ class EnsureStoreId
             return $next($request);
         }
 
-        $storeId = $request->header('X-Store-Id');
+        $raw = $request->header('X-Store-Id');
 
-        if ($storeId === null || trim($storeId) === '') {
+        if ($raw === null || trim((string) $raw) === '') {
             return response()->json([
                 'message' => 'X-Store-Id header is required for store-scoped routes.',
             ], 400);
         }
 
-        $storeId = trim($storeId);
+        // Resolve aliases / slug → canonical store id (must match Order::forStore + BelongsToStore scope)
+        $storeId = $this->resolveStoreId(trim((string) $raw));
 
         // If user is authenticated, ensure they belong to this store or are super_admin
         if ($user && $user->role !== 'super_admin') {
@@ -58,5 +59,30 @@ class EnsureStoreId
         $request->attributes->set('store_id', $storeId);
 
         return $next($request);
+    }
+
+    /**
+     * Canonical multi-tenant store id — same rules as ResolvesStoreId.
+     */
+    protected function resolveStoreId(string $raw): string
+    {
+        $s = strtolower(trim($raw));
+        if (in_array($s, ['flowers', 'hadaya', 'makkah', 'giftshop'], true)) {
+            return 'store-1';
+        }
+        if (in_array($s, ['coffee', 'roasters', 'hibrew'], true)) {
+            return 'store-coffee';
+        }
+        if (in_array($s, ['bleco', 'car', 'cars', 'alsaeedi'], true)) {
+            return 'store-bleco';
+        }
+
+        $matched = \App\Models\Store::query()
+            ->where('id', $raw)
+            ->orWhere('slug', $raw)
+            ->orWhere('slug', $s)
+            ->value('id');
+
+        return $matched ? (string) $matched : trim($raw);
     }
 }

@@ -1,8 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { CustomCornerOrderSpecs } from '../types';
-import { readAllThemeSettings } from '../../settings/themeSettingsStore';
 import {
   Ruler,
   Layers,
@@ -436,15 +435,6 @@ export const CustomOrderPage: React.FC = () => {
   const { language, addCustomCornerToCart, navigateTo, showToast, storeIdentity } = useCart();
   const { activeStore } = useTenant();
   const isAr = language === 'AR';
-
-  useEffect(() => {
-    try {
-      const s = readAllThemeSettings(activeStore?.id, activeStore);
-      if (!s?.customOrder?.enabled) {
-        navigateTo('home');
-      }
-    } catch {}
-  }, [activeStore, navigateTo]);
 
   // Dynamic WhatsApp details from store owner settings
   const rawWhatsAppPhone =

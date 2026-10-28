@@ -329,8 +329,16 @@ export function filterProductsByRowConfig(
         filtered = filtered.sort((a, b) => (new Date(b.publishedAt || 0).getTime()) - (new Date(a.publishedAt || 0).getTime()));
         break;
       case 'featured':
+        filtered = filtered.filter(
+          (p) =>
+            p.isFeatured === true ||
+            String(p.badge || '').toLowerCase() === 'featured' ||
+            (p.tags || []).some((t) => String(t).toLowerCase() === 'featured'),
+        );
+        // Fall back to full list if none marked featured yet
+        if (filtered.length === 0) filtered = [...products];
+        break;
       default:
-        // Return top rated/featured
         break;
     }
     return filtered.slice(0, limit);

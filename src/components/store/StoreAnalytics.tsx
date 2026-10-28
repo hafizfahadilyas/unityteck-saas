@@ -27,6 +27,8 @@ import {
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
 import { GoogleConnectModal } from './GoogleConnectModal';
 import { fetchGoogleAnalyticsData, fetchGoogleStatus } from '../../api/tenantApi';
+import { getCustomerDisplayName, getLocalizedAddress } from '../../utils/storeLocalization';
+import { localizeOrderStatus } from '../../utils/domainLabels';
 
 interface StoreAnalyticsProps {
   onNavigateTab?: (tab: string) => void;
@@ -250,32 +252,15 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
   const recentOrders = useMemo(() => {
     return storeOrders.slice(0, 5).map((o) => ({
       id: o.orderNumber,
-      customer: o.customerName,
+      customer: getCustomerDisplayName(o.customerName, locale),
       items: o.itemsCount || 1,
       amount: o.total,
       status: o.status,
       date: o.date,
     }));
-  }, [storeOrders]);
+  }, [storeOrders, locale]);
 
-  const getStatusLabel = (status: string) => {
-    if (!isAr) {
-      if (status === 'delivered') return 'Delivered';
-      if (status === 'processing') return 'Processing';
-      if (status === 'pending') return 'Pending';
-      if (status === 'shipped') return 'Shipped';
-      if (status === 'out_for_delivery') return 'Out for delivery';
-      if (status === 'cancelled') return 'Cancelled';
-      return status;
-    }
-    if (status === 'delivered') return 'تم التوصيل';
-    if (status === 'processing') return 'قيد التجهيز';
-    if (status === 'pending') return 'قيد الانتظار';
-    if (status === 'shipped') return 'تم الشحن';
-    if (status === 'out_for_delivery') return 'خرج للتوصيل';
-    if (status === 'cancelled') return 'ملغي';
-    return status;
-  };
+  const getStatusLabel = (status: string) => localizeOrderStatus(status, locale);
 
   // Top Customer Locations calculated dynamically from real orders
   const activeLocations = useMemo(() => {
@@ -295,12 +280,12 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
     return entries.slice(0, 5).map(([name, stat], idx) => ({
       id: String(idx + 1),
       rank: idx + 1,
-      name,
+      name: getLocalizedAddress(name, locale) || name,
       orders: stat.orders,
       revenue: stat.revenue,
       share: `${((stat.revenue / (totalRev || 1)) * 100).toFixed(1)}%`,
     }));
-  }, [storeOrders]);
+  }, [storeOrders, locale]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
@@ -311,8 +296,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
             {isAr ? 'تحليلات العملاء والبيانات المتقدمة' : 'Customer Insights & Additional Analytics'}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            {isAr ? 'تحليل أعمق لأداء متجرك لـ ' : 'Go deeper into your store performance for '}
-            <strong className="text-teal-700 dark:text-teal-300">{activeStore.name}</strong>
+            {isAr ? 'تحليل أعمق لأداء متجرك' : 'Go deeper into your store performance'}
           </p>
         </div>
 

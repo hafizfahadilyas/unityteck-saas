@@ -843,7 +843,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
       );
     }
 
-    if (b.type === 'promo_banners_pair') return wrapBlock(<PromoBannersPair settings={b.settings} isBuilderMode={true} />);
+    if (b.type === 'promo_banners_pair') return wrapBlock(<PromoBannersPair />);
     if (b.type === 'promo_countdown_banner') return wrapBlock(<PromoCountdownBanner />);
 
     if (b.type === 'product_section_luxury') {
@@ -1047,41 +1047,14 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
       }
       return wrapBlock(<VideoSection />);
     }
-    if (b.type === 'best_sellers') return wrapBlock(<BestSellersSection settings={b.settings} isBuilderMode={true} />);
+    if (b.type === 'best_sellers') return wrapBlock(<BestSellersSection />);
     if (b.type === 'shop_by_category') return wrapBlock(<ShopByCategorySection />);
-    if (b.type === 'featured_collections' || b.type === 'metrics_section' || b.type === 'statistics') return wrapBlock(<FeaturedCollectionsSection settings={b.settings} isBuilderMode={true} />);
+    if (b.type === 'featured_collections' || b.type === 'metrics_section' || b.type === 'statistics') return wrapBlock(<FeaturedCollectionsSection />);
     if (b.type === 'store_features_bar' || b.type === 'features') return wrapBlock(<StoreFeaturesBar />);
-    if (b.type === 'occasion_why_us') return wrapBlock(<OccasionAndWhyUsSection settings={b.settings} isBuilderMode={true} />);
-    if (b.type === 'custom_gift_banner') {
-      return wrapBlock(
-        <CustomGiftBanner
-          settings={b.settings}
-          titleAr={b.settings?.titleAr || b.titleAr}
-          titleEn={b.settings?.titleEn || b.titleEn}
-          subtitleAr={b.settings?.subtitleAr}
-          subtitleEn={b.settings?.subtitleEn}
-          imageUrl={b.settings?.imageUrl}
-          buttonTextAr={b.settings?.buttonTextAr}
-          buttonTextEn={b.settings?.buttonTextEn}
-          buttonUrl={b.settings?.buttonUrl}
-          isBuilderMode={true}
-        />
-      );
-    }
+    if (b.type === 'occasion_why_us') return wrapBlock(<OccasionAndWhyUsSection />);
+    if (b.type === 'custom_gift_banner') return wrapBlock(<CustomGiftBanner />);
     if (b.type === 'offer_video_banner') return wrapBlock(<OfferVideoBanner />);
-    if (b.type === 'trending_this_week') {
-      return wrapBlock(
-        <TrendingThisWeekSection
-          blockId={b.id}
-          settings={b.settings}
-          titleAr={b.settings?.titleAr || b.titleAr}
-          titleEn={b.settings?.titleEn || b.titleEn}
-          subtitleAr={b.settings?.subtitleAr}
-          subtitleEn={b.settings?.subtitleEn}
-          isBuilderMode={true}
-        />
-      );
-    }
+    if (b.type === 'trending_this_week') return wrapBlock(<TrendingThisWeekSection />);
     if (b.type === 'social_reels') return wrapBlock(<SocialReelsSection />);
     if (b.type === 'video_section') {
       if (isCoffeeStore) {
@@ -1190,8 +1163,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
     if (b.type === 'text_editor' || b.type === 'w_text') {
       const isCallout = b.templateStyle?.includes('callout') || b.settings.boxStyle === 'callout';
       const isTwoCol = b.settings.columns === 2 || b.templateStyle?.includes('two') || b.templateStyle?.includes('editorial');
-      const storeDisplayName = (isAr ? activeStore?.nameAr : activeStore?.nameEn) || activeStore?.name || (isAr ? 'المتجر' : 'Store');
-      const text = isAr ? (b.settings.textAr || b.settings.contentAr || `تفاصيل ومحتوى مخصص للقسم بتنسيق متقدم يعكس فخامة ${storeDisplayName} وخدماته المميزة...`) : (b.settings.textEn || b.settings.contentEn || `Custom formatted editorial paragraph text reflecting the quality and services of ${storeDisplayName}...`);
+      const text = isAr ? (b.settings.textAr || b.settings.contentAr || 'تفاصيل ومحتوى مخصص للقسم بتنسيق متقدم يعكس فخامة متجر هدايا مكة وخدماته الملكية...') : (b.settings.textEn || b.settings.contentEn || 'Custom formatted editorial paragraph text reflecting the luxury of Mecca gifts store...');
       const fontSize = b.settings.fontSize || 15;
       const textColor = b.settings.textColor || (isCallout ? '#FAF9F5' : '#334155');
       const bgColor = isCallout ? (b.settings.bgColor || '#102a1c') : undefined;
@@ -2160,7 +2132,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       const defaultImg = isCoffeeStore
         ? 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80'
         : isFlowerStore
-        ? '/images/hadaya_red_roses_bouquet_1791276749666.jpg'
+        ? '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg'
         : 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80';
       const defaultCatAr = isCoffeeStore ? 'حبوب القهوة المختصة' : isFlowerStore ? 'باقات الورود الطبيعية' : 'منتجات المتجر';
       const defaultCatEn = isCoffeeStore ? 'Specialty Coffee Beans' : isFlowerStore ? 'Natural Flower Bouquets' : 'Store Products';

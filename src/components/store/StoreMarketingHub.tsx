@@ -43,15 +43,8 @@ import {
   Package,
 } from 'lucide-react';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
-import { KsaAdManagerAndSocialHub } from './KsaAdManagerAndSocialHub';
-import { AdvanceFeatureComingSoonModal } from '../common/AdvanceFeatureComingSoonModal';
-import {
-  useAdvanceFeatures,
-  type AdvanceFeatureConfig,
-} from '../../services/advanceFeaturesService';
-import { Globe, Palette } from 'lucide-react';
 
-export type MarketingSubView = 'hub' | 'abandoned' | 'offers' | 'whatsapp' | 'campaigns' | 'ksa_ads';
+export type MarketingSubView = 'hub' | 'abandoned' | 'offers' | 'whatsapp' | 'campaigns';
 
 interface StoreMarketingHubProps {
   initialView?: MarketingSubView;
@@ -70,9 +63,6 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
   const [subView, setSubView] = useState<MarketingSubView>(initialView);
   const [searchQuery, setSearchQuery] = useState('');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-
-  const { features: advanceFeatures, getFeature } = useAdvanceFeatures();
-  const [comingSoonModalFeature, setComingSoonModalFeature] = useState<AdvanceFeatureConfig | null>(null);
 
   // Synchronize initialView prop if it changes
   useEffect(() => {
@@ -211,123 +201,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
     },
   ];
 
-  // Dynamic advance feature tools driven by Master Admin governance
-  const advanceFeatureTools = useMemo(() => {
-    const list: Array<{
-      id: string;
-      title: string;
-      desc: string;
-      icon: any;
-      color: string;
-      badge?: string;
-      isComingSoon?: boolean;
-      action: () => void;
-    }> = [];
-
-    // 1. Google Ads
-    const gFeat = getFeature('google_ads');
-    if (gFeat && gFeat.mode !== 'hidden') {
-      const isSoon = gFeat.mode === 'coming_soon';
-      list.push({
-        id: 'google_ads',
-        title: isAr ? gFeat.nameAr : gFeat.nameEn,
-        desc: isAr ? gFeat.descriptionAr : gFeat.descriptionEn,
-        icon: Globe,
-        color: 'blue',
-        badge: isSoon ? (isAr ? gFeat.comingSoonTagAr : gFeat.comingSoonTagEn) : undefined,
-        isComingSoon: isSoon,
-        action: () => {
-          if (isSoon) setComingSoonModalFeature(gFeat);
-          else setSubView('ksa_ads');
-        },
-      });
-    }
-
-    // 2. TikTok Ads
-    const ttFeat = getFeature('tiktok_ads');
-    if (ttFeat && ttFeat.mode !== 'hidden') {
-      const isSoon = ttFeat.mode === 'coming_soon';
-      list.push({
-        id: 'tiktok_ads',
-        title: isAr ? ttFeat.nameAr : ttFeat.nameEn,
-        desc: isAr ? ttFeat.descriptionAr : ttFeat.descriptionEn,
-        icon: Sparkles,
-        color: 'purple',
-        badge: isSoon ? (isAr ? ttFeat.comingSoonTagAr : ttFeat.comingSoonTagEn) : undefined,
-        isComingSoon: isSoon,
-        action: () => {
-          if (isSoon) setComingSoonModalFeature(ttFeat);
-          else setSubView('ksa_ads');
-        },
-      });
-    }
-
-    // 3. Canva Graphic Studio
-    const cFeat = getFeature('canva_editing');
-    if (cFeat && cFeat.mode !== 'hidden') {
-      const isSoon = cFeat.mode === 'coming_soon';
-      list.push({
-        id: 'canva_editing',
-        title: isAr ? cFeat.nameAr : cFeat.nameEn,
-        desc: isAr ? cFeat.descriptionAr : cFeat.descriptionEn,
-        icon: Palette,
-        color: 'emerald',
-        badge: isSoon ? (isAr ? cFeat.comingSoonTagAr : cFeat.comingSoonTagEn) : undefined,
-        isComingSoon: isSoon,
-        action: () => {
-          if (isSoon) setComingSoonModalFeature(cFeat);
-          else if (onNavigateTab) onNavigateTab('products');
-        },
-      });
-    }
-
-    // 4. Social Media Automatic Posting
-    const sFeat = getFeature('social_auto_posting');
-    if (sFeat && sFeat.mode !== 'hidden') {
-      const isSoon = sFeat.mode === 'coming_soon';
-      list.push({
-        id: 'social_auto_posting',
-        title: isAr ? sFeat.nameAr : sFeat.nameEn,
-        desc: isAr ? sFeat.descriptionAr : sFeat.descriptionEn,
-        icon: Share2,
-        color: 'amber',
-        badge: isSoon ? (isAr ? sFeat.comingSoonTagAr : sFeat.comingSoonTagEn) : undefined,
-        isComingSoon: isSoon,
-        action: () => {
-          if (isSoon) setComingSoonModalFeature(sFeat);
-          else setSubView('ksa_ads');
-        },
-      });
-    }
-
-    // 5. Custom Advance Features created by Master Admin
-    advanceFeatures
-      .filter((f) => !['google_ads', 'tiktok_ads', 'canva_editing', 'social_auto_posting'].includes(f.id))
-      .forEach((f) => {
-        if (f.mode !== 'hidden') {
-          const isSoon = f.mode === 'coming_soon';
-          list.push({
-            id: f.id,
-            title: isAr ? f.nameAr : f.nameEn,
-            desc: isAr ? f.descriptionAr : f.descriptionEn,
-            icon: Megaphone,
-            color: 'teal',
-            badge: isSoon ? (isAr ? f.comingSoonTagAr : f.comingSoonTagEn) : undefined,
-            isComingSoon: isSoon,
-            action: () => {
-              if (isSoon) setComingSoonModalFeature(f);
-              else setSubView('campaigns');
-            },
-          });
-        }
-      });
-
-    return list;
-  }, [advanceFeatures, getFeature, isAr, onNavigateTab]);
-
-  const allTools = useMemo(() => [...tools, ...advanceFeatureTools], [tools, advanceFeatureTools]);
-
-  const filteredTools = allTools.filter((tool) =>
+  const filteredTools = tools.filter((tool) =>
     `${tool.title} ${tool.desc}`.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -690,19 +564,6 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
 
           <button
             type="button"
-            onClick={() => setSubView('ksa_ads')}
-            className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
-              subView === 'ksa_ads'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'text-amber-600 dark:text-amber-400 hover:text-amber-500'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{isAr ? 'إعلانات السعودية والجدولة الذكية' : 'KSA Ad Manager & Auto-Scheduler'}</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setIsGuideOpen(true)}
             className="px-3 py-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1.5 hover:bg-blue-500/20 transition-colors cursor-pointer"
           >
@@ -752,18 +613,10 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                 <div
                   key={tool.id}
                   onClick={tool.action}
-                  className="p-5 bg-white dark:bg-slate-900 hover:bg-slate-50/80 dark:hover:bg-slate-800/60 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group h-44 relative overflow-hidden"
+                  className="p-5 bg-white dark:bg-slate-900 hover:bg-slate-50/80 dark:hover:bg-slate-800/60 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group h-44"
                 >
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <Icon className="w-6 h-6" />
-                    </div>
-                    {(tool as any).badge && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0 shadow-2xs">
-                        <Sparkles className="w-3 h-3" />
-                        <span>{(tool as any).badge}</span>
-                      </span>
-                    )}
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mb-3 group-hover:scale-105 transition-transform">
+                    <Icon className="w-6 h-6" />
                   </div>
 
                   <div>
@@ -2129,28 +1982,15 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          5. MARKETING CAMPAIGNS & CHANNELS + KSA AD MANAGER & AUTO-SCHEDULER
+          5. MARKETING CAMPAIGNS & CHANNELS
       ───────────────────────────────────────────────────────────── */}
-      {subView === 'ksa_ads' && <KsaAdManagerAndSocialHub initialTab="ads" />}
-      {subView === 'campaigns' && (
-        <div className="space-y-8">
-          <KsaAdManagerAndSocialHub initialTab="ads" />
-          <StoreChannelPerformance />
-        </div>
-      )}
+      {subView === 'campaigns' && <StoreChannelPerformance />}
 
       {/* Docs Guide Modal */}
       <PageDocsGuideModal
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
         pageId={subView === 'whatsapp' ? 'whatsapp' : 'marketing'}
-      />
-
-      {/* Advance Feature Coming Soon Modal */}
-      <AdvanceFeatureComingSoonModal
-        isOpen={!!comingSoonModalFeature}
-        onClose={() => setComingSoonModalFeature(null)}
-        feature={comingSoonModalFeature}
       />
     </div>
   );

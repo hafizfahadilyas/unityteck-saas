@@ -45,7 +45,7 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
   const [shippingAddress, setShippingAddress] = useState<string>('Riyadh, Saudi Arabia');
 
   // Additional Meta
-  const [orderSource, setOrderSource] = useState<OrderSource>('Instagram');
+  const [orderSource, setOrderSource] = useState<OrderSource>('Direct');
 
   // Product Actions
   const addItem = useCallback((item?: Partial<ManualOrderItem>) => {
@@ -182,9 +182,20 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
       const fullPhone = `${countryCode} ${customerPhone.trim()}`.trim();
       const itemsSummary = items.map((i) => `${i.quantity}x ${i.name}`).join(', ');
 
+      const paymentMap: Record<string, PaymentMethod> = {
+        mada: 'Mada',
+        apple: 'Apple Pay',
+        visa: 'Visa/MC',
+        stc: 'stc pay',
+        tabby: 'Tabby',
+        tamara: 'Tamara',
+        cash: 'COD',
+      };
+      const resolvedPayment = paymentMap[paymentMethod] || (paymentMethod as PaymentMethod);
+
       return {
         storeId,
-        orderNumber: `ORD-${Math.floor(100000 + Math.random() * 900000)}`,
+        orderNumber: undefined as unknown as string, // assigned sequentially by addOrder (#001+)
         customerName: customerName.trim(),
         customerPhone: fullPhone,
         itemsCount: items.reduce((acc, i) => acc + i.quantity, 0),
@@ -195,9 +206,10 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
         tax,
         total: grandTotal,
         source: orderSource,
+        sourceDetails: `Manual Store Order · ${orderSource}`,
         deliveryLocation: deliveryMethod === 'pickup' ? 'Branch Pickup' : shippingAddress.trim(),
         status: paymentStatus === 'Paid' ? 'processing' : 'pending',
-        paymentMethod: paymentMethod as PaymentMethod,
+        paymentMethod: resolvedPayment,
         paymentStatus: paymentStatus === 'Paid' ? 'Paid' : 'Pending',
         shippingStatus: (deliveryMethod === 'pickup' ? 'Pending' : 'Pending') as any,
         date: new Date().toISOString().split('T')[0],

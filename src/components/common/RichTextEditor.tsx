@@ -7,9 +7,12 @@ import {
   ListOrdered,
   Link2,
   Code,
-  RotateCcw,
-  Check,
+  Image as ImageIcon,
+  Film,
+  Heading,
 } from 'lucide-react';
+import { MediaPickerModal } from './MediaPickerModal';
+import type { MediaAsset, MediaType } from '../../types/media';
 
 export interface RichTextEditorProps {
   value: string;
@@ -24,6 +27,62 @@ export interface RichTextEditorProps {
   maxLength?: number;
   isAr?: boolean;
   showCodeToggle?: boolean;
+  /** Enable H1–H6 / paragraph block styles (SEO structure). Default true. */
+  enableHeadings?: boolean;
+  /** Enable insert image / video from media library. Default true. */
+  enableMedia?: boolean;
+}
+
+const BLOCK_OPTIONS = [
+  { value: 'p', labelEn: 'Paragraph', labelAr: 'فقرة' },
+  { value: 'h1', labelEn: 'Heading 1', labelAr: 'عنوان 1' },
+  { value: 'h2', labelEn: 'Heading 2', labelAr: 'عنوان 2' },
+  { value: 'h3', labelEn: 'Heading 3', labelAr: 'عنوان 3' },
+  { value: 'h4', labelEn: 'Heading 4', labelAr: 'عنوان 4' },
+  { value: 'h5', labelEn: 'Heading 5', labelAr: 'عنوان 5' },
+  { value: 'h6', labelEn: 'Heading 6', labelAr: 'عنوان 6' },
+] as const;
+
+const EDITOR_PROSE_CLASS =
+  '[&_ul]:list-disc [&_ul]:ps-5 [&_ul]:my-1.5 [&_ol]:list-decimal [&_ol]:ps-5 [&_ol]:my-1.5 [&_li]:my-0.5 ' +
+  '[&_a]:text-blue-600 [&_a]:underline [&_a]:font-semibold [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_em]:italic [&_u]:underline ' +
+  '[&_h1]:text-2xl [&_h1]:font-black [&_h1]:my-2 [&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:my-2 ' +
+  '[&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-1.5 [&_h4]:text-base [&_h4]:font-bold [&_h4]:my-1.5 ' +
+  '[&_h5]:text-sm [&_h5]:font-bold [&_h5]:my-1 [&_h6]:text-xs [&_h6]:font-bold [&_h6]:my-1 ' +
+  '[&_p]:my-1.5 [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-2 [&_video]:max-w-full [&_video]:rounded-lg [&_video]:my-2 ' +
+  '[&_iframe]:max-w-full [&_iframe]:aspect-video [&_iframe]:w-full [&_iframe]:rounded-lg [&_iframe]:my-2';
+
+function detectBlockTag(node: Node | null, root: HTMLElement): string {
+  let el: Element | null =
+    node?.nodeType === Node.ELEMENT_NODE ? (node as Element) : node?.parentElement || null;
+  while (el && el !== root) {
+    const tag = el.tagName?.toLowerCase();
+    if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p'].includes(tag)) return tag;
+    el = el.parentElement;
+  }
+  return 'p';
+}
+
+function youtubeEmbedUrl(raw: string): string | null {
+  try {
+    const u = new URL(raw.trim());
+    if (u.hostname.includes('youtu.be')) {
+      const id = u.pathname.replace('/', '');
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    if (u.hostname.includes('youtube.com')) {
+      const id = u.searchParams.get('v');
+      if (id) return `https://www.youtube.com/embed/${id}`;
+      const parts = u.pathname.split('/');
+      const embedIdx = parts.indexOf('embed');
+      if (embedIdx >= 0 && parts[embedIdx + 1]) {
+        return `https://www.youtube.com/embed/${parts[embedIdx + 1]}`;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({
@@ -39,6 +98,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   maxLength,
   isAr = false,
   showCodeToggle = true,
+  enableHeadings = true,
+  enableMedia = true,
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const [activeFormats, setActiveFormats] = useState({
@@ -49,12 +110,23 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     orderedList: false,
     link: false,
   });
+  const [blockTag, setBlockTag] = useState('p');
 
   const [isSourceMode, setIsSourceMode] = useState(false);
   const [sourceCode, setSourceCode] = useState(value || '');
   const [charCount, setCharCount] = useState(0);
+  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [mediaPickerTypes, setMediaPickerTypes] = useState<MediaType[]>(['image', 'gif', 'svg']);
+  const [mediaInsertMode, setMediaInsertMode] = useState<'image' | 'video'>('image');
 
-  // Sync state formatting flags from selection
+  const emitChange = useCallback(() => {
+    if (!editorRef.current) return;
+    const html = editorRef.current.innerHTML;
+    onChange(html);
+    setSourceCode(html);
+    setCharCount((editorRef.current.innerText || '').trim().length);
+  }, [onChange]);
+
   const updateToolbarStatus = useCallback(() => {
     if (!editorRef.current || isSourceMode) return;
 
@@ -62,7 +134,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0) return;
 
-      // Ensure selection is inside the editor
       const anchorNode = sel.anchorNode;
       if (!anchorNode || !editorRef.current.contains(anchorNode)) return;
 
@@ -72,8 +143,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       const isUl = document.queryCommandState('insertUnorderedList');
       const isOl = document.queryCommandState('insertOrderedList');
 
-      // Check if current selection has an <a> ancestor
-      const el = anchorNode.nodeType === Node.ELEMENT_NODE ? (anchorNode as Element) : anchorNode.parentElement;
+      const el =
+        anchorNode.nodeType === Node.ELEMENT_NODE
+          ? (anchorNode as Element)
+          : anchorNode.parentElement;
       const isL = !!el?.closest('a');
 
       setActiveFormats({
@@ -84,8 +157,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         orderedList: isOl,
         link: isL,
       });
+      setBlockTag(detectBlockTag(anchorNode, editorRef.current));
 
-      // Update char count
       const text = editorRef.current.innerText || '';
       setCharCount(text.trim().length);
     } catch {
@@ -93,23 +166,19 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   }, [isSourceMode]);
 
-  // Initial and external sync
   useEffect(() => {
     if (!editorRef.current) return;
 
     const currentHtml = editorRef.current.innerHTML;
     const incoming = value || '';
 
-    // If source mode, keep code in sync
     setSourceCode(incoming);
 
-    // If already identical or user is typing same content, avoid DOM overwrite (prevents caret jumping)
     if (currentHtml === incoming) {
       setCharCount((editorRef.current.innerText || '').trim().length);
       return;
     }
 
-    // If incoming value is plain text without html tags and has newlines, convert \n to <p>
     if (incoming && !/<[a-z][\s\S]*>/i.test(incoming) && incoming.includes('\n')) {
       const paragraphs = incoming
         .split('\n\n')
@@ -123,7 +192,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     setCharCount((editorRef.current.innerText || '').trim().length);
   }, [value]);
 
-  // Selection change listener for active button highlights
   useEffect(() => {
     const handleSelectionChange = () => {
       updateToolbarStatus();
@@ -135,23 +203,26 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     };
   }, [updateToolbarStatus]);
 
-  // Execute rich text command while retaining selection
   const execCmd = (command: string, arg?: string) => {
     if (isSourceMode) return;
     if (editorRef.current) {
       editorRef.current.focus();
     }
     document.execCommand(command, false, arg);
-    if (editorRef.current) {
-      const html = editorRef.current.innerHTML;
-      onChange(html);
-      setSourceCode(html);
-      setCharCount((editorRef.current.innerText || '').trim().length);
-    }
+    emitChange();
     updateToolbarStatus();
   };
 
-  // Link command
+  const applyBlockFormat = (tag: string) => {
+    if (isSourceMode) return;
+    editorRef.current?.focus();
+    // formatBlock expects angle-bracketed tag in most browsers
+    document.execCommand('formatBlock', false, tag === 'p' ? 'p' : tag);
+    setBlockTag(tag);
+    emitChange();
+    updateToolbarStatus();
+  };
+
   const handleLink = () => {
     if (isSourceMode) return;
     if (activeFormats.link) {
@@ -164,25 +235,99 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     const url = window.prompt(isAr ? 'أدخل رابط URL:' : 'Enter Link URL:', defaultUrl);
 
     if (url && url.trim() && url.trim() !== defaultUrl) {
-      const validUrl = url.trim().startsWith('http') || url.trim().startsWith('mailto:') || url.trim().startsWith('tel:')
-        ? url.trim()
-        : `https://${url.trim()}`;
+      const validUrl =
+        url.trim().startsWith('http') ||
+        url.trim().startsWith('mailto:') ||
+        url.trim().startsWith('tel:')
+          ? url.trim()
+          : `https://${url.trim()}`;
 
       if (currentSel && currentSel.isCollapsed) {
-        // If no text was highlighted, insert URL as linked anchor text
-        execCmd('insertHTML', `<a href="${validUrl}" target="_blank" rel="noopener noreferrer">${validUrl}</a>`);
+        execCmd(
+          'insertHTML',
+          `<a href="${validUrl}" target="_blank" rel="noopener noreferrer">${validUrl}</a>`,
+        );
       } else {
         execCmd('createLink', validUrl);
       }
     }
   };
 
+  const openMediaPicker = (mode: 'image' | 'video') => {
+    if (isSourceMode) return;
+    setMediaInsertMode(mode);
+    setMediaPickerTypes(mode === 'video' ? ['video'] : ['image', 'gif', 'svg']);
+    setMediaPickerOpen(true);
+  };
+
+  const insertMediaHtml = (html: string) => {
+    editorRef.current?.focus();
+    document.execCommand('insertHTML', false, html);
+    emitChange();
+    updateToolbarStatus();
+  };
+
+  const handleMediaSelect = (selected: MediaAsset | MediaAsset[]) => {
+    const asset = Array.isArray(selected) ? selected[0] : selected;
+    setMediaPickerOpen(false);
+    if (!asset) return;
+
+    const url =
+      asset.optimizedUrl ||
+      asset.webpUrl ||
+      asset.originalUrl ||
+      asset.thumbnailUrl ||
+      '';
+    if (!url) return;
+
+    const alt = (asset.altText || asset.title || asset.fileName || 'Product media').replace(
+      /"/g,
+      '&quot;',
+    );
+
+    if (
+      mediaInsertMode === 'image' ||
+      asset.fileType === 'image' ||
+      asset.fileType === 'gif' ||
+      asset.fileType === 'svg'
+    ) {
+      insertMediaHtml(
+        `<figure class="rte-media"><img src="${url}" alt="${alt}" loading="lazy" /></figure><p></p>`,
+      );
+      return;
+    }
+
+    insertMediaHtml(
+      `<figure class="rte-media"><video src="${url}" controls playsinline preload="metadata"></video></figure><p></p>`,
+    );
+  };
+
+  const handleInsertVideoUrl = () => {
+    if (isSourceMode) return;
+    const raw = window.prompt(
+      isAr
+        ? 'أدخل رابط فيديو (YouTube أو ملف MP4):'
+        : 'Enter video URL (YouTube or MP4 file):',
+      'https://',
+    );
+    if (!raw || !raw.trim() || raw.trim() === 'https://') return;
+
+    const url = raw.trim();
+    const yt = youtubeEmbedUrl(url);
+    if (yt) {
+      insertMediaHtml(
+        `<figure class="rte-media"><iframe src="${yt}" title="Video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></figure><p></p>`,
+      );
+      return;
+    }
+
+    insertMediaHtml(
+      `<figure class="rte-media"><video src="${url}" controls playsinline preload="metadata"></video></figure><p></p>`,
+    );
+  };
+
   const handleInput = () => {
-    if (!editorRef.current) return;
-    const html = editorRef.current.innerHTML;
-    onChange(html);
-    setSourceCode(html);
-    setCharCount((editorRef.current.innerText || '').trim().length);
+    emitChange();
     updateToolbarStatus();
   };
 
@@ -206,23 +351,52 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     setIsSourceMode(!isSourceMode);
   };
 
+  const btnClass = (active: boolean) =>
+    `p-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
+      active
+        ? 'bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-extrabold shadow-2xs'
+        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'
+    }`;
+
   return (
     <div className={`space-y-1 ${className}`}>
       {label && (
         <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
           {label} {requiredMark && <span className="text-rose-500">*</span>}
+          {required && !requiredMark && <span className="sr-only">required</span>}
         </label>
       )}
 
-      {/* Editor Main Container */}
       <div
         className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071E26] shadow-2xs overflow-hidden focus-within:ring-2 focus-within:ring-teal-500/30 transition-all"
         style={{ borderColor: 'var(--border)' }}
       >
-        {/* ── Toolbar Header (Matching exact layout from reference mockup) ── */}
         <div className="flex items-center justify-between gap-1 p-1.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/60 select-none">
           <div className="flex items-center gap-0.5 sm:gap-1 flex-wrap">
-            {/* Bold */}
+            {enableHeadings && (
+              <>
+                <div className="relative flex items-center gap-0.5">
+                  <Heading className="w-3.5 h-3.5 text-slate-400 ms-0.5 shrink-0" />
+                  <select
+                    value={blockTag}
+                    disabled={isSourceMode}
+                    onChange={(e) => applyBlockFormat(e.target.value)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    title={isAr ? 'نمط الفقرة / العناوين (SEO)' : 'Paragraph / Heading (SEO)'}
+                    className="h-7 max-w-[7.5rem] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-bold px-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    style={{ color: 'var(--input-fg)' }}
+                  >
+                    {BLOCK_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {isAr ? opt.labelAr : opt.labelEn}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-[1px] h-4 bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
+              </>
+            )}
+
             <button
               type="button"
               title={isAr ? 'عريض (Ctrl+B)' : 'Bold (Ctrl+B)'}
@@ -230,16 +404,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 e.preventDefault();
                 execCmd('bold');
               }}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
-                activeFormats.bold
-                  ? 'bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-extrabold shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'
-              }`}
+              className={btnClass(activeFormats.bold)}
             >
               <Bold className="w-3.5 h-3.5" />
             </button>
 
-            {/* Italic */}
             <button
               type="button"
               title={isAr ? 'مائل (Ctrl+I)' : 'Italic (Ctrl+I)'}
@@ -247,16 +416,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 e.preventDefault();
                 execCmd('italic');
               }}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
-                activeFormats.italic
-                  ? 'bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-extrabold shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'
-              }`}
+              className={btnClass(activeFormats.italic)}
             >
               <Italic className="w-3.5 h-3.5" />
             </button>
 
-            {/* Underline */}
             <button
               type="button"
               title={isAr ? 'تسطير (Ctrl+U)' : 'Underline (Ctrl+U)'}
@@ -264,19 +428,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 e.preventDefault();
                 execCmd('underline');
               }}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
-                activeFormats.underline
-                  ? 'bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-extrabold shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'
-              }`}
+              className={btnClass(activeFormats.underline)}
             >
               <Underline className="w-3.5 h-3.5" />
             </button>
 
-            {/* Divider */}
             <div className="w-[1px] h-4 bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
 
-            {/* Bullet List */}
             <button
               type="button"
               title={isAr ? 'قائمة نقطية' : 'Bullet List'}
@@ -284,16 +442,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 e.preventDefault();
                 execCmd('insertUnorderedList');
               }}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
-                activeFormats.bulletList
-                  ? 'bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-extrabold shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'
-              }`}
+              className={btnClass(activeFormats.bulletList)}
             >
               <List className="w-3.5 h-3.5" />
             </button>
 
-            {/* Numbered List */}
             <button
               type="button"
               title={isAr ? 'قائمة مرقمة' : 'Numbered List'}
@@ -301,16 +454,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 e.preventDefault();
                 execCmd('insertOrderedList');
               }}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
-                activeFormats.orderedList
-                  ? 'bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-extrabold shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'
-              }`}
+              className={btnClass(activeFormats.orderedList)}
             >
               <ListOrdered className="w-3.5 h-3.5" />
             </button>
 
-            {/* Link */}
             <button
               type="button"
               title={isAr ? 'إدراج رابط' : 'Insert Link'}
@@ -318,17 +466,52 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 e.preventDefault();
                 handleLink();
               }}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
-                activeFormats.link
-                  ? 'bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-extrabold shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'
-              }`}
+              className={btnClass(activeFormats.link)}
             >
               <Link2 className="w-3.5 h-3.5" />
             </button>
+
+            {enableMedia && (
+              <>
+                <div className="w-[1px] h-4 bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
+                <button
+                  type="button"
+                  title={isAr ? 'إدراج صورة' : 'Insert Image'}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    openMediaPicker('image');
+                  }}
+                  className={btnClass(false)}
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  title={isAr ? 'إدراج فيديو من المكتبة' : 'Insert Video from library'}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    openMediaPicker('video');
+                  }}
+                  className={btnClass(false)}
+                >
+                  <Film className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  title={isAr ? 'إدراج رابط فيديو (YouTube / MP4)' : 'Insert video URL (YouTube / MP4)'}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleInsertVideoUrl();
+                  }}
+                  className={`${btnClass(false)} text-[9px] font-bold px-1.5 gap-0.5 hidden sm:flex`}
+                >
+                  <Film className="w-3 h-3" />
+                  URL
+                </button>
+              </>
+            )}
           </div>
 
-          {/* Right Toolbar Actions: Source Code Toggle & Char Counter */}
           <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
             {maxLength && (
               <span className="font-mono">
@@ -340,7 +523,15 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               <button
                 type="button"
                 onClick={toggleSourceMode}
-                title={isSourceMode ? (isAr ? 'عرض النص المنسق' : 'Visual Editor') : (isAr ? 'عرض كود HTML' : 'View HTML Code')}
+                title={
+                  isSourceMode
+                    ? isAr
+                      ? 'عرض النص المنسق'
+                      : 'Visual Editor'
+                    : isAr
+                      ? 'عرض كود HTML'
+                      : 'View HTML Code'
+                }
                 className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
                   isSourceMode
                     ? 'bg-indigo-600 text-white font-bold'
@@ -356,7 +547,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           </div>
         </div>
 
-        {/* ── Editor Editable Body ── */}
         {isSourceMode ? (
           <textarea
             value={sourceCode}
@@ -379,10 +569,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               data-placeholder={placeholder}
               className={`w-full p-3.5 text-xs focus:outline-none leading-relaxed overflow-y-auto cursor-text ${
                 charCount === 0 ? 'empty-editor' : ''
-              } [&_ul]:list-disc [&_ul]:ps-5 [&_ul]:my-1.5 [&_ol]:list-decimal [&_ol]:ps-5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_a]:text-blue-600 [&_a]:underline [&_a]:font-semibold [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_em]:italic [&_u]:underline`}
+              } ${EDITOR_PROSE_CLASS}`}
               style={{
                 minHeight: typeof minHeight === 'number' ? `${minHeight}px` : minHeight,
-                maxHeight: '400px',
+                maxHeight: '480px',
                 resize: 'vertical',
                 overflow: 'auto',
                 background: 'var(--input-bg, #ffffff)',
@@ -390,7 +580,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               }}
             />
 
-            {/* Empty state placeholder */}
             {charCount === 0 && (
               <div
                 onClick={() => editorRef.current?.focus()}
@@ -402,6 +591,41 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           </div>
         )}
       </div>
+
+      {enableMedia && (
+        <MediaPickerModal
+          isOpen={mediaPickerOpen}
+          onClose={() => setMediaPickerOpen(false)}
+          onSelect={handleMediaSelect}
+          multiple={false}
+          allowedTypes={mediaPickerTypes}
+          title={
+            mediaInsertMode === 'video'
+              ? isAr
+                ? 'اختر فيديو للوصف'
+                : 'Select video for description'
+              : isAr
+                ? 'اختر صورة للوصف'
+                : 'Select image for description'
+          }
+          initialFolder="products"
+        />
+      )}
     </div>
   );
 };
+
+/** Shared prose classes for storefront product description HTML */
+export const PRODUCT_DESCRIPTION_PROSE_CLASS =
+  'rich-text-content leading-relaxed ' +
+  '[&_ul]:list-disc [&_ul]:ps-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:ps-5 [&_ol]:my-2 ' +
+  '[&_a]:text-emerald-600 [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_u]:underline ' +
+  '[&_h1]:text-2xl [&_h1]:font-black [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:my-2.5 ' +
+  '[&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_h4]:text-base [&_h4]:font-bold [&_h4]:my-2 ' +
+  '[&_h5]:text-sm [&_h5]:font-bold [&_h5]:my-1.5 [&_h6]:text-xs [&_h6]:font-bold [&_h6]:my-1.5 ' +
+  '[&_p]:my-2 [&_img]:max-w-full [&_img]:rounded-xl [&_img]:my-3 [&_video]:max-w-full [&_video]:rounded-xl [&_video]:my-3 ' +
+  '[&_iframe]:max-w-full [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded-xl [&_iframe]:my-3 [&_figure]:my-3';
+
+export function looksLikeHtml(value?: string | null): boolean {
+  return !!value && /<[a-z][\s\S]*>/i.test(value);
+}

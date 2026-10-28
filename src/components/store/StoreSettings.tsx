@@ -42,14 +42,11 @@ import { COFFEE_STORE_WORKSPACE_PATH } from '../../data/coffeeStoreData';
 
 import { readAllThemeSettings, writeAllThemeSettings } from '../../themes/settings/themeSettingsStore';
 import { readStoreIdentity, writeStoreIdentity, type StoreIdentitySettings } from '../../themes/settings/storeIdentity';
-import { patchAuthSessionUser } from '../../auth/session';
-import { updateWhatsAppSettingsApi } from '../../services/whatsappManagerService';
-import { applyPortalHead } from '../../utils/portalHead';
 
-type SettingsTab = 'general' | 'localization' | 'appearance' | 'custom-order' | 'maintenance' | 'social' | 'subscription' | 'thresholds' | 'notifications';
+type SettingsTab = 'general' | 'localization' | 'appearance' | 'maintenance' | 'social' | 'subscription' | 'thresholds' | 'notifications';
 
 export const StoreSettings: React.FC = () => {
-  const { activeStore, updateStorePlan, updateStoreInfo, updateStoreSEOConfig, softRefreshTenantData } = useTenant();
+  const { activeStore, updateStorePlan, softRefreshTenantData } = useTenant();
   const { t, locale, setLocale, currency, setCurrency, theme, toggleTheme, money, allowedLocales } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
@@ -130,47 +127,6 @@ export const StoreSettings: React.FC = () => {
     initialThemeSettings.maintenance?.whatsappNumber || '+966581617712'
   );
 
-  // Custom Order Page & Bespoke Studio State
-  const [customOrderEnabled, setCustomOrderEnabled] = useState<boolean>(() => {
-    return Boolean(initialThemeSettings.customOrder?.enabled ?? false);
-  });
-  const [customOrderWhatsapp, setCustomOrderWhatsapp] = useState<string>(() => {
-    return (
-      initialThemeSettings.customOrder?.whatsappNumber ||
-      activeStore.contactPhone ||
-      activeStore.phone ||
-      '+966549876543'
-    );
-  });
-  const [customOrderMsgAr, setCustomOrderMsgAr] = useState<string>(() => {
-    return (
-      initialThemeSettings.customOrder?.whatsappMessageAr ||
-      (isCoffee
-        ? 'السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم'
-        : 'السلام عليكم، أود الاستفسار بخصوص تفصيل طلب مخصص')
-    );
-  });
-  const [customOrderMsgEn, setCustomOrderMsgEn] = useState<string>(() => {
-    return (
-      initialThemeSettings.customOrder?.whatsappMessageEn ||
-      (isCoffee
-        ? 'Hello, I would like to inquire about placing a custom coffee corner order.'
-        : 'Hello, I would like to inquire about placing a custom order.')
-    );
-  });
-  const [customOrderBtnAr, setCustomOrderBtnAr] = useState<string>(() => {
-    return (
-      initialThemeSettings.customOrder?.buttonLabelAr ||
-      (isCoffee ? 'تفصيل حسب الطلب · تصميم وتنفيذ' : 'طلب مخصص وتفصيل')
-    );
-  });
-  const [customOrderBtnEn, setCustomOrderBtnEn] = useState<string>(() => {
-    return (
-      initialThemeSettings.customOrder?.buttonLabelEn ||
-      (isCoffee ? 'Custom Made · Design & Build' : 'Custom Made to Order')
-    );
-  });
-
   // General Settings State
   const storeIdentity = useMemo(() => {
     return readStoreIdentity(activeStore.id, activeStore);
@@ -187,19 +143,11 @@ export const StoreSettings: React.FC = () => {
   const [logoUrl, setLogoUrl] = useState(
     storeIdentity.logoUrl || activeStore.logo || ''
   );
-  const [faviconUrl, setFaviconUrl] = useState(
-    storeIdentity.faviconUrl || activeStore.favicon || '/favicon.svg'
-  );
+  const [faviconUrl, setFaviconUrl] = useState('/favicon.svg');
   const [customDomain, setCustomDomain] = useState(`${activeStore.slug}.saudi-stores.com`);
   const [workspacePath, setWorkspacePath] = useState(
     activeStore.workspacePath || (isCoffee ? COFFEE_STORE_WORKSPACE_PATH : '')
   );
-
-  const [storeAddressAr, setStoreAddressAr] = useState(storeIdentity.addressAr || '');
-  const [storeAddressEn, setStoreAddressEn] = useState(storeIdentity.addressEn || '');
-  const [storeCity, setStoreCity] = useState(storeIdentity.city || '');
-  const [commercialReg, setCommercialReg] = useState(storeIdentity.commercialReg || '');
-  const [vatNumber, setVatNumber] = useState(storeIdentity.vatNumber || '');
 
   // Regional Settings State
   const [timezone, setTimezone] = useState('Asia/Riyadh');
@@ -223,62 +171,7 @@ export const StoreSettings: React.FC = () => {
   // Purge cache state
   const [purging, setPurging] = useState(false);
 
-  // Strict Per-Store (store_id) State Isolation Guard: reload all settings when switching stores or locale
-  useEffect(() => {
-    const freshTheme = readAllThemeSettings(activeStore.id, activeStore);
-    const freshIdentity = readStoreIdentity(activeStore.id, activeStore);
-
-    setStoreName(freshIdentity.storeName || activeStore.name);
-    setTagline(
-      isAr
-        ? (freshIdentity.taglineAr || 'متجر فاخر يقدم أرقى المنتجات مع شحن فوري')
-        : (freshIdentity.taglineEn || 'Premium boutique store with guaranteed express delivery.')
-    );
-    setStoreEmail(freshIdentity.email || ('contact@' + activeStore.slug + '.com'));
-    setStorePhone(freshIdentity.phone || '+966 50 123 4567');
-    setLogoUrl(freshIdentity.logoUrl || activeStore.logo || '');
-    setCustomDomain(activeStore.custom_domain || `${activeStore.slug}.saudi-stores.com`);
-    setWorkspacePath(activeStore.workspacePath || (isCoffee ? COFFEE_STORE_WORKSPACE_PATH : ''));
-    setWhatsappNumber(freshIdentity.whatsapp || '+966501234567');
-    setStoreAddressAr(freshIdentity.addressAr || '');
-    setStoreAddressEn(freshIdentity.addressEn || '');
-    setStoreCity(freshIdentity.city || '');
-    setCommercialReg(freshIdentity.commercialReg || '');
-    setVatNumber(freshIdentity.vatNumber || '');
-    setSocialLinks({
-      instagram: { enabled: true, url: freshIdentity.instagram || ('https://instagram.com/' + activeStore.slug) },
-      twitter: { enabled: true, url: 'https://x.com/' + activeStore.slug },
-      tiktok: { enabled: true, url: 'https://tiktok.com/@' + activeStore.slug },
-      facebook: { enabled: false, url: 'https://facebook.com/' + activeStore.slug },
-      youtube: { enabled: false, url: 'https://youtube.com/@' + activeStore.slug },
-    });
-
-    setMaintenanceEnabled(Boolean(freshTheme.maintenance?.enabled));
-    setMaintenanceTitleAr(freshTheme.maintenance?.titleAr || defaultMaintenanceTitleAr);
-    setMaintenanceTitleEn(freshTheme.maintenance?.titleEn || defaultMaintenanceTitleEn);
-    setMaintenanceSubtitleAr(freshTheme.maintenance?.subtitleAr || defaultMaintenanceSubtitleAr);
-    setMaintenanceSubtitleEn(freshTheme.maintenance?.subtitleEn || defaultMaintenanceSubtitleEn);
-    setLaunchDate(freshTheme.maintenance?.launchDate || '2026-10-25T00:00');
-    setShowCountdown(freshTheme.maintenance?.showCountdown !== false);
-    setShowWhatsappContact(freshTheme.maintenance?.showWhatsapp !== false);
-    setShowEmailNotify(freshTheme.maintenance?.showEmailSubscribe !== false);
-    setMaintWhatsapp(freshTheme.maintenance?.whatsappNumber || '+966581617712');
-  }, [
-    activeStore.id,
-    activeStore.name,
-    activeStore.slug,
-    activeStore.logo,
-    activeStore.custom_domain,
-    activeStore.workspacePath,
-    isAr,
-    isCoffee,
-    defaultMaintenanceTitleAr,
-    defaultMaintenanceTitleEn,
-    defaultMaintenanceSubtitleAr,
-    defaultMaintenanceSubtitleEn,
-  ]);
-
-  const handleSaveGeneral = async (e: React.FormEvent) => {
+  const handleSaveGeneral = (e: React.FormEvent) => {
     e.preventDefault();
     const updatedIdentity: StoreIdentitySettings = {
       ...storeIdentity,
@@ -286,15 +179,9 @@ export const StoreSettings: React.FC = () => {
       taglineAr: isAr ? tagline : (storeIdentity.taglineAr || tagline),
       taglineEn: !isAr ? tagline : (storeIdentity.taglineEn || tagline),
       logoUrl: logoUrl,
-      faviconUrl: faviconUrl,
       email: storeEmail,
       phone: storePhone,
       whatsapp: whatsappNumber,
-      addressAr: storeAddressAr || storeIdentity.addressAr,
-      addressEn: storeAddressEn || storeIdentity.addressEn,
-      city: storeCity || storeIdentity.city,
-      commercialReg: commercialReg || storeIdentity.commercialReg,
-      vatNumber: vatNumber || storeIdentity.vatNumber,
       instagram: socialLinks.instagram?.url || storeIdentity.instagram,
       updatedAt: new Date().toISOString(),
     };
@@ -304,90 +191,17 @@ export const StoreSettings: React.FC = () => {
       ...currThemeSettings,
       identity: updatedIdentity,
     });
-
-    // 1. Update central store model & backend Hostinger database (with both logo & favicon)
-    await updateStoreInfo(activeStore.id, {
-      name: storeName,
-      ownerEmail: storeEmail,
-      phone: storePhone,
-      logo: logoUrl,
-      favicon: faviconUrl,
-    });
-
-    // 2. Instantly update browser tab title and favicon
-    applyPortalHead({
-      portal: 'store',
-      storeName: storeName,
-      faviconUrl: faviconUrl || logoUrl,
-    });
-
-    // 3. Dispatch live store update event so TopBar & storefronts update immediately
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent('unityteck-store-updated', {
-          detail: {
-            storeId: activeStore.id,
-            name: storeName,
-            logo: logoUrl,
-            favicon: faviconUrl,
-          },
-        }),
-      );
-    }
-
-    // 2. Auto-sync to SEO Google account & structured schema
-    updateStoreSEOConfig(activeStore.id, {
-      googleAccountEmail: storeEmail,
-    });
-
-    // 3. Update logged in session user so TopBar & profile header reflect new email/name immediately
-    patchAuthSessionUser({
-      email: storeEmail,
-      name: storeName,
-      storeName: storeName,
-    });
-
-    // 4. Central Hub Sync: Ensure WhatsApp settings inherit the exact same central phone & store name
-    try {
-      await updateWhatsAppSettingsApi(activeStore.id, {
-        business_name: storeName,
-        phone_numbers: [
-          {
-            phone: whatsappNumber || storePhone,
-            display_name: storeName,
-            quality_rating: 'GREEN',
-            is_primary: true,
-            status: 'ACTIVE',
-            last_synced: new Date().toLocaleDateString(),
-          },
-        ],
-        fallback_number: whatsappNumber || storePhone,
-      });
-    } catch (waErr) {
-      console.warn('[StoreSettings] WhatsApp hub sync notice:', waErr);
-    }
-
     bumpStore(activeStore.id, 'settings');
     bumpStore(activeStore.id, 'theme');
-    bumpStore(activeStore.id, 'seo');
-
-    window.dispatchEvent(new CustomEvent('unityteck-theme-settings'));
     window.dispatchEvent(
       new CustomEvent('unityteck-store-updated', {
-        detail: {
-          storeId: activeStore.id,
-          name: storeName,
-          logo: logoUrl,
-          email: storeEmail,
-          phone: storePhone,
-          whatsapp: whatsappNumber,
-        },
+        detail: { storeId: activeStore.id, name: storeName, logo: logoUrl },
       }),
     );
     toast(
       isAr
-        ? 'تم حفظ إعدادات المتجر المركزية وتوصيل البريد ورقم الهاتف بكافة الأدوات فوراً!'
-        : 'Center settings saved! Email & phone auto-connected across all store tools.',
+        ? 'تم حفظ الإعدادات وتحديث المتجر فوراً!'
+        : 'Store settings saved & synchronized instantly!',
       'success'
     );
   };
@@ -432,11 +246,6 @@ export const StoreSettings: React.FC = () => {
       icon: Palette,
     },
     {
-      id: 'custom-order',
-      label: isAr ? 'الطلب والتفصيل المخصص' : 'Custom Order & Bespoke',
-      icon: Sparkles,
-    },
-    {
       id: 'maintenance',
       label: isAr ? 'صفحة تحت الصيانة (Under Construction)' : 'Maintenance & Launch',
       icon: Clock,
@@ -473,8 +282,8 @@ export const StoreSettings: React.FC = () => {
           </h1>
           <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? `إدارة الهوية، الألوان، الخطوط، العملات وروابط التواصل · ${activeStore.nameAr || activeStore.name}`
-              : `Store identity, top 15 colors, top 15 fonts, multi-currency & social links · ${activeStore.nameEn || activeStore.name}`}
+              ? 'إدارة الهوية، الألوان، الخطوط، العملات وروابط التواصل'
+              : 'Store identity, top 15 colors, top 15 fonts, multi-currency & social links'}
           </p>
         </div>
 
@@ -697,65 +506,6 @@ export const StoreSettings: React.FC = () => {
                       style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                     />
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'المدينة والمنطقة الرئيسية' : 'Primary City / Region'}
-                  </label>
-                  <input
-                    type="text"
-                    value={storeCity}
-                    onChange={(e) => setStoreCity(e.target.value)}
-                    placeholder={isAr ? 'مكة المكرمة' : 'Makkah'}
-                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'عنوان المركز الرئيسي أو المعرض' : 'Showroom & Center Address'}
-                  </label>
-                  <input
-                    type="text"
-                    value={isAr ? storeAddressAr : (storeAddressEn || storeAddressAr)}
-                    onChange={(e) => {
-                      if (isAr) setStoreAddressAr(e.target.value);
-                      else setStoreAddressEn(e.target.value);
-                    }}
-                    placeholder={isAr ? 'حي العزيزية، مكة المكرمة' : 'Al-Aziziyah, Makkah'}
-                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'رقم السجل التجاري (CR)' : 'Commercial Registration (CR)'}
-                  </label>
-                  <input
-                    type="text"
-                    value={commercialReg}
-                    onChange={(e) => setCommercialReg(e.target.value)}
-                    placeholder="4031099241"
-                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'الرقم الضريبي المعتمد (VAT)' : 'ZATCA VAT Number'}
-                  </label>
-                  <input
-                    type="text"
-                    value={vatNumber}
-                    onChange={(e) => setVatNumber(e.target.value)}
-                    placeholder="30048821900003"
-                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  />
                 </div>
 
                 <div className="sm:col-span-2">
@@ -1296,193 +1046,6 @@ export const StoreSettings: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* ── TAB: Custom Order & Bespoke Studio ── */}
-      {activeTab === 'custom-order' && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const current = readAllThemeSettings(activeStore.id, activeStore);
-            writeAllThemeSettings(activeStore.id, {
-              ...current,
-              customOrder: {
-                enabled: customOrderEnabled,
-                whatsappNumber: customOrderWhatsapp,
-                whatsappMessageAr: customOrderMsgAr,
-                whatsappMessageEn: customOrderMsgEn,
-                buttonLabelAr: customOrderBtnAr,
-                buttonLabelEn: customOrderBtnEn,
-              },
-            });
-            toast(
-              isAr
-                ? 'تم حفظ إعدادات الطلب والتفصيل المخصص بنجاح!'
-                : 'Custom order & bespoke settings saved successfully!',
-              'success'
-            );
-          }}
-          className="space-y-6"
-        >
-          <div
-            className="p-5 sm:p-6 rounded-2xl border shadow-xs space-y-6"
-            style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-          >
-            {/* Header & Main Toggle */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b" style={{ borderColor: 'var(--border)' }}>
-              <div>
-                <h3 className="font-extrabold text-base flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-500" />
-                  <span>{isAr ? 'صفحة الطلب والتفصيل المخصص (Custom Order Studio)' : 'Custom Order & Bespoke Studio'}</span>
-                </h3>
-                <p className="text-xs mt-1 leading-relaxed opacity-75 max-w-2xl">
-                  {isAr
-                    ? 'التحكم في ظهور صفحة تفصيل أركان ودواليب القهوة والطلبات المخصصة لزوار المتجر. عند إيقاف الصفحة، سيتم توجيه نقرات الزوار مباشرة إلى محادثة واتساب الرسمية لطلب التفصيل.'
-                    : 'Control the visibility of the interactive bespoke coffee station customizer. When disabled, custom order clicks will route directly to your official WhatsApp chat.'}
-                </p>
-              </div>
-
-              {/* Status Switcher Button */}
-              <button
-                type="button"
-                onClick={() => setCustomOrderEnabled(!customOrderEnabled)}
-                className={`flex items-center gap-3 px-5 py-2.5 rounded-full font-bold text-xs cursor-pointer transition-all duration-200 shadow-md ${
-                  customOrderEnabled
-                    ? 'bg-emerald-600 text-white ring-4 ring-emerald-500/20'
-                    : 'bg-amber-600 text-white ring-4 ring-amber-500/20'
-                }`}
-              >
-                <div className={`w-2.5 h-2.5 rounded-full bg-white ${customOrderEnabled ? 'animate-pulse' : ''}`} />
-                <span>
-                  {customOrderEnabled
-                    ? isAr
-                      ? 'الصفحة ظاهرة ونشطة (LIVE)'
-                      : 'Page ACTIVE (Visible)'
-                    : isAr
-                      ? 'الصفحة مخفية (التحويل لواتساب نشط)'
-                      : 'Page HIDDEN (WhatsApp Mode)'}
-                </span>
-              </button>
-            </div>
-
-            {/* Explanatory Banner */}
-            <div
-              className={`p-4 rounded-xl border flex items-start gap-3 text-xs leading-relaxed ${
-                customOrderEnabled
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300'
-                  : 'bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300'
-              }`}
-            >
-              <div className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center bg-current text-white font-bold text-[11px]">
-                {customOrderEnabled ? '✓' : 'ℹ'}
-              </div>
-              <div className="space-y-1">
-                <p className="font-bold">
-                  {customOrderEnabled
-                    ? isAr
-                      ? 'صفحة التفصيل المخصص معروضة للجمهور'
-                      : 'Interactive Bespoke Custom Studio is Visible'
-                    : isAr
-                      ? 'صفحة التفصيل مخفية حالياً — نقرات الزوار تتجه للواتساب مباشرة'
-                      : 'Custom Order Page is Hidden — Clicks Route Directly to WhatsApp'}
-                </p>
-                <p className="opacity-90">
-                  {customOrderEnabled
-                    ? isAr
-                      ? 'يمكن للعملاء استعراض مقاسات الخشب، ألوان الرخام، إكسسوارات الباريستا، وتقديم طلب التفصيل الهندسي مباشرة في سلة المشتريات.'
-                      : 'Customers can configure dimensions, finishes, barista cutouts, and checkout their custom bespoke station directly.'
-                    : isAr
-                      ? 'عند ضغط العميل على رابط "تفصيل حسب الطلب" أو أي زر تفصيل في المتجر، سيتم فتح تطبيق واتساب فوراً مع الرسالة النموذجية الموضحة بالأسفل لتلقي التفاصيل والمقاسات.'
-                      : 'When a customer clicks "Custom Made · Design & Build" anywhere in the store, it will seamlessly launch WhatsApp with your pre-filled inquiry text.'}
-                </p>
-              </div>
-            </div>
-
-            {/* Inputs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'رقم واتساب المعتمد لاستقبال طلبات التفصيل' : 'WhatsApp Concierge Phone Number'}
-                </label>
-                <input
-                  type="text"
-                  value={customOrderWhatsapp}
-                  onChange={(e) => setCustomOrderWhatsapp(e.target.value)}
-                  placeholder="+9665XXXXXXXX"
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border focus:outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  required
-                />
-                <span className="text-[10px] text-muted mt-1 block">
-                  {isAr ? 'مثال: +966549876543 (يُرجى إدخال المفتاح الدولي)' : 'e.g. +966549876543 with international prefix'}
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'نص زر التفصيل في شريط البانر (بالعربية)' : 'Custom Order Button Label (Arabic)'}
-                </label>
-                <input
-                  type="text"
-                  value={customOrderBtnAr}
-                  onChange={(e) => setCustomOrderBtnAr(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border focus:outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'نص زر التفصيل في شريط البانر (بالإنجليزية)' : 'Custom Order Button Label (English)'}
-                </label>
-                <input
-                  type="text"
-                  value={customOrderBtnEn}
-                  onChange={(e) => setCustomOrderBtnEn(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border focus:outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'رسالة واتساب الجاهزة عند النقر (بالعربية)' : 'Pre-filled WhatsApp Message (Arabic)'}
-                </label>
-                <textarea
-                  rows={2}
-                  value={customOrderMsgAr}
-                  onChange={(e) => setCustomOrderMsgAr(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border focus:outline-none resize-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'رسالة واتساب الجاهزة عند النقر (بالإنجليزية)' : 'Pre-filled WhatsApp Message (English)'}
-                </label>
-                <textarea
-                  rows={2}
-                  value={customOrderMsgEn}
-                  onChange={(e) => setCustomOrderMsgEn(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border focus:outline-none resize-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                />
-              </div>
-            </div>
-
-            {/* Save Button */}
-            <div className="pt-4 border-t flex justify-end" style={{ borderColor: 'var(--border)' }}>
-              <button
-                type="submit"
-                className="px-6 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer shadow-md transition-all hover:brightness-105"
-                style={{ background: 'var(--portal-cta)' }}
-              >
-                {isAr ? 'حفظ إعدادات الطلب والتفصيل' : 'Save Custom Order Settings'}
-              </button>
-            </div>
-          </div>
-        </form>
       )}
 
       {/* ── TAB: Maintenance / Under Construction Mode ── */}

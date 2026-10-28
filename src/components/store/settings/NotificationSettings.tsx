@@ -12,21 +12,14 @@ import {
   sendTestNotificationApi,
 } from '../../../api/tenantApi';
 import {
-  MessageSquare,
   Smartphone,
   Send,
   Save,
   CheckCircle2,
-  AlertCircle,
-  Bell,
   Sparkles,
-  Phone,
-  Layers,
-  Globe,
-  ShieldCheck,
-  Check,
-  Copy,
+  Mail,
 } from 'lucide-react';
+import { WhatsAppBrandIcon } from '../../common/BrandIcons';
 
 export const NotificationSettings: React.FC = () => {
   const { locale } = usePrefs();
@@ -55,6 +48,13 @@ export const NotificationSettings: React.FC = () => {
         sender_id: 'MakkahGifts',
         auto_notify_customer: true,
         auto_notify_merchant: false,
+      },
+      email: {
+        enabled: true,
+        provider: 'smtp',
+        auto_notify_customer: true,
+        auto_notify_merchant: true,
+        allow_platform_mail: true,
       },
     },
     templates: {
@@ -112,12 +112,14 @@ export const NotificationSettings: React.FC = () => {
       },
     },
     merchant_alert_phones: ['+966554128899'],
+    merchant_alert_emails: [],
   });
 
   const [activeEventTab, setActiveEventTab] = useState<string>('order_placed');
   const [templateLang, setTemplateLang] = useState<'ar' | 'en'>(isAr ? 'ar' : 'en');
   const [testPhone, setTestPhone] = useState('+966554128899');
-  const [testChannel, setTestChannel] = useState<'whatsapp' | 'sms' | 'both'>('whatsapp');
+  const [testEmail, setTestEmail] = useState('');
+  const [testChannel, setTestChannel] = useState<'whatsapp' | 'sms' | 'email' | 'both' | 'all'>('all');
   const [lastTestResult, setLastTestResult] = useState<any>(null);
 
   // Load from backend API
@@ -153,7 +155,8 @@ export const NotificationSettings: React.FC = () => {
           channels: settings.channels,
           templates: settings.templates,
           merchant_alert_phones: settings.merchant_alert_phones,
-        },
+          merchant_alert_emails: settings.merchant_alert_emails || [],
+        } as any,
         activeStore.id
       );
       toast(
@@ -176,17 +179,26 @@ export const NotificationSettings: React.FC = () => {
       const res = await sendTestNotificationApi(
         {
           event: activeEventTab,
-          recipient_phone: testPhone,
+          recipient_phone: testPhone || undefined,
+          recipient_email: testEmail || undefined,
           channel: testChannel,
         },
         activeStore.id
       );
       setLastTestResult(res.data);
+      const anySent = Boolean(res.any_sent || res.data?.any_sent);
+      const channelStatuses = Object.entries(res.data?.channels || {}).map(
+        ([k, v]: [string, any]) => `${k}:${v?.status || 'n/a'}`,
+      );
       toast(
-        isAr
-          ? `تم إرسال إشعار تجريبي بنجاح إلى ${testPhone} ✓`
-          : `Test alert dispatched successfully to ${testPhone} ✓`,
-        'success'
+        anySent
+          ? isAr
+            ? `تم الإرسال الحقيقي: ${channelStatuses.join(' · ')}`
+            : `Real dispatch: ${channelStatuses.join(' · ')}`
+          : isAr
+            ? `لم يُرسل (تحقق من اتصال القنوات): ${channelStatuses.join(' · ') || 'skipped'}`
+            : `Nothing sent (connect channels): ${channelStatuses.join(' · ') || 'skipped'}`,
+        anySent ? 'success' : 'error',
       );
     } catch (err: any) {
       toast(err?.message || 'Failed to send test notification', 'error');
@@ -204,19 +216,19 @@ export const NotificationSettings: React.FC = () => {
       <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
-            <MessageSquare className="w-6 h-6" />
+            <WhatsAppBrandIcon className="w-6 h-6 text-emerald-600" title="WhatsApp" />
           </div>
           <div>
-            <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <span>{isAr ? 'إشعارات الواتساب والرسائل النصية الفورية (SMS)' : 'WhatsApp & SMS Instant Order Alerts'}</span>
+            <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
+              <span>{isAr ? 'إشعارات الطلب (إيميل · واتساب · SMS)' : 'Order alerts (Email · WhatsApp · SMS)'}</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-                +966 Saudi KSA Standard
+                +966 · Real dispatch
               </span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {isAr
-                ? 'إرسال تنبيهات لحظية ومؤتمتة للعميل والتاجر عند تأكيد الطلب، الشحن برقم التتبع، والتوصيل.'
-                : 'Automated real-time notifications for customer & store merchant upon order lifecycle triggers.'}
+                ? 'تنبيهات حقيقية للعميل عند الطلب، الشحن، الإلغاء، والإرجاع — عبر الإيميل وواتساب وSMS.'
+                : 'Real customer alerts on place, ship, cancel, and return — via Email, WhatsApp, and SMS.'}
             </p>
           </div>
         </div>
@@ -232,18 +244,18 @@ export const NotificationSettings: React.FC = () => {
         </button>
       </div>
 
-      {/* Channel Toggles (WhatsApp & SMS) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Channel Toggles (WhatsApp, SMS, Email) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {/* WhatsApp Channel Card */}
         <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                <MessageSquare className="w-5 h-5" />
+                <WhatsAppBrandIcon className="w-5 h-5 text-emerald-600" title="WhatsApp" />
               </div>
               <div>
                 <h4 className="text-sm font-black text-slate-900 dark:text-white">
-                  {isAr ? 'قناة واتساب للأعمال (WhatsApp Business API)' : 'WhatsApp Cloud API Channel'}
+                  {isAr ? 'قناة واتساب للأعمال' : 'WhatsApp Cloud API Channel'}
                 </h4>
                 <span className="text-[10px] text-slate-400 font-mono">Provider: WhatsApp Cloud API / Twilio</span>
               </div>
@@ -408,6 +420,104 @@ export const NotificationSettings: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Email Channel Card */}
+        <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
+                <Mail className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                  {isAr ? 'قناة البريد الإلكتروني (SMTP)' : 'Email SMTP Channel'}
+                </h4>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {settings.channels.email?.connected
+                    ? isAr
+                      ? 'متصل'
+                      : 'Connected'
+                    : isAr
+                      ? 'غير متصل — فعّل SMTP أو platform mail'
+                      : 'Not connected — set SMTP or platform mail'}
+                </span>
+              </div>
+            </div>
+
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.channels.email?.enabled ?? true}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    channels: {
+                      ...settings.channels,
+                      email: {
+                        ...(settings.channels.email || {
+                          enabled: true,
+                          provider: 'smtp',
+                          auto_notify_customer: true,
+                          auto_notify_merchant: true,
+                        }),
+                        enabled: e.target.checked,
+                      },
+                    },
+                  })
+                }
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600"></div>
+            </label>
+          </div>
+
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40">
+              <span className="text-slate-700 dark:text-slate-300 font-bold">
+                {isAr ? 'إيميل آلي للعميل عند الطلب/الشحن/الإلغاء' : 'Auto-email customer on order lifecycle'}
+              </span>
+              <input
+                type="checkbox"
+                checked={settings.channels.email?.auto_notify_customer ?? true}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    channels: {
+                      ...settings.channels,
+                      email: {
+                        ...(settings.channels.email as any),
+                        auto_notify_customer: e.target.checked,
+                      },
+                    },
+                  })
+                }
+                className="rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+              />
+            </div>
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40">
+              <span className="text-slate-700 dark:text-slate-300 font-bold">
+                {isAr ? 'استخدام بريد المنصة إن لم يُضبط SMTP' : 'Allow platform mail if store SMTP empty'}
+              </span>
+              <input
+                type="checkbox"
+                checked={settings.channels.email?.allow_platform_mail ?? false}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    channels: {
+                      ...settings.channels,
+                      email: {
+                        ...(settings.channels.email as any),
+                        allow_platform_mail: e.target.checked,
+                      },
+                    },
+                  })
+                }
+                className="rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Bilingual Template Editor */}
@@ -472,7 +582,7 @@ export const NotificationSettings: React.FC = () => {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <label className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                <WhatsAppBrandIcon className="w-3.5 h-3.5 text-[#25D366]" title="WhatsApp" />
                 <span>{isAr ? 'نص رسالة الواتساب' : 'WhatsApp Message Format'}</span>
               </label>
               <span className="text-[10px] text-slate-400 font-mono">Supports *bold* & emojis</span>
@@ -577,10 +687,10 @@ export const NotificationSettings: React.FC = () => {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
           <div>
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
-              {isAr ? 'رقم هاتف المستلم (سعودي)' : 'Recipient Phone Number'}
+              {isAr ? 'رقم هاتف المستلم (سعودي)' : 'Recipient Phone (+966)'}
             </label>
             <input
               type="text"
@@ -593,16 +703,31 @@ export const NotificationSettings: React.FC = () => {
 
           <div>
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
-              {isAr ? 'قناة الإرسال التجريبية' : 'Test Channel'}
+              {isAr ? 'إيميل المستلم' : 'Recipient Email'}
+            </label>
+            <input
+              type="email"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              placeholder="customer@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+              {isAr ? 'قناة الإرسال' : 'Test Channel'}
             </label>
             <select
               value={testChannel}
               onChange={(e) => setTestChannel(e.target.value as any)}
               className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             >
-              <option value="whatsapp">WhatsApp Business API Only</option>
-              <option value="sms">Saudi SMS Only</option>
-              <option value="both">Both (WhatsApp + SMS)</option>
+              <option value="all">All (Email + WhatsApp + SMS)</option>
+              <option value="email">Email only</option>
+              <option value="whatsapp">WhatsApp only</option>
+              <option value="sms">SMS only</option>
+              <option value="both">WhatsApp + SMS</option>
             </select>
           </div>
 
@@ -614,44 +739,40 @@ export const NotificationSettings: React.FC = () => {
               className="w-full py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 rounded-xl text-xs font-bold shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <Send className="w-3.5 h-3.5" />
-              <span>{testing ? (isAr ? 'جاري الإرسال...' : 'Dispatching...') : isAr ? 'إرسال تنبيه تجريبي' : 'Send Test Alert'}</span>
+              <span>{testing ? (isAr ? 'جاري الإرسال...' : 'Dispatching...') : isAr ? 'إرسال تنبيه حقيقي' : 'Send Real Test'}</span>
             </button>
           </div>
         </div>
 
-        {/* Live Payload Preview Results */}
         {lastTestResult && (
           <div className="p-4 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
-            <div className="flex items-center justify-between text-emerald-600 font-bold">
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>{isAr ? 'تمت المحاكاة والإرسال بنجاح' : 'Simulated Dispatch Succeeded'}</span>
+            <div className="flex items-center justify-between font-bold">
+              <span className="flex items-center gap-1.5 text-slate-800 dark:text-slate-100">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>{isAr ? 'نتيجة الإرسال الحقيقي' : 'Real dispatch result'}</span>
               </span>
               <span className="font-mono text-[10px] text-slate-400">{lastTestResult.dispatched_at}</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              {lastTestResult.channels?.whatsapp && (
-                <div className="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60">
-                  <span className="text-[10px] font-black uppercase text-emerald-800 dark:text-emerald-300 block mb-1">
-                    WhatsApp Message Preview
-                  </span>
-                  <pre className="text-[11px] font-sans whitespace-pre-wrap text-slate-800 dark:text-slate-200 leading-relaxed">
-                    {lastTestResult.channels.whatsapp.message_preview}
-                  </pre>
-                </div>
-              )}
-
-              {lastTestResult.channels?.sms && (
-                <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/60">
-                  <span className="text-[10px] font-black uppercase text-blue-800 dark:text-blue-300 block mb-1">
-                    SMS Message Preview
-                  </span>
-                  <p className="text-[11px] font-sans text-slate-800 dark:text-slate-200 leading-relaxed">
-                    {lastTestResult.channels.sms.message_preview}
-                  </p>
-                </div>
-              )}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              {(['whatsapp', 'sms', 'email'] as const).map((ch) => {
+                const row = lastTestResult.channels?.[ch];
+                if (!row) return null;
+                return (
+                  <div
+                    key={ch}
+                    className="p-3 rounded-xl border bg-slate-50/80 dark:bg-slate-900/40"
+                    style={{ borderColor: 'var(--border, #e2e8f0)' }}
+                  >
+                    <span className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 block mb-1">
+                      {ch} · {row.status}
+                    </span>
+                    <p className="text-[11px] font-sans text-slate-800 dark:text-slate-200 leading-relaxed line-clamp-4 whitespace-pre-wrap">
+                      {row.preview || row.message_preview || row.error || '—'}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

@@ -31,4 +31,36 @@ return [
         ],
     ],
 
+    /*
+    | Unityteck Site Kit — one platform OAuth app; each store connects its own Google account.
+    | Set on Hostinger API .env (Master once). Store owners only Sign in with Google.
+    */
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID', env('VITE_GOOGLE_CLIENT_ID')),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
+        'pagespeed_api_key' => env('GOOGLE_PAGESPEED_API_KEY'),
+        'ads_developer_token' => env('GOOGLE_ADS_DEVELOPER_TOKEN'),
+    ],
+
+    /*
+    | Meta WhatsApp Cloud API (platform fallback; store WhatsApp settings override).
+    */
+    'whatsapp' => [
+        'token' => env('META_WHATSAPP_TOKEN'),
+        'phone_number_id' => env('META_WHATSAPP_PHONE_NUMBER_ID'),
+        'verify_token' => env('META_WHATSAPP_VERIFY_TOKEN', 'unityteck_wa_secret_verify_token_2026'),
+    ],
+
+    /*
+    | KSA SMS — Unifonic Cloud and/or Taqnyat (store notification settings may override sender_id).
+    */
+    'sms' => [
+        'default_provider' => env('SMS_PROVIDER', 'unifonic'),
+        'sender_id' => env('SMS_SENDER_ID', env('UNIFONIC_SENDER_ID', env('TAQNYAT_SENDER_ID'))),
+        'unifonic_app_sid' => env('UNIFONIC_APP_SID'),
+        'unifonic_base_url' => env('UNIFONIC_BASE_URL', 'https://el.cloud.unifonic.com'),
+        'taqnyat_api_key' => env('TAQNYAT_API_KEY'),
+    ],
+
 ];

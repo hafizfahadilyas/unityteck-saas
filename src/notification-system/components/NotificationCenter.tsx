@@ -13,18 +13,17 @@ import {
   Bell,
   X,
   Search,
-  Filter,
   CheckCheck,
   Download,
-  AlertTriangle,
   Sparkles,
-  ShieldAlert,
   Trash2,
-  Calendar,
+  Mail,
+  LayoutList,
 } from 'lucide-react';
-import { NotificationItem, NotificationZone, NotificationSeverity, NotificationStatus } from '../types/notification.types';
+import { NotificationItem, NotificationZone } from '../types/notification.types';
 import { NotificationCard } from './NotificationCard';
 import { DateRangeFilter } from './DateRangeFilter';
+import { CustomerDeliveriesPanel } from './CustomerDeliveriesPanel';
 import { useDateRange } from '../../context/DateRangeContext';
 import { format } from 'date-fns';
 import { usePrefs } from '../../i18n/PrefsContext';
@@ -39,6 +38,8 @@ interface NotificationCenterProps {
   onDismiss: (id: string) => void;
   onSnooze: (id: string, minutes: number) => void;
   isFullPage?: boolean;
+  /** Active store id — enables real Email/WhatsApp/SMS delivery manage tab */
+  storeId?: string;
 }
 
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({
@@ -51,11 +52,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   onDismiss,
   onSnooze,
   isFullPage = false,
+  storeId,
 }) => {
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
   const dateRange = useDateRange();
 
+  const [mainView, setMainView] = useState<'inbox' | 'customer'>('inbox');
   const [activeZoneTab, setActiveZoneTab] = useState<'all' | 'unread' | 'read' | NotificationZone>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -172,71 +175,121 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       }}
     >
       {/* ── Top Header ── */}
-      <div className="px-5 py-4 border-b flex items-center justify-between gap-3 shrink-0" style={{ borderColor: 'var(--border)' }}>
-        <div className="flex items-center gap-3">
-          <span className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center">
-            <Bell className="w-5 h-5" />
-          </span>
-          <div>
-            <h2 className="text-lg font-black tracking-tight" style={{ color: 'var(--text)' }}>
-              {isAr ? 'مركز الإشعارات والتنبيهات الموحد' : 'Unified Notification Center'}
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {isAr
-                ? `عرض شامل وإدارة لكافة التنبيهات والفرص (${filteredItems.length} إشعار)`
-                : `Comprehensive operational issues & marketing opportunities (${filteredItems.length} alerts)`}
-            </p>
+      <div className="px-5 py-4 border-b flex flex-col gap-3 shrink-0" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center shrink-0">
+              <Bell className="w-5 h-5" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-lg font-black tracking-tight truncate" style={{ color: 'var(--text)' }}>
+                {isAr ? 'مركز الإشعارات' : 'Notification Center'}
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                {mainView === 'customer'
+                  ? isAr
+                    ? 'إدارة إشعارات العميل عبر الإيميل وواتساب وSMS'
+                    : 'Manage real customer Email, WhatsApp & SMS deliveries'
+                  : isAr
+                    ? `إدارة التنبيهات والفرص (${filteredItems.length})`
+                    : `Manage store alerts & opportunities (${filteredItems.length})`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {mainView === 'inbox' && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleExportCSV}
+                  className="px-3 py-1.5 rounded-xl border text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  style={{ borderColor: 'var(--border)' }}
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{isAr ? 'تصدير' : 'Export'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onMarkAllRead(
+                      activeZoneTab === 'all' || activeZoneTab === 'unread' || activeZoneTab === 'read'
+                        ? undefined
+                        : (activeZoneTab as NotificationZone),
+                    )
+                  }
+                  className="px-3 py-1.5 rounded-xl border text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  style={{ borderColor: 'var(--border)' }}
+                >
+                  <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="hidden sm:inline">{isAr ? 'قراءة الكل' : 'Mark all read'}</span>
+                </button>
+              </>
+            )}
+
+            {selectedIds.size > 0 && mainView === 'inbox' && (
+              <button
+                type="button"
+                onClick={handleDismissSelected}
+                className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isAr ? `حذف (${selectedIds.size})` : `Dismiss (${selectedIds.size})`}</span>
+              </button>
+            )}
+
+            {!isFullPage && onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Export to CSV */}
+        {/* Inbox vs Customer deliveries */}
+        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100/80 dark:bg-slate-900/60 w-full sm:w-auto self-start">
           <button
             type="button"
-            onClick={handleExportCSV}
-            className="px-3 py-1.5 rounded-xl border text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-            style={{ borderColor: 'var(--border)' }}
-            title="Export filtered list to CSV"
+            onClick={() => setMainView('inbox')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-all ${
+              mainView === 'inbox'
+                ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-xs'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>{isAr ? 'تصدير CSV' : 'Export CSV'}</span>
+            <LayoutList className="w-3.5 h-3.5" />
+            {isAr ? 'صندوق المتجر' : 'Store inbox'}
           </button>
-
-          {/* Mark all read */}
           <button
             type="button"
-            onClick={() => onMarkAllRead((activeZoneTab === 'all' || activeZoneTab === 'unread' || activeZoneTab === 'read') ? undefined : (activeZoneTab as NotificationZone))}
-            className="px-3 py-1.5 rounded-xl border text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-            style={{ borderColor: 'var(--border)' }}
+            onClick={() => setMainView('customer')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-all ${
+              mainView === 'customer'
+                ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-xs'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
           >
-            <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>{isAr ? 'تحديد الكل كمقروء' : 'Mark all read'}</span>
+            <Mail className="w-3.5 h-3.5" />
+            {isAr ? 'إشعارات العميل' : 'Customer Email / WA / SMS'}
           </button>
-
-          {/* Dismiss selected */}
-          {selectedIds.size > 0 && (
-            <button
-              type="button"
-              onClick={handleDismissSelected}
-              className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>{isAr ? `حذف المحدد (${selectedIds.size})` : `Dismiss (${selectedIds.size})`}</span>
-            </button>
-          )}
-
-          {!isFullPage && onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer ms-1"
-              aria-label="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
         </div>
       </div>
+
+      {mainView === 'customer' && storeId ? (
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <CustomerDeliveriesPanel storeId={storeId} />
+        </div>
+      ) : mainView === 'customer' && !storeId ? (
+        <div className="flex-1 flex items-center justify-center text-xs text-slate-500 p-8">
+          {isAr ? 'اختر متجراً لعرض سجلات الإرسال' : 'Select a store to view delivery logs'}
+        </div>
+      ) : (
+        <>
 
       {/* ── Zone & Status Filter Tabs & Universal Date Filter ── */}
       <div className="px-5 py-3 border-b flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0 bg-slate-50/50 dark:bg-slate-900/50" style={{ borderColor: 'var(--border)' }}>
@@ -361,13 +414,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           </div>
         ) : (
           filteredItems.map((item) => (
-            <div key={item.id} className="flex items-start">
-              <div className="ps-3 pt-5">
+            <div key={item.id} className="flex items-start gap-0">
+              <div className="ps-3 pe-1 pt-4 flex items-center self-stretch">
                 <input
                   type="checkbox"
                   checked={selectedIds.has(item.id)}
                   onChange={() => toggleSelect(item.id)}
-                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0"
                   aria-label="Select notification"
                 />
               </div>
@@ -405,6 +458,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           </button>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 

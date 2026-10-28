@@ -11,12 +11,13 @@ use Illuminate\Support\Str;
 
 class GoogleService
 {
+    /** Site Kit–style scopes: one consent → GSC / GA4 / GTM / Ads / Indexing */
     public const SCOPES = [
         'openid',
         'https://www.googleapis.com/auth/userinfo.email',
         'https://www.googleapis.com/auth/userinfo.profile',
         'https://www.googleapis.com/auth/analytics.readonly',
-        'https://www.googleapis.com/auth/webmasters.readonly',
+        'https://www.googleapis.com/auth/webmasters',
         'https://www.googleapis.com/auth/tagmanager.readonly',
         'https://www.googleapis.com/auth/adwords',
         'https://www.googleapis.com/auth/indexing',
@@ -466,10 +467,11 @@ class GoogleService
                 $cats = $lh['categories'] ?? [];
                 $audits = $lh['audits'] ?? [];
 
-                $performanceScore = round(($cats['performance']['score'] ?? 0.85) * 100);
-                $seoScore = round(($cats['seo']['score'] ?? 0.95) * 100);
-                $accessibilityScore = round(($cats['accessibility']['score'] ?? 0.90) * 100);
-                $bestPracticesScore = round(($cats['best-practices']['score'] ?? 0.92) * 100);
+                // Zero-mock: missing category score → 0 (never invent 85/95)
+                $performanceScore = isset($cats['performance']['score']) ? (int) round($cats['performance']['score'] * 100) : 0;
+                $seoScore = isset($cats['seo']['score']) ? (int) round($cats['seo']['score'] * 100) : 0;
+                $accessibilityScore = isset($cats['accessibility']['score']) ? (int) round($cats['accessibility']['score'] * 100) : 0;
+                $bestPracticesScore = isset($cats['best-practices']['score']) ? (int) round($cats['best-practices']['score'] * 100) : 0;
 
                 // Collect diagnostic issues with "What is wrong → Why it matters → Recommended fix"
                 $issues = [];
@@ -510,13 +512,13 @@ class GoogleService
                     'seoScore' => $seoScore,
                     'accessibilityScore' => $accessibilityScore,
                     'bestPracticesScore' => $bestPracticesScore,
-                    'fcp' => $audits['first-contentful-paint']['displayValue'] ?? '0.9 s',
-                    'lcp' => $audits['largest-contentful-paint']['displayValue'] ?? '1.6 s',
-                    'cls' => $audits['cumulative-layout-shift']['displayValue'] ?? '0.005',
-                    'fid' => $audits['max-potential-fid']['displayValue'] ?? '32 ms',
-                    'inp' => $audits['interactive']['displayValue'] ?? '1.2 s',
-                    'tbt' => $audits['total-blocking-time']['displayValue'] ?? '80 ms',
-                    'speedIndex' => $audits['speed-index']['displayValue'] ?? '1.2 s',
+                    'fcp' => $audits['first-contentful-paint']['displayValue'] ?? '',
+                    'lcp' => $audits['largest-contentful-paint']['displayValue'] ?? '',
+                    'cls' => $audits['cumulative-layout-shift']['displayValue'] ?? '',
+                    'fid' => $audits['max-potential-fid']['displayValue'] ?? '',
+                    'inp' => $audits['interactive']['displayValue'] ?? '',
+                    'tbt' => $audits['total-blocking-time']['displayValue'] ?? '',
+                    'speedIndex' => $audits['speed-index']['displayValue'] ?? '',
                     'issues' => $issues,
                     'auditedAt' => now()->toIso8601String(),
                 ];
@@ -526,5 +528,110 @@ class GoogleService
         }
 
         return null;
+    }
+
+    /**
+     * Public storefront base URL after Hostinger publish (custom domain preferred).
+     */
+    public function resolveStorePublicBaseUrl(?Store $store): string
+    {
+        if (!$store) {
+            return '';
+        }
+        if (!empty($store->custom_domain)) {
+            $host = preg_replace('#^https?://#', '', rtrim((string) $store->custom_domain, '/'));
+            return 'https://' . $host;
+        }
+        if (!empty($store->slug)) {
+            $suffix = env('STORE_PUBLIC_DOMAIN_SUFFIX', 'saasdomain.com');
+            return 'https://' . $store->slug . '.' . ltrim($suffix, '.');
+        }
+        return '';
+    }
+
+    /**
+     * Pick best GA4 / GSC / GTM / Ads for this store (Site Kit auto-link).
+     * Prefer GSC property matching published domain; otherwise first available — never invent IDs.
+     */
+    public function pickSiteKitDefaults(?Store $store, array $ga4, array $gsc, array $gtm, array $ads): array
+    {
+        $base = $this->resolveStorePublicBaseUrl($store);
+        $host = $base ? strtolower(parse_url($base, PHP_URL_HOST) ?: '') : '';
+        $slug = $store ? strtolower((string) ($store->slug ?? '')) : '';
+
+        $matchedGsc = null;
+        foreach ($gsc as $site) {
+            $siteUrl = strtolower((string) ($site['siteUrl'] ?? ''));
+            if ($host && (str_contains($siteUrl, $host) || str_contains($siteUrl, 'sc-domain:' . $host))) {
+                $matchedGsc = $site;
+                break;
+            }
+            if ($slug && str_contains($siteUrl, $slug)) {
+                $matchedGsc = $site;
+                break;
+            }
+        }
+        if (!$matchedGsc && !empty($gsc[0])) {
+            $matchedGsc = $gsc[0];
+        }
+
+        $ga4First = $ga4[0] ?? null;
+        $gtmFirst = $gtm[0] ?? null;
+        $adsFirst = $ads[0] ?? null;
+
+        $sitemapUrl = $base !== '' ? rtrim($base, '/') . '/sitemap.xml' : null;
+
+        return [
+            'ga4_property_id' => $ga4First['propertyId'] ?? ($ga4First['propertyResource'] ?? null),
+            'ga4_property_name' => $ga4First['displayName'] ?? null,
+            'ga4_measurement_id' => null, // filled only when merchant/API provides Measurement ID
+            'gsc_site_url' => $matchedGsc['siteUrl'] ?? null,
+            'gtm_account_id' => isset($gtmFirst['accountId']) ? (string) $gtmFirst['accountId'] : null,
+            'gtm_container_id' => $gtmFirst['containerId'] ?? null,
+            'google_ads_customer_id' => $adsFirst['customerId'] ?? null,
+            'google_ads_account_name' => $adsFirst['name'] ?? null,
+            'store_public_url' => $base ?: null,
+            'sitemap_url' => $sitemapUrl,
+        ];
+    }
+
+    /**
+     * Submit XML sitemap to Search Console (real API — empty result if site not verified).
+     */
+    public function submitSitemapToSearchConsole(string $accessToken, string $siteUrl, string $sitemapUrl): bool
+    {
+        try {
+            $encodedSite = rawurlencode($siteUrl);
+            $encodedSitemap = rawurlencode($sitemapUrl);
+            $url = "https://www.googleapis.com/webmasters/v3/sites/{$encodedSite}/sitemaps/{$encodedSitemap}";
+            $res = Http::withToken($accessToken)->put($url);
+            if ($res->successful() || $res->status() === 204) {
+                return true;
+            }
+            Log::warning('GSC sitemap submit failed: ' . $res->body());
+        } catch (\Throwable $e) {
+            Log::warning('GSC sitemap submit exception: ' . $e->getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Request Google Indexing API for a URL (homepage / key pages after publish).
+     */
+    public function requestUrlIndexing(string $accessToken, string $pageUrl, string $type = 'URL_UPDATED'): bool
+    {
+        try {
+            $res = Http::withToken($accessToken)->post('https://indexing.googleapis.com/v3/urlNotifications:publish', [
+                'url' => $pageUrl,
+                'type' => $type,
+            ]);
+            if ($res->successful()) {
+                return true;
+            }
+            Log::warning('Indexing API failed: ' . $res->body());
+        } catch (\Throwable $e) {
+            Log::warning('Indexing API exception: ' . $e->getMessage());
+        }
+        return false;
     }
 }

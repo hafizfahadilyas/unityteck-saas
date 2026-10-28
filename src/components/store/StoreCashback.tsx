@@ -351,8 +351,8 @@ export const StoreCashback: React.FC<StoreCashbackProps> = ({ onNavigateTab }) =
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {isAr
-              ? `إدارة استرداد الأموال لمحفظة العملاء لمتجر ${activeStore.name}`
-              : `Manage instant wallet cashback promotions for ${activeStore.name}`}
+              ? 'إدارة استرداد الأموال لمحفظة العملاء'
+              : 'Manage instant wallet cashback promotions'}
           </p>
         </div>
 

@@ -45,8 +45,8 @@ export const StoreAppStore: React.FC = () => {
         <AppStoreBrand
           subtitle={
             isAr
-              ? `${activeStore.name} · ثبّت القوالب والتطبيقات لمتجرك`
-              : `${activeStore.name} · install themes & apps for your store`
+              ? 'ثبّت القوالب والتطبيقات لمتجرك'
+              : 'Install themes & apps for your store'
           }
         />
         <div

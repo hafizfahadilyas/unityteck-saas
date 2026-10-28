@@ -79,9 +79,10 @@ class WhatsAppController extends Controller
             })
             ->count();
 
-        $dailyLimit = (int) ($waConfig['daily_limit'] ?? 10);
+        $quota = \App\Services\Notification\MessageQuota::forStore($storeId);
+        $dailyLimit = (int) $quota['daily_limit'];
         $dailyRemaining = max(0, $dailyLimit - $dailyUsed);
-        $monthlyLimit = (int) ($waConfig['monthly_limit'] ?? 50);
+        $monthlyLimit = (int) $quota['monthly_limit'];
         $monthlyUsed = WhatsAppMessage::query()
             ->where('store_id', $storeId)
             ->whereBetween('created_at', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])
@@ -106,10 +107,10 @@ class WhatsAppController extends Controller
                     'phone_number' => $senderPhone,
                     'provider' => $provider,
                     'last_synced_at' => $lastSyncedAt,
-                    'business_name' => $store?->name ?? 'Online Boutique',
-                    'business_id' => $waConfig['business_id'] ?? '104928371920384',
-                    'phone_number_id' => $waConfig['phone_number_id'] ?? '109283746501928',
-                    'waba_id' => $waConfig['waba_id'] ?? '908172635481920',
+                    'business_name' => $store?->name ?: null,
+                    'business_id' => $waConfig['business_id'] ?? null,
+                    'phone_number_id' => $waConfig['phone_number_id'] ?? null,
+                    'waba_id' => $waConfig['waba_id'] ?? null,
                 ],
                 'usage' => [
                     'daily_used' => $dailyUsed,
@@ -122,16 +123,27 @@ class WhatsAppController extends Controller
                 ],
                 'metrics' => [
                     'total_messages' => $totalMessages,
-                    'total_trend' => '+12%',
+                    'total_trend' => null,
                     'delivered' => $delivered,
                     'delivered_rate' => $deliveredRate,
-                    'delivered_trend' => '+5.2%',
+                    'delivered_trend' => null,
                     'read' => $read,
                     'read_rate' => $readRate,
-                    'read_trend' => '+5.2%',
+                    'read_trend' => null,
                     'failed' => $failed,
                     'failed_rate' => $failedRate,
-                    'failed_trend' => '-1.3%',
+                    'failed_trend' => null,
+                ],
+                'quota' => [
+                    'plan' => $quota['plan'],
+                    'source' => $quota['source'],
+                    'frozen' => $quota['frozen'],
+                    'basic_daily' => 20,
+                    'pro_daily_default' => 50,
+                ],
+                'isolation' => [
+                    'store_id' => $storeId,
+                    'mode' => 'store_scoped',
                 ],
                 'categories' => [
                     'all' => $totalMessages,
@@ -315,8 +327,18 @@ class WhatsAppController extends Controller
         $storeSetting = StoreSetting::query()->where('store_id', $storeId)->first();
         $stored = $storeSetting && is_array($storeSetting->settings) ? ($storeSetting->settings['whatsapp'] ?? []) : [];
 
-        $dailyLimit = (int) ($stored['daily_limit'] ?? 10);
-        $monthlyLimit = (int) ($stored['monthly_limit'] ?? 50);
+        $quota = \App\Services\Notification\MessageQuota::forStore($storeId);
+        $dailyLimit = (int) $quota['daily_limit'];
+        $monthlyLimit = (int) $quota['monthly_limit'];
+
+        if (!empty($quota['frozen'])) {
+            return response()->json([
+                'success' => false,
+                'code' => 'QUOTA_FROZEN',
+                'message' => 'Automated WhatsApp is frozen for this store. Ask Master Admin to unfreeze or upgrade to Pro for a higher limit. Direct wa.me chat stays free.',
+                'suggest_direct' => true,
+            ], 429);
+        }
 
         // Per-Client 24-Hour Anti-Ban Cooldown Timer (Max 1 automated message per customer phone per 24 hours)
         $targetPhone = $normalizedPhone ?? $validated['phone_number'];
@@ -1390,8 +1412,9 @@ class WhatsAppController extends Controller
             $storeSetting = StoreSetting::query()->where('store_id', $s->id)->first();
             $stored = $storeSetting && is_array($storeSetting->settings) ? ($storeSetting->settings['whatsapp'] ?? []) : [];
 
-            $dailyLimit = (int) ($stored['daily_limit'] ?? 10);
-            $monthlyLimit = (int) ($stored['monthly_limit'] ?? 50);
+            $quota = \App\Services\Notification\MessageQuota::forStore((string) $store->id);
+            $dailyLimit = (int) $quota['daily_limit'];
+            $monthlyLimit = (int) $quota['monthly_limit'];
 
             $dailyUsed = WhatsAppMessage::query()
                 ->where('store_id', $s->id)
@@ -1440,6 +1463,7 @@ class WhatsAppController extends Controller
         $validated = $request->validate([
             'daily_limit' => ['required', 'integer', 'min:0', 'max:100000'],
             'monthly_limit' => ['required', 'integer', 'min:0', 'max:1000000'],
+            'quota_frozen' => ['nullable', 'boolean'],
         ]);
 
         $store = Store::query()->where('id', $storeId)->first();
@@ -1456,6 +1480,9 @@ class WhatsAppController extends Controller
         $currentWa = $settings['whatsapp'] ?? [];
         $currentWa['daily_limit'] = (int) $validated['daily_limit'];
         $currentWa['monthly_limit'] = (int) $validated['monthly_limit'];
+        if (array_key_exists('quota_frozen', $validated)) {
+            $currentWa['quota_frozen'] = (bool) $validated['quota_frozen'];
+        }
         $settings['whatsapp'] = $currentWa;
         $storeSetting->settings = $settings;
         $storeSetting->save();
@@ -1467,6 +1494,7 @@ class WhatsAppController extends Controller
                 'store_id' => $storeId,
                 'daily_limit' => $validated['daily_limit'],
                 'monthly_limit' => $validated['monthly_limit'],
+                'quota_frozen' => (bool) ($currentWa['quota_frozen'] ?? false),
             ],
         ]);
     }

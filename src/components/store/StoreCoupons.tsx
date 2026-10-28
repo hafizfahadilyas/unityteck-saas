@@ -1263,8 +1263,8 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {isAr
-              ? `إدارة أكواد الخصم الترويجية لمتجر ${activeStore.name}`
-              : `Manage promotional discount codes for ${activeStore.name}`}
+              ? 'إدارة أكواد الخصم الترويجية'
+              : 'Manage promotional discount codes'}
           </p>
         </div>
 

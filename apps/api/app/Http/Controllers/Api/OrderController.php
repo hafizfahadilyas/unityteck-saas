@@ -30,12 +30,14 @@ class OrderController extends Controller
         }
 
         if ($request->boolean('counts') || $request->boolean('summary')) {
+            // withoutGlobalScope: avoid double store_id filter when header alias ≠ canonical id
             $statusCounts = Order::query()
+                ->withoutGlobalScope('store')
                 ->forStore($storeId)
                 ->selectRaw('status, count(*) as count')
                 ->groupBy('status')
                 ->pluck('count', 'status');
-            $total = Order::query()->forStore($storeId)->count();
+            $total = Order::query()->withoutGlobalScope('store')->forStore($storeId)->count();
 
             return response()->json([
                 'store_id' => $storeId,
@@ -45,6 +47,7 @@ class OrderController extends Controller
         }
 
         $query = Order::query()
+            ->withoutGlobalScope('store')
             ->forStore($storeId)
             ->with(['items', 'customer', 'returns']);
 
@@ -141,6 +144,7 @@ class OrderController extends Controller
         }
 
         $order = Order::query()
+            ->withoutGlobalScope('store')
             ->forStore($storeId)
             ->with(['items', 'customer'])
             ->where('id', $id)
@@ -161,9 +165,21 @@ class OrderController extends Controller
 
     public function storefrontStore(Request $request): JsonResponse
     {
-        $storeId = (string) ($request->header('X-Store-Id') ?? $request->input('store_id', ''));
-        if ($storeId === '') {
+        $raw = (string) ($request->header('X-Store-Id') ?? $request->input('store_id', ''));
+        if (trim($raw) === '') {
             return response()->json(['message' => 'Store ID required.'], 400);
+        }
+
+        $s = strtolower(trim($raw));
+        if ($s === 'flowers' || $s === 'hadaya' || $s === 'makkah' || $s === 'giftshop') {
+            $storeId = 'store-1';
+        } elseif ($s === 'coffee' || $s === 'roasters' || $s === 'hibrew') {
+            $storeId = 'store-coffee';
+        } elseif ($s === 'bleco' || $s === 'car' || $s === 'cars' || $s === 'alsaeedi') {
+            $storeId = 'store-bleco';
+        } else {
+            $matched = Store::query()->where('id', $raw)->orWhere('slug', $raw)->orWhere('slug', $s)->value('id');
+            $storeId = $matched ?: trim($raw);
         }
 
         $store = Store::query()->where('id', $storeId)->first();
@@ -178,14 +194,14 @@ class OrderController extends Controller
     {
         $validated = $request->validate([
             'customer_name' => ['required', 'string', 'max:191'],
-            'customer_email' => ['nullable', 'email', 'max:191'],
+            'customer_email' => ['nullable', 'string', 'max:191'],
             'customer_phone' => ['required', 'string', 'max:32'],
             'total_amount' => ['required', 'numeric', 'min:0'],
             'currency' => ['nullable', 'string', 'max:10'],
             'source' => ['nullable', 'string', 'max:64'],
             'source_details' => ['nullable', 'string', 'max:255'],
             'delivery_location' => ['nullable', 'string', 'max:255'],
-            'status' => ['nullable', Rule::in(['pending', 'processing', 'completed', 'cancelled'])],
+            'status' => ['nullable', 'string', 'max:64'],
             'payment_method' => ['nullable', 'string', 'max:64'],
             'payment_status' => ['nullable', 'string', 'max:64'],
             'items' => ['nullable', 'array'],
@@ -243,17 +259,86 @@ class OrderController extends Controller
 
             // 2. Customer find or create
             $totalAmount = (float) $validated['total_amount'];
-            $customerEmail = !empty($validated['customer_email']) ? trim($validated['customer_email']) : ('cust_' . rand(1000, 9999) . '@store.sa');
             $customerPhone = trim($validated['customer_phone']);
             $customerName = trim($validated['customer_name']);
+            $phoneDigits = preg_replace('/\D/', '', $customerPhone);
+            $customerEmail = !empty($validated['customer_email']) ? trim($validated['customer_email']) : ('cust_' . ($phoneDigits ?: rand(1000, 9999)) . '@store.sa');
             $city = !empty($validated['delivery_location']) ? trim(explode('-', $validated['delivery_location'])[0]) : 'Makkah';
-            $source = !empty($validated['source']) ? $validated['source'] : 'Direct';
+
+            // Sanitize Enum values according to database table CHECK constraints
+            $rawSource = trim((string) ($validated['source'] ?? 'Direct'));
+            $validSources = ['WhatsApp', 'Instagram', 'Google Ads', 'Facebook', 'Snapchat', 'TikTok', 'Direct', 'Organic Search', 'Referral', 'Social Media'];
+            if (in_array($rawSource, $validSources, true)) {
+                $source = $rawSource === 'Social Media' ? 'Direct' : $rawSource;
+                $sourceDetails = $validated['source_details'] ?? ($rawSource !== $source ? $rawSource : null);
+            } else {
+                // Keep free-form checkout attribution in source_details; store canonical enum in source
+                $lower = strtolower($rawSource);
+                if (str_contains($lower, 'whatsapp')) {
+                    $source = 'WhatsApp';
+                } elseif (str_contains($lower, 'instagram')) {
+                    $source = 'Instagram';
+                } elseif (str_contains($lower, 'google')) {
+                    $source = 'Google Ads';
+                } elseif (str_contains($lower, 'facebook')) {
+                    $source = 'Facebook';
+                } elseif (str_contains($lower, 'snapchat')) {
+                    $source = 'Snapchat';
+                } elseif (str_contains($lower, 'tiktok')) {
+                    $source = 'TikTok';
+                } else {
+                    $source = 'Direct';
+                }
+                $sourceDetails = $validated['source_details'] ?? $rawSource;
+            }
+
+            $rawMethod = trim((string) ($validated['payment_method'] ?? 'Mada'));
+            if (stripos($rawMethod, 'apple') !== false) {
+                $paymentMethod = 'Apple Pay';
+            } elseif (stripos($rawMethod, 'cod') !== false || stripos($rawMethod, 'cash') !== false) {
+                $paymentMethod = 'COD';
+            } elseif (stripos($rawMethod, 'visa') !== false || stripos($rawMethod, 'master') !== false) {
+                $paymentMethod = 'Visa/MC';
+            } elseif (stripos($rawMethod, 'tabby') !== false) {
+                $paymentMethod = 'Tabby';
+            } elseif (stripos($rawMethod, 'tamara') !== false) {
+                $paymentMethod = 'Tamara';
+            } elseif (stripos($rawMethod, 'stc') !== false) {
+                $paymentMethod = 'stc pay';
+            } else {
+                $paymentMethod = 'Mada';
+            }
+
+            $rawPaymentStatus = strtolower(trim((string) ($validated['payment_status'] ?? 'paid')));
+            $validPaymentStatuses = ['pending', 'authorized', 'paid', 'failed', 'cancelled', 'refunded'];
+            $paymentStatus = in_array($rawPaymentStatus, $validPaymentStatuses, true) ? $rawPaymentStatus : 'paid';
+
+            $rawStatus = strtolower(trim((string) ($validated['status'] ?? 'pending')));
+            // Align with dashboard lifecycle (manual + checkout) — never drop a create over status label
+            $validStatuses = [
+                'pending',
+                'processing',
+                'preparing',
+                'shipped',
+                'out_for_delivery',
+                'delivered',
+                'completed',
+                'cancellation_requested',
+                'cancelled',
+                'returned',
+                'refunded',
+            ];
+            $orderStatus = in_array($rawStatus, $validStatuses, true) ? $rawStatus : 'pending';
+
+            $deliveryLocation = !empty($validated['delivery_location']) ? trim($validated['delivery_location']) : 'Makkah';
 
             $customer = Customer::query()
                 ->where('store_id', $storeId)
                 ->where(function ($q) use ($customerEmail, $customerPhone) {
-                    $q->where('email', $customerEmail)
-                      ->orWhere('phone', $customerPhone);
+                    $q->where('phone', $customerPhone);
+                    if (!empty($customerEmail)) {
+                        $q->orWhere('email', $customerEmail);
+                    }
                 })
                 ->lockForUpdate()
                 ->first();
@@ -289,9 +374,9 @@ class OrderController extends Controller
                 ]);
             }
 
-            // 3. Create the Order
+            // 3. Create the Order — sequential #001, #002… per store (no random WM-MK)
             $orderId = 'ord-' . (string) Str::uuid();
-            $orderNum = 'WM-MK-' . rand(1000, 9999);
+            $orderNum = $this->nextSequentialOrderNumber($storeId);
 
             $order = Order::query()->create([
                 'id' => $orderId,
@@ -305,12 +390,12 @@ class OrderController extends Controller
                 'items_summary' => !empty($items) ? implode(', ', array_column($items, 'name')) : 'Store Products',
                 'total_amount' => $totalAmount,
                 'currency' => $validated['currency'] ?? 'SAR',
-                'source' => in_array($source, ['WhatsApp', 'Instagram', 'Google Ads', 'Facebook', 'Snapchat', 'Direct']) ? $source : 'Direct',
-                'source_details' => $validated['source_details'] ?? null,
-                'delivery_location' => $validated['delivery_location'] ?? 'Makkah',
-                'status' => $validated['status'] ?? 'pending',
-                'payment_method' => $validated['payment_method'] ?? 'Mada',
-                'payment_status' => $validated['payment_status'] ?? 'Paid',
+                'source' => $source,
+                'source_details' => $sourceDetails,
+                'delivery_location' => $deliveryLocation,
+                'status' => $orderStatus,
+                'payment_method' => $paymentMethod,
+                'payment_status' => $paymentStatus,
                 'order_date' => now(),
             ]);
 
@@ -396,11 +481,12 @@ class OrderController extends Controller
             return $storeId;
         }
 
-        $order = Order::query()->forStore($storeId)->with('items')->where('id', $id)->firstOrFail();
+        $order = Order::query()->withoutGlobalScope('store')->forStore($storeId)->with('items')->where('id', $id)->firstOrFail();
 
         $allowedStatuses = [
             'pending',
             'processing',
+            'preparing',
             'shipped',
             'out_for_delivery',
             'delivered',
@@ -408,6 +494,7 @@ class OrderController extends Controller
             'cancellation_requested',
             'cancelled',
             'returned',
+            'refunded',
         ];
 
         $data = $request->validate([
@@ -427,6 +514,7 @@ class OrderController extends Controller
         ]);
 
         $prevStatus = $order->status;
+        $prevPaymentStatus = (string) ($order->payment_status ?? '');
         $newStatus = $data['status'] ?? $prevStatus;
         $shouldRestock = $request->boolean('restock', true);
 
@@ -519,23 +607,38 @@ class OrderController extends Controller
             $order->save();
         });
 
-        // Trigger transactional WhatsApp / SMS alerts on order status change (+966 Saudi)
-        if ($newStatus !== $prevStatus) {
-            try {
-                $notificationService = new NotificationService();
-                if ($newStatus === 'shipped') {
-                    $notificationService->sendOrderNotification('order_shipped', $order);
+        // Real Email + WhatsApp + SMS on status / payment changes
+        $fresh = $order->fresh(['items', 'customer', 'returns']);
+        try {
+            $notificationService = new NotificationService();
+            if ($newStatus !== $prevStatus) {
+                if ($newStatus === 'processing' || $newStatus === 'preparing') {
+                    $notificationService->sendOrderNotification($newStatus === 'preparing' ? 'order_preparing' : 'order_processing', $fresh);
+                } elseif (in_array($newStatus, ['shipped', 'out_for_delivery'], true)) {
+                    $notificationService->sendOrderNotification('order_shipped', $fresh);
                 } elseif (in_array($newStatus, ['delivered', 'completed'], true)) {
-                    $notificationService->sendOrderNotification('order_delivered', $order);
+                    $notificationService->sendOrderNotification('order_delivered', $fresh);
                 } elseif (in_array($newStatus, ['cancelled', 'cancellation_requested'], true)) {
-                    $notificationService->sendOrderNotification('order_cancelled', $order);
+                    $notificationService->sendOrderNotification('order_cancelled', $fresh);
+                } elseif ($newStatus === 'returned' || $newStatus === 'refunded') {
+                    $notificationService->sendOrderNotification('order_refunded', $fresh);
                 }
-            } catch (\Throwable $e) {
-                Log::warning('Order status notification error (' . $newStatus . '): ' . $e->getMessage());
             }
+
+            $newPay = strtolower((string) ($fresh->payment_status ?? ''));
+            $oldPay = strtolower($prevPaymentStatus);
+            if ($newPay !== $oldPay) {
+                if (in_array($newPay, ['paid', 'completed', 'success', 'captured'], true)) {
+                    $notificationService->sendOrderNotification('payment_received', $fresh);
+                } elseif (in_array($newPay, ['pending', 'unpaid', 'failed', 'cancelled', 'canceled'], true)) {
+                    $notificationService->sendOrderNotification('payment_pending', $fresh);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Order status notification error (' . $newStatus . '): ' . $e->getMessage());
         }
 
-        return response()->json(['data' => $order->fresh(['items', 'customer', 'returns'])]);
+        return response()->json(['data' => $fresh]);
     }
 
     public function processReturn(Request $request, string $id): JsonResponse
@@ -545,7 +648,7 @@ class OrderController extends Controller
             return $storeId;
         }
 
-        $order = Order::query()->forStore($storeId)->with('items')->where('id', $id)->firstOrFail();
+        $order = Order::query()->withoutGlobalScope('store')->forStore($storeId)->with('items')->where('id', $id)->firstOrFail();
 
         $validated = $request->validate([
             'reason' => ['required', 'string', 'max:100'],
@@ -613,10 +716,21 @@ class OrderController extends Controller
             return $ret;
         });
 
+        $fresh = $order->fresh(['items', 'customer', 'returns']);
+
+        // Real customer Email + WhatsApp + SMS on return / refund approval
+        if (in_array($status, ['approved', 'completed'], true)) {
+            try {
+                (new NotificationService())->sendOrderNotification('order_refunded', $fresh);
+            } catch (\Throwable $e) {
+                Log::warning('Order return notification error: ' . $e->getMessage());
+            }
+        }
+
         return response()->json([
             'message' => 'Return processed successfully.',
             'return' => $returnRecord,
-            'order' => $order->fresh(['items', 'customer', 'returns']),
+            'order' => $fresh,
         ]);
     }
 
@@ -627,7 +741,7 @@ class OrderController extends Controller
             return $storeId;
         }
 
-        $order = Order::query()->forStore($storeId)->where('id', $id)->firstOrFail();
+        $order = Order::query()->withoutGlobalScope('store')->forStore($storeId)->where('id', $id)->firstOrFail();
 
         $validated = $request->validate([
             'cod_status' => ['required', Rule::in(['pending_collection', 'collected_by_courier', 'remitted_to_bank', 'failed_collection'])],
@@ -733,7 +847,7 @@ class OrderController extends Controller
             return $storeId;
         }
 
-        $order = Order::query()->forStore($storeId)->with('items')->where('id', $id)->firstOrFail();
+        $order = Order::query()->withoutGlobalScope('store')->forStore($storeId)->with('items')->where('id', $id)->firstOrFail();
 
         DB::transaction(function () use ($order, $storeId) {
             // Restore inventory if active order is deleted
@@ -755,5 +869,54 @@ class OrderController extends Controller
         });
 
         return response()->json(['data' => null, 'message' => 'Order deleted and inventory restored.']);
+    }
+
+    /**
+     * Next sequential order number for the store: #001, #002, #003…
+     * Uses max numeric sequence across known formats for this store only.
+     */
+    protected function nextSequentialOrderNumber(string $storeId): string
+    {
+        $max = 0;
+        $numbers = Order::withoutGlobalScope('store')
+            ->where('store_id', $storeId)
+            ->lockForUpdate()
+            ->pluck('order_number');
+
+        foreach ($numbers as $num) {
+            $n = $this->parseOrderSequence((string) $num);
+            if ($n > $max) {
+                $max = $n;
+            }
+        }
+
+        return '#' . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
+    }
+
+    protected function parseOrderSequence(string $orderNumber): int
+    {
+        $raw = trim($orderNumber);
+        if ($raw === '') {
+            return 0;
+        }
+
+        if (preg_match('/^#?0*(\d+)$/i', $raw, $m)) {
+            return (int) $m[1];
+        }
+        if (preg_match('/^sa-0*(\d+)$/i', $raw, $m)) {
+            return (int) $m[1];
+        }
+        if (preg_match('/^ord-0*(\d+)$/i', $raw, $m)) {
+            return (int) $m[1];
+        }
+        if (preg_match('/^wm-mk-0*(\d+)$/i', $raw, $m)) {
+            return (int) $m[1];
+        }
+
+        if (preg_match('/(\d{1,6})/', $raw, $m)) {
+            return (int) $m[1];
+        }
+
+        return 0;
     }
 }

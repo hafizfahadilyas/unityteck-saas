@@ -38,7 +38,6 @@ import {
   Eye,
   Share2,
   User,
-  MessageCircle,
   Menu,
   Grid,
   ArrowRight,
@@ -56,6 +55,13 @@ import {
 import { ClientAuthModal } from '../common/ClientAuthModal';
 import { PrefsSwitcher } from '../common/PrefsSwitcher';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { ORDER_SOURCE_OPTIONS, OrderSourceIcon, WhatsAppBrandIcon } from '../common/BrandIcons';
+import {
+  MadaIcon,
+  ApplePayIcon,
+  TabbyIcon,
+  CodIcon,
+} from '../../themes/coffeeRoasters/components/PaymentIcons';
 import {
   FLOWERS_THEME_ID,
   FLOWERS_HOMEPAGES,
@@ -91,6 +97,7 @@ import {
 } from '../../themes/flowersPremium/sfCustomerSession';
 import { readStoreIdentity } from '../../themes/settings/storeIdentity';
 import { readAllThemeSettings, getSeasonalThemeColors, type AllThemeSettings, type CustomMenuItem } from '../../themes/settings/themeSettingsStore';
+import { sellingPrice } from '../../utils/productPricing';
 import {
   SfAnnouncementBar,
   SfHeroSlider,
@@ -202,6 +209,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [checkoutComplete, setCheckoutComplete] = useState(false);
   const [paymentChoice, setPaymentChoice] = useState<'mada' | 'apple_pay' | 'tabby' | 'cod'>('mada');
+  const [checkoutOrderSource, setCheckoutOrderSource] = useState<string>('Direct');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedBrand, setSelectedBrand] = useState<string>('All');
   const [inStockOnly, setInStockOnly] = useState(false);
@@ -439,11 +447,26 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
     return FLOWERS_VARIATIONS[quickViewProduct.id]?.find((v) => v.id === selectedVariationId)?.priceDelta ?? 0;
   }, [quickViewProduct, selectedVariationId]);
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const couponDiscount =
-    couponApplied && couponCode.toUpperCase() === offerConfig.code.toUpperCase()
-      ? Math.round(cartTotal * (offerConfig.discountPercent / 100))
-      : 0;
+  const lineSell = (p: Product) => sellingPrice(p.price, p.discountedPrice);
+  const cartTotal = cart.reduce((sum, item) => sum + lineSell(item.product) * item.quantity, 0);
+  const couponDiscount = (() => {
+    if (!couponApplied) return 0;
+    const code = couponCode.trim().toUpperCase();
+    const fromTenant = currentCoupons.find(
+      (c) => c.code.toUpperCase() === code && c.status === 'active',
+    );
+    if (fromTenant) {
+      if (fromTenant.minOrderValue && cartTotal < fromTenant.minOrderValue) return 0;
+      if (fromTenant.discountType === 'fixed') {
+        return Math.min(cartTotal, fromTenant.discountValue);
+      }
+      return Math.round(cartTotal * (fromTenant.discountValue / 100));
+    }
+    if (code === offerConfig.code.toUpperCase()) {
+      return Math.round(cartTotal * (offerConfig.discountPercent / 100));
+    }
+    return 0;
+  })();
   const afterCoupon = Math.max(0, cartTotal - couponDiscount);
   const vatAmount = Math.round(afterCoupon * 0.15);
 
@@ -567,7 +590,18 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
         // fallback
       }
 
-      const resolvedSource = utmAttrs.source || (paymentChoice === 'mada' || paymentChoice === 'apple_pay' ? 'Direct' : 'WhatsApp');
+      const utmMapped = (() => {
+        const s = (utmAttrs.source || '').toLowerCase();
+        if (s.includes('tiktok')) return 'TikTok';
+        if (s.includes('snap')) return 'Snapchat';
+        if (s.includes('instagram') || s === 'ig') return 'Instagram';
+        if (s.includes('whatsapp') || s === 'wa') return 'WhatsApp';
+        if (s.includes('facebook') || s === 'fb') return 'Facebook';
+        if (s.includes('google')) return 'Google Ads';
+        if (utmAttrs.source) return utmAttrs.source;
+        return null;
+      })();
+      const resolvedSource = utmMapped || checkoutOrderSource || 'Direct';
 
       addOrder({
         customerName: customer.name,
@@ -578,7 +612,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
         shippingFee: shippingFee,
         shippingCompany: 'Saudi Post (SPL)',
         source: resolvedSource,
-        sourceDetails: `Public Storefront Web Checkout · Makkah Delivery (${districtSnapshot}) · ${customer.email}${utmAttrs.campaign ? ` · Campaign: ${utmAttrs.campaign}` : ''}`,
+        sourceDetails: `Public Storefront Web Checkout · Source: ${resolvedSource} · Makkah Delivery (${districtSnapshot}) · ${customer.email}${utmAttrs.campaign ? ` · Campaign: ${utmAttrs.campaign}` : ''}`,
         deliveryLocation: districtSnapshot,
         shippingAddress: `${districtSnapshot}, Makkah, Kingdom of Saudi Arabia`,
         status: 'pending',
@@ -2257,7 +2291,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
                   rel="noopener noreferrer"
                   className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-[#25D366] hover:bg-[#20ba59] text-white flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/20 hover:scale-[1.02] transition-all"
                 >
-                  <MessageCircle className="w-4 h-4 fill-white" />
+                  <WhatsAppBrandIcon className="w-4 h-4 text-white" title="WhatsApp" />
                   <span>{lang === 'ar' ? 'اطلب هذا المنتج عبر واتساب' : 'Order via WhatsApp'}</span>
                 </a>
 
@@ -2310,7 +2344,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
                     <img src={item.product.image} alt={item.product.name} className="w-14 h-14 rounded-xl object-cover" />
                     <div className="flex-1 min-w-0">
                       <h5 className="font-bold text-xs text-slate-900 truncate">{item.product.name}</h5>
-                      <span className="text-[11px] font-bold text-emerald-700">{money(item.product.price)}</span>
+                      <span className="text-[11px] font-bold text-emerald-700">{money(lineSell(item.product))}</span>
                       <div className="text-[10px] text-slate-400 mt-0.5">الكمية: {item.quantity}</div>
                     </div>
                     <button 
@@ -2399,18 +2433,44 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
                   </p>
                 ) : null}
 
-                {/* Payment Selection */}
+                {/* Order Source — TikTok, Snapchat, Direct, etc. */}
                 <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold text-slate-700">اختر وسيلة الدفع:</span>
+                  <span className="text-[11px] font-bold text-slate-700">
+                    {lang === 'ar' ? 'من أين عرفت عنا؟ / مصدر الطلب' : 'Order source / How did you find us?'}
+                  </span>
+                  <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+                    {ORDER_SOURCE_OPTIONS.slice(0, 6).map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setCheckoutOrderSource(opt.value)}
+                        className={`p-2 rounded-xl font-bold border transition-colors flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                          checkoutOrderSource === opt.value
+                            ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                            : 'border-slate-200 bg-white text-slate-700'
+                        }`}
+                      >
+                        <OrderSourceIcon source={opt.value} className="w-4 h-4" />
+                        <span>{lang === 'ar' ? opt.labelAr : opt.labelEn}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Payment Selection — real Saudi brand marks */}
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-bold text-slate-700">
+                    {lang === 'ar' ? 'اختر وسيلة الدفع:' : 'Choose payment method:'}
+                  </span>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     {(
                       [
-                        ['mada', 'مدى Mada'],
-                        ['apple_pay', 'Apple Pay'],
-                        ['tabby', 'Tabby تابي'],
-                        ['cod', lang === 'ar' ? 'الدفع عند الاستلام' : 'Cash on Delivery'],
+                        ['mada', lang === 'ar' ? 'مدى' : 'mada', <MadaIcon key="m" className="h-5 w-auto" />],
+                        ['apple_pay', 'Apple Pay', <ApplePayIcon key="a" className="h-5 w-auto" />],
+                        ['tabby', 'Tabby', <TabbyIcon key="t" className="h-5 w-auto" />],
+                        ['cod', lang === 'ar' ? 'الدفع عند الاستلام' : 'Cash on Delivery', <CodIcon key="c" className="h-5 w-auto" />],
                       ] as const
-                    ).map(([id, label]) => (
+                    ).map(([id, label, icon]) => (
                       <button
                         key={id}
                         type="button"
@@ -2421,6 +2481,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
                             : 'border-slate-200 bg-white text-slate-700'
                         }`}
                       >
+                        {icon}
                         <span>{label}</span>
                       </button>
                     ))}

@@ -24,7 +24,6 @@ import {
   Globe,
   Share2,
   Bot,
-  MessageCircle,
   CreditCard,
   Check,
   Store as StoreIcon,
@@ -52,10 +51,17 @@ import {
 import { useToast } from '../common/ToastProvider';
 import { RetailInvoiceModal } from '../common/RetailInvoiceModal';
 import { EditOrderModal } from '../common/EditOrderModal';
-import { getStoreDisplayName } from '../../utils/storeLocalization';
+import { WhatsAppBrandIcon } from '../common/BrandIcons';
+import { getCustomerDisplayName, getStoreDisplayName } from '../../utils/storeLocalization';
+import {
+  localizeOrderStatus,
+  localizePaymentMethod,
+  localizeSalesChannel,
+} from '../../utils/domainLabels';
 import { readAuthSession } from '../../auth/session';
 import { canDeleteEntities } from '../../auth/roles';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE, resolveProductThumbnail } from '../../utils/imageFallback';
+import { orderStatusGrowth } from '../../utils/liveSeries';
 
 /**
  * MasterOrders — Platform Order Management (100% Pixel Perfect to Mockups 04 & 05)
@@ -127,8 +133,52 @@ export const MasterOrders: React.FC = () => {
       (o) => o.status === 'shipped' || o.status === 'out_for_delivery' || (o as any).fulfillmentStatus === 'out_for_delivery',
     ).length;
 
-    return { total, completed, pending, inDelivery };
+    const totalGrowth = orderStatusGrowth(activeOrders);
+    const completedGrowth = orderStatusGrowth(
+      activeOrders,
+      (o) => o.status === 'completed' || o.status === 'delivered',
+    );
+    const pendingGrowth = orderStatusGrowth(activeOrders, (o) => o.status === 'pending');
+    const inDeliveryGrowth = orderStatusGrowth(
+      activeOrders,
+      (o) =>
+        o.status === 'shipped' ||
+        o.status === 'out_for_delivery' ||
+        (o as { fulfillmentStatus?: string }).fulfillmentStatus === 'out_for_delivery',
+    );
+
+    return {
+      total,
+      completed,
+      pending,
+      inDelivery,
+      totalGrowth,
+      completedGrowth,
+      pendingGrowth,
+      inDeliveryGrowth,
+    };
   }, [activeOrders]);
+
+  const renderKpiTrend = (growth: { pct: number; hasData: boolean }) => {
+    const vsLabel = isAr ? 'عن الشهر الماضي' : 'vs last month';
+    if (!growth.hasData) {
+      return (
+        <div className="text-[10px] font-normal opacity-70 mt-1" style={{ color: 'var(--muted)' }}>
+          {isAr ? 'لا بيانات مقارنة بعد' : 'No comparison data yet'}
+        </div>
+      );
+    }
+    const up = growth.pct >= 0;
+    const Icon = up ? TrendingUp : TrendingDown;
+    const tone = up ? 'text-emerald-600' : 'text-rose-600';
+    return (
+      <div className={`text-[10px] font-bold mt-1 flex items-center gap-0.5 ${tone}`}>
+        <Icon className="w-3 h-3" />
+        <span>{Math.abs(growth.pct)}%</span>
+        <span className="font-normal opacity-70" style={{ color: 'var(--muted)' }}>{vsLabel}</span>
+      </div>
+    );
+  };
 
   // ── Status Tabs with Mockup Counts ──
   const STATUS_TABS = useMemo(() => {
@@ -340,7 +390,7 @@ export const MasterOrders: React.FC = () => {
           </span>
         );
       case 'WhatsApp':
-        return <MessageCircle className="w-4 h-4 text-emerald-500 shrink-0" />;
+        return <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366] shrink-0" title="WhatsApp" />;
       case 'TikTok':
         return (
           <span className="w-4 h-4 rounded bg-black text-white font-black text-[9px] flex items-center justify-center shrink-0">
@@ -363,13 +413,14 @@ export const MasterOrders: React.FC = () => {
   // ── Payment Badge Renderer ──
   const getPaymentBadge = (method: string) => {
     const m = (method || '').toLowerCase();
+    const label = localizePaymentMethod(method, locale);
     if (m.includes('mada')) {
       return (
         <span className="inline-flex items-center gap-1.5 font-bold text-xs">
           <span className="w-5 h-3.5 bg-emerald-600 rounded-xs text-[8px] text-white flex items-center justify-center font-black">
             M
           </span>
-          <span style={{ color: 'var(--text)' }}>mada</span>
+          <span style={{ color: 'var(--text)' }}>{t('mada') || label}</span>
         </span>
       );
     }
@@ -377,37 +428,36 @@ export const MasterOrders: React.FC = () => {
       return (
         <span className="inline-flex items-center gap-1.5 font-bold text-xs" style={{ color: 'var(--text)' }}>
           <Smartphone className="w-3.5 h-3.5 text-slate-800 dark:text-slate-200" />
-          <span>Apple Pay</span>
+          <span>{t('applePay') || label}</span>
         </span>
       );
     }
     if (m.includes('stc')) {
       return (
         <span className="inline-flex items-center gap-1.5 font-bold text-xs text-purple-600">
-          <span className="font-black text-[10px]">stc</span>
-          <span>pay</span>
+          <span>{t('stcPay') || label}</span>
         </span>
       );
     }
     if (m.includes('visa')) {
       return (
         <span className="inline-flex items-center gap-1.5 font-black text-xs text-blue-700">
-          VISA
+          {localizePaymentMethod('Visa', locale)}
         </span>
       );
     }
-    if (m.includes('cash') || m.includes('cod')) {
+    if (m.includes('cash') || m.includes('cod') || m.includes('استلام')) {
       return (
         <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-emerald-700 dark:text-emerald-400">
           <Banknote className="w-3.5 h-3.5" />
-          <span>Cash on Delivery</span>
+          <span>{t('cashOnDelivery') || label}</span>
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--text)' }}>
         <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-        <span>{method || 'Credit Card'}</span>
+        <span>{label || t('creditCard')}</span>
       </span>
     );
   };
@@ -469,7 +519,7 @@ export const MasterOrders: React.FC = () => {
       default:
         return (
           <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 whitespace-nowrap">
-            {status}
+            {localizeOrderStatus(String(status), locale)}
           </span>
         );
     }
@@ -713,8 +763,8 @@ export const MasterOrders: React.FC = () => {
                 </div>
                 <p className="text-xs text-amber-800 dark:text-amber-300 mt-1 leading-relaxed">
                   {isAr
-                    ? `قام العميل (${o.customerName}) بطلب إلغاء هذا الطلب (${o.orderNumber}) بمبلغ إجمالي (${money(o.total)}). يرجى مراجعة الطلب والموافقة على الإلغاء واسترداد المبلغ أو رفض الطلب ومواصلة التجهيز.`
-                    : `Customer (${o.customerName}) requested cancellation for order (${o.orderNumber}) total (${money(o.total)}). Please review and approve refund or reject to continue.`}
+                    ? `قام العميل (${getCustomerDisplayName(o.customerName, locale)}) بطلب إلغاء هذا الطلب (${o.orderNumber}) بمبلغ إجمالي (${money(o.total)}). يرجى مراجعة الطلب والموافقة على الإلغاء واسترداد المبلغ أو رفض الطلب ومواصلة التجهيز.`
+                    : `Customer (${getCustomerDisplayName(o.customerName, locale)}) requested cancellation for order (${o.orderNumber}) total (${money(o.total)}). Please review and approve refund or reject to continue.`}
                 </p>
                 {o.cancelReason && (
                   <p className="text-[11px] font-mono text-amber-950 dark:text-amber-100 bg-amber-100/60 dark:bg-amber-900/40 px-3 py-1.5 rounded-lg mt-2 inline-block border border-amber-200">
@@ -843,11 +893,11 @@ export const MasterOrders: React.FC = () => {
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-full bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 font-bold flex items-center justify-center text-sm">
-                    {o.customerAvatar || (o.customerName ? o.customerName.slice(0, 2).toUpperCase() : 'AQ')}
+                    {o.customerAvatar || (getCustomerDisplayName(o.customerName, locale).slice(0, 2).toUpperCase() || 'AQ')}
                   </div>
                   <div>
                     <h3 className="font-bold text-sm leading-tight" style={{ color: 'var(--text)' }}>
-                      {o.customerName}
+                      {getCustomerDisplayName(o.customerName, locale)}
                     </h3>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 mt-1 inline-block">
                       {o.customerType ? (isAr ? (o.customerType === 'Returning Customer' ? t('returningCustomer') : o.customerType) : o.customerType) : t('returningCustomer')}
@@ -1379,11 +1429,7 @@ export const MasterOrders: React.FC = () => {
             <div className="text-lg sm:text-xl font-black tabular-nums leading-none mt-1" style={{ color: 'var(--text)' }}>
               {kpi.total.toLocaleString()}
             </div>
-            <div className="text-[10px] font-bold text-emerald-600 mt-1 flex items-center gap-0.5">
-              <TrendingUp className="w-3 h-3" />
-              <span>12%</span>
-              <span className="font-normal opacity-70" style={{ color: 'var(--muted)' }}>{isAr ? 'عن الشهر الماضي' : 'vs last month'}</span>
-            </div>
+            {renderKpiTrend(kpi.totalGrowth)}
           </div>
         </div>
 
@@ -1399,11 +1445,7 @@ export const MasterOrders: React.FC = () => {
             <div className="text-lg sm:text-xl font-black tabular-nums leading-none mt-1" style={{ color: 'var(--text)' }}>
               {kpi.completed.toLocaleString()}
             </div>
-            <div className="text-[10px] font-bold text-emerald-600 mt-1 flex items-center gap-0.5">
-              <TrendingUp className="w-3 h-3" />
-              <span>14%</span>
-              <span className="font-normal opacity-70" style={{ color: 'var(--muted)' }}>{isAr ? 'عن الشهر الماضي' : 'vs last month'}</span>
-            </div>
+            {renderKpiTrend(kpi.completedGrowth)}
           </div>
         </div>
 
@@ -1419,11 +1461,7 @@ export const MasterOrders: React.FC = () => {
             <div className="text-lg sm:text-xl font-black tabular-nums leading-none mt-1" style={{ color: 'var(--text)' }}>
               {kpi.pending.toLocaleString()}
             </div>
-            <div className="text-[10px] font-bold text-rose-600 mt-1 flex items-center gap-0.5">
-              <TrendingDown className="w-3 h-3" />
-              <span>4%</span>
-              <span className="font-normal opacity-70" style={{ color: 'var(--muted)' }}>{isAr ? 'عن الشهر الماضي' : 'vs last month'}</span>
-            </div>
+            {renderKpiTrend(kpi.pendingGrowth)}
           </div>
         </div>
 
@@ -1439,11 +1477,7 @@ export const MasterOrders: React.FC = () => {
             <div className="text-lg sm:text-xl font-black tabular-nums leading-none mt-1" style={{ color: 'var(--text)' }}>
               {kpi.inDelivery.toLocaleString()}
             </div>
-            <div className="text-[10px] font-bold text-emerald-600 mt-1 flex items-center gap-0.5">
-              <TrendingUp className="w-3 h-3" />
-              <span>8%</span>
-              <span className="font-normal opacity-70" style={{ color: 'var(--muted)' }}>{isAr ? 'عن الشهر الماضي' : 'vs last month'}</span>
-            </div>
+            {renderKpiTrend(kpi.inDeliveryGrowth)}
           </div>
         </div>
       </div>
@@ -1539,7 +1573,7 @@ export const MasterOrders: React.FC = () => {
           >
             <div>
               <label className="text-[10px] font-bold block mb-1" style={{ color: 'var(--muted)' }}>
-                Payment Method
+                {t('paymentMethod')}
               </label>
               <select
                 value={selectedPaymentMethod}
@@ -1547,19 +1581,19 @@ export const MasterOrders: React.FC = () => {
                 className="w-full px-3 py-2 text-xs rounded-xl border"
                 style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
               >
-                <option value="all">All Payment Methods</option>
-                <option value="mada">mada</option>
-                <option value="apple">Apple Pay</option>
-                <option value="credit">Credit Card</option>
-                <option value="stc">stc pay</option>
-                <option value="visa">Visa</option>
-                <option value="cash">Cash on Delivery</option>
+                <option value="all">{t('allPaymentMethods')}</option>
+                <option value="mada">{t('mada') || localizePaymentMethod('mada', locale)}</option>
+                <option value="apple">{t('applePay') || localizePaymentMethod('Apple Pay', locale)}</option>
+                <option value="credit">{t('creditCard') || localizePaymentMethod('Credit Card', locale)}</option>
+                <option value="stc">{t('stcPay') || localizePaymentMethod('stc pay', locale)}</option>
+                <option value="visa">{localizePaymentMethod('Visa', locale)}</option>
+                <option value="cash">{t('cashOnDelivery') || localizePaymentMethod('Cash on Delivery', locale)}</option>
               </select>
             </div>
 
             <div>
               <label className="text-[10px] font-bold block mb-1" style={{ color: 'var(--muted)' }}>
-                Order Acquisition Source
+                {t('orderSource')}
               </label>
               <select
                 value={selectedSource}
@@ -1567,15 +1601,15 @@ export const MasterOrders: React.FC = () => {
                 className="w-full px-3 py-2 text-xs rounded-xl border"
                 style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
               >
-                <option value="all">All Sources</option>
-                <option value="Instagram">Instagram</option>
-                <option value="Google Ads">Google Ads</option>
-                <option value="Direct">Direct</option>
-                <option value="TikTok">TikTok</option>
-                <option value="Snapchat">Snapchat</option>
-                <option value="Organic Search">Organic Search</option>
-                <option value="AI Assistant">AI Assistant</option>
-                <option value="Referral">Referral</option>
+                <option value="all">{t('allSources')}</option>
+                <option value="Instagram">{localizeSalesChannel('Instagram', locale)}</option>
+                <option value="Google Ads">{localizeSalesChannel('Google Ads', locale)}</option>
+                <option value="Direct">{localizeSalesChannel('Direct', locale)}</option>
+                <option value="TikTok">{localizeSalesChannel('TikTok', locale)}</option>
+                <option value="Snapchat">{isAr ? 'سناب شات' : 'Snapchat'}</option>
+                <option value="Organic Search">{isAr ? 'بحث عضوي' : 'Organic Search'}</option>
+                <option value="AI Assistant">{isAr ? 'مساعد ذكي' : 'AI Assistant'}</option>
+                <option value="Referral">{isAr ? 'إحالة' : 'Referral'}</option>
               </select>
             </div>
 
@@ -1587,12 +1621,12 @@ export const MasterOrders: React.FC = () => {
                   setSelectedSource('all');
                   setSelectedStoreId('all');
                   setSearch('');
-                  toast('Filters reset to default', 'info');
+                  toast(t('resetFilters'), 'info');
                 }}
                 className="px-4 py-2 text-xs font-bold rounded-xl border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                 style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
               >
-                Reset All Filters
+                {t('resetFilters')}
               </button>
             </div>
           </div>
@@ -1711,34 +1745,34 @@ export const MasterOrders: React.FC = () => {
                   />
                 </th>
                 <th className="pb-3 px-3 text-start font-semibold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  # Order No.
+                  # {t('orderNumber')}
                 </th>
                 <th className="pb-3 px-3 text-start font-semibold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  Store
+                  {isAr ? 'المتجر' : 'Store'}
                 </th>
                 <th className="pb-3 px-3 text-start font-semibold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  Customer
+                  {t('customerCol')}
                 </th>
                 <th className="pb-3 px-3 text-start font-semibold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  Products
+                  {t('productsCol')}
                 </th>
                 <th className="pb-3 px-3 text-start font-semibold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  Total Amount
+                  {t('total')}
                 </th>
                 <th className="pb-3 px-3 text-start font-semibold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  Payment Method
+                  {t('paymentMethod')}
                 </th>
                 <th className="pb-3 px-3 text-start font-semibold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  Order Status
+                  {t('orderStatus')}
                 </th>
                 <th className="pb-3 px-3 text-start font-semibold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  Order Source
+                  {t('orderSource')}
                 </th>
                 <th className="pb-3 px-3 text-start font-semibold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  Order Date ↓
+                  {t('orderDate')} ↓
                 </th>
                 <th className="pb-3 px-3 text-center font-semibold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  Actions
+                  {t('actionsCol')}
                 </th>
               </tr>
             </thead>
@@ -1746,7 +1780,7 @@ export const MasterOrders: React.FC = () => {
               {pagedOrders.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-12 text-center text-xs" style={{ color: 'var(--muted)' }}>
-                    No orders matching your criteria.
+                    {t('noOrdersMatchFilter')}
                   </td>
                 </tr>
               ) : (
@@ -1796,7 +1830,7 @@ export const MasterOrders: React.FC = () => {
                       {/* Customer: Name & Phone below */}
                       <td className="py-3.5 px-3 whitespace-nowrap" style={{ borderBottom: '1px solid var(--border)' }}>
                         <div className="font-bold text-xs" style={{ color: 'var(--text)' }}>
-                          {ord.customerName}
+                          {getCustomerDisplayName(ord.customerName, locale)}
                         </div>
                         <div className="text-[11px] font-mono mt-0.5" style={{ color: 'var(--muted)' }}>
                           {ord.customerPhone}
@@ -1854,7 +1888,7 @@ export const MasterOrders: React.FC = () => {
                       <td className="py-3.5 px-3 whitespace-nowrap" style={{ borderBottom: '1px solid var(--border)' }}>
                         <div className="flex items-center gap-1.5 font-medium text-xs" style={{ color: 'var(--text)' }}>
                           {getSourceIcon(ord.source)}
-                          <span>{ord.source}</span>
+                          <span>{localizeSalesChannel(ord.source, locale)}</span>
                         </div>
                       </td>
 

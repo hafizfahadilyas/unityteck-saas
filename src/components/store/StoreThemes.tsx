@@ -440,8 +440,8 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
           </div>
           <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? `متجرك: ${getStoreDisplayName(activeStore, 'ar')} · القالب الفعال: ${currentStyle} · بيانات متصلة حقيقية بالكامل`
-              : `Store: ${getStoreDisplayName(activeStore, 'en')} · Active Style: ${currentStyle} · Zero fake data, fully dynamic`}
+              ? `القالب الفعال: ${currentStyle} · بيانات متصلة حقيقية بالكامل`
+              : `Active Style: ${currentStyle} · Zero fake data, fully dynamic`}
           </p>
         </div>
 

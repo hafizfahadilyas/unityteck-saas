@@ -31,26 +31,7 @@ const STORAGE_KEY = 'unityteck_auth';
 const BACKUP_STORAGE_KEY = 'unityteck_auth_lifetime_backup';
 const EXPLICIT_LOGOUT_KEY = 'unityteck_explicit_logout';
 
-let cachedSessionRaw: string | null = null;
-let cachedSessionObj: AuthSession | null = null;
-let cachedSessionInitialized = false;
-
-function invalidateSessionCache(): void {
-  cachedSessionInitialized = false;
-  cachedSessionRaw = null;
-  cachedSessionObj = null;
-}
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => {
-    if (!e.key || e.key === STORAGE_KEY || e.key === BACKUP_STORAGE_KEY || e.key === EXPLICIT_LOGOUT_KEY) {
-      invalidateSessionCache();
-    }
-  });
-}
-
 function emitAuthChange(): void {
-  invalidateSessionCache();
   try {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('unityteck-auth'));
@@ -66,23 +47,13 @@ export function readAuthSession(): AuthSession | null {
 
     // If user explicitly performed logout, respect it until next login
     if (localStorage.getItem(EXPLICIT_LOGOUT_KEY) === '1') {
-      cachedSessionInitialized = true;
-      cachedSessionRaw = null;
-      cachedSessionObj = null;
       return null;
     }
 
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (cachedSessionInitialized && raw === cachedSessionRaw && cachedSessionObj) {
-      return cachedSessionObj;
-    }
-
     if (raw) {
       const parsed = JSON.parse(raw) as AuthSession;
       if (parsed?.token && parsed?.user?.id && parsed?.portal) {
-        cachedSessionInitialized = true;
-        cachedSessionRaw = raw;
-        cachedSessionObj = parsed;
         return parsed;
       }
     }
@@ -93,16 +64,10 @@ export function readAuthSession(): AuthSession | null {
       const backupParsed = JSON.parse(backupRaw) as AuthSession;
       if (backupParsed?.token && backupParsed?.user?.id && backupParsed?.portal) {
         localStorage.setItem(STORAGE_KEY, backupRaw);
-        cachedSessionInitialized = true;
-        cachedSessionRaw = backupRaw;
-        cachedSessionObj = backupParsed;
         return backupParsed;
       }
     }
 
-    cachedSessionInitialized = true;
-    cachedSessionRaw = null;
-    cachedSessionObj = null;
     return null;
   } catch {
     return null;
@@ -147,25 +112,6 @@ export function clearAuthSession(force = false): void {
       localStorage.removeItem(BACKUP_STORAGE_KEY);
     }
     emitAuthChange();
-  } catch {
-    /* ignore */
-  }
-}
-
-export function patchAuthSessionUser(updates: { email?: string; name?: string; storeName?: string }): void {
-  try {
-    const current = readAuthSession();
-    if (!current) return;
-    const next: AuthSession = {
-      ...current,
-      user: {
-        ...current.user,
-        ...(updates.email ? { email: updates.email } : {}),
-        ...(updates.name ? { name: updates.name } : {}),
-      },
-      ...(updates.storeName ? { storeName: updates.storeName } : {}),
-    };
-    writeAuthSession(next);
   } catch {
     /* ignore */
   }

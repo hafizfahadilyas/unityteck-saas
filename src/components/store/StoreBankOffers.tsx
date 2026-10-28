@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
@@ -19,25 +19,15 @@ import {
   ChevronRight,
   Eye,
 } from 'lucide-react';
+import {
+  type BankOfferItem,
+  loadBankOffers,
+  saveBankOffer,
+  deleteBankOffer,
+} from '../../utils/bankOffers';
 
 interface StoreBankOffersProps {
   onNavigateTab?: (tab: string) => void;
-}
-
-interface BankOfferItem {
-  id: string;
-  storeId: string;
-  name: string;
-  description: string;
-  discountType: 'percentage' | 'fixed';
-  discountValue: number;
-  triggerType: 'cart_value' | 'item_count';
-  triggerValue: number;
-  bankName: string;
-  paymentMethod: string;
-  status: 'active' | 'draft' | 'expired';
-  startDate: string;
-  endDate: string;
 }
 
 export const StoreBankOffers: React.FC<StoreBankOffersProps> = ({ onNavigateTab }) => {
@@ -61,35 +51,60 @@ export const StoreBankOffers: React.FC<StoreBankOffersProps> = ({ onNavigateTab 
   const [selectedBank, setSelectedBank] = useState('Al Rajhi Bank');
   const [paymentMethod, setPaymentMethod] = useState('Credit Cards');
   const [previewTab, setPreviewTab] = useState<'checkout' | 'banner' | 'dark' | 'transparent'>('checkout');
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    return d.toISOString().slice(0, 10);
+  });
 
-  // Multi-tenant isolated bank offers list
-  const [bankOffers, setBankOffers] = useState<BankOfferItem[]>([]);
+  // Multi-tenant isolated bank offers (persisted — applied at checkout)
+  const [bankOffers, setBankOffers] = useState<BankOfferItem[]>(() => loadBankOffers(activeStore.id));
+
+  useEffect(() => {
+    setBankOffers(loadBankOffers(activeStore.id));
+  }, [activeStore.id]);
 
   const handleSaveOffer = (status: 'active' | 'draft' = 'active') => {
+    if (!offerName.trim()) {
+      toast(isAr ? 'يرجى إدخال اسم العرض' : 'Please enter offer name', 'error');
+      return;
+    }
+    const value = parseFloat(discountValue) || 0;
+    if (value <= 0) {
+      toast(isAr ? 'يرجى إدخال قيمة خصم صحيحة' : 'Please enter a valid discount value', 'error');
+      return;
+    }
+
     const newOffer: BankOfferItem = {
       id: `bo-${Date.now()}`,
       storeId: activeStore.id,
-      name: offerName,
+      name: offerName.trim(),
       description: offerDescription,
       discountType,
-      discountValue: parseFloat(discountValue) || 10,
+      discountValue: value,
       triggerType,
-      triggerValue: parseFloat(minCartValue) || 100,
+      triggerValue: parseFloat(minCartValue) || 0,
       bankName: selectedBank,
       paymentMethod,
       status,
-      startDate: '2026-10-18',
-      endDate: '2026-11-18',
+      startDate,
+      endDate,
     };
 
-    setBankOffers([newOffer, ...bankOffers]);
+    setBankOffers(saveBankOffer(newOffer));
     toast(
       isAr
-        ? `تم حفظ وتفعيل العرض البنكي "${offerName}" بنجاح`
-        : `Bank offer "${offerName}" saved successfully`,
+        ? `تم حفظ وتفعيل العرض البنكي "${offerName}" بنجاح — يُطبَّق تلقائياً عند الدفع`
+        : `Bank offer "${offerName}" saved — applies automatically at checkout`,
       'success'
     );
     setViewMode('list');
+  };
+
+  const handleDeleteOffer = (offerId: string) => {
+    setBankOffers(deleteBankOffer(activeStore.id, offerId));
+    toast(isAr ? 'تم حذف العرض البنكي' : 'Bank offer deleted', 'success');
   };
 
   if (viewMode === 'create') {
@@ -383,8 +398,8 @@ export const StoreBankOffers: React.FC<StoreBankOffersProps> = ({ onNavigateTab 
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {isAr
-              ? `إدارة عروض الخصم التلقائي مع البنوك السعودية لمتجر ${activeStore.name}`
-              : `Manage automated bank partnership discounts for ${activeStore.name}`}
+              ? 'إدارة عروض الخصم التلقائي مع البنوك السعودية'
+              : 'Manage automated bank partnership discounts'}
           </p>
         </div>
 
@@ -435,7 +450,11 @@ export const StoreBankOffers: React.FC<StoreBankOffersProps> = ({ onNavigateTab 
                   <tr key={o.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
                     <td className="py-3 px-4 text-start font-bold">{o.name}</td>
                     <td className="py-3 px-3 text-start">{o.bankName}</td>
-                    <td className="py-3 px-3 text-start font-bold text-teal-600">{o.discountValue}%</td>
+                    <td className="py-3 px-3 text-start font-bold text-teal-600">
+                      {o.discountType === 'fixed'
+                        ? money(o.discountValue)
+                        : `${o.discountValue}%`}
+                    </td>
                     <td className="py-3 px-3 text-center">
                       <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">
                         {o.status}
@@ -444,8 +463,8 @@ export const StoreBankOffers: React.FC<StoreBankOffersProps> = ({ onNavigateTab 
                     <td className="py-3 px-4 text-end">
                       <button
                         type="button"
-                        onClick={() => setBankOffers(bankOffers.filter((b) => b.id !== o.id))}
-                        className="p-1 text-red-500 hover:bg-red-50 rounded-lg"
+                        onClick={() => handleDeleteOffer(o.id)}
+                        className="p-1 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

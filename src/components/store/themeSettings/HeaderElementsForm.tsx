@@ -11,7 +11,6 @@ import {
   Heart,
   User,
   Phone,
-  MessageCircle,
   Plus,
   Trash2,
   Sliders,
@@ -29,6 +28,7 @@ import {
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { WhatsAppBrandIcon } from '../../common/BrandIcons';
 import {
   readAllThemeSettings,
   writeAllThemeSettings,
@@ -396,7 +396,7 @@ export const HeaderElementsForm: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#25D366] flex items-center justify-center">
-                  <MessageCircle className="w-4 h-4 fill-[#25D366]" />
+                  <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
                 </div>
                 <div>
                   <h4 className="text-xs font-bold">{isAr ? 'أيقونة الواتساب (WhatsApp Chat)' : 'WhatsApp Icon'}</h4>

@@ -14,11 +14,11 @@ import {
   Flower2,
   ShieldCheck,
   Truck,
-  MessageCircle,
 } from 'lucide-react';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { WhatsAppBrandIcon } from '../../common/BrandIcons';
 import {
   readAllThemeSettings,
   writeAllThemeSettings,
@@ -247,7 +247,7 @@ export const ProductCardsForm: React.FC = () => {
                   onClick={() => toast(isAr ? 'فتح المحادثة عبر واتساب (معاينة)' : 'Opens WhatsApp ordering chat (preview)', 'info')}
                   className="w-full py-2 px-1.5 rounded-full bg-[#0e4e3e] hover:bg-[#0a382c] text-white text-[11px] font-bold flex items-center justify-center gap-1 shadow-sm transition-transform active:scale-95 cursor-pointer whitespace-nowrap"
                 >
-                  <MessageCircle className="w-3 h-3 shrink-0 fill-white" />
+                  <WhatsAppBrandIcon className="w-3 h-3 shrink-0 text-white" title="WhatsApp" />
                   <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
                 </button>
               </div>

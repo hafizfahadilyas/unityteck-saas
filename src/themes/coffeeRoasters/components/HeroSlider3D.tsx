@@ -4,7 +4,6 @@ import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { PRODUCTS } from '../data/products';
 import { readAllThemeSettings } from '../../settings/themeSettingsStore';
-import { readStoreIdentity } from '../../settings/storeIdentity';
 import {
   ChevronLeft,
   ChevronRight,
@@ -16,7 +15,6 @@ import {
   Coffee,
   Zap,
   Sparkles,
-  MessageCircle,
 } from 'lucide-react';
 
 // Crisp, high-resolution original banner images (Full-Bleed Coffee Photography)
@@ -243,15 +241,9 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
     };
   }, []);
 
-  const storeIdentity = useMemo(() => {
-    return activeStore?.id ? readStoreIdentity(activeStore.id) : null;
-  }, [activeStore?.id]);
-
   const themeSettings = useMemo(() => {
     try {
-      const storeId = activeStore?.id || 'store-coffee';
-      const fallback = activeStore || { name: 'HiBrew Store' };
-      return readAllThemeSettings(storeId, fallback);
+      return readAllThemeSettings(activeStore?.id, activeStore);
     } catch {
       return null;
     }
@@ -344,7 +336,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
         aria-label="Shop Coffee Slider"
-        className="relative w-full bg-white text-black overflow-hidden select-none border-0"
+        className="relative w-full bg-white text-black overflow-hidden select-none border-b border-neutral-100"
       >
         <div className="relative w-full min-h-[500px] sm:min-h-[560px] md:min-h-[580px] lg:min-h-[600px] flex items-center justify-center bg-white px-4 sm:px-8 md:px-12 lg:px-16 py-6 sm:py-8 lg:py-10">
           <div className="w-full max-w-[1360px] mx-auto grid grid-cols-1 lg:grid-cols-12 items-center gap-6 lg:gap-12">
@@ -378,7 +370,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
                     const prod = PRODUCTS.find((p) => p.id === activeShopSlide.productId) || PRODUCTS[0];
                     addToCart(prod, undefined, undefined, undefined, undefined, false);
                   }}
-                  className="px-5 py-2.5 rounded-full border-0 bg-neutral-100 text-black font-bold text-xs sm:text-sm hover:bg-neutral-200 active:scale-95 transition-transform inline-flex items-center gap-1.5"
+                  className="px-5 py-2.5 rounded-full border border-black text-black font-bold text-xs sm:text-sm hover:bg-black/5 active:scale-95 transition-transform inline-flex items-center gap-1.5"
                 >
                   <ShoppingBag className="w-3.5 h-3.5" />
                   <span>{language === 'AR' ? 'أضف للسلة' : 'Add to Cart'}</span>
@@ -386,7 +378,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
               </div>
               <div className="grid grid-cols-3 gap-2 w-full pt-4">
                 {activeShopSlide.specs.map((sp, idx) => (
-                  <div key={idx} className="bg-neutral-50 rounded-2xl p-2.5 text-start border-0">
+                  <div key={idx} className="bg-neutral-50 rounded-2xl p-2.5 text-start border border-neutral-100">
                     <div className="flex items-center gap-1 text-[10px] text-neutral-500 font-medium">
                       {renderSpecIcon(sp.icon)}
                       <span>{language === 'AR' ? sp.labelAr : sp.labelEn}</span>
@@ -405,16 +397,6 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
               <img
                 src={activeShopSlide.image}
                 alt={language === 'AR' ? activeShopSlide.titleAr : activeShopSlide.titleEn}
-                loading="eager"
-                decoding="async"
-                fetchPriority="high"
-                onError={(e) => {
-                  const t = e.target as HTMLImageElement;
-                  if (!t.dataset.fbDone) {
-                    t.dataset.fbDone = '1';
-                    t.src = '/src/assets/images/hibrew_h7a_flagship_machine.png';
-                  }
-                }}
                 className="max-h-full max-w-full object-contain filter drop-shadow-[0_16px_28px_rgba(0,0,0,0.12)] hover:scale-105 transition-transform duration-500"
               />
             </div>
@@ -423,7 +405,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
             type="button"
             onClick={isRTL ? nextShopSlide : prevShopSlide}
             aria-label="Previous"
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/95 border-0 shadow-md flex items-center justify-center text-black active:scale-95 transition-transform"
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/95 border border-neutral-200 shadow-md flex items-center justify-center text-black active:scale-95 transition-transform"
           >
             <ChevronLeft className="w-5 h-5 rtl:rotate-180" />
           </button>
@@ -431,7 +413,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
             type="button"
             onClick={isRTL ? prevShopSlide : nextShopSlide}
             aria-label="Next"
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/95 border-0 shadow-md flex items-center justify-center text-black active:scale-95 transition-transform"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/95 border border-neutral-200 shadow-md flex items-center justify-center text-black active:scale-95 transition-transform"
           >
             <ChevronRight className="w-5 h-5 rtl:rotate-180" />
           </button>
@@ -568,7 +550,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
       className="relative w-full overflow-hidden select-none bg-white text-neutral-900 border-none"
     >
       {/* Responsive Aspect Ratio Stage */}
-      <div className="relative w-full h-[580px] xs:h-[620px] sm:h-[510px] md:h-[550px] lg:h-[600px] xl:h-[640px] bg-white overflow-hidden">
+      <div className="relative w-full h-[640px] sm:h-[510px] md:h-[550px] lg:h-[600px] xl:h-[640px] bg-white overflow-hidden">
         {/* ========================================================================= */}
         {/* 1. SLIDE BACKGROUND IMAGES + OVERLAY                                       */}
         {/* ========================================================================= */}
@@ -612,9 +594,8 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
                 if (isDraggingRef.current) return;
                 navigateTo('product-buy', activeSlide.productId);
               }}
-              className="w-full h-full relative overflow-hidden cursor-pointer group shadow-none bg-white"
+              className="w-full h-full relative overflow-hidden cursor-pointer group shadow-none bg-white flex flex-col sm:block"
             >
-              {/* Full Background Image (Full-bleed on both mobile and desktop with bottom product alignment) */}
               <img
                 src={activeSlide.image}
                 alt={language === 'AR' ? activeSlide.titleAr : activeSlide.titleEn}
@@ -628,20 +609,11 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
                     target.src = activeSlide.fallbackImage;
                   }
                 }}
-                className={`absolute inset-0 w-full h-full object-cover shadow-none transition-transform duration-700 ease-out group-hover:scale-[1.01] ${
-                  language === 'AR'
-                    ? 'object-[center_bottom] sm:object-[25%_center] md:object-[20%_center] lg:object-left'
-                    : 'object-[center_bottom] sm:object-[75%_center] md:object-[80%_center] lg:object-right'
-                }`}
+                className="order-2 flex-1 min-h-0 w-full sm:h-full object-contain object-center sm:object-cover sm:object-[75%_center] sm:object-[75%_center] md:object-[80%_center] lg:object-right shadow-none transition-transform duration-700 ease-out group-hover:scale-[1.01]"
               />
 
-              {/* Mobile Soft Top Gradient Scrim for 100% Crisp Text Readability Over BG */}
-              <div
-                className="absolute inset-x-0 top-0 h-80 sm:hidden pointer-events-none bg-gradient-to-b from-white/95 via-white/75 via-65% to-transparent"
-              />
-
-              {/* Text, Price and Action Buttons Overlay (Sitting on top of BG image) */}
-              <div className="absolute inset-0 z-20 flex items-start pt-6 xs:pt-8 sm:items-center sm:pt-0 pointer-events-none sm:-translate-y-7 md:-translate-y-9 lg:-translate-y-11">
+              {/* Text, Price and Action Buttons Overlay */}
+              <div className="order-1 relative pt-5 pb-3 sm:pt-0 sm:pb-0 sm:absolute sm:inset-0 z-20 flex items-center pointer-events-none sm:-translate-y-7 md:-translate-y-9 lg:-translate-y-11">
                 <div
                   dir="ltr"
                   className="w-full max-w-[1360px] mx-auto px-4 xs:px-5 sm:px-10 md:px-14 lg:px-16 flex justify-start"
@@ -656,7 +628,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
                     {/* Badge */}
                     {activeSlide.badgeEn && (
                       <div className="mb-2">
-                        <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-black/5 text-neutral-900 border-0">
+                        <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-black/5 text-neutral-900 border border-black/10">
                           <Sparkles className="w-3 h-3 text-amber-700" />
                           <span>{language === 'AR' ? activeSlide.badgeAr : activeSlide.badgeEn}</span>
                         </span>
@@ -716,7 +688,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
                           triggerFlyToCart(rect, activeSlide.image);
                           addToCart(matchedProduct, undefined, undefined, undefined, undefined, false);
                         }}
-                        className="group/addcart px-2.5 xs:px-3.5 sm:px-5 py-1.5 xs:py-2 sm:py-2.5 rounded-full border-0 bg-neutral-100 hover:bg-neutral-200 text-black font-bold text-[11px] xs:text-xs sm:text-sm transition-all duration-200 active:scale-95 cursor-pointer inline-flex items-center gap-1.5 shadow-none shrink-0"
+                        className="group/addcart px-2.5 xs:px-3.5 sm:px-5 py-1.5 xs:py-2 sm:py-2.5 rounded-full border border-black bg-transparent hover:bg-black/5 text-black font-bold text-[11px] xs:text-xs sm:text-sm transition-all duration-200 active:scale-95 cursor-pointer inline-flex items-center gap-1.5 shadow-none shrink-0"
                         title={language === 'AR' ? 'أضف للسلة' : 'Add to Cart'}
                       >
                         <ShoppingBag className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4 sm:h-4 text-black stroke-[2.2] shrink-0 transition-transform duration-200 group-hover/addcart:scale-110" />
@@ -768,45 +740,13 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          const customOrderConfig = themeSettings?.customOrder;
-                          if (customOrderConfig?.enabled) {
-                            navigateTo('custom-order');
-                          } else {
-                            const rawPhone =
-                              customOrderConfig?.whatsappNumber ||
-                              storeIdentity?.whatsapp ||
-                              (activeStore as any)?.whatsapp ||
-                              storeIdentity?.phone ||
-                              activeStore?.phone ||
-                              '+966549876543';
-                            let cleanPhone = rawPhone.replace(/\D/g, '') || '966549876543';
-                            if (cleanPhone.startsWith('05')) cleanPhone = '966' + cleanPhone.substring(1);
-                            else if (cleanPhone.startsWith('5') && cleanPhone.length === 9) cleanPhone = '966' + cleanPhone;
-                            const msg =
-                              language === 'AR'
-                                ? (customOrderConfig?.whatsappMessageAr ||
-                                    'السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم')
-                                : (customOrderConfig?.whatsappMessageEn ||
-                                    'Hello, I would like to inquire about placing a custom coffee corner order.');
-                            window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-                          }
+                          navigateTo('custom-order');
                         }}
-                        className="group/customlink inline-flex items-center gap-1.5 text-[10.5px] xs:text-[11px] sm:text-sm font-bold text-neutral-900 hover:text-black transition-all cursor-pointer active:scale-95"
-                        title={
-                          themeSettings?.customOrder?.enabled
-                            ? (language === 'AR' ? 'تفصيل حسب الطلب · استوديو التصميم' : 'Custom Made · Design Studio')
-                            : (language === 'AR' ? 'تواصل عبر واتساب لطلب تفصيل ركن قهوة' : 'Chat via WhatsApp for Custom Order')
-                        }
+                        className="group/customlink inline-flex items-center gap-1 text-[10.5px] xs:text-[11px] sm:text-sm font-bold text-neutral-900 hover:text-black transition-all cursor-pointer active:scale-95"
+                        title={language === 'AR' ? 'تفصيل حسب الطلب · تصميم وتنفيذ' : 'Custom Made · Design & Build'}
                       >
-                        {!themeSettings?.customOrder?.enabled && (
-                          <MessageCircle className="w-3.5 h-3.5 text-[#25D366] fill-[#25D366] shrink-0" />
-                        )}
                         <span className="border-b border-black/60 group-hover/customlink:border-black pb-0.5">
-                          {themeSettings?.customOrder?.buttonLabelAr && language === 'AR'
-                            ? themeSettings.customOrder.buttonLabelAr
-                            : themeSettings?.customOrder?.buttonLabelEn && language !== 'AR'
-                            ? themeSettings.customOrder.buttonLabelEn
-                            : (language === 'AR' ? 'تفصيل حسب الطلب · تصميم وتنفيذ' : 'Custom Made · Design & Build')}
+                          {language === 'AR' ? 'تفصيل حسب الطلب · تصميم وتنفيذ' : 'Custom Made · Design & Build'}
                         </span>
                         <ChevronRight
                           className={`w-3 h-3 text-black stroke-[2.5] shrink-0 transition-transform duration-200 ${
@@ -860,7 +800,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
             const cleanPhone = rawPhone.replace(/\D/g, '') || '9668008440443';
             window.open(`https://wa.me/${cleanPhone}`, '_blank');
           }}
-          className="absolute bottom-4 right-4 rtl:right-auto rtl:left-4 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white border-0 shadow-sm flex items-center justify-center text-neutral-800 hover:text-black cursor-pointer active:scale-95 transition-transform"
+          className="absolute bottom-4 right-4 rtl:right-auto rtl:left-4 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white border border-neutral-200 shadow-sm flex items-center justify-center text-neutral-800 hover:text-black cursor-pointer active:scale-95 transition-transform"
           aria-label="Support"
           title={language === 'AR' ? 'تواصل مع الدعم الفني' : 'Contact Support'}
         >

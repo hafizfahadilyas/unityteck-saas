@@ -76,7 +76,11 @@ export const BestSellersSection: React.FC<BestSellersSectionProps> = ({
         const pBadge = String(p.badge || '').toLowerCase();
         const pTags = (p.tags || []).map((t) => String(t).toLowerCase());
         const pCat = String(p.category || '').toLowerCase();
+        const featuredHit =
+          matchKey === 'featured' &&
+          (p.isFeatured === true || pBadge === 'featured' || pTags.includes('featured'));
         return (
+          featuredHit ||
           pBadge === matchKey ||
           pBadge.includes(matchKey) ||
           pTags.includes(matchKey) ||

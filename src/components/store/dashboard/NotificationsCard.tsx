@@ -5,7 +5,6 @@ import {
   ShoppingCart,
   Percent,
   Tag,
-  MessageCircle,
   Coins,
   Package,
   AlertTriangle,
@@ -14,6 +13,7 @@ import { usePrefs } from '../../../i18n/PrefsContext';
 import { useNotifications } from '../../../notification-system';
 import { NotificationItem } from '../../../notification-system/types/notification.types';
 import { WhatsAppService } from '../../../notification-system/services/whatsappService';
+import { WhatsAppBrandIcon } from '../../common/BrandIcons';
 
 interface SmartNotificationDisplayItem {
   id: string;
@@ -247,9 +247,9 @@ const NotificationsCardInner: React.FC<NotificationsCardProps> = ({
   };
 
   return (
-    <div className="@container p-3.5 sm:p-4 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+    <div className="@container p-3.5 sm:p-4 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs flex flex-col h-full min-h-[260px] max-h-[320px]">
       {/* ── Card Header ── */}
-      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800 mb-2.5">
+      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800 mb-2.5 shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-[#e6f4f1] dark:bg-teal-950/60 text-[#006d77] dark:text-teal-300 flex items-center justify-center border border-teal-200/50 dark:border-teal-800/40">
             <Bell className="w-3.5 h-3.5" />
@@ -274,30 +274,30 @@ const NotificationsCardInner: React.FC<NotificationsCardProps> = ({
         </button>
       </div>
 
-      {/* ── Notification Items List or Real Empty State ── */}
+      {/* ── Scrollable live notifications (height matched to Top Products / Traffic) ── */}
       {displayItems.length === 0 ? (
-        <div className="py-10 px-4 text-center flex flex-col items-center justify-center">
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center mb-3 border border-slate-200 dark:border-slate-700">
-            <Bell className="w-6 h-6" />
+        <div className="flex-1 py-6 px-3 text-center flex flex-col items-center justify-center">
+          <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center mb-2 border border-slate-200 dark:border-slate-700">
+            <Bell className="w-5 h-5" />
           </div>
-          <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
             {isAr ? 'لا توجد سجلات' : 'No records found'}
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-[240px]">
-            {isAr ? 'ستظهر هنا الإشعارات والتنبيهات المباشرة فور حدوثها' : 'Important store alerts and order updates will appear here'}
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 max-w-[200px]">
+            {isAr ? 'ستظهر هنا الإشعارات المباشرة فور حدوثها' : 'Live store alerts will appear here'}
           </p>
         </div>
       ) : (
-        <div className="space-y-3.5">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-2.5 pe-0.5 [scrollbar-width:thin]">
           {displayItems.map((item) => (
             <div
               key={item.id}
-              className={`p-4 sm:p-4.5 rounded-2xl border transition-all ${getContainerStyle(
+              className={`p-3 sm:p-3.5 rounded-2xl border transition-all ${getContainerStyle(
                 item.tone
               )}`}
             >
-              {/* Upper Section: Icon + Title + Badge + Description */}
-              <div className="flex items-start gap-3.5">
+              {/* Upper Section: Icon + Title + Badge + Description + Action */}
+              <div className="flex items-start gap-3">
                 {renderItemIcon(item)}
                 <div className="flex-1 min-w-0">
                   <h4 className="text-sm sm:text-[15px] font-black text-slate-900 dark:text-white leading-snug">
@@ -305,7 +305,7 @@ const NotificationsCardInner: React.FC<NotificationsCardProps> = ({
                   </h4>
 
                   {/* Category Badge on its own line directly below title */}
-                  <div className="mt-1.5 mb-2">
+                  <div className="mt-1.5 mb-1.5">
                     <span
                       className={`inline-flex items-center text-[10px] sm:text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${getBadgeStyle(
                         item.tone
@@ -315,55 +315,50 @@ const NotificationsCardInner: React.FC<NotificationsCardProps> = ({
                     </span>
                   </div>
 
-                  {/* Description below badge */}
-                  <p className="text-xs sm:text-[13px] text-slate-800 dark:text-slate-200 font-medium leading-relaxed break-words">
-                    {isAr ? item.descAr : item.descEn}
-                  </p>
+                  {/* Description + compact action button side by side */}
+                  <div className="flex items-end gap-2 justify-between">
+                    <p className="text-xs sm:text-[13px] text-slate-800 dark:text-slate-200 font-medium leading-relaxed break-words min-w-0 flex-1">
+                      {isAr ? item.descAr : item.descEn}
+                    </p>
+                    {item.actionType === 'whatsapp' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleAction(item)}
+                        className="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white transition-all active:scale-95 shadow-xs flex items-center gap-1 cursor-pointer whitespace-nowrap bg-[#00a884] hover:bg-[#008f70]"
+                      >
+                        <WhatsAppBrandIcon className="w-3 h-3" title="WhatsApp" />
+                        <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
+                      </button>
+                    ) : item.actionType === 'product' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleAction(item)}
+                        className="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white transition-all active:scale-95 shadow-xs flex items-center gap-0.5 cursor-pointer whitespace-nowrap bg-[#00897b] hover:bg-[#00796b]"
+                      >
+                        <span>{isAr ? 'فتح المنتج' : 'Open Product'}</span>
+                        <ChevronRight className="w-3 h-3 rtl:rotate-180" />
+                      </button>
+                    ) : item.type === 'critical' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleAction(item)}
+                        className="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white transition-all active:scale-95 shadow-xs flex items-center gap-0.5 cursor-pointer whitespace-nowrap bg-rose-600 hover:bg-rose-700"
+                      >
+                        <span>{isAr ? 'معالجة' : 'Resolve'}</span>
+                        <ChevronRight className="w-3 h-3 rtl:rotate-180" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleAction(item)}
+                        className="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white transition-all active:scale-95 shadow-xs flex items-center gap-0.5 cursor-pointer whitespace-nowrap bg-[#0066ff] hover:bg-[#0052cc]"
+                      >
+                        <span>{isAr ? 'عرض الطلب' : 'View Order'}</span>
+                        <ChevronRight className="w-3 h-3 rtl:rotate-180" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              {/* Horizontal line divider */}
-              <div className="my-3 border-t border-black/[0.06] dark:border-white/[0.08]" />
-
-              {/* Action Button: End-aligned (right in LTR, left in RTL) */}
-              <div className="flex items-center justify-end">
-                {item.actionType === 'whatsapp' ? (
-                  <button
-                    type="button"
-                    onClick={() => handleAction(item)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all active:scale-95 shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap bg-[#00a884] hover:bg-[#008f70]"
-                  >
-                    <MessageCircle className="w-4 h-4 fill-current" />
-                    <span>{isAr ? 'مراسلة عبر واتساب' : 'Message on WhatsApp'}</span>
-                  </button>
-                ) : item.actionType === 'product' ? (
-                  <button
-                    type="button"
-                    onClick={() => handleAction(item)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all active:scale-95 shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap bg-[#00897b] hover:bg-[#00796b]"
-                  >
-                    <span>{isAr ? 'فتح المنتج' : 'Open Product'}</span>
-                    <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
-                  </button>
-                ) : item.type === 'critical' ? (
-                  <button
-                    type="button"
-                    onClick={() => handleAction(item)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all active:scale-95 shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap bg-rose-600 hover:bg-rose-700"
-                  >
-                    <span>{isAr ? 'معالجة المشكلة' : 'Resolve Issue'}</span>
-                    <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleAction(item)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all active:scale-95 shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap bg-[#0066ff] hover:bg-[#0052cc]"
-                  >
-                    <span>{isAr ? 'عرض الطلب' : 'View Order'}</span>
-                    <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
-                  </button>
-                )}
               </div>
             </div>
           ))}

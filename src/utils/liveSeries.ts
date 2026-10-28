@@ -290,3 +290,55 @@ export function statusChipStyle(status: string): CSSProperties {
     borderColor: 'color-mix(in srgb, var(--tone-info) 30%, var(--border))',
   };
 }
+
+/** Real period-over-period count growth from live entity dates (no fake %). */
+export type PeriodGrowth = {
+  pct: number;
+  current: number;
+  previous: number;
+  hasData: boolean;
+};
+
+/**
+ * Compare counts in the last `days` vs the previous `days` window.
+ * pct is 0 when both windows are empty; +100 when previous is 0 and current > 0.
+ */
+export function periodCountGrowth<T>(
+  items: T[],
+  getDate: (item: T) => Date | null,
+  predicate?: (item: T) => boolean,
+  days = 30,
+): PeriodGrowth {
+  const now = Date.now();
+  const windowMs = days * 24 * 60 * 60 * 1000;
+  let current = 0;
+  let previous = 0;
+
+  for (const item of items) {
+    if (predicate && !predicate(item)) continue;
+    const d = getDate(item);
+    if (!d) continue;
+    const age = now - d.getTime();
+    if (Number.isNaN(age) || age < 0) continue;
+    if (age < windowMs) current += 1;
+    else if (age < windowMs * 2) previous += 1;
+  }
+
+  const pct =
+    previous > 0
+      ? Math.round(((current - previous) / previous) * 100)
+      : current > 0
+        ? 100
+        : 0;
+
+  return { pct, current, previous, hasData: current > 0 || previous > 0 };
+}
+
+/** Convenience: order count growth for a status predicate. */
+export function orderStatusGrowth(
+  orders: Order[],
+  predicate?: (order: Order) => boolean,
+  days = 30,
+): PeriodGrowth {
+  return periodCountGrowth(orders, getOrderDate, predicate, days);
+}

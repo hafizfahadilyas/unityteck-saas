@@ -12,7 +12,6 @@ import type {
 import type { Order, Store } from '../types';
 import { generateZatcaTlvBase64, generateInvoiceHashSha256 } from '../utils/zatca';
 import { getLocalizedItemName, getCustomerDisplayName, getLocalizedAddress } from '../utils/storeLocalization';
-import { readStoreIdentity } from '../themes/settings/storeIdentity';
 
 const INVOICES_STORAGE_KEY = 'unityteck_invoices_v1';
 const TEMPLATES_STORAGE_KEY = 'unityteck_invoice_templates_v1';
@@ -79,27 +78,24 @@ export function isCarStoreId(storeId: string, store?: Partial<Store>): boolean {
   );
 }
 
-export function getStoreInvoiceProfile(storeId?: string, store?: Partial<Store>): StoreInvoiceProfile {
-  const safeStoreId = storeId || store?.id || '';
-  const safeStore = store || { id: safeStoreId, name: '' };
-  const customIdentity = safeStoreId ? readStoreIdentity(safeStoreId, safeStore as any) : readStoreIdentity('', safeStore as any);
-  if (isCoffeeStoreId(safeStoreId, store)) {
+export function getStoreInvoiceProfile(storeId: string, store?: Partial<Store>): StoreInvoiceProfile {
+  if (isCoffeeStoreId(storeId, store)) {
     return {
-      storeId: safeStoreId,
-      nameEn: customIdentity?.storeName || 'HiBrew KSA Official Coffee Store',
-      nameAr: customIdentity?.storeName || (store as any)?.nameAr || 'متجر مكائن ومستلزمات القهوة (HiBrew KSA)',
+      storeId,
+      nameEn: 'HiBrew KSA Official Coffee Store',
+      nameAr: (store as any)?.nameAr || 'متجر مكائن ومستلزمات القهوة (HiBrew KSA)',
       companyNameEn: 'HiBrew Specialty Coffee & Equipment Est.',
       companyNameAr: 'مؤسسة هاي برو لتقنيات ومعدات القهوة المختصة',
-      email: customIdentity?.email || (store as any)?.email || store?.ownerEmail || 'billing@specialtycoffee.sa',
-      phone: customIdentity?.phone || (store as any)?.phone || '+966 11 489 2030',
-      addressEn: customIdentity?.addressEn || 'Riyadh Showroom, King Fahd Road, Al-Olaya',
-      addressAr: customIdentity?.addressAr || 'معرض الرياض الرئيسي، طريق الملك فهد، حي العليا',
-      cityEn: customIdentity?.city || 'Riyadh',
-      cityAr: customIdentity?.city || 'الرياض',
+      email: (store as any)?.email || store?.ownerEmail || 'billing@specialtycoffee.sa',
+      phone: (store as any)?.phone || '+966 11 489 2030',
+      addressEn: 'Riyadh Showroom, King Fahd Road, Al-Olaya',
+      addressAr: 'معرض الرياض الرئيسي، طريق الملك فهد، حي العليا',
+      cityEn: 'Riyadh',
+      cityAr: 'الرياض',
       countryEn: 'Saudi Arabia',
       countryAr: 'المملكة العربية السعودية',
-      vatNumber: customIdentity?.vatNumber || (store as any)?.taxNumber || '31048821900003',
-      crNumber: customIdentity?.commercialReg || (store as any)?.crNumber || '1010892410',
+      vatNumber: (store as any)?.taxNumber || '31048821900003',
+      crNumber: (store as any)?.crNumber || '1010892410',
       bankDetailsEn: 'Alinma Bank | IBAN: SA4405000068201948201019 | Beneficiary: HiBrew KSA Equipment Est.',
       bankDetailsAr: 'مصرف الإنماء | الآيبان: SA4405000068201948201019 | المستفيد: مؤسسة هاي برو لمعدات القهوة',
       customNotesEn: 'Thank you for choosing HiBrew KSA. All espresso machines include a 2-year warranty and authorized service.',
@@ -112,23 +108,23 @@ export function getStoreInvoiceProfile(storeId?: string, store?: Partial<Store>)
     };
   }
 
-  if (isCarStoreId(safeStoreId, store)) {
+  if (isCarStoreId(storeId, store)) {
     return {
-      storeId: safeStoreId,
-      nameEn: customIdentity?.storeName || 'Al-Saeedi Car Upholstery & Accessories (Bleco Est.)',
-      nameAr: customIdentity?.storeName || (store as any)?.nameAr || 'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو)',
+      storeId,
+      nameEn: 'Al-Saeedi Car Upholstery & Accessories (Bleco Est.)',
+      nameAr: (store as any)?.nameAr || 'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو)',
       companyNameEn: 'Bleco Automotive Customization & Upholstery Est.',
       companyNameAr: 'مؤسسة بلاكو لخدمات وتجهيز السيارات',
-      email: customIdentity?.email || (store as any)?.email || store?.ownerEmail || 'billing@tanjeedmakkah.com',
-      phone: customIdentity?.phone || (store as any)?.phone || '+966 59 775 7086',
-      addressEn: customIdentity?.addressEn || 'Al-Shawqiyyah District, Ring Road, Makkah',
-      addressAr: customIdentity?.addressAr || 'حي الشوقية، الطريق الدائري، مكة المكرمة',
-      cityEn: customIdentity?.city || 'Makkah',
-      cityAr: customIdentity?.city || 'مكة المكرمة',
+      email: (store as any)?.email || store?.ownerEmail || 'billing@tanjeedmakkah.com',
+      phone: (store as any)?.phone || '+966 59 775 7086',
+      addressEn: 'Al-Shawqiyyah District, Ring Road, Makkah',
+      addressAr: 'حي الشوقية، الطريق الدائري، مكة المكرمة',
+      cityEn: 'Makkah',
+      cityAr: 'مكة المكرمة',
       countryEn: 'Saudi Arabia',
       countryAr: 'المملكة العربية السعودية',
-      vatNumber: customIdentity?.vatNumber || (store as any)?.taxNumber || '300018046200003',
-      crNumber: customIdentity?.commercialReg || (store as any)?.crNumber || '7005616136',
+      vatNumber: (store as any)?.taxNumber || '300018046200003',
+      crNumber: (store as any)?.crNumber || '7005616136',
       bankDetailsEn: 'SNB Bank | IBAN: SA2810000034918294810291 | Beneficiary: Bleco Automotive Est.',
       bankDetailsAr: 'البنك الأهلي السعودي | الآيبان: SA2810000034918294810291 | المستفيد: مؤسسة بلاكو للسيارات',
       customNotesEn: 'Thank you for choosing Al-Saeedi Car Care. Tailored diamond floor mats & seat covers include fitting warranty.',
@@ -141,13 +137,13 @@ export function getStoreInvoiceProfile(storeId?: string, store?: Partial<Store>)
     };
   }
 
-  const isFlowerStore = safeStoreId === 'store-1' || safeStoreId === 'store-mecca' || store?.slug?.includes('flower') || store?.slug?.includes('gift') || (store as any)?.category?.toLowerCase().includes('flower');
+  const isFlowerStore = storeId === 'store-1' || storeId === 'store-mecca' || store?.slug?.includes('flower') || store?.slug?.includes('gift') || (store as any)?.category?.toLowerCase().includes('flower');
 
   if (!isFlowerStore) {
     const storeName = store?.name || 'Online Store';
     const storeNameAr = (store as any)?.nameAr || store?.name || 'متجر إلكتروني';
     return {
-      storeId: safeStoreId,
+      storeId,
       nameEn: storeName,
       nameAr: storeNameAr,
       companyNameEn: `${storeName} Commercial Est.`,
@@ -175,27 +171,26 @@ export function getStoreInvoiceProfile(storeId?: string, store?: Partial<Store>)
   }
 
   // Flower store
-  const identity = safeStoreId ? readStoreIdentity(safeStoreId, store as any) : null;
   return {
-    storeId: safeStoreId,
-    nameEn: identity?.storeName || store?.name || 'Makkah Gifts & Luxury Flowers Est.',
-    nameAr: identity?.storeName || (store as any)?.nameAr || 'مؤسسة متجر هدايا وزهور مكة',
+    storeId,
+    nameEn: store?.name || 'Makkah Gifts & Luxury Flowers Est.',
+    nameAr: (store as any)?.nameAr || 'مؤسسة هدايا مكة والزهور الفاخرة',
     companyNameEn: 'Makkah Gifts Commercial Est.',
-    companyNameAr: 'مؤسسة متجر هدايا التجارية',
-    email: identity?.email || (store as any)?.email || store?.ownerEmail || 'giftshop2030m@gmail.com',
-    phone: identity?.phone || (store as any)?.phone || '+966 50 442 8819',
-    addressEn: identity?.addressEn || 'Ibrahim Al-Khalil Road, Jabal Omar District, Makkah',
-    addressAr: identity?.addressAr || 'طريق إبراهيم الخليل، منطقة جبل عمر، مكة المكرمة',
-    cityEn: identity?.city || 'Makkah',
-    cityAr: identity?.city || 'مكة المكرمة',
+    companyNameAr: 'مؤسسة هدايا مكة التجارية',
+    email: (store as any)?.email || store?.ownerEmail || 'billing@makkah-gifts.sa',
+    phone: (store as any)?.phone || '+966 12 555 8899',
+    addressEn: 'Ibrahim Al-Khalil Road, Jabal Omar District, Makkah',
+    addressAr: 'طريق إبراهيم الخليل، منطقة جبل عمر، مكة المكرمة',
+    cityEn: 'Makkah',
+    cityAr: 'مكة المكرمة',
     countryEn: 'Saudi Arabia',
     countryAr: 'المملكة العربية السعودية',
-    vatNumber: identity?.vatNumber || (store as any)?.taxNumber || '30048821900003',
-    crNumber: identity?.commercialReg || (store as any)?.crNumber || '4031099241',
+    vatNumber: (store as any)?.taxNumber || '300948215600003',
+    crNumber: (store as any)?.crNumber || '1010892341',
     bankDetailsEn: 'Al Rajhi Bank | IBAN: SA4480000204608010123456 | Beneficiary: Makkah Gifts Est.',
     bankDetailsAr: 'مصرف الراجحي | الآيبان: SA4480000204608010123456 | المستفيد: مؤسسة هدايا مكة',
-    customNotesEn: `Thank you for choosing ${identity?.storeName || 'Makkah Gifts'}. For customer support, contact us via WhatsApp ${identity?.whatsapp || '+966 50 442 8819'}.`,
-    customNotesAr: `شكراً لاختياركم ${identity?.storeName || 'متجر هدايا'}. لخدمة العملاء وطلبات المناسبات يرجى التواصل عبر واتساب ${identity?.whatsapp || '+966 50 442 8819'}.`,
+    customNotesEn: 'Thank you for choosing Makkah Gifts. For customer support or corporate gifting, contact us via WhatsApp +966 58 161 7712.',
+    customNotesAr: 'شكراً لاختياركم هدايا مكة. لخدمة العملاء وطلبات الشركات يرجى التواصل عبر واتساب +966 58 161 7712.',
     customTermsEn: 'All goods are delivered with guaranteed freshness. Return/Exchange window is 24 hours for fresh items and 14 days for luxury packaging.',
     customTermsAr: 'تضمن المؤسسة وصول الورود والهدايا بأعلى درجات النضارة والفخامة. الاسترجاع خلال 24 ساعة للزهور و14 يوماً للهدايا المغلفة.',
     primaryColor: '#0f172a',
@@ -639,7 +634,7 @@ function createInitialDocuments(storeId: string, store?: Partial<Store>): Invoic
             taxRate: 15,
             taxAmount: 210,
             total: 1610,
-            image: '/images/coffee_hero_flagship_machine_1791218907782.jpg',
+            image: '/src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg',
           },
           {
             id: 'item-cof-2',
@@ -653,7 +648,7 @@ function createInitialDocuments(storeId: string, store?: Partial<Store>): Invoic
             taxRate: 15,
             taxAmount: 102,
             total: 782,
-            image: '/images/coffee_beans_ethiopian_heirloom_1791218928065.jpg',
+            image: '/src/assets/images/coffee_beans_ethiopian_heirloom_1791218928065.jpg',
           },
         ],
         subtotal: 2080,
@@ -2722,10 +2717,7 @@ class InvoiceService {
   // Suppliers & Purchases
   public getSuppliers(storeId: string): SupplierRecord[] {
     const isCoffee = isCoffeeStoreId(storeId);
-    const defaults: SupplierRecord[] = [];
-    void isCoffee;
-    void INITIAL_SUPPLIERS_COFFEE;
-    void INITIAL_SUPPLIERS_FLOWERS;
+    const defaults = isCoffee ? INITIAL_SUPPLIERS_COFFEE : INITIAL_SUPPLIERS_FLOWERS;
     try {
       if (typeof window === 'undefined') return defaults;
       const raw = localStorage.getItem(`${SUPPLIERS_STORAGE_KEY}_${storeId}`);
@@ -2762,10 +2754,7 @@ class InvoiceService {
 
   public getPurchases(storeId: string): PurchaseRecord[] {
     const isCoffee = isCoffeeStoreId(storeId);
-    const defaults: PurchaseRecord[] = [];
-    void isCoffee;
-    void INITIAL_PURCHASES_COFFEE;
-    void INITIAL_PURCHASES_FLOWERS;
+    const defaults = isCoffee ? INITIAL_PURCHASES_COFFEE : INITIAL_PURCHASES_FLOWERS;
     try {
       if (typeof window === 'undefined') return defaults;
       const raw = localStorage.getItem(`${PURCHASES_STORAGE_KEY}_${storeId}`);
@@ -2799,12 +2788,11 @@ class InvoiceService {
   }
 
   // Template Settings
-  public getTemplateConfig(storeId?: string, store?: Partial<Store>): InvoiceTemplateConfig {
-    const safeStoreId = storeId || store?.id || '';
-    const profile = getStoreInvoiceProfile(safeStoreId, store);
+  public getTemplateConfig(storeId: string, store?: Partial<Store>): InvoiceTemplateConfig {
+    const profile = getStoreInvoiceProfile(storeId, store);
     const defaultForStore: InvoiceTemplateConfig = {
       ...DEFAULT_TEMPLATE_CONFIG,
-      storeId: safeStoreId,
+      storeId,
       primaryColor: profile.primaryColor,
       secondaryColor: profile.secondaryColor,
       accentColor: profile.accentColor,
@@ -2826,15 +2814,15 @@ class InvoiceService {
 
     try {
       if (typeof window === 'undefined') return defaultForStore;
-      const raw = localStorage.getItem(`${TEMPLATES_STORAGE_KEY}_${safeStoreId}`);
+      const raw = localStorage.getItem(`${TEMPLATES_STORAGE_KEY}_${storeId}`);
       if (!raw) return defaultForStore;
       const parsed = JSON.parse(raw);
       // Clean cross-store contaminated business name if needed
-      if (isCoffeeStoreId(safeStoreId, store) && parsed.businessNameEn?.includes('Makkah Gifts')) {
-        localStorage.setItem(`${TEMPLATES_STORAGE_KEY}_${safeStoreId}`, JSON.stringify(defaultForStore));
+      if (isCoffeeStoreId(storeId, store) && parsed.businessNameEn?.includes('Makkah Gifts')) {
+        localStorage.setItem(`${TEMPLATES_STORAGE_KEY}_${storeId}`, JSON.stringify(defaultForStore));
         return defaultForStore;
       }
-      return { ...defaultForStore, ...parsed, storeId: safeStoreId };
+      return { ...defaultForStore, ...parsed, storeId };
     } catch {
       return defaultForStore;
     }

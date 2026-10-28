@@ -9,18 +9,30 @@ trait ResolvesStoreId
 {
     protected function requireStoreId(Request $request): string|JsonResponse
     {
-        $storeId = $request->attributes->get('store_id')
+        $raw = $request->attributes->get('store_id')
             ?? $request->route('storeId')
             ?? $request->query('store_id')
             ?? $request->header('X-Store-Id');
 
-        if (! is_string($storeId) || trim($storeId) === '') {
+        if (! is_string($raw) || trim($raw) === '') {
             return response()->json([
                 'message' => 'X-Store-Id header is required for store-scoped routes.',
             ], 400);
         }
 
-        return trim($storeId);
+        $s = strtolower(trim($raw));
+        if ($s === 'flowers' || $s === 'hadaya' || $s === 'makkah' || $s === 'giftshop') {
+            return 'store-1';
+        }
+        if ($s === 'coffee' || $s === 'roasters' || $s === 'hibrew') {
+            return 'store-coffee';
+        }
+        if ($s === 'bleco' || $s === 'car' || $s === 'cars' || $s === 'alsaeedi') {
+            return 'store-bleco';
+        }
+
+        $matchedId = \App\Models\Store::query()->where('id', $raw)->orWhere('slug', $raw)->orWhere('slug', $s)->value('id');
+        return $matchedId ?: trim($raw);
     }
 
     protected function newId(string $prefix): string

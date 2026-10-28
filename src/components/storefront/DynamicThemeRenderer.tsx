@@ -76,7 +76,6 @@ class ThemeErrorBoundary extends React.Component<ThemeErrorBoundaryProps, ThemeE
 }
 
 import { DashboardLoader } from '../common/DashboardLoader';
-import { StorefrontCustomerDock } from './StorefrontCustomerDock';
 
 export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
   storeId,
@@ -100,7 +99,7 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
   const matchedStore = urlStoreParam ? stores?.find((st: any) => st.id?.toLowerCase() === urlStoreParam || st.slug?.toLowerCase() === urlStoreParam) : null;
 
   const explicitUrlStoreId =
-    pathname.startsWith('/coffee') || pathname.startsWith('/public_html') || urlStoreParam.includes('coffee') || urlStoreParam.includes('hibrew') || urlStoreParam.includes('roaster') ? 'store-coffee' :
+    pathname.startsWith('/coffee') || urlStoreParam.includes('coffee') || urlStoreParam.includes('hibrew') || urlStoreParam.includes('roaster') ? 'store-coffee' :
     pathname.startsWith('/car') || pathname.startsWith('/cars') || pathname.startsWith('/bleco') || pathname.startsWith('/transport') || urlStoreParam.includes('car') || urlStoreParam.includes('bleco') || urlStoreParam.includes('saeedi') ? 'store-bleco' :
     pathname.startsWith('/flowers') || pathname.startsWith('/hadaya') || pathname.startsWith('/gifts') || urlStoreParam.includes('flower') || urlStoreParam.includes('gift') || urlStoreParam.includes('makkah') ? 'store-1' :
     (matchedStore ? matchedStore.id : '');
@@ -122,7 +121,6 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
   useEffect(() => {
     const handleSync = () => setSyncTick((t) => t + 1);
     window.addEventListener('storage', handleSync);
-    window.addEventListener('popstate', handleSync);
     window.addEventListener('unityteck-theme-settings', handleSync);
     window.addEventListener('unityteck-theme-identity', handleSync);
     window.addEventListener('unityteck-product-updated', handleSync);
@@ -139,7 +137,6 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
     window.addEventListener('message', handleMsg);
     return () => {
       window.removeEventListener('storage', handleSync);
-      window.removeEventListener('popstate', handleSync);
       window.removeEventListener('unityteck-theme-settings', handleSync);
       window.removeEventListener('unityteck-theme-identity', handleSync);
       window.removeEventListener('unityteck-product-updated', handleSync);
@@ -152,10 +149,10 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
     };
   }, []);
 
-  const effectiveStoreId = explicitUrlStoreId || storeId || (activeStore?.id ? activeStore.id : '') || 'store-1';
+  const effectiveStoreId = explicitUrlStoreId || storeId || (activeStore?.id ? activeStore.id : '') || 'store-coffee';
   const effectiveThemeId =
     themeId || urlThemeParam || (storeActiveTheme && storeActiveTheme[effectiveStoreId]) || (activeStore as any)?.theme_id;
-  const effectiveCategory = category || activeStore?.category || (effectiveStoreId === 'store-coffee' ? 'قهوة' : '');
+  const effectiveCategory = category || activeStore.category || (effectiveStoreId === 'store-coffee' ? 'قهوة' : '');
 
   const manifest = useMemo(
     () => resolveStoreTheme(effectiveStoreId, effectiveThemeId, effectiveCategory),
@@ -166,35 +163,7 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
 
   // Resolve initial page key mapping per theme conventions
   const resolvedInitialPage = useMemo(() => {
-    let raw = (initialPage || urlPageParam || fallbackPage || '').toLowerCase().trim();
-    if (!raw) {
-      if (pathname === '/cart' || pathname.endsWith('/cart')) raw = 'cart';
-      else if (pathname === '/checkout' || pathname.endsWith('/checkout')) raw = 'checkout';
-      else if (pathname === '/catalog' || pathname === '/shop' || pathname.endsWith('/catalog') || pathname.endsWith('/shop')) raw = 'catalog';
-      else if (pathname === '/products' || pathname.endsWith('/products')) raw = 'products';
-      else if (pathname === '/product' || pathname.startsWith('/product/') || pathname.includes('/product')) raw = 'product';
-      else if (pathname === '/crm' || pathname === '/profile' || pathname === '/account' || pathname === '/orders') raw = 'crm';
-      else if (pathname === '/thankyou' || pathname.endsWith('/thankyou')) raw = 'thankyou';
-      else if (pathname === '/about' || pathname.endsWith('/about')) raw = 'about';
-      else if (pathname === '/contact' || pathname.endsWith('/contact')) raw = 'contact';
-      else if (pathname === '/faq' || pathname.endsWith('/faq')) raw = 'faq';
-      else if (pathname === '/privacy' || pathname.endsWith('/privacy')) raw = 'privacy';
-      else if (pathname === '/terms' || pathname.endsWith('/terms')) raw = 'terms';
-      else if (pathname === '/return' || pathname.endsWith('/return')) raw = 'return';
-      else if (pathname === '/shipping' || pathname.endsWith('/shipping')) raw = 'shipping';
-      else if (pathname === '/warranty' || pathname.endsWith('/warranty')) raw = 'warranty';
-      else if (pathname === '/locator' || pathname.endsWith('/locator')) raw = 'locator';
-      else if (pathname === '/track-order' || pathname.endsWith('/track-order')) raw = 'track-order';
-      else if (typeof window !== 'undefined') {
-        const saved = sessionStorage.getItem(`unityteck_page_${effectiveStoreId}`) ||
-          sessionStorage.getItem('unityteck_coffee_current_route') ||
-          sessionStorage.getItem('unityteck_transport_page') ||
-          sessionStorage.getItem('unityteck_mecca_page');
-        if (saved) raw = saved;
-      }
-    }
-    raw = (raw || 'home').toLowerCase().trim();
-
+    const raw = (initialPage || urlPageParam || fallbackPage || 'home').toLowerCase().trim();
     if (raw === 'shop' || raw === 'catalog' || raw === 'products') {
       if (manifest.id === 'theme-transport' || manifest.id === 'theme-saudia-transport') return 'catalog';
       if (manifest.id === 'theme-coffee-artisan' || manifest.id === 'theme-coffee') return 'products';
@@ -209,33 +178,7 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
       return 'profile';
     }
     return raw;
-  }, [initialPage, urlPageParam, fallbackPage, pathname, effectiveStoreId, manifest.id, isAdmin, syncTick]);
-
-  // Ensure scroll restoration is manual and view is strictly scrolled to the top header
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if ('scrollRestoration' in window.history) {
-        window.history.scrollRestoration = 'manual';
-      }
-      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
-      document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0;
-      const t1 = setTimeout(() => {
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-      }, 50);
-      const t2 = setTimeout(() => {
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-      }, 200);
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
-    }
-  }, [resolvedInitialPage, effectiveStoreId]);
+  }, [initialPage, fallbackPage, manifest.id, isAdmin]);
 
   // Golden Rule: Automatic Store-wise Public SEO computation with strict Tenant Isolation & Bilingual Switching
   useEffect(() => {
@@ -297,7 +240,6 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
         <Suspense fallback={<DashboardLoader storeId={effectiveStoreId} storeName={activeStore?.name} />}>
           <ThemeComponent initialPage={resolvedInitialPage} isAdmin={isAdmin} />
         </Suspense>
-        {!isAdmin && <StorefrontCustomerDock storeId={effectiveStoreId} />}
       </ThemeErrorBoundary>
     </div>
   );

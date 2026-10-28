@@ -1,14 +1,10 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { Coins } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { DashboardOrdersTable } from './DashboardOrdersTable';
+import { CreateStoreOrderModal } from './CreateStoreOrderModal';
 import { AdminPageShell } from '../common/AdminPageHeader';
 import { useToast } from '../common/ToastProvider';
-
-const CreateStoreOrderModal = React.lazy(() =>
-  import('./CreateStoreOrderModal').then((m) => ({ default: m.CreateStoreOrderModal })),
-);
 import { StoreOverviewHeader } from './dashboard/StoreOverviewHeader';
 import { SalesVsProfitChart, DailySalesProfitPoint } from './dashboard/SalesVsProfitChart';
 import { MonthlySummaryCard } from './dashboard/MonthlySummaryCard';
@@ -18,12 +14,12 @@ import { TopProductsCard } from './dashboard/TopProductsCard';
 import { TrafficSourcesCard } from './dashboard/TrafficSourcesCard';
 import { RecentActivityCard } from './dashboard/RecentActivityCard';
 import { NotificationsCard } from './dashboard/NotificationsCard';
-import { filterOrdersByRange, type DateRangeKey } from '../../utils/liveSeries';
 import {
-  getStoreLoyaltyGameSettings,
-  saveStoreLoyaltyGameSettings,
-  type StoreLoyaltyGameSettings,
-} from '../../services/ksaAutomationEngine';
+  filterOrdersByRange,
+  getOrderDate,
+  orderStatusGrowth,
+  type DateRangeKey,
+} from '../../utils/liveSeries';
 
 interface StoreDashboardProps {
   onNavigateTab: (tab: string) => void;
@@ -31,7 +27,7 @@ interface StoreDashboardProps {
   onOpenThemeCustomizer?: (sectionId?: string) => void;
 }
 
-export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
+export const StoreDashboard: React.FC<StoreDashboardProps> = ({
   onNavigateTab,
   onCustomizeTheme,
   onOpenThemeCustomizer,
@@ -79,8 +75,9 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
     return Number(activeStore.visitorsCount) || 0;
   }, [activeStore.visitorsCount]);
 
-  // No invented margin — profit only when real COGS exists (else 0 / empty chart)
-  const estimatedProfit = useMemo(() => 0, []);
+  const estimatedProfit = useMemo(() => {
+    return Math.round(liveRevenue * 0.35);
+  }, [liveRevenue]);
 
   // Daily points for Sales vs Estimated Profit chart calculated from real orders
   const salesProfitPoints = useMemo<DailySalesProfitPoint[]>(() => {
@@ -93,7 +90,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
       const pts = Array.from(map.entries()).map(([date, total]) => ({
         date: date.length > 5 ? date.slice(5) : date,
         sales: total,
-        profit: 0,
+        profit: Math.round(total * 0.35),
         isLabelPoint: true,
       }));
       return pts.slice(0, 14);
@@ -169,21 +166,8 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
   }, [currentOrders]);
 
   // Real traffic channels computed from store orders acquisition source
-  // Rule: Hide any traffic source when it has no visits. Move any source to the top of the list whenever it receives a new order or request.
   const trafficChannels = useMemo(() => {
-    // Strict Real Data Rule: If store has 0 total visits, every traffic source has 0 visits -> all must be hidden.
-    if (visitorsCount === 0 || !currentOrders || currentOrders.length === 0) {
-      return [];
-    }
-
-    // Determine the most recent order's source to place at the top of the list
-    const sortedOrders = [...currentOrders].sort((a, b) => {
-      const da = new Date(a.date || a.createdAt || 0).getTime();
-      const db = new Date(b.date || b.createdAt || 0).getTime();
-      return db - da;
-    });
-    const latestOrderSource = sortedOrders[0]?.source || 'Direct';
-
+    if (!currentOrders || currentOrders.length === 0) return [];
     const sourceCounts: Record<string, number> = {};
     currentOrders.forEach((o) => {
       const src = o.source || 'Direct';
@@ -192,35 +176,19 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
 
     const total = currentOrders.length;
     const channelConfigs: Record<string, { nameEn: string; nameAr: string; color: string; iconType: any }> = {
-      Instagram: { nameEn: 'Instagram', nameAr: 'انستغرام', color: '#e1306c', iconType: 'instagram' },
       TikTok: { nameEn: 'TikTok', nameAr: 'تيك توك', color: '#0f172a', iconType: 'tiktok' },
       Snapchat: { nameEn: 'Snapchat', nameAr: 'سناب شات', color: '#f59e0b', iconType: 'snapchat' },
       WhatsApp: { nameEn: 'WhatsApp', nameAr: 'واتساب', color: '#10b981', iconType: 'whatsapp' },
+      Instagram: { nameEn: 'Instagram', nameAr: 'انستغرام', color: '#e1306c', iconType: 'instagram' },
       Facebook: { nameEn: 'Facebook', nameAr: 'فيسبوك', color: '#1877f2', iconType: 'facebook' },
-      Google: { nameEn: 'Google Ads', nameAr: 'إعلانات جوجل', color: '#0284c7', iconType: 'google' },
-      'Google Ads': { nameEn: 'Google Ads', nameAr: 'إعلانات جوجل', color: '#0284c7', iconType: 'google' },
-      'Google Organic Search': { nameEn: 'Google Organic Search', nameAr: 'بحث جوجل المجاني', color: '#059669', iconType: 'google' },
-      'Bing Organic Search': { nameEn: 'Bing Organic Search', nameAr: 'بحث بينج المجاني', color: '#008373', iconType: 'bing' },
-      'Email Marketing': { nameEn: 'Email Marketing', nameAr: 'التسويق عبر البريد', color: '#ea580c', iconType: 'email' },
-      YouTube: { nameEn: 'YouTube', nameAr: 'يوتيوب', color: '#ef4444', iconType: 'youtube' },
-      'X (formerly Twitter)': { nameEn: 'X (formerly Twitter)', nameAr: 'إكس (تويتر سابقاً)', color: '#000000', iconType: 'x' },
-      Twitter: { nameEn: 'X (formerly Twitter)', nameAr: 'إكس (تويتر سابقاً)', color: '#000000', iconType: 'x' },
       Direct: { nameEn: 'Direct Visits', nameAr: 'زيارات مباشرة', color: '#0d9488', iconType: 'direct' },
       'Direct Visits': { nameEn: 'Direct Visits', nameAr: 'زيارات مباشرة', color: '#0d9488', iconType: 'direct' },
-      'External Referrals': { nameEn: 'External Referrals', nameAr: 'إحالات خارجية', color: '#6366f1', iconType: 'other' },
+      Google: { nameEn: 'Google Ads', nameAr: 'إعلانات جوجل', color: '#0284c7', iconType: 'google' },
+      'Google Ads': { nameEn: 'Google Ads', nameAr: 'إعلانات جوجل', color: '#0284c7', iconType: 'google' },
+      'Organic Search': { nameEn: 'Organic Search', nameAr: 'بحث مجاني', color: '#059669', iconType: 'google' },
     };
 
-    // Hide any traffic source when it has no visits (count > 0 only)
-    const activeEntries = Object.entries(sourceCounts).filter(([_, count]) => count > 0);
-
-    // Sort: Move source with new order / request to top, remaining by highest count
-    activeEntries.sort(([srcA, countA], [srcB, countB]) => {
-      if (srcA === latestOrderSource) return -1;
-      if (srcB === latestOrderSource) return 1;
-      return countB - countA;
-    });
-
-    return activeEntries.map(([src, count]) => {
+    return Object.entries(sourceCounts).map(([src, count]) => {
       const cfg = channelConfigs[src] || {
         nameEn: src,
         nameAr: src,
@@ -231,11 +199,24 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
         id: src.toLowerCase().replace(/\s+/g, '-'),
         name: cfg.nameEn,
         nameAr: cfg.nameAr,
-        percentage: Math.max(1, Math.round((count / total) * 100)),
+        percentage: Math.round((count / total) * 100),
         color: cfg.color,
         iconType: cfg.iconType,
       };
     });
+  }, [currentOrders]);
+
+  // Live product sales qty from real order line items (no hardcoded mock ranks)
+  const salesByProductId = useMemo(() => {
+    const map: Record<string, number> = {};
+    (currentOrders || []).forEach((o) => {
+      (o.items || []).forEach((it) => {
+        const id = it.id;
+        if (!id) return;
+        map[id] = (map[id] || 0) + (Number(it.quantity) || 0);
+      });
+    });
+    return map;
   }, [currentOrders]);
 
   // Real period growth comparisons (Zero fake dummy percentages)
@@ -249,28 +230,26 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
     const sixtyDaysMs = 60 * 24 * 60 * 60 * 1000;
 
     let currentSales = 0;
-    let currentCount = 0;
     let prevSales = 0;
-    let prevCount = 0;
 
     currentOrders.forEach((o) => {
-      if (!o.date) return;
-      const orderTime = new Date(o.date).getTime();
-      if (isNaN(orderTime)) return;
-      const age = now - orderTime;
+      const d = getOrderDate(o);
+      if (!d) return;
+      const age = now - d.getTime();
+      if (Number.isNaN(age) || age < 0) return;
       const val = Number(o.total) || 0;
 
-      if (age >= 0 && age < thirtyDaysMs) {
-        currentSales += val;
-        currentCount++;
-      } else if (age >= thirtyDaysMs && age < sixtyDaysMs) {
-        prevSales += val;
-        prevCount++;
-      }
+      if (age < thirtyDaysMs) currentSales += val;
+      else if (age < sixtyDaysMs) prevSales += val;
     });
 
-    const sGrowth = prevSales > 0 ? Math.round(((currentSales - prevSales) / prevSales) * 100) : 0;
-    const oGrowth = prevCount > 0 ? Math.round(((currentCount - prevCount) / prevCount) * 100) : 0;
+    const sGrowth =
+      prevSales > 0
+        ? Math.round(((currentSales - prevSales) / prevSales) * 100)
+        : currentSales > 0
+          ? 100
+          : 0;
+    const oGrowth = orderStatusGrowth(currentOrders).pct;
 
     return { salesGrowth: sGrowth, ordersGrowth: oGrowth };
   }, [currentOrders]);
@@ -326,60 +305,56 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
             <VisitsByDayChart data={visitsByDayPoints} />
           </div>
 
-          {/* Row 3: Top Products + Traffic Sources */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch min-w-0">
-            <TopProductsCard
-              products={currentProducts}
-              onViewAll={() => onNavigateTab('products')}
-              onSelectProduct={() => onNavigateTab('products')}
-            />
-            <TrafficSourcesCard
-              totalVisits={visitorsCount}
-              growthPercentage={0}
-              channels={trafficChannels}
-              onViewAll={() => onNavigateTab('analytics')}
-            />
-          </div>
         </div>
 
-        {/* ════ RIGHT RAIL SECTION (4 COLS on xl, 3.5 on 2xl - Compact & Balanced) ════ */}
+        {/* ════ RIGHT RAIL — Recent Activity only ════ */}
         <div className="xl:col-span-4 2xl:col-span-3.5 space-y-4 min-w-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-4">
-            {/* Card 7: Recent Activity */}
-            <RecentActivityCard
-              orders={currentOrders}
-              customers={currentCustomers}
-              products={currentProducts}
-              onViewAll={() => onNavigateTab('orders')}
-              onNavigateOrder={() => onNavigateTab('orders')}
-            />
+          <RecentActivityCard
+            orders={currentOrders}
+            customers={currentCustomers}
+            products={currentProducts}
+            onViewAll={() => onNavigateTab('orders')}
+            onNavigateOrder={() => onNavigateTab('orders')}
+          />
+        </div>
+      </div>
 
-            {/* Card 8: Notifications */}
-            <NotificationsCard
-              onViewAll={() => onNavigateTab('notifications')}
-              onOpenOrder={(orderId) => {
-                try { sessionStorage.setItem('target_view_order_id', orderId); } catch {}
-                onNavigateTab('orders');
-              }}
-              onOpenProduct={(productId) => {
-                try { sessionStorage.setItem('target_edit_product_id', productId); } catch {}
-                onNavigateTab('products');
-              }}
-              onNavigateTab={onNavigateTab}
-              onOpenWhatsApp={(phone, text) => {
-                const cleanedPhone = (phone || '').replace(/[^0-9]/g, '');
-                const url = `https://wa.me/${cleanedPhone}?text=${encodeURIComponent(text || '')}`;
-                window.open(url, '_blank');
-              }}
-            />
-          </div>
+      {/* Row: Top Products (narrow) + Traffic + Notifications — equal height, live data, scroll */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-4 items-stretch min-w-0">
+        <div className="xl:col-span-3 min-w-0">
+          <TopProductsCard
+            products={currentProducts}
+            salesByProductId={salesByProductId}
+            onViewAll={() => onNavigateTab('products')}
+            onSelectProduct={() => onNavigateTab('products')}
+          />
+        </div>
+        <div className="xl:col-span-5 min-w-0">
+          <TrafficSourcesCard
+            totalVisits={visitorsCount}
+            growthPercentage={0}
+            channels={trafficChannels}
+            onViewAll={() => onNavigateTab('analytics')}
+          />
+        </div>
+        <div className="md:col-span-2 xl:col-span-4 min-w-0">
+          <NotificationsCard
+            onViewAll={() => onNavigateTab('notifications')}
+            onOpenOrder={() => onNavigateTab('orders')}
+            onNavigateTab={onNavigateTab}
+            onOpenWhatsApp={(phone, text) => {
+              const cleanedPhone = (phone || '').replace(/[^0-9]/g, '');
+              const url = `https://wa.me/${cleanedPhone}?text=${encodeURIComponent(text || '')}`;
+              window.open(url, '_blank');
+            }}
+          />
         </div>
       </div>
 
       {/* ── Embedded Orders Table Operations (Full Width Span) ── */}
       <div className="pt-2">
         <DashboardOrdersTable
-          orders={currentOrders}
+          orders={analyticsOrders.length > 0 ? analyticsOrders : currentOrders}
           onNavigateTab={onNavigateTab}
           onOpenCreateOrder={() => setIsCreateOrderModalOpen(true)}
         />
@@ -387,34 +362,30 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = React.memo(({
 
       {/* ── Create Order Modal ── */}
       {isCreateOrderModalOpen && (
-        <React.Suspense fallback={null}>
-          <CreateStoreOrderModal
-            isOpen={isCreateOrderModalOpen}
-            storeId={activeStore.id}
-            storeName={activeStore.name}
-            onClose={() => setIsCreateOrderModalOpen(false)}
-            onCreate={(orderData) => {
-              try {
-                addOrder(orderData as any, activeStore.id);
-                toast(
-                  isAr
-                    ? 'تم إنشاء الطلب الجديد وإضافته بنجاح إلى قاعدة البيانات!'
-                    : 'New order created and saved to database successfully!',
-                  'success',
-                );
-                setIsCreateOrderModalOpen(false);
-              } catch (err) {
-                toast(
-                  isAr ? 'حدث خطأ أثناء حفظ الطلب' : 'Failed to save new order',
-                  'error',
-                );
-              }
-            }}
-          />
-        </React.Suspense>
+        <CreateStoreOrderModal
+          isOpen={isCreateOrderModalOpen}
+          storeId={activeStore.id}
+          storeName={activeStore.name}
+          onClose={() => setIsCreateOrderModalOpen(false)}
+          onCreate={(orderData) => {
+            try {
+              addOrder(orderData as any, activeStore.id);
+              toast(
+                isAr
+                  ? 'تم إنشاء الطلب الجديد وإضافته بنجاح إلى قاعدة البيانات!'
+                  : 'New order created and saved to database successfully!',
+                'success',
+              );
+              setIsCreateOrderModalOpen(false);
+            } catch (err) {
+              toast(
+                isAr ? 'حدث خطأ أثناء حفظ الطلب' : 'Failed to save new order',
+                'error',
+              );
+            }
+          }}
+        />
       )}
     </AdminPageShell>
   );
-});
-
-StoreDashboard.displayName = 'StoreDashboard';
+};

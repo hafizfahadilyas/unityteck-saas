@@ -11,6 +11,7 @@ import type {
   StoreSEOConfig,
   DomainRecord,
 } from '../types';
+import { fromApiPricing } from '../utils/productPricing';
 
 /** Loose API row shapes (snake_case from Laravel). */
 export type ApiStoreRow = Record<string, unknown>;
@@ -126,10 +127,13 @@ export function mapProduct(row: ApiProductRow): Product {
     statusRaw === 'published' || statusRaw === 'archived' ? statusRaw : 'draft';
 
   const original = row.original_price;
-  const originalPrice =
+  const apiOriginal =
     original === null || original === undefined || original === ''
       ? null
       : num(original);
+
+  // API price = selling; original_price = compare-at → editor regular/sale
+  const pricing = fromApiPricing(num(row.price), apiOriginal);
 
   return {
     id: str(row.id),
@@ -141,8 +145,9 @@ export function mapProduct(row: ApiProductRow): Product {
     category: str(row.category, 'General'),
     categoryAr: row.category_ar ? str(row.category_ar) : undefined,
     categoryEn: row.category_en ? str(row.category_en) : undefined,
-    price: num(row.price),
-    originalPrice,
+    price: pricing.price,
+    discountedPrice: pricing.discountedPrice || null,
+    originalPrice: pricing.originalPrice,
     stock: num(row.stock),
     status,
     isActive: row.is_active === undefined ? true : Boolean(row.is_active),
@@ -156,6 +161,12 @@ export function mapProduct(row: ApiProductRow): Product {
     badge: row.badge ? str(row.badge) : undefined,
     badgeEn: row.badge_en ? str(row.badge_en) : undefined,
     description: row.description == null ? null : str(row.description),
+    subtitle: row.subtitle == null || row.subtitle === '' ? null : str(row.subtitle),
+    subtitleAr:
+      row.subtitle_ar == null || row.subtitle_ar === '' ? null : str(row.subtitle_ar),
+    isFeatured: row.is_featured === undefined || row.is_featured === null
+      ? Boolean(row.badge === 'featured' || (Array.isArray(row.tags) && row.tags.includes('featured')))
+      : Boolean(row.is_featured),
     seoTitle: row.seo_title == null || row.seo_title === '' ? null : str(row.seo_title),
     seoDescription:
       row.seo_description == null || row.seo_description === ''
@@ -176,7 +187,10 @@ const ORDER_SOURCES: Order['source'][] = [
   'Google Ads',
   'Facebook',
   'Snapchat',
+  'TikTok',
   'Direct',
+  'Organic Search',
+  'Referral',
 ];
 
 const PAYMENT_METHODS: Order['paymentMethod'][] = [
@@ -184,18 +198,34 @@ const PAYMENT_METHODS: Order['paymentMethod'][] = [
   'Visa/MC',
   'Apple Pay',
   'COD',
+  'stc pay',
 ];
 
 function mapOrderSource(v: unknown): Order['source'] {
   const s = str(v, 'Direct');
-  return (ORDER_SOURCES.find((x) => x.toLowerCase() === s.toLowerCase()) ??
-    'Direct') as Order['source'];
+  const exact = ORDER_SOURCES.find((x) => x.toLowerCase() === s.toLowerCase());
+  if (exact) return exact as Order['source'];
+  const lower = s.toLowerCase();
+  if (lower.includes('tiktok')) return 'TikTok';
+  if (lower.includes('snap')) return 'Snapchat';
+  if (lower.includes('instagram')) return 'Instagram';
+  if (lower.includes('whatsapp')) return 'WhatsApp';
+  if (lower.includes('facebook')) return 'Facebook';
+  if (lower.includes('google')) return 'Google Ads';
+  if (lower.includes('referral')) return 'Referral';
+  return 'Direct';
 }
 
 function mapPaymentMethod(v: unknown): Order['paymentMethod'] {
   const s = str(v, 'COD');
+  const lower = s.toLowerCase();
+  if (lower.includes('mada')) return 'Mada';
+  if (lower.includes('apple')) return 'Apple Pay';
+  if (lower.includes('stc')) return 'stc pay';
+  if (lower.includes('visa') || lower.includes('master') || lower === 'visa/mc') return 'Visa/MC';
+  if (lower.includes('cash') || lower.includes('cod')) return 'COD';
   return (
-    PAYMENT_METHODS.find((x) => x.toLowerCase() === s.toLowerCase()) ?? 'COD'
+    PAYMENT_METHODS.find((x) => x.toLowerCase() === lower) ?? 'COD'
   );
 }
 

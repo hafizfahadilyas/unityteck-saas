@@ -1253,6 +1253,20 @@ button:active:not(:disabled) {
   font-weight: 750 !important;
 }
 
+/* Retail / ZATCA invoice: dark navy thead must keep white labels (portal shell rules above force muted text) */
+#retail-invoice-print-area thead,
+#retail-invoice-print-area thead tr,
+#retail-invoice-print-area thead th {
+  color: #ffffff !important;
+  background-color: #0f172a !important;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+#retail-invoice-print-area tbody td {
+  color: #0f172a !important;
+  background-color: transparent;
+}
+
 /* ─── Pagination Active Buttons Contrast ─── */
 .unity-shell button[class*="bg-teal-6"],
 .unity-shell button[class*="bg-blue-6"] {

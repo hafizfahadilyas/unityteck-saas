@@ -20,8 +20,6 @@ import {
 } from 'lucide-react';
 
 import { useTenant } from '../../../context/TenantContext';
-import { CustomerLoyaltyProfileSection } from '../../../components/storefront/CustomerLoyaltyProfileSection';
-
 
 export const ProfilePage: React.FC = () => {
   const { user, loginUser, logoutUser, language, showToast, lastOrder, navigateTo } = useCart();
@@ -403,15 +401,6 @@ export const ProfilePage: React.FC = () => {
             </button>
           </div>
         </div>
-
-        {/* Gamified Loyalty Card, Coins & Daily Spin Game */}
-        <CustomerLoyaltyProfileSection
-          storeId={activeStore?.id || 'store-coffee'}
-          customerId={user.email || 'customer'}
-          customerName={user.name}
-          customerEmail={user.email}
-          customerPhone={user.phone}
-        />
 
         {/* Order History */}
         <div className="space-y-4">

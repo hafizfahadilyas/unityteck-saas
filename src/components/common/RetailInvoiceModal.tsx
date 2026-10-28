@@ -11,11 +11,11 @@ import {
   MapPin,
   Mail,
   FileText,
-  Share2,
   Receipt,
   CheckCircle2,
 } from 'lucide-react';
 import { generateZatcaTlvBase64, generateQrSvgDataUri } from '../../utils/zatca';
+import { WhatsAppBrandIcon } from './BrandIcons';
 
 interface RetailInvoiceModalProps {
   isOpen: boolean;
@@ -284,6 +284,19 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
             box-shadow: none !important;
             border: none !important;
             z-index: 999999 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          #retail-invoice-print-area thead,
+          #retail-invoice-print-area thead tr,
+          #retail-invoice-print-area thead th {
+            color: #ffffff !important;
+            background-color: #0f172a !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          #retail-invoice-print-area tbody td {
+            color: #0f172a !important;
           }
           .no-print {
             display: none !important;
@@ -394,7 +407,7 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
               className="p-2 rounded-xl bg-slate-800/80 text-emerald-400 border border-slate-700 hover:bg-emerald-500/20 hover:border-emerald-500/40 cursor-pointer transition-all"
               title={isAr ? 'مشاركة عبر واتساب' : 'Share via WhatsApp'}
             >
-              <Share2 className="w-4 h-4" />
+              <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
             </button>
 
             {/* Official Print Primary Button (Glowing Green matching Image 1) */}
@@ -411,10 +424,11 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer transition-all"
-              title="Close"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-600 bg-slate-800/80 text-slate-200 hover:bg-slate-700 hover:text-white flex items-center gap-1.5 cursor-pointer transition-all"
+              title={isAr ? 'إغلاق' : 'Close'}
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
+              <span>{isAr ? 'إغلاق' : 'Close'}</span>
             </button>
           </div>
         </div>
@@ -659,12 +673,12 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
                 <div className="rounded-xl overflow-hidden border border-slate-200 shadow-2xs">
                   <table className="w-full text-xs border-collapse">
                     <thead>
-                      <tr className="bg-slate-900 text-white font-bold text-[11px]">
-                        <th className="py-3.5 px-4 text-start">{isAr ? 'الصنف والوصف' : 'Item Description'}</th>
-                        <th className="py-3.5 px-3 text-center">{isAr ? 'الكمية' : 'Qty'}</th>
-                        <th className="py-3.5 px-3 text-end">{isAr ? 'سعر الوحدة' : 'Unit Price'}</th>
-                        <th className="py-3.5 px-3 text-end">{isAr ? 'الضريبة (15%)' : 'VAT (15%)'}</th>
-                        <th className="py-3.5 px-4 text-end">{isAr ? 'الإجمالي' : 'Total'}</th>
+                      <tr className="bg-slate-900 font-bold text-[11px]" style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
+                        <th className="py-3.5 px-4 text-start" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'الصنف والوصف' : 'Item Description'}</th>
+                        <th className="py-3.5 px-3 text-center" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'الكمية' : 'Qty'}</th>
+                        <th className="py-3.5 px-3 text-end" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'سعر الوحدة' : 'Unit Price'}</th>
+                        <th className="py-3.5 px-3 text-end" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'الضريبة (15%)' : 'VAT (15%)'}</th>
+                        <th className="py-3.5 px-4 text-end" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'الإجمالي' : 'Total'}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">

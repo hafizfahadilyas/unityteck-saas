@@ -32,6 +32,7 @@ import {
   ChevronRight,
   ChevronLeft,
 } from 'lucide-react';
+import { getCustomerDisplayName } from '../../../utils/storeLocalization';
 
 interface ShippingLabelsStudioViewProps {
   initialOrderId?: string;
@@ -327,11 +328,11 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
                 <div className="mt-4 space-y-3 text-xs">
                   <div className="flex items-start gap-2.5">
                     <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold shrink-0">
-                      {(selectedOrder?.customerName || 'C').charAt(0).toUpperCase()}
+                      {(getCustomerDisplayName(selectedOrder?.customerName, locale) || 'C').charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-900 dark:text-white">
-                        {selectedOrder?.customerName || (isAr ? 'عميل المتجر' : 'Store Customer')}
+                        {getCustomerDisplayName(selectedOrder?.customerName, locale)}
                       </h4>
                       <p className="text-[11px] text-slate-500 font-mono mt-0.5">
                         {selectedOrder?.customerPhone || activeStore?.phone || '—'}
@@ -369,7 +370,7 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
                   >
                     {eligibleOrders.map((ord) => (
                       <option key={ord.id} value={ord.id}>
-                        {ord.orderNumber || `#${ord.id.slice(-8)}`} — {ord.customerName} ({(ord as any).city || ord.deliveryLocation || 'KSA'})
+                        {ord.orderNumber || `#${ord.id.slice(-8)}`} — {getCustomerDisplayName(ord.customerName, locale)} ({(ord as any).city || ord.deliveryLocation || 'KSA'})
                       </option>
                     ))}
                   </select>
@@ -689,7 +690,7 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
                     <div className="col-span-4 border-e border-slate-300 pe-1">
                       <span className="font-black block uppercase text-[9px] text-slate-500">To:</span>
                       <strong className="block truncate">
-                        {selectedOrder?.customerName || (isAr ? 'عميل' : 'Customer')}
+                        {getCustomerDisplayName(selectedOrder?.customerName, locale)}
                       </strong>
                       <span className="block truncate text-slate-600">
                         {(selectedOrder as any)?.city || selectedOrder?.deliveryLocation || (activeStore as any)?.city || 'Saudi Arabia'}, KSA
