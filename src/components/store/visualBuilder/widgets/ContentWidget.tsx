@@ -363,8 +363,6 @@ export function WidgetFields({
   }
   return null;
 }
-  return CONTENT_TYPES.has(type);
-}
 
 export function ContentWidget(props: { type: string; settings?: Record<string, any>; isAr: boolean; device: Device; storeId: string }) {
   const { type, settings, isAr, device, storeId } = props;

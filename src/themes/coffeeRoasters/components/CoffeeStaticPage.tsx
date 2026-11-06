@@ -577,7 +577,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
                       <div><strong>{isAr ? 'المميزات المشمولة:' : 'Coverage:'}</strong> {warrantyResult.coverage}</div>
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
 
