@@ -3,6 +3,7 @@ import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
 import { fetchSalesRevenueReportsApi } from '../../../api/tenantApi';
+import { ordersByDay, savedTaxTotal } from './realOrderSeries';
 import { ReportsEmptyState } from './ReportsEmptyState';
 import type { ReportTabKey } from './ReportsNavHeader';
 import {
@@ -96,40 +97,31 @@ export const ReportsSalesRevenue: React.FC<ReportsSalesRevenueProps> = ({
   const rawTotalRevenue = storeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
   const rawTotalOrders = storeOrders.length;
   const rawAov = rawTotalOrders > 0 ? Math.round((rawTotalRevenue / rawTotalOrders) * 100) / 100 : 0;
-  const rawNetRevenue = Math.max(0, Math.round(rawTotalRevenue * 0.9314));
-  const rawMargin = rawTotalRevenue > 0 ? 30.8 : 0;
+  const rawTax = savedTaxTotal(storeOrders);
+  const rawNetRevenue = Math.max(0, rawTotalRevenue - rawTax);
 
   // Resolved metrics (API first, then store fallback)
   const totalRevenue = apiData?.kpis?.total_revenue ?? rawTotalRevenue;
   const totalOrders = apiData?.kpis?.total_orders ?? rawTotalOrders;
   const aov = apiData?.kpis?.aov ?? rawAov;
   const netRevenue = apiData?.kpis?.net_revenue ?? rawNetRevenue;
-  const profitMargin = apiData?.kpis?.profit_margin ?? (totalRevenue > 0 ? '30.8%' : '0%');
+  const profitMargin = apiData?.kpis?.profit_margin ?? '0%';
 
   const revGrowth = apiData?.kpis?.revenue_growth ?? '0%';
-  const ordersGrowth = apiData?.kpis?.orders_growth ?? (totalOrders > 0 ? '+8.4%' : '0%');
-  const aovGrowth = apiData?.kpis?.aov_growth ?? (aov > 0 ? '+15.2%' : '0%');
-  const netGrowth = apiData?.kpis?.net_growth ?? (netRevenue > 0 ? '+13.6%' : '0%');
-  const marginGrowth = apiData?.kpis?.margin_growth ?? (totalRevenue > 0 ? '+2.4%' : '0%');
+  const ordersGrowth = apiData?.kpis?.orders_growth ?? '0%';
+  const aovGrowth = apiData?.kpis?.aov_growth ?? '0%';
+  const netGrowth = apiData?.kpis?.net_growth ?? '0%';
+  const marginGrowth = apiData?.kpis?.margin_growth ?? '0%';
 
-  const prevRevenue = apiData?.kpis?.prev_revenue ?? (totalRevenue > 0 ? Math.round(totalRevenue * 0.88) : 0);
-  const prevOrders = apiData?.kpis?.prev_orders ?? (totalOrders > 0 ? Math.round(totalOrders * 0.92) : 0);
-  const prevAov = apiData?.kpis?.prev_aov ?? (aov > 0 ? Math.round(aov * 0.86) : 0);
-  const prevNet = apiData?.kpis?.prev_net_revenue ?? (netRevenue > 0 ? Math.round(netRevenue * 0.88) : 0);
+  const prevRevenue = apiData?.kpis?.prev_revenue ?? 0;
+  const prevOrders = apiData?.kpis?.prev_orders ?? 0;
+  const prevAov = apiData?.kpis?.prev_aov ?? 0;
+  const prevNet = apiData?.kpis?.prev_net_revenue ?? 0;
 
   const trendData = useMemo(() => {
     if (apiData?.trend && apiData.trend.length > 0) return apiData.trend;
-    if (totalRevenue === 0) return [];
-    return [
-      { label: 'Oct 01', revenue: Math.round(totalRevenue * 0.08), orders: Math.max(1, Math.round(totalOrders * 0.08)) },
-      { label: 'Oct 02', revenue: Math.round(totalRevenue * 0.11), orders: Math.max(1, Math.round(totalOrders * 0.10)) },
-      { label: 'Oct 03', revenue: Math.round(totalRevenue * 0.09), orders: Math.max(1, Math.round(totalOrders * 0.09)) },
-      { label: 'Oct 04', revenue: Math.round(totalRevenue * 0.15), orders: Math.max(1, Math.round(totalOrders * 0.14)) },
-      { label: 'Oct 05', revenue: Math.round(totalRevenue * 0.22), orders: Math.max(1, Math.round(totalOrders * 0.20)) },
-      { label: 'Oct 06', revenue: Math.round(totalRevenue * 0.18), orders: Math.max(1, Math.round(totalOrders * 0.17)) },
-      { label: 'Oct 07', revenue: Math.round(totalRevenue * 0.17), orders: Math.max(1, Math.round(totalOrders * 0.16)) },
-    ];
-  }, [apiData, totalRevenue, totalOrders]);
+    return ordersByDay(storeOrders, isAr ? 'ar' : 'en');
+  }, [apiData, storeOrders, isAr]);
 
   const maxTrendRev = useMemo(() => {
     if (trendData.length === 0) return 1;
@@ -160,9 +152,9 @@ export const ReportsSalesRevenue: React.FC<ReportsSalesRevenueProps> = ({
   const breakdownList = useMemo(() => {
     if (apiData?.breakdown && apiData.breakdown.length > 0) return apiData.breakdown;
     if (totalRevenue === 0) return [];
-    const shippingRev = storeOrders.reduce((sum, o) => sum + (o.shippingFee || 0), 0);
-    const prodRev = Math.max(0, totalRevenue - shippingRev);
-    const taxRev = Math.round(totalRevenue * 0.15);
+    const shippingRev = storeOrders.reduce((sum, o) => sum + (Number(o.shippingFee) || 0), 0);
+    const taxRev = savedTaxTotal(storeOrders);
+    const prodRev = Math.max(0, totalRevenue - shippingRev - taxRev);
     return [
       { name: isAr ? 'مبيعات المنتجات' : 'Product Sales', percentage: totalRevenue > 0 ? Math.round((prodRev / totalRevenue) * 100) : 0, amount: prodRev, color: '#3b82f6' },
       { name: isAr ? 'إيرادات الشحن' : 'Shipping Revenue', percentage: totalRevenue > 0 ? Math.round((shippingRev / totalRevenue) * 100) : 0, amount: shippingRev, color: '#10b981' },
@@ -267,10 +259,10 @@ export const ReportsSalesRevenue: React.FC<ReportsSalesRevenueProps> = ({
   const forecast = useMemo(() => {
     if (apiData?.forecast) return apiData.forecast;
     return {
-      expected_revenue: Math.round(totalRevenue * 1.132),
-      revenue_growth: '+13.2%',
-      expected_orders: Math.round(totalOrders * 1.138),
-      orders_growth: '+13.8%',
+      expected_revenue: 0,
+      revenue_growth: '0%',
+      expected_orders: 0,
+      orders_growth: '0%',
     };
   }, [apiData, totalRevenue, totalOrders]);
 

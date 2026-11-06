@@ -4,6 +4,7 @@ export type DeviceStyle = {
   padding?: string | number;
   margin?: string | number;
   gap?: string | number;
+  maxWidth?: string | number;
   fontSize?: string | number;
   align?: string;
   color?: string;
@@ -46,6 +47,10 @@ export function isWidgetVisibleOnDevice(block: StyledBlock, mode: string): boole
   return true;
 }
 
+export function visibleFrameBlocks<T extends StyledBlock>(blocks: T[], mode: string): T[] {
+  return blocks.filter((block) => isWidgetVisibleOnDevice(block, mode));
+}
+
 function cssSize(value: string | number | undefined): string | undefined {
   if (value === undefined || value === '') return undefined;
   return typeof value === 'number' ? `${value}px` : value;
@@ -55,6 +60,7 @@ export function deviceStyleCss(block: StyledBlock, mode: string): {
   padding?: string;
   margin?: string;
   gap?: string;
+  maxWidth?: string;
   fontSize?: string;
   textAlign?: 'left' | 'center' | 'right' | 'justify';
   color?: string;
@@ -68,6 +74,7 @@ export function deviceStyleCss(block: StyledBlock, mode: string): {
     padding: cssSize(bucket.padding),
     margin: cssSize(bucket.margin),
     gap: cssSize(bucket.gap),
+    maxWidth: cssSize(bucket.maxWidth),
     fontSize: cssSize(bucket.fontSize),
     textAlign: align,
     color: bucket.color,

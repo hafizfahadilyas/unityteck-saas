@@ -106,6 +106,28 @@ export function blocksForPublish<T extends { visible?: boolean }>(blocks: T[]): 
   return blocks.filter((block) => block.visible !== false);
 }
 
+export function countVisibleH1(nodes: unknown): number {
+  if (Array.isArray(nodes)) {
+    return nodes.reduce<number>((sum, item) => sum + countVisibleH1(item), 0);
+  }
+  if (!nodes || typeof nodes !== 'object') return 0;
+  const node = nodes as Record<string, unknown>;
+  if (node.visible === false) return 0;
+  const type = node.type;
+  const isHeading = type === 'heading' || type === 'w_heading';
+  const settings = (isHeading && node.settings && typeof node.settings === 'object'
+    ? node.settings
+    : node) as Record<string, unknown>;
+  const raw = String(settings.tag || settings.htmlTag || settings.level || '').toLowerCase();
+  const self = (isHeading || typeof node.tag === 'string') && raw === 'h1' ? 1 : 0;
+  let nested = 0;
+  for (const [key, value] of Object.entries(node)) {
+    if (isHeading && key === 'settings') continue;
+    nested += countVisibleH1(value);
+  }
+  return self + nested;
+}
+
 export function createCoalescedSaver(waitMs: number, put: () => void) {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let puts = 0;

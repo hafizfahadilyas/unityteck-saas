@@ -27,6 +27,7 @@ lerna-debug.log*
 !.env.example
 *.pem
 *.key
+client_secret*.json
 
 # Backups & Database dumps
 backups/

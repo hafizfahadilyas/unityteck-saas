@@ -37,22 +37,21 @@ import {
   Upload,
 } from 'lucide-react';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
+import { GoogleToolsWaitGuide } from './seo/GoogleToolsWaitGuide';
+import { realTrackingId, seoSetupStep, storeGoogleEmail, storePublicHost } from './seo/storeSeoSetup';
 import { GoogleConnectModal } from './GoogleConnectModal';
 import { UtmCampaignBuilder } from './UtmCampaignBuilder';
 import {
   initiateRealGoogleOAuth,
   getStoredGoogleClientId,
   setStoredGoogleClientId,
-  getStoreGoogleState,
-  saveStoreGoogleState,
   clearStoreGoogleState,
   clearPageSpeedFixes,
   mapPageSpeedAuditSnapshot,
   PageSpeedAuditResult,
 } from '../../utils/googleRealAuth';
-import { fetchGooglePageSpeedData } from '../../api/tenantApi';
+import { fetchGooglePageSpeedData, submitGoogleCallback } from '../../api/tenantApi';
 import {
-  getMasterGlobalTracking,
   getStoreSeoDeepAudit,
   saveStoreSeoDeepAudit,
   type SeoDeepAuditItem,
@@ -84,24 +83,15 @@ export const StoreSEO: React.FC = () => {
   const [editGtmId, setEditGtmId] = useState(currentSEOConfig.gtmContainerId || '');
   const [editGscTag, setEditGscTag] = useState(currentSEOConfig.searchConsoleVerificationTag || '');
   const [editGoogleAdsId, setEditGoogleAdsId] = useState(currentSEOConfig.googleAdsConversionId || '');
-  const [connectMode, setConnectMode] = useState<'instant' | 'oauth'>('instant');
-  const [merchantGoogleEmail, setMerchantGoogleEmail] = useState(
-    currentSEOConfig.googleAccountEmail || activeStore.ownerEmail || (activeStore.id === 'store-1' ? 'giftshop2030m@gmail.com' : '')
-  );
   const [customClientId, setCustomClientId] = useState(getStoredGoogleClientId());
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [oauthError, setOauthError] = useState<string | null>(null);
 
   // Keep tracking form state synced with active store SEO config + Zero-Touch Master GTM/GA4 Auto-Fallback
   useEffect(() => {
-    const masterTrack = getMasterGlobalTracking();
-    const slugTag = (activeStore.slug || activeStore.id).slice(0, 5).toUpperCase();
-    const resolvedGa4 = currentSEOConfig.ga4MeasurementId || `${masterTrack.masterGa4Id}-${slugTag}`;
-    const resolvedGtm = currentSEOConfig.gtmContainerId || `${masterTrack.masterGtmId}-${slugTag}`;
-    const resolvedGsc = currentSEOConfig.searchConsoleVerificationTag || `google-site-verification=KSA-${slugTag}-AUTO`;
-
-    const resolvedEmail = currentSEOConfig.googleAccountEmail || activeStore.ownerEmail || (activeStore.id === 'store-1' ? 'giftshop2030m@gmail.com' : '');
-    setMerchantGoogleEmail(resolvedEmail);
+    const resolvedGa4 = realTrackingId(currentSEOConfig.ga4MeasurementId);
+    const resolvedGtm = realTrackingId(currentSEOConfig.gtmContainerId);
+    const resolvedGsc = realTrackingId(currentSEOConfig.searchConsoleVerificationTag);
     setEditGa4Id(resolvedGa4);
     setEditGtmId(resolvedGtm);
     setEditGscTag(resolvedGsc);
@@ -233,13 +223,17 @@ export const StoreSEO: React.FC = () => {
   }, [candidateUrls.length, currentSEOConfig.googleConnected, handleAutoPilotSyncAll]);
 
   // Editable Meta Form State
-  const [metaTitle, setMetaTitle] = useState(currentSEOConfig.metaTitle);
-  const [metaDescription, setMetaDescription] = useState(currentSEOConfig.metaDescription);
+  const [metaTitleEn, setMetaTitleEn] = useState(currentSEOConfig.metaTitleEn || currentSEOConfig.metaTitle || '');
+  const [metaTitleAr, setMetaTitleAr] = useState(currentSEOConfig.metaTitleAr || '');
+  const [metaDescriptionEn, setMetaDescriptionEn] = useState(currentSEOConfig.metaDescriptionEn || currentSEOConfig.metaDescription || '');
+  const [metaDescriptionAr, setMetaDescriptionAr] = useState(currentSEOConfig.metaDescriptionAr || '');
+  const metaTitle = isAr ? metaTitleAr : metaTitleEn;
+  const metaDescription = isAr ? metaDescriptionAr : metaDescriptionEn;
   const [ga4Id, setGa4Id] = useState(currentSEOConfig.ga4MeasurementId);
   const [gtmId, setGtmId] = useState(currentSEOConfig.gtmContainerId);
   const [gscTag, setGscTag] = useState(currentSEOConfig.searchConsoleVerificationTag);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [ogImageUrl, setOgImageUrl] = useState('https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80');
+  const [ogImageUrl, setOgImageUrl] = useState('');
   const ogFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const [pageSpeedUrlInput, setPageSpeedUrlInput] = useState(
@@ -311,65 +305,69 @@ export const StoreSEO: React.FC = () => {
     setIsAuthenticating(false);
     setOauthError(
       isAr
-        ? 'الربط الفوري المعطّل. أدخل Client ID الحقيقي من Google Cloud ثم استخدم OAuth.'
-        : 'Instant connect is disabled. Enter a real Google Cloud Client ID and use OAuth.',
+        ? 'الربط الفوري متوقف. أدخل معرّف عميل جوجل الحقيقي ثم أكمل تسجيل الدخول.'
+        : 'Instant connect is disabled. Enter a real Google Cloud client id, then sign in.',
     );
     toast(
-      isAr ? 'غير مسموح بالبيانات الوهمية — استخدم OAuth الحقيقي' : 'Fake Instant connect blocked — use real Google OAuth',
+      isAr ? 'البيانات الوهمية ممنوعة. استخدم تسجيل الدخول الحقيقي من جوجل.' : 'Invented connections are blocked. Use a real Google sign-in.',
       'error',
     );
   };
 
   // Real OAuth Connect Trigger
   const handleStartRealGoogleOAuth = () => {
+    const step = seoSetupStep(activeStore);
+    const email = storeGoogleEmail(activeStore);
+    if (step === 'need_email') {
+      toast(isAr ? 'أضف بريد دخول هذا المتجر أولاً.' : 'Add this store’s login email first.', 'error');
+      return;
+    }
+    if (step === 'need_domain') {
+      toast(
+        isAr
+          ? 'النطاق العام غير محفوظ. بعد ربط النطاق يفتح مالك المتجر بريده في جوجل من هذه الصفحة.'
+          : 'No public domain is saved yet. After the domain is added, the store owner signs in with their Gmail on this page.',
+        'error',
+      );
+      return;
+    }
     setIsAuthenticating(true);
     setOauthError(null);
 
     initiateRealGoogleOAuth({
       storeSlug: activeStore.slug,
-      clientId: customClientId,
-      onSuccess: (tokenResp, userProfile) => {
+      clientId: customClientId || getStoredGoogleClientId(),
+      loginHint: email,
+      flow: 'code',
+      onCode: async (code, redirectUri) => {
+        const res = await submitGoogleCallback(activeStore.id, { code, redirect_uri: redirectUri });
+        const savedEmail = String(res?.integration?.google_account_email || '').trim();
         setIsAuthenticating(false);
-        // Connect real account & populate real GSC + GA4 detection
-        connectGoogleAccount(activeStore.id, userProfile.email);
+        if (!savedEmail) {
+          setOauthError(
+            isAr
+              ? 'جوجل لم يحفظ حساب هذا المتجر. أعد المحاولة من النطاق العام.'
+              : 'Google did not save this store account. Try again on the public domain.',
+          );
+          return;
+        }
+        connectGoogleAccount(activeStore.id, savedEmail);
         updateStoreSEOConfig(activeStore.id, {
           googleConnected: true,
-          googleAccountEmail: userProfile.email,
+          googleAccountEmail: savedEmail,
           connectedAt: new Date().toISOString().split('T')[0],
-          searchConsoleConnected: false,
-          searchConsoleVerificationTag: currentSEOConfig.searchConsoleVerificationTag || '',
-          ga4MeasurementId: ga4Id || currentSEOConfig.ga4MeasurementId || '',
-          gtmContainerId: gtmId || currentSEOConfig.gtmContainerId || '',
-          indexingApiEnabled: false,
-          totalSearchClicks: 0,
-          totalSearchImpressions: 0,
-          avgCtr: 0,
-          avgPosition: 0,
-          indexedUrlsCount: 0,
+          searchConsoleConnected: Boolean(res?.site_kit?.linked?.search_console),
+          ga4MeasurementId: res?.integration?.ga4_measurement_id || realTrackingId(currentSEOConfig.ga4MeasurementId),
+          gtmContainerId: res?.integration?.gtm_container_id || realTrackingId(currentSEOConfig.gtmContainerId),
+          indexingApiEnabled: Boolean(res?.site_kit?.indexing_homepage_pinged),
         });
-
-        saveStoreGoogleState(activeStore.id, {
-          connected: true,
-          accessToken: tokenResp.access_token,
-          expiresAt: Date.now() + tokenResp.expires_in * 1000,
-          accountEmail: userProfile.email,
-          accountName: userProfile.name,
-          accountPicture: userProfile.picture || null,
-          ga4PropertyId: null,
-          ga4MeasurementId: ga4Id || currentSEOConfig.ga4MeasurementId || null,
-          gscSiteUrl: null,
-          gtmAccountId: null,
-          gtmContainerId: gtmId || currentSEOConfig.gtmContainerId || null,
-          indexingEnabled: false,
-          psiScoreMobile: 0,
-          psiScoreDesktop: 0,
-          fcp: '—',
-          lcp: '—',
-          cls: '—',
-          fid: '—',
-          inp: '—',
-          lastSyncedAt: new Date().toLocaleString(),
-        });
+        toast(
+          isAr ? `تم ربط جوجل لهذا المتجر: ${savedEmail}` : `Google connected for this store: ${savedEmail}`,
+          'success',
+        );
+      },
+      onSuccess: () => {
+        setIsAuthenticating(false);
       },
       onError: (errMsg) => {
         setIsAuthenticating(false);
@@ -382,7 +380,7 @@ export const StoreSEO: React.FC = () => {
     disconnectGoogleAccount(activeStore.id);
     clearStoreGoogleState(activeStore.id);
     clearPageSpeedFixes(activeStore.id);
-    toast(isAr ? 'تم فصل حساب Google بنجاح وإعادة تعيين البيانات' : 'Google Account disconnected and data reset', 'info');
+    toast(isAr ? 'تم فصل حساب جوجل وإعادة ضبط البيانات' : 'Google account disconnected and data reset', 'info');
   };
 
   const handleSaveClientId = (e: React.FormEvent) => {
@@ -407,6 +405,10 @@ export const StoreSEO: React.FC = () => {
     updateStoreSEOConfig(activeStore.id, {
       metaTitle,
       metaDescription,
+      metaTitleEn,
+      metaTitleAr,
+      metaDescriptionEn,
+      metaDescriptionAr,
       ga4MeasurementId: ga4Id,
       gtmContainerId: gtmId,
       searchConsoleVerificationTag: gscTag,
@@ -449,17 +451,17 @@ export const StoreSEO: React.FC = () => {
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
               </svg>
             </span>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-              Site Kit by Google Hub
-              <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                Official OAuth 2.0
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2 flex-wrap">
+              {isAr ? 'مركز أدوات جوجل' : 'Google tools hub'}
+              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                {isAr ? 'تسجيل دخول حقيقي' : 'Real sign-in'}
               </span>
             </h1>
           </div>
           <p className="text-xs text-slate-300 max-w-3xl leading-relaxed">
             {isAr
-              ? 'لوحة تحكم مركزية بنمط Site Kit من Google. اربط حسابك الرسمي لتفعيل Google Analytics 4، Google Search Console، Google Tag Manager، ومؤشرات أداء الويب Core Web Vitals مباشرة.'
-              : 'Centralized Google Site Kit Hub. Connect your official Google Account to unify Google Search Console, Google Analytics 4, Google Tag Manager, Indexing API, and Core Web Vitals.'}
+              ? 'اربط حساب جوجل الخاص بهذا المتجر بعد أن يصبح النطاق مباشراً على الاستضافة. الأرقام تظهر فقط عندما ترسلها جوجل أو ميتا. قبل ذلك تبقى الخانات فارغة.'
+              : 'Connect this store’s own Google account after the domain is live on Hostinger. Numbers appear only when Google or Meta sends them. Until then the fields stay empty.'}
           </p>
         </div>
 
@@ -482,14 +484,22 @@ export const StoreSEO: React.FC = () => {
                   </span>
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                 </div>
-                <div className="text-[10px] text-emerald-300 font-mono">
-                  {isAr ? 'حساب Google متصل وموثّق' : 'Official Google Account Active'}
+                <div className="text-[10px] text-emerald-300">
+                  {isAr ? 'حساب جوجل متصل' : 'Google account connected'}
                 </div>
               </div>
               <button
+                type="button"
+                onClick={() => setIsGuideOpen(true)}
+                className="text-xs font-bold text-slate-200 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10 transition-all cursor-pointer"
+              >
+                {isAr ? 'الدليل' : 'Guide'}
+              </button>
+              <button
+                type="button"
                 onClick={handleDisconnect}
                 className="text-xs font-bold text-rose-300 hover:text-rose-100 px-2 py-1 rounded-lg hover:bg-rose-500/20 transition-all cursor-pointer"
-                title="Disconnect Google Account"
+                title={isAr ? 'فصل الحساب' : 'Disconnect account'}
               >
                 {isAr ? 'فصل الحساب' : 'Disconnect'}
               </button>
@@ -504,7 +514,7 @@ export const StoreSEO: React.FC = () => {
                 {isAuthenticating ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
-                    <span>{isAr ? 'جاري التحقق والربط...' : 'Connecting Services...'}</span>
+                    <span>{isAr ? 'جاري الربط...' : 'Connecting...'}</span>
                   </>
                 ) : (
                   <>
@@ -514,7 +524,7 @@ export const StoreSEO: React.FC = () => {
                       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                     </svg>
-                    <span>{isAr ? 'ربط خدمات Google (Site Kit)' : 'Connect Google Services'}</span>
+                    <span>{isAr ? 'ربط حساب جوجل' : 'Connect Google account'}</span>
                   </>
                 )}
               </button>
@@ -522,7 +532,7 @@ export const StoreSEO: React.FC = () => {
               <button
                 onClick={() => setShowConfigModal(true)}
                 className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-2xl border border-slate-700 cursor-pointer transition-all"
-                title="Configure Google OAuth Client ID"
+                title={isAr ? 'إعداد معرّف عميل جوجل' : 'Set the Google client id'}
               >
                 <Sliders className="w-4 h-4" />
               </button>
@@ -533,7 +543,7 @@ export const StoreSEO: React.FC = () => {
                 className="px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-2xl border border-slate-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
               >
                 <HelpCircle className="w-4 h-4 text-blue-400" />
-                <span>{isAr ? 'دليل الاستخدام' : 'Docs & Guide'}</span>
+                <span>{isAr ? 'الدليل' : 'Guide'}</span>
               </button>
             </div>
           )}
@@ -544,7 +554,7 @@ export const StoreSEO: React.FC = () => {
         <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 rounded-2xl text-xs flex items-center gap-3 animate-fadeIn">
           <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
           <div className="flex-1">
-            <span className="font-bold">{isAr ? 'خطأ في المصادقة:' : 'OAuth Error:'} </span>
+            <span className="font-bold">{isAr ? 'خطأ في تسجيل الدخول:' : 'Sign-in error:'} </span>
             <span>{oauthError}</span>
           </div>
           <button onClick={() => setOauthError(null)} className="text-rose-600 dark:text-rose-400 hover:text-rose-900 font-bold">
@@ -564,7 +574,7 @@ export const StoreSEO: React.FC = () => {
           }`}
         >
           <Activity className="w-4 h-4" />
-          <span>{isAr ? 'مركز ربط خدمات Google (Site Kit)' : 'Google Site Kit Overview'}</span>
+          <span>{isAr ? 'مركز الربط' : 'Connection hub'}</span>
         </button>
         <button
           onClick={() => setActiveSubTab('pagespeed')}
@@ -586,7 +596,7 @@ export const StoreSEO: React.FC = () => {
           }`}
         >
           <BarChart3 className="w-4 h-4" />
-          <span>Google Search Console & Indexing</span>
+          <span>{isAr ? 'بحث جوجل والفهرسة' : 'Search Console and indexing'}</span>
         </button>
         <button
           onClick={() => setActiveSubTab('google_tags')}
@@ -597,7 +607,7 @@ export const StoreSEO: React.FC = () => {
           }`}
         >
           <Code className="w-4 h-4" />
-          <span>Google Tag Manager & GA4</span>
+          <span>{isAr ? 'مدير العلامات والتحليلات' : 'Tag Manager and Analytics'}</span>
         </button>
         <button
           onClick={() => setActiveSubTab('utm')}
@@ -608,7 +618,7 @@ export const StoreSEO: React.FC = () => {
           }`}
         >
           <Link2 className="w-4 h-4 text-indigo-500" />
-          <span>{isAr ? 'تتبع الحملات الإعلانية (UTM Builder)' : 'UTM Campaign Tracking'}</span>
+          <span>{isAr ? 'تتبع الحملات' : 'Campaign tracking'}</span>
         </button>
         <button
           onClick={() => setActiveSubTab('meta')}
@@ -619,7 +629,7 @@ export const StoreSEO: React.FC = () => {
           }`}
         >
           <Globe className="w-4 h-4" />
-          <span>Meta Tags & Sitemap.xml</span>
+          <span>{isAr ? 'وسوم الصفحة وخريطة الموقع' : 'Page tags and sitemap'}</span>
         </button>
         <button
           onClick={() => setActiveSubTab('simulator')}
@@ -630,7 +640,7 @@ export const StoreSEO: React.FC = () => {
           }`}
         >
           <Eye className="w-4 h-4" />
-          <span>SERP & Rich Results Preview</span>
+          <span>{isAr ? 'معاينة نتائج البحث' : 'Search result preview'}</span>
         </button>
         <button
           onClick={() => setActiveSubTab('deep_audit')}
@@ -641,13 +651,24 @@ export const StoreSEO: React.FC = () => {
           }`}
         >
           <Sparkles className="w-4 h-4 text-emerald-500" />
-          <span>{isAr ? 'الروابط المعطلة، Backlinks، H1/H2 و Alt (إصلاح تلقائي)' : 'Broken Links, Backlinks, H1/H2 & Alt Auto-Fix'}</span>
+          <span>{isAr ? 'الروابط والعناوين والنص البديل' : 'Links, headings, and alt text'}</span>
         </button>
       </div>
 
       {/* ================= TAB 0: SITE KIT CENTRALIZED CONNECTION HUB ================= */}
       {activeSubTab === 'hub' && (
         <div className="space-y-6">
+          <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs leading-relaxed">
+            {seoSetupStep(activeStore) === 'need_email' && (isAr
+              ? 'بريد دخول هذا المتجر غير محفوظ. بعد حفظه يربط المالك حسابه بنفسه.'
+              : 'This store has no login email yet. After it is saved, the owner connects their own account.')}
+            {seoSetupStep(activeStore) === 'need_domain' && (isAr
+              ? `البريد ${storeGoogleEmail(activeStore)} جاهز. النطاق العام غير مربوط، لذلك تبقى هذه الخطوة معلقة. بعد إضافة النطاق يفتح المالك بريده من زر الربط. لا حاجة لتكرار ذلك من الإدارة لكل متجر.`
+              : `Email ${storeGoogleEmail(activeStore)} is ready. The public domain is not linked yet, so this step waits. After the domain is added, the owner signs in from the connect button. Master does not repeat this for every store.`)}
+            {seoSetupStep(activeStore) === 'ready' && (isAr
+              ? `النطاق ${storePublicHost(activeStore)} والبريد ${storeGoogleEmail(activeStore)} جاهزان. المالك يسجّل الدخول ببريده مرة واحدة. الأرقام تأتي من جوجل بعد ذلك، ولا تُخترع هنا.`
+              : `Domain ${storePublicHost(activeStore)} and email ${storeGoogleEmail(activeStore)} are ready. The owner signs in with that email once. Numbers come from Google after that, and are not invented here.`)}
+          </div>
           {/* Services Matrix (4 Google Services: GA4, GSC, GTM, Indexing) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* 1. Google Analytics 4 */}
@@ -657,32 +678,32 @@ export const StoreSEO: React.FC = () => {
                   <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center justify-center border border-amber-200 dark:border-amber-800">
                     GA4
                   </div>
-                  <span className="font-bold text-xs text-slate-900 dark:text-white">Google Analytics 4</span>
+                  <span className="font-bold text-xs text-slate-900 dark:text-white">{isAr ? 'تحليلات جوجل' : 'Google Analytics 4'}</span>
                 </div>
                 {currentSEOConfig.googleConnected ? (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    <span>Connected</span>
+                    <span>{isAr ? 'متصل' : 'Connected'}</span>
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                    Not Connected
+                    {isAr ? 'غير متصل' : 'Not connected'}
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Tracks user conversions, cart additions, live visitors, and checkout funnels.
+                {isAr ? 'يتتبع التحويلات وإضافات السلة والزوار عند توفر معرّف القياس الحقيقي.' : 'Tracks conversions, cart adds, and visitors when a real measurement id is saved.'}
               </p>
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                 <span className="font-mono text-[11px] text-slate-600 dark:text-slate-400 truncate max-w-[130px]">
-                  {currentSEOConfig.ga4MeasurementId || (currentSEOConfig.googleConnected ? 'G-AUTODETECTED' : '—')}
+                  {currentSEOConfig.ga4MeasurementId || '—'}
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowTrackingConfigModal(true)}
                   className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-bold text-[11px] cursor-pointer"
                 >
-                  Configure →
+                  {isAr ? 'إعداد' : 'Configure'}
                 </button>
               </div>
             </div>
@@ -694,32 +715,34 @@ export const StoreSEO: React.FC = () => {
                   <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold text-xs flex items-center justify-center border border-blue-200 dark:border-blue-800">
                     GSC
                   </div>
-                  <span className="font-bold text-xs text-slate-900 dark:text-white">Search Console</span>
+                  <span className="font-bold text-xs text-slate-900 dark:text-white">{isAr ? 'بحث جوجل' : 'Search Console'}</span>
                 </div>
                 {currentSEOConfig.googleConnected ? (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    <span>Connected</span>
+                    <span>{isAr ? 'متصل' : 'Connected'}</span>
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                    Not Connected
+                    {isAr ? 'غير متصل' : 'Not connected'}
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Organic Google search clicks, impressions, keyword rankings & crawl status.
+                {isAr ? 'نقرات البحث ومرات الظهور تُعرض فقط بعد الربط الحقيقي.' : 'Search clicks and impressions appear only after a real connection.'}
               </p>
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                 <span className="font-mono text-[11px] text-slate-600 dark:text-slate-400">
-                  {currentSEOConfig.googleConnected ? `${currentSEOConfig.totalSearchClicks || 0} clicks` : '—'}
+                  {currentSEOConfig.googleConnected
+                    ? (isAr ? `${currentSEOConfig.totalSearchClicks || 0} نقرة` : `${currentSEOConfig.totalSearchClicks || 0} clicks`)
+                    : '—'}
                 </span>
                 <button
                   type="button"
                   onClick={() => setActiveSubTab('console')}
                   className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-bold text-[11px] cursor-pointer"
                 >
-                  View Data →
+                  {isAr ? 'عرض البيانات' : 'View data'}
                 </button>
               </div>
             </div>
@@ -731,32 +754,32 @@ export const StoreSEO: React.FC = () => {
                   <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 font-bold text-xs flex items-center justify-center border border-teal-200 dark:border-teal-800">
                     GTM
                   </div>
-                  <span className="font-bold text-xs text-slate-900 dark:text-white">Tag Manager</span>
+                  <span className="font-bold text-xs text-slate-900 dark:text-white">{isAr ? 'مدير العلامات' : 'Tag Manager'}</span>
                 </div>
                 {currentSEOConfig.googleConnected ? (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    <span>Connected</span>
+                    <span>{isAr ? 'متصل' : 'Connected'}</span>
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                    Not Connected
+                    {isAr ? 'غير متصل' : 'Not connected'}
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Injects custom scripts, conversion pixels, TikTok & Snapchat tags dynamically.
+                {isAr ? 'حاوية مدير العلامات تُعرض فقط إذا حُفظ معرّفها لهذا المتجر.' : 'The tag container id shows only when it is saved for this store.'}
               </p>
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                 <span className="font-mono text-[11px] text-slate-600 dark:text-slate-400 truncate max-w-[130px]">
-                  {currentSEOConfig.gtmContainerId || (currentSEOConfig.googleConnected ? 'GTM-AUTO' : '—')}
+                  {currentSEOConfig.gtmContainerId || '—'}
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowTrackingConfigModal(true)}
                   className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-bold text-[11px] cursor-pointer"
                 >
-                  Manage →
+                  {isAr ? 'إدارة' : 'Manage'}
                 </button>
               </div>
             </div>
@@ -768,155 +791,40 @@ export const StoreSEO: React.FC = () => {
                   <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold text-xs flex items-center justify-center border border-indigo-200 dark:border-indigo-800">
                     API
                   </div>
-                  <span className="font-bold text-xs text-slate-900 dark:text-white">Indexing API</span>
+                  <span className="font-bold text-xs text-slate-900 dark:text-white">{isAr ? 'فهرسة جوجل' : 'Indexing API'}</span>
                 </div>
                 {currentSEOConfig.googleConnected ? (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    <span>Active</span>
+                    <span>{isAr ? 'نشط' : 'Active'}</span>
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                    Not Connected
+                    {isAr ? 'غير متصل' : 'Not connected'}
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Direct webhook to notify Googlebot immediately when a product or page changes.
+                {isAr ? 'عدد الصفحات المفهرسة يبقى صفراً إلى أن تصل بيانات حقيقية.' : 'Indexed page count stays at zero until real data arrives.'}
               </p>
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                 <span className="font-mono text-[11px] text-slate-600 dark:text-slate-400">
-                  {currentSEOConfig.googleConnected ? `${currentSEOConfig.indexedUrlsCount || 24} URLs indexed` : '—'}
+                  {currentSEOConfig.googleConnected
+                    ? (isAr ? `${currentSEOConfig.indexedUrlsCount || 0} صفحة` : `${currentSEOConfig.indexedUrlsCount || 0} pages`)
+                    : '—'}
                 </span>
                 <button
                   type="button"
                   onClick={() => setActiveSubTab('console')}
                   className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-bold text-[11px] cursor-pointer"
                 >
-                  Ping API →
+                  {isAr ? 'فحص الفهرسة' : 'Check indexing'}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* 6-Step Setup Instructions Card (Arabic + English) */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 sm:p-7 shadow-2xs space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <Sparkles className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                  {isAr ? 'خطوات تفعيل وإعداد خدمات Google (6 خطوات):' : 'Google Site Kit 6-Step Setup Guide:'}
-                </h3>
-              </div>
-              <span className="text-[11px] font-bold px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                Site Kit Standard
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-              {/* Step 1 */}
-              <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-[11px]">
-                    1
-                  </span>
-                  <h4 className="font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'الخطوة 1: ربط حساب Google' : 'Step 1 — Connect Google Account'}
-                  </h4>
-                </div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                  {isAr
-                    ? 'اضغط زر "Sign in with Google" وسجّل دخولك بحساب Google الفعلي لمتجرك.'
-                    : 'Click "Sign in with Google" above to select and authorize your genuine Google Account.'}
-                </p>
-              </div>
-
-              {/* Step 2 */}
-              <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-[11px]">
-                    2
-                  </span>
-                  <h4 className="font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'الخطوة 2: منح أذونات Google' : 'Step 2 — Allow Google Permissions'}
-                  </h4>
-                </div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                  {isAr
-                    ? 'وافق على أذونات Search Console و Analytics و Tag Manager في نافذة Google.'
-                    : 'Grant access to Google Search Console, Analytics 4, Tag Manager, and Indexing.'}
-                </p>
-              </div>
-
-              {/* Step 3 */}
-              <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-[11px]">
-                    3
-                  </span>
-                  <h4 className="font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'الخطوة 3: تحديد خاصية GA4' : 'Step 3 — Select GA4 Property'}
-                  </h4>
-                </div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                  {isAr
-                    ? 'يتم رصد معرف القياس GA4 Measurement ID وتضمينه تلقائياً في المتجر.'
-                    : 'Your GA4 measurement stream is detected and wired to the storefront.'}
-                </p>
-              </div>
-
-              {/* Step 4 */}
-              <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-[11px]">
-                    4
-                  </span>
-                  <h4 className="font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'الخطوة 4: التحقق في Search Console' : 'Step 4 — Select Search Console Property'}
-                  </h4>
-                </div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                  {isAr
-                    ? 'يتم توليد علامة التحقق وسجل النطاق DNS لتوثيق ملكية المتجر فوراً.'
-                    : 'Generates verification meta tags to confirm store domain ownership in GSC.'}
-                </p>
-              </div>
-
-              {/* Step 5 */}
-              <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-[11px]">
-                    5
-                  </span>
-                  <h4 className="font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'الخطوة 5: ربط حاوية GTM' : 'Step 5 — Select GTM Container'}
-                  </h4>
-                </div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                  {isAr
-                    ? 'ربط حاوية Google Tag Manager لتحميل بكسلات الإعلانات والتتبع بضغطة زر.'
-                    : 'Connects your GTM container ID to inject custom tracking and ad pixels.'}
-                </p>
-              </div>
-
-              {/* Step 6 */}
-              <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-[11px]">
-                    6
-                  </span>
-                  <h4 className="font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'الخطوة 6: المزامنة والتحقق' : 'Step 6 — Sync & Verify'}
-                  </h4>
-                </div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                  {isAr
-                    ? 'اكتمال الربط بنجاح! يتم سحب الزيارات والكلمات المفتاحية وأداء الصفحات لحظياً.'
-                    : 'Connection active! Traffic, clicks, and Core Web Vitals sync seamlessly.'}
-                </p>
-              </div>
-            </div>
-          </div>
+          <GoogleToolsWaitGuide isAr={isAr} />
         </div>
       )}
 
@@ -931,8 +839,8 @@ export const StoreSEO: React.FC = () => {
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {pageSpeedData?.isLive
-                  ? (isAr ? 'تم الفحص مباشرة عبر واجهة Google الرسمية' : 'Audited directly via Google PageSpeed Insights API')
-                  : (isAr ? 'شغّل الفحص لقياس الأداء الحقيقي من Google' : 'Run an audit to measure real Google Lighthouse scores')}
+                  ? (isAr ? 'تم الفحص مباشرة عبر واجهة جوجل الرسمية' : 'Audited directly through the official Google speed check')
+                  : (isAr ? 'شغّل الفحص لقياس الأداء الحقيقي من جوجل' : 'Run an audit to measure real Google speed scores')}
               </p>
             </div>
 
@@ -1017,7 +925,7 @@ export const StoreSEO: React.FC = () => {
             <div className="p-12 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 text-center space-y-3">
               <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin mx-auto" />
               <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                {isAr ? 'جاري فحص المتجر عبر واجهة Google...' : 'Auditing store via Google PageSpeed API...'}
+                {isAr ? 'جاري فحص المتجر عبر جوجل...' : 'Auditing the store through Google...'}
               </h4>
               <p className="text-xs text-slate-500">
                 {isAr
@@ -1232,11 +1140,11 @@ export const StoreSEO: React.FC = () => {
             <div className="p-6 rounded-3xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 text-center space-y-3">
               <Search className="w-10 h-10 text-blue-600 mx-auto" />
               <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
-                {isAr ? 'Google Search Console غير متصل' : 'Google Search Console is Not Connected'}
+                {isAr ? 'بحث جوجل غير متصل' : 'Google Search Console is not connected'}
               </h3>
               <p className="text-xs text-slate-600 dark:text-slate-300 max-w-lg mx-auto">
                 {isAr
-                  ? 'اربط حساب Google الخاص بمتجرك لعرض عدد النقرات الحقيقية وظهور المتجر في محرك بحث Google ومعدل النقر CTR والكلمات المفتاحية الفعلية.'
+                  ? 'اربط حساب جوجل الخاص بمتجرك لعرض النقرات الحقيقية ومرات الظهور ومعدل النقر والكلمات المفتاحية.'
                   : 'Connect your store\'s official Google Account to view real organic search clicks, impressions, CTR, position, and actual shopper queries from google.com.sa.'}
               </p>
               <button
@@ -1245,7 +1153,7 @@ export const StoreSEO: React.FC = () => {
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-black shadow-md inline-flex items-center gap-2 cursor-pointer transition-all transform active:scale-95"
               >
                 <Zap className="w-4 h-4" />
-                <span>{isAr ? 'ربط حساب Google الآن' : 'Connect Google Account'}</span>
+                <span>{isAr ? 'ربط حساب جوجل الآن' : 'Connect Google account'}</span>
               </button>
             </div>
           ) : (
@@ -1253,7 +1161,7 @@ export const StoreSEO: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-5 bg-blue-50/70 hover:bg-blue-50/90 dark:bg-blue-950/30 rounded-2xl border border-blue-200/80 dark:border-blue-900/40 shadow-2xs space-y-2 transition-all">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-blue-200">
-                  <span>{isAr ? 'نقرات بحث Google' : 'Google Search Clicks'}</span>
+                  <span>{isAr ? 'نقرات بحث جوجل' : 'Google search clicks'}</span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                     {currentSEOConfig.totalSearchClicks > 0
                       ? (isAr ? 'بيانات حقيقية' : 'Real Data')
@@ -1281,16 +1189,16 @@ export const StoreSEO: React.FC = () => {
                   {currentSEOConfig.totalSearchImpressions > 0 ? currentSEOConfig.totalSearchImpressions.toLocaleString() : '0'}
                 </div>
                 <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium block">
-                  {isAr ? 'مرات الظهور على Google' : 'Impressions on Google'}
+                  {isAr ? 'مرات الظهور على جوجل' : 'Impressions on Google'}
                 </span>
               </div>
 
               <div className="p-5 bg-purple-50/70 hover:bg-purple-50/90 dark:bg-purple-950/30 rounded-2xl border border-purple-200/80 dark:border-purple-900/40 shadow-2xs space-y-2 transition-all">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-purple-200">
-                  <span>{isAr ? 'متوسط CTR' : 'Average Google CTR'}</span>
+                  <span>{isAr ? 'متوسط نسبة النقر' : 'Average click rate'}</span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                     {currentSEOConfig.avgCtr > 0
-                      ? (isAr ? 'موثّق GSC' : 'GSC Verified')
+                      ? (isAr ? 'موثّق في بحث جوجل' : 'Search Console verified')
                       : (isAr ? 'بانتظار المزامنة' : 'Waiting for Sync')}
                   </span>
                 </div>
@@ -1319,7 +1227,7 @@ export const StoreSEO: React.FC = () => {
                   <span>{isAr ? 'آخر تنبيه:' : 'Last ping:'} {currentSEOConfig.lastIndexingPing || (isAr ? 'أبداً' : 'Never')}</span>
                 </div>
                 <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium block">
-                  {isAr ? 'Search Console' : 'Search Console site'}
+                  {isAr ? 'موقع بحث جوجل' : 'Search Console site'}
                 </span>
               </div>
             </div>
@@ -1340,7 +1248,7 @@ export const StoreSEO: React.FC = () => {
                     <Zap className="w-5 h-5" />
                   </span>
                   <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                    {isAr ? 'نظام الأرشفة الذكي التلقائي (Zero-Touch Auto-Pilot)' : 'Autonomous Auto-Pilot Indexing Engine'}
+                    {isAr ? 'أرشفة تلقائية' : 'Automatic indexing'}
                     <span className="text-[10px] font-mono font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 animate-pulse">
                       {isAr ? 'يعمل تلقائياً 24/7' : 'Running 24/7'}
                     </span>
@@ -1384,7 +1292,7 @@ export const StoreSEO: React.FC = () => {
 
               <div className="p-3 bg-white/80 dark:bg-slate-900/80 rounded-2xl border border-emerald-500/20 space-y-0.5">
                 <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">
-                  {isAr ? 'المؤرشفة في Google' : 'Indexed in Google'}
+                  {isAr ? 'المؤرشفة في جوجل' : 'Indexed in Google'}
                 </span>
                 <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
                   {currentSEOConfig.indexedUrlsCount} {isAr ? 'رابط' : 'URLs'}
@@ -1427,11 +1335,7 @@ export const StoreSEO: React.FC = () => {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-mono bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-900 font-semibold">
-                  API Quota: 182 / 200 daily pings
-                </span>
-              </div>
+              <div className="flex items-center gap-2" />
             </div>
 
             <form onSubmit={handleUrlSubmit} className="flex flex-col sm:flex-row gap-3">
@@ -1454,12 +1358,12 @@ export const StoreSEO: React.FC = () => {
                 {isSubmittingIndex ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Pinging Googlebot...</span>
+                    <span>{isAr ? 'جاري الإرسال...' : 'Sending...'}</span>
                   </>
                 ) : (
                   <>
                     <Send className="w-3.5 h-3.5" />
-                    <span>Ping Google Indexing</span>
+                    <span>{isAr ? 'إرسال للفهرسة' : 'Send for indexing'}</span>
                   </>
                 )}
               </button>
@@ -1467,15 +1371,15 @@ export const StoreSEO: React.FC = () => {
 
             {/* Submitted URLs Stream */}
             <div className="pt-2">
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">Recent Google Indexing Submissions:</span>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">{isAr ? 'الروابط المرسلة' : 'Submitted links'}</span>
               <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-700">
                     <tr>
-                      <th className="py-2.5 px-3">Submitted URL</th>
-                      <th className="py-2.5 px-3">Submitted</th>
-                      <th className="py-2.5 px-3">Googlebot Status</th>
-                      <th className="py-2.5 px-3 text-right">Action</th>
+                      <th className="py-2.5 px-3">{isAr ? 'الرابط' : 'Link'}</th>
+                      <th className="py-2.5 px-3">{isAr ? 'وقت الإرسال' : 'Sent'}</th>
+                      <th className="py-2.5 px-3">{isAr ? 'الحالة' : 'Status'}</th>
+                      <th className="py-2.5 px-3 text-right">{isAr ? 'إجراء' : 'Action'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -1488,7 +1392,13 @@ export const StoreSEO: React.FC = () => {
                         <td className="py-2.5 px-3">
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 w-fit">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            <span>Indexed & Cached</span>
+                            <span>
+                              {item.status === 'indexed'
+                                ? (isAr ? 'مفهرس' : 'Indexed')
+                                : item.status === 'crawling'
+                                ? (isAr ? 'قيد الزحف' : 'Crawling')
+                                : (isAr ? 'بانتظار التأكيد' : 'Waiting')}
+                            </span>
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-right">
@@ -1498,7 +1408,7 @@ export const StoreSEO: React.FC = () => {
                             }}
                             className="text-[11px] text-slate-500 hover:text-blue-600 font-semibold cursor-pointer"
                           >
-                            Re-crawl
+                            {isAr ? 'إعادة الإرسال' : 'Send again'}
                           </button>
                         </td>
                       </tr>
@@ -1514,27 +1424,29 @@ export const StoreSEO: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Top Organic Google Search Queries (google.com.sa)
+                  {isAr ? 'استعلامات البحث' : 'Search queries'}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Actual search keywords shoppers in Saudi Arabia used on Google to discover {activeStore.name}
+                  {isAr
+                    ? 'تظهر الكلمات فقط عندما يعيدها حساب هذا المتجر.'
+                    : 'Queries appear only when this store’s account returns them.'}
                 </p>
               </div>
-              <span className="text-xs text-slate-400 font-mono">Date Range: Last 28 Days</span>
+              <span className="text-xs text-slate-400">{isAr ? 'آخر ٢٨ يوماً عند توفر البيانات' : 'Last 28 days when data exists'}</span>
             </div>
 
             {!currentSEOConfig.googleConnected ? (
               <div className="py-8 text-center space-y-2">
                 <Search className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
                 <p className="text-xs font-bold text-slate-500">
-                  {isAr ? 'حساب Google غير متصل — اربط حسابك لاستعراض الكلمات المفتاحية الحقيقية' : 'Google Account Not Connected — Connect account to display verified organic search queries'}
+                  {isAr ? 'حساب جوجل غير متصل. اربط الحساب لعرض الاستعلامات الحقيقية.' : 'Google account is not connected. Connect it to show real queries.'}
                 </p>
                 <button
                   type="button"
                   onClick={() => setShowConnectModal(true)}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
                 >
-                  {isAr ? 'ربط حساب Google' : 'Connect Google Account'}
+                  {isAr ? 'ربط حساب جوجل' : 'Connect Google account'}
                 </button>
               </div>
             ) : (!currentSEOConfig.topQueries || currentSEOConfig.topQueries.length === 0) ? (
@@ -1546,11 +1458,11 @@ export const StoreSEO: React.FC = () => {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-700">
                     <tr>
-                      <th className="py-3 px-4">Search Query (Keyword)</th>
-                      <th className="py-3 px-3 text-right">Clicks</th>
-                      <th className="py-3 px-3 text-right">Impressions</th>
-                      <th className="py-3 px-3 text-right">CTR</th>
-                      <th className="py-3 px-4 text-center">Avg Google Position</th>
+                      <th className="py-3 px-4">{isAr ? 'الاستعلام' : 'Query'}</th>
+                      <th className="py-3 px-3 text-right">{isAr ? 'النقرات' : 'Clicks'}</th>
+                      <th className="py-3 px-3 text-right">{isAr ? 'مرات الظهور' : 'Impressions'}</th>
+                      <th className="py-3 px-3 text-right">{isAr ? 'معدل النقر' : 'Click rate'}</th>
+                      <th className="py-3 px-4 text-center">{isAr ? 'متوسط الترتيب' : 'Average position'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -1597,15 +1509,15 @@ export const StoreSEO: React.FC = () => {
                 GA4
               </div>
               <div>
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Google Analytics 4 (GA4)</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Track e-commerce checkouts, add-to-carts, and conversions</p>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">{isAr ? 'تحليلات جوجل' : 'Google Analytics 4'}</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{isAr ? 'الصق معرف القياس الحقيقي لهذا المتجر.' : 'Paste this store’s real measurement id.'}</p>
               </div>
             </div>
 
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  GA4 Measurement ID (G-XXXXXXXX)
+                  {isAr ? 'معرف القياس' : 'Measurement id'}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -1620,21 +1532,23 @@ export const StoreSEO: React.FC = () => {
                     className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer"
                   >
                     {copiedKey === 'ga4' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedKey === 'ga4' ? 'Copied' : 'Copy'}</span>
+                    <span>{copiedKey === 'ga4' ? (isAr ? 'تم النسخ' : 'Copied') : (isAr ? 'نسخ' : 'Copy')}</span>
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                  Found in your Google Analytics account &gt; Admin &gt; Data Streams.
+                  {isAr ? 'تجده في حساب التحليلات ثم المشرف ثم تدفق البيانات.' : 'Find it in the analytics account, then admin, then data streams.'}
                 </p>
               </div>
 
               <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl space-y-1.5 text-xs text-emerald-900 dark:text-emerald-200">
                 <div className="font-bold flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Enhanced E-Commerce Events Enabled</span>
+                  <span>{isAr ? 'الأحداث لا تُعد مفعّلة إلا بعد حفظ المعرف على النطاق المباشر' : 'Events are not treated as on until the id is saved on the live domain'}</span>
                 </div>
                 <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
-                  Automatically fires <code>view_item</code>, <code>add_to_cart</code>, <code>begin_checkout</code>, and <code>purchase</code> events to your Google Analytics dashboard without coding.
+                  {isAr
+                    ? 'بعد النشر، الزيارة الحقيقية قد تظهر خلال دقائق، والتقارير العادية خلال يوم إلى يومين.'
+                    : 'After publish, a real visit can show within minutes, and standard reports within one to two days.'}
                 </p>
               </div>
             </div>
@@ -1720,30 +1634,30 @@ export const StoreSEO: React.FC = () => {
             <form onSubmit={handleSaveMeta} className="space-y-4">
               <div>
                 <div className="flex items-center justify-between text-xs mb-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">SEO Page Title</label>
+                  <label className="font-bold text-slate-700 dark:text-slate-300">{isAr ? 'عنوان الصفحة' : 'Page title'}</label>
                   <span className={`text-[10px] ${metaTitle.length > 60 ? 'text-amber-600 font-bold' : 'text-slate-400 dark:text-slate-500'}`}>
-                    {metaTitle.length} / 60 recommended
+                    {metaTitle.length} / 60
                   </span>
                 </div>
                 <input
                   type="text"
                   value={metaTitle}
-                  onChange={(e) => setMetaTitle(e.target.value)}
+                  onChange={(e) => (isAr ? setMetaTitleAr(e.target.value) : setMetaTitleEn(e.target.value))}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between text-xs mb-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Meta Description</label>
+                  <label className="font-bold text-slate-700 dark:text-slate-300">{isAr ? 'وصف الصفحة' : 'Page description'}</label>
                   <span className={`text-[10px] ${metaDescription.length > 160 ? 'text-amber-600 font-bold' : 'text-slate-400 dark:text-slate-500'}`}>
-                    {metaDescription.length} / 160 recommended
+                    {metaDescription.length} / 160
                   </span>
                 </div>
                 <textarea
                   rows={3}
                   value={metaDescription}
-                  onChange={(e) => setMetaDescription(e.target.value)}
+                  onChange={(e) => (isAr ? setMetaDescriptionAr(e.target.value) : setMetaDescriptionEn(e.target.value))}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -1782,7 +1696,7 @@ export const StoreSEO: React.FC = () => {
               {/* Open Graph Social Share Image Media Upload */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                  {isAr ? 'صورة المشاركة على وسائل التواصل (Open Graph Image)' : 'Social Share & Open Graph Media Image'}
+                  {isAr ? 'صورة المشاركة' : 'Share image'}
                 </label>
                 <input
                   ref={ogFileInputRef}
@@ -1884,11 +1798,8 @@ export const StoreSEO: React.FC = () => {
                 setDeepAuditItems(fixed);
                 saveStoreSeoDeepAudit(activeStore.id, fixed);
                 updateStoreSEOConfig(activeStore.id, {
-                  googleConnected: true,
-                  ga4MeasurementId: ga4Id,
-                  gtmContainerId: gtmId,
-                  searchConsoleConnected: true,
-                  indexingApiEnabled: true,
+                  ga4MeasurementId: realTrackingId(ga4Id),
+                  gtmContainerId: realTrackingId(gtmId),
                 });
                 toast(
                   isAr
@@ -1958,7 +1869,7 @@ export const StoreSEO: React.FC = () => {
                       }}
                       className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black cursor-pointer"
                     >
-                      {isAr ? 'إصلاح فوري (Auto-Fix)' : 'Auto-Fix Now'}
+                      {isAr ? 'إصلاح فوري' : 'Fix now'}
                     </button>
                   )}
                 </div>
@@ -2008,10 +1919,10 @@ export const StoreSEO: React.FC = () => {
                 <span className="text-slate-400 dark:text-slate-500">https://{activeStore.slug}.saudi-stores.com</span>
               </div>
               <h4 className="text-blue-800 dark:text-blue-400 text-base font-medium hover:underline cursor-pointer">
-                {metaTitle || `${activeStore.name} | Official Saudi Online Store`}
+                {metaTitle || (isAr ? 'لا يوجد عنوان' : 'No title yet')}
               </h4>
               <p className="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
-                {metaDescription || `Shop authentic products from ${activeStore.name}. Best prices and fast delivery across Saudi Arabia.`}
+                {metaDescription || (isAr ? 'لا يوجد وصف' : 'No description yet')}
               </p>
             </div>
           </div>
@@ -2029,10 +1940,10 @@ export const StoreSEO: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                    {isAr ? 'إعداد معرفات التتبع الحقيقية (Real Tracking IDs)' : 'Configure Real Tracking IDs'}
+                    {isAr ? 'إعداد معرفات التتبع الحقيقية' : 'Set real tracking ids'}
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {isAr ? 'أدخل معرفاتك الحقيقية من لوحة Google Analytics 4 و Tag Manager' : 'Enter your authentic IDs from GA4, GTM, and Google Cloud'}
+                    {isAr ? 'أدخل المعرفات الحقيقية من تحليلات جوجل ومدير العلامات' : 'Enter the real ids from Google Analytics and Tag Manager'}
                   </p>
                 </div>
               </div>
@@ -2059,7 +1970,7 @@ export const StoreSEO: React.FC = () => {
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <span className="text-[10px] text-slate-400 dark:text-slate-500 block mt-0.5">
-                  {isAr ? 'يبدأ دائماً بحرف G- متبوعاً بأرقام وحروف تدفق القياس' : 'Starts with G- from your GA4 Web Data Stream'}
+                  {isAr ? 'يبدأ بالمقطع المعتمد في تدفق القياس' : 'Starts with the measurement prefix from the data stream'}
                 </span>
               </div>
 
@@ -2122,14 +2033,12 @@ export const StoreSEO: React.FC = () => {
                     gtmContainerId: editGtmId,
                     searchConsoleVerificationTag: editGscTag,
                     googleAdsConversionId: editGoogleAdsId,
-                    googleConnected: true,
-                    googleAccountEmail: merchantGoogleEmail,
                   });
                   setShowTrackingConfigModal(false);
                   toast(
                     isAr
-                      ? 'تم حفظ وتفعيل معرفات التتبع الحقيقية ومزامنتها بنجاح!'
-                      : 'Real tracking IDs saved and synchronized live!',
+                      ? 'تم حفظ معرفات هذا المتجر. الأرقام تظهر حسب المدد المكتوبة في الدليل.'
+                      : 'Ids saved for this store. Numbers appear on the timetable in the guide.',
                     'success'
                   );
                 }}

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\SeoConfig;
+use App\Support\SeoBilingual;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -33,13 +34,19 @@ class SeoController extends Controller
             return $storeId;
         }
 
-        $data = $request->validate([
+        $data = SeoBilingual::absorb($request->validate([
             'brand_name' => ['nullable', 'string', 'max:191'],
             'city' => ['nullable', 'string', 'max:100'],
             'country' => ['nullable', 'string', 'max:100'],
             'meta_title' => ['nullable', 'string', 'max:255'],
+            'meta_title_en' => ['nullable', 'string', 'max:255'],
+            'meta_title_ar' => ['nullable', 'string', 'max:255'],
             'meta_description' => ['nullable', 'string'],
+            'meta_description_en' => ['nullable', 'string'],
+            'meta_description_ar' => ['nullable', 'string'],
             'keywords' => ['nullable', 'string'],
+            'keywords_en' => ['nullable', 'string'],
+            'keywords_ar' => ['nullable', 'string'],
             'canonical_url' => ['nullable', 'string', 'max:255'],
             'search_console_tag' => ['nullable', 'string', 'max:191'],
             'ga4_measurement_id' => ['nullable', 'string', 'max:64'],
@@ -53,7 +60,7 @@ class SeoController extends Controller
             'indexing_api_enabled' => ['sometimes', 'boolean'],
             'sitemap_url' => ['nullable', 'string', 'max:255'],
             'extra' => ['nullable', 'array'],
-        ]);
+        ]));
 
         $seo = SeoConfig::withoutGlobalScope('store')
             ->firstOrNew(['store_id' => $storeId]);
@@ -61,6 +68,10 @@ class SeoController extends Controller
         if (! $seo->exists) {
             $seo->id = $this->newId('seo');
             $seo->store_id = $storeId;
+        }
+
+        if (isset($data['extra']) && is_array($data['extra'])) {
+            $data['extra'] = array_merge(is_array($seo->extra) ? $seo->extra : [], $data['extra']);
         }
 
         $seo->fill($data)->save();

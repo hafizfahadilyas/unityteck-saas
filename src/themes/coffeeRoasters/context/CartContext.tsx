@@ -76,6 +76,7 @@ function learnMoreBits(dp: any, image: string) {
 function routeFromPreviewQuery(): RouteType {
   if (typeof window === 'undefined') return 'home';
   const p = (new URLSearchParams(window.location.search).get('page') || '').toLowerCase().trim();
+  if (!p) return 'home';
   if (p === 'catalog' || p === 'products' || p === 'shop') return 'products';
   if (p === 'product-buy' || p === 'buy' || p === 'buynow') return 'product-buy';
   if (p === 'product' || p === 'product-detail' || p === 'learn-more' || p === 'detail') return 'product-detail';
@@ -86,7 +87,7 @@ function routeFromPreviewQuery(): RouteType {
     'profile', 'reviews', 'thankyou', 'privacy', 'return', 'terms', 'shipping', 'warranty',
     'locator', 'track-order', 'about', 'contact', 'faq', 'page',
   ];
-  return known.includes(p as RouteType) ? (p as RouteType) : 'home';
+  return known.includes(p as RouteType) ? (p as RouteType) : 'page';
 }
 
 export type RouteType =

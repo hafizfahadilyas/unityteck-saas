@@ -49,6 +49,8 @@ import {
 } from '../../../services/storePagesService';
 import { useTenant } from '../../../context/TenantContext';
 import { coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
+import { fetchStorefrontThemeApi } from '../../../api/tenantApi';
+import { publishedLayoutCopy } from '../publishedLayout';
 
 interface CoffeeStaticPageProps {
   pageRoute?: string;
@@ -68,11 +70,11 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
       '',
   );
 
-  // Determine effective slug
-  const effectiveSlug =
-    slug ||
-    selectedPageSlug ||
-    (currentRoute === 'privacy'
+  const queryPage = typeof window !== 'undefined'
+    ? (new URLSearchParams(window.location.search).get('page') || '').trim()
+    : '';
+  const policySlug =
+    currentRoute === 'privacy'
       ? 'privacy-policy'
       : currentRoute === 'return'
       ? 'return-policy'
@@ -92,7 +94,23 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
       ? 'contact-us'
       : currentRoute === 'faq'
       ? 'faq'
-      : 'privacy-policy');
+      : '';
+  const effectiveSlug =
+    slug ||
+    (currentRoute === 'page' ? (queryPage || selectedPageSlug) : (selectedPageSlug || policySlug || 'privacy-policy'));
+  const policySlugs = new Set([
+    'privacy-policy',
+    'return-policy',
+    'terms-and-conditions',
+    'shipping-policy',
+    'warranty-policy',
+    'store-locator',
+    'order-tracking',
+    'about-us',
+    'contact-us',
+    'faq',
+  ]);
+  const isPublicLayout = currentRoute === 'page' && !policySlugs.has(effectiveSlug);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -104,6 +122,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
 
   const [pageData, setPageData] = useState<StoreCustomPage | undefined>(undefined);
   const [allPages, setAllPages] = useState<StoreCustomPage[]>([]);
+  const [publicPhase, setPublicPhase] = useState<'idle' | 'loading' | 'ready' | 'missing'>('idle');
 
   // Interactive tracking form state
   const [trackOrderInput, setTrackOrderInput] = useState('');
@@ -125,8 +144,40 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
     if (!storeId) {
       setAllPages([]);
       setPageData(undefined);
+      setPublicPhase(isPublicLayout ? 'missing' : 'idle');
       return;
     }
+    if (isPublicLayout) {
+      setAllPages([]);
+      setPublicPhase('loading');
+      void fetchStorefrontThemeApi(storeId, effectiveSlug)
+        .then((pub) => {
+          const layout = pub?.page?.published_layout;
+          if (!layout || pub?.store_id !== storeId || pub?.page?.draft_layout) {
+            setPageData(undefined);
+            setPublicPhase('missing');
+            return;
+          }
+          setPageData({
+            id: String(pub.page.id || effectiveSlug),
+            slug: String(pub.page.slug || effectiveSlug),
+            titleEn: String(pub.page.title_en || ''),
+            titleAr: String(pub.page.title_ar || ''),
+            contentEn: publishedLayoutCopy(layout, 'en'),
+            contentAr: publishedLayoutCopy(layout, 'ar'),
+            category: 'custom',
+            isPublished: true,
+            updatedAt: String(pub.page.published_at || ''),
+          });
+          setPublicPhase('ready');
+        })
+        .catch(() => {
+          setPageData(undefined);
+          setPublicPhase('missing');
+        });
+      return;
+    }
+    setPublicPhase('idle');
     void hydrateStorePages(storeId).then(() => {
       const list = getStorePages(storeId, activeStore);
       setAllPages(list);
@@ -139,7 +190,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
     const handleSync = () => reloadData();
     window.addEventListener('unityteck-pages-changed', handleSync);
     return () => window.removeEventListener('unityteck-pages-changed', handleSync);
-  }, [effectiveSlug, activeStore?.id]);
+  }, [effectiveSlug, activeStore?.id, isPublicLayout]);
 
   // Order tracking search against real store orders
   const handleTrackSearch = (e: React.FormEvent) => {
@@ -166,24 +217,31 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
         const isShipped = foundOrder.status === 'shipped' || isDelivered;
         const isProcessing = foundOrder.status === 'processing' || isShipped;
 
+        const tracking = String((foundOrder as { trackingNumber?: string }).trackingNumber || '').trim();
+        const carrier = String((foundOrder as { shippingCompany?: string }).shippingCompany || '').trim();
+        const waiting = isAr ? 'بانتظار التحديث' : 'Waiting for an update';
         setTrackingResult({
           orderNumber: foundOrder.orderNumber || foundOrder.id,
           status: isAr
-            ? (isDelivered ? 'تم تسليم الشحنة بنجاح' : isShipped ? 'الشحنة في طريقها للتوصيل' : 'جاري تجهيز وتغليف الطلب')
-            : (isDelivered ? 'Package Delivered Successfully' : isShipped ? 'Package in Transit' : 'Order Being Prepared & Packed'),
-          courier: 'SMSA Express / SPL (البريد السعودي)',
-          trackingNumber: `SA${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-          estimatedDelivery: isAr ? 'خلال 24-48 ساعة' : 'Within 24-48 hours',
-          destination: foundOrder.deliveryLocation || (isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia'),
+            ? (isDelivered ? 'تم تسليم الشحنة' : isShipped ? 'الشحنة في الطريق' : 'الطلب قيد التجهيز')
+            : (isDelivered ? 'Delivered' : isShipped ? 'In transit' : 'Being prepared'),
+          courier: carrier || (isAr ? 'شركة الشحن غير محددة' : 'Carrier not set'),
+          trackingNumber: tracking || (isAr ? 'رقم التتبع غير محفوظ' : 'No tracking number saved'),
+          estimatedDelivery: isAr ? 'يظهر عند توفره من شركة الشحن' : 'Shown when the carrier provides it',
+          destination: foundOrder.deliveryLocation || (isAr ? 'العنوان غير محفوظ' : 'Address not saved'),
           steps: [
-            { titleAr: 'تم تأكيد الطلب وسداد القيمة', titleEn: 'Order Confirmed & Paid', date: foundOrder.date || 'Completed', done: true },
-            { titleAr: 'فحص الجودة والمعايرة الفنية', titleEn: 'Technical Inspection & Calibration', date: 'Processing Hub', done: isProcessing },
-            { titleAr: 'انطلاق الشحنة من المستودع المركزي', titleEn: 'Dispatched from Central Hub', date: 'In Transit', done: isShipped },
-            { titleAr: 'مع المندوب للتسليم المباشر', titleEn: 'With Courier for Delivery', date: 'Final Mile', done: isShipped },
-            { titleAr: 'اكتمال التسليم للعميل', titleEn: 'Delivered', date: isDelivered ? 'Done' : (isAr ? 'متوقع قريباً' : 'Expected soon'), done: isDelivered },
+            { titleAr: 'تم تسجيل الطلب', titleEn: 'Order recorded', date: foundOrder.date || waiting, done: true },
+            { titleAr: 'قيد التجهيز', titleEn: 'Being prepared', date: waiting, done: isProcessing },
+            { titleAr: 'خرجت للشحن', titleEn: 'Shipped', date: waiting, done: isShipped },
+            { titleAr: 'مع المندوب', titleEn: 'Out for delivery', date: waiting, done: isShipped },
+            { titleAr: 'تم التسليم', titleEn: 'Delivered', date: waiting, done: isDelivered },
           ]
         });
-        showToast(isAr ? 'تم استرجاع بيانات الشحنة الحية ✓' : 'Live shipment data retrieved ✓');
+        showToast(
+          tracking
+            ? (isAr ? 'تم العثور على الطلب ورقم التتبع' : 'Order and tracking number found')
+            : (isAr ? 'تم العثور على الطلب. رقم التتبع غير محفوظ بعد' : 'Order found. No tracking number is saved yet'),
+        );
       } else {
         setTrackingResult({
           notFound: true,
@@ -202,15 +260,8 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
     setIsCheckingWarranty(true);
     setTimeout(() => {
       setIsCheckingWarranty(false);
-      setWarrantyResult({
-        serial: serialInput.trim().toUpperCase(),
-        productName: isAr ? 'ماكينة هايبرو بارستا برو H7A دبل بويلر ٢٠ بار' : 'HiBrew Barista Pro H7A Dual-Boiler 20-Bar',
-        status: isAr ? 'ساري ومعتمد (الضمان الذهبي)' : 'Active (Golden 2-Year Warranty)',
-        validUntil: '2028-10-16',
-        center: isAr ? 'مركز الصيانة المعتمد - الرياض (طريق أنس بن مالك)' : 'Certified Service Hub - Riyadh',
-        coverage: isAr ? 'شامل قطع الغيار الأصلية واليد الفنية مع استلام وتسليم مجاني من الباب' : 'Comprehensive genuine parts, labor, and free doorstep courier pickup'
-      });
-      showToast(isAr ? 'الضمان ساري ومعتمد لدى الوكيل ✓' : 'Warranty verified & active ✓');
+      setWarrantyResult({ notFound: true, serial: serialInput.trim().toUpperCase() });
+      showToast(isAr ? 'لا يوجد سجل ضمان لهذا الرقم' : 'No warranty record for this serial');
     }, 600);
   };
 
@@ -241,6 +292,26 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
 
   const title = pageData ? (isAr ? pageData.titleAr : pageData.titleEn) : (isAr ? 'صفحة رسمية' : 'Policy Page');
   const content = pageData ? (isAr ? pageData.contentAr : pageData.contentEn) : '';
+
+  if (isPublicLayout) {
+    if (publicPhase !== 'ready' || !pageData) {
+      return (
+        <section className="px-4 py-16 text-center" data-store-404={publicPhase === 'missing' ? '1' : undefined}>
+          <h1 className="text-2xl font-semibold break-words">
+            {publicPhase === 'loading'
+              ? (isAr ? 'جار التحميل' : 'Loading')
+              : (isAr ? 'الصفحة غير موجودة' : 'Page not found')}
+          </h1>
+        </section>
+      );
+    }
+    return (
+      <article className="max-w-3xl mx-auto px-4 py-12" data-published-page={pageData.slug}>
+        <h1 className="text-3xl font-semibold break-words">{isAr ? pageData.titleAr : pageData.titleEn}</h1>
+        <div className="mt-6 whitespace-pre-wrap break-words">{isAr ? pageData.contentAr : pageData.contentEn}</div>
+      </article>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-neutral-900 pb-24 selection:bg-neutral-900 selection:text-white" dir={isAr ? 'rtl' : 'ltr'}>
@@ -456,7 +527,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
                       {isAr ? 'التحقق الإلكتروني من سريان الضمان الذهبي' : 'Golden 2-Year Warranty Serial Verification'}
                     </h2>
                     <p className="text-xs text-neutral-500">
-                      {isAr ? 'أدخل الرقم التسلسلي (Serial Number) الموجود خلف ماكينتك للتحقق من تاريخ السريان' : 'Enter machine S/N found on barcode sticker to verify authentic agency warranty'}
+                      {isAr ? 'أدخل الرقم التسلسلي الموجود على الجهاز. يظهر السجل فقط إذا كان محفوظاً لهذا المتجر.' : 'Enter the serial on the machine. A record shows only when it is saved for this store.'}
                     </p>
                   </div>
                 </div>
@@ -465,7 +536,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
                   <input
                     type="text"
                     required
-                    placeholder={isAr ? 'مثال: HB-7A-89410' : 'e.g. HB-7A-89410'}
+                    placeholder={isAr ? 'الرقم التسلسلي' : 'Serial number'}
                     value={serialInput}
                     onChange={(e) => setSerialInput(e.target.value)}
                     className="flex-1 px-4 py-2.5 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:bg-white focus:border-black outline-none font-mono uppercase"
@@ -479,7 +550,13 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
                   </button>
                 </form>
 
-                {warrantyResult && (
+                {warrantyResult?.notFound ? (
+                  <div className="p-5 rounded-2xl bg-neutral-50 border border-neutral-200 text-xs text-neutral-700">
+                    {isAr
+                      ? `لا يوجد ضمان محفوظ للرقم ${warrantyResult.serial}.`
+                      : `No saved warranty for serial ${warrantyResult.serial}.`}
+                  </div>
+                ) : warrantyResult ? (
                   <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-3 animate-in fade-in">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">

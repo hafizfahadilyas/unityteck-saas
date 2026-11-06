@@ -1,0 +1,32 @@
+---
+description: Coffee (HiBrew) storefront UI locked — Customize Themes text/img only
+alwaysApply: true
+---
+
+# Coffee frontend UI lock (FINAL)
+
+**Scope:** `store-coffee` / `theme-coffee-artisan` / `src/themes/coffeeRoasters/**` only.
+
+## Locked
+- The **live HiBrew storefront layout, spacing, colors, typography, section order, and chrome** are FINAL (parso / last-good coffee frontend).
+- **Do NOT** redesign, restyle, or “improve” Home / Header / Hero / Footer / Products / Categories / banners for looks.
+- **Do NOT** force theme `colors.*` as page `backgroundColor` / body text on `.hibrew-theme-root` (that turns the light store dark brown).
+- Page Builder canvas must render the **same** coffee components as the storefront (same-to-same). No alternate dark shells, fake empty black slabs, or extra spacer chrome that the live site does not have.
+
+## Allowed (Customize Themes + modular Word panels only)
+- Merchant **text** (`*En` / `*Ar`)
+- Merchant **images** / media URLs
+- Enable/disable sections, links, CTAs, WhatsApp number from store identity
+- Persist to Hostinger MySQL via theme-settings API (`store_id` isolation)
+
+## Retired (do not bring back)
+- C-BAN stacked promo strip (`settings.banners` / builder type `banners`) — HiBrew Dual-Boiler / G5 / Oak horizontal cards. Removed from home, builder, hub, seeds.
+
+## Page Builder / Settings UI
+- Builder preview = storefront components + `resolveCoffeeThemeSettings` — not a restyled mock.
+- Settings / Customize panels: keep docs + ref images UX; do not rebuild coffee storefront to match builder chrome.
+- Empty announcement → compact empty state (or hide), never a tall dark empty block.
+
+## Memory
+- Coffee = text/img via Customize Themes. Frontend design = locked. Flowers/cars out of scope unless user expands.
+---

@@ -959,27 +959,27 @@ export const StoreShipping: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    Calculation Type
+                    {isAr ? 'طريقة الحساب' : 'Calculation type'}
                   </label>
                   <select
                     value={methodType}
                     onChange={(e) => setMethodType(e.target.value as any)}
                     className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
                   >
-                    <option value="flat_rate">Flat Rate</option>
-                    <option value="free">Free Shipping</option>
-                    <option value="zone_based">Area / Zone Based</option>
-                    <option value="weight_based">Weight Based</option>
-                    <option value="same_day">Same-Day Delivery</option>
-                    <option value="scheduled">Scheduled Delivery</option>
-                    <option value="local_pickup">Local Pickup</option>
-                    <option value="cod">Cash on Delivery</option>
+                    <option value="flat_rate">{isAr ? 'سعر ثابت' : 'Flat rate'}</option>
+                    <option value="free">{isAr ? 'شحن مجاني' : 'Free shipping'}</option>
+                    <option value="zone_based">{isAr ? 'حسب المنطقة' : 'Zone based'}</option>
+                    <option value="weight_based">{isAr ? 'حسب الوزن' : 'Weight based'}</option>
+                    <option value="same_day">{isAr ? 'توصيل في نفس اليوم' : 'Same-day delivery'}</option>
+                    <option value="scheduled">{isAr ? 'توصيل مجدول' : 'Scheduled delivery'}</option>
+                    <option value="local_pickup">{isAr ? 'استلام من المتجر' : 'Local pickup'}</option>
+                    <option value="cod">{isAr ? 'الدفع عند الاستلام' : 'Cash on delivery'}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    Base Fee (SAR)
+                    {isAr ? 'الرسوم الأساسية (ر.س)' : 'Base fee (SAR)'}
                   </label>
                   <input
                     type="number"
@@ -1027,7 +1027,7 @@ export const StoreShipping: React.FC = () => {
                   className="rounded text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="allowCodCheck" className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                  Allow Cash on Delivery (COD) for this method
+                  {isAr ? 'السماح بالدفع عند الاستلام لهذه الطريقة' : 'Allow cash on delivery for this method'}
                 </label>
               </div>
 

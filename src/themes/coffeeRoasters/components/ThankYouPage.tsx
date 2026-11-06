@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import { useTenant } from '../../../context/TenantContext';
+import { thankYouOrderNumber } from '../thankYouOrder';
 
 export const ThankYouPage: React.FC = () => {
   const { lastOrder, navigateTo, language, showToast } = useCart();
@@ -52,9 +53,11 @@ export const ThankYouPage: React.FC = () => {
     status: currentOrders[0].status || 'Confirmed'
   } : null);
 
+  const shownNumber = thankYouOrderNumber(order);
+
   const handleCopyOrderId = () => {
-    if (!order) return;
-    navigator.clipboard.writeText(order.orderNumber);
+    if (!shownNumber) return;
+    navigator.clipboard.writeText(shownNumber);
     setCopied(true);
     showToast(language === 'AR' ? 'تم نسخ رقم الطلب!' : 'Order ID copied!');
     setTimeout(() => setCopied(false), 2500);
@@ -63,7 +66,7 @@ export const ThankYouPage: React.FC = () => {
   const storeName = activeStore?.name || (language === 'AR' ? 'متجر القهوة المختصة' : 'Specialty Coffee Store');
 
   const shareViaWhatsApp = () => {
-    if (!order) return;
+    if (!order || !shownNumber) return;
     const itemsList = order.items
       .map(
         i =>
@@ -74,7 +77,7 @@ export const ThankYouPage: React.FC = () => {
     const message =
       language === 'AR'
         ? `☕ *فاتورة ${storeName} الرسمية* 🇸🇦\n\n` +
-          `📦 *رقم الطلب:* ${order.orderNumber}\n` +
+          `📦 *رقم الطلب:* ${shownNumber}\n` +
           `📅 *التاريخ:* ${order.date}\n` +
           `👤 *العميل:* ${order.shippingAddress.name}\n` +
           `📱 *الجوال:* ${order.shippingAddress.phone}\n` +
@@ -86,7 +89,7 @@ export const ThankYouPage: React.FC = () => {
           `🛡️ *الضمان:* سنتين شامل الوكيل المعتمد بالسعودية\n\n` +
           `شكراً لتسوقك من ${storeName}!`
         : `☕ *Official ${storeName} Store Invoice* 🇸🇦\n\n` +
-          `📦 *Order ID:* ${order.orderNumber}\n` +
+          `📦 *Order ID:* ${shownNumber}\n` +
           `📅 *Date:* ${order.date}\n` +
           `👤 *Customer:* ${order.shippingAddress.name}\n` +
           `📱 *Mobile:* ${order.shippingAddress.phone}\n` +
@@ -106,7 +109,7 @@ export const ThankYouPage: React.FC = () => {
     window.print();
   };
 
-  if (!order) {
+  if (!order || !shownNumber) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center bg-[#F8F9FA]">
         <Package className="w-16 h-16 text-neutral-400 mb-4" />
@@ -191,7 +194,7 @@ export const ThankYouPage: React.FC = () => {
               <div className="flex items-center sm:justify-end gap-2">
                 <span className="text-xs text-neutral-500">{language === 'AR' ? 'رقم الفاتورة:' : 'Invoice No:'}</span>
                 <span className="font-mono font-black text-sm text-neutral-900 bg-neutral-100 px-2 py-0.5 rounded">
-                  {order.orderNumber}
+                  {shownNumber}
                 </span>
                 <button
                   onClick={handleCopyOrderId}

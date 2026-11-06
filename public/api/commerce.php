@@ -291,6 +291,38 @@ function souq_upsert_customer(PDO $pdo, string $storeId, string $name, string $p
     ];
 }
 
+function souq_request_host(): string
+{
+    $host = strtolower((string)preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST'] ?? ''));
+    return str_starts_with($host, 'www.') ? substr($host, 4) : $host;
+}
+
+function souq_host_store(string $host): string
+{
+    return match ($host) {
+        'mieraf-ksa.com' => 'store-coffee',
+        'giftshop-sa.com' => 'store-1',
+        'tanjeedmakkah.com' => 'store-bleco',
+        default => '',
+    };
+}
+
+function souq_store_data(PDO $pdo, string $storeId): array
+{
+    $st = $pdo->prepare('SELECT data FROM stores WHERE id = ?');
+    $st->execute([$storeId]);
+    $data = json_decode((string)$st->fetchColumn(), true);
+    return is_array($data) ? $data : [];
+}
+
+function souq_save_store_data(PDO $pdo, string $storeId, array $data): void
+{
+    $pdo->prepare('UPDATE stores SET data = ? WHERE id = ?')->execute([
+        json_encode($data, JSON_UNESCAPED_UNICODE),
+        $storeId,
+    ]);
+}
+
 function souq_loyalty_rate(PDO $pdo, string $storeId): float
 {
     $st = $pdo->prepare('SELECT data FROM stores WHERE id = ?');
@@ -389,11 +421,11 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         $summary = $names ? implode(', ', $names) : '';
         $now = date('c');
         $methodName = souq_payment_method($input['payment_method'] ?? null);
-        $ins = $pdo->prepare('INSERT INTO orders (id, store_id, order_number, customer_id, customer_name, customer_email, customer_phone, items_count, items_summary, total_amount, currency, source, source_details, delivery_location, status, payment_method, payment_status, order_date, coupon_code, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        $ins = $pdo->prepare('INSERT INTO orders (id, store_id, order_number, customer_id, customer_name, customer_email, customer_phone, items_count, items_summary, total_amount, currency, source, source_details, delivery_location, status, payment_method, payment_status, shipping_status, order_date, coupon_code, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $ins->execute([
             $orderId, $storeId, $number, $customer['id'], $name, $email, $phone,
             count($items) ?: 1, $summary, $charged, 'SAR', $source, $details !== '' ? $details : $source,
-            $location, 'pending', $methodName, 'Pending', substr($now, 0, 10), $couponCode !== '' ? $couponCode : null, $now,
+            $location, 'pending', $methodName, 'Pending', 'pending', substr($now, 0, 10), $couponCode !== '' ? $couponCode : null, $now,
         ]);
         $itemIns = $pdo->prepare('INSERT INTO order_items (order_id, store_id, product_id, product_name, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?, ?, ?)');
         $stock = $pdo->prepare('UPDATE products SET stock = CASE WHEN stock - ? < 0 THEN 0 ELSE stock - ? END, updated_at = datetime(\'now\') WHERE id = ? AND store_id = ?');
@@ -634,13 +666,22 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         $row = $st->fetch();
         $data = $row ? (json_decode((string)$row['data'], true) ?: []) : [];
         $seo = is_array($data['seo'] ?? null) ? $data['seo'] : [];
+        $host = souq_request_host();
+        $publicHost = souq_host_store($host) === $storeId ? $host : '';
+        if ($publicHost === '' && $row && !empty($row['domain'])) {
+            $publicHost = strtolower((string)preg_replace('#^https?://#', '', (string)$row['domain']));
+            $publicHost = explode('/', $publicHost)[0];
+        }
+        $ga = strtoupper(trim((string)($seo['ga4MeasurementId'] ?? $data['ga4MeasurementId'] ?? $data['ga4_measurement_id'] ?? '')));
+        $googleConnected = (bool)preg_match('/^G-[A-Z0-9]+$/', $ga);
         echo json_encode(['data' => [
             'store_id' => $storeId,
-            'google_connected' => false,
+            'google_connected' => $googleConnected,
+            'ga4_measurement_id' => $googleConnected ? $ga : '',
             'meta_title' => (string)($seo['metaTitle'] ?? $data['metaTitle'] ?? $data['meta_title'] ?? ''),
             'meta_description' => (string)($seo['metaDescription'] ?? $data['metaDescription'] ?? $data['meta_description'] ?? ''),
             'keywords' => $seo['keywords'] ?? $data['keywords'] ?? [],
-            'sitemap_url' => $row && !empty($row['domain']) ? 'https://' . $row['domain'] . '/sitemap.xml' : '',
+            'sitemap_url' => $publicHost !== '' ? 'https://' . $publicHost . '/sitemap.xml' : '',
             'indexed_urls_count' => 0,
             'total_search_clicks' => 0,
             'total_search_impressions' => 0,
@@ -649,6 +690,172 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             'top_queries' => [],
             'extra' => new stdClass(),
         ]]);
+        return true;
+    }
+
+    if ($uri === '/store/live-domain' && $method === 'POST') {
+        $host = souq_request_host();
+        if (souq_host_store($host) !== $storeId) {
+            http_response_code(403);
+            echo json_encode(['message' => 'This host does not belong to this store.']);
+            return true;
+        }
+        $pdo->prepare('UPDATE stores SET domain = ? WHERE id = ?')->execute([$host, $storeId]);
+        echo json_encode(['store_id' => $storeId, 'domain' => $host]);
+        return true;
+    }
+
+    if ($uri === '/loyalty/settings' && $method === 'PUT') {
+        $rate = (float)($input['points_per_sar'] ?? -1);
+        if ($rate < 0 || $rate > 20) {
+            http_response_code(422);
+            echo json_encode(['message' => 'Points per SAR must be between 0 and 20.']);
+            return true;
+        }
+        $data = souq_store_data($pdo, $storeId);
+        $data['loyalty'] = ['pointsPerSar' => $rate];
+        souq_save_store_data($pdo, $storeId, $data);
+        $credited = 0;
+        if (!empty($input['apply_to_existing'])) {
+            $rows = $pdo->prepare('SELECT id, total_spend FROM customers WHERE store_id = ?');
+            $rows->execute([$storeId]);
+            $upd = $pdo->prepare('UPDATE customers SET points = ? WHERE id = ? AND store_id = ?');
+            while ($cust = $rows->fetch()) {
+                $pts = (int)floor(((float)$cust['total_spend']) * $rate);
+                $upd->execute([$pts, $cust['id'], $storeId]);
+                $credited++;
+            }
+        }
+        echo json_encode(['store_id' => $storeId, 'points_per_sar' => $rate, 'customers_updated' => $credited]);
+        return true;
+    }
+
+    if ($uri === '/loyalty/overview' && $method === 'GET') {
+        $sum = $pdo->prepare('SELECT COUNT(*) c, COALESCE(SUM(points), 0) points FROM customers WHERE store_id = ?');
+        $sum->execute([$storeId]);
+        $row = $sum->fetch() ?: ['c' => 0, 'points' => 0];
+        echo json_encode([
+            'store_id' => $storeId,
+            'points_per_sar' => souq_loyalty_rate($pdo, $storeId),
+            'customers' => (int)$row['c'],
+            'points' => (int)$row['points'],
+        ]);
+        return true;
+    }
+
+    if ($uri === '/gift-cards' && $method === 'GET') {
+        $st = $pdo->prepare('SELECT id, store_id, code, balance, currency, status, customer_email FROM gift_cards WHERE store_id = ? ORDER BY code ASC');
+        $st->execute([$storeId]);
+        echo json_encode(['data' => $st->fetchAll()]);
+        return true;
+    }
+
+    if ($uri === '/gift-cards' && $method === 'POST') {
+        $code = strtoupper(trim((string)($input['code'] ?? '')));
+        $balance = (float)($input['balance'] ?? 0);
+        if ($code === '' || $balance <= 0) {
+            http_response_code(422);
+            echo json_encode(['message' => 'Gift card code and a balance above zero are required.']);
+            return true;
+        }
+        $id = 'gc-' . bin2hex(random_bytes(6));
+        $pdo->prepare('INSERT INTO gift_cards (id, store_id, code, balance, currency, status, customer_email) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$id, $storeId, $code, $balance, 'SAR', 'active', strtolower(trim((string)($input['customer_email'] ?? '')))]);
+        echo json_encode(['data' => [
+            'id' => $id,
+            'store_id' => $storeId,
+            'code' => $code,
+            'balance' => $balance,
+            'currency' => 'SAR',
+            'status' => 'active',
+        ]]);
+        return true;
+    }
+
+    if ($uri === '/orders/invoice' && $method === 'GET') {
+        $number = strtoupper(trim((string)($_GET['order_number'] ?? '')));
+        $st = $pdo->prepare('SELECT * FROM orders WHERE store_id = ?');
+        $st->execute([$storeId]);
+        $digits = ltrim(preg_replace('/\D+/', '', $number) ?? '', '0');
+        $found = null;
+        while ($row = $st->fetch()) {
+            $rowDigits = ltrim(preg_replace('/\D+/', '', (string)$row['order_number']) ?? '', '0');
+            if ($rowDigits !== '' && $rowDigits === $digits) {
+                $found = $row;
+                break;
+            }
+        }
+        if (!$found) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Order not found.']);
+            return true;
+        }
+        $order = souq_order_row($pdo, $found);
+        $itemsTotal = 0.0;
+        foreach ($order['items'] as $item) {
+            $itemsTotal += (float)$item['subtotal'];
+        }
+        echo json_encode(['data' => [
+            'invoice_number' => $order['order_number'],
+            'store_id' => $storeId,
+            'customer_name' => $order['customer_name'],
+            'customer_email' => $order['customer_email'],
+            'customer_phone' => $order['customer_phone'],
+            'items' => $order['items'],
+            'items_total' => round($itemsTotal, 2),
+            'coupon_code' => $order['coupon_code'],
+            'charged_total' => $order['total_amount'],
+            'currency' => $order['currency'],
+            'payment_method' => $order['payment_method'],
+            'payment_status' => $order['payment_status'],
+            'shipping_status' => $order['shipping_status'],
+            'order_status' => $order['status'],
+            'delivery_location' => $order['delivery_location'],
+        ]]);
+        return true;
+    }
+
+    if ($uri === '/orders/fulfillment' && $method === 'PATCH') {
+        $number = strtoupper(trim((string)($input['order_number'] ?? '')));
+        $shipping = strtolower(trim((string)($input['shipping_status'] ?? '')));
+        $allowed = ['pending', 'preparing', 'ready'];
+        if ($number === '' || !in_array($shipping, $allowed, true)) {
+            http_response_code(422);
+            echo json_encode(['message' => 'Order number and a pending, preparing, or ready shipping status are required.']);
+            return true;
+        }
+        $st = $pdo->prepare('SELECT * FROM orders WHERE store_id = ?');
+        $st->execute([$storeId]);
+        $digits = ltrim(preg_replace('/\D+/', '', $number) ?? '', '0');
+        $found = null;
+        while ($row = $st->fetch()) {
+            $rowDigits = ltrim(preg_replace('/\D+/', '', (string)$row['order_number']) ?? '', '0');
+            if ($rowDigits !== '' && $rowDigits === $digits) {
+                $found = $row;
+                break;
+            }
+        }
+        if (!$found) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Order not found.']);
+            return true;
+        }
+        $pdo->prepare('UPDATE orders SET shipping_status = ? WHERE id = ? AND store_id = ?')->execute([$shipping, $found['id'], $storeId]);
+        $found['shipping_status'] = $shipping;
+        echo json_encode(['data' => souq_order_row($pdo, $found)]);
+        return true;
+    }
+
+    if ($uri === '/whatsapp/status' && $method === 'GET') {
+        $data = souq_store_data($pdo, $storeId);
+        $wa = is_array($data['whatsapp'] ?? null) ? $data['whatsapp'] : [];
+        $phoneId = trim((string)($wa['phone_number_id'] ?? $data['whatsapp_phone_number_id'] ?? ''));
+        $token = trim((string)($wa['access_token'] ?? $data['whatsapp_access_token'] ?? ''));
+        echo json_encode([
+            'store_id' => $storeId,
+            'connected' => $phoneId !== '' && $token !== '',
+            'phone_number_id' => $phoneId !== '' ? $phoneId : null,
+        ]);
         return true;
     }
 

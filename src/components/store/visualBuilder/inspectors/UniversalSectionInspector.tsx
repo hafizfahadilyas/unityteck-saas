@@ -44,6 +44,7 @@ import {
 } from '../../../../themes/meccaGifts/components/MotionHeroSlider';
 import { useTenant } from '../../../../context/TenantContext';
 import { InspectorImageUpload } from './InspectorImageUpload';
+import { WidgetFields } from '../widgets/ContentWidget';
 
 export interface UniversalSectionInspectorProps {
   block: {
@@ -121,6 +122,8 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
   const isReviews = block.type === 'reviews';
   const isFaq = block.type === 'faq';
   const isFooter = block.type === 'footer' || block.id === 'footer';
+  const isHeading = block.type === 'heading' || block.type === 'w_heading';
+  const headingLevel = String(s.tag || s.htmlTag || s.level || 'h2');
 
   // Available Store Categories List (Dynamic for Flowers, Coffee, Cars, etc.)
   const availableCategories = React.useMemo(() => {
@@ -172,7 +175,96 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
       {/* ─── TAB 1: CONTENT ─────────────────────────────────── */}
       {activeTab === 'content' && (
         <div className="space-y-4">
-          
+          <WidgetFields type={block.type} settings={s} isAr={isAr} onChange={onUpdateSetting} />
+          {isHeading && (
+            <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/50 space-y-3">
+              <span className="font-bold text-slate-800 block text-xs">
+                {isAr ? 'العنوان' : 'Heading'}
+              </span>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  {isAr ? 'المستوى' : 'Level'}
+                </label>
+                <select
+                  value={['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(headingLevel) ? headingLevel : 'h2'}
+                  onChange={(e) => {
+                    const tag = e.target.value;
+                    onUpdateSetting('tag', tag);
+                    onUpdateSetting('htmlTag', tag);
+                    onUpdateSetting('level', tag);
+                  }}
+                  className="w-full px-2.5 py-1.5 border border-slate-300 bg-white rounded-lg text-xs"
+                >
+                  {(isAr
+                    ? [
+                        ['h1', 'العنوان الأول'],
+                        ['h2', 'العنوان الثاني'],
+                        ['h3', 'العنوان الثالث'],
+                        ['h4', 'العنوان الرابع'],
+                        ['h5', 'العنوان الخامس'],
+                        ['h6', 'العنوان السادس'],
+                      ]
+                    : [
+                        ['h1', 'Heading 1'],
+                        ['h2', 'Heading 2'],
+                        ['h3', 'Heading 3'],
+                        ['h4', 'Heading 4'],
+                        ['h5', 'Heading 5'],
+                        ['h6', 'Heading 6'],
+                      ]
+                  ).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  {isAr ? 'النص العربي' : 'English text'}
+                </label>
+                <input
+                  type="text"
+                  value={isAr ? (s.textAr || s.titleAr || '') : (s.textEn || s.titleEn || '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (isAr) {
+                      onUpdateSetting('textAr', val);
+                      onUpdateSetting('titleAr', val);
+                      onUpdateSetting('headingAr', val);
+                    } else {
+                      onUpdateSetting('textEn', val);
+                      onUpdateSetting('titleEn', val);
+                      onUpdateSetting('headingEn', val);
+                    }
+                  }}
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  {isAr ? 'النص الإنجليزي' : 'Arabic text'}
+                </label>
+                <input
+                  type="text"
+                  dir={isAr ? 'ltr' : 'rtl'}
+                  value={isAr ? (s.textEn || s.titleEn || '') : (s.textAr || s.titleAr || '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (isAr) {
+                      onUpdateSetting('textEn', val);
+                      onUpdateSetting('titleEn', val);
+                      onUpdateSetting('headingEn', val);
+                    } else {
+                      onUpdateSetting('textAr', val);
+                      onUpdateSetting('titleAr', val);
+                      onUpdateSetting('headingAr', val);
+                    }
+                  }}
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs"
+                />
+              </div>
+            </div>
+          )}
+
           {/* 1. PRODUCTS FILTERING & DATA SOURCE (For All Product Sections) */}
           {isProductSection && (
             <div className="border border-emerald-300 rounded-2xl p-3.5 bg-emerald-50/40 space-y-3.5 shadow-2xs">
@@ -1196,7 +1288,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
           )}
 
           {/* 4. GENERAL SECTION HEADINGS, BUTTONS & MEDIA (Only for sections that use generic settings) */}
-          {!isHeroSlider && !isCircleCategories && !isFooter && (
+          {!isHeroSlider && !isCircleCategories && !isFooter && !isHeading && (
             <>
               {/* Titles & Headings */}
               <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/50 space-y-3">

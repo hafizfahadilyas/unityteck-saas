@@ -1,0 +1,26 @@
+---
+description: Saudi KSA Canva templates + social — real data only (LOCKED)
+alwaysApply: true
+---
+
+# Saudi Canva · Social · Creatives (LOCKED)
+
+**Market:** Kingdom of Saudi Arabia (SAR, KSA cities, bilingual AR/EN, RTL/LTR). Unityteck multi-store SaaS.
+
+## Absolute
+- **REAL only.** No fake Instagram/TikTok/Snap/X “connected” accounts, fake engagement, Instant OAuth, or localStorage pretend-publish.
+- Creatives, media saves, schedule rows, and platform tokens are **per `store_id`**. Never borrow another store’s Meta/WhatsApp/SMTP.
+- Disconnected channel → skip that store only; show Not Connected / Waiting for Data.
+
+## Step roadmap
+1. **Step 1 (done):** Editable KSA template packs → Media Library. Free = **5/category**; Pro / Master unlock rest.
+2. **Step 2 (done core):** Real Meta Graph Instagram + Facebook per `store_id` (`social_accounts` / `social_posts`). Connect only after live Graph test. Canva → Post/Schedule. Cron `social:publish-due` every minute. TikTok/Snap = Not available until wired — never fake Connected.
+3. **Later:** Meta OAuth app flow (optional); TikTok/Snap real APIs.
+
+## UI / i18n
+- AR chrome = Arabic only; EN = English only. No mixed Canva/OTP leftover brand words in AR strings.
+- Prefer SAR, ر.س, Saudi delivery / National Day / Made in KSA copy in template defaults — never invent store metrics.
+
+## Reuse
+- Extend `CanvaImageStudioModal` + `StoreMediaLibrary` + `Plans` / Master Pro grant. Do not rebuild Media Library or invent a second editor.
+---

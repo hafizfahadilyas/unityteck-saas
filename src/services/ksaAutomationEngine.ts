@@ -548,16 +548,21 @@ const MASTER_TRACKING_KEY = 'unityteck_master_global_tracking_config';
 
 export function getMasterGlobalTracking(): MasterGlobalTrackingConfig {
   const defaults: MasterGlobalTrackingConfig = {
-    masterGtmId: 'GTM-KSA9901',
-    masterGa4Id: 'G-UNITYKSA01',
-    masterIndexingAutoEnabled: true,
-    indexingTimerMinutes: 5,
-    updatedAt: new Date().toISOString(),
+    masterGtmId: '',
+    masterGa4Id: '',
+    masterIndexingAutoEnabled: false,
+    indexingTimerMinutes: 0,
+    updatedAt: '',
   };
   try {
     const raw = localStorage.getItem(MASTER_TRACKING_KEY);
     if (!raw) return defaults;
-    return { ...defaults, ...JSON.parse(raw) };
+    const saved = { ...defaults, ...JSON.parse(raw) } as MasterGlobalTrackingConfig;
+    return {
+      ...saved,
+      masterGa4Id: /^(G-UNITYKSA|GTM-KSA9901)/i.test(saved.masterGa4Id) ? '' : saved.masterGa4Id,
+      masterGtmId: /^(G-UNITYKSA|GTM-KSA9901)/i.test(saved.masterGtmId) ? '' : saved.masterGtmId,
+    };
   } catch {
     return defaults;
   }

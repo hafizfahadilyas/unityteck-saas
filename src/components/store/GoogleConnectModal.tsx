@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useTenant } from '../../context/TenantContext';
 import { useToast } from '../common/ToastProvider';
+import { realTrackingId, seoSetupStep, storeGoogleEmail } from './seo/storeSeoSetup';
 import {
   fetchGoogleStatus,
   fetchGoogleAuthUrl,
@@ -81,7 +82,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
 
   // Email input for instant verification
   const [merchantEmailInput, setMerchantEmailInput] = useState(
-    currentSEOConfig.googleAccountEmail || activeStore.ownerEmail || (activeStore.id === 'store-1' ? 'giftshop2030m@gmail.com' : '')
+    currentSEOConfig.googleAccountEmail || storeGoogleEmail(activeStore)
   );
   const [showAdvancedOAuth, setShowAdvancedOAuth] = useState(false);
   const [customClientIdInput, setCustomClientIdInput] = useState(getStoredGoogleClientId());
@@ -128,8 +129,8 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       loadStatus();
-      if (!merchantEmailInput && activeStore.ownerEmail) {
-        setMerchantEmailInput(activeStore.ownerEmail);
+      if (!merchantEmailInput && storeGoogleEmail(activeStore)) {
+        setMerchantEmailInput(storeGoogleEmail(activeStore));
       }
     }
   }, [isOpen, activeStore.id]);
@@ -171,13 +172,22 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
   /**
    * Run real multi-step connection process
    */
-  const handleStartGoogleConnect = async (mode: 'instant' | 'oauth' = 'instant') => {
-    const targetEmail = merchantEmailInput.trim() || activeStore.ownerEmail || '';
+  const handleStartGoogleConnect = async (mode: 'instant' | 'oauth' = 'oauth') => {
+    const step = seoSetupStep(activeStore);
+    if (step === 'need_domain') {
+      const msg = isAr
+        ? 'النطاق غير مربوط بعد. تبقى الخطوة معلقة إلى أن يُحفظ النطاق، ثم يسجّل المالك الدخول ببريده.'
+        : 'The domain is not linked yet. This step waits until the domain is saved, then the owner signs in with their email.';
+      setErrorMessage(msg);
+      toast(msg, 'error');
+      return;
+    }
+    const targetEmail = storeGoogleEmail({ ownerEmail: merchantEmailInput }) || storeGoogleEmail(activeStore);
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!targetEmail || !emailRegex.test(targetEmail)) {
       setIsLoading(false);
       const msg = isAr 
-        ? 'يرجى إدخال عنوان بريد إلكتروني رسمي وصحيح (مثل: Google أو Outlook أو بريد النطاق الخاص بك)' 
+        ? 'أدخل بريد هذا المتجر الصحيح. الربط يتم بهذا البريد بعد حفظ النطاق.' 
         : 'Please enter a valid Google, Outlook, or official business email address';
       setErrorMessage(msg);
       toast(msg, 'error');
@@ -204,7 +214,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
       // Step 2: Authorizing with Google OAuth
       updateStep(1, 'running');
 
-      const handleTokenReceived = async (tokenResp: any, userProfile: any) => {
+      const handleTokenReceived = async (tokenResp: any, userProfile: any, existingCallback?: any) => {
         updateStep(1, 'completed');
         setAccountEmail(userProfile.email);
         setAccountName(userProfile.name);
@@ -218,7 +228,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
         const autoAdsId = '';
 
         try {
-          const callbackRes = await submitGoogleCallback(activeStore.id, {
+          const callbackRes = existingCallback || await submitGoogleCallback(activeStore.id, {
             access_token: tokenResp.access_token,
             expires_in: tokenResp.expires_in,
             email: userProfile.email,
@@ -267,7 +277,15 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
         
         // Save integration
         connectGoogleAccount(activeStore.id, userProfile.email);
-        updateStoreSEOConfig(activeStore.id, {
+        updateStoreSEOConfig(activeStore.id, existingCallback ? {
+          googleConnected: true,
+          googleAccountEmail: userProfile.email,
+          connectedAt: new Date().toISOString().split('T')[0],
+          searchConsoleConnected: Boolean(existingCallback?.site_kit?.linked?.search_console),
+          ga4MeasurementId: existingCallback?.integration?.ga4_measurement_id || autoGa4Id,
+          gtmContainerId: existingCallback?.integration?.gtm_container_id || autoGtmCode,
+          indexingApiEnabled: Boolean(existingCallback?.site_kit?.indexing_homepage_pinged),
+        } : {
           googleConnected: Boolean(tokenResp.access_token),
           googleAccountEmail: userProfile.email,
           connectedAt: tokenResp.access_token ? new Date().toISOString().split('T')[0] : null,
@@ -286,6 +304,20 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
         if (!tokenResp.access_token) {
           updateStep(6, 'completed');
           setIsLoading(false);
+          return;
+        }
+        if (tokenResp.access_token === 'server-held') {
+          clearStoreGoogleState(activeStore.id);
+          updateStep(6, 'completed');
+          setIsConnected(true);
+          setIsLoading(false);
+          toast(
+            isAr
+              ? `تم ربط جوجل لهذا المتجر: ${userProfile.email}`
+              : `Google connected for this store: ${userProfile.email}`,
+            'success',
+          );
+          if (onConnected) onConnected();
           return;
         }
         saveStoreGoogleState(activeStore.id, {
@@ -313,8 +345,8 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
 
         try {
           await saveGoogleProperties(activeStore.id, {
-            ga4_property_id: selectedGA4 || 'properties/398210451',
-            ga4_measurement_id: autoGa4Id,
+            ga4_property_id: selectedGA4 || '',
+            ga4_measurement_id: realTrackingId(autoGa4Id),
             gsc_site_url: autoGscSite,
             gtm_container_id: autoGtmCode,
             google_ads_customer_id: autoAdsId,
@@ -336,18 +368,42 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
         if (onConnected) onConnected();
       };
 
-      if (mode === 'instant' || !customClientIdInput.trim() || customClientIdInput.includes('unityteck-ecommerce')) {
+      const clientId = customClientIdInput.trim() || getStoredGoogleClientId();
+      if (mode === 'instant' || !clientId.endsWith('.apps.googleusercontent.com')) {
         setIsLoading(false);
         setErrorMessage(
           isAr
-            ? 'الربط الفوري معطّل. أدخل Google OAuth Client ID الحقيقي.'
-            : 'Instant connect disabled. Enter a real Google OAuth Client ID.',
+            ? 'الربط الفوري متوقف. معرّف عميل جوجل غير جاهز.'
+            : 'Instant connect is off. The Google client id is not ready.',
         );
         return;
       }
       initiateRealGoogleOAuth({
         storeSlug: activeStore.slug,
-        clientId: customClientIdInput.trim(),
+        clientId,
+        loginHint: targetEmail,
+        flow: 'code',
+        onCode: async (code, redirectUri) => {
+          const callbackRes = await submitGoogleCallback(activeStore.id, { code, redirect_uri: redirectUri });
+          const integration = callbackRes?.integration || {};
+          const savedEmail = String(integration.google_account_email || '').trim();
+          if (!savedEmail) {
+            throw new Error(
+              isAr
+                ? 'جوجل لم يحفظ حساب هذا المتجر.'
+                : 'Google did not save this store account.',
+            );
+          }
+          await handleTokenReceived(
+            { access_token: 'server-held', expires_in: 3600 },
+            {
+              email: savedEmail,
+              name: integration.google_account_name || savedEmail,
+              picture: integration.google_account_picture || null,
+            },
+            callbackRes,
+          );
+        },
         onSuccess: handleTokenReceived,
         onError: (err) => {
           setIsLoading(false);

@@ -30,7 +30,7 @@ class ThemeLayoutGuard
 
         $clean = self::walk($layout, $storeId, $publishing, $warnings);
         $h1 = self::countH1($clean);
-        if ($h1 !== 1) {
+        if ($publishing && $h1 !== 1) {
             $warnings[] = $h1 === 0 ? 'missing-h1' : 'multiple-h1';
         }
 
@@ -64,6 +64,20 @@ class ThemeLayoutGuard
      */
     private static function walk(array $node, string $storeId, bool $publishing, array &$warnings): array
     {
+        if (isset($node['type']) && is_string($node['type'])) {
+            $node = ThemeWidgetSanitizer::apply($node, $storeId, $publishing);
+        }
+
+        if (self::isHeadingWidget($node)) {
+            $settings = is_array($node['settings'] ?? null) ? $node['settings'] : [];
+            $tag = self::resolvedTag($node);
+            $settings['tag'] = $tag;
+            $settings['htmlTag'] = $tag;
+            $settings['level'] = $tag;
+            $node['settings'] = $settings;
+            $node['tag'] = $tag;
+        }
+
         $out = [];
         foreach ($node as $key => $value) {
             if ($key === 'ownerEmail' || $key === 'owner_email') {
@@ -73,6 +87,10 @@ class ThemeLayoutGuard
                 continue;
             }
             if (is_string($value)) {
+                if ($key === 'customHtml') {
+                    $out[$key] = ThemeWidgetSanitizer::html($value);
+                    continue;
+                }
                 $out[$key] = self::stripScript($value);
                 if ($key === 'image' && $value === '') {
                     $warnings[] = 'missing-image';
@@ -83,27 +101,24 @@ class ThemeLayoutGuard
                 continue;
             }
             if (is_array($value)) {
-                if ($key === 'products') {
-                    $out[$key] = array_values(array_filter($value, function ($product) use ($storeId) {
-                        if (! is_array($product)) {
+                if ($key === 'products' || $key === 'categories' || $key === 'reviews') {
+                    $out[$key] = array_values(array_filter($value, function ($row) use ($storeId) {
+                        if (! is_array($row)) {
                             return false;
                         }
-                        $productStore = $product['store_id'] ?? $product['storeId'] ?? null;
+                        $rowStore = $row['store_id'] ?? $row['storeId'] ?? null;
 
-                        return ! is_string($productStore) || $productStore === '' || $productStore === $storeId;
+                        return ! is_string($rowStore) || $rowStore === '' || $rowStore === $storeId;
                     }));
                     continue;
                 }
-                if ($publishing && $key === 'blocks' && self::isList($value)) {
+                if ($key === 'blocks' && self::isList($value)) {
                     $kept = [];
                     foreach ($value as $block) {
-                        if (! is_array($block)) {
+                        if (! is_array($block) || ($block['type'] ?? '') === 'banners') {
                             continue;
                         }
-                        if (($block['visible'] ?? true) === false) {
-                            continue;
-                        }
-                        if (self::isExpired($block)) {
+                        if ($publishing && (($block['visible'] ?? true) === false || self::isExpired($block) || ThemeWidgetSanitizer::isEmptyVideo($block))) {
                             continue;
                         }
                         $kept[] = self::walk($block, $storeId, $publishing, $warnings);
@@ -123,18 +138,64 @@ class ThemeLayoutGuard
     /**
      * @param  array<mixed>  $node
      */
+    /**
+     * One count per heading widget. A bare `{tag: h1}` still counts once.
+     *
+     * @param  array<mixed>  $node
+     */
     private static function countH1(array $node): int
     {
-        $count = 0;
-        foreach ($node as $key => $value) {
-            if ($key === 'tag' && $value === 'h1') {
-                $count++;
-            } elseif (is_array($value)) {
-                $count += self::countH1($value);
+        if (self::isList($node)) {
+            $count = 0;
+            foreach ($node as $item) {
+                if (is_array($item)) {
+                    $count += self::countH1($item);
+                }
             }
+
+            return $count;
+        }
+
+        if (($node['visible'] ?? true) === false) {
+            return 0;
+        }
+
+        $count = self::resolvedTag($node) === 'h1' && (self::isHeadingWidget($node) || array_key_exists('tag', $node))
+            ? 1
+            : 0;
+
+        foreach ($node as $key => $value) {
+            if (! is_array($value)) {
+                continue;
+            }
+            if (self::isHeadingWidget($node) && $key === 'settings') {
+                continue;
+            }
+            $count += self::countH1($value);
         }
 
         return $count;
+    }
+
+    /**
+     * @param  array<mixed>  $node
+     */
+    private static function isHeadingWidget(array $node): bool
+    {
+        $type = $node['type'] ?? null;
+
+        return $type === 'heading' || $type === 'w_heading';
+    }
+
+    /**
+     * @param  array<mixed>  $node
+     */
+    private static function resolvedTag(array $node): string
+    {
+        $settings = is_array($node['settings'] ?? null) ? $node['settings'] : [];
+        $raw = strtolower((string) ($settings['tag'] ?? $settings['htmlTag'] ?? $settings['level'] ?? $node['tag'] ?? ''));
+
+        return in_array($raw, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'], true) ? $raw : 'h2';
     }
 
     /**

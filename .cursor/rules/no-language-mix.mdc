@@ -1,0 +1,13 @@
+---
+description: No Arabic/English mixing — full locale only
+alwaysApply: true
+---
+
+# Language isolation (mandatory)
+
+- If locale is **Arabic**: UI copy must be **Arabic only** (no English words/phrases mixed in the same string).
+- If locale is **English**: UI copy must be **English only** (no Arabic mixed in).
+- Never hardcode Arabic-only or English-only text that ignores `isAr` / `locale`.
+- Prefer `isAr ? '…عربي…' : '…English…'` or `t('key')` for every user-visible string.
+- Product brand leftovers (e.g. “Clerk”, “OTP”, “SSL”) must be localized in AR mode (e.g. مصادقة سحابية / رمز التحقق / تشفير آمن).
+- Applies to: login, master dashboard, store dashboard, all pages/sections, toasts, security alerts, hero art labels.

@@ -45,7 +45,7 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
     titleEn: 'Heading',
     category: 'general',
     icon: Heading,
-    defaultSettings: { textAr: 'عنوان القسم الفاخر', textEn: 'Signature Section Heading', level: 'h2' },
+    defaultSettings: { textAr: '', textEn: '', tag: 'h2', htmlTag: 'h2', level: 'h2' },
     templateStyle: 'heading-luxury',
   },
   {

@@ -390,6 +390,8 @@ Route::get('/storefront/builder-layout', [StoreThemeController::class, 'storefro
 
 // Public per-store product catalog (no auth). Isolated by store_id / slug.
 Route::get('/storefront/catalog', [ProductController::class, 'storefrontCatalog']);
+Route::get('/storefront/categories', [ProductController::class, 'storefrontCategories']);
+Route::post('/storefront/newsletter', [StoreSettingsController::class, 'subscribeNewsletter']);
 Route::post('/storefront/customers', [StorefrontCustomerController::class, 'upsert']);
 
 // Public Inbound Webhooks for official Payment Gateways and Couriers

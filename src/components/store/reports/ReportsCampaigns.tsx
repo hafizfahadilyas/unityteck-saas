@@ -109,17 +109,8 @@ export const ReportsCampaigns: React.FC<ReportsCampaignsProps> = ({
   // Daily Trend
   const trendData = useMemo(() => {
     if (apiData?.trend && apiData.trend.length > 0) return apiData.trend;
-    if (campaignRevenue === 0) return [];
-    return [
-      { label: 'Oct 01', spend: Math.round(totalAdSpend * 0.12), revenue: Math.round(campaignRevenue * 0.11), roas: 2.9 },
-      { label: 'Oct 02', spend: Math.round(totalAdSpend * 0.14), revenue: Math.round(campaignRevenue * 0.13), roas: 3.1 },
-      { label: 'Oct 03', spend: Math.round(totalAdSpend * 0.13), revenue: Math.round(campaignRevenue * 0.14), roas: 3.4 },
-      { label: 'Oct 04', spend: Math.round(totalAdSpend * 0.16), revenue: Math.round(campaignRevenue * 0.18), roas: 3.6 },
-      { label: 'Oct 05', spend: Math.round(totalAdSpend * 0.18), revenue: Math.round(campaignRevenue * 0.22), roas: 4.1 },
-      { label: 'Oct 06', spend: Math.round(totalAdSpend * 0.15), revenue: Math.round(campaignRevenue * 0.17), roas: 3.8 },
-      { label: 'Oct 07', spend: Math.round(totalAdSpend * 0.12), revenue: Math.round(campaignRevenue * 0.15), roas: 3.5 },
-    ];
-  }, [apiData, totalAdSpend, campaignRevenue]);
+    return [];
+  }, [apiData]);
 
   const maxTrendRev = useMemo(() => {
     if (trendData.length === 0) return 1;
@@ -129,120 +120,44 @@ export const ReportsCampaigns: React.FC<ReportsCampaignsProps> = ({
   // Channel breakdown
   const channelsList = useMemo(() => {
     if (apiData?.channels && apiData.channels.length > 0) return apiData.channels;
-    if (campaignRevenue === 0) return [];
-    return [
-      { name: 'TikTok Ads', spend: Math.round(totalAdSpend * 0.355), revenue: Math.round(campaignRevenue * 0.355), roas: 4.21, orders: Math.round(campaignOrders * 0.35), share: 35.5, color: '#06b6d4' },
-      { name: 'Snapchat Ads', spend: Math.round(totalAdSpend * 0.262), revenue: Math.round(campaignRevenue * 0.262), roas: 3.48, orders: Math.round(campaignOrders * 0.26), share: 26.2, color: '#eab308' },
-      { name: 'Instagram Ads', spend: Math.round(totalAdSpend * 0.201), revenue: Math.round(campaignRevenue * 0.201), roas: 2.86, orders: Math.round(campaignOrders * 0.20), share: 20.1, color: '#ec4899' },
-      { name: 'Google Ads', spend: Math.round(totalAdSpend * 0.091), revenue: Math.round(campaignRevenue * 0.091), roas: 2.10, orders: Math.round(campaignOrders * 0.10), share: 9.1, color: '#3b82f6' },
-      { name: 'Influencers', spend: Math.round(totalAdSpend * 0.056), revenue: Math.round(campaignRevenue * 0.056), roas: 3.95, orders: Math.round(campaignOrders * 0.06), share: 5.6, color: '#8b5cf6' },
-      { name: 'Email & SMS', spend: Math.round(totalAdSpend * 0.023), revenue: Math.round(campaignRevenue * 0.023), roas: 6.12, orders: Math.round(campaignOrders * 0.02), share: 2.3, color: '#10b981' },
-      { name: 'Other', spend: Math.round(totalAdSpend * 0.012), revenue: Math.round(campaignRevenue * 0.012), roas: 1.90, orders: Math.round(campaignOrders * 0.01), share: 1.2, color: '#94a3b8' },
-    ];
-  }, [apiData, totalAdSpend, campaignRevenue, campaignOrders]);
+    return [];
+  }, [apiData]);
 
   // Campaigns performance table
   const campaignsTable = useMemo(() => {
     if (apiData?.campaigns && apiData.campaigns.length > 0) return apiData.campaigns;
-    if (campaignRevenue === 0) return [];
-    return [
-      { name: 'Summer Sale 2026 - TikTok Conversion', channel: 'TikTok Ads', spend: Math.round(totalAdSpend * 0.24), revenue: Math.round(campaignRevenue * 0.28), roas: 4.45, orders: Math.round(campaignOrders * 0.27), cpa: 27.50, status: 'Active' },
-      { name: 'National Day Promo - Snap Story', channel: 'Snapchat Ads', spend: Math.round(totalAdSpend * 0.18), revenue: Math.round(campaignRevenue * 0.19), roas: 3.65, orders: Math.round(campaignOrders * 0.18), cpa: 31.20, status: 'Active' },
-      { name: 'IG Reels Best Sellers Retargeting', channel: 'Instagram Ads', spend: Math.round(totalAdSpend * 0.15), revenue: Math.round(campaignRevenue * 0.14), roas: 2.92, orders: Math.round(campaignOrders * 0.14), cpa: 33.80, status: 'Active' },
-      { name: 'Google Search - High Intent Brand', channel: 'Google Ads', spend: Math.round(totalAdSpend * 0.09), revenue: Math.round(campaignRevenue * 0.09), roas: 2.10, orders: Math.round(campaignOrders * 0.09), cpa: 30.00, status: 'Active' },
-      { name: 'VIP Micro-Influencers Unboxing', channel: 'Influencers', spend: Math.round(totalAdSpend * 0.05), revenue: Math.round(campaignRevenue * 0.06), roas: 4.10, orders: Math.round(campaignOrders * 0.06), cpa: 25.40, status: 'Completed' },
-    ];
-  }, [apiData, totalAdSpend, campaignRevenue, campaignOrders]);
+    return [];
+  }, [apiData]);
 
   // Top Performing Creatives
   const topCreatives = useMemo(() => {
     if (apiData?.creatives && apiData.creatives.length > 0) return apiData.creatives;
-    if (campaignRevenue === 0) return [];
-    return [
-      { id: 'CR-001', name: 'UGC Hook - 5 Reasons You Need This', channel: 'TikTok Ads', roas: 5.12, revenue: Math.round(campaignRevenue * 0.15), orders: Math.round(campaignOrders * 0.15), ctr: '3.8%', thumbnail: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=150&auto=format&fit=crop&q=80' },
-      { id: 'CR-002', name: 'Snap AR Lens Interactive Try-On', channel: 'Snapchat Ads', roas: 4.30, revenue: Math.round(campaignRevenue * 0.11), orders: Math.round(campaignOrders * 0.11), ctr: '4.2%', thumbnail: 'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=150&auto=format&fit=crop&q=80' },
-      { id: 'CR-003', name: 'Carousel - Top 3 Fragrances of the Month', channel: 'Instagram Ads', roas: 3.45, revenue: Math.round(campaignRevenue * 0.09), orders: Math.round(campaignOrders * 0.09), ctr: '2.9%', thumbnail: 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?w=150&auto=format&fit=crop&q=80' },
-      { id: 'CR-004', name: 'Dynamic Shopping Feed Carousel', channel: 'Google Ads', roas: 2.80, revenue: Math.round(campaignRevenue * 0.06), orders: Math.round(campaignOrders * 0.06), ctr: '2.1%', thumbnail: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=150&auto=format&fit=crop&q=80' },
-    ];
-  }, [apiData, campaignRevenue, campaignOrders]);
+    return [];
+  }, [apiData]);
 
   // Conversion Journey Funnel
   const conversionJourney = useMemo(() => {
     if (apiData?.conversion_journey && apiData.conversion_journey.length > 0) return apiData.conversion_journey;
-    if (campaignOrders === 0) return [];
-    const baseOrders = campaignOrders;
-    const imp = baseOrders * 280;
-    const clk = Math.round(imp * 0.042);
-    const vst = Math.round(clk * 0.82);
-    const crt = Math.round(vst * 0.145);
-    const chk = Math.round(crt * 0.58);
-    return [
-      { stage: isAr ? 'مرات الظهور' : 'Ad Impressions', count: imp, pct: '100%', color: '#3b82f6' },
-      { stage: isAr ? 'النقرات على الإعلان' : 'Ad Clicks', count: clk, pct: '4.2%', color: '#06b6d4' },
-      { stage: isAr ? 'زيارات المتجر' : 'Site Visits', count: vst, pct: '82.0%', color: '#10b981' },
-      { stage: isAr ? 'إضافة للسلة' : 'Add to Cart', count: crt, pct: '14.5%', color: '#f59e0b' },
-      { stage: isAr ? 'بدء الدفع' : 'Checkout Started', count: chk, pct: '58.0%', color: '#ec4899' },
-      { stage: isAr ? 'الطلبات المكتملة' : 'Orders Placed', count: baseOrders, pct: '78.5%', color: '#8b5cf6' },
-    ];
-  }, [apiData, campaignOrders, isAr]);
+    return [];
+  }, [apiData]);
 
   // UTM tracking
   const utmList = useMemo(() => {
     if (apiData?.utm_tracking && apiData.utm_tracking.length > 0) return apiData.utm_tracking;
-    if (campaignRevenue === 0) return [];
-    return [
-      { source_medium: 'tiktok / cpc', sessions: 8450, orders: Math.round(campaignOrders * 0.38), revenue: Math.round(campaignRevenue * 0.39), conv_rate: '4.2%' },
-      { source_medium: 'snapchat / paid', sessions: 5920, orders: Math.round(campaignOrders * 0.27), revenue: Math.round(campaignRevenue * 0.26), conv_rate: '3.8%' },
-      { source_medium: 'instagram / story_ad', sessions: 4230, orders: Math.round(campaignOrders * 0.19), revenue: Math.round(campaignRevenue * 0.19), conv_rate: '3.6%' },
-      { source_medium: 'google / search', sessions: 2110, orders: Math.round(campaignOrders * 0.10), revenue: Math.round(campaignRevenue * 0.10), conv_rate: '3.9%' },
-      { source_medium: 'newsletter / email', sessions: 520, orders: Math.round(campaignOrders * 0.06), revenue: Math.round(campaignRevenue * 0.06), conv_rate: '7.8%' },
-    ];
-  }, [apiData, campaignRevenue, campaignOrders]);
+    return [];
+  }, [apiData]);
 
   // Influencer performance
   const influencerList = useMemo(() => {
     if (apiData?.influencers && apiData.influencers.length > 0) return apiData.influencers;
-    if (campaignRevenue === 0) return [];
-    return [
-      { name: '@sara_lifestyle', channel: 'TikTok & Snap', spend: Math.round(totalAdSpend * 0.025), revenue: Math.round(campaignRevenue * 0.032), roas: 4.60, orders: Math.round(campaignOrders * 0.035), status: 'Verified' },
-      { name: '@ahmed_tech_reviews', channel: 'YouTube Shorts', spend: Math.round(totalAdSpend * 0.018), revenue: Math.round(campaignRevenue * 0.021), roas: 3.85, orders: Math.round(campaignOrders * 0.022), status: 'Verified' },
-      { name: '@noura_beauty_expert', channel: 'Instagram', spend: Math.round(totalAdSpend * 0.013), revenue: Math.round(campaignRevenue * 0.015), roas: 3.60, orders: Math.round(campaignOrders * 0.016), status: 'Verified' },
-    ];
-  }, [apiData, totalAdSpend, campaignRevenue, campaignOrders]);
+    return [];
+  }, [apiData]);
 
   // AI recommendations
   const recommendations = useMemo(() => {
     if (apiData?.recommendations && apiData.recommendations.length > 0) return apiData.recommendations;
-    return [
-      {
-        id: 'rec-1',
-        title: isAr ? 'زيادة ميزانية إعلانات تيك توك بنسبة +25%' : 'Scale TikTok Ads Budget by +25%',
-        description: isAr
-          ? 'عائد الإنفاق الإعلاني على تيك توك يتفوق على باقي القنوات بنسبة 4.21x مع أقل تكلفة اكتساب ($27.50). زيادة الميزانية تحقق مبيعات إضافية تقديرية.'
-          : 'TikTok ROAS is outperforming other paid channels at 4.21x with lowest CPA ($27.50). An estimated $1,200 additional budget could yield ~$5,050 in sales.',
-        tag: 'High Impact',
-        action_label: isAr ? 'رفع الميزانية' : 'Scale Budget',
-      },
-      {
-        id: 'rec-2',
-        title: isAr ? 'تحسين صفحة هبوط إعلانات إنستغرام' : 'Optimize Instagram Landing Page Conversion',
-        description: isAr
-          ? 'حملات إنستغرام تسجل نسبة نقر ممتازة لكن نسبة التراجع عند الدفع 42%. تفعيل الدفع السريع بـ Apple Pay يسترد حتى 2300$.'
-          : 'Instagram has great CTR (2.9%) but drops off by 42% at checkout. Enabling 1-Click Apple Pay could recover up to $2,300 in lost checkouts.',
-        tag: 'Conversion Win',
-        action_label: isAr ? 'تحسين الصفحة' : 'Optimize Page',
-      },
-      {
-        id: 'rec-3',
-        title: isAr ? 'أتمتة تسلسل استعادة السلات عبر واتساب' : 'Automate WhatsApp Cart Recovery Sequence',
-        description: isAr
-          ? 'رسائل SMS والبريد تحقق أعلى عائد 6.12x. إضافة تذكير تلقائي عبر واتساب بعد ساعة من ترك السلة يرفع التحويل بنسبة 18%.'
-          : 'SMS & Email deliver the highest ROAS (6.12x). Adding an automated WhatsApp reminder 1 hour after cart abandonment can convert 18% more shoppers.',
-        tag: 'Automation',
-        action_label: isAr ? 'تفعيل الأتمتة' : 'Setup Automation',
-      },
-    ];
-  }, [apiData, isAr]);
+    return [];
+  }, [apiData]);
 
   const subTabs = [
     { key: 'overview', label: isAr ? 'نظرة عامة' : 'Overview' },

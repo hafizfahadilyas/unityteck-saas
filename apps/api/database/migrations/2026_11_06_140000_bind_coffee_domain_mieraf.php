@@ -45,6 +45,10 @@ return new class extends Migration
             return;
         }
 
+        if (! DB::table('stores')->where('id', $storeId)->exists()) {
+            return;
+        }
+
         $taken = DB::table('domains')->where('domain_name', $domain)->first();
         $existing = DB::table('domains')->where('store_id', $storeId)->orderBy('is_primary', 'desc')->first();
         if ($taken && (! $existing || $taken->id !== $existing->id)) {

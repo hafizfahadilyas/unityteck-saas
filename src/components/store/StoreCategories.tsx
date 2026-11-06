@@ -606,7 +606,9 @@ export const StoreCategories: React.FC = () => {
             ? COFFEE_CATEGORIES_SEED
             : activeStore.id === 'store-bleco'
             ? BLECO_CATEGORIES_SEED
-            : MECCA_CATEGORIES_SEED;
+            : activeStore.id === 'store-1' || activeStore.id === 'store-mecca'
+            ? MECCA_CATEGORIES_SEED
+            : [];
         const mapped = seed.map((c) => ({ ...c, storeId: activeStore.id }));
         setRows(mapped);
         try {
@@ -982,12 +984,10 @@ export const StoreCategories: React.FC = () => {
     },
     {
       key: 'seo',
-      header: isAr ? 'سيو (SEO)' : 'SEO',
+      header: isAr ? 'تحسين البحث' : 'SEO',
       render: (c) => (
         <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[140px] inline-block">
-          {isAr
-            ? (c.metaTitle || '—')
-            : (c.metaTitleEn || (c.name ? `${c.name} | Makkah Gifts` : null) || '—')}
+          {(isAr ? c.metaTitle : (c.metaTitleEn || c.metaTitle)) || '—'}
         </span>
       ),
     },

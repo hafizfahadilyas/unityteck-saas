@@ -63,14 +63,19 @@ export const GOOGLE_OAUTH_SCOPES = [
 const GOOGLE_AUTH_STORAGE_PREFIX = 'unityteck_google_oauth_';
 const GOOGLE_CLIENT_ID_STORAGE = 'unityteck_google_client_id';
 
+/** Public client id only. The secret stays in the API env, never in this file. */
+export const SOUQ_GOOGLE_CLIENT_ID =
+  '640479396427-m05irjqdn88idgcu17eb92vu46r3k86q.apps.googleusercontent.com';
+
 export function getStoredGoogleClientId(): string {
   try {
     const custom = localStorage.getItem(GOOGLE_CLIENT_ID_STORAGE);
-    if (custom && custom.trim()) return custom.trim();
+    if (custom && custom.trim() && hasRealGoogleClientId(custom)) return custom.trim();
   } catch {}
   const fromEnv =
     typeof import.meta !== 'undefined' ? String(import.meta.env?.VITE_GOOGLE_CLIENT_ID || '') : '';
-  return fromEnv.trim();
+  if (fromEnv.trim() && hasRealGoogleClientId(fromEnv)) return fromEnv.trim();
+  return SOUQ_GOOGLE_CLIENT_ID;
 }
 
 export function setStoredGoogleClientId(clientId: string): void {
@@ -216,29 +221,41 @@ export function startCustomerGoogleSignIn(
 export async function initiateRealGoogleOAuth(options: {
   clientId?: string;
   storeSlug: string;
+  loginHint?: string;
+  /** code = server exchanges with the client secret and keeps the refresh token. */
+  flow?: 'token' | 'code';
+  onCode?: (code: string, redirectUri: string) => Promise<void> | void;
   onSuccess: (token: GoogleAuthTokenResponse, profile: GoogleUserProfile) => void;
   onError: (error: string) => void;
 }): Promise<void> {
   const clientId = options.clientId || getStoredGoogleClientId();
   const redirectUri = window.location.origin;
+  const flow = options.flow || 'token';
 
-  if (!clientId || clientId.includes('unityteck-ecommerce')) {
+  if (!hasRealGoogleClientId(clientId)) {
     options.onError(
       'Configure a real Google OAuth Client ID. Placeholder / Instant connect is not allowed.',
     );
     return;
   }
 
-  // Real OAuth2 parameters for custom client IDs
+  // Real OAuth2 parameters for custom client IDs.
+  // Redirect is the open site origin, which is what the Cloud client allows.
   const statePayload = btoa(JSON.stringify({ storeSlug: options.storeSlug, ts: Date.now() }));
   const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   authUrl.searchParams.set('client_id', clientId);
   authUrl.searchParams.set('redirect_uri', redirectUri);
-  authUrl.searchParams.set('response_type', 'token');
+  authUrl.searchParams.set('response_type', flow === 'code' ? 'code' : 'token');
   authUrl.searchParams.set('scope', GOOGLE_OAUTH_SCOPES);
   authUrl.searchParams.set('include_granted_scopes', 'true');
   authUrl.searchParams.set('state', statePayload);
-  authUrl.searchParams.set('prompt', 'select_account');
+  if (flow === 'code') {
+    authUrl.searchParams.set('access_type', 'offline');
+    authUrl.searchParams.set('prompt', 'consent');
+  } else {
+    authUrl.searchParams.set('prompt', 'select_account');
+  }
+  if (options.loginHint) authUrl.searchParams.set('login_hint', options.loginHint);
 
   const width = 500;
   const height = 650;
@@ -264,8 +281,31 @@ export async function initiateRealGoogleOAuth(options: {
         return;
       }
 
-      // Check if popup returned to redirectUri with access_token hash
-      if (popup.location.href.includes(redirectUri)) {
+      // Check if popup returned to redirectUri with the Google result
+      if (popup.location.href.startsWith(redirectUri)) {
+        if (flow === 'code') {
+          const returned = new URL(popup.location.href);
+          const code = returned.searchParams.get('code');
+          const err = returned.searchParams.get('error');
+          if (err) {
+            window.clearInterval(pollInterval);
+            popup.close();
+            options.onError(returned.searchParams.get('error_description') || err);
+            return;
+          }
+          if (code) {
+            window.clearInterval(pollInterval);
+            popup.close();
+            if (!options.onCode) {
+              options.onError('Google sign-in returned a code, but this screen cannot save it.');
+              return;
+            }
+            void Promise.resolve(options.onCode(code, redirectUri)).catch((error: unknown) => {
+              options.onError(error instanceof Error ? error.message : 'Google sign-in could not be saved.');
+            });
+          }
+          return;
+        }
         const hash = popup.location.hash;
         if (hash && hash.includes('access_token')) {
           window.clearInterval(pollInterval);

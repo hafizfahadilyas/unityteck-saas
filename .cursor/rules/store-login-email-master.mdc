@@ -1,0 +1,14 @@
+---
+description: Store login emails — Master SuperAdmin Active/Inactive + Change
+alwaysApply: true
+---
+
+# Store login email control
+
+- Each store opens **only** with its own registered login email (flowers ≠ coffee ≠ bleco).
+- **Master SuperAdmin only** owns:
+  - Active / Inactive for every store login email
+  - **Change login email** for every store
+- Merchants must **not** change login `ownerEmail` from the store portal (support/contact email is separate).
+- Inactive / wrong email must be rejected at the Clerk/OTP login gate.
+- Helpers: `src/auth/api.ts`, `src/auth/storeEmailAccess.ts`; UI: `MasterStores`.

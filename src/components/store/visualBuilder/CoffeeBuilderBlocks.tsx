@@ -19,6 +19,8 @@ import { bi } from '../../../themes/settings/coffeeModularSettings';
 import { resolveCoffeeThemeSettings } from '../../../themes/settings/coffeeThemeDefaults';
 import { CoffeeFeatureIconsBar, featureItemsForDevice } from '../../../themes/coffeeRoasters/components/CoffeeFeatureIconsBar';
 import { CartProvider as CoffeeCartProvider, useCart } from '../../../themes/coffeeRoasters/context/CartContext';
+import { ReviewsWidget } from './widgets/ContentWidget';
+import { subscribeStoreNewsletter } from '../../../api/tenantApi';
 
 type BuilderDevice = 'desktop' | 'laptop' | 'tablet' | 'mobile';
 
@@ -346,7 +348,7 @@ function FeaturesPreview({ settings, isAr }: { settings: AllThemeSettings | null
   return <CoffeeFeatureIconsBar settings={feat} lang={isAr ? 'ar' : 'en'} device="responsive" />;
 }
 
-function NewsletterPreview({ settings, isAr }: { settings: AllThemeSettings | null; isAr: boolean }) {
+function NewsletterPreview({ settings, isAr, storeId }: { settings: AllThemeSettings | null; isAr: boolean; storeId: string }) {
   const n = settings?.newsletter;
   if (!n?.enabled) {
     return (
@@ -361,11 +363,19 @@ function NewsletterPreview({ settings, isAr }: { settings: AllThemeSettings | nu
       <p className="text-sm text-neutral-500 mt-2 mb-4">{bi(isAr ? 'ar' : 'en', n.subtitleEn, n.subtitleAr)}</p>
       <div className="flex flex-col sm:flex-row gap-2 justify-center max-w-md mx-auto">
         <input
-          readOnly
-          placeholder={bi(isAr ? 'ar' : 'en', n.placeholderEn, n.placeholderAr) || 'email@example.com'}
+          id={`news-${storeId}`}
+          placeholder={bi(isAr ? 'ar' : 'en', n.placeholderEn, n.placeholderAr) || (isAr ? 'البريد الإلكتروني' : 'Email')}
           className="flex-1 px-4 py-2.5 rounded-full border border-neutral-200 text-sm"
         />
-        <button type="button" className="px-5 py-2.5 rounded-full bg-black text-white text-xs font-bold">
+        <button
+          type="button"
+          onClick={() => {
+            const input = document.getElementById(`news-${storeId}`) as HTMLInputElement | null;
+            const email = input?.value || '';
+            if (email) void subscribeStoreNewsletter(storeId, email);
+          }}
+          className="px-5 py-2.5 rounded-full bg-black text-white text-xs font-bold"
+        >
           {bi(isAr ? 'ar' : 'en', n.buttonEn, n.buttonAr) || (isAr ? 'اشترك' : 'Subscribe')}
         </button>
       </div>
@@ -401,18 +411,11 @@ function CustomOrderPreview({ settings, isAr }: { settings: AllThemeSettings | n
   );
 }
 
-function ReviewsPreview({ isAr }: { isAr: boolean }) {
+function ReviewsPreview({ isAr, storeId }: { isAr: boolean; storeId: string }) {
   return (
-    <section className="w-full max-w-[1100px] mx-auto px-4 py-10 text-center">
-      <h2 className="text-2xl font-bold mb-2">{isAr ? 'تقييمات العملاء' : 'Customer Reviews'}</h2>
-      <p className="text-sm text-neutral-500 mb-4">
-        {isAr
-          ? 'التقييمات تُعرض من واجهة المتجر الحية بعد الحفظ — لا معاينة وهمية هنا.'
-          : 'Reviews render from the live store API after save — no fake preview cards here.'}
-      </p>
-      <div className="rounded-2xl border border-dashed border-neutral-200 bg-neutral-50 px-4 py-8 text-sm text-neutral-400">
-        {isAr ? 'لا سجلات تقييم للمعاينة في المنشئ' : 'No review records in builder preview'}
-      </div>
+    <section className="w-full max-w-[1100px] mx-auto px-4 py-10">
+      <h2 className="text-2xl font-bold mb-2 text-center">{isAr ? 'تقييمات العملاء' : 'Customer reviews'}</h2>
+      <ReviewsWidget isAr={isAr} storeId={storeId} />
     </section>
   );
 }
@@ -425,8 +428,9 @@ export function renderCoffeeBuilderBlock(opts: {
   isAr: boolean;
   activeStore: { id?: string; name?: string; domain?: string } | null | undefined;
   builderDevice?: BuilderDevice;
+  blockSettings?: Record<string, any> | null;
 }): React.ReactNode | null {
-  const { type, isAr, activeStore, builderDevice = 'desktop' } = opts;
+  const { type, isAr, activeStore, builderDevice = 'desktop', blockSettings = null } = opts;
   const isCoffee =
     activeStore?.id === 'store-coffee' ||
     activeStore?.domain?.includes('coffee') ||
@@ -439,6 +443,7 @@ export function renderCoffeeBuilderBlock(opts: {
       isAr={isAr}
       activeStore={activeStore}
       builderDevice={builderDevice}
+      blockSettings={blockSettings}
     />
   );
 }
@@ -448,7 +453,8 @@ const CoffeeBuilderBlockInner: React.FC<{
   isAr: boolean;
   activeStore: { id?: string; name?: string } | null | undefined;
   builderDevice: BuilderDevice;
-}> = ({ type, isAr, activeStore, builderDevice }) => {
+  blockSettings?: Record<string, any> | null;
+}> = ({ type, isAr, activeStore, builderDevice, blockSettings }) => {
   const settings = useCoffeeThemeSettings(activeStore);
 
   switch (type) {
@@ -473,14 +479,16 @@ const CoffeeBuilderBlockInner: React.FC<{
       );
     case 'hero_banners':
     case 'hero_slider':
-    case 'hero':
+    case 'hero': {
+      const slides = blockSettings?.heroBanners?.banners ?? blockSettings?.slides;
       return (
         <Shell settings={settings}>
           <CoffeeCartProvider>
-            <CoffeeHeroSlider3D />
+            <CoffeeHeroSlider3D banners={Array.isArray(slides) ? slides : null} />
           </CoffeeCartProvider>
         </Shell>
       );
+    }
     case 'featured_categories_products':
       return (
         <Shell settings={settings}>
@@ -545,7 +553,7 @@ const CoffeeBuilderBlockInner: React.FC<{
     case 'newsletter':
       return (
         <Shell settings={settings}>
-          <NewsletterPreview settings={settings} isAr={isAr} />
+          <NewsletterPreview settings={settings} isAr={isAr} storeId={activeStore?.id || ''} />
         </Shell>
       );
     case 'custom_order':
@@ -558,7 +566,7 @@ const CoffeeBuilderBlockInner: React.FC<{
     case 'testimonials':
       return (
         <Shell settings={settings}>
-          <ReviewsPreview isAr={isAr} />
+          <ReviewsPreview isAr={isAr} storeId={activeStore?.id || ''} />
         </Shell>
       );
     case 'footer':

@@ -3,6 +3,7 @@ import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
 import { fetchOverviewReportsApi } from '../../../api/tenantApi';
+import { ordersByDay, ordersBySource, sourceLabel } from './realOrderSeries';
 import type { ReportTabKey } from './ReportsNavHeader';
 import {
   DollarSign,
@@ -120,46 +121,15 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
       }));
     }
 
-    const dates = isAr
-      ? [
-          { date: '15 سبتمبر', revPct: 0.18, ordersPct: 0.22 },
-          { date: '20 سبتمبر', revPct: 0.35, ordersPct: 0.40 },
-          { date: '25 سبتمبر', revPct: 0.48, ordersPct: 0.52 },
-          { date: '30 سبتمبر', revPct: 0.62, ordersPct: 0.65 },
-          { date: '5 أكتوبر', revPct: 0.82, ordersPct: 0.88 },
-          { date: '10 أكتوبر', revPct: 0.76, ordersPct: 0.80 },
-          { date: '14 أكتوبر', revPct: 0.95, ordersPct: 0.96 },
-        ]
-      : [
-          { date: 'Sep 15', revPct: 0.18, ordersPct: 0.22 },
-          { date: 'Sep 20', revPct: 0.35, ordersPct: 0.40 },
-          { date: 'Sep 25', revPct: 0.48, ordersPct: 0.52 },
-          { date: 'Sep 30', revPct: 0.62, ordersPct: 0.65 },
-          { date: 'Oct 5', revPct: 0.82, ordersPct: 0.88 },
-          { date: 'Oct 10', revPct: 0.76, ordersPct: 0.80 },
-          { date: 'Oct 14', revPct: 0.95, ordersPct: 0.96 },
-        ];
-
-    if (totalOrders === 0 && totalRevenue === 0) {
-      return dates.map((d) => ({ label: d.date, revenue: 0, orders: 0 }));
-    }
-
-    const peakRev = totalRevenue > 0 ? (totalRevenue / 7) * 1.6 : 0;
-    const peakOrders = totalOrders > 0 ? Math.max(1, Math.round((totalOrders / 7) * 1.5)) : 0;
-
-    return dates.map((d) => ({
-      label: d.date,
-      revenue: Math.round(peakRev * d.revPct),
-      orders: Math.round(peakOrders * d.ordersPct),
-    }));
-  }, [apiData, totalRevenue, totalOrders, isAr]);
+    return ordersByDay(storeOrders, isAr ? 'ar' : 'en');
+  }, [apiData, storeOrders, isAr]);
 
   // Orders by Source Platform
   const sourcePlatforms = useMemo(() => {
     if (apiData?.source_distribution && Array.isArray(apiData.source_distribution) && apiData.source_distribution.length > 0) {
       const colors = ['#000000', '#eab308', '#ec4899', '#3b82f6', '#22c55e', '#1d4ed8', '#ea4335', '#94a3b8'];
       return apiData.source_distribution.map((s: any, idx: number) => ({
-        nameAr: s.source === 'Website' || s.source === 'Direct' ? 'الموقع الإلكتروني' : s.source,
+        nameAr: sourceLabel(String(s.source || ''), true),
         nameEn: s.source,
         color: colors[idx % colors.length],
         darkColor: '#ffffff',
@@ -168,41 +138,24 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
       }));
     }
 
-    const baseline = [
-      { nameAr: 'تيك توك', nameEn: 'TikTok', color: '#000000', darkColor: '#ffffff', orders: Math.round(totalOrders * 0.337), pct: 33.7 },
-      { nameAr: 'سناب شات', nameEn: 'Snapchat', color: '#eab308', darkColor: '#facc15', orders: Math.round(totalOrders * 0.248), pct: 24.8 },
-      { nameAr: 'إنستغرام', nameEn: 'Instagram', color: '#ec4899', darkColor: '#f472b6', orders: Math.round(totalOrders * 0.176), pct: 17.6 },
-      { nameAr: 'الموقع الإلكتروني', nameEn: 'Website', color: '#3b82f6', darkColor: '#60a5fa', orders: Math.round(totalOrders * 0.144), pct: 14.4 },
-      { nameAr: 'واتساب', nameEn: 'WhatsApp', color: '#22c55e', darkColor: '#4ade80', orders: Math.round(totalOrders * 0.064), pct: 6.4 },
-      { nameAr: 'فيسبوك', nameEn: 'Facebook', color: '#1d4ed8', darkColor: '#3b82f6', orders: Math.round(totalOrders * 0.030), pct: 3.0 },
-      { nameAr: 'جوجل', nameEn: 'Google', color: '#ea4335', darkColor: '#f87171', orders: Math.round(totalOrders * 0.016), pct: 1.6 },
-      { nameAr: 'أخرى', nameEn: 'Other', color: '#94a3b8', darkColor: '#64748b', orders: Math.round(totalOrders * 0.014), pct: 1.4 },
-    ];
-
-    if (totalOrders === 0) {
-      return baseline.map((b) => ({ ...b, orders: 0, pct: 0 }));
-    }
-    return baseline;
-  }, [apiData, totalOrders]);
+    return ordersBySource(storeOrders);
+  }, [apiData, storeOrders]);
 
   // Conversion Rate by Source Platform
-  const conversionBySource = useMemo(() => [
-    { nameAr: 'تيك توك', nameEn: 'TikTok', color: '#000000', darkColor: '#94a3b8', rate: totalOrders > 0 ? '4.8%' : '0%' },
-    { nameAr: 'سناب شات', nameEn: 'Snapchat', color: '#eab308', darkColor: '#facc15', rate: totalOrders > 0 ? '4.1%' : '0%' },
-    { nameAr: 'إنستغرام', nameEn: 'Instagram', color: '#ec4899', darkColor: '#f472b6', rate: totalOrders > 0 ? '3.2%' : '0%' },
-    { nameAr: 'الموقع الإلكتروني', nameEn: 'Website', color: '#2563eb', darkColor: '#3b82f6', rate: totalOrders > 0 ? '2.9%' : '0%' },
-    { nameAr: 'واتساب', nameEn: 'WhatsApp', color: '#16a34a', darkColor: '#22c55e', rate: totalOrders > 0 ? '3.5%' : '0%' },
-    { nameAr: 'فيسبوك', nameEn: 'Facebook', color: '#1d4ed8', darkColor: '#60a5fa', rate: totalOrders > 0 ? '2.1%' : '0%' },
-    { nameAr: 'جوجل', nameEn: 'Google', color: '#dc2626', darkColor: '#ef4444', rate: totalOrders > 0 ? '2.7%' : '0%' },
-    { nameAr: 'أخرى', nameEn: 'Other', color: '#64748b', darkColor: '#94a3b8', rate: totalOrders > 0 ? '1.9%' : '0%' },
-  ], [totalOrders]);
+  const conversionBySource = useMemo(() => {
+    if (totalVisits <= 0) return [];
+    return ordersBySource(storeOrders).map((row) => ({
+      ...row,
+      rate: `${((row.orders / totalVisits) * 100).toFixed(1)}%`,
+    }));
+  }, [storeOrders, totalVisits]);
 
   // Traffic to Order Funnel
   const funnelStages = useMemo(() => {
-    const visits = Math.max(totalVisits, totalOrders > 0 ? totalOrders * 20 : 0);
-    const views = visits > 0 ? Math.round(visits * 0.508) : 0;
-    const cart = visits > 0 ? Math.round(visits * 0.175) : 0;
-    const checkout = visits > 0 ? Math.round(visits * 0.116) : 0;
+    const visits = totalVisits;
+    const views = 0;
+    const cart = 0;
+    const checkout = 0;
     const orders = totalOrders;
 
     return [
@@ -295,19 +248,8 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
 
   // Top Landing Pages
   const topLandingPages = useMemo(() => {
-    if (totalVisits === 0 && storeProducts.length === 0) return [];
-    if (storeProducts.length > 0) {
-      return [
-        { page: '/', sessions: Math.round(totalVisits * 0.45), conv: totalVisits > 0 ? '4.2%' : '0%' },
-        ...storeProducts.slice(0, 4).map((p, idx) => ({
-          page: `/product/${p.slug || p.id}`,
-          sessions: Math.round(totalVisits * ([0.25, 0.15, 0.10, 0.05][idx] || 0.05)),
-          conv: totalVisits > 0 ? `${(3.8 - idx * 0.4).toFixed(1)}%` : '0%',
-        })),
-      ];
-    }
-    return totalVisits > 0 ? [{ page: '/', sessions: totalVisits, conv: '3.2%' }] : [];
-  }, [totalVisits, storeProducts]);
+    return [];
+  }, []);
 
   // Customer Segmentation
   const totalCustomersCalculated = apiData?.customer_segments?.total ?? storeCustomers.length;
@@ -738,7 +680,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
                 {totalVisits.toLocaleString()}
               </div>
               <div className="text-[9px] text-emerald-600 font-bold mt-0.5 truncate">
-                {totalVisits > 0 ? '↑ 10.3%' : '0%'} <span className="text-slate-400 font-normal">{isAr ? 'حركة مباشرة' : 'Direct Traffic'}</span>
+                <span className="text-slate-400 font-normal">{isAr ? 'بانتظار بيانات الزيارات' : 'Waiting for visit data'}</span>
               </div>
             </div>
 
@@ -753,10 +695,10 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
                 </span>
               </div>
               <div className="text-base font-black text-slate-900 dark:text-white tabular-nums">
-                {(Math.round(totalVisits * 0.58)).toLocaleString()}
+                —
               </div>
-              <div className="text-[9px] text-emerald-600 font-bold mt-0.5">
-                {totalVisits > 0 ? '57.8%' : '0%'}
+              <div className="text-[9px] text-slate-400 font-bold mt-0.5">
+                {isAr ? 'بانتظار البيانات' : 'Waiting for data'}
               </div>
             </div>
 
@@ -771,7 +713,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
                 </span>
               </div>
               <div className="text-base font-black text-slate-900 dark:text-white tabular-nums">
-                {totalVisits > 0 ? '2m 14s' : '0m 00s'}
+                —
               </div>
               <div className="text-[9px] text-slate-400 font-normal mt-0.5 truncate">
                 {isAr ? 'تصفح نشط' : 'Active browse'}
@@ -789,10 +731,10 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
                 </span>
               </div>
               <div className="text-base font-black text-slate-900 dark:text-white tabular-nums">
-                {totalVisits > 0 ? '32.4%' : '0.0%'}
+                —
               </div>
-              <div className="text-[9px] text-emerald-600 font-bold mt-0.5 truncate">
-                {totalVisits > 0 ? '↓ 11.2%' : '0%'} {isAr ? 'تحسن' : 'stable'}
+              <div className="text-[9px] text-slate-400 font-bold mt-0.5 truncate">
+                {isAr ? 'بانتظار البيانات' : 'Waiting for data'}
               </div>
             </div>
           </div>

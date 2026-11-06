@@ -1,0 +1,13 @@
+---
+description: After every coffee/theme update, tell user short status in Roman Urdu
+alwaysApply: true
+---
+
+# Status updates (Roman Urdu)
+
+- User prefers **Roman Urdu** for progress / status summaries.
+- **After every update / slice / fix**, end (or include) a short status:
+  - **Ho gaya:** what was completed this turn
+  - **Baqi:** what remains (if any)
+- Keep it short — bullet style, not long English recap unless they ask English.
+- Scope reminder when relevant: coffee dashboard Themes Customize + Page Builder only (not flowers/cars) unless they expand scope.

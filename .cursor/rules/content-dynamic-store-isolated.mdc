@@ -1,0 +1,25 @@
+---
+description: Full dynamic content, store_id isolation; general chrome headings vs per-store merchant text
+alwaysApply: true
+---
+
+# Content · Dynamic · Store Isolated (LOCKED)
+
+**Company:** Unityteck multi-store e-commerce SaaS (KSA).
+
+## Absolute
+- **Overall content = full dynamic.** No hardcoded store body copy, product text, theme section text, headings that belong to a merchant, or invented tenant strings in live paths.
+- **Isolated per `store_id`.** Store A content ≠ Store B. Never fall back to another store’s text, images, SEO, or theme strings.
+- Empty API/DB → genuine empty / Waiting for Data — never decorate with another tenant’s or fake copy.
+
+## Two layers (remember)
+1. **General text → general headings**  
+   Platform chrome only: shared UI labels, section titles, empty-state chrome, table headers, buttons — AR/EN via `isAr` / `t()`. Same for every store; not merchant-owned content.
+2. **Store ka apna apna**  
+   Merchant content (products, descriptions, H1–H3 body, badges, theme Customize text `*En`/`*Ar`, banners, SEO, blog, etc.) loads/saves **only** for that `store_id` via real API/DB.
+
+## Do not
+- Mix general chrome with store body as one hardcoded blob.
+- Seed Store B with Store A (flowers/coffee/bleco) copy.
+- Use mock/dummy product or theme text on production paths.
+---

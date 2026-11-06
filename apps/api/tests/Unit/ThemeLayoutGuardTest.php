@@ -57,8 +57,24 @@ class ThemeLayoutGuardTest extends TestCase
                 ['tag' => 'h1'],
                 ['tag' => 'h1'],
             ],
-        ], 'store-a', false, 'pro');
+        ], 'store-a', true, 'pro');
 
         $this->assertContains('multiple-h1', $result['warnings']);
+    }
+
+    public function test_heading_widget_tag_is_normalized_once(): void
+    {
+        $result = ThemeLayoutGuard::prepare([
+            'blocks' => [[
+                'id' => 'h',
+                'type' => 'heading',
+                'visible' => true,
+                'settings' => ['htmlTag' => 'h1', 'textEn' => 'Hello', 'textAr' => 'مرحبا'],
+            ]],
+        ], 'store-a', true, 'pro');
+
+        $this->assertSame('h1', $result['layout']['blocks'][0]['settings']['tag']);
+        $this->assertNotContains('missing-h1', $result['warnings']);
+        $this->assertNotContains('multiple-h1', $result['warnings']);
     }
 }

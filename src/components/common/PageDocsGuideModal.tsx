@@ -16,6 +16,7 @@ import {
   Laptop,
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { googleLiveDataGuide } from '../store/seo/googleLiveDataGuide';
 
 export interface GuideStep {
   title: string;
@@ -261,48 +262,44 @@ const PAGE_GUIDE_DATA: Record<
     ],
   },
   seo: {
-    titleEn: 'Search Engine Optimization & Google Search Console Guide',
-    titleAr: 'دليل تحسين محركات البحث و Google Search Console',
-    subtitleEn: 'Boost Google rankings, submit XML sitemaps, verify meta tags, and configure OpenGraph social cards.',
-    subtitleAr: 'رفع ترتيب متجرك في Google، إرسال خرائط XML، وضبط وسوم OpenGraph للمشاركة.',
+    titleEn: 'Google tools after the domain is live',
+    titleAr: 'أدوات جوجل بعد أن يصبح النطاق مباشراً',
+    subtitleEn: 'Sign in with this store’s Google account, then wait for each tool’s real clock. Empty stays empty.',
+    subtitleAr: 'سجّل الدخول بحساب جوجل الخاص بهذا المتجر، ثم انتظر ساعة كل أداة. الفراغ يبقى فراغاً.',
     mockScreenshotType: 'seo',
     steps: [
       {
-        title: '1. Connect Google Search Console with OAuth',
-        titleAr: '١. ربط Google Search Console بحسابك',
-        description: 'Authorize Google Search Console to index store URLs and fetch real search impressions and keywords.',
-        descriptionAr: 'توثيق حسابك في Google لفهرسة روابط المتجر وجلب مرات الظهور والكلمات المفتاحية الحقيقية.',
-        badge: 'OAuth',
+        title: '1. Make the domain public on Hostinger',
+        titleAr: '١. اجعل النطاق عاماً على الاستضافة',
+        description: 'Open the secure public address before saving any tracking id. Name records often settle within a few hours and can take up to two days.',
+        descriptionAr: 'افتح العنوان العام الآمن قبل حفظ أي معرف تتبع. سجلات الاسم تستقر غالباً خلال ساعات وقد تصل إلى يومين.',
       },
       {
-        title: '2. Optimize Meta Title, Description & Social Share Image',
-        titleAr: '٢. تخصيص عنوان الميتا والوصف وصورة المشاركة (OG)',
-        description: 'Customize search snippets and upload custom Open Graph image for WhatsApp & Twitter link previews.',
-        descriptionAr: 'خصص نص الميتا وصورة المعاينة الاجتماعية (OG) التي تظهر عند مشاركة الرابط في واتساب وتويتر.',
-        badge: 'Meta & OG',
+        title: '2. Sign in with this store’s Google account',
+        titleAr: '٢. سجّل الدخول بحساب جوجل الخاص بهذا المتجر',
+        description: 'The connected label appears when sign-in succeeds. It does not invent clicks or borrow another store.',
+        descriptionAr: 'تظهر علامة الاتصال عند نجاح الدخول. لا تخترع نقرات ولا تستعير متجراً آخر.',
       },
       {
-        title: '3. Instant Google URL Indexing Dispatch',
-        titleAr: '٣. إرسال فوري لفهرسة الروابط في Google',
-        description: 'Submit newly created product URLs directly to Google Indexing API without waiting for scheduled crawls.',
-        descriptionAr: 'إرسال روابط المنتجات الجديدة مباشرة إلى واجهة Google Indexing دون انتظار الزحف التلقائي.',
-        badge: 'Indexing',
+        title: '3. Analytics and the Google tag',
+        titleAr: '٣. التحليلات وعلامة جوجل',
+        description: 'Paste the measurement id and publish the storefront. A realtime visit can appear within minutes. Standard reports usually take one to two days.',
+        descriptionAr: 'الصق معرف القياس وانشر واجهة المتجر. قد تظهر زيارة المتابعة خلال دقائق. التقارير العادية تأخذ عادة يوماً إلى يومين.',
       },
       {
-        title: '4. Audit Core Web Vitals & PageSpeed Insights',
-        titleAr: '٤. فحص سرعة المتجر ومؤشرات أداء الويب',
-        description: 'Run live Google Lighthouse audits for Mobile & Desktop (LCP, FID, CLS) to ensure 90+ score.',
-        descriptionAr: 'إجراء فحص سرعة Google المباشر للجوال والكمبيوتر لضمان تحقيق درجات أداء تفوق 90+.',
-        badge: 'Lighthouse',
+        title: '4. Tag Manager, Search Console, Meta, and ads',
+        titleAr: '٤. مدير العلامات وبحث جوجل وميتا والإعلانات',
+        description: 'A published container can fire on the next page load. Search clicks are commonly delayed about two days. A Meta test event can show within minutes, while ad totals often lag up to two days.',
+        descriptionAr: 'الحاوية المنشورة قد تعمل مع تحميل الصفحة التالي. نقرات البحث تتأخر عادة نحو يومين. حدث اختبار ميتا قد يظهر خلال دقائق، بينما مجاميع الإعلانات تتأخر غالباً إلى يومين.',
       },
     ],
     tipsEn: [
-      'Keep meta titles between 50-60 characters and descriptions between 140-160 characters for best Google display.',
-      'Open Graph share images should be 1200x630 px for sharp display on social networks.',
+      'Indexing requests can take days or weeks before a page shows in search.',
+      'Dashboard search and ad charts stay empty until the connected tool returns numbers for this store.',
     ],
     tipsAr: [
-      'اجعل عنوان الميتا بين 50-60 حرفاً والوصف بين 140-160 حرفاً لعرض مثالي في نتائج بحث Google.',
-      'المقاس الأمثل لصورة المشاركة (OG Image) هو 1200x630 بكسل لتبدو واضحة على منصات التواصل.',
+      'طلب الفهرسة قد يأخذ أياماً أو أسابيع قبل ظهور الصفحة في البحث.',
+      'مخططات البحث والإعلانات في اللوحة تبقى فارغة إلى أن تعيد الأداة المتصلة أرقاماً لهذا المتجر.',
     ],
   },
   hosting: {
@@ -612,7 +609,23 @@ export const PageDocsGuideModal: React.FC<PageDocsGuideProps> = ({
             </div>
           )}
 
-          {activeTab === 'visual' && (
+          {activeTab === 'visual' && pageId === 'seo' && (
+            <div className="space-y-3">
+              <p className="text-xs leading-relaxed opacity-80">
+                {isAr
+                  ? 'هذه المدد تقريبية من أدوات جوجل وميتا بعد أن يصبح النطاق مباشراً. اللوحة لا تعرض أرقاماً قبل وصولها.'
+                  : 'These waits are the usual clocks from Google and Meta after the domain is public. The dashboard does not show numbers before they arrive.'}
+              </p>
+              {googleLiveDataGuide.map((row) => (
+                <div key={row.id} className="p-3.5 rounded-2xl border space-y-1" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
+                  <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">{isAr ? row.titleAr : row.titleEn}</h4>
+                  <p className="text-xs opacity-80 leading-relaxed">{isAr ? row.waitAr : row.waitEn}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'visual' && pageId !== 'seo' && (
             <div className="space-y-5">
               {/* Visual Mock Diagram / Screenshot Simulation */}
               <div

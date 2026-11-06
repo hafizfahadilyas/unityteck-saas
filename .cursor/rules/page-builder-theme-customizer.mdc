@@ -1,0 +1,28 @@
+---
+description: Page builder + theme customizer — one step from docs/31, no skip, test before next
+alwaysApply: true
+---
+
+# Page builder · Theme customizer (LOCKED)
+
+**Execution doc:** `docs/31-page-builder-theme-customizer-execution.md`  
+**Concept spec:** `docs/09-visual-theme-builder.md`  
+**Coffee visual lock:** `.cursor/rules/coffee-frontend-ui-lock.mdc` still wins for HiBrew layout, spacing, colors, section order.
+
+## When this applies
+Any change to theme customizer, visual page builder, theme settings, builder layout API, `store_themes`, theme pages, or storefront theme render.
+
+## How to work
+- Read docs/31. Do **one** step whose status is `NEXT`, then the following `PENDING` steps only after that step is `DONE`.
+- Do not skip, batch later steps, or mark `DONE` before the step’s test gate passes.
+- Inspect → reuse `VisualThemeBuilder`, `WordPressThemeCustomizer`, `StoreThemeController`. Do not create a second editor or a second storefront.
+- Coffee home/header/hero/footer/shop/product/cart/checkout **look** stays. Bind text, images, links, enable, order. New custom pages use global header/footer + rows.
+- C-BAN (`settings.banners` / block `banners`) stays retired.
+- Every tenant row is `store_id`. Missing store → empty / 404. Never `Store::first()` or another store’s theme, images, SEO, or copy.
+- Chrome: Arabic locale = Arabic only. English locale = English only. Merchant fields are separate `*_en` / `*_ar`.
+- Empty data stays empty. No fake products, reviews, SEO scores, or metrics.
+- Image upload updates the open preview immediately with a versioned URL (`?v=`). Draft is not public. Publish clears that store’s theme cache only.
+- After the step: fix type/build errors, run that step’s tests (API isolation, responsive, AR/EN, live update). Update the status cell in docs/31. Stop if a test fails.
+
+## Status line (Roman Urdu)
+End the turn with **Ho gaya** / **Baqi** (next `PB-xx` id).

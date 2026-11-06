@@ -1979,6 +1979,51 @@ export async function fetchStorefrontCatalogPage(
   };
 }
 
+export async function fetchWidgetProducts(
+  storeId: string,
+  query: { source?: string; category?: string; ids?: string; limit?: number },
+): Promise<Array<{ id: string; store_id?: string; name?: string; name_ar?: string; price?: string | number; image_url?: string }>> {
+  const params = new URLSearchParams({ store_id: storeId });
+  if (query.source) params.set('source', query.source);
+  if (query.category) params.set('category', query.category);
+  if (query.ids) params.set('ids', query.ids);
+  if (query.limit) params.set('limit', String(query.limit));
+  const res = await apiFetch<{ data?: Array<{ id: string; store_id?: string; name?: string; name_ar?: string; price?: string | number; image_url?: string }> }>(
+    `/storefront/catalog?${params.toString()}`,
+    { storeId, skipAuth: true },
+  );
+  return res.data ?? [];
+}
+
+export async function fetchWidgetCategories(
+  storeId: string,
+): Promise<Array<{ id: string; store_id?: string; name?: string; name_ar?: string; slug?: string }>> {
+  const res = await apiFetch<{ data?: Array<{ id: string; store_id?: string; name?: string; name_ar?: string; slug?: string }> }>(
+    `/storefront/categories?store_id=${encodeURIComponent(storeId)}`,
+    { storeId, skipAuth: true },
+  );
+  return res.data ?? [];
+}
+
+export async function fetchStoreReviews(
+  storeId: string,
+): Promise<Array<{ id?: string; rating?: number; comment?: string; commentAr?: string; author?: string }>> {
+  const res = await apiFetch<{ data?: Array<{ id?: string; rating?: number; comment?: string; commentAr?: string; author?: string }> }>(
+    `/stores/${encodeURIComponent(storeId)}/reviews`,
+    { storeId, skipAuth: true },
+  );
+  return res.data ?? [];
+}
+
+export async function subscribeStoreNewsletter(storeId: string, email: string): Promise<void> {
+  await apiFetch('/storefront/newsletter', {
+    method: 'POST',
+    storeId,
+    skipAuth: true,
+    body: { store_id: storeId, email },
+  });
+}
+
 /** Guest storefront catalog — first page only, for the open store. */
 export async function fetchStorefrontCatalog(storeId: string): Promise<Product[]> {
   const page = await fetchStorefrontCatalogPage(storeId);
@@ -2055,12 +2100,15 @@ export async function updateThemePageApi(
   return res.data;
 }
 
-export async function publishThemePageApi(storeId: string, pageId: string): Promise<ThemePageRecord> {
-  const res = await apiFetch<{ success: boolean; data: ThemePageRecord }>(
+export async function publishThemePageApi(
+  storeId: string,
+  pageId: string,
+): Promise<ThemePageRecord & { seo_warnings?: string[] }> {
+  const res = await apiFetch<{ success: boolean; data: ThemePageRecord; warnings?: string[] }>(
     `/stores/${storeId}/pages/${encodeURIComponent(pageId)}/publish`,
     { method: 'POST', storeId },
   );
-  return res.data;
+  return { ...res.data, seo_warnings: res.warnings ?? [] };
 }
 
 export async function deleteThemePageApi(storeId: string, pageId: string): Promise<void> {

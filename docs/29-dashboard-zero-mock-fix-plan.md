@@ -137,9 +137,8 @@ Execute **in order**. One wave = one focused PR/slice. Ship only when that wave�
 | 1 SEO / Google fake kill | **Done** (Instant connect killed, SEO seed off, PSI empty, KPI badges honest) |
 | 2 Analytics invent kill | **Done** (devices/locations/GA invent, campaigns invent, loyalty/affiliate invent) |
 | 3 Isolation leaks | **Done** (payment store-1, MasterThemes Flora, brands/invoice, identity defaults, theme default) |
-| 4 EN/AR dual | **Partial** (SEO KPI bilingual + localeMixedLabel for shipping; dual meta fields still pending) |
+| 4 EN/AR dual | **Partial** (dual meta in `extra` done; indexing table and tracking/warranty fakes removed). SEO form still has leftover English in Arabic on some lower sections. Master Themes/Updates not fully passed. |
 | 5 Master fake tooling | **Done** (DB /health ping, Control Center no fake GTM/GA4, no invent ROAS 4.2) |
 | 6 Verify | Pending manual QA |
 
-**Next:** dual `meta_title_en/ar` (+ desc/keywords) · remaining mixed payment titles · Master Themes/Updates i18n.
-`)
+**Next:** Wave 6 manual QA. Do not mark it done from code review. Page builder `PB-32` is still the single next builder step.

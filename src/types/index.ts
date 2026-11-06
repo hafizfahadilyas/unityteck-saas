@@ -797,8 +797,14 @@ export interface StoreSEOConfig {
   searchConsoleVerificationTag: string; // e.g. google-site-verification=...
   indexingApiEnabled: boolean;
   metaTitle: string;
+  metaTitleEn?: string | null;
+  metaTitleAr?: string | null;
   metaDescription: string;
+  metaDescriptionEn?: string | null;
+  metaDescriptionAr?: string | null;
   keywords: string[];
+  keywordsEn?: string | null;
+  keywordsAr?: string | null;
   sitemapUrl: string;
   indexedUrlsCount: number;
   totalSearchClicks: number;

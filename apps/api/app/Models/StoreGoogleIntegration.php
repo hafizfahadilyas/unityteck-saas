@@ -13,6 +13,11 @@ class StoreGoogleIntegration extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
+    protected $hidden = [
+        'access_token',
+        'refresh_token',
+    ];
+
     protected $fillable = [
         'id',
         'store_id',

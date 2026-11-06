@@ -4,6 +4,7 @@ import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { PRODUCTS } from '../data/products';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
+import { learnMoreHref } from '../learnMoreHref';
 import {
   ChevronLeft,
   ChevronRight,
@@ -234,9 +235,10 @@ const splitBannerHeading = (fullText: string, lang: 'EN' | 'AR') => {
 
 export interface HeroSlider3DProps {
   variant?: 'home' | 'shop';
+  banners?: Array<Record<string, any>> | null;
 }
 
-export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) => {
+export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', banners = null }) => {
   const { navigateTo, language, addToCart, triggerFlyToCart } = useCart();
   const { activeStore } = useTenant();
 
@@ -264,8 +266,9 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
 
   // Home slides: Word C-HERO `heroBanners` first, then legacy `slider.slides`. Never flowers/MKS.
   const homeSlides: HeroBannerSlide[] = useMemo(() => {
+    const fromBlock = Array.isArray(banners);
     const hero = themeSettings?.heroBanners;
-    const heroBanners = (hero?.enabled !== false ? hero?.banners : []) || [];
+    const heroBanners = (fromBlock ? banners : (hero?.enabled !== false ? hero?.banners : [])) || [];
     const activeHero = heroBanners.filter(
       (b) =>
         b.enabled !== false &&
@@ -295,7 +298,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
           badgeAr: b.promoAr || fallback.badgeAr,
           buttonTextEn: b.buyNowEn || b.learnMoreEn || fallback.buttonTextEn,
           buttonTextAr: b.buyNowAr || b.learnMoreAr || fallback.buttonTextAr,
-          buttonLink: b.learnMoreUrl || undefined,
+          buttonLink: learnMoreHref(b.learnMoreUrl, activeStore?.id || '') || '#products',
           buttonBgColor: undefined,
           buttonTextColor: b.textColor || undefined,
           addToCartEnabled: b.addToCartEnabled !== false,
@@ -310,6 +313,8 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
         } as HeroBannerSlide;
       });
     }
+
+    if (fromBlock) return [];
 
     const configuredSlides = themeSettings?.slider?.slides;
     const flowerLeak =
@@ -343,8 +348,8 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
         };
       });
     }
-    return ORIGINAL_HOME_SLIDES;
-  }, [themeSettings]);
+    return [];
+  }, [themeSettings, banners]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -492,7 +497,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
   // VARIANT B: HOME PAGE SLIDER (Exact Original Grand Honor Banner)
   // -------------------------------------------------------------
   const slides = homeSlides;
-  const activeSlide = slides[currentIndex % slides.length];
+  const activeSlide = slides.length > 0 ? slides[currentIndex % slides.length] : undefined;
 
   const isCustomizerPreview =
     typeof window !== 'undefined' &&
@@ -502,6 +507,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
   useEffect(() => {
     const subset = isCustomizerPreview ? slides.slice(0, 2) : slides;
     subset.forEach((slide) => {
+      if (!slide.image) return;
       const img = new Image();
       img.src = slide.image;
     });
@@ -509,7 +515,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
 
   // Auto-play timer (paused inside theme customizer iframe)
   useEffect(() => {
-    if (isPaused || isCustomizerPreview) return;
+    if (isPaused || isCustomizerPreview || slides.length === 0) return;
 
     const timer = setInterval(() => {
       setDirection(1);
@@ -614,6 +620,14 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
       },
     }),
   };
+
+  if (!activeSlide) {
+    return (
+      <section className="w-full max-w-full px-4 py-4 text-center text-sm text-neutral-500 bg-neutral-50 border border-dashed border-neutral-200" data-hero-empty="1">
+        {language === 'AR' ? 'لا شرائح' : 'No slides'}
+      </section>
+    );
+  }
 
   const currentTitle = language === 'AR' ? activeSlide.titleAr : activeSlide.titleEn;
   const { boldPart, lightPart } = splitBannerHeading(currentTitle, language);

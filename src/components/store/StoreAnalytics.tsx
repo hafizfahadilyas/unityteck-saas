@@ -179,7 +179,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
         formattedValue: `${regularCount} (${((regularCount / totalCust) * 100).toFixed(1)}%)`,
       },
       {
-        label: isAr ? 'عملاء VIP' : 'VIP Customers',
+        label: isAr ? 'عملاء مميزون' : 'Priority customers',
         value: Number(((vipCount / totalCust) * 100).toFixed(1)),
         color: '#a855f7',
         formattedValue: `${vipCount} (${((vipCount / totalCust) * 100).toFixed(1)}%)`,
@@ -309,7 +309,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
               className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 shadow-2xs hover:bg-emerald-100 transition-colors cursor-pointer"
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{isAr ? 'Google متصل' : 'Google Connected'}</span>
+              <span>{isAr ? 'جوجل متصل' : 'Google connected'}</span>
             </button>
           ) : (
             <button
@@ -318,7 +318,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
               className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm hover:opacity-95 transition-all cursor-pointer"
             >
               <Globe className="w-3.5 h-3.5" />
-              <span>{isAr ? 'ربط حساب Google' : 'Connect Google Account'}</span>
+              <span>{isAr ? 'ربط حساب جوجل' : 'Connect Google account'}</span>
             </button>
           )}
 

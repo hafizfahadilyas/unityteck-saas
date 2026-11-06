@@ -57,7 +57,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
   const [showReturnsModal, setShowReturnsModal] = useState(false);
   const [showShippingLabel, setShowShippingLabel] = useState(false);
   const [isEditingTracking, setIsEditingTracking] = useState(false);
-  const [courierName, setCourierName] = useState(order?.shippingCompany || 'SMSA Express');
+  const [courierName, setCourierName] = useState(order?.shippingCompany || '');
   const [trackingNumber, setTrackingNumber] = useState(order?.trackingNumber || '');
 
   if (!isOpen || !order) return null;
@@ -154,12 +154,19 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowShippingLabel(true)}
+              onClick={() => {
+                const number = (trackingNumber || order.trackingNumber || '').trim();
+                if (!number) {
+                  toast(isAr ? 'أضف رقم التتبع قبل طباعة البوليصة' : 'Add a tracking number before printing the label', 'error');
+                  return;
+                }
+                setShowShippingLabel(true);
+              }}
               className="px-3 py-1.5 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 text-sky-800 dark:text-sky-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-              title={isAr ? 'طباعة بوليصة الشحن اللوجستية (AWB Barcode)' : 'Print Shipping Label'}
+              title={isAr ? 'طباعة بوليصة الشحن' : 'Print shipping label'}
             >
               <Truck className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{isAr ? 'بوليصة الشحن (AWB)' : 'Shipping Label'}</span>
+              <span className="hidden sm:inline">{isAr ? 'بوليصة الشحن' : 'Shipping label'}</span>
             </button>
 
             {onPrintInvoice && (
@@ -359,12 +366,13 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                     onChange={(e) => setCourierName(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white font-bold outline-hidden"
                   >
-                    <option value="SMSA Express">SMSA Express (سمسا)</option>
-                    <option value="Aramex">Aramex (أرامكس)</option>
-                    <option value="SPL (Saudi Post)">SPL - سبل (البريد السعودي)</option>
-                    <option value="DHL Express">DHL Express</option>
-                    <option value="J&T Express">J&T Express</option>
-                    <option value="Store Courier">توصيل مندوب المتجر</option>
+                    <option value="">{isAr ? 'غير محدد' : 'Not set'}</option>
+                    <option value="SMSA Express">{isAr ? 'سمسا' : 'SMSA Express'}</option>
+                    <option value="Aramex">{isAr ? 'أرامكس' : 'Aramex'}</option>
+                    <option value="SPL (Saudi Post)">{isAr ? 'البريد السعودي' : 'Saudi Post'}</option>
+                    <option value="DHL Express">{isAr ? 'دي إتش إل' : 'DHL Express'}</option>
+                    <option value="J&T Express">{isAr ? 'جي آند تي' : 'J&T Express'}</option>
+                    <option value="Store Courier">{isAr ? 'مندوب المتجر' : 'Store courier'}</option>
                   </select>
                 </div>
 
@@ -546,7 +554,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                 <span>{isAr ? 'عنوان التوصيل' : 'Delivery Address'}</span>
               </h5>
               <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                {order.deliveryLocation || order.shippingAddress || (isAr ? 'مكة المكرمة - المملكة العربية السعودية' : 'Makkah, Saudi Arabia')}
+                {order.deliveryLocation || order.shippingAddress || (isAr ? 'العنوان غير محفوظ' : 'Address not saved')}
               </div>
               <div className="text-[11px] text-slate-400 pt-1">
                 {isAr ? 'شركة الشحن:' : 'Carrier:'}{' '}
@@ -596,38 +604,44 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
               ? 'aramex'
               : courierName.toLowerCase().includes('dhl')
               ? 'dhl'
-              : 'smsa') as CourierCarrierCode,
-            carrierName: courierName || 'SMSA Express',
+              : courierName.toLowerCase().includes('smsa')
+              ? 'smsa'
+              : 'generic') as CourierCarrierCode,
+            carrierName: courierName || (isAr ? 'غير محدد' : 'Not set'),
             carrierNameAr: courierName.toLowerCase().includes('spl')
-              ? 'سبل (البريد السعودي)'
+              ? 'البريد السعودي'
               : courierName.toLowerCase().includes('aramex')
               ? 'أرامكس'
-              : 'سمسا إكسبريس',
-            trackingNumber: trackingNumber || order.trackingNumber || `TRK-SA-${order.orderNumber.replace(/[^0-9]/g, '') || '98421'}`,
-            awbNumber: `AWB-${order.orderNumber.replace(/[^0-9]/g, '') || '98421'}-SA`,
+              : courierName.toLowerCase().includes('dhl')
+              ? 'دي إتش إل'
+              : courierName.toLowerCase().includes('smsa')
+              ? 'سمسا'
+              : (courierName || 'غير محدد'),
+            trackingNumber: trackingNumber || order.trackingNumber || '',
+            awbNumber: trackingNumber || order.trackingNumber || '',
             orderNumber: order.orderNumber,
-            orderDate: order.date || new Date().toISOString().split('T')[0],
+            orderDate: order.date || '',
             sender: {
-              name: activeStore.name || 'Makkah Gifts & Luxury Flowers Est.',
-              nameAr: activeStore.nameAr || 'مؤسسة هدايا مكة والزهور الفاخرة',
-              phone: '+966 12 555 8899',
-              address: 'Ibrahim Al-Khalil Road, Jabal Omar District',
-              city: 'Makkah',
-              country: 'Saudi Arabia',
+              name: activeStore.name || '',
+              nameAr: activeStore.nameAr || activeStore.name || '',
+              phone: activeStore.contactPhone || activeStore.phone || '',
+              address: '',
+              city: '',
+              country: isAr ? 'السعودية' : 'Saudi Arabia',
             },
             recipient: {
               name: order.customerName,
               phone: order.customerPhone,
-              address: order.shippingAddress || order.deliveryLocation || 'Al-Nuzha District, Makkah',
-              city: order.deliveryLocation?.split(' ')[0] || 'Makkah',
-              country: 'Saudi Arabia',
+              address: order.shippingAddress || order.deliveryLocation || '',
+              city: '',
+              country: isAr ? 'السعودية' : 'Saudi Arabia',
             },
             packageDetails: {
-              weightKg: 2.5,
+              weightKg: 0,
               pieces: order.items?.length || 1,
-              contentDescription: 'Store Catalog Items & Luxury Gifts',
-              contentDescriptionAr: 'منتجات متجر وهدايا فاخرة',
-              declaredValueSar: Number(order.total) || 100,
+              contentDescription: isAr ? 'منتجات الطلب' : 'Order items',
+              contentDescriptionAr: 'منتجات الطلب',
+              declaredValueSar: Number(order.total) || 0,
             },
             payment: {
               method: isCod ? 'cod' : 'prepaid',
@@ -635,10 +649,10 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
               currency: 'SAR',
             },
             routing: {
-              hubCode: 'MAK-HUB-01',
-              serviceType: 'Priority Next-Day Delivery',
-              serviceTypeAr: 'توصيل سريع أولولية',
-              routeCode: 'SA-WST-MAK-88',
+              hubCode: '',
+              serviceType: '',
+              serviceTypeAr: '',
+              routeCode: '',
             },
           }}
         />

@@ -158,20 +158,21 @@ export const StorePayments: React.FC = () => {
   // Real payment transactions from database / API
   const payouts = useMemo(() => {
     return (currentPaymentTransactions || []).map((tx) => {
-      const providerStr = String(tx.gatewayProvider || tx.paymentMethod || 'GATEWAY').toUpperCase();
-      const methodStr = String(tx.cardBrand || tx.paymentMethod || 'Card');
+      const providerStr = String(tx.gatewayProvider || tx.paymentMethod || (isAr ? 'بوابة' : 'Gateway')).toUpperCase();
+      const methodStr = String(tx.cardBrand || tx.paymentMethod || (isAr ? 'بطاقة' : 'Card'));
       return {
         id: tx.transactionReference || tx.id,
-        date: tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : 'Recent',
+        date: tx.createdAt
+          ? new Date(tx.createdAt).toLocaleDateString()
+          : (isAr ? 'بدون تاريخ' : 'No date'),
         amount: Number(tx.amount || 0),
         fee: Number(tx.feeAmount || 0),
         net: Number(tx.netAmount || tx.amount || 0),
-        method: tx.paymentMethod || 'Credit Card',
-        gateway: tx.gatewayProvider || 'moyasar',
+        method: tx.paymentMethod || (isAr ? 'غير محدد' : 'Unspecified'),
+        gateway: tx.gatewayProvider || '—',
         destination: `${providerStr} (${methodStr})`,
-        status: tx.status === 'paid' ? (isAr ? 'مكتمل' : 'Completed') : tx.status === 'refunded' ? (isAr ? 'مسترجع' : 'Refunded') : (tx.status || 'Completed'),
+        status: tx.status === 'paid' ? (isAr ? 'مكتمل' : 'Completed') : tx.status === 'refunded' ? (isAr ? 'مسترجع' : 'Refunded') : (tx.status || (isAr ? 'قيد المعالجة' : 'Pending')),
         ref: tx.gatewayTransactionId || tx.transactionReference || tx.id,
-        vatTax: (Number(tx.amount || 0) * 0.15).toFixed(2),
         isRefundable: tx.status === 'paid',
         orderId: tx.orderId,
       };

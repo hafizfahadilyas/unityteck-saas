@@ -1114,6 +1114,10 @@ export const StoreOrders: React.FC = () => {
             <button
               type="button"
               onClick={() => {
+                if (!String(o.trackingNumber || '').trim()) {
+                  toast(isAr ? 'أضف رقم التتبع قبل طباعة البوليصة' : 'Add a tracking number before printing the label', 'error');
+                  return;
+                }
                 setShippingLabelOrder(o);
                 setShowShippingLabelModal(true);
               }}
@@ -2945,6 +2949,11 @@ export const StoreOrders: React.FC = () => {
                   type="button"
                   role="menuitem"
                   onClick={() => {
+                    if (!String(ord.trackingNumber || '').trim()) {
+                      toast(isAr ? 'أضف رقم التتبع قبل طباعة البوليصة' : 'Add a tracking number before printing the label', 'error');
+                      closeMenu();
+                      return;
+                    }
                     setShippingLabelOrder(ord);
                     setShowShippingLabelModal(true);
                     closeMenu();
@@ -3096,38 +3105,42 @@ export const StoreOrders: React.FC = () => {
               ? 'aramex'
               : (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('dhl')
               ? 'dhl'
-              : 'smsa') as CourierCarrierCode,
-            carrierName: shippingLabelOrder.shippingCompany || 'SMSA Express',
+              : (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('smsa')
+              ? 'smsa'
+              : 'generic') as CourierCarrierCode,
+            carrierName: shippingLabelOrder.shippingCompany || (isAr ? 'غير محدد' : 'Not set'),
             carrierNameAr: (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('spl')
-              ? 'سبل (البريد السعودي)'
+              ? 'البريد السعودي'
               : (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('aramex')
               ? 'أرامكس'
-              : 'سمسا إكسبريس',
-            trackingNumber: shippingLabelOrder.trackingNumber || `TRK-SA-${shippingLabelOrder.orderNumber.replace(/[^0-9]/g, '') || '98421'}`,
-            awbNumber: `AWB-${shippingLabelOrder.orderNumber.replace(/[^0-9]/g, '') || '98421'}-SA`,
+              : (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('smsa')
+              ? 'سمسا'
+              : (shippingLabelOrder.shippingCompany || 'غير محدد'),
+            trackingNumber: shippingLabelOrder.trackingNumber || '',
+            awbNumber: shippingLabelOrder.trackingNumber || '',
             orderNumber: shippingLabelOrder.orderNumber,
-            orderDate: shippingLabelOrder.date || new Date().toISOString().split('T')[0],
+            orderDate: shippingLabelOrder.date || '',
             sender: {
-              name: activeStore.name || 'Makkah Gifts & Luxury Flowers Est.',
-              nameAr: activeStore.nameAr || 'مؤسسة هدايا مكة والزهور الفاخرة',
-              phone: '+966 12 555 8899',
-              address: 'Ibrahim Al-Khalil Road, Jabal Omar District',
-              city: 'Makkah',
-              country: 'Saudi Arabia',
+              name: activeStore.name || '',
+              nameAr: activeStore.nameAr || activeStore.name || '',
+              phone: activeStore.contactPhone || activeStore.phone || '',
+              address: '',
+              city: '',
+              country: isAr ? 'السعودية' : 'Saudi Arabia',
             },
             recipient: {
               name: shippingLabelOrder.customerName,
               phone: shippingLabelOrder.customerPhone,
-              address: shippingLabelOrder.shippingAddress || shippingLabelOrder.deliveryLocation || 'Al-Nuzha District, Makkah',
-              city: shippingLabelOrder.deliveryLocation?.split(' ')[0] || 'Makkah',
-              country: 'Saudi Arabia',
+              address: shippingLabelOrder.shippingAddress || shippingLabelOrder.deliveryLocation || '',
+              city: '',
+              country: isAr ? 'السعودية' : 'Saudi Arabia',
             },
             packageDetails: {
-              weightKg: 2.5,
+              weightKg: 0,
               pieces: shippingLabelOrder.items?.length || 1,
-              contentDescription: 'Store Catalog Items & Luxury Gifts',
-              contentDescriptionAr: 'منتجات متجر وهدايا فاخرة',
-              declaredValueSar: Number(shippingLabelOrder.total) || 100,
+              contentDescription: isAr ? 'منتجات الطلب' : 'Order items',
+              contentDescriptionAr: 'منتجات الطلب',
+              declaredValueSar: Number(shippingLabelOrder.total) || 0,
             },
             payment: {
               method: (shippingLabelOrder.paymentMethod || '').toLowerCase().includes('cod') ||
@@ -3139,10 +3152,10 @@ export const StoreOrders: React.FC = () => {
               currency: 'SAR',
             },
             routing: {
-              hubCode: 'MAK-HUB-01',
-              serviceType: 'Priority Next-Day Delivery',
-              serviceTypeAr: 'توصيل سريع أولولية',
-              routeCode: 'SA-WST-MAK-88',
+              hubCode: '',
+              serviceType: '',
+              serviceTypeAr: '',
+              routeCode: '',
             },
           }}
         />

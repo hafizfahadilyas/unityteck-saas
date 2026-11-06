@@ -95,7 +95,7 @@ export const ReportsBehaviorProfitability: React.FC<ReportsBehaviorProfitability
                 {isAr ? 'تحليلات السلوك والربحية' : 'Behavior Analytics & Profitability'}
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {isAr ? 'تتبع سلوك وتفاعل الزوار عبر Microsoft Clarity وتحليل هوامش الربح والتكاليف' : 'Microsoft Clarity heatmaps, session recordings, and store unit profitability'}
+                {isAr ? 'سلوك الزوار والأرباح تظهر عندما تتوفر بيانات حقيقية' : 'Visitor behavior and profit appear when real data exists'}
               </p>
             </div>
           </div>
@@ -127,12 +127,12 @@ export const ReportsBehaviorProfitability: React.FC<ReportsBehaviorProfitability
                   {isAr ? 'تحليلات السلوك والربحية' : 'Behavior Analytics & Profitability'}
                 </h1>
                 <span className="px-2 py-0.5 text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-800">
-                  Microsoft Clarity Active
+                  {isAr ? 'بانتظار الربط' : 'Waiting to connect'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {isAr
-                  ? 'خرائط التفاعل الحرارية (Heatmaps)، تسجيلات الجلسات، وتحليل الأرباح والتكاليف الحقيقية'
+                  ? 'خرائط التفاعل، تسجيلات الجلسات، والأرباح والتكاليف المحفوظة'
                   : 'Heatmaps, session replay, bounce diagnostics, and unit economics cost breakdown'}
               </p>
             </div>
@@ -148,7 +148,7 @@ export const ReportsBehaviorProfitability: React.FC<ReportsBehaviorProfitability
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              {isAr ? 'تحليلات السلوك (Clarity)' : 'Behavior (Clarity)'}
+              {isAr ? 'تحليلات السلوك' : 'Behavior'}
             </button>
             <button
               onClick={() => setActiveSection('profitability')}
@@ -171,50 +171,50 @@ export const ReportsBehaviorProfitability: React.FC<ReportsBehaviorProfitability
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{isAr ? 'إجمالي الجلسات' : 'Total Sessions'}</span>
               <div className="text-2xl font-black text-slate-900 dark:text-white mt-2">
-                {(bKpis?.total_sessions ?? (rawTotalOrders > 0 ? rawTotalOrders * 12 : 0)).toLocaleString()}
+                {(bKpis?.total_sessions ?? 0).toLocaleString()}
               </div>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 inline-block">
-                {bKpis?.sessions_growth || (rawTotalOrders > 0 ? '+14.2%' : '0%')}
+              <span className="text-[11px] text-slate-400 font-bold mt-1 inline-block">
+                {bKpis?.sessions_growth || (isAr ? 'بانتظار البيانات' : 'Waiting for data')}
               </span>
             </div>
 
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{isAr ? 'الجلسات المتفاعلة' : 'Engaged Sessions'}</span>
               <div className="text-2xl font-black text-slate-900 dark:text-white mt-2">
-                {(bKpis?.engaged_sessions ?? (rawTotalOrders > 0 ? Math.round(rawTotalOrders * 7.5) : 0)).toLocaleString()}
+                {(bKpis?.engaged_sessions ?? 0).toLocaleString()}
               </div>
-              <span className="text-[11px] text-purple-600 dark:text-purple-400 font-bold mt-1 inline-block">
-                {rawTotalOrders > 0 ? '62.0% share' : '0%'}
+              <span className="text-[11px] text-slate-400 font-bold mt-1 inline-block">
+                {isAr ? 'بانتظار البيانات' : 'Waiting for data'}
               </span>
             </div>
 
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{isAr ? 'متوسط مدة الجلسة' : 'Avg Session Duration'}</span>
               <div className="text-2xl font-black text-slate-900 dark:text-white mt-2">
-                {bKpis?.avg_duration || (rawTotalOrders > 0 ? '2m 15s' : '0s')}
+                {bKpis?.avg_duration || '—'}
               </div>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 inline-block">
-                {rawTotalOrders > 0 ? '+18s improved' : '—'}
+              <span className="text-[11px] text-slate-400 font-bold mt-1 inline-block">
+                {isAr ? 'بانتظار البيانات' : 'Waiting for data'}
               </span>
             </div>
 
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{isAr ? 'معدل الارتداد' : 'Bounce Rate'}</span>
               <div className="text-2xl font-black text-slate-900 dark:text-white mt-2">
-                {bKpis?.bounce_rate || (rawTotalOrders > 0 ? '36.8%' : '0%')}
+                {bKpis?.bounce_rate || '—'}
               </div>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 inline-block">
-                {rawTotalOrders > 0 ? '-2.4% lower' : '—'}
+              <span className="text-[11px] text-slate-400 font-bold mt-1 inline-block">
+                {isAr ? 'بانتظار البيانات' : 'Waiting for data'}
               </span>
             </div>
 
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{isAr ? 'صفحات في الجلسة' : 'Pages / Session'}</span>
               <div className="text-2xl font-black text-slate-900 dark:text-white mt-2">
-                {bKpis?.pages_per_session || (rawTotalOrders > 0 ? '3.8' : '0')}
+                {bKpis?.pages_per_session || '—'}
               </div>
-              <span className="text-[11px] text-purple-600 dark:text-purple-400 font-bold mt-1 inline-block">
-                {rawTotalOrders > 0 ? 'Normal depth' : '—'}
+              <span className="text-[11px] text-slate-400 font-bold mt-1 inline-block">
+                {isAr ? 'بانتظار البيانات' : 'Waiting for data'}
               </span>
             </div>
           </div>
@@ -228,7 +228,7 @@ export const ReportsBehaviorProfitability: React.FC<ReportsBehaviorProfitability
                   <div className="flex items-center gap-2">
                     <Flame className="w-4 h-4 text-amber-500" />
                     <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                      {isAr ? 'خرائط التفاعل الحرارية (Heatmaps)' : 'Heatmap Previews'}
+                      {isAr ? 'خرائط التفاعل' : 'Heatmaps'}
                     </h3>
                   </div>
                   <div className="flex items-center gap-1.5">

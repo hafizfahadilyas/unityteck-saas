@@ -3,6 +3,7 @@ import {
   applyDrop,
   blocksForPublish,
   columnTemplate,
+  countVisibleH1,
   createCoalescedSaver,
   duplicateBlock,
   moveBlock,
@@ -43,6 +44,12 @@ assert.equal(removeBlock(copied, 'a').length, 1);
 
 const hidden = withVisibility({ id: 'x', visible: true }, { visible: false, visibleMobile: false });
 assert.equal(blocksForPublish([hidden, { id: 'y', visible: true }]).length, 1);
+assert.equal(countVisibleH1([
+  { type: 'heading', settings: { tag: 'h1', textEn: 'One' } },
+  { type: 'heading', visible: false, settings: { tag: 'h1', textEn: 'Hidden' } },
+  { type: 'heading', settings: { htmlTag: 'h3', textEn: 'Three' } },
+]), 1);
+assert.equal(countVisibleH1([{ type: 'heading', settings: { tag: 'h2' } }]), 0);
 
 const saver = createCoalescedSaver(30, () => {});
 saver.push();

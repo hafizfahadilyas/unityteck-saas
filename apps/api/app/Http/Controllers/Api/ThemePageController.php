@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ThemePage;
 use App\Models\ThemeRevision;
 use App\Models\Store;
+use App\Models\StoreSetting;
 use App\Support\ThemeCache;
 use App\Support\ThemeLayoutGuard;
 use Illuminate\Http\JsonResponse;
@@ -125,7 +126,14 @@ class ThemePageController extends Controller
             return response()->json(['message' => 'Page not found.'], 404);
         }
 
-        $page->published_layout = $page->draft_layout;
+        $plan = $this->codePlan($id);
+        $draft = is_array($page->draft_layout) ? $page->draft_layout : [];
+        $guard = ThemeLayoutGuard::prepare($draft, $id, true, $plan);
+        if ($guard['denied']) {
+            return response()->json(['message' => $guard['message']], 403);
+        }
+
+        $page->published_layout = $guard['layout'];
         $page->status = 'published';
         $page->published_at = now();
         $page->updated_by = $request->user()?->id;
@@ -136,6 +144,7 @@ class ThemePageController extends Controller
         return response()->json([
             'success' => true,
             'store_id' => $id,
+            'warnings' => $guard['warnings'],
             'data' => $page->fresh(),
         ]);
     }
@@ -258,7 +267,7 @@ class ThemePageController extends Controller
         $data = $this->validated($request, partial: true);
         unset($data['updated_at']);
         if (isset($data['draft_layout']) && is_array($data['draft_layout'])) {
-            $plan = (string) (Store::query()->where('id', $id)->value('plan') ?: 'free');
+            $plan = $this->codePlan($id);
             $guard = ThemeLayoutGuard::prepare($data['draft_layout'], $id, false, $plan);
             if ($guard['denied']) {
                 return response()->json(['message' => $guard['message']], 403);
@@ -313,6 +322,18 @@ class ThemePageController extends Controller
         }
 
         return $actorId;
+    }
+
+    private function codePlan(string $storeId): string
+    {
+        $plan = (string) (Store::query()->where('id', $storeId)->value('plan') ?: 'free');
+        $row = StoreSetting::withoutGlobalScope('store')->where('store_id', $storeId)->first();
+        $settings = is_array($row?->settings) ? $row->settings : [];
+        if (array_key_exists('allow_custom_html', $settings) && $settings['allow_custom_html'] === false) {
+            return 'free';
+        }
+
+        return $plan;
     }
 
     private function findPage(string $storeId, string $pageKey): ?ThemePage

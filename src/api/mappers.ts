@@ -700,8 +700,14 @@ export function mapSeo(
     ),
     indexingApiEnabled: Boolean(row.indexing_api_enabled),
     metaTitle: str(row.meta_title),
+    metaTitleEn: extra.meta_title_en == null ? null : str(extra.meta_title_en),
+    metaTitleAr: extra.meta_title_ar == null ? null : str(extra.meta_title_ar),
     metaDescription: str(row.meta_description),
+    metaDescriptionEn: extra.meta_description_en == null ? null : str(extra.meta_description_en),
+    metaDescriptionAr: extra.meta_description_ar == null ? null : str(extra.meta_description_ar),
     keywords: parseKeywords(row.keywords),
+    keywordsEn: extra.keywords_en == null ? null : str(extra.keywords_en),
+    keywordsAr: extra.keywords_ar == null ? null : str(extra.keywords_ar),
     sitemapUrl: str(row.sitemap_url),
     indexedUrlsCount: num(extra.indexed_urls_count),
     totalSearchClicks: num(extra.total_search_clicks),
@@ -724,14 +730,20 @@ export function seoPatchToApi(
 ): Record<string, unknown> {
   const body: Record<string, unknown> = {};
   if (patch.metaTitle !== undefined) body.meta_title = patch.metaTitle;
+  if (patch.metaTitleEn !== undefined) body.meta_title_en = patch.metaTitleEn;
+  if (patch.metaTitleAr !== undefined) body.meta_title_ar = patch.metaTitleAr;
   if (patch.metaDescription !== undefined) {
     body.meta_description = patch.metaDescription;
   }
+  if (patch.metaDescriptionEn !== undefined) body.meta_description_en = patch.metaDescriptionEn;
+  if (patch.metaDescriptionAr !== undefined) body.meta_description_ar = patch.metaDescriptionAr;
   if (patch.keywords !== undefined) {
     body.keywords = Array.isArray(patch.keywords)
       ? patch.keywords.join(', ')
       : patch.keywords;
   }
+  if (patch.keywordsEn !== undefined) body.keywords_en = patch.keywordsEn;
+  if (patch.keywordsAr !== undefined) body.keywords_ar = patch.keywordsAr;
   if (patch.ga4MeasurementId !== undefined) {
     body.ga4_measurement_id = patch.ga4MeasurementId;
   }

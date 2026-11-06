@@ -1,0 +1,50 @@
+# Product Management & Customization (LOCKED MEMORY)
+
+## Kis ke liye / kahan
+- **Audience:** Store Dashboard Products (Souq / Unityteck) — Master nahi.
+- **Scope:** Shared catalog for all stores (`store_id` isolation). Design refs: `New folder/.../Products/`.
+- **Rule:** Extend existing product / inventory / cart / order — **no duplicate systems**. Zero mock. AR/EN isolated. Pixel UI preserve.
+
+## Primary files
+- List UI: `src/components/store/StoreProducts.tsx`
+- Editor: `src/components/store/StoreProductEditorView.tsx`, `ProductEditDrawer.tsx`
+- Channels: `src/config/productChannels.ts` (+ filters/editor consumers)
+- Custom fields: `src/utils/customFieldTypes.ts`, Brands/Custom Fields views
+- API: `apps/api` Product / ProductVariation — extend only
+- Types: `src/types/index.ts`
+
+## Spec slices
+1. List UI renames (Products Only, Selection Operations, Multiple Upload, Publish/Draft, drop Sales/Date, remove All Products toolbar)
+2. Central sales channels registry
+3. Edit fields: subtitle, Google Taxonomy, H1–H3 + font color, badge No/Promo, Discount Price + schedule, no Shipping Category, multi-category
+4. Options & variants (toggle, Text/Color/Image, auto-generate, per-variant fields, inventory sum, storefront, cart/order variant id)
+5. Custom fields types + description/required + conditional AND/OR
+
+## Completion gate (MANDATORY)
+Jab yeh task **complete** ho aur agent ne **audit + smoke testing** kar liya ho, user ko short Roman Urdu me bolo:
+
+**“Fahad, tum bhi test karo”** + exact paths + checklist.
+
+### Fahad test paths (default local)
+- App: `http://localhost:3010/`
+- Flowers login: `/store/login?store=flowers` → dashboard `/admin?store=flowers`
+- Coffee: `/store/login?store=coffee` → `/admin?store=coffee`
+- Bleco: `/store/login?store=bleco` → `/admin?store=bleco`
+- Open: Store sidebar → **Products Only**
+
+### Fahad checklist (minimum)
+1. List: Products Only label, Selection Operations, Multiple Upload (+50), no All Products toolbar, Columns me Sales/Date nahi, row menu = Publish Product **ya** Convert to Draft (toggle nahi).
+2. Edit: Subtitle, Google Taxonomy, description H1–H3 + font color, Badge No/Promo+text+icon, Discount Price + start/end, Shipping Category nahi, multi categories, Sales Channels chips.
+3. Options ON → add Size+Color → auto variants → edit price/stock/SKU → parent stock = sum; Image option type works.
+4. Custom Fields: new types selectable; required + conditional operators visible.
+5. Storefront PDP: option UI by type; OOS variant cart block; cart/order line has variant id (when wired).
+6. Cross-store: flowers credentials ≠ coffee; empty = real empty (no fake sales).
+
+## Status (2026-11-04)
+- Sections 1–3: done (list UI, channels registry, edit fields).
+- Section 4: editor variants (barcode/weight/unlimited/low-stock/sum/search/expand) + API migration + soft-archive + Mecca cart `variationId` + storefront `ProductOptionsPicker`.
+- Section 5: field types + description + AND/OR conditional UI.
+- Coffee cart / full order_items persist path: extend further if needed; Mecca path wired.
+
+After audit smoke, give Fahad the checklist below.
+---

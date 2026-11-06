@@ -198,13 +198,14 @@ import {
   type ThemePageRecord,
 } from '../../../api/tenantApi';
 import { isHistoryShortcut, pushHistory, redoHistory, seedHistory, undoHistory } from './builderHistory';
-import { blocksFromLayout, builderPageMeta, builderPageTitles } from './builderPages';
-import { deviceStyleCss, frameWidthPx, isWidgetVisibleOnDevice } from './builderDeviceFrame';
+import { blocksFromLayout, builderPageFromQuery, builderPageMeta, builderPageTitles, stashPageDraft } from './builderPages';
+import { deviceStyleCss, frameWidthPx, visibleFrameBlocks } from './builderDeviceFrame';
 import { coffeeCanvasMode, showRestoreAllBanner } from './coffeeCanvasMode';
 import {
   applyDrop,
   blocksForPublish,
   columnTemplate,
+  countVisibleH1,
   createCoalescedSaver,
   duplicateBlock,
   nestIntoColumns,
@@ -236,7 +237,8 @@ import {
 } from '../../../themes/meccaGifts/data/mockData';
 import { BuilderAiAssistant } from './ai/BuilderAiAssistant';
 import { BuilderWidgetLibrary, type WidgetDefinition } from './widgets/BuilderWidgetLibrary';
-import { UniversalSectionInspector } from './inspectors/UniversalSectionInspector';
+import { HeadingWidget } from './widgets/HeadingWidget';
+import { ContentWidget, isContentWidget } from './widgets/ContentWidget';
 
 export interface VisualThemeBuilderProps {
   isOpen: boolean;
@@ -254,7 +256,10 @@ type PreviewPage =
   | 'cart'
   | 'checkout'
   | 'thankyou'
-  | 'crm'
+  | 'faq'
+  | 'reviews'
+  | '404'
+  | 'custom'
   | 'about'
   | 'contact'
   | 'location'
@@ -788,9 +793,20 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
       isAr,
       activeStore,
       builderDevice: device === 'laptop' ? 'desktop' : device,
+      blockSettings: b.settings,
     });
     if (coffeePreview) {
       return wrapBlock(coffeePreview, '', COFFEE_FULL_BLEED_TYPES.has(b.type), true);
+    }
+    if (b.type === 'heading' || b.type === 'w_heading') {
+      return wrapBlock(
+        <HeadingWidget settings={b.settings} isAr={isAr} device={device} />,
+      );
+    }
+    if (isContentWidget(b.type)) {
+      return wrapBlock(
+        <ContentWidget type={b.type} settings={b.settings} isAr={isAr} device={device} storeId={activeStore?.id || ''} />,
+      );
     }
     if (coffeeCanvasMode(isCoffeeStore, 1, b.type, COFFEE_BUILDER_BLOCK_TYPES) === 'compact') {
       return wrapBlock(
@@ -1221,50 +1237,6 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
       );
     }
 
-    if (b.type === 'heading' || b.type === 'w_heading') {
-      const textAlign = b.settings.textAlign || 'center';
-      const fontSize = b.settings.fontSize || b.settings.titleFontSize || (device === 'mobile' ? 22 : 30);
-      const fontWeight = b.settings.fontWeight || 'font-black';
-      const textColor = b.settings.textColor || '#102a1c';
-      const accentColor = b.settings.accentColor || '#e6ca98';
-      const title = isAr ? (b.settings.titleAr || b.settings.textAr || b.titleAr) : (b.settings.titleEn || b.settings.textEn || b.titleEn);
-      const subtitle = isAr ? (b.settings.subtitleAr || '') : (b.settings.subtitleEn || '');
-      const showCrown = b.settings.showCrown ?? (b.templateStyle?.includes('gold') || b.templateStyle?.includes('luxury'));
-      const showAccentBar = b.settings.showAccentBar ?? (b.templateStyle?.includes('bar') || b.templateStyle?.includes('accent'));
-
-      return wrapBlock(
-        <div className="py-6 px-4 max-w-7xl mx-auto">
-          <div className={`flex flex-col ${textAlign === 'center' ? 'items-center text-center' : textAlign === 'end' ? 'items-end text-end' : 'items-start text-start'}`}>
-            {showCrown && (
-              <span className="text-[10px] font-serif tracking-widest uppercase mb-1.5 flex items-center gap-1 font-bold" style={{ color: accentColor }}>
-                ✦ HADAYA MAKKAH LUXURY ✦
-              </span>
-            )}
-            <div className="flex items-center gap-3 w-full justify-inherit">
-              {showAccentBar && (
-                <div className="w-1.5 h-8 rounded-full shrink-0" style={{ backgroundColor: accentColor || '#4f46e5' }} />
-              )}
-              <h2
-                className={`tracking-tight ${fontWeight}`}
-                style={{
-                  fontSize: `${fontSize}px`,
-                  color: textColor,
-                  lineHeight: 1.25,
-                }}
-              >
-                {title || (isAr ? 'عنوان القسم الفاخر' : 'Signature Section Heading')}
-              </h2>
-            </div>
-            {subtitle && (
-              <p className="text-xs text-slate-500 mt-1.5 max-w-2xl">
-                {subtitle}
-              </p>
-            )}
-          </div>
-        </div>
-      );
-    }
-
     if (b.type === 'text_editor' || b.type === 'w_text') {
       const isCallout = b.templateStyle?.includes('callout') || b.settings.boxStyle === 'callout';
       const isTwoCol = b.settings.columns === 2 || b.templateStyle?.includes('two') || b.templateStyle?.includes('editorial');
@@ -1456,8 +1428,8 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                               <div style={{ fontSize: `${cw.settings.fontSize || 82}px`, fontWeight: cw.settings.fontWeight || 900 }} className="text-slate-900 leading-none font-serif select-none">
                                 {cw.settings.text || String(colIdx + 1)}
                               </div>
-                            ) : cw.type === 'heading' ? (
-                              <h3 className="text-base font-bold text-slate-900 border-b pb-1 border-slate-200">{cw.settings.text || 'Category Heading'}</h3>
+                            ) : cw.type === 'heading' || cw.type === 'w_heading' ? (
+                              <HeadingWidget settings={cw.settings} isAr={isAr} device={device} />
                             ) : (
                               <div className="p-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 shadow-2xs">{cw.title || cw.type}</div>
                             )}
@@ -2072,12 +2044,10 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   const [previewPage, setPreviewPage] = useState<PreviewPage>(() => {
     try {
       if (typeof window !== 'undefined') {
-        const q = new URLSearchParams(window.location.search).get('builderPage') as PreviewPage | null;
-        if (q && ['home', 'catalog', 'product', 'cart', 'checkout', 'thankyou', 'crm', 'about', 'contact', 'location', 'track-order', 'privacy', 'return'].includes(q)) {
-          return q;
-        }
+        const q = builderPageFromQuery(new URLSearchParams(window.location.search)) as PreviewPage | null;
+        if (q) return q;
         const saved = sessionStorage.getItem('unityteck_visual_builder_page') as PreviewPage | null;
-        if (saved && ['home', 'catalog', 'product', 'cart', 'checkout', 'thankyou', 'crm', 'about', 'contact', 'location', 'track-order', 'privacy', 'return'].includes(saved)) {
+        if (saved && saved !== 'crm' && ['home', 'catalog', 'product', 'cart', 'checkout', 'thankyou', 'faq', 'reviews', '404', 'custom', 'about', 'contact', 'location', 'track-order', 'privacy', 'return'].includes(saved)) {
           return saved;
         }
       }
@@ -2088,7 +2058,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   // Apply page switch from sidebar / parent when builder opens on a target page
   useEffect(() => {
     if (!initialPage) return;
-    const allowed = ['home', 'catalog', 'product', 'cart', 'checkout', 'thankyou', 'crm', 'about', 'contact', 'location', 'track-order', 'privacy', 'return'];
+    const allowed = ['home', 'catalog', 'product', 'cart', 'checkout', 'thankyou', 'faq', 'reviews', '404', 'custom', 'about', 'contact', 'location', 'track-order', 'privacy', 'return'];
     if (allowed.includes(initialPage) && initialPage !== previewPage) {
       setPreviewPage(initialPage);
     }
@@ -3323,7 +3293,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   };
 
   const loadPageDraft = async (pageId: PreviewPage) => {
-    pageDraftsRef.current[previewPage] = blocksRef.current;
+    pageDraftsRef.current = stashPageDraft(pageDraftsRef.current, previewPage, blocksRef.current);
     if (!isApiEnabled()) {
       const cached = pageDraftsRef.current[pageId];
       if (cached?.length) applyTree(cached, true);
@@ -3430,15 +3400,16 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       }
 
       if (sliderBlock) {
-        full.slider.slides[0] = {
-          id: 'slide-1',
-          type: 'image',
-          image: sliderBlock.settings.bgImage || full.slider.slides[0]?.image || '',
-          title: isAr ? sliderBlock.settings.headingAr : sliderBlock.settings.headingEn,
-          subtitle: isAr ? sliderBlock.settings.subheadingAr : sliderBlock.settings.subheadingEn,
-          buttonText: isAr ? sliderBlock.settings.ctaTextAr : sliderBlock.settings.ctaTextEn,
-          buttonUrl: sliderBlock.settings.ctaLink || '#',
-          badge: isAr ? sliderBlock.settings.badgeAr : sliderBlock.settings.badgeEn,
+        const banners = Array.isArray(sliderBlock.settings?.heroBanners?.banners)
+          ? sliderBlock.settings.heroBanners.banners
+          : Array.isArray(sliderBlock.settings?.slides)
+            ? sliderBlock.settings.slides
+            : [];
+        full.heroBanners = {
+          ...(full.heroBanners || {}),
+          enabled: banners.length > 0,
+          autoplay: Boolean(sliderBlock.settings?.autoplay ?? sliderBlock.settings?.heroBanners?.autoplay),
+          banners,
         };
       }
 
@@ -3465,6 +3436,16 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       const saved = await ensureThemePage(layout);
       const published = await publishThemePageApi(activeStore.id, saved.id);
       rememberPage(published);
+      const h1Count = countVisibleH1(published.published_layout ?? blocks);
+      const seoWarnings = published.seo_warnings ?? [];
+      if (h1Count !== 1 || seoWarnings.includes('missing-h1') || seoWarnings.includes('multiple-h1')) {
+        toast(
+          isAr
+            ? 'تحذير: الصفحة تحتاج عنواناً رئيسياً واحداً فقط'
+            : 'Warning: this page needs exactly one main heading',
+          'info',
+        );
+      }
       saveThemeBlocks(activeStore.id, currentThemeId, blocks as any, {
         isPublished: true,
         seasonalTheme,
@@ -3598,10 +3579,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     { id: 'product', icon: ShoppingBag, labelAr: 'تفاصيل المنتج', labelEn: 'Product Details Page', badge: 'VIP' },
     { id: 'cart', icon: ShoppingCart, labelAr: 'سلة المشتريات', labelEn: 'Shopping Bag / Cart' },
     { id: 'checkout', icon: CreditCard, labelAr: 'الدفع', labelEn: 'Saudi Checkout (ZATCA)', badge: 'KSA' },
-    { id: 'thankyou', icon: CheckCircle2, labelAr: 'تأكيد الطلب والفاتورة', labelEn: 'Thank You & Tax Invoice' },
-    { id: 'crm', icon: Award, labelAr: 'حساب العميل والولاء', labelEn: 'VIP CRM & Account', badge: 'VIP' },
+    { id: 'thankyou', icon: CheckCircle2, labelAr: 'تأكيد الطلب', labelEn: 'Thank you' },
+    { id: 'faq', icon: HelpCircle, labelAr: 'الأسئلة الشائعة', labelEn: 'Questions' },
+    { id: 'reviews', icon: Star, labelAr: 'التقييمات', labelEn: 'Reviews' },
     { id: 'about', icon: Info, labelAr: 'من نحن', labelEn: 'About' },
     { id: 'contact', icon: Phone, labelAr: 'اتصل بنا', labelEn: 'Contact' },
+    { id: '404', icon: Info, labelAr: 'صفحة غير موجودة', labelEn: 'Missing page' },
+    { id: 'custom', icon: FileText, labelAr: 'صفحة مخصصة', labelEn: 'Custom page' },
     { id: 'location', icon: MapPin, labelAr: 'فروع المتجر', labelEn: 'Store Locator' },
     { id: 'track-order', icon: Truck, labelAr: 'تتبع الطلب', labelEn: 'Live Delivery Tracker', badge: 'Live' },
     { id: 'privacy', icon: Lock, labelAr: 'سياسة الخصوصية', labelEn: 'Privacy Policy' },
@@ -3612,8 +3596,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
 
   const visibleBlocks = useMemo(() => blocks.filter((b) => b.visible), [blocks]);
   const frameBlocks = useMemo(
-    () => visibleBlocks.filter((b) => isWidgetVisibleOnDevice(b, device)),
-    [visibleBlocks, device],
+    () => visibleFrameBlocks(blocks, device),
+    [blocks, device],
   );
   const framePx = frameWidthPx(device);
 
@@ -6131,20 +6115,20 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     columnPickerTarget.colIdx,
                     'heading',
                     'Featured Category',
-                    { text: isAr ? 'تصنيف المقال المميز' : 'Featured Category', htmlTag: 'h3' }
+                    { textAr: '', textEn: '', tag: 'h3', htmlTag: 'h3', level: 'h3' }
                   )
                 }
                 className="p-3 rounded-2xl border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/20 text-start flex flex-col gap-1 transition-all group cursor-pointer"
               >
                 <div className="flex items-center justify-between">
                   <Type className="w-5 h-5 text-indigo-600 group-hover:scale-110 transition-transform" />
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">H3 Tag</span>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">{isAr ? 'مستوى ٣' : 'Level 3'}</span>
                 </div>
                 <span className="text-xs font-black text-slate-800">
-                  {isAr ? 'عنوان التصنيف (Heading H3)' : 'Category Heading (H3)'}
+                  {isAr ? 'عنوان التصنيف' : 'Category heading'}
                 </span>
                 <span className="text-[10px] text-slate-500 leading-tight">
-                  {isAr ? 'عنوان رئيسي للتصنيف بوسم H3' : 'Section / category heading with H3 tag'}
+                  {isAr ? 'عنوان للتصنيف بمستوى ثالث' : 'Category heading at level three'}
                 </span>
               </button>
 

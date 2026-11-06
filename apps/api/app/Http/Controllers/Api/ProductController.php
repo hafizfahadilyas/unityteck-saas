@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Models\Category;
 use App\Models\Store;
 use App\Support\Plans;
 use Illuminate\Http\JsonResponse;
@@ -373,16 +374,35 @@ class ProductController extends Controller
             ->where(function ($q) {
                 $q->whereNull('status')->orWhere('status', '!=', 'archived');
             });
+        $source = (string) $request->query('source', '');
+        if ($source === 'featured') {
+            $base->where('is_featured', true);
+        } elseif ($source === 'category') {
+            $category = trim((string) $request->query('category', ''));
+            if ($category !== '') {
+                $base->where(function ($q) use ($category) {
+                    $q->where('category', $category)->orWhere('category_id', $category);
+                });
+            }
+        } elseif ($source === 'on_sale') {
+            $base->whereNotNull('original_price')->whereColumn('original_price', '>', 'price');
+        } elseif ($source === 'manual') {
+            $ids = array_values(array_filter(array_map('trim', explode(',', (string) $request->query('ids', '')))));
+            $base->whereIn('id', $ids === [] ? [''] : $ids);
+        }
         $total = (clone $base)->count();
         $perPage = min(100, max(1, (int) $request->query('per_page', 48)));
+        if ($request->query('limit') !== null && $request->query('limit') !== '') {
+            $perPage = min(48, max(1, (int) $request->query('limit')));
+        }
         $page = max(1, (int) $request->query('page', 1));
 
         $rows = (clone $base)
             ->with(['variations' => function ($q) use ($store) {
                 $q->withoutGlobalScope('store')->where('store_id', $store->id);
             }])
-            ->orderByDesc('is_featured')
-            ->orderByDesc('updated_at')
+            ->when($source !== 'latest', fn ($q) => $q->orderByDesc('is_featured'))
+            ->orderByDesc($source === 'latest' ? 'created_at' : 'updated_at')
             ->forPage($page, $perPage)
             ->get(array_values(array_filter([
                 'id',
@@ -446,6 +466,29 @@ class ProductController extends Controller
                 'per_page' => $perPage,
                 'last_page' => max(1, (int) ceil($total / $perPage)),
             ],
+        ]);
+    }
+
+    public function storefrontCategories(Request $request): JsonResponse
+    {
+        $key = trim((string) ($request->query('store_id') ?? $request->header('X-Store-Id') ?? ''));
+        if ($key === '') {
+            return response()->json(['message' => 'store_id is required.'], 422);
+        }
+        $store = Store::query()->where('id', $key)->orWhere('slug', $key)->first();
+        if (! $store) {
+            return response()->json(['message' => 'Store not found.'], 404);
+        }
+        $rows = Category::withoutGlobalScope('store')
+            ->where('store_id', $store->id)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get(['id', 'store_id', 'name', 'name_ar', 'slug', 'image_url']);
+
+        return response()->json([
+            'data' => $rows,
+            'store_id' => $store->id,
+            'meta' => ['total' => $rows->count()],
         ]);
     }
 }
