@@ -111,7 +111,7 @@ async function runTests() {
   console.log('\n--- Test Suite 9: Template Customizer Persistence ---');
   const defaultConf = invoiceService.getTemplateConfig(testStoreId);
   assert(Boolean(defaultConf.businessNameAr), 'Default template configuration has Arabic business name');
-  assert(Boolean(defaultConf.taxNumber), 'Default template configuration has VAT number');
+  assert(defaultConf.taxNumber === '', 'A store without a saved tax number keeps the VAT field empty');
 
   const updatedConf = invoiceService.saveTemplateConfig(testStoreId, {
     primaryColor: '#1e3a8a',
