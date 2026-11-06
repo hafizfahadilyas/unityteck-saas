@@ -100,10 +100,10 @@ class ThemeWidgetSanitizer
                     continue;
                 }
                 $visible[] = [
-                    'qEn' => (string) ($item['qEn'] ?? ''),
-                    'qAr' => (string) ($item['qAr'] ?? ''),
-                    'aEn' => (string) ($item['aEn'] ?? ''),
-                    'aAr' => (string) ($item['aAr'] ?? ''),
+                    'qEn' => (string) ($item['qEn'] ?? $item['questionEn'] ?? ''),
+                    'qAr' => (string) ($item['qAr'] ?? $item['questionAr'] ?? ''),
+                    'aEn' => (string) ($item['aEn'] ?? $item['answerEn'] ?? ''),
+                    'aAr' => (string) ($item['aAr'] ?? $item['answerAr'] ?? ''),
                     'visible' => true,
                 ];
             }

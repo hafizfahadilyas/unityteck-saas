@@ -158,7 +158,7 @@ export const StoreColorsForm: React.FC = () => {
           {/* Dark Mode Card */}
           <div className="rounded-xl border p-4 space-y-3" style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)' }}>
             <h3 className="text-xs font-bold uppercase text-emerald-600">
-              {isAr ? 'الوضع الداكن (Dark Mode)' : 'Dark Mode Options'}
+              {isAr ? 'الوضع الداكن' : 'Dark Mode Options'}
             </h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -219,7 +219,7 @@ export const StoreColorsForm: React.FC = () => {
           <div className="rounded-xl border p-4 space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <div className="border-b pb-3" style={{ borderColor: 'var(--border)' }}>
               <h3 className="text-xs font-bold uppercase text-emerald-600 flex items-center justify-between">
-                <span>{isAr ? 'شاشات التحميل والإنتظار (Preloader Settings)' : 'Preloader & Loading Settings'}</span>
+                <span>{isAr ? 'شاشات التحميل والإنتظار' : 'Preloader & Loading Settings'}</span>
               </h3>
               <span className="text-[11px] text-muted block mt-0.5">
                 {isAr ? 'التحكم في شاشات التحميل للمتجر ولوحة التحكم وتخصيص الشعار والنصوص' : 'Manage storefront and dashboard loaders, custom logo and text'}
@@ -229,7 +229,7 @@ export const StoreColorsForm: React.FC = () => {
             {/* Toggle 1: Theme Storefront Preloader */}
             <div className="flex items-center justify-between p-2.5 rounded-lg border bg-slate-50/50 dark:bg-slate-800/40" style={{ borderColor: 'var(--border)' }}>
               <div>
-                <span className="text-xs font-bold block">{isAr ? 'شاشة انتظار المتجر (Theme Preloader)' : 'Theme Storefront Preloader'}</span>
+                <span className="text-xs font-bold block">{isAr ? 'شاشة انتظار المتجر' : 'Theme Storefront Preloader'}</span>
                 <span className="text-[10px] text-muted block">{isAr ? 'إظهار شاشة تحميل فاخرة للعملاء عند فتح المتجر' : 'Show luxury splash preloader when customers enter store'}</span>
               </div>
               <button
@@ -246,7 +246,7 @@ export const StoreColorsForm: React.FC = () => {
             {/* Toggle 2: Dashboard Loader */}
             <div className="flex items-center justify-between p-2.5 rounded-lg border bg-slate-50/50 dark:bg-slate-800/40" style={{ borderColor: 'var(--border)' }}>
               <div>
-                <span className="text-xs font-bold block">{isAr ? 'شاشة تحميل لوحة التحكم (Dashboard Loader)' : 'Admin Dashboard Loader'}</span>
+                <span className="text-xs font-bold block">{isAr ? 'شاشة تحميل لوحة التحكم' : 'Admin Dashboard Loader'}</span>
                 <span className="text-[10px] text-muted block">{isAr ? 'إظهار مؤشر التحميل عند التناقل بين التبويبات' : 'Show loading screen during dashboard tab navigation'}</span>
               </div>
               <button
@@ -276,7 +276,7 @@ export const StoreColorsForm: React.FC = () => {
                 {/* Preloader Title Text Option */}
                 <div>
                   <label className="text-[11px] font-bold uppercase text-muted block mb-1">
-                    {isAr ? 'عنوان شاشة التحميل (Main Title Text)' : 'Preloader Title Text'}
+                    {isAr ? 'عنوان شاشة التحميل' : 'Preloader Title Text'}
                   </label>
                   <input
                     type="text"
@@ -291,7 +291,7 @@ export const StoreColorsForm: React.FC = () => {
                 {/* Preloader Company Tagline Option (1-Line English) */}
                 <div>
                   <label className="text-[11px] font-bold uppercase text-muted block mb-1">
-                    {isAr ? 'شعار المتجر الإنجليزي باللودر (1-Line English Company Tagline)' : 'Preloader English Company Tagline (1 Line)'}
+                    {isAr ? 'شعار المتجر الإنجليزي باللودر' : 'Preloader English Company Tagline (1 Line)'}
                   </label>
                   <input
                     type="text"
@@ -317,7 +317,7 @@ export const StoreColorsForm: React.FC = () => {
                 {/* Live Mini Preview of the 1-Line Loader */}
                 <div className="p-3.5 rounded-xl border bg-slate-900 text-white flex flex-col items-center justify-center text-center">
                   <span className="text-[9px] uppercase tracking-wider text-emerald-400 font-bold mb-2">
-                    {isAr ? 'معاينة حية للمؤشر (Logo + 1 Line English Tagline)' : 'Live Loader Preview (Logo + 1 Line Tagline)'}
+                    {isAr ? 'معاينة حية للمؤشر' : 'Live Loader Preview (Logo + 1 Line Tagline)'}
                   </span>
                   <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 p-1.5 flex items-center justify-center mb-2 shadow-sm">
                     {settings.loadingLogoUrl || activeStore.logo ? (
@@ -373,7 +373,7 @@ export const StoreColorsForm: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xs font-bold uppercase text-emerald-600">
-                  {isAr ? 'الخلفية المزخرفة (Pattern Background)' : 'Pattern Background'}
+                  {isAr ? 'الخلفية المزخرفة' : 'Pattern Background'}
                 </h3>
                 <span className="text-[11px] text-muted">{isAr ? 'إضافة نقش خفيف وأنيق لخلفية المتجر' : 'Add a subtle pattern background to store'}</span>
               </div>

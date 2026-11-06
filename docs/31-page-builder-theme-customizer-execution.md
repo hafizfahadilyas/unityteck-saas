@@ -1,7 +1,7 @@
 # 31 — Page Builder + Theme Customizer — Execution Lock
 
 **Status:** LOCKED · 2026-11-05  
-**Next step:** `PB-53`  
+**Next step:** `CLOSED`  
 **Company:** Unityteck — KSA multi-store SaaS  
 **Concept:** `docs/09-visual-theme-builder.md` (requirements). This file is the only execution order.  
 **Rule:** `.cursor/rules/page-builder-theme-customizer.mdc`  
@@ -175,47 +175,42 @@ Each widget: EN + AR fields, link picker (page, product, category, WhatsApp, ext
 |----|--------|------|-----------|------|
 | PB-51 | DONE | Per-widget padding, margin, gap, max-width, align, font size for three breakpoints | Values persist in `style.*` | Reload each device |
 | PB-52 | DONE | Visibility checkboxes: desktop, tablet, mobile | Hidden device does not reserve a gap | Mobile hide removes the node |
-| PB-53 | NEXT | RTL for Arabic, LTR for English. Icons flip with direction. Long words wrap | No overlap on AR headings | Both locales at 390 and 1280 |
-| PB-54 | PENDING | Sticky header + announcement height shared by canvas and storefront. Content starts below that height | No covered H1 | Scroll both |
-| PB-55 | PENDING | Slider aspect-ratio locked so images do not jump the layout | No CLS on slide change | Slow image still holds box |
-| PB-56 | PENDING | z-index only for header, menu, modal. Sections do not stack on each other | Overlap audit screenshot | Mobile menu closes on navigation |
+| PB-53 | DONE | RTL for Arabic, LTR for English. Icons flip with direction. Long words wrap | No overlap on AR headings | Both locales at 390 and 1280. `themeFlow.test.ts` direction + heading wrap. Builder root `dir`. Back icon uses `theme-dir-icon` |
+| PB-54 | DONE | Sticky header + announcement height shared by canvas and storefront. Content starts below that height | No covered H1 | Scroll both. `--theme-chrome-offset` measured from announcement + header. Headings use `scroll-margin-top` |
+| PB-55 | DONE | Slider aspect-ratio locked so images do not jump the layout | No CLS on slide change | Slow image still holds box. `.theme-slider-stage` keeps `16 / 7` inside the existing hero height |
+| PB-56 | DONE | z-index only for header, menu, modal. Sections do not stack on each other | Overlap audit screenshot | Mobile menu closes on navigation. Sections `z-index: 0`. Header 50, menu 60, modal 70. Menu closes when the route changes |
 
 ### H. SEO
 
 | ID | Status | Work | Done when | Test |
 |----|--------|------|-----------|------|
-| PB-57 | PENDING | Per-page SEO form, all keys in section 3. Save on the page row | Public `<title>` and meta match published SEO | View source EN and AR |
-| PB-58 | PENDING | Canonical + hreflang `en` and `ar` for that store’s host | No cross-store canonical | Two locales |
-| PB-59 | PENDING | `robots` index/noindex. Sitemap includes only published indexable pages. `robots.txt` is per store | Draft pages absent from sitemap | noindex page absent |
-| PB-60 | PENDING | Single H1 check (PB-32) blocks nothing but lists warnings before publish | Warning lists the widget ids | Page with two H1 shows both ids |
-| PB-61 | PENDING | Missing alt text listed on publish. Merchant can still publish | List is per store | Image with alt omitted from the warning |
-| PB-62 | PENDING | FAQ and review JSON-LD from published content only | Schema matches visible text | Empty page emits no FAQ schema |
-| PB-63 | PENDING | Product and category SEO remain on their own tables. Theme restore does not write those rows | Restore test | Product title in DB identical after restore |
-
-### I. AI (suggest only)
-
-| ID | Status | Work | Done when | Test |
-|----|--------|------|-----------|------|
-| PB-64 | PENDING | `POST /api/stores/{storeId}/ai/seo` reads **this page’s saved text** and returns title + description EN and AR. Nothing is saved until Apply | Apply writes only the chosen fields | Empty page → no invented FAQ or products |
-| PB-65 | PENDING | Heading rewrite suggestion for H1–H6. Previous value stays until Apply | Cancel leaves the field | Other locale untouched |
-| PB-66 | PENDING | Alt suggestion from file name + nearest heading. No invented product facts | Suggestion is editable | No network call to another store’s media |
-| PB-67 | PENDING | Translate EN→AR and AR→EN into the opposite field after the merchant confirms | Source field unchanged | Mixed-language chrome still absent |
-| PB-68 | PENDING | AI context is this `store_id` only. No flowers/coffee copy injected for the other tenant | Log/prompt has no foreign store body | Store B prompt lacks store A names |
-| PB-69 | PENDING | Plan gate: Free receives 403 for AI routes. Pro/Master grant allowed. Server-side | UI hide is not the only check | Free token curl → 403 |
+| PB-57 | DONE | Per-page SEO form, all keys in section 3. Save on the page row | Public `<title>` and meta match published SEO | View source EN and AR. `ThemePageSeoTenTest` — `meta.en.title` / `meta.ar.title` match the saved row. Draft page stays 404 |
+| PB-58 | DONE | Canonical + hreflang `en` and `ar` for that store’s host | No cross-store canonical | Two locales. A `beta.test` canonical on store A is rewritten to `alpha.test`. Store B hreflang is not used |
+| PB-59 | DONE | `robots` index/noindex. Sitemap includes only published indexable pages. `robots.txt` is per store | Draft pages absent from sitemap | noindex page absent. `GET /api/storefront/sitemap` and `/robots` are store-scoped. Unknown store → 404 |
+| PB-60 | DONE | Single H1 check (PB-32) blocks nothing but lists warnings before publish | Warning lists the widget ids | Page with two H1 shows both ids. `warnings.0` stays `multiple-h1`, then `h1:a` and `h1:b`. Publish still returns 200 |
+| PB-61 | DONE | Missing alt text listed on publish. Merchant can still publish | List is per store | Image with alt omitted from the warning. `missing-alt:bare` is listed. `captioned` is not. Status stays published |
+| PB-62 | DONE | FAQ and review JSON-LD from published content only | Schema matches visible text | Empty page emits no FAQ schema. Draft FAQ stays off the public payload until publish. Store B review text is omitted |
+| PB-63 | DONE | Product and category SEO remain on their own tables. Theme restore does not write those rows | Restore test | Product title in DB identical after restore. `ThemePageSuggestTenTest` restores a snapshot that includes product and category SEO. `seo_title` stays `Product SEO title`. Category `meta_title` stays `Category SEO`. Product count stays 2 |
+| PB-64 | DONE | `POST /api/stores/{storeId}/ai/seo` reads **this page’s saved text** and returns title + description EN and AR. Nothing is saved until Apply | Apply writes only the chosen fields | Empty page → no invented FAQ or products. Suggestions stay empty. `saved` is false until `ai/apply` |
+| PB-65 | DONE | Heading rewrite suggestion for H1–H6. Previous value stays until Apply | Cancel leaves the field | Other locale untouched. English suggestion does not return the Arabic field. Draft `textEn` stays spaced until apply |
+| PB-66 | DONE | Alt suggestion from file name + nearest heading. No invented product facts | Suggestion is editable | No network call to another store’s media. Store B `media_id` on store A is 403. `products` stays `[]` |
+| PB-67 | DONE | Translate EN→AR and AR→EN into the opposite field after the merchant confirms | Source field unchanged | Mixed-language chrome still absent. Without confirm, `target` is null. With confirm, target is the saved sibling. Source `textEn` stays |
+| PB-68 | DONE | AI context is this `store_id` only. No flowers/coffee copy injected for the other tenant | Log/prompt has no foreign store body | Store B prompt lacks store A names. Context JSON has no `Beta beans`. Another store’s page id is not readable |
+| PB-69 | DONE | Plan gate: Free receives 403 for AI routes. Pro/Master grant allowed. Server-side | UI hide is not the only check | Free token → 403. `master_granted_pro` on a free row → 200 |
+| PB-70 | DONE | Media library list invalidates on upload. Preview, builder, and customizer share the versioned URL | Replacing an image does not show the old file | Hard-refresh storefront after publish shows the new file. List URL uses `updated_at` as `?v=`. A later timestamp replaces the previous `?v=`. Upload dispatches `unityteck-media-changed` |
+| PB-71 | DONE | Save Draft toast + `aria-busy`. Publish toast. Errors stay on the form | No `alert()` / `confirm()` / full reload | Offline save shows error, keeps local draft until retry succeeds then API wins. `draftAfterSave` test. Save and publish buttons keep `aria-busy` |
+| PB-72 | DONE | Revision list + restore with an explicit confirm UI (not `window.confirm`) | Restore brings layout back | Products count unchanged. Confirm panel `data-restore-confirm` then restore. Cancel closes it |
+| PB-73 | DONE | `updated_by` on page save and revision | DB column filled from the auth user | Anonymous cannot publish |
 
 ### J. Live update, history, plans, security
 
 | ID | Status | Work | Done when | Test |
 |----|--------|------|-----------|------|
-| PB-70 | PENDING | Media library list invalidates on upload. Preview, builder, and customizer share the versioned URL | Replacing an image does not show the old file | Hard-refresh storefront after publish shows the new file |
-| PB-71 | PENDING | Save Draft toast + `aria-busy`. Publish toast. Errors stay on the form | No `alert()` / `confirm()` / full reload | Offline save shows error, keeps local draft until retry succeeds then API wins |
-| PB-72 | PENDING | Revision list + restore with an explicit confirm UI (not `window.confirm`) | Restore brings layout back | Products count unchanged |
-| PB-73 | PENDING | `updated_by` on page save and revision | DB column filled from the auth user | Anonymous cannot publish |
-| PB-74 | PENDING | Display conditions (Pro): guest/logged-in, device, date range. API strips widgets the visitor must not see | Expired campaign widget hidden | Date in the past |
-| PB-75 | PENDING | Master flag: builder on/off per store. Off → API rejects layout writes | Store UI shows not available | Direct PUT → 403 |
-| PB-76 | PENDING | Custom CSS (Pro) sanitized and scoped to the store wrapper. Master kill switch | Free cannot save CSS | CSS cannot target another store root |
-| PB-77 | PENDING | Login email remains Master-only. No theme field writes `ownerEmail` | Settings screen has no login-email input | PUT theme-settings cannot change login email |
-| PB-78 | PENDING | Rich text and HTML allowlist on the server for every widget settings blob | Stored XSS does not execute | Payload test |
+| PB-74 | DONE | Display conditions (Pro): guest/logged-in, device, date range. API strips widgets the visitor must not see | Expired campaign widget hidden | Date in the past |
+| PB-75 | DONE | Master flag: builder on/off per store. Off → API rejects layout writes | Store UI shows not available | Direct PUT → 403 |
+| PB-76 | DONE | Custom CSS (Pro) sanitized and scoped to the store wrapper. Master kill switch | Free cannot save CSS | CSS cannot target another store root |
+| PB-77 | DONE | Login email remains Master-only. No theme field writes `ownerEmail` | Settings screen has no login-email input | PUT theme-settings cannot change login email |
+| PB-78 | DONE | Rich text and HTML allowlist on the server for every widget settings blob | Stored XSS does not execute | Payload test |
 
 ### K. Deep test pass (required before the program is closed)
 
@@ -223,16 +218,18 @@ Do these only after PB-01–PB-78 are `DONE`. Each row still follows the protoco
 
 | ID | Status | Work | Done when | Test |
 |----|--------|------|-----------|------|
-| PB-79 | PENDING | Isolation matrix: coffee store vs a second store. Theme, pages, media, SEO, reviews, AI | Six resources differ | Written checklist in the PR/test note |
-| PB-80 | PENDING | Interaction matrix on Home and on one custom page: drag, drop, hide, duplicate, up, down, undo, redo, page switch, reload | Draft identical after reload | ids unique |
-| PB-81 | PENDING | Responsive pass 1280, 768, 390, AR and EN, customizer + builder + public custom page | No overlap, gap, or clipped button | Notes + viewports |
-| PB-82 | PENDING | Image pass: upload, replace, preview instant, publish, public URL version matches | Old URL not used after publish | `?v=` changed |
-| PB-83 | PENDING | SEO pass: view-source title, description, canonical, hreflang, one H1, sitemap, noindex, FAQ schema | Matches DB | Both locales |
-| PB-84 | PENDING | Empty pass: new store with no products, reviews, FAQ, slides | Genuine empty states | No dummy numbers |
-| PB-85 | PENDING | Commerce regression: add to cart, checkout, thank-you order id, customer account | Order row exists | Theme publish did not alter the order |
-| PB-86 | PENDING | Language pass: admin EN and admin AR through customizer and builder chrome | No mixed chrome string | Content fields still bilingual |
-| PB-87 | PENDING | Security pass: foreign `store_id`, Free plan HTML/AI/CSS, XSS payload, missing store public theme | All rejected | No first-store body |
-| PB-88 | PENDING | `npm run build` and the API test or migrate command used in this repo. Fix every error before closing | Clean build | Record the command output in the step note under this table |
+| PB-79 | DONE | Isolation matrix: coffee store vs a second store. Theme, pages, media, SEO, reviews, AI | Six resources differ | Written checklist in the PR/test note |
+| PB-80 | DONE | Interaction matrix on Home and on one custom page: drag, drop, hide, duplicate, up, down, undo, redo, page switch, reload | Draft identical after reload | ids unique |
+| PB-81 | DONE | Responsive pass 1280, 768, 390, AR and EN, customizer + builder + public custom page | No overlap, gap, or clipped button | Notes + viewports |
+| PB-82 | DONE | Image pass: upload, replace, preview instant, publish, public URL version matches | Old URL not used after publish | `?v=` changed |
+| PB-83 | DONE | SEO pass: view-source title, description, canonical, hreflang, one H1, sitemap, noindex, FAQ schema | Matches DB | Both locales |
+| PB-84 | DONE | Empty pass: new store with no products, reviews, FAQ, slides | Genuine empty states | No dummy numbers |
+| PB-85 | DONE | Commerce regression: add to cart, checkout, thank-you order id, customer account | Order row exists | Theme publish did not alter the order |
+| PB-86 | DONE | Language pass: admin EN and admin AR through customizer and builder chrome | No mixed chrome string | Content fields still bilingual |
+| PB-87 | DONE | Security pass: foreign `store_id`, Free plan HTML/AI/CSS, XSS payload, missing store public theme | All rejected | No first-store body |
+| PB-88 | DONE | `npm run build` and the API test or migrate command used in this repo. Fix every error before closing | Clean build | Record the command output in the step note under this table |
+
+PB-88 note: `npm run build` finished with exit code 0 in 36.69s. Vite reported only the existing large-chunk warning. `ThemePageSeoTenTest` and `ThemePageCloseTest` passed before the close. Chrome check: `node --experimental-strip-types src/themes/coffeeRoasters/chromeLanguage.test.ts`.
 
 ---
 

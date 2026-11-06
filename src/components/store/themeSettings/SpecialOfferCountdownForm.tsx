@@ -75,7 +75,7 @@ export const SpecialOfferCountdownForm: React.FC = () => {
               {isAr ? 'إعدادات الثيم · 17' : 'Theme Settings · 17'}
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'العرض الخاص مع العد التنازلي (Special Offer Countdown)' : 'Special Offer with Countdown (Selia)'}
+              {isAr ? 'العرض الخاص مع العد التنازلي' : 'Special Offer with Countdown (Selia)'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr

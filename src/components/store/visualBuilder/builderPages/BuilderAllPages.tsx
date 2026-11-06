@@ -407,7 +407,7 @@ export const BuilderProductPage: React.FC<BuilderPageProps> = ({
                 : 'Hand-assembled by master florists at our central Makkah boutique using authentic Ecuadorian long-stem roses kept in strictly climate-controlled chambers for peak vitality.'}
             </p>
             <ul className="list-disc list-inside space-y-1 text-slate-700 font-medium">
-              <li>{isAr ? 'نوع الورد: جوري إكوادوري فئة أولى (Premium Grade A)' : 'Floral Grade: Premium Grade A Ecuadorian Roses'}</li>
+              <li>{isAr ? 'نوع الورد: جوري إكوادوري فئة أولى' : 'Floral Grade: Premium Grade A Ecuadorian Roses'}</li>
               <li>{isAr ? 'الارتفاع التقريبي: ٥٥ سم · العرض: ٤٠ سم' : 'Approx Dimensions: 55cm Height · 40cm Width'}</li>
               <li>{isAr ? 'الملحقات: بطاقة إهداء فاخرة + مغذي زهور هولندي مجاني' : 'Includes: Luxury gold-foil gift card & Dutch flower food'}</li>
             </ul>
@@ -538,7 +538,7 @@ export const BuilderCartPage: React.FC<BuilderPageProps> = ({
             {isAr ? 'سلة المشتريات' : 'Shopping Bag'}
           </h1>
           <p className="text-xs text-slate-500">
-            {isAr ? `لديك (${items.length}) عناصر في سلتك` : `${items.length} items in your bag`}
+            {isAr ? `لديك عناصر في سلتك` : `${items.length} items in your bag`}
           </p>
         </div>
         <button
@@ -635,7 +635,7 @@ export const BuilderCartPage: React.FC<BuilderPageProps> = ({
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder={isAr ? 'أدخل الكود (MAKKAH2026)' : 'Enter Code'}
+                placeholder={isAr ? 'أدخل الكود' : 'Enter Code'}
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value)}
                 className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs uppercase font-mono"
@@ -773,7 +773,7 @@ export const BuilderCheckoutPage: React.FC<BuilderPageProps> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder={isAr ? '05xxxxxxxx' : '+966 5xxxxxxxx'}
+                  placeholder={isAr ? '05' : '+966 5xxxxxxxx'}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-600"
                 />
               </div>
@@ -931,7 +931,7 @@ export const BuilderCheckoutPage: React.FC<BuilderPageProps> = ({
 
             <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-              <span>{isAr ? 'حماية مشفرة ومعتمد من البنك المركزي السعودي SAMA' : 'SAMA certified & encrypted gateway'}</span>
+              <span>{isAr ? 'حماية مشفرة ومعتمد من البنك المركزي السعودي' : 'SAMA certified & encrypted gateway'}</span>
             </div>
           </div>
         </div>
@@ -961,9 +961,7 @@ export const BuilderThankYouPage: React.FC<BuilderPageProps> = ({
           {isAr ? 'تم استلام وتأكيد طلبك بنجاح!' : 'Order Placed & Confirmed Successfully!'}
         </h1>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
-          {isAr
-            ? `شكراً لاختيارك ${storeName}. تم إصدار فاتورة زاتكا الضريبية وتجهيز طلبك بأعلى معايير الإتقان.`
-            : `Thank you for choosing ${storeName}. Your official ZATCA tax invoice is ready and your order is confirmed.`}
+          {isAr ? `شكراً لاختيارك ${storeName}. تم إصدار فاتورة زاتكا الضريبية وتجهيز طلبك بأعلى معايير الإتقان.` : `Thank you for choosing ${storeName}. Your official ZATCA tax invoice is ready and your order is confirmed.`}
         </p>
       </div>
 
@@ -1417,7 +1415,7 @@ export const BuilderTrackOrderPage: React.FC<BuilderPageProps> = ({
           type="text"
           value={orderId}
           onChange={(e) => setOrderId(e.target.value)}
-          placeholder={isAr ? 'رقم الطلب (مثال: ORD-2026-1001)' : 'Order Number'}
+          placeholder={isAr ? 'رقم الطلب' : 'Order Number'}
           className="flex-1 px-3 py-2 text-xs font-mono uppercase focus:outline-none"
         />
         <button
@@ -1502,9 +1500,7 @@ export const BuilderPrivacyPage: React.FC<BuilderPageProps> = ({
           {isAr ? `سياسة الخصوصية وسرية البيانات - ${storeName}` : `Privacy & Data Protection Policy - ${storeName}`}
         </h1>
         <p className="text-xs text-slate-500">
-          {isAr
-            ? 'متوافقة مع نظام حماية البيانات الشخصية (PDPL) بالمملكة وهيئة الزكاة والضريبة والجمارك'
-            : 'Compliant with KSA Personal Data Protection Law (PDPL) and ZATCA regulations'}
+          {isAr ? 'متوافقة مع نظام حماية البيانات الشخصية بالمملكة وهيئة الزكاة والضريبة والجمارك' : 'Compliant with KSA Personal Data Protection Law (PDPL) and ZATCA regulations'}
         </p>
       </div>
 
@@ -1514,9 +1510,7 @@ export const BuilderPrivacyPage: React.FC<BuilderPageProps> = ({
             {isAr ? '١. جمع البيانات واستخدامها:' : '1. Data Collection & Purpose:'}
           </h3>
           <p>
-            {isAr
-              ? `نقوم بجمع بيانات العميل الأساسية (الاسم، رقم الجوال، عنوان التوصيل) حصراً لغرض معالجة وتوصيل طلبات ${storeName}، وإصدار الفواتير الضريبية الإلكترونية المعتمدة.`
-              : `We collect customer contact details solely for ${storeName} order fulfillment, dispatch, and official ZATCA tax invoice generation.`}
+            {isAr ? `نقوم بجمع بيانات العميل الأساسية (الاسم، رقم الجوال، عنوان التوصيل) حصراً لغرض معالجة وتوصيل طلبات ${storeName}، وإصدار الفواتير الضريبية الإلكترونية المعتمدة.` : `We collect customer contact details solely for ${storeName} order fulfillment, dispatch, and official ZATCA tax invoice generation.`}
           </p>
         </section>
 
@@ -1525,9 +1519,7 @@ export const BuilderPrivacyPage: React.FC<BuilderPageProps> = ({
             {isAr ? '٢. أمان المدفوعات والبطاقات:' : '2. Payment Security:'}
           </h3>
           <p>
-            {isAr
-              ? 'تتم جميع العمليات المالية عبر بوابات دفع وطنية معتمدة من البنك المركزي السعودي (مدى، أبل باي). لا يقوم المتجر بتخزين أرقام البطاقات الائتمانية أو رموز الأمان (CVV) على خوادمه نهائياً.'
-              : 'All transactions are processed through SAMA-licensed gateways with 256-bit SSL encryption. We never store credit card or CVV details on our servers.'}
+            {isAr ? 'تتم جميع العمليات المالية عبر بوابات دفع وطنية معتمدة من البنك المركزي السعودي (مدى، أبل باي). لا يقوم المتجر بتخزين أرقام البطاقات الائتمانية أو رموز الأمان على خوادمه نهائياً.' : 'All transactions are processed through SAMA-licensed gateways with 256-bit SSL encryption. We never store credit card or CVV details on our servers.'}
           </p>
         </section>
 
@@ -1564,9 +1556,7 @@ export const BuilderReturnPolicyPage: React.FC<BuilderPageProps> = ({
           {isAr ? `سياسة الاستبدال والاسترجاع وضمان الجودة - ${storeName}` : `Return & Quality Guarantee Policy - ${storeName}`}
         </h1>
         <p className="text-xs text-slate-500">
-          {isAr
-            ? `نضمن رضاكم التام عن كل منتج وخدمة تصلكم من ${storeName}`
-            : `Our 100% satisfaction commitment for every order delivered by ${storeName}`}
+          {isAr ? `نضمن رضاكم التام عن كل منتج وخدمة تصلكم من ${storeName}` : `Our 100% satisfaction commitment for every order delivered by ${storeName}`}
         </p>
       </div>
 
@@ -1587,9 +1577,7 @@ export const BuilderReturnPolicyPage: React.FC<BuilderPageProps> = ({
             {isAr ? '٢. خطوات طلب الاستبدال السريع:' : '2. Rapid Support Procedure:'}
           </h3>
           <p>
-            {isAr
-              ? `يكفي إرسال رقم الطلب عبر واتساب خدمة العملاء (${contactPhone}) وسيقوم فريقنا بمتابعة الطلب فوراً.`
-              : `Simply send your order ID to our support WhatsApp (${contactPhone}) for swift assistance.`}
+            {isAr ? `يكفي إرسال رقم الطلب عبر واتساب خدمة العملاء وسيقوم فريقنا بمتابعة الطلب فوراً.` : `Simply send your order ID to our support WhatsApp (${contactPhone}) for swift assistance.`}
           </p>
         </section>
 

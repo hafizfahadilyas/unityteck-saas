@@ -87,12 +87,10 @@ export const ImageGridForm: React.FC = () => {
               Theme Settings · 09
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'شبكة الصور البصرية (Image Grid / Bento)' : 'Image Grid (Selia)'}
+              {isAr ? 'شبكة الصور البصرية' : 'Image Grid (Selia)'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
-              {isAr
-                ? 'عرض الصور والحملات الإعلانية في تخطيط بينتو (Bento Grid) عصري وجذاب'
-                : 'Display your images and campaigns in a creative and flexible bento layout'}
+              {isAr ? 'عرض الصور والحملات الإعلانية في تخطيط بينتو عصري وجذاب' : 'Display your images and campaigns in a creative and flexible bento layout'}
             </p>
           </div>
         </div>

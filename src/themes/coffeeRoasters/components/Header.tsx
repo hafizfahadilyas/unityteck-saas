@@ -254,6 +254,29 @@ export const Header: React.FC = () => {
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const closeAnimationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const megaMenuContainerRef = useRef<HTMLDivElement | null>(null);
+  const announcementRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setActiveMegaMenu(null);
+  }, [currentRoute]);
+
+  useEffect(() => {
+    const write = () => {
+      const announcement = announcementRef.current?.getBoundingClientRect().height ?? 0;
+      const header = headerRef.current?.getBoundingClientRect().height ?? 0;
+      const px = `${Math.round(announcement + header)}px`;
+      const root = headerRef.current?.closest('.hibrew-theme-root') as HTMLElement | null;
+      root?.style.setProperty('--theme-chrome-offset', px);
+      document.documentElement.style.setProperty('--theme-chrome-offset', px);
+    };
+    write();
+    const observer = new ResizeObserver(write);
+    if (announcementRef.current) observer.observe(announcementRef.current);
+    if (headerRef.current) observer.observe(headerRef.current);
+    return () => observer.disconnect();
+  }, [countryNoticeVisible, language, headerVersion]);
 
   // Track window scroll for sticky border & shadow
   useEffect(() => {
@@ -406,7 +429,7 @@ export const Header: React.FC = () => {
   return (
     <>
       {/* 0. PROMO BAR — Word C-ANN (rotate / stacked / single) — never flowers MKS */}
-      <div data-customize-section="C-ANN">
+      <div data-customize-section="C-ANN" ref={announcementRef}>
         <CoffeeAnnouncementStrip
           language={language}
           bar={allThemeSettings?.announcementBar}
@@ -454,6 +477,8 @@ export const Header: React.FC = () => {
 
       {/* 2. MAIN HEADER NAVIGATION BAR (Sticky Fixed on Scroll with Honor Slim Profile & Perfect Center Alignment) */}
       <header
+        ref={headerRef}
+        data-theme-sticky-chrome
         data-customize-section="00_header_builder"
         className={`sticky top-0 z-50 w-full bg-white text-neutral-900 border-b border-neutral-200/80 transition-all duration-200 ${
           isScrolled ? 'shadow-[0_2px_15px_rgba(0,0,0,0.06)]' : ''
@@ -1331,7 +1356,7 @@ export const Header: React.FC = () => {
 
         {/* 4. HONOR MOBILE DRILLDOWN SLIDE NAVIGATION */}
         {mobileMenuOpen && (
-          <div className="lg:hidden absolute top-full left-0 right-0 w-full max-w-full h-[calc(100vh-4rem)] max-h-[calc(100dvh-4rem)] bg-white z-[100] border-t border-neutral-200 shadow-[0_25px_50px_rgba(0,0,0,0.22)] overflow-y-auto overflow-x-hidden overscroll-contain text-neutral-800 animate-honor-mega" data-mobile-nav="panel">
+          <div className="lg:hidden absolute top-full left-0 right-0 w-full max-w-full h-[calc(100vh-4rem)] max-h-[calc(100dvh-4rem)] bg-white z-[100] border-t border-neutral-200 shadow-[0_25px_50px_rgba(0,0,0,0.22)] overflow-y-auto overflow-x-hidden overscroll-contain text-neutral-800 animate-honor-mega" data-mobile-nav="panel" data-theme-menu="mobile">
             {/* LEVEL 1: Primary Category List */}
             {!mobileSubNavKey ? (
               <div className="p-4 sm:p-6 pb-24 space-y-4">

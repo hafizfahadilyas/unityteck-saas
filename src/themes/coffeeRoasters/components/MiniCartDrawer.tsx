@@ -19,7 +19,7 @@ export const MiniCartDrawer: React.FC = () => {
   if (!isMiniCartOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] overflow-hidden selection:bg-neutral-900 selection:text-white">
+    <div data-theme-modal="cart" className="fixed inset-0 z-[80] overflow-hidden selection:bg-neutral-900 selection:text-white">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-xs transition-opacity"

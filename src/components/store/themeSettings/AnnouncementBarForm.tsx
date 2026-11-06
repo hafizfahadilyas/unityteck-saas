@@ -81,7 +81,7 @@ export const AnnouncementBarForm: React.FC = () => {
               Theme Settings · 13
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'شريط الإعلانات الترويجي (Announcement Bar)' : 'Announcement Bar (Selia)'}
+              {isAr ? 'شريط الإعلانات الترويجي' : 'Announcement Bar (Selia)'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr

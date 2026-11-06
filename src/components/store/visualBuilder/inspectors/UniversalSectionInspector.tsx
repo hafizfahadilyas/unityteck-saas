@@ -330,16 +330,16 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                   onChange={(e) => onUpdateSetting('tagFilter', e.target.value)}
                   className="w-full px-2.5 py-1.5 border border-slate-300 bg-white rounded-lg text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500"
                 >
-                  <option value="all">{isAr ? 'جميع المنتجات (All Products)' : 'All Products'}</option>
-                  <option value="trending">{isAr ? 'الأكثر رواجاً (Top Trending 🔥)' : 'Top Trending 🔥'}</option>
-                  <option value="best_sellers">{isAr ? 'الأكثر مبيعاً (Best Sellers ⭐)' : 'Best Sellers ⭐'}</option>
-                  <option value="best_products">{isAr ? 'أفضل المنتجات (Best Products 👑)' : 'Best Products 👑'}</option>
-                  <option value="featured">{isAr ? 'منتجات مميزة (Featured ✨)' : 'Featured ✨'}</option>
-                  <option value="women">{isAr ? 'هدايا نسائية (Women)' : 'Women Collection'}</option>
-                  <option value="valentines">{isAr ? 'عيد الحب والرومانسية (Valentine)' : "Valentine's Day"}</option>
-                  <option value="eid">{isAr ? 'الأعياد والاحتفالات (Eid)' : 'Eid Celebrations'}</option>
-                  <option value="birthday">{isAr ? 'أعياد الميلاد (Birthday)' : 'Birthday Gifts'}</option>
-                  <option value="luxury">{isAr ? 'تشكيلة فاخرة (Luxury VIP)' : 'Luxury VIP'}</option>
+                  <option value="all">{isAr ? 'جميع المنتجات' : 'All Products'}</option>
+                  <option value="trending">{isAr ? 'الأكثر رواجاً' : 'Top Trending 🔥'}</option>
+                  <option value="best_sellers">{isAr ? 'الأكثر مبيعاً' : 'Best Sellers ⭐'}</option>
+                  <option value="best_products">{isAr ? 'أفضل المنتجات' : 'Best Products 👑'}</option>
+                  <option value="featured">{isAr ? 'منتجات مميزة' : 'Featured ✨'}</option>
+                  <option value="women">{isAr ? 'هدايا نسائية' : 'Women Collection'}</option>
+                  <option value="valentines">{isAr ? 'عيد الحب والرومانسية' : "Valentine's Day"}</option>
+                  <option value="eid">{isAr ? 'الأعياد والاحتفالات' : 'Eid Celebrations'}</option>
+                  <option value="birthday">{isAr ? 'أعياد الميلاد' : 'Birthday Gifts'}</option>
+                  <option value="luxury">{isAr ? 'تشكيلة فاخرة' : 'Luxury VIP'}</option>
                 </select>
               </div>
 
@@ -433,7 +433,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                   <span>{isAr ? 'نسبة عرض صور المنتجات' : 'Product Image Ratio'}</span>
                   <span className="text-[9px] text-emerald-700 font-bold bg-emerald-100 px-1.5 py-0.5 rounded">
                     {(s.imageAspectRatio || 'portrait') === 'portrait'
-                      ? (isAr ? 'صورة كاملة (Reference 4:5)' : 'Full Image (4:5)')
+                      ? (isAr ? 'صورة كاملة' : 'Full Image (4:5)')
                       : (s.imageAspectRatio || 'portrait')}
                   </span>
                 </label>
@@ -591,7 +591,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                 <div className="grid grid-cols-2 gap-2 bg-amber-100/60 p-2 rounded-xl">
                   <div>
                     <label className="block text-[10px] font-bold text-amber-950 mb-1">
-                      {isAr ? 'عدد الأعمدة (Columns)' : 'Grid Columns'}
+                      {isAr ? 'عدد الأعمدة' : 'Grid Columns'}
                     </label>
                     <select
                       value={s.columns || (currentCategories.length === 5 ? 5 : 4)}
@@ -601,7 +601,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                       <option value={2}>2 {isAr ? 'أعمدة' : 'Columns'}</option>
                       <option value={3}>3 {isAr ? 'أعمدة' : 'Columns'}</option>
                       <option value={4}>4 {isAr ? 'أعمدة' : 'Columns'}</option>
-                      <option value={5}>5 {isAr ? 'أعمدة (5 Categories)' : '5 Columns'}</option>
+                      <option value={5}>5 {isAr ? 'أعمدة' : '5 Columns'}</option>
                       <option value={6}>6 {isAr ? 'أعمدة' : 'Columns'}</option>
                     </select>
                   </div>
@@ -718,7 +718,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                             <div className="grid grid-cols-2 gap-2">
                               <div>
                                 <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                                  {isAr ? 'نص الشارة (Badge)' : 'Badge Label'}
+                                  {isAr ? 'نص الشارة' : 'Badge Label'}
                                 </label>
                                 <input
                                   type="text"
@@ -730,7 +730,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                               </div>
                               <div>
                                 <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                                  {isAr ? 'رابط التوجيه (Link)' : 'Target Link'}
+                                  {isAr ? 'رابط التوجيه' : 'Target Link'}
                                 </label>
                                 <input
                                   type="text"
@@ -813,7 +813,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                 <div className="flex items-center justify-between border-b border-indigo-200 pb-2">
                   <span className="font-extrabold text-indigo-950 flex items-center gap-1.5 text-xs">
                     <Sparkles className="w-4 h-4 text-indigo-700" />
-                    <span>{isAr ? 'تخصيص شرائح السلايدر (3D Slides)' : 'Hero 3D Motion Slides'}</span>
+                    <span>{isAr ? 'تخصيص شرائح السلايدر' : 'Hero 3D Motion Slides'}</span>
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-indigo-900 bg-indigo-100 px-2 py-0.5 rounded-md border border-indigo-300">
@@ -923,7 +923,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                     <div className="space-y-2.5">
                       <div>
                         <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                          {isAr ? 'العنوان العربي (Arabic Title)' : 'Arabic Title'}
+                          {isAr ? 'العنوان العربي' : 'Arabic Title'}
                         </label>
                         <input
                           type="text"
@@ -934,7 +934,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                          {isAr ? 'العنوان الإنجليزي (English Title)' : 'English Title'}
+                          {isAr ? 'العنوان الإنجليزي' : 'English Title'}
                         </label>
                         <input
                           type="text"
@@ -980,7 +980,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                       {/* Button 1 */}
                       <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/50 space-y-2">
                         <span className="text-[11px] font-extrabold text-indigo-900 block">
-                          {isAr ? 'الزر الأول (Primary CTA)' : 'Primary Button'}
+                          {isAr ? 'الزر الأول' : 'Primary Button'}
                         </span>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
@@ -1022,7 +1022,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                       {/* Button 2 */}
                       <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/50 space-y-2">
                         <span className="text-[11px] font-extrabold text-slate-800 block">
-                          {isAr ? 'الزر الثانوي (Secondary CTA)' : 'Secondary Button'}
+                          {isAr ? 'الزر الثانوي' : 'Secondary Button'}
                         </span>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
@@ -1073,7 +1073,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
               <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
                 <span className="font-extrabold text-emerald-950 flex items-center gap-1.5 text-xs">
                   <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                  <span>{isAr ? 'تخصيص تذييل المتجر (Footer Elements)' : 'Footer Elements & Legal'}</span>
+                  <span>{isAr ? 'تخصيص تذييل المتجر' : 'Footer Elements & Legal'}</span>
                 </span>
                 <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
                   ZATCA & Payments
@@ -1194,7 +1194,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                   <div className="grid grid-cols-2 gap-2 pt-1 border-t border-emerald-200">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                        {isAr ? 'الرقم الضريبي ZATCA (15 خانة)' : 'VAT Number (15 digits)'}
+                        {isAr ? 'الرقم الضريبي (15 خانة)' : 'VAT Number (15 digits)'}
                       </label>
                       <input
                         type="text"
@@ -1298,7 +1298,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    {isAr ? 'العنوان العربي (Arabic Title)' : 'Arabic Title'}
+                    {isAr ? 'العنوان العربي' : 'Arabic Title'}
                   </label>
                   <input
                     type="text"
@@ -1315,7 +1315,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    {isAr ? 'العنوان الإنجليزي (English Title)' : 'English Title'}
+                    {isAr ? 'العنوان الإنجليزي' : 'English Title'}
                   </label>
                   <input
                     type="text"
@@ -1394,7 +1394,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
 
                 <div>
                   <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                    {isAr ? 'رابط التوجيه (URL)' : 'Target URL'}
+                    {isAr ? 'رابط التوجيه' : 'Target URL'}
                   </label>
                   <input
                     type="text"
@@ -1502,7 +1502,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
 
             <div>
               <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                {isAr ? 'اللون المميز (Accent Color)' : 'Accent Color'}
+                {isAr ? 'اللون المميز' : 'Accent Color'}
               </label>
               <div className="flex items-center gap-2">
                 <input
@@ -1525,7 +1525,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
           <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/50 space-y-3">
             <span className="font-bold text-slate-800 block text-xs flex items-center gap-1.5">
               <ImageIcon className="w-3.5 h-3.5 text-indigo-600" />
-              <span>{isAr ? 'صورة خلفية القسم (Section Background Image)' : 'Section Background Image'}</span>
+              <span>{isAr ? 'صورة خلفية القسم' : 'Section Background Image'}</span>
             </span>
 
             <InspectorImageUpload
@@ -1550,9 +1550,9 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                     onChange={(e) => onUpdateSetting('bgSize', e.target.value)}
                     className="w-full px-2 py-1.5 border border-slate-300 bg-white rounded-lg text-xs font-bold"
                   >
-                    <option value="cover">{isAr ? 'تغطية كاملة (Cover)' : 'Cover'}</option>
-                    <option value="contain">{isAr ? 'احتواء (Contain)' : 'Contain'}</option>
-                    <option value="auto">{isAr ? 'تلقائي (Auto)' : 'Auto'}</option>
+                    <option value="cover">{isAr ? 'تغطية كاملة' : 'Cover'}</option>
+                    <option value="contain">{isAr ? 'احتواء' : 'Contain'}</option>
+                    <option value="auto">{isAr ? 'تلقائي' : 'Auto'}</option>
                   </select>
                 </div>
                 <div>
@@ -1564,9 +1564,9 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                     onChange={(e) => onUpdateSetting('bgPosition', e.target.value)}
                     className="w-full px-2 py-1.5 border border-slate-300 bg-white rounded-lg text-xs font-bold"
                   >
-                    <option value="center">{isAr ? 'وسط (Center)' : 'Center'}</option>
-                    <option value="top">{isAr ? 'أعلى (Top)' : 'Top'}</option>
-                    <option value="bottom">{isAr ? 'أسفل (Bottom)' : 'Bottom'}</option>
+                    <option value="center">{isAr ? 'وسط' : 'Center'}</option>
+                    <option value="top">{isAr ? 'أعلى' : 'Top'}</option>
+                    <option value="bottom">{isAr ? 'أسفل' : 'Bottom'}</option>
                   </select>
                 </div>
               </div>
@@ -1609,13 +1609,13 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
         <div className="space-y-4 text-xs">
           <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/50 space-y-3">
             <span className="font-bold text-slate-800 block text-xs">
-              {isAr ? 'الهوامش والمسافات (Spacing & Padding)' : 'Margins & Padding'}
+              {isAr ? 'الهوامش والمسافات' : 'Margins & Padding'}
             </span>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                  {isAr ? 'الهامش العلوي (Padding Top)' : 'Padding Top (px)'}
+                  {isAr ? 'الهامش العلوي' : 'Padding Top (px)'}
                 </label>
                 <input
                   type="number"
@@ -1628,7 +1628,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                  {isAr ? 'الهامش السفلي (Padding Bottom)' : 'Padding Bottom (px)'}
+                  {isAr ? 'الهامش السفلي' : 'Padding Bottom (px)'}
                 </label>
                 <input
                   type="number"
@@ -1652,7 +1652,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                   }}
                   className="rounded text-indigo-600 accent-indigo-600"
                 />
-                <span>{isAr ? 'عرض كامل للشاشة (Full Width 100%)' : 'Full Width Container (100%)'}</span>
+                <span>{isAr ? 'عرض كامل للشاشة' : 'Full Width Container (100%)'}</span>
               </label>
             </div>
           </div>

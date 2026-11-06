@@ -62,6 +62,25 @@ class ThemeLayoutGuardTest extends TestCase
         $this->assertContains('multiple-h1', $result['warnings']);
     }
 
+    public function test_publish_lists_h1_widget_ids_and_missing_alt_without_blocking(): void
+    {
+        $result = ThemeLayoutGuard::prepare([
+            'blocks' => [
+                ['id' => 'a', 'type' => 'heading', 'settings' => ['tag' => 'h1', 'textEn' => 'One']],
+                ['id' => 'b', 'type' => 'heading', 'settings' => ['tag' => 'h1', 'textEn' => 'Two']],
+                ['id' => 'bare', 'type' => 'image', 'settings' => ['altEn' => '']],
+                ['id' => 'captioned', 'type' => 'image', 'settings' => ['altEn' => 'Cup']],
+            ],
+        ], 'store-a', true, 'pro');
+
+        $this->assertContains('multiple-h1', $result['warnings']);
+        $this->assertContains('h1:a', $result['warnings']);
+        $this->assertContains('h1:b', $result['warnings']);
+        $this->assertContains('missing-alt:bare', $result['warnings']);
+        $this->assertNotContains('missing-alt:captioned', $result['warnings']);
+        $this->assertFalse($result['denied']);
+    }
+
     public function test_heading_widget_tag_is_normalized_once(): void
     {
         $result = ThemeLayoutGuard::prepare([

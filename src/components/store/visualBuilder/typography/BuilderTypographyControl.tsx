@@ -124,7 +124,7 @@ export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({
       <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
         <div className="flex items-center gap-2 font-black text-slate-800">
           <Type className="w-4 h-4 text-indigo-600" />
-          <span>{title || (isAr ? 'الخط والطباعة (Typography)' : 'Typography Control')}</span>
+          <span>{title || (isAr ? 'الخط والطباعة' : 'Typography Control')}</span>
         </div>
 
         <div className="flex items-center gap-1">
@@ -186,7 +186,7 @@ export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({
       {/* Font Family Selector */}
       <div className="space-y-1.5">
         <label className="text-[11px] font-bold text-slate-600 block">
-          {isAr ? 'عائلة الخط (Font Family):' : 'Font Family:'}
+          {isAr ? 'عائلة الخط:' : 'Font Family:'}
         </label>
         <select
           value={value.fontFamily}
@@ -216,7 +216,7 @@ export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-bold text-slate-600">
-              {isAr ? 'حجم الخط (Size):' : 'Size:'}
+              {isAr ? 'حجم الخط:' : 'Size:'}
             </span>
 
             {/* Device tabs toggle popup (Like Image 4 purple circle) */}
@@ -287,19 +287,19 @@ export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({
       {/* Font Weight */}
       <div className="space-y-1.5">
         <label className="text-[11px] font-bold text-slate-600 block">
-          {isAr ? 'سماكة الخط (Weight):' : 'Weight:'}
+          {isAr ? 'سماكة الخط:' : 'Weight:'}
         </label>
         <select
           value={value.weight}
           onChange={(e) => onChange({ ...value, weight: e.target.value })}
           className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 cursor-pointer"
         >
-          <option value="400">{isAr ? 'عادي (Regular 400)' : 'Regular 400'}</option>
-          <option value="500">{isAr ? 'متوسط (Medium 500)' : 'Medium 500'}</option>
-          <option value="600">{isAr ? 'شبه عريض (Semi-Bold 600)' : 'Semi-Bold 600'}</option>
-          <option value="700">{isAr ? 'عريض (Bold 700)' : 'Bold 700'}</option>
-          <option value="800">{isAr ? 'عريض جداً (Extra-Bold 800)' : 'Extra-Bold 800'}</option>
-          <option value="900">{isAr ? 'أسود سميك (Black 900)' : 'Black 900'}</option>
+          <option value="400">{isAr ? 'عادي' : 'Regular 400'}</option>
+          <option value="500">{isAr ? 'متوسط' : 'Medium 500'}</option>
+          <option value="600">{isAr ? 'شبه عريض' : 'Semi-Bold 600'}</option>
+          <option value="700">{isAr ? 'عريض' : 'Bold 700'}</option>
+          <option value="800">{isAr ? 'عريض جداً' : 'Extra-Bold 800'}</option>
+          <option value="900">{isAr ? 'أسود سميك' : 'Black 900'}</option>
         </select>
       </div>
 

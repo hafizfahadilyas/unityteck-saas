@@ -187,7 +187,7 @@ export const BuilderAiAssistant: React.FC<BuilderAiAssistantProps> = ({
               className="px-2.5 py-1.5 rounded-lg hover:border-amber-500 text-[11px] font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-40 transition-colors"
             >
               <Search className="w-3 h-3 text-amber-400" />
-              <span>{isAr ? 'تحسين SEO' : 'SEO'}</span>
+              <span>{isAr ? 'تحسين' : 'SEO'}</span>
             </button>
             <button
               type="button"

@@ -395,7 +395,7 @@ export const AdvancedSliderForm: React.FC = () => {
 
           <div>
             <label className="text-[10px] font-bold text-slate-400 block mb-1">
-              {isAr ? 'شارة العرض (Badge / Tag)' : 'Badge / Tag Text'}
+              {isAr ? 'شارة العرض' : 'Badge / Tag Text'}
             </label>
             <input
               type="text"
@@ -425,7 +425,7 @@ export const AdvancedSliderForm: React.FC = () => {
             </div>
             <div>
               <label className="text-[10px] font-bold text-slate-400 block mb-1">
-                {isAr ? 'رابط الزر (URL)' : 'Button URL'}
+                {isAr ? 'رابط الزر' : 'Button URL'}
               </label>
               <input
                 type="text"
@@ -485,9 +485,9 @@ export const AdvancedSliderForm: React.FC = () => {
                 onChange={(e) => updateActiveSlide({ buttonStyle: e.target.value as any })}
                 className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold"
               >
-                <option value="filled">{isAr ? 'ممتلئ (Filled)' : 'Filled'}</option>
-                <option value="outlined">{isAr ? 'محدد بإطار (Outlined)' : 'Outlined'}</option>
-                <option value="glass">{isAr ? 'زجاجي شفاف (Glass)' : 'Glass'}</option>
+                <option value="filled">{isAr ? 'ممتلئ' : 'Filled'}</option>
+                <option value="outlined">{isAr ? 'محدد بإطار' : 'Outlined'}</option>
+                <option value="glass">{isAr ? 'زجاجي شفاف' : 'Glass'}</option>
               </select>
             </div>
 
@@ -498,11 +498,11 @@ export const AdvancedSliderForm: React.FC = () => {
                 onChange={(e) => updateActiveSlide({ buttonIcon: e.target.value })}
                 className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold"
               >
-                <option value="ShoppingBag">{isAr ? 'حقيبة تسوق (ShoppingBag)' : 'Shopping Bag'}</option>
-                <option value="ChevronRight">{isAr ? 'سهم انتقال (ChevronRight)' : 'Arrow Right'}</option>
-                <option value="Zap">{isAr ? 'برق سريع (Zap)' : 'Lightning Zap'}</option>
-                <option value="Sparkles">{isAr ? 'نجوم وبريق (Sparkles)' : 'Sparkles'}</option>
-                <option value="ExternalLink">{isAr ? 'رابط خارجي (ExternalLink)' : 'External Link'}</option>
+                <option value="ShoppingBag">{isAr ? 'حقيبة تسوق' : 'Shopping Bag'}</option>
+                <option value="ChevronRight">{isAr ? 'سهم انتقال' : 'Arrow Right'}</option>
+                <option value="Zap">{isAr ? 'برق سريع' : 'Lightning Zap'}</option>
+                <option value="Sparkles">{isAr ? 'نجوم وبريق' : 'Sparkles'}</option>
+                <option value="ExternalLink">{isAr ? 'رابط خارجي' : 'External Link'}</option>
               </select>
             </div>
           </div>
@@ -575,7 +575,7 @@ export const AdvancedSliderForm: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
-            <span className="font-bold">{isAr ? 'التشغيل التلقائي (Auto Play)' : 'Auto Play Slides'}</span>
+            <span className="font-bold">{isAr ? 'التشغيل التلقائي' : 'Auto Play Slides'}</span>
             <button
               type="button"
               onClick={() => setSettings((p) => ({ ...p, autoPlay: !p.autoPlay }))}

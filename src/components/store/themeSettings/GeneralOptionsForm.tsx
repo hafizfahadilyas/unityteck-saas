@@ -176,7 +176,7 @@ export const GeneralOptionsForm: React.FC = () => {
           {/* Breadcrumb Navigation */}
           <div className="flex items-center justify-between pt-3">
             <div>
-              <span className="text-xs font-bold block">{isAr ? 'شريط مسار التصفح (Breadcrumbs)' : 'Breadcrumb Navigation'}</span>
+              <span className="text-xs font-bold block">{isAr ? 'شريط مسار التصفح' : 'Breadcrumb Navigation'}</span>
               <span className="text-[11px] text-muted">
                 {isAr ? 'عرض مسار الصفحة الحالية أعلى المحتوى' : 'Show hierarchical page trail on product & category pages'}
               </span>
@@ -234,7 +234,7 @@ export const GeneralOptionsForm: React.FC = () => {
 
       {/* Card 2: Alternative Logo */}
       <div className="rounded-xl border p-4 space-y-2" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-        <label className="text-xs font-bold block">{isAr ? 'الشعار البديل (Alternative Logo)' : 'Alternative Logo'}</label>
+        <label className="text-xs font-bold block">{isAr ? 'الشعار البديل' : 'Alternative Logo'}</label>
         <p className="text-[11px] text-muted">
           {isAr ? 'يستخدم على الخلفيات الشفافة أو الداكنة' : 'Used on transparent navigation or dark header backgrounds'}
         </p>
@@ -270,7 +270,7 @@ export const GeneralOptionsForm: React.FC = () => {
               onChange={() => setVal('sectionTitleDesign', 'classic')}
               className="accent-emerald-600"
             />
-            <span>{isAr ? 'كلاسيكي (Classic)' : 'Classic'}</span>
+            <span>{isAr ? 'كلاسيكي' : 'Classic'}</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold">
             <input
@@ -280,7 +280,7 @@ export const GeneralOptionsForm: React.FC = () => {
               onChange={() => setVal('sectionTitleDesign', 'modern')}
               className="accent-emerald-600"
             />
-            <span>{isAr ? 'عصري وحديث (Modern)' : 'Modern'}</span>
+            <span>{isAr ? 'عصري وحديث' : 'Modern'}</span>
           </label>
         </div>
       </div>
@@ -310,7 +310,7 @@ export const GeneralOptionsForm: React.FC = () => {
                     : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                 }`}
               >
-                {isAr ? 'حاوية محددة (Container)' : 'Container (Standard)'}
+                {isAr ? 'حاوية محددة' : 'Container (Standard)'}
               </button>
               <button
                 type="button"
@@ -321,7 +321,7 @@ export const GeneralOptionsForm: React.FC = () => {
                     : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                 }`}
               >
-                {isAr ? 'عرض كامل (Full Width)' : 'Full Width (Edge-to-Edge)'}
+                {isAr ? 'عرض كامل' : 'Full Width (Edge-to-Edge)'}
               </button>
             </div>
           </div>
@@ -329,7 +329,7 @@ export const GeneralOptionsForm: React.FC = () => {
           {/* Mobile Display Mode */}
           <div className="space-y-2">
             <span className="text-xs font-bold block">
-              {isAr ? 'طريقة عرض المنتجات بالجوال (Mobile Display)' : 'Mobile Products & Grid Display'}
+              {isAr ? 'طريقة عرض المنتجات بالجوال' : 'Mobile Products & Grid Display'}
             </span>
             <p className="text-[11px] text-muted">
               {isAr ? 'عرض منتجين في الصف أو منتج واحد مع كاروسيل سلايدر' : 'Display 2 items per row or 1 item full / carousel'}
@@ -344,7 +344,7 @@ export const GeneralOptionsForm: React.FC = () => {
                     : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                 }`}
               >
-                {isAr ? 'منتجان في الصف (2 Col)' : '2 Items Per Row'}
+                {isAr ? 'منتجان في الصف' : '2 Items Per Row'}
               </button>
               <button
                 type="button"
@@ -355,7 +355,7 @@ export const GeneralOptionsForm: React.FC = () => {
                     : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                 }`}
               >
-                {isAr ? 'منتج واحد / كاروسيل (1 Col)' : '1 Item Full / Carousel'}
+                {isAr ? 'منتج واحد / كاروسيل' : '1 Item Full / Carousel'}
               </button>
             </div>
           </div>
@@ -390,7 +390,7 @@ export const GeneralOptionsForm: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-600">
-              {isAr ? 'إدارة القوائم وشريط التنقل (Navbar & Mega Menu)' : 'Navbar & Menu Navigation Manager'}
+              {isAr ? 'إدارة القوائم وشريط التنقل' : 'Navbar & Menu Navigation Manager'}
             </h3>
             <p className="text-[11px] text-muted mt-0.5">
               {isAr ? 'تخصيص روابط شريط التنقل العلوي، ترتيبها بالسحب والأزرار، وتفعيل الميجا منيو' : 'Customize top navigation links, reorder with buttons, and toggle Mega Menus'}
@@ -593,7 +593,7 @@ export const GeneralOptionsForm: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <span className="text-[10px] font-bold uppercase text-muted block mb-1">
-              {isAr ? 'تخطيط الهيدر (Header Layout)' : 'Header Layout'}
+              {isAr ? 'تخطيط الهيدر' : 'Header Layout'}
             </span>
             <select
               value={settings.headerLayout}
@@ -609,7 +609,7 @@ export const GeneralOptionsForm: React.FC = () => {
           </div>
           <div>
             <span className="text-[10px] font-bold uppercase text-muted block mb-1">
-              {isAr ? 'تخطيط الفوتر (Footer Layout)' : 'Footer Layout'}
+              {isAr ? 'تخطيط الفوتر' : 'Footer Layout'}
             </span>
             <select
               value={settings.footerLayout}

@@ -114,7 +114,7 @@ export const FeaturedCategoriesProductsForm: React.FC<CoffeeFormChromeProps> = (
   }, (
     <>
       <EnableRow isAr={isAr} enabled={!!draft?.enabled} onChange={(v) => setDraft({ ...draft, enabled: v })} />
-      <p className="text-[11px] text-slate-500">{isAr ? `الأقسام (${sections.length})` : `Sections (${sections.length})`}</p>
+      <p className="text-[11px] text-slate-500">{isAr ? `الأقسام` : `Sections (${sections.length})`}</p>
       {sections.length === 0 && (
         <p className="text-xs text-muted">{isAr ? 'لا توجد أقسام. أضف قسماً لعرضه في المتجر.' : 'No sections yet. Add one to show it on the storefront.'}</p>
       )}
@@ -888,7 +888,7 @@ export const CoffeeBannersSectionForm: React.FC<CoffeeFormChromeProps> = ({ onBa
   }, (
     <>
       <EnableRow isAr={isAr} enabled={!!draft?.enabled} onChange={(v) => setDraft({ ...draft, enabled: v })} />
-      <p className="text-[11px] text-muted">{isAr ? 'قسم البانر (C-BAN) منفصل عن الهيرو والبانرات المميزة.' : 'Banner section (C-BAN) is separate from the hero and featured banners.'}</p>
+      <p className="text-[11px] text-muted">{isAr ? 'قسم البانر منفصل عن الهيرو والبانرات المميزة.' : 'Banner section (C-BAN) is separate from the hero and featured banners.'}</p>
       {banners.length === 0 && <p className="text-xs text-muted">{isAr ? 'لا بانرات.' : 'No banners.'}</p>}
       {banners.map((b, index) => (
         <div key={b.id} className={cardCls} style={cardStyle}>
@@ -1110,9 +1110,7 @@ export const CoffeeProductEditForm: React.FC = () => {
   return (
     <div className="space-y-4">
       <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
-        {isAr
-          ? 'تعديل المنتج يستخدم واجهة المنتجات وليس JSON الثيم. أزرار الشراء في الثيم تقرأ الكتالوج بعد الحفظ.'
-          : 'Edit Product uses the products API, not theme JSON. Theme buy buttons read the catalog after save.'}
+        {isAr ? 'تعديل المنتج يستخدم واجهة المنتجات وليس الثيم. أزرار الشراء في الثيم تقرأ الكتالوج بعد الحفظ.' : 'Edit Product uses the products API, not theme JSON. Theme buy buttons read the catalog after save.'}
       </p>
       <a href={`/admin?store=${encodeURIComponent(activeStore.slug || 'coffee')}&tab=products`} className="text-xs font-bold text-emerald-700 underline">
         {isAr ? 'فتح دليل المنتجات' : 'Open product catalog'}
@@ -1195,9 +1193,7 @@ export const CoffeeReviewsForm: React.FC = () => {
   return (
     <div className="space-y-4">
       <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
-        {isAr
-          ? 'التقييمات تُحفظ في واجهة /reviews وليست ضمن JSON الثيم. التقييم الجديد من الواجهة يصل بانتظار الموافقة.'
-          : 'Reviews persist on the reviews API, not theme JSON. Storefront submissions arrive pending approval.'}
+        {isAr ? 'التقييمات تُحفظ في واجهة / وليست ضمن الثيم. التقييم الجديد من الواجهة يصل بانتظار الموافقة.' : 'Reviews persist on the reviews API, not theme JSON. Storefront submissions arrive pending approval.'}
       </p>
       {loading && <p className="text-xs text-muted">{isAr ? 'جارٍ التحميل…' : 'Loading…'}</p>}
       {!loading && reviews.length === 0 && (

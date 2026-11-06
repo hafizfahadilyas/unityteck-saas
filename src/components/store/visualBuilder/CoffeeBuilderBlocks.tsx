@@ -240,9 +240,7 @@ function FeaturedCategoriesPreview({
                 ) : null}
                 {first.showPrice !== false && (
                   <span className="text-[10px] text-neutral-500 mt-1">
-                    {isAr
-                      ? `${Number(p.basePrice || 0).toLocaleString()} ر.س`
-                      : `SAR ${Number(p.basePrice || 0).toLocaleString()}`}
+                    {isAr ? `${Number(p.basePrice || 0).toLocaleString()} ر.س` : `SAR ${Number(p.basePrice || 0).toLocaleString()}`}
                   </span>
                 )}
               </div>
@@ -322,9 +320,7 @@ function FeaturedProductsPreview({
                 {label ? <div className="text-xs font-bold text-center line-clamp-2">{label}</div> : null}
                 {fp.showPrice !== false ? (
                 <div className="text-[10px] text-neutral-500 mt-1">
-                  {isAr
-                    ? `${Number(p.basePrice || 0).toLocaleString()} ر.س`
-                    : `SAR ${Number(p.basePrice || 0).toLocaleString()}`}
+                  {isAr ? `${Number(p.basePrice || 0).toLocaleString()} ر.س` : `SAR ${Number(p.basePrice || 0).toLocaleString()}`}
                 </div>
                 ) : null}
               </div>

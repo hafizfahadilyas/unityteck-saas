@@ -1,0 +1,50 @@
+/* Shared flow for the builder canvas and the coffee storefront. */
+.hibrew-theme-root,
+.theme-builder-root {
+  overflow-x: hidden;
+}
+
+.hibrew-theme-root h1,
+.hibrew-theme-root h2,
+.hibrew-theme-root h3,
+.hibrew-theme-root h4,
+.hibrew-theme-root h5,
+.hibrew-theme-root h6,
+.theme-builder-root h1,
+.theme-builder-root h2,
+.theme-builder-root h3,
+.theme-builder-root h4,
+.theme-builder-root h5,
+.theme-builder-root h6 {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+  scroll-margin-top: var(--theme-chrome-offset, 4.5rem);
+}
+
+[dir='rtl'] .theme-dir-icon {
+  transform: scaleX(-1);
+}
+
+.hibrew-theme-root main > * {
+  position: relative;
+  z-index: 0;
+}
+
+.hibrew-theme-root [data-theme-sticky-chrome] {
+  z-index: 50;
+}
+
+.hibrew-theme-root [data-theme-menu] {
+  z-index: 60;
+}
+
+.hibrew-theme-root [data-theme-modal] {
+  z-index: 70;
+}
+
+.theme-slider-stage {
+  aspect-ratio: 16 / 7;
+  overflow: hidden;
+  contain: layout;
+}

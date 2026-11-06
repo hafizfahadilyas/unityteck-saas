@@ -77,7 +77,7 @@ export const BannersForm: React.FC = () => {
               Theme Settings · 11
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'البانرات الترويجية (Banners Selia)' : 'Banners (Selia)'}
+              {isAr ? 'البانرات الترويجية' : 'Banners (Selia)'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr

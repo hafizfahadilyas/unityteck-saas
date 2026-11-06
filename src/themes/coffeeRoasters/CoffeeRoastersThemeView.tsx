@@ -18,6 +18,7 @@ import { Footer } from './components/Footer';
 import { FloatingHelpWidget } from './components/FloatingHelpWidget';
 import { CheckCircle2 } from 'lucide-react';
 import './coffeeRoasters.css';
+import './themeFlow.css';
 
 // Code-split secondary routes for blazing fast initial homepage load
 const ProductsListPage = lazy(() => import('./components/ProductsListPage').then(m => ({ default: m.ProductsListPage })));

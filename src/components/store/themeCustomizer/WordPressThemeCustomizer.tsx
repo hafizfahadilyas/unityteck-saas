@@ -1180,9 +1180,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
               type="button"
               onClick={() => syncPreviewLang('en')}
               className={`px-2.5 py-1 rounded-lg text-[11px] font-black cursor-pointer transition-all duration-150 ${
-                !isAr
-                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-emerald-400 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                !isAr ? 'bg- :bg--900 --600 :--400 -2xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
               EN
@@ -1191,9 +1189,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
               type="button"
               onClick={() => syncPreviewLang('ar')}
               className={`px-2.5 py-1 rounded-lg text-[11px] font-black cursor-pointer transition-all duration-150 ${
-                isAr
-                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-emerald-400 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                isAr ? 'bg- :bg--900 --600 :--400 -2xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
               AR
@@ -1234,7 +1230,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
               type="button"
               onClick={() => syncPreviewLang('en')}
               className={`px-2 py-1 rounded-lg text-[10px] font-black cursor-pointer ${
-                !isAr ? 'bg-white dark:bg-slate-900 text-indigo-600' : 'text-slate-500'
+                !isAr ? 'bg- :bg--900 --600' : 'text-slate-500'
               }`}
             >
               {isAr ? 'إنجليزي' : 'English'}
@@ -1243,7 +1239,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
               type="button"
               onClick={() => syncPreviewLang('ar')}
               className={`px-2 py-1 rounded-lg text-[10px] font-black cursor-pointer ${
-                isAr ? 'bg-white dark:bg-slate-900 text-indigo-600' : 'text-slate-500'
+                isAr ? 'bg- :bg--900 --600' : 'text-slate-500'
               }`}
             >
               {isAr ? 'عربي' : 'Arabic'}
@@ -1316,9 +1312,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={
-                    isAr
-                      ? `ابحث في عناصر هذه الصفحة (${orderedPageCatalog.length})…`
-                      : `Search this page’s panels (${orderedPageCatalog.length})…`
+                    isAr ? `ابحث في عناصر هذه الصفحة…` : `Search this page’s panels (${orderedPageCatalog.length})…`
                   }
                   className="w-full ps-9 pe-8 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-400"
                 />
@@ -1418,9 +1412,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
               <div className="space-y-1">
                 <div className="px-2 py-1 flex items-center justify-between gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   <span className="truncate">
-                    {isAr
-                      ? `عناصر الصفحة: ${activePageMeta.nameAr}`
-                      : `Panels for: ${activePageMeta.nameEn}`}
+                    {isAr ? `عناصر الصفحة: ${activePageMeta.nameAr || activePageMeta.nameEn}` : `Panels for: ${activePageMeta.nameEn}`}
                   </span>
                   <span className="text-[10px] font-mono text-slate-500 shrink-0">
                     {filteredSections.length} / {orderedPageCatalog.length}
@@ -1497,7 +1489,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                             </span>
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 block truncate mt-0.5">
                               {(elementCounts[sec.id] || 0) > 0
-                                ? (isAr ? `${elementCounts[sec.id]} عناصر · ` : `${elementCounts[sec.id]} elements · `)
+                                ? (isAr ? `${elementCounts[sec.id]} عناصر ·` : `${elementCounts[sec.id]} elements · `)
                                 : ''}
                               {isAr ? sec.descAr : sec.descEn}
                             </span>

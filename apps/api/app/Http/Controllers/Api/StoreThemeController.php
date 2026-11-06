@@ -11,6 +11,9 @@ use App\Models\ThemeGlobalStyle;
 use App\Models\ThemePage;
 use App\Support\DefaultTheme;
 use App\Support\ThemeCache;
+use App\Support\ThemePageSeo;
+use App\Support\ThemeSettingsGuard;
+use App\Support\ThemeVisitorGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -129,7 +132,7 @@ class StoreThemeController extends Controller
         if (isset($data['settings']) || $request->boolean('publish')) {
             $draft = is_array($existing['draft'] ?? null) ? $existing['draft'] : [];
             if (isset($data['settings'])) {
-                $incoming = $data['settings'];
+                $incoming = ThemeSettingsGuard::withoutLoginEmail($data['settings']);
                 unset($incoming['draft'], $incoming['by_theme'], $incoming['builder'], $incoming['globalStyles']);
                 $draft = $this->mergeThemeSettings($draft, $incoming);
             }
@@ -166,6 +169,8 @@ class StoreThemeController extends Controller
         }
 
         $storeTheme->theme_id = $newThemeId;
+        $savedSettings = is_array($storeTheme->settings) ? $storeTheme->settings : [];
+        $storeTheme->settings = ThemeSettingsGuard::withoutLoginEmail($savedSettings);
         $storeTheme->save();
         $storeTheme->load('theme');
 
@@ -336,7 +341,7 @@ class StoreThemeController extends Controller
             $cacheKey = ThemeCache::pageKey($store->id, $slug);
             $cached = Cache::get($cacheKey);
             if (is_array($cached)) {
-                return response()->json($cached);
+                return response()->json($this->forVisitor($cached, $store, $request));
             }
 
             $page = ThemePage::withoutGlobalScope('store')
@@ -352,17 +357,27 @@ class StoreThemeController extends Controller
                 ], 404);
             }
 
+            $seo = is_array($page->seo) ? $page->seo : [];
+            $layout = is_array($page->published_layout) ? $page->published_layout : [];
+            $origin = ThemePageSeo::originForStore((string) ($store->domain ?? ''), $request->getSchemeAndHttpHost());
+            $host = ThemePageSeo::hostOf($origin);
+            $slug = (string) $page->slug;
             $payload = [
                 'success' => true,
                 'store_id' => $store->id,
                 'page' => [
                     'id' => $page->id,
-                    'slug' => $page->slug,
+                    'slug' => $slug,
                     'type' => $page->type,
                     'title_en' => $page->title_en,
                     'title_ar' => $page->title_ar,
-                    'published_layout' => $page->published_layout,
-                    'seo' => $page->seo,
+                    'published_layout' => $layout,
+                    'seo' => $seo,
+                    'meta' => [
+                        'en' => ThemePageSeo::publicMeta($seo, 'en', $origin, $slug, $host),
+                        'ar' => ThemePageSeo::publicMeta($seo, 'ar', $origin, $slug, $host),
+                    ],
+                    'json_ld' => ThemePageSeo::jsonLd($layout, $store->id),
                     'header_mode' => $page->header_mode,
                     'footer_mode' => $page->footer_mode,
                     'status' => $page->status,
@@ -374,7 +389,7 @@ class StoreThemeController extends Controller
             ];
             Cache::put($cacheKey, $payload, now()->addHour());
 
-            return response()->json($payload);
+            return response()->json($this->forVisitor($payload, $store, $request));
         }
 
         $storeTheme = StoreTheme::withoutGlobalScope('store')
@@ -561,5 +576,82 @@ class StoreThemeController extends Controller
         $footer = $settings['footer'] ?? null;
 
         return is_array($footer) ? $footer : null;
+    }
+
+    public function storefrontSitemap(Request $request): \Symfony\Component\HttpFoundation\Response|JsonResponse
+    {
+        $store = $this->publicStore($request);
+        if ($store instanceof JsonResponse) {
+            return $store;
+        }
+        $origin = ThemePageSeo::originForStore((string) ($store->domain ?? ''), $request->getSchemeAndHttpHost());
+        $pages = ThemePage::withoutGlobalScope('store')
+            ->where('store_id', $store->id)
+            ->where('status', 'published')
+            ->whereNotNull('published_layout')
+            ->get(['slug', 'seo']);
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+        foreach ($pages as $page) {
+            $seo = is_array($page->seo) ? $page->seo : [];
+            if (! ThemePageSeo::indexable($seo)) {
+                continue;
+            }
+            $loc = rtrim($origin, '/').'/'.ltrim((string) $page->slug, '/');
+            $xml .= '<url><loc>'.htmlspecialchars($loc, ENT_XML1).'</loc></url>';
+        }
+        $xml .= '</urlset>';
+
+        return response($xml, 200)->header('Content-Type', 'application/xml; charset=utf-8');
+    }
+
+    public function storefrontRobots(Request $request): \Symfony\Component\HttpFoundation\Response|JsonResponse
+    {
+        $store = $this->publicStore($request);
+        if ($store instanceof JsonResponse) {
+            return $store;
+        }
+        $origin = ThemePageSeo::originForStore((string) ($store->domain ?? ''), $request->getSchemeAndHttpHost());
+        $body = "User-agent: *\nAllow: /\nSitemap: ".rtrim($origin, '/')."/sitemap.xml\n";
+
+        return response($body, 200)->header('Content-Type', 'text/plain; charset=utf-8');
+    }
+
+    private function publicStore(Request $request): Store|JsonResponse
+    {
+        $storeId = $request->query('store_id') ?? $request->header('X-Store-Id');
+        $store = null;
+        if (is_string($storeId) && trim($storeId) !== '') {
+            $store = Store::query()->where('id', $storeId)->orWhere('slug', $storeId)->first();
+        }
+        if (! $store) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Store not found.',
+            ], 404);
+        }
+
+        return $store;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function forVisitor(array $payload, Store $store, Request $request): array
+    {
+        $page = $payload['page'] ?? null;
+        if (! is_array($page) || ! is_array($page['published_layout'] ?? null)) {
+            return $payload;
+        }
+        $plan = strtolower((string) ($store->plan ?: 'free'));
+        $conditions = (bool) ($store->master_granted_pro ?? false)
+            || in_array($plan, ['pro', 'premium', 'custom'], true);
+        $audience = $request->query('visitor') === 'user' ? 'user' : 'guest';
+        $device = $request->query('device');
+        $device = in_array($device, ['mobile', 'tablet', 'desktop'], true) ? $device : 'desktop';
+        $page['published_layout'] = ThemeVisitorGate::filter($page['published_layout'], $audience, $device, $conditions);
+        $payload['page'] = $page;
+
+        return $payload;
     }
 }

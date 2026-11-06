@@ -456,9 +456,7 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
                 </h2>
               </div>
               <p className="text-xs text-muted mt-1">
-                {isAr
-                  ? 'مطابقة بنسبة 100% لتصاميم Selia مع معاينات بصرية، حركات حديثة، وربط حي مع متجرك الفعلي'
-                  : '100% same-to-same designs from Theme_Settings_UIUX with thumbnail views, animations & instant live sync'}
+                {isAr ? 'مطابقة بنسبة 100% لتصاميم مع معاينات بصرية، حركات حديثة، وربط حي مع متجرك الفعلي' : '100% same-to-same designs from Theme_Settings_UIUX with thumbnail views, animations & instant live sync'}
               </p>
             </div>
 
@@ -468,10 +466,10 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
                   type="button"
                   onClick={() => onOpenThemeCustomizer('01_store_identity')}
                   className="px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 cursor-pointer transition-all shadow-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shrink-0 active:scale-[0.98]"
-                  title={isAr ? 'فتح مخصص الثيم التفاعلي المباشر (WordPress Customizer)' : 'Launch Live WordPress Customizer'}
+                  title={isAr ? 'فتح مخصص الثيم التفاعلي المباشر' : 'Launch Live WordPress Customizer'}
                 >
                   <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-                  <span>{isAr ? 'المخصص المباشر (WordPress Style)' : 'Live Theme Customizer'}</span>
+                  <span>{isAr ? 'المخصص المباشر' : 'Live Theme Customizer'}</span>
                 </button>
               )}
 

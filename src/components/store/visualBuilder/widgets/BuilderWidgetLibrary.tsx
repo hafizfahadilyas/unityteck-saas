@@ -463,7 +463,7 @@ export const BuilderWidgetLibrary: React.FC<BuilderWidgetLibraryProps> = ({
               }}
               onClick={() => onAddWidget(w)}
               className="p-3 rounded-xl border border-slate-200 hover:border-indigo-500 hover:shadow-xs bg-white hover:bg-indigo-50/30 flex flex-col items-center justify-center text-center gap-1.5 transition-all group cursor-grab active:cursor-grabbing relative"
-              title={isAr ? `انقر للإضافة أو اسحب وأفلت في أي قسم (${w.titleAr})` : `Click to add or drag & drop into any section (${w.titleEn})`}
+              title={isAr ? `انقر للإضافة أو اسحب وأفلت في أي قسم` : `Click to add or drag & drop into any section (${w.titleEn})`}
             >
               <span className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-indigo-600 text-slate-600 group-hover:text-white flex items-center justify-center transition-colors">
                 <WIcon className="w-4 h-4" />

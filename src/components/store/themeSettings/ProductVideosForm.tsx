@@ -69,12 +69,10 @@ export const ProductVideosForm: React.FC = () => {
               Theme Settings · 06
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'فيديوهات المنتجات (Product Videos)' : 'Product Videos (Selia)'}
+              {isAr ? 'فيديوهات المنتجات' : 'Product Videos (Selia)'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
-              {isAr
-                ? 'عرض فيديوهات المنتجات القصيرة (Reels / TikTok) لزيادة المبيعات'
-                : 'Show your products with engaging short-form vertical videos'}
+              {isAr ? 'عرض فيديوهات المنتجات القصيرة لزيادة المبيعات' : 'Show your products with engaging short-form vertical videos'}
             </p>
           </div>
         </div>

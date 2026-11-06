@@ -84,7 +84,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
     { id: 'Gift', label: isAr ? 'هدية' : 'Gift', Icon: Gift },
     { id: 'Percent', label: isAr ? 'خصم' : 'Discount', Icon: Percent },
     { id: 'BookOpen', label: isAr ? 'مجلة' : 'Magazine', Icon: BookOpen },
-    { id: 'Crown', label: isAr ? 'تاج VIP' : 'Crown', Icon: Crown },
+    { id: 'Crown', label: isAr ? 'تاج' : 'Crown', Icon: Crown },
     { id: 'Heart', label: isAr ? 'قلب' : 'Heart', Icon: Heart },
     { id: 'Star', label: isAr ? 'نجمة' : 'Star', Icon: Star },
     { id: 'Flame', label: isAr ? 'شعلة' : 'Flame', Icon: Flame },
@@ -122,7 +122,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>{isAr ? 'عناصر رأس المتجر (Header Elements):' : 'Select Header Element to Edit:'}</span>
+            <span>{isAr ? 'عناصر رأس المتجر:' : 'Select Header Element to Edit:'}</span>
           </span>
           <span className="text-[10px] bg-indigo-600/60 text-indigo-100 px-2 py-0.5 rounded-full font-mono">
             {activeSubElement}
@@ -412,7 +412,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                   <div className="space-y-2 pt-2 border-t border-slate-200">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                        {isAr ? 'رابط صورة الشعار (Logo Image URL)' : 'Logo Image URL'}
+                        {isAr ? 'رابط صورة الشعار' : 'Logo Image URL'}
                       </label>
                       <input
                         type="text"
@@ -427,7 +427,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                     <div className="flex items-center gap-3">
                       <div className="flex-1">
                         <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                          {isAr ? 'ارتفاع الشعار (Logo Height)' : 'Logo Height'}:{' '}
+                          {isAr ? 'ارتفاع الشعار' : 'Logo Height'}:{' '}
                           <span className="text-indigo-600 font-mono">{settings.logo.logoHeight}px</span>
                         </label>
                         <input
@@ -522,7 +522,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                 {/* Hover Effect */}
                 <div className="pt-2 border-t border-slate-200">
                   <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                    {isAr ? 'تأثير التحويم بالماوس (Hover Animation)' : 'Hover Animation'}
+                    {isAr ? 'تأثير التحويم بالماوس' : 'Hover Animation'}
                   </label>
                   <select
                     value={settings.logo.hoverEffect}
@@ -534,8 +534,8 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                     }
                     className="w-full px-2.5 py-1.5 text-xs font-bold border border-slate-200 rounded-lg bg-white"
                   >
-                    <option value="scale">{isAr ? 'تكبير سلس (Scale)' : 'Smooth Scale'}</option>
-                    <option value="glow">{isAr ? 'توهج ولمعان ذهبي (Glow)' : 'Gold Glow'}</option>
+                    <option value="scale">{isAr ? 'تكبير سلس' : 'Smooth Scale'}</option>
+                    <option value="glow">{isAr ? 'توهج ولمعان ذهبي' : 'Gold Glow'}</option>
                     <option value="none">{isAr ? 'بدون تأثير' : 'None'}</option>
                   </select>
                 </div>
@@ -633,7 +633,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                   <div className="flex items-center justify-between">
                     <label className="text-[11px] font-bold text-rose-950 flex items-center gap-1.5">
                       <Crown className="w-3.5 h-3.5 text-amber-500" />
-                      <span>{isAr ? 'زر "بوابة VIP" المميز' : 'VIP Portal Button'}</span>
+                      <span>{isAr ? 'زر "بوابة " المميز' : 'VIP Portal Button'}</span>
                     </label>
                     <input
                       type="checkbox"
@@ -770,7 +770,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
 
                       <div>
                         <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                          {isAr ? 'التصنيف أو الرابط (Category / URL)' : 'Category / Link'}
+                          {isAr ? 'التصنيف أو الرابط' : 'Category / Link'}
                         </label>
                         <input
                           type="text"
@@ -803,7 +803,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <Search className="w-4 h-4 text-slate-700" />
-                    <span>{isAr ? 'زر وأيقونة البحث (Search)' : 'Search Icon & Modal'}</span>
+                    <span>{isAr ? 'زر وأيقونة البحث' : 'Search Icon & Modal'}</span>
                   </span>
                   <input
                     type="checkbox"
@@ -861,7 +861,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <User className="w-4 h-4 text-slate-700" />
-                    <span>{isAr ? 'زر الحساب وتسجيل الدخول (Account)' : 'Account & Sign In'}</span>
+                    <span>{isAr ? 'زر الحساب وتسجيل الدخول' : 'Account & Sign In'}</span>
                   </span>
                   <input
                     type="checkbox"
@@ -932,7 +932,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <ShoppingBag className="w-4 h-4 text-emerald-700" />
-                    <span>{isAr ? 'أيقونة سلة المشتريات (Cart Bag)' : 'Shopping Cart Bag'}</span>
+                    <span>{isAr ? 'أيقونة سلة المشتريات' : 'Shopping Cart Bag'}</span>
                   </span>
                   <input
                     type="checkbox"
@@ -964,9 +964,9 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                           }
                           className="w-full px-2 py-1 text-xs font-bold border border-slate-200 rounded-lg bg-white"
                         >
-                          <option value="ShoppingBag">{isAr ? 'حقيبة تسوق (Bag)' : 'Bag'}</option>
-                          <option value="ShoppingCart">{isAr ? 'عربة تسوق (Cart)' : 'Cart'}</option>
-                          <option value="ShoppingBasket">{isAr ? 'سلة تقليدية (Basket)' : 'Basket'}</option>
+                          <option value="ShoppingBag">{isAr ? 'حقيبة تسوق' : 'Bag'}</option>
+                          <option value="ShoppingCart">{isAr ? 'عربة تسوق' : 'Cart'}</option>
+                          <option value="ShoppingBasket">{isAr ? 'سلة تقليدية' : 'Basket'}</option>
                         </select>
                       </div>
 
@@ -999,7 +999,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                   <Globe className="w-4 h-4 text-indigo-600" />
-                  <span>{isAr ? 'تفعيل زر تبديل اللغة (العربية / English)' : 'Language Switcher'}</span>
+                  <span>{isAr ? 'تفعيل زر تبديل اللغة' : 'Language Switcher'}</span>
                 </span>
                 <input
                   type="checkbox"
@@ -1053,7 +1053,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between p-2 bg-white rounded-xl border border-slate-200">
                   <label className="text-xs font-bold text-slate-700">
-                    {isAr ? 'هيدر ثابت أعلى الصفحة (Sticky Header)' : 'Sticky Header on Scroll'}
+                    {isAr ? 'هيدر ثابت أعلى الصفحة' : 'Sticky Header on Scroll'}
                   </label>
                   <input
                     type="checkbox"
@@ -1067,7 +1067,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
 
                 <div className="flex items-center justify-between p-2 bg-white rounded-xl border border-slate-200">
                   <label className="text-xs font-bold text-slate-700">
-                    {isAr ? 'تأثير الزجاج الشفاف الضبابي (Backdrop Blur)' : 'Backdrop Blur (Glass UI)'}
+                    {isAr ? 'تأثير الزجاج الشفاف الضبابي' : 'Backdrop Blur (Glass UI)'}
                   </label>
                   <input
                     type="checkbox"
@@ -1084,7 +1084,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
 
                 <div className="p-2 bg-white rounded-xl border border-slate-200">
                   <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                    {isAr ? 'ظل الهيدر (Shadow Depth)' : 'Shadow Depth'}
+                    {isAr ? 'ظل الهيدر' : 'Shadow Depth'}
                   </label>
                   <div className="grid grid-cols-4 gap-1">
                     {(['none', 'sm', 'md', 'lg'] as const).map((sh) => (
@@ -1221,7 +1221,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
               <div className="space-y-3">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                    {isAr ? 'لون خلفية الشريط (Background Color)' : 'Background Color'}
+                    {isAr ? 'لون خلفية الشريط' : 'Background Color'}
                   </label>
                   <div className="flex items-center gap-2">
                     <input
@@ -1352,7 +1352,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                 <div className="pt-2 border-t border-slate-200 space-y-2">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      {isAr ? 'نوع الخط (Font Family)' : 'Font Family'}
+                      {isAr ? 'نوع الخط' : 'Font Family'}
                     </label>
                     <select
                       value={settings.logo.fontFamily}
@@ -1445,7 +1445,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      {isAr ? 'لون التحويم (Hover Text)' : 'Hover Text Color'}
+                      {isAr ? 'لون التحويم' : 'Hover Text Color'}
                     </label>
                     <div className="flex items-center gap-1.5">
                       <input
@@ -1469,7 +1469,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
 
                   <div>
                     <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      {isAr ? 'لون زر بوابة VIP' : 'VIP Button Color'}
+                      {isAr ? 'لون زر بوابة' : 'VIP Button Color'}
                     </label>
                     <div className="flex items-center gap-1.5">
                       <input
@@ -1522,7 +1522,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      {isAr ? 'شارة السلة (Badge Bg)' : 'Cart Badge Bg'}
+                      {isAr ? 'شارة السلة' : 'Cart Badge Bg'}
                     </label>
                     <div className="flex items-center gap-1.5">
                       <input
@@ -1649,7 +1649,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
             {/* Quick Color Presets Row */}
             <div className="pt-2 border-t border-slate-200">
               <span className="text-[10px] font-bold text-slate-500 block mb-1.5">
-                {isAr ? 'لوحة ألوان سريعة (Quick Luxury Palette):' : 'Quick Palette:'}
+                {isAr ? 'لوحة ألوان سريعة:' : 'Quick Palette:'}
               </span>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {QUICK_PALETTE.map((c) => (
@@ -1682,7 +1682,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
         <div className="border border-slate-200 rounded-2xl p-3.5 bg-slate-50/50 space-y-3">
           <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
             <Sliders className="w-4 h-4 text-indigo-600" />
-            <span>{isAr ? 'المحاذاة والمسافات (Layout & Spacing)' : 'Alignment & Spacing'}</span>
+            <span>{isAr ? 'المحاذاة والمسافات' : 'Alignment & Spacing'}</span>
           </span>
 
           {activeSubElement === 'navigation' && (
@@ -1721,7 +1721,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
             <div className="space-y-3">
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                  {isAr ? 'حشوة الهيدر الرأسية (Vertical Padding)' : 'Vertical Padding'}:{' '}
+                  {isAr ? 'حشوة الهيدر الرأسية' : 'Vertical Padding'}:{' '}
                   <span className="text-indigo-600 font-mono">{settings.general.paddingY}px</span>
                 </label>
                 <input

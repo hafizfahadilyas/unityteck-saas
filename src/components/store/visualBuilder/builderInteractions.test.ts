@@ -13,6 +13,8 @@ import {
   widgetPosition,
   withVisibility,
 } from './builderInteractions.ts';
+import { pushHistory, redoHistory, seedHistory, undoHistory } from './builderHistory.ts';
+import { stashPageDraft } from './builderPages.ts';
 
 const row = rowSection('25-25-50', 'sec-1');
 const reloaded = JSON.parse(JSON.stringify(row));
@@ -50,6 +52,31 @@ assert.equal(countVisibleH1([
   { type: 'heading', settings: { htmlTag: 'h3', textEn: 'Three' } },
 ]), 1);
 assert.equal(countVisibleH1([{ type: 'heading', settings: { tag: 'h2' } }]), 0);
+
+const home = [{ id: 'a', visible: true }, { id: 'b', visible: true }];
+const matrixDropped = applyDrop(home, 0, 1);
+assert.equal(matrixDropped.accepted, true);
+const matrixHidden = withVisibility(matrixDropped.items[0], { visible: false });
+assert.equal(matrixHidden.visible, false);
+const matrixCopied = duplicateBlock(matrixDropped.items, 'b', 'b-copy');
+assert.equal(matrixCopied.length, 3);
+const moved = moveBlock(matrixCopied, 'b-copy', -1);
+const ids = moved.map((block) => block.id);
+assert.equal(new Set(ids).size, ids.length);
+let history = seedHistory(home);
+history = pushHistory(history, moved, (a, b) => JSON.stringify(a) === JSON.stringify(b));
+const undone = undoHistory(history);
+assert.deepEqual(undone.stack[undone.index], home);
+const redone = redoHistory(undone);
+assert.deepEqual(redone.stack[redone.index], moved);
+const pages = stashPageDraft({}, 'home', moved);
+const switched = stashPageDraft(pages, 'custom', [{ id: 'c', visible: true }]);
+const matrixReloaded = JSON.parse(JSON.stringify(switched.home));
+assert.deepEqual(matrixReloaded, moved);
+assert.notDeepEqual(switched.custom, switched.home);
+assert.equal(columnTemplate('4', 390), '1fr');
+assert.equal(columnTemplate('4', 768), 'repeat(4, 1fr)');
+assert.equal(columnTemplate('4', 1280), 'repeat(4, 1fr)');
 
 const saver = createCoalescedSaver(30, () => {});
 saver.push();

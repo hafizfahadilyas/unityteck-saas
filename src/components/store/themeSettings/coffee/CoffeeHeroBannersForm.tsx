@@ -141,7 +141,7 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
               </label>
             </div>
             <p className="text-[11px] text-slate-500">
-              {isAr ? `الشرائح (${banners.length}) — منفصلة عن بانرات القسم المميز.` : `Slides (${banners.length}) — separate from featured section banners.`}
+              {isAr ? `الشرائح — منفصلة عن بانرات القسم المميز.` : `Slides (${banners.length}) — separate from featured section banners.`}
             </p>
           </section>
 

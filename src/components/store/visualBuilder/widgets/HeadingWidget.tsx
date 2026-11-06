@@ -1,4 +1,5 @@
 import React from 'react';
+import { headingFlowStyle } from '../../../../themes/coffeeRoasters/themeFlow';
 
 export type HeadingTagName = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
 
@@ -52,7 +53,7 @@ export function HeadingWidget({
     tag,
     {
       className: 'm-0 max-w-full px-4 py-3 font-bold break-words',
-      style: { fontSize: `${fontSize}px`, textAlign: align, color, lineHeight: 1.3 },
+      style: { fontSize: `${fontSize}px`, textAlign: align, color, lineHeight: 1.3, ...headingFlowStyle() },
     },
     text,
   );

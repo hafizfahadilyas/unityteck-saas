@@ -123,6 +123,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
   const [pageData, setPageData] = useState<StoreCustomPage | undefined>(undefined);
   const [allPages, setAllPages] = useState<StoreCustomPage[]>([]);
   const [publicPhase, setPublicPhase] = useState<'idle' | 'loading' | 'ready' | 'missing'>('idle');
+  const [publicHead, setPublicHead] = useState<{ meta?: { en?: Record<string, unknown>; ar?: Record<string, unknown> }; json_ld?: unknown } | null>(null);
 
   // Interactive tracking form state
   const [trackOrderInput, setTrackOrderInput] = useState('');
@@ -144,6 +145,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
     if (!storeId) {
       setAllPages([]);
       setPageData(undefined);
+      setPublicHead(null);
       setPublicPhase(isPublicLayout ? 'missing' : 'idle');
       return;
     }
@@ -155,9 +157,14 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
           const layout = pub?.page?.published_layout;
           if (!layout || pub?.store_id !== storeId || pub?.page?.draft_layout) {
             setPageData(undefined);
+            setPublicHead(null);
             setPublicPhase('missing');
             return;
           }
+          setPublicHead({
+            meta: pub.page.meta,
+            json_ld: pub.page.json_ld,
+          });
           setPageData({
             id: String(pub.page.id || effectiveSlug),
             slug: String(pub.page.slug || effectiveSlug),
@@ -173,6 +180,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
         })
         .catch(() => {
           setPageData(undefined);
+          setPublicHead(null);
           setPublicPhase('missing');
         });
       return;
@@ -184,6 +192,67 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
       setPageData(getStorePageBySlug(storeId, effectiveSlug, activeStore));
     });
   };
+
+  useEffect(() => {
+    if (!isPublicLayout || publicPhase !== 'ready' || !publicHead) return;
+    const meta = (isAr ? publicHead.meta?.ar : publicHead.meta?.en) || {};
+    const title = typeof meta.title === 'string' ? meta.title.trim() : '';
+    const description = typeof meta.description === 'string' ? meta.description.trim() : '';
+    if (title) document.title = title;
+    const setMeta = (name: string, content: string, property = false) => {
+      if (!content) return;
+      let el = document.querySelector(property ? `meta[property="${name}"]` : `meta[name="${name}"]`);
+      if (!el) {
+        el = document.createElement('meta');
+        if (property) el.setAttribute('property', name);
+        else el.setAttribute('name', name);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+    setMeta('description', description);
+    setMeta('robots', typeof meta.robots === 'string' ? meta.robots : '');
+    setMeta('og:title', typeof meta.og_title === 'string' ? meta.og_title : title, true);
+    setMeta('og:description', typeof meta.og_description === 'string' ? meta.og_description : description, true);
+    if (typeof meta.og_image === 'string' && meta.og_image) setMeta('og:image', meta.og_image, true);
+    setMeta('twitter:card', typeof meta.twitter_card === 'string' ? meta.twitter_card : '');
+    const canonical = typeof meta.canonical === 'string' ? meta.canonical : '';
+    let canonicalLink = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    if (canonical) {
+      if (!canonicalLink) {
+        canonicalLink = document.createElement('link');
+        canonicalLink.rel = 'canonical';
+        document.head.appendChild(canonicalLink);
+      }
+      canonicalLink.href = canonical;
+    }
+    const hreflang = (meta.hreflang || {}) as { en?: string; ar?: string };
+    (['en', 'ar'] as const).forEach((lang) => {
+      const href = hreflang[lang];
+      if (!href) return;
+      let link = document.querySelector(`link[rel="alternate"][hreflang="${lang}"]`) as HTMLLinkElement | null;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'alternate';
+        link.hreflang = lang;
+        document.head.appendChild(link);
+      }
+      link.href = href;
+    });
+    const scriptId = 'theme-page-jsonld';
+    const existing = document.getElementById(scriptId);
+    const jsonLd = publicHead.json_ld;
+    const hasSchema = jsonLd && typeof jsonLd === 'object' && Object.keys(jsonLd as object).length > 0;
+    if (!hasSchema) {
+      existing?.remove();
+      return;
+    }
+    const script = existing || document.createElement('script');
+    script.id = scriptId;
+    script.setAttribute('type', 'application/ld+json');
+    script.textContent = JSON.stringify(jsonLd);
+    if (!existing) document.head.appendChild(script);
+  }, [isAr, isPublicLayout, publicHead, publicPhase]);
 
   useEffect(() => {
     reloadData();

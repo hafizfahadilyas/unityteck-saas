@@ -21,7 +21,7 @@ export const SearchModal: React.FC = () => {
   });
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-xs flex items-start justify-center pt-20 p-4 selection:bg-neutral-900 selection:text-white">
+    <div data-theme-modal="search" className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-xs flex items-start justify-center pt-20 p-4 selection:bg-neutral-900 selection:text-white">
       <div className="bg-white rounded-3xl max-w-xl w-full p-6 space-y-4 text-start text-neutral-900">
         <div className="flex items-center gap-3 pb-3">
           <Search className="w-5 h-5 text-neutral-500" />

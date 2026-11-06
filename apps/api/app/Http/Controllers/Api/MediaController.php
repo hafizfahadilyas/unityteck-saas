@@ -66,9 +66,10 @@ class MediaController extends Controller
 
         $perPage = min(100, max(1, (int) $request->query('per_page', 30)));
         $paginator = $query->paginate($perPage);
+        $rows = array_map(fn (Media $media) => $this->versionedRow($media), $paginator->items());
 
         return response()->json([
-            'data' => $paginator->items(),
+            'data' => $rows,
             'meta' => [
                 'current_page' => $paginator->currentPage(),
                 'per_page' => $paginator->perPage(),
@@ -416,6 +417,22 @@ class MediaController extends Controller
         }
 
         return $actorId;
+    }
+
+    private function versionedRow(Media $media): array
+    {
+        $data = $media->toArray();
+        $version = $media->updated_at?->getTimestamp() ?? (int) ($media->version ?? 1);
+        foreach (['url', 'optimized_url', 'webp_url', 'thumbnail_url'] as $field) {
+            $value = $data[$field] ?? null;
+            if (! is_string($value) || $value === '') {
+                continue;
+            }
+            $path = strtok($value, '?') ?: $value;
+            $data[$field] = $path.'?v='.$version;
+        }
+
+        return $data;
     }
 
     private function stampVersion(Media $media): Media

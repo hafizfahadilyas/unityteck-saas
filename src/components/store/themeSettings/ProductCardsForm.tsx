@@ -115,7 +115,7 @@ export const ProductCardsForm: React.FC = () => {
               </span>
             </div>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'تصميم بطاقات المنتجات (Product Cards Selia)' : 'Product Cards (Selia)'}
+              {isAr ? 'تصميم بطاقات المنتجات' : 'Product Cards (Selia)'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr

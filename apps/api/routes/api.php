@@ -293,6 +293,11 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::get('/stores/{storeId}/pages/{pageId}/revisions', [ThemePageController::class, 'revisions']);
     Route::post('/stores/{storeId}/pages/{pageId}/revisions', [ThemePageController::class, 'storeRevision']);
     Route::post('/stores/{storeId}/revisions/{revisionId}/restore', [ThemePageController::class, 'restore']);
+    Route::post('/stores/{storeId}/ai/seo', [ThemePageController::class, 'suggestSeo']);
+    Route::post('/stores/{storeId}/ai/heading', [ThemePageController::class, 'suggestHeading']);
+    Route::post('/stores/{storeId}/ai/alt', [ThemePageController::class, 'suggestAlt']);
+    Route::post('/stores/{storeId}/ai/translate', [ThemePageController::class, 'suggestTranslate']);
+    Route::post('/stores/{storeId}/ai/apply', [ThemePageController::class, 'applySuggestion']);
 
     // Store Settings
     Route::get('/store-settings', [StoreSettingsController::class, 'show']);
@@ -386,6 +391,8 @@ Route::get('/resolve-domain', [DomainController::class, 'resolveDomain']);
 
 // Public Theme & Page Builder Layout for Storefront
 Route::get('/storefront/theme', [StoreThemeController::class, 'storefrontTheme']);
+Route::get('/storefront/sitemap', [StoreThemeController::class, 'storefrontSitemap']);
+Route::get('/storefront/robots', [StoreThemeController::class, 'storefrontRobots']);
 Route::get('/storefront/builder-layout', [StoreThemeController::class, 'storefrontTheme']);
 
 // Public per-store product catalog (no auth). Isolated by store_id / slug.

@@ -152,9 +152,7 @@ export const CoffeeThemeSettingsHub: React.FC<{
             {widgetStats.active}
           </div>
           <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
-            {isAr
-              ? `من أصل ${widgetStats.total} قسم ثيم`
-              : `of ${widgetStats.total} theme sections`}
+            {isAr ? `من أصل ${widgetStats.total} قسم` : `of ${widgetStats.total} theme sections`}
           </span>
         </div>
 
@@ -194,7 +192,7 @@ export const CoffeeThemeSettingsHub: React.FC<{
                 type="button"
                 onClick={() => openCustomizeThemes(section.id)}
                 className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-800/40 hover:border-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-colors cursor-pointer text-start"
-                title={isAr ? `تعديل: ${section.titleAr}` : `Edit: ${section.titleEn}`}
+                title={isAr ? `تعديل: ${section.titleAr || section.titleEn}` : `Edit: ${section.titleEn}`}
               >
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
                   {isAr ? section.titleAr : section.titleEn}

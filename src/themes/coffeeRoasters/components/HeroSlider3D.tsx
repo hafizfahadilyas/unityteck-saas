@@ -650,7 +650,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
       className="relative w-full overflow-hidden select-none bg-white text-neutral-900 border-none"
     >
       {/* Responsive Aspect Ratio Stage */}
-      <div className="relative w-full h-[640px] sm:h-[510px] md:h-[550px] lg:h-[600px] xl:h-[640px] bg-white overflow-hidden">
+      <div data-slider-stage="locked" className="theme-slider-stage relative w-full h-[640px] sm:h-[510px] md:h-[550px] lg:h-[600px] xl:h-[640px] bg-white overflow-hidden">
         {/* ========================================================================= */}
         {/* 1. SLIDE BACKGROUND IMAGES + OVERLAY                                       */}
         {/* ========================================================================= */}

@@ -194,10 +194,13 @@ import {
   fetchThemeRevisionsApi,
   publishThemePageApi,
   restoreThemeRevisionApi,
+  fetchStoreSettingsApi,
   updateThemePageApi,
   type ThemePageRecord,
 } from '../../../api/tenantApi';
 import { isHistoryShortcut, pushHistory, redoHistory, seedHistory, undoHistory } from './builderHistory';
+import { ThemeSuggestPanel } from './ThemeSuggestPanel';
+import { draftAfterSave } from '../../../themes/coffeeRoasters/themeFlow';
 import { blocksFromLayout, builderPageFromQuery, builderPageMeta, builderPageTitles, stashPageDraft } from './builderPages';
 import { deviceStyleCss, frameWidthPx, visibleFrameBlocks } from './builderDeviceFrame';
 import { coffeeCanvasMode, showRestoreAllBanner } from './coffeeCanvasMode';
@@ -568,7 +571,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
             onDragStart(e, idx);
           }}
           className="absolute -top-3.5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all z-40 flex items-center shadow-md rounded-md bg-cyan-600 hover:bg-cyan-700 text-white text-xs overflow-hidden border border-cyan-400 cursor-grab active:cursor-grabbing select-none"
-          title={isAr ? 'اسحب القسم لنقله مباشرة على الصفحة (Drag & Drop)' : 'Drag to reorder section directly on canvas'}
+          title={isAr ? 'اسحب القسم لنقله مباشرة على الصفحة' : 'Drag to reorder section directly on canvas'}
         >
           <button
             type="button"
@@ -583,7 +586,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
           </button>
           <div
             className="px-2 py-1 hover:bg-cyan-700 cursor-grab active:cursor-grabbing flex items-center gap-0.5"
-            title={isAr ? 'اسحب لإعادة الترتيب (Drag & Drop)' : 'Drag to Reorder Section'}
+            title={isAr ? 'اسحب لإعادة الترتيب' : 'Drag to Reorder Section'}
           >
             <GripVertical className="w-3.5 h-3.5" />
           </div>
@@ -1413,7 +1416,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                         {colIdx + 1}
                       </span>
                       <span className="text-[11px] font-bold text-slate-700">
-                        {isAr ? `العمود ${colIdx + 1}` : `Column ${colIdx + 1}`}
+                        {isAr ? `العمود ${insertIndex}` : `Column ${insertIndex}`}
                       </span>
                     </div>
 
@@ -1456,7 +1459,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                           onAddColumnWidgetClick?.(b.id, colIdx);
                         }}
                         className="w-8 h-8 rounded-full bg-pink-600 hover:bg-pink-700 text-white flex items-center justify-center shadow-md transition-all hover:scale-115 cursor-pointer"
-                        title={isAr ? `إضافة ويدجت في العمود ${colIdx + 1} (+)` : `Add widget to Column ${colIdx + 1} (+)`}
+                        title={isAr ? `إضافة ويدجت في العمود ${ + 1} (+)` : `Add widget to Column ${colIdx + 1} (+)`}
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -1546,7 +1549,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                   {colIdx + 1}
                 </span>
                 <span className="text-xs font-bold text-indigo-900">
-                  {isAr ? `عمود ${colIdx + 1}` : `Column ${colIdx + 1}`}
+                  {isAr ? `عمود ${insertIndex}` : `Column ${insertIndex}`}
                 </span>
                 <span className="text-[10px] text-slate-500 mt-0.5">
                   {isAr ? 'عنصر / محتوى قابل للتحرير' : 'Editable Widget Container'}
@@ -1720,7 +1723,7 @@ const CanvasSectionInserter: React.FC<{
       {isOver ? (
         <div className="flex items-center justify-center gap-2 text-pink-700 font-extrabold text-xs animate-bounce">
           <Plus className="w-4 h-4" />
-          <span>{isAr ? `أفلت القسم أو العنصر هنا (الموقع #${insertIndex})` : `Drop section / widget here (Position #${insertIndex})`}</span>
+          <span>{isAr ? `أفلت القسم أو العنصر هنا` : `Drop section / widget here (Position #${insertIndex})`}</span>
         </div>
       ) : isOpen ? (
         <div className="p-6 border-2 border-dashed border-pink-500 rounded-3xl bg-white shadow-xl animate-in fade-in zoom-in-95 duration-150">
@@ -1731,7 +1734,7 @@ const CanvasSectionInserter: React.FC<{
               </span>
               <div>
                 <span className="text-xs font-black text-slate-900 uppercase tracking-wider block">
-                  {isAr ? 'اختر بنية وتقسيم الأعمدة (SELECT YOUR STRUCTURE)' : 'SELECT YOUR STRUCTURE / CONTAINER'}
+                  {isAr ? 'اختر بنية وتقسيم الأعمدة' : 'SELECT YOUR STRUCTURE / CONTAINER'}
                 </span>
                 <span className="text-[10px] text-slate-500 font-medium block">
                   {isAr ? `إدراج حاوية أو قسم جديد في الموضع #${insertIndex}` : `Insert new container or section at position #${insertIndex}`}
@@ -1775,7 +1778,7 @@ const CanvasSectionInserter: React.FC<{
               className="px-3 py-1.5 rounded-xl bg-pink-50 hover:bg-pink-100 text-pink-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer border border-pink-200 transition-colors"
             >
               <BookOpen className="w-3.5 h-3.5" />
-              <span>{isAr ? 'إدراج قسم المقالات المميزة (Featured Posts 25, 25, 50)' : 'Insert Featured Posts (25, 25, 50)'}</span>
+              <span>{isAr ? 'إدراج قسم المقالات المميزة' : 'Insert Featured Posts (25, 25, 50)'}</span>
             </button>
 
             <button
@@ -1798,7 +1801,7 @@ const CanvasSectionInserter: React.FC<{
               type="button"
               onClick={() => setActiveOpenIndex(insertIndex)}
               className="w-7 h-7 rounded-full bg-pink-600 hover:bg-pink-700 text-white flex items-center justify-center shadow-md transition-all hover:scale-125 cursor-pointer"
-              title={isAr ? `إضافة قسم هنا (#${insertIndex})` : `Add section here (#${insertIndex})`}
+              title={isAr ? `إضافة قسم هنا` : `Add section here (#${widget.titleAr})`}
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -1839,7 +1842,7 @@ const CanvasStructurePicker: React.FC<{
             {isAr ? 'اختر تقسيم الأعمدة' : 'Select a column layout'}
           </span>
           <span className="text-[10px] text-slate-500 font-medium">
-            {isAr ? 'انقر على علامة (+) لاختيار تقسيم الأعمدة المناسب فوراً مثل Elementor' : 'Click (+) to pick a column layout structure like Elementor Pro'}
+            {isAr ? 'انقر على علامة (+) لاختيار تقسيم الأعمدة المناسب فوراً مثل' : 'Click (+) to pick a column layout structure like Elementor Pro'}
           </span>
         </div>
       ) : (
@@ -2335,6 +2338,27 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   const [revisionsOpen, setRevisionsOpen] = useState(false);
   const [revisionsBusy, setRevisionsBusy] = useState(false);
   const [revisions, setRevisions] = useState<Array<{ id: string; created_at?: string }>>([]);
+  const [restoreTarget, setRestoreTarget] = useState<string | null>(null);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [builderClosed, setBuilderClosed] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !activeStore?.id || !isApiEnabled()) {
+      setBuilderClosed(false);
+      return;
+    }
+    let stop = false;
+    void fetchStoreSettingsApi(activeStore.id)
+      .then((settings) => {
+        if (!stop) setBuilderClosed(settings?.theme_builder === false);
+      })
+      .catch(() => {
+        if (!stop) setBuilderClosed(false);
+      });
+    return () => {
+      stop = true;
+    };
+  }, [isOpen, activeStore?.id]);
 
   const applyTree = useCallback((loaded: BlockElement[], replaceHistory: boolean) => {
     if (replaceHistory) {
@@ -2623,9 +2647,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     setSelectedBlockId(newId);
     setHasUnsavedChanges(true);
     toast(
-      isAr
-        ? `تمت إضافة العنصر: "${widget.titleAr}" إلى الصفحة!`
-        : `Added widget "${widget.titleEn}" to page!`,
+      isAr ? `تمت إضافة العنصر: "${widget.titleAr || widget.titleEn}" إلى الصفحة!` : `Added widget "${widget.titleEn}" to page!`,
       'success',
     );
   }, [isAr, toast]);
@@ -2701,7 +2723,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             setSelectedBlockId(newId);
             setHasUnsavedChanges(true);
             toast(
-              isAr ? `تم إفلات وإضافة "${w.titleAr}"!` : `Dropped widget "${w.titleEn}"!`,
+              isAr ? `تم إفلات وإضافة "${blocks.length}"!` : `Dropped widget "${blocks.length}"!`,
               'success',
             );
             return;
@@ -2762,9 +2784,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             setSelectedBlockId(newId);
             setHasUnsavedChanges(true);
             toast(
-              isAr
-                ? `تم إفلات وإدراج العنصر "${w.titleAr}" مباشرة على الصفحة!`
-                : `Dropped widget "${w.titleEn}" directly onto canvas!`,
+              isAr ? `تم إفلات وإدراج العنصر "${w.titleAr || w.titleEn}" مباشرة على الصفحة!` : `Dropped widget "${w.titleEn}" directly onto canvas!`,
               'success',
             );
             return;
@@ -2836,7 +2856,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         }),
       );
       setHasUnsavedChanges(true);
-      toast(isAr ? `تم إضافة العنصر للعمود ${colIdx + 1}` : `Widget added to Column ${colIdx + 1}`, 'success');
+      toast(isAr ? `تم إضافة العنصر للعمود ${ + 1}` : `Widget added to Column ${colIdx + 1}`, 'success');
     },
     [isAr, toast],
   );
@@ -2869,7 +2889,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       );
       setHasUnsavedChanges(true);
       setColumnPickerTarget(null);
-      toast(isAr ? `تمت إضافة العنصر في العمود ${colIdx + 1}` : `Widget added to Column ${colIdx + 1}`, 'success');
+      toast(isAr ? `تمت إضافة العنصر في العمود ${ + 1}` : `Widget added to Column ${colIdx + 1}`, 'success');
     },
     [isAr, toast],
   );
@@ -2934,7 +2954,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     setSelectedBlockId(newId);
     setHasUnsavedChanges(true);
     toast(
-      isAr ? `تمت إضافة القسم المقترح "${sec.titleAr}"` : `Added suggested section "${sec.titleEn}"`,
+      isAr ? `تمت إضافة القسم المقترح "${sec.titleAr || sec.titleEn}"` : `Added suggested section "${sec.titleEn}"`,
       'success',
     );
   }, [isAr, toast]);
@@ -3251,7 +3271,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     setActiveTab('content');
     setRightSidebarVisible(true);
     toast(
-      isAr ? `تمت إضافة قسم ${payload.titleAr} بنجاح` : `Added ${payload.titleEn} successfully`,
+      isAr ? `تمت إضافة قسم ${payload.titleAr || payload.titleEn} بنجاح` : `Added ${payload.titleEn} successfully`,
       'success',
     );
   };
@@ -3281,9 +3301,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     );
 
     toast(
-      isAr
-        ? `تم تفعيل قالب الموسم: ${season === 'Ramadan' ? 'رمضان كريم' : season === 'Eid' ? 'العيد المبارك' : season === 'Valentine' ? 'باقات الحب' : 'الافتراضي العصري'}`
-        : `Switched seasonal style to: ${season} Edition!`,
+      isAr ? `تم تفعيل قالب الموسم: ${season === 'Ramadan' ? 'رمضان كريم' : season === 'Eid' ? 'العيد المبارك' : season === 'Valentine' ? 'باقات الحب' : 'الافتراضي العصري'}` : `Switched seasonal style to: ${season} Edition!`,
       'success',
     );
   };
@@ -3485,6 +3503,14 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         toast(isAr ? 'واجهة المتجر غير متصلة' : 'Store API is not connected', 'error');
         return;
       }
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        draftAfterSave(blocks, null, false);
+        toast(
+          isAr ? 'تعذر حفظ المسودة. النسخة المحلية باقية.' : 'Draft save failed. The local draft is kept.',
+          'error',
+        );
+        return;
+      }
       setPageBusy(true);
       const saved = await ensureThemePage(layout);
       rememberPage(saved);
@@ -3559,9 +3585,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     setSelectedBlockId(liveBlocks[0]?.id || 'header');
     setHasUnsavedChanges(false);
     toast(
-      isAr
-        ? 'تمت مزامنة واستعادة تصميم وأقسام المتجر المباشر بنجاح مع giftshop-sa.com!'
-        : 'Store design and sections synced successfully with live giftshop-sa.com!',
+      isAr ? 'تمت مزامنة واستعادة تصميم وأقسام المتجر المباشر بنجاح مع -sa.!' : 'Store design and sections synced successfully with live giftshop-sa.com!',
       'success',
     );
   }, [activeStore, currentThemeId, isAr, toast]);
@@ -3609,6 +3633,23 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       dir={isAr ? 'rtl' : 'ltr'}
       style={{ fontFamily: typographySettings.fontFamily }}
     >
+      {builderClosed && (
+        <p data-builder-unavailable="1" className="m-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {isAr ? 'منشئ الصفحات غير متاح لهذا المتجر.' : 'The page builder is not available for this store.'}
+        </p>
+      )}
+      {suggestOpen && (
+        <ThemeSuggestPanel
+          isAr={isAr}
+          storeId={activeStore.id}
+          pageId={activePageRef.current?.id || ''}
+          widgetId={selectedBlock?.id || ''}
+          onClose={() => setSuggestOpen(false)}
+          onApplied={() => {
+            toast(isAr ? 'تم تطبيق الحقول المختارة' : 'Selected fields applied', 'success');
+          }}
+        />
+      )}
       {/* ========================================================
           1. CLEAN, ORGANIZED & FULLY RESPONSIVE TOPBAR (NO OVERLAP / NO SCROLL)
           ======================================================== */}
@@ -3841,7 +3882,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 <button
                   key={row.id}
                   type="button"
-                  onClick={() => { void restoreRevision(row.id); }}
+                  onClick={() => setRestoreTarget(row.id)}
                   className="w-full text-start px-2 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
                 >
                   {row.created_at
@@ -3849,6 +3890,33 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     : row.id}
                 </button>
               ))}
+            </div>
+          )}
+          {restoreTarget && (
+            <div className="absolute top-full mt-2 start-1/2 -translate-x-1/2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-[150]" data-restore-confirm="1">
+              <p className="text-xs font-bold text-slate-800 mb-2">
+                {isAr ? 'هل تريد استعادة هذه النسخة؟' : 'Restore this revision?'}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="flex-1 rounded-lg bg-slate-900 text-white text-xs font-bold py-1.5"
+                  onClick={() => {
+                    const id = restoreTarget;
+                    setRestoreTarget(null);
+                    void restoreRevision(id);
+                  }}
+                >
+                  {isAr ? 'استعادة' : 'Restore'}
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 rounded-lg border border-slate-200 text-xs font-bold py-1.5"
+                  onClick={() => setRestoreTarget(null)}
+                >
+                  {isAr ? 'إلغاء' : 'Cancel'}
+                </button>
+              </div>
             </div>
           )}
 
@@ -4114,6 +4182,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
           {/* Save Draft */}
           <button
             type="button"
+            onClick={() => setSuggestOpen((open) => !open)}
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer shrink-0"
+          >
+            <span className="whitespace-nowrap">{isAr ? 'اقتراحات' : 'Suggestions'}</span>
+          </button>
+          <button
+            type="button"
             onClick={handleSaveDraft}
             disabled={pageBusy}
             aria-busy={pageBusy}
@@ -4373,7 +4448,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     className="w-full py-2 px-3 rounded-xl border-2 border-dashed border-indigo-300 hover:border-indigo-600 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>{isAr ? 'إضافة قسم جديد (Elementor Grid)' : 'Add New Section'}</span>
+                    <span>{isAr ? 'إضافة قسم جديد' : 'Add New Section'}</span>
                   </button>
                   <button
                     type="button"
@@ -4382,7 +4457,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     title={isAr ? 'استعادة كافة أقسام الصفحة الافتراضية كاملة (24 قسماً)' : 'Restore All Default Sections (24)'}
                   >
                     <RotateCcw className="w-3 h-3 text-indigo-500" />
-                    <span>{isAr ? `استعادة كافة الأقسام (${blocks.length}/24)` : `Restore All Sections (${blocks.length}/24)`}</span>
+                    <span>{isAr ? `استعادة كافة الأقسام` : `Restore All Sections (${blocks.length}/24)`}</span>
                   </button>
                 </div>
               </>
@@ -4462,9 +4537,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
                       <span>
-                        {isAr
-                          ? `يوجد حالياً ${visibleBlocks.length} أقسام فقط. هل ترغب في إظهار كافة أقسام المتجر (24 قسماً) وتفعيل التمرير الكامل؟`
-                          : `Only ${visibleBlocks.length} sections loaded. Would you like to restore all 24 storefront sections with full scrolling?`}
+                        {isAr ? `يوجد حالياً ${visibleBlocks.length} أقسام فقط. هل ترغب في إظهار كافة أقسام المتجر وتفعيل التمرير الكامل؟` : `Only ${visibleBlocks.length} sections loaded. Would you like to restore all 24 storefront sections with full scrolling?`}
                       </span>
                     </div>
                     <button
@@ -5068,7 +5141,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <span className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
                         <ImageIcon className="w-4 h-4 text-pink-600" />
-                        <span>{isAr ? 'صورة وخلفية القسم (Elementor Style)' : 'Background (Classic / Custom X & Y)'}</span>
+                        <span>{isAr ? 'صورة وخلفية القسم' : 'Background (Classic / Custom X & Y)'}</span>
                       </span>
                       <span className="text-[10px] font-mono text-pink-600 bg-pink-50 px-2 py-0.5 rounded font-bold">
                         Style Tab
@@ -5078,7 +5151,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     {/* Background Type: Classic / Gradient / None */}
                     <div>
                       <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                        {isAr ? 'نوع الخلفية (Background Type)' : 'Background Type'}
+                        {isAr ? 'نوع الخلفية' : 'Background Type'}
                       </label>
                       <div className="grid grid-cols-3 gap-1.5">
                         {[
@@ -5110,7 +5183,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                         {/* Image URL & Quick Presets */}
                         <div>
                           <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                            {isAr ? 'رابط صورة الخلفية (Image URL > 1280px)' : 'Background Image URL'}
+                            {isAr ? 'رابط صورة الخلفية' : 'Background Image URL'}
                           </label>
                           <input
                             type="text"
@@ -5147,17 +5220,17 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                         {/* Position (Center / Custom) */}
                         <div>
                           <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                            {isAr ? 'الموضع (Position)' : 'Position'}
+                            {isAr ? 'الموضع' : 'Position'}
                           </label>
                           <select
                             value={selectedBlock.settings?.bgPosition || 'custom'}
                             onChange={(e) => handleUpdateBlockSetting('bgPosition', e.target.value)}
                             className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white"
                           >
-                            <option value="custom">{isAr ? 'مخصص (Custom X & Y)' : 'Custom (X & Y)'}</option>
-                            <option value="center">{isAr ? 'وسط (Center Center)' : 'Center Center'}</option>
-                            <option value="top">{isAr ? 'أعلى (Top Center)' : 'Top Center'}</option>
-                            <option value="bottom">{isAr ? 'أسفل (Bottom Center)' : 'Bottom Center'}</option>
+                            <option value="custom">{isAr ? 'مخصص' : 'Custom (X & Y)'}</option>
+                            <option value="center">{isAr ? 'وسط' : 'Center Center'}</option>
+                            <option value="top">{isAr ? 'أعلى' : 'Top Center'}</option>
+                            <option value="bottom">{isAr ? 'أسفل' : 'Bottom Center'}</option>
                           </select>
                         </div>
 
@@ -5166,7 +5239,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                           <div className="p-2.5 rounded-xl bg-pink-50/50 border border-pink-200 space-y-2.5">
                             <div>
                               <div className="flex items-center justify-between text-[10px] font-bold text-slate-700 mb-1">
-                                <span>{isAr ? 'موضع X الأفقي (X Position)' : 'X Position (px)'}</span>
+                                <span>{isAr ? 'موضع X الأفقي' : 'X Position (px)'}</span>
                                 <span className="font-mono text-pink-600 font-extrabold">{selectedBlock.settings?.bgCustomX ?? 70}px</span>
                               </div>
                               <input
@@ -5182,7 +5255,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
 
                             <div>
                               <div className="flex items-center justify-between text-[10px] font-bold text-slate-700 mb-1">
-                                <span>{isAr ? 'موضع Y الرأسي (Y Position)' : 'Y Position (px)'}</span>
+                                <span>{isAr ? 'موضع Y الرأسي' : 'Y Position (px)'}</span>
                                 <span className="font-mono text-pink-600 font-extrabold">{selectedBlock.settings.bgCustomY ?? 66}px</span>
                               </div>
                               <input
@@ -5202,15 +5275,15 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                              {isAr ? 'تكرار الصورة (Repeat)' : 'Repeat'}
+                              {isAr ? 'تكرار الصورة' : 'Repeat'}
                             </label>
                             <select
                               value={selectedBlock.settings.bgRepeat || 'no-repeat'}
                               onChange={(e) => handleUpdateBlockSetting('bgRepeat', e.target.value)}
                               className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white"
                             >
-                              <option value="no-repeat">{isAr ? 'بدون تكرار (No repeat)' : 'No repeat'}</option>
-                              <option value="repeat">{isAr ? 'تكرار (Repeat)' : 'Repeat'}</option>
+                              <option value="no-repeat">{isAr ? 'بدون تكرار' : 'No repeat'}</option>
+                              <option value="repeat">{isAr ? 'تكرار' : 'Repeat'}</option>
                               <option value="repeat-x">Repeat-x</option>
                               <option value="repeat-y">Repeat-y</option>
                             </select>
@@ -5218,16 +5291,16 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
 
                           <div>
                             <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                              {isAr ? 'حجم العرض (Display Size)' : 'Display Size'}
+                              {isAr ? 'حجم العرض' : 'Display Size'}
                             </label>
                             <select
                               value={selectedBlock.settings.bgSize || 'auto'}
                               onChange={(e) => handleUpdateBlockSetting('bgSize', e.target.value)}
                               className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white"
                             >
-                              <option value="auto">{isAr ? 'تلقائي (Auto)' : 'Auto'}</option>
-                              <option value="cover">{isAr ? 'تغطية (Cover)' : 'Cover'}</option>
-                              <option value="contain">{isAr ? 'احتواء (Contain)' : 'Contain'}</option>
+                              <option value="auto">{isAr ? 'تلقائي' : 'Auto'}</option>
+                              <option value="cover">{isAr ? 'تغطية' : 'Cover'}</option>
+                              <option value="contain">{isAr ? 'احتواء' : 'Contain'}</option>
                             </select>
                           </div>
                         </div>
@@ -5250,7 +5323,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
 
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
-                        <span>{isAr ? 'استدارة الحواف (Radius)' : 'Border Radius (px)'}</span>
+                        <span>{isAr ? 'استدارة الحواف' : 'Border Radius (px)'}</span>
                         <span className="font-mono text-indigo-600">{selectedBlock.settings.cardRadius ?? 16}px</span>
                       </div>
                       <input
@@ -5274,7 +5347,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   <div className="border border-slate-200 rounded-2xl p-4 bg-white shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <span className="font-extrabold text-slate-900 text-xs">
-                        {isAr ? 'عرض المحتوى (Content Width)' : 'Content Width'}
+                        {isAr ? 'عرض المحتوى' : 'Content Width'}
                       </span>
                       <span className="text-[10px] font-mono text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded">
                         {selectedBlock.settings.contentWidth || 'boxed'}
@@ -5309,7 +5382,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   <div className="border border-slate-200 rounded-2xl p-4 bg-white shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <span className="font-extrabold text-slate-900 text-xs">
-                        {isAr ? 'المسافة بين الأعمدة (Columns Gap)' : 'Columns Gap'}
+                        {isAr ? 'المسافة بين الأعمدة' : 'Columns Gap'}
                       </span>
                       <span className="font-mono text-pink-600 text-xs font-extrabold">
                         {selectedBlock.settings.columnGap ?? 16}px
@@ -5354,7 +5427,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <span className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
                         <LayoutGrid className="w-3.5 h-3.5 text-pink-600" />
-                        <span>{isAr ? 'هيكل وبنية الأعمدة (Structure)' : 'Structure (25, 25, 50)'}</span>
+                        <span>{isAr ? 'هيكل وبنية الأعمدة' : 'Structure (25, 25, 50)'}</span>
                       </span>
                       <span className="text-[10px] font-mono text-pink-600 font-bold bg-pink-50 px-2 py-0.5 rounded">
                         {selectedBlock.settings.layoutColumns || '1'}
@@ -5393,10 +5466,10 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   <div className="border border-slate-200 rounded-2xl p-3.5 bg-white shadow-2xs flex items-center justify-between">
                     <div>
                       <span className="font-extrabold text-slate-900 text-xs block">
-                        {isAr ? 'مخطط الشبكة التفاعلي (Grid Outline)' : 'Grid Outline'}
+                        {isAr ? 'مخطط الشبكة التفاعلي' : 'Grid Outline'}
                       </span>
                       <span className="text-[10px] text-slate-500 block">
-                        {isAr ? 'إظهار حدود وأعمدة الـ Grid بوضوح' : 'Highlight container & column grid lines'}
+                        {isAr ? 'إظهار حدود وأعمدة الـ بوضوح' : 'Highlight container & column grid lines'}
                       </span>
                     </div>
                     <button
@@ -5417,7 +5490,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <span className="font-black text-slate-900 text-xs flex items-center gap-1.5">
                         <LayoutGrid className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>{isAr ? 'تقسيم وبنية الأعمدة (Columns)' : 'Columns & Container Structure'}</span>
+                        <span>{isAr ? 'تقسيم وبنية الأعمدة' : 'Columns & Container Structure'}</span>
                       </span>
                       <span className="text-[10px] font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md font-bold">
                         {selectedBlock.settings.layoutColumns || '1'} {isAr ? 'أعمدة' : 'cols'}
@@ -5460,7 +5533,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   <div className="border border-slate-200 rounded-2xl p-4 bg-white shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <span className="font-black text-slate-900 text-xs">
-                        {isAr ? 'الصفوف والتدفق التلقائي (Rows & Auto Flow)' : 'Rows & Auto Flow'}
+                        {isAr ? 'الصفوف والتدفق التلقائي' : 'Rows & Auto Flow'}
                       </span>
                       <span className="text-[10px] font-mono text-slate-500">
                         {selectedBlock.settings.gridRows || 1} fr
@@ -5470,7 +5543,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                          {isAr ? 'عدد الصفوف (Rows fr)' : 'Rows (fr)'}
+                          {isAr ? 'عدد الصفوف' : 'Rows (fr)'}
                         </label>
                         <input
                           type="range"
@@ -5484,7 +5557,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                          {isAr ? 'التدفق التلقائي (Auto Flow)' : 'Auto Flow'}
+                          {isAr ? 'التدفق التلقائي' : 'Auto Flow'}
                         </label>
                         <select
                           value={selectedBlock.settings.autoFlow || 'row'}
@@ -5503,7 +5576,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   <div className="border border-slate-200 rounded-2xl p-4 bg-white shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <span className="font-black text-slate-900 text-xs">
-                        {isAr ? 'المسافات الفاصلة بين العناصر (Gaps px)' : 'Gaps (px)'}
+                        {isAr ? 'المسافات الفاصلة بين العناصر' : 'Gaps (px)'}
                       </span>
                       <button
                         type="button"
@@ -5526,7 +5599,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <div className="flex items-center justify-between text-[10px] font-bold text-slate-600 mb-1">
-                          <span>{isAr ? 'مسافة الأعمدة (Column Gap)' : 'Column Gap'}</span>
+                          <span>{isAr ? 'مسافة الأعمدة' : 'Column Gap'}</span>
                           <span className="font-mono text-indigo-600">{selectedBlock.settings.columnGap ?? 16}px</span>
                         </div>
                         <input
@@ -5548,7 +5621,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
 
                       <div>
                         <div className="flex items-center justify-between text-[10px] font-bold text-slate-600 mb-1">
-                          <span>{isAr ? 'مسافة الصفوف (Row Gap)' : 'Row Gap'}</span>
+                          <span>{isAr ? 'مسافة الصفوف' : 'Row Gap'}</span>
                           <span className="font-mono text-indigo-600">{selectedBlock.settings.rowGap ?? 16}px</span>
                         </div>
                         <input
@@ -5573,13 +5646,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   {/* Elementor Items Alignment & Justification (Screenshot 3) */}
                   <div className="border border-slate-200 rounded-2xl p-4 bg-white shadow-2xs space-y-3">
                     <span className="font-black text-slate-900 text-xs block border-b border-slate-100 pb-2">
-                      {isAr ? 'المحاذاة وتوزيع العناصر (Justify & Align)' : 'Items Alignment & Distribution'}
+                      {isAr ? 'المحاذاة وتوزيع العناصر' : 'Items Alignment & Distribution'}
                     </span>
 
                     {/* Justify Items */}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-[10px] font-bold text-slate-700">
-                        <span>{isAr ? 'محاذاة العناصر أفقياً (Justify Items)' : 'Justify Items'}</span>
+                        <span>{isAr ? 'محاذاة العناصر أفقياً' : 'Justify Items'}</span>
                         <span className="font-mono text-indigo-600 text-[9px]">{selectedBlock.settings.justifyItems || 'stretch'}</span>
                       </div>
                       <div className="grid grid-cols-4 gap-1">
@@ -5611,7 +5684,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     {/* Align Items */}
                     <div className="space-y-1.5 pt-1">
                       <div className="flex items-center justify-between text-[10px] font-bold text-slate-700">
-                        <span>{isAr ? 'محاذاة العناصر عمودياً (Align Items)' : 'Align Items'}</span>
+                        <span>{isAr ? 'محاذاة العناصر عمودياً' : 'Align Items'}</span>
                         <span className="font-mono text-indigo-600 text-[9px]">{selectedBlock.settings.alignItems || 'stretch'}</span>
                       </div>
                       <div className="grid grid-cols-4 gap-1">
@@ -5641,7 +5714,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     {/* Justify Content */}
                     <div className="space-y-1.5 pt-1">
                       <div className="flex items-center justify-between text-[10px] font-bold text-slate-700">
-                        <span>{isAr ? 'توزيع المحتوى (Justify Content)' : 'Justify Content'}</span>
+                        <span>{isAr ? 'توزيع المحتوى' : 'Justify Content'}</span>
                         <span className="font-mono text-indigo-600 text-[9px]">{selectedBlock.settings.justifyContent || 'start'}</span>
                       </div>
                       <div className="grid grid-cols-3 gap-1">
@@ -5675,13 +5748,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   <div className="border border-slate-200 rounded-2xl p-4 bg-white shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <span className="font-black text-slate-900 text-xs">
-                        {isAr ? 'التحكم بالمسافات بالبكسل (px Spacing)' : 'Pixel Responsive Controls'}
+                        {isAr ? 'التحكم بالمسافات بالبكسل' : 'Pixel Responsive Controls'}
                       </span>
                     </div>
 
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
-                        <span>{isAr ? 'الهامش الداخلي العلوي (Padding Top)' : 'Padding Top (px)'}</span>
+                        <span>{isAr ? 'الهامش الداخلي العلوي' : 'Padding Top (px)'}</span>
                         <span className="font-mono text-indigo-600">
                           {device === 'mobile' ? (selectedBlock.settings.mobilePaddingTop ?? 24) : (selectedBlock.settings.paddingTop ?? 40)}px
                         </span>
@@ -5703,7 +5776,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
 
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
-                        <span>{isAr ? 'الهامش الداخلي السفلي (Padding Bottom)' : 'Padding Bottom (px)'}</span>
+                        <span>{isAr ? 'الهامش الداخلي السفلي' : 'Padding Bottom (px)'}</span>
                         <span className="font-mono text-indigo-600">
                           {device === 'mobile' ? (selectedBlock.settings.mobilePaddingBottom ?? 24) : (selectedBlock.settings.paddingBottom ?? 40)}px
                         </span>
@@ -5732,15 +5805,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               {activeTab === 'code' && (
                 <div className="space-y-4">
                   <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-[11px] text-indigo-900 leading-relaxed">
-                    {isAr
-                      ? 'يمكنك هنا إضافة أكواد HTML و CSS و JavaScript مخصصة يتم تنفيذها بأمان داخل نطاق هذا القسم فقط دون التأثير على بقية المتجر.'
-                      : 'Add custom HTML, CSS, and JavaScript scoped safely to this section in an isolated runtime.'}
+                    {isAr ? 'يمكنك هنا إضافة أكواد و و مخصصة يتم تنفيذها بأمان داخل نطاق هذا القسم فقط دون التأثير على بقية المتجر.' : 'Add custom HTML, CSS, and JavaScript scoped safely to this section in an isolated runtime.'}
                   </div>
 
                   {/* Custom HTML */}
                   <div className="border border-slate-200 rounded-xl p-3 bg-white space-y-1.5">
                     <span className="font-bold text-slate-800 text-xs flex items-center justify-between">
-                      <span>{isAr ? 'كود HTML مخصص' : 'Custom HTML'}</span>
+                      <span>{isAr ? 'كود مخصص' : 'Custom HTML'}</span>
                       <span className="text-[10px] font-mono text-slate-400">Sandbox</span>
                     </span>
                     <textarea
@@ -5755,7 +5826,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   {/* Custom CSS */}
                   <div className="border border-slate-200 rounded-xl p-3 bg-white space-y-1.5">
                     <span className="font-bold text-slate-800 text-xs flex items-center justify-between">
-                      <span>{isAr ? 'كود CSS مخصص' : 'Custom CSS'}</span>
+                      <span>{isAr ? 'كود مخصص' : 'Custom CSS'}</span>
                       <span className="text-[10px] font-mono text-slate-400">Scoped</span>
                     </span>
                     <textarea
@@ -5770,7 +5841,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   {/* Custom JS */}
                   <div className="border border-slate-200 rounded-xl p-3 bg-white space-y-1.5">
                     <span className="font-bold text-slate-800 text-xs flex items-center justify-between">
-                      <span>{isAr ? 'كود JavaScript مخصص' : 'Custom JavaScript'}</span>
+                      <span>{isAr ? 'كود مخصص' : 'Custom JavaScript'}</span>
                       <span className="text-[10px] font-mono text-slate-400">Isolated</span>
                     </span>
                     <textarea
@@ -5977,9 +6048,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              {isAr
-                ? `سيتم حفظ هذا التنسيق في مكتبة قوالب متجر (${activeStore.name}) لإعادة استخدامه في أي وقت وبشكل معزول تماماً.`
-                : `This customized section style will be stored in ${activeStore.name}'s library for future reuse.`}
+              {isAr ? `سيتم حفظ هذا التنسيق في مكتبة قوالب متجر لإعادة استخدامه في أي وقت وبشكل معزول تماماً.` : `This customized section style will be stored in ${activeStore.name}'s library for future reuse.`}
             </p>
 
             <div className="space-y-3">
@@ -6059,9 +6128,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 </span>
                 <div>
                   <span className="font-extrabold text-sm text-slate-900 block">
-                    {isAr
-                      ? `إدراج عنصر في العمود رقم (${columnPickerTarget.colIdx + 1})`
-                      : `Insert Module in Column #${columnPickerTarget.colIdx + 1}`}
+                    {isAr ? `إدراج عنصر في العمود رقم` : `Insert Module in Column #${columnPickerTarget.colIdx + 1}`}
                   </span>
                   <span className="text-[10px] text-slate-500 font-medium block">
                     {isAr ? 'اختر الويدجت المطلوب إضافته داخل هذا العمود مباشرة' : 'Choose a module to drop into this column'}
@@ -6099,7 +6166,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-pink-100 text-pink-700">82px</span>
                 </div>
                 <span className="text-xs font-black text-slate-800">
-                  {isAr ? 'رقم تسلسلي كبير (Number 82px)' : 'Counter Number (82px)'}
+                  {isAr ? 'رقم تسلسلي كبير' : 'Counter Number (82px)'}
                 </span>
                 <span className="text-[10px] text-slate-500 leading-tight">
                   {isAr ? 'رقم الترتيب المخصص 82px كما في الخطوة ٣' : 'Huge 82px counter label as per tutorial Step 3'}
@@ -6151,7 +6218,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Articles</span>
                 </div>
                 <span className="text-xs font-black text-slate-800">
-                  {isAr ? 'مقالات Typer Articles' : 'Typer Articles Module'}
+                  {isAr ? 'مقالات' : 'Typer Articles Module'}
                 </span>
                 <span className="text-[10px] text-slate-500 leading-tight">
                   {isAr ? 'أحدث أو أشهر المقالات مع الصور وبيانات الميتا' : 'Latest or Most Liked articles with thumbnails & meta'}
@@ -6177,7 +6244,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Text</span>
                 </div>
                 <span className="text-xs font-black text-slate-800">
-                  {isAr ? 'محرر نصوص (Text Editor)' : 'Text Editor Module'}
+                  {isAr ? 'محرر نصوص' : 'Text Editor Module'}
                 </span>
                 <span className="text-[10px] text-slate-500 leading-tight">
                   {isAr ? 'فقرة نصية حرة قابلة للتعديل' : 'Rich paragraph block'}

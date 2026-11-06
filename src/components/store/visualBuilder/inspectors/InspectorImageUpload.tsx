@@ -187,7 +187,7 @@ export const InspectorImageUpload: React.FC<InspectorImageUploadProps> = ({
               className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-lg flex items-center gap-1.5 cursor-pointer transition-all hover:scale-105"
             >
               <FolderOpen className="w-3.5 h-3.5" />
-              <span>{isAr ? 'تغيير من المكتبة / Drive' : 'Replace Media (Modal)'}</span>
+              <span>{isAr ? 'تغيير من المكتبة /' : 'Replace Media (Modal)'}</span>
             </button>
 
             <div className="flex items-center gap-1.5">
@@ -240,7 +240,7 @@ export const InspectorImageUpload: React.FC<InspectorImageUploadProps> = ({
             className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white text-xs font-black shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.01]"
           >
             <ImageIcon className="w-4 h-4 text-white" />
-            <span>{isAr ? 'اختيار صورة (مكتبة الوسائط · Pop-up)' : 'Choose Image (Elementor Media Modal)'}</span>
+            <span>{isAr ? 'اختيار صورة' : 'Choose Image (Elementor Media Modal)'}</span>
           </button>
 
           <p className="text-[10px] text-slate-500 font-medium">
@@ -294,7 +294,7 @@ export const InspectorImageUpload: React.FC<InspectorImageUploadProps> = ({
           }`}
         >
           <LinkIcon className="w-3 h-3" />
-          <span>{isAr ? 'رابط ويب مباشر (URL)' : 'Direct Web URL'}</span>
+          <span>{isAr ? 'رابط ويب مباشر' : 'Direct Web URL'}</span>
         </button>
 
         <button
@@ -384,7 +384,7 @@ export const InspectorImageUpload: React.FC<InspectorImageUploadProps> = ({
           onSelect={handleMediaModalSelect}
           multiple={false}
           initialTab={modalInitialTab}
-          title={isAr ? 'مكتبة الوسائط والملفات (Elementor Media Library)' : 'Elementor Pro Media Library'}
+          title={isAr ? 'مكتبة الوسائط والملفات' : 'Elementor Pro Media Library'}
         />
       )}
     </div>

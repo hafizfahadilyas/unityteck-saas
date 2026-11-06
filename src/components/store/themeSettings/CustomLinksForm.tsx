@@ -147,7 +147,7 @@ export const CustomLinksForm: React.FC = () => {
               </span>
             </div>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'الروابط المخصصة (Selia — Custom Links)' : 'Selia — Custom Links'}
+              {isAr ? 'الروابط المخصصة' : 'Selia — Custom Links'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr
@@ -338,12 +338,12 @@ export const CustomLinksForm: React.FC = () => {
         <div className="rounded-xl border p-4 space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <h3 className="text-xs font-bold uppercase text-emerald-600 flex items-center gap-1.5">
             <span>1</span>
-            <span>{isAr ? 'إعدادات التصميم (Layout Settings)' : '1. Layout Settings'}</span>
+            <span>{isAr ? 'إعدادات التصميم' : '1. Layout Settings'}</span>
           </h3>
 
           <div className="space-y-3">
             <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-xs font-bold">{isAr ? 'عنصر بعرض كامل (Make Element Full Width)' : 'Make Element Full Width'}</span>
+              <span className="text-xs font-bold">{isAr ? 'عنصر بعرض كامل' : 'Make Element Full Width'}</span>
               <input
                 type="checkbox"
                 checked={settings.makeFullWidth !== false}
@@ -353,7 +353,7 @@ export const CustomLinksForm: React.FC = () => {
             </label>
 
             <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-xs font-bold">{isAr ? 'عرض كشريط متحرك سلايدر (Display as Slider)' : 'Display Links as Slider (Animated)'}</span>
+              <span className="text-xs font-bold">{isAr ? 'عرض كشريط متحرك سلايدر' : 'Display Links as Slider (Animated)'}</span>
               <input
                 type="checkbox"
                 checked={settings.displayAsSlider !== false}
@@ -364,7 +364,7 @@ export const CustomLinksForm: React.FC = () => {
 
             <div>
               <span className="text-[10px] font-bold uppercase text-muted block mb-1">
-                {isAr ? 'أعمدة سطح المكتب (Desktop Columns)' : 'Desktop Grid Columns'}
+                {isAr ? 'أعمدة سطح المكتب' : 'Desktop Grid Columns'}
               </span>
               <div className="flex gap-1.5">
                 {[2, 3, 4, 5, 6, 7, 8].map((c) => (
@@ -384,7 +384,7 @@ export const CustomLinksForm: React.FC = () => {
 
             <div>
               <span className="text-[10px] font-bold uppercase text-muted block mb-1">
-                {isAr ? 'أعمدة الجوال (Mobile Columns)' : 'Mobile Grid Columns'}
+                {isAr ? 'أعمدة الجوال' : 'Mobile Grid Columns'}
               </span>
               <div className="flex gap-1.5">
                 {[1, 2, 3, 4, 5].map((c) => (
@@ -408,7 +408,7 @@ export const CustomLinksForm: React.FC = () => {
         <div className="rounded-xl border p-4 space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <h3 className="text-xs font-bold uppercase text-emerald-600 flex items-center gap-1.5">
             <span>2</span>
-            <span>{isAr ? 'خيارات عرض الصور (Image Display Options)' : '2. Image Display Options'}</span>
+            <span>{isAr ? 'خيارات عرض الصور' : '2. Image Display Options'}</span>
           </h3>
 
           <div className="space-y-3">
@@ -424,7 +424,7 @@ export const CustomLinksForm: React.FC = () => {
 
             <div>
               <span className="text-[10px] font-bold uppercase text-muted block mb-1">
-                {isAr ? 'زوايا الصورة (Rounded Corners)' : 'Rounded Image Corners'}
+                {isAr ? 'زوايا الصورة' : 'Rounded Image Corners'}
               </span>
               <div className="grid grid-cols-5 gap-1 text-[10px] font-bold">
                 {[
@@ -449,7 +449,7 @@ export const CustomLinksForm: React.FC = () => {
             </div>
 
             <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-xs font-bold">{isAr ? 'تفعيل طبقة التعتيم (Enable Image Overlay)' : 'Enable Image Overlay'}</span>
+              <span className="text-xs font-bold">{isAr ? 'تفعيل طبقة التعتيم' : 'Enable Image Overlay'}</span>
               <input
                 type="checkbox"
                 checked={settings.enableOverlay !== false}
@@ -461,7 +461,7 @@ export const CustomLinksForm: React.FC = () => {
             {settings.enableOverlay !== false && (
               <div>
                 <span className="text-[10px] font-bold uppercase text-muted block mb-1">
-                  {isAr ? 'نوع التعتيم (Overlay Style)' : 'Overlay Style'}
+                  {isAr ? 'نوع التعتيم' : 'Overlay Style'}
                 </span>
                 <div className="grid grid-cols-4 gap-1.5 text-xs font-bold">
                   {[
@@ -491,7 +491,7 @@ export const CustomLinksForm: React.FC = () => {
         <div className="rounded-xl border p-4 space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <h3 className="text-xs font-bold uppercase text-emerald-600 flex items-center gap-1.5">
             <span>3</span>
-            <span>{isAr ? 'عناوين العنصر (Section Header)' : '3. Section Header Titles'}</span>
+            <span>{isAr ? 'عناوين العنصر' : '3. Section Header Titles'}</span>
           </h3>
 
           <div className="space-y-2.5">
@@ -522,12 +522,12 @@ export const CustomLinksForm: React.FC = () => {
         <div className="rounded-xl border p-4 space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <h3 className="text-xs font-bold uppercase text-emerald-600 flex items-center gap-1.5">
             <span>4</span>
-            <span>{isAr ? 'خيارات البنر والأزرار (Advanced Banner Options)' : '4. Advanced Banner Options'}</span>
+            <span>{isAr ? 'خيارات البنر والأزرار' : '4. Advanced Banner Options'}</span>
           </h3>
 
           <div className="space-y-3">
             <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-xs font-bold">{isAr ? 'عرض زر داخل البنر (Display Button on Banner)' : 'Display Button on Banner'}</span>
+              <span className="text-xs font-bold">{isAr ? 'عرض زر داخل البنر' : 'Display Button on Banner'}</span>
               <input
                 type="checkbox"
                 checked={settings.showButtonOnBanner !== false}
@@ -599,7 +599,7 @@ export const CustomLinksForm: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xs font-bold uppercase text-emerald-600">
-              {isAr ? 'عناصر وروابط الأقسام (Links & Categories List)' : '5. Links & Collections List'}
+              {isAr ? 'عناصر وروابط الأقسام' : '5. Links & Collections List'}
             </h3>
             <p className="text-[11px] text-muted">
               {isAr ? 'حدد وجهة الرابط (قسم، علامة تجارية، منتج، صفحة هبوط)' : 'Configure each banner destination (Category, Brand, Product, Landing Page)'}
@@ -727,7 +727,7 @@ export const CustomLinksForm: React.FC = () => {
           className="px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-md flex items-center gap-2 cursor-pointer transition-all hover:opacity-90 unity-btn-primary"
         >
           {savedFlash ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          <span>{saving ? (isAr ? 'جارٍ الحفظ…' : 'Saving…') : savedFlash ? (isAr ? 'تم الحفظ!' : 'Saved!') : (isAr ? 'حفظ التغييرات (Save Changes)' : 'Save Changes')}</span>
+          <span>{saving ? (isAr ? 'جارٍ الحفظ…' : 'Saving…') : savedFlash ? (isAr ? 'تم الحفظ!' : 'Saved!') : (isAr ? 'حفظ التغييرات' : 'Save Changes')}</span>
         </button>
       </div>
     </form>

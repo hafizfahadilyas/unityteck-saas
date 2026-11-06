@@ -89,7 +89,7 @@ export const StoreStatisticsForm: React.FC = () => {
               </span>
             </div>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'إحصائيات وإنجازات المتجر (Store Statistics)' : 'Store Statistics (Selia)'}
+              {isAr ? 'إحصائيات وإنجازات المتجر' : 'Store Statistics (Selia)'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr

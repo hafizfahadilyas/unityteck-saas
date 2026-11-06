@@ -86,7 +86,7 @@ export const EnhancedFeaturesForm: React.FC = () => {
               Theme Settings · 14
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'مزايا المتجر وبطاقات الثقة (Enhanced Features)' : 'Enhanced Store Features (Selia)'}
+              {isAr ? 'مزايا المتجر وبطاقات الثقة' : 'Enhanced Store Features (Selia)'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr

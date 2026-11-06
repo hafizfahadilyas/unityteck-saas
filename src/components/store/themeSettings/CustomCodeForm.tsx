@@ -216,9 +216,7 @@ export const CustomCodeForm: React.FC = () => {
           </span>
         </div>
         <p className="text-[11px] text-slate-400 leading-relaxed">
-          {isAr
-            ? 'أضف تنسيقات CSS مخصصة لتعديل مظهر القالب، أو أكواد التتبع مثل Snap Pixel وميتا وجوجل أناليتكس بكل سهولة.'
-            : 'Add custom CSS styles to tailor the theme look-and-feel, or inject Meta/Snap/TikTok tracking pixels and header tags.'}
+          {isAr ? 'أضف تنسيقات مخصصة لتعديل مظهر القالب، أو أكواد التتبع مثل وميتا وجوجل أناليتكس بكل سهولة.' : 'Add custom CSS styles to tailor the theme look-and-feel, or inject Meta/Snap/TikTok tracking pixels and header tags.'}
         </p>
       </div>
 
@@ -234,7 +232,7 @@ export const CustomCodeForm: React.FC = () => {
           }`}
         >
           <FileCode className="w-3.5 h-3.5" />
-          <span>{isAr ? 'CSS مخصص' : 'Custom CSS'}</span>
+          <span>{isAr ? 'مخصص' : 'Custom CSS'}</span>
         </button>
 
         <button
@@ -247,7 +245,7 @@ export const CustomCodeForm: React.FC = () => {
           }`}
         >
           <Terminal className="w-3.5 h-3.5" />
-          <span>{isAr ? 'أكواد <head>' : '<head> Scripts'}</span>
+          <span>{isAr ? 'أكواد <>' : '<head> Scripts'}</span>
         </button>
 
         <button
@@ -269,7 +267,7 @@ export const CustomCodeForm: React.FC = () => {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              <span>{isAr ? 'محرر CSS المباشر:' : 'Live Custom CSS Editor:'}</span>
+              <span>{isAr ? 'محرر المباشر:' : 'Live Custom CSS Editor:'}</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-500">
               <input
@@ -310,7 +308,7 @@ export const CustomCodeForm: React.FC = () => {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              <span>{isAr ? 'أكواد الهيدر والتتبع (<head>):' : '<head> Header & Pixel Tracking Code:'}</span>
+              <span>{isAr ? 'أكواد الهيدر والتتبع:' : '<head> Header & Pixel Tracking Code:'}</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-500">
               <input
@@ -351,7 +349,7 @@ export const CustomCodeForm: React.FC = () => {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              <span>{isAr ? 'أكواد الفوتر ونهاية الصفحة (قبل </body>):' : 'Footer Scripts & Widgets (before </body>):'}</span>
+              <span>{isAr ? 'أكواد الفوتر ونهاية الصفحة:' : 'Footer Scripts & Widgets (before </body>):'}</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-500">
               <input

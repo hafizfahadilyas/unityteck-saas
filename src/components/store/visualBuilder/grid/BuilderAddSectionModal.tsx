@@ -434,7 +434,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-black text-sm text-slate-900">
-                  {isAr ? 'إضافة قسم جديد وتخطيط الشبكة (Row & Grid System)' : 'Add New Section & Grid Layout'}
+                  {isAr ? 'إضافة قسم جديد وتخطيط الشبكة' : 'Add New Section & Grid Layout'}
                 </h3>
                 {themeName && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
@@ -466,7 +466,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
               <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] flex items-center justify-center">
                 1
               </span>
-              <span>{isAr ? 'اختر بنية وتقسيم الأعمدة (Grid Structure):' : 'Choose Column Structure:'}</span>
+              <span>{isAr ? 'اختر بنية وتقسيم الأعمدة:' : 'Choose Column Structure:'}</span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -497,7 +497,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
               <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] flex items-center justify-center">
                 2
               </span>
-              <span>{isAr ? 'اختر نوع القسم أو العنصر البرمجي (Widget):' : 'Choose Section Widget:'}</span>
+              <span>{isAr ? 'اختر نوع القسم أو العنصر البرمجي:' : 'Choose Section Widget:'}</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">

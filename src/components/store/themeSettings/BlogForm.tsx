@@ -65,7 +65,7 @@ export const BlogForm: React.FC = () => {
               Theme Settings · 12
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'مدونة المتجر والمقالات (Blog Selia)' : 'Blog (Selia)'}
+              {isAr ? 'مدونة المتجر والمقالات' : 'Blog (Selia)'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr
@@ -240,7 +240,7 @@ export const BlogForm: React.FC = () => {
             className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer flex items-center gap-1.5 shadow-xs self-start"
           >
             <span>+</span>
-            <span>{isAr ? 'إضافة مقال جديد (Insert Post)' : 'Add New Blog Post'}</span>
+            <span>{isAr ? 'إضافة مقال جديد' : 'Add New Blog Post'}</span>
           </button>
         </div>
 

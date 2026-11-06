@@ -93,7 +93,7 @@ export const CategoryCartCustomerForm: React.FC = () => {
             <div className="flex items-center gap-2">
               <FolderTree className="w-4 h-4 text-emerald-600" />
               <h3 className="text-xs font-bold uppercase text-emerald-600">
-                {isAr ? 'صفحات التصنيفات (Category Pages)' : 'Category Pages'}
+                {isAr ? 'صفحات التصنيفات' : 'Category Pages'}
               </h3>
             </div>
 
@@ -165,7 +165,7 @@ export const CategoryCartCustomerForm: React.FC = () => {
             <div className="flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-emerald-600" />
               <h3 className="text-xs font-bold uppercase text-emerald-600">
-                {isAr ? 'صفحة السلة (Cart Page)' : 'Cart Page'}
+                {isAr ? 'صفحة السلة' : 'Cart Page'}
               </h3>
             </div>
 
@@ -216,7 +216,7 @@ export const CategoryCartCustomerForm: React.FC = () => {
                         onChange={() => setVal('recommendedDisplayStyle', 'grid')}
                         className="accent-emerald-600"
                       />
-                      <span>{isAr ? 'شبكة منتجات (Grid)' : 'Products Grid'}</span>
+                      <span>{isAr ? 'شبكة منتجات' : 'Products Grid'}</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold">
                       <input
@@ -226,7 +226,7 @@ export const CategoryCartCustomerForm: React.FC = () => {
                         onChange={() => setVal('recommendedDisplayStyle', 'slider')}
                         className="accent-emerald-600"
                       />
-                      <span>{isAr ? 'شريط تمرير (Slider)' : 'Products Slider'}</span>
+                      <span>{isAr ? 'شريط تمرير' : 'Products Slider'}</span>
                     </label>
                   </div>
                 </div>
@@ -241,7 +241,7 @@ export const CategoryCartCustomerForm: React.FC = () => {
             <div className="flex items-center gap-2">
               <UserCheck className="w-4 h-4 text-emerald-600" />
               <h3 className="text-xs font-bold uppercase text-emerald-600">
-                {isAr ? 'صفحات العملاء (Customer Pages)' : 'Customer Pages'}
+                {isAr ? 'صفحات العملاء' : 'Customer Pages'}
               </h3>
             </div>
 

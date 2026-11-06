@@ -268,12 +268,12 @@ export const DetailedProductsForm: React.FC = () => {
         <div className="rounded-xl border p-4 space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <h3 className="text-xs font-bold uppercase text-emerald-600 flex items-center gap-1.5">
             <span>1</span>
-            <span>{isAr ? 'الإعدادات العامة (General Settings)' : '1. General Settings'}</span>
+            <span>{isAr ? 'الإعدادات العامة' : '1. General Settings'}</span>
           </h3>
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold">{isAr ? 'إضافة تباعد علوي (Add Top Spacing)' : 'Add Top Spacing'}</span>
+              <span className="text-xs font-bold">{isAr ? 'إضافة تباعد علوي' : 'Add Top Spacing'}</span>
               <input
                 type="checkbox"
                 checked={settings.addTopSpacing || false}
@@ -284,7 +284,7 @@ export const DetailedProductsForm: React.FC = () => {
 
             <div>
               <span className="text-[10px] font-bold uppercase text-muted block mb-1">
-                {isAr ? 'عنوان العنصر (Element Title)' : 'Element Title'}
+                {isAr ? 'عنوان العنصر' : 'Element Title'}
               </span>
               <input
                 type="text"
@@ -298,7 +298,7 @@ export const DetailedProductsForm: React.FC = () => {
 
             <div>
               <span className="text-[10px] font-bold uppercase text-muted block mb-1">
-                {isAr ? 'العنوان الفرعي (Subtitle)' : 'Subtitle'}
+                {isAr ? 'العنوان الفرعي' : 'Subtitle'}
               </span>
               <input
                 type="text"
@@ -316,7 +316,7 @@ export const DetailedProductsForm: React.FC = () => {
         <div className="rounded-xl border p-4 space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <h3 className="text-xs font-bold uppercase text-emerald-600 flex items-center gap-1.5">
             <span>2</span>
-            <span>{isAr ? 'إعدادات المنتج (Product Settings)' : '2. Product Settings'}</span>
+            <span>{isAr ? 'إعدادات المنتج' : '2. Product Settings'}</span>
           </h3>
 
           <div className="space-y-3">
@@ -363,7 +363,7 @@ export const DetailedProductsForm: React.FC = () => {
         <div className="rounded-xl border p-4 space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <h3 className="text-xs font-bold uppercase text-emerald-600 flex items-center gap-1.5">
             <span>3</span>
-            <span>{isAr ? 'التقييم والمبيعات (Review & Sales)' : '3. Review & Sales'}</span>
+            <span>{isAr ? 'التقييم والمبيعات' : '3. Review & Sales'}</span>
           </h3>
 
           <div className="space-y-3">
@@ -379,7 +379,7 @@ export const DetailedProductsForm: React.FC = () => {
 
             <div>
               <span className="text-[10px] font-bold uppercase text-muted block mb-1">
-                {isAr ? 'نص عدد المبيعات (Sales Count)' : 'Sales Count (Optional)'}
+                {isAr ? 'نص عدد المبيعات' : 'Sales Count (Optional)'}
               </span>
               <input
                 type="text"
@@ -429,7 +429,7 @@ export const DetailedProductsForm: React.FC = () => {
         <div className="rounded-xl border p-4 space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <h3 className="text-xs font-bold uppercase text-emerald-600 flex items-center gap-1.5">
             <span>4</span>
-            <span>{isAr ? 'إعدادات الصورة الرئيسية (Image Settings)' : '4. Main Image Settings'}</span>
+            <span>{isAr ? 'إعدادات الصورة الرئيسية' : '4. Main Image Settings'}</span>
           </h3>
 
           <div className="space-y-3">
@@ -486,7 +486,7 @@ export const DetailedProductsForm: React.FC = () => {
 
             <div>
               <span className="text-[10px] font-bold uppercase text-muted block mb-1">
-                {isAr ? 'لون إطار البطاقة (Card Border Color)' : 'Card Border Color'}
+                {isAr ? 'لون إطار البطاقة' : 'Card Border Color'}
               </span>
               <div className="flex items-center gap-2">
                 <input
@@ -511,7 +511,7 @@ export const DetailedProductsForm: React.FC = () => {
         <div className="rounded-xl border p-4 space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <h3 className="text-xs font-bold uppercase text-emerald-600 flex items-center gap-1.5">
             <span>5</span>
-            <span>{isAr ? 'إعدادات الشريط المتحرك (Moving Banner Settings)' : '5. Moving Banner Settings'}</span>
+            <span>{isAr ? 'إعدادات الشريط المتحرك' : '5. Moving Banner Settings'}</span>
           </h3>
 
           <div className="space-y-3">
@@ -603,7 +603,7 @@ export const DetailedProductsForm: React.FC = () => {
             </label>
 
             <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-xs font-bold">{isAr ? 'عرض زر الشراء الفوري (Buy Now)' : 'Display "Buy Now" Button (Quick Checkout)'}</span>
+              <span className="text-xs font-bold">{isAr ? 'عرض زر الشراء الفوري' : 'Display "Buy Now" Button (Quick Checkout)'}</span>
               <input
                 type="checkbox"
                 checked={settings.displayBuyNowButton !== false}
@@ -645,7 +645,7 @@ export const DetailedProductsForm: React.FC = () => {
           <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: 'var(--border)' }}>
             <h3 className="text-xs font-bold uppercase text-purple-700 dark:text-purple-400 flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-purple-700 text-white flex items-center justify-center text-[10px]">7</span>
-              <span>{isAr ? 'مخصص أرضيات السيارات (Car Floor Mats & Trunk Customizer)' : '7. Car Floor Mats Customizer'}</span>
+              <span>{isAr ? 'مخصص أرضيات السيارات' : '7. Car Floor Mats Customizer'}</span>
             </h3>
             <span className="text-[10px] font-bold text-amber-700 bg-amber-100 dark:bg-amber-950 px-2 py-0.5 rounded-full">
               {isAr ? 'نظام ليزري 5D' : '5D Laser Fit'}
@@ -718,7 +718,7 @@ export const DetailedProductsForm: React.FC = () => {
           className="px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-md flex items-center gap-2 cursor-pointer transition-all hover:opacity-90 unity-btn-primary"
         >
           {savedFlash ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          <span>{saving ? (isAr ? 'جارٍ الحفظ…' : 'Saving…') : savedFlash ? (isAr ? 'تم الحفظ!' : 'Saved!') : (isAr ? 'حفظ التغييرات (Save Changes)' : 'Save Changes')}</span>
+          <span>{saving ? (isAr ? 'جارٍ الحفظ…' : 'Saving…') : savedFlash ? (isAr ? 'تم الحفظ!' : 'Saved!') : (isAr ? 'حفظ التغييرات' : 'Save Changes')}</span>
         </button>
       </div>
     </form>

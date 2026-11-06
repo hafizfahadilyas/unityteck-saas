@@ -98,7 +98,7 @@ export const IconLibraryModal: React.FC<IconLibraryModalProps> = ({
         <div className="p-4 px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div>
             <h3 className="font-black text-sm text-slate-900">
-              {title || (isAr ? 'مكتبة الأيقونات المتقدمة (FontAwesome & Lucide)' : 'Icon Library Selector')}
+              {title || (isAr ? 'مكتبة الأيقونات المتقدمة' : 'Icon Library Selector')}
             </h3>
             <p className="text-[11px] text-slate-500">
               {isAr

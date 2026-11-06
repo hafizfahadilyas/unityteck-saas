@@ -1073,7 +1073,7 @@ export async function uploadMediaFile(
     body: formData,
   });
   const row = res.data;
-  return {
+  const asset: MediaAsset = {
     id: row.id,
     storeId: row.store_id || storeId,
     fileName: row.file_name,
@@ -1098,6 +1098,12 @@ export async function uploadMediaFile(
     optimizationStatus: row.optimization_status || 'optimized',
     source: 'upload',
   };
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('unityteck-media-changed', {
+      detail: { id: asset.id, url: asset.originalUrl },
+    }));
+  }
+  return asset;
 }
 
 export async function replaceMediaWithFile(
@@ -1114,6 +1120,11 @@ export async function replaceMediaWithFile(
     body: formData,
   });
   const row = res.data || {};
+  if (typeof window !== 'undefined' && row.url) {
+    window.dispatchEvent(new CustomEvent('unityteck-media-changed', {
+      detail: { id, url: row.url },
+    }));
+  }
   return {
     url: row.url,
     version: row.version || 1,
@@ -2109,6 +2120,46 @@ export async function publishThemePageApi(
     { method: 'POST', storeId },
   );
   return { ...res.data, seo_warnings: res.warnings ?? [] };
+}
+
+export async function suggestThemeSeoApi(storeId: string, pageId: string) {
+  return apiFetch<{ success: boolean; data: { saved: boolean; suggestions: Record<string, string>; faq: unknown[]; products: unknown[] } }>(
+    `/stores/${storeId}/ai/seo`,
+    { method: 'POST', storeId, body: { page_id: pageId } },
+  );
+}
+
+export async function suggestThemeHeadingApi(storeId: string, pageId: string, widgetId: string, locale: 'en' | 'ar') {
+  return apiFetch<{ success: boolean; data: { suggestion: string; saved: boolean } }>(
+    `/stores/${storeId}/ai/heading`,
+    { method: 'POST', storeId, body: { page_id: pageId, widget_id: widgetId, locale } },
+  );
+}
+
+export async function suggestThemeAltApi(storeId: string, pageId: string, widgetId: string, fileName: string) {
+  return apiFetch<{ success: boolean; data: { alt_en: string; alt_ar: string; saved: boolean } }>(
+    `/stores/${storeId}/ai/alt`,
+    { method: 'POST', storeId, body: { page_id: pageId, widget_id: widgetId, file_name: fileName } },
+  );
+}
+
+export async function suggestThemeTranslateApi(storeId: string, pageId: string, widgetId: string, from: 'en' | 'ar', confirm: boolean) {
+  return apiFetch<{ success: boolean; data: { source: string; target: string | null; target_key: string; saved: boolean } }>(
+    `/stores/${storeId}/ai/translate`,
+    { method: 'POST', storeId, body: { page_id: pageId, widget_id: widgetId, from, confirm } },
+  );
+}
+
+export async function applyThemeSuggestionApi(
+  storeId: string,
+  pageId: string,
+  fields: Record<string, string>,
+  widgetId?: string,
+) {
+  return apiFetch<{ success: boolean; data: ThemePageRecord }>(
+    `/stores/${storeId}/ai/apply`,
+    { method: 'POST', storeId, body: { page_id: pageId, widget_id: widgetId, fields } },
+  );
 }
 
 export async function deleteThemePageApi(storeId: string, pageId: string): Promise<void> {

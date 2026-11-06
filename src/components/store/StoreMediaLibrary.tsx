@@ -112,6 +112,20 @@ export const StoreMediaLibrary: React.FC = () => {
     void loadCustomFolders();
   }, [loadCustomFolders]);
 
+  useEffect(() => {
+    const refresh = (event: Event) => {
+      const detail = (event as CustomEvent<{ id?: string; url?: string }>).detail;
+      if (!detail?.id || !detail.url) return;
+      updateMediaAsset(detail.id, {
+        originalUrl: detail.url,
+        optimizedUrl: detail.url,
+        thumbnailUrl: detail.url,
+      }, activeStore.id);
+    };
+    window.addEventListener('unityteck-media-changed', refresh);
+    return () => window.removeEventListener('unityteck-media-changed', refresh);
+  }, [activeStore.id, updateMediaAsset]);
+
   const handleCreateFolder = async () => {
     const name = newFolderName.trim();
     if (!name) return;

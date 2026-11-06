@@ -308,7 +308,7 @@ export const CoffeeFeaturesForm: React.FC<CoffeeFormChromeProps> = ({ onBack, em
           <section className={cardCls}>
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-bold">
-                {isAr ? `إدارة العناصر (${features.length}/${MAX_ITEMS})` : `Items Management (${features.length}/${MAX_ITEMS})`}
+                {isAr ? `إدارة العناصر` : `Items Management (${features.length}/${MAX_ITEMS})`}
               </h3>
               <button
                 type="button"
@@ -389,9 +389,7 @@ export const CoffeeFeaturesForm: React.FC<CoffeeFormChromeProps> = ({ onBack, em
             <section className={cardCls}>
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold">
-                  {isAr
-                    ? `تعديل العنصر (عنصر ${features.findIndex((f) => f.id === editing.id) + 1})`
-                    : `Edit Item (Item ${features.findIndex((f) => f.id === editing.id) + 1})`}
+                  {isAr ? `تعديل العنصر => f.id ===.id) + 1})` : `Edit Item (Item ${features.findIndex((f) => f.id === editing.id) + 1})`}
                 </h3>
                 <button type="button" className="text-[11px] font-semibold text-slate-500" onClick={() => setEditId(null)}>
                   {isAr ? 'إغلاق' : 'Close'}

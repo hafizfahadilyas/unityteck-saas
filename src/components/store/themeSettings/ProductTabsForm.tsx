@@ -70,7 +70,7 @@ export const ProductTabsForm: React.FC = () => {
               Theme Settings · 07
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'تبويبات المنتجات (Product Tabs)' : 'Product Tabs (Selia)'}
+              {isAr ? 'تبويبات المنتجات' : 'Product Tabs (Selia)'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr
@@ -227,23 +227,23 @@ export const ProductTabsForm: React.FC = () => {
                 className="w-full px-3 py-2 text-xs rounded-xl border outline-none font-bold"
                 style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
               >
-                <option value="all">{isAr ? 'جميع المنتجات (All Products)' : 'All Products'}</option>
-                <option value="trending">{isAr ? 'الأكثر رواجاً (Top Trending 🔥)' : 'Top Trending 🔥'}</option>
-                <option value="best_sellers">{isAr ? 'الأكثر مبيعاً (Best Sellers ⭐)' : 'Best Sellers ⭐'}</option>
-                <option value="best_products">{isAr ? 'أفضل المنتجات (Best Products 👑)' : 'Best Products 👑'}</option>
-                <option value="featured">{isAr ? 'منتجات مميزة (Featured ✨)' : 'Featured ✨'}</option>
-                <option value="women">{isAr ? 'هدايا نسائية (Women)' : 'Women Collection'}</option>
-                <option value="valentines">{isAr ? 'عيد الحب والرومانسية (Valentine)' : "Valentine's Day"}</option>
-                <option value="eid">{isAr ? 'أقسام العيد والاحتفالات (Eid)' : 'Eid Celebrations'}</option>
-                <option value="birthday">{isAr ? 'أعياد الميلاد (Birthday)' : 'Birthday Gifts'}</option>
-                <option value="luxury">{isAr ? 'تشكيلة فاخرة (Luxury VIP)' : 'Luxury VIP'}</option>
+                <option value="all">{isAr ? 'جميع المنتجات' : 'All Products'}</option>
+                <option value="trending">{isAr ? 'الأكثر رواجاً' : 'Top Trending 🔥'}</option>
+                <option value="best_sellers">{isAr ? 'الأكثر مبيعاً' : 'Best Sellers ⭐'}</option>
+                <option value="best_products">{isAr ? 'أفضل المنتجات' : 'Best Products 👑'}</option>
+                <option value="featured">{isAr ? 'منتجات مميزة' : 'Featured ✨'}</option>
+                <option value="women">{isAr ? 'هدايا نسائية' : 'Women Collection'}</option>
+                <option value="valentines">{isAr ? 'عيد الحب والرومانسية' : "Valentine's Day"}</option>
+                <option value="eid">{isAr ? 'أقسام العيد والاحتفالات' : 'Eid Celebrations'}</option>
+                <option value="birthday">{isAr ? 'أعياد الميلاد' : 'Birthday Gifts'}</option>
+                <option value="luxury">{isAr ? 'تشكيلة فاخرة' : 'Luxury VIP'}</option>
               </select>
             </div>
 
             {/* Columns Per Row */}
             <div>
               <span className="text-[10px] font-bold uppercase text-muted block mb-1">
-                {isAr ? 'عدد المنتجات في الصف الواحد (Grid Columns)' : 'Products Per Row (Columns)'}
+                {isAr ? 'عدد المنتجات في الصف الواحد' : 'Products Per Row (Columns)'}
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {[3, 4, 5, 6, 8, 10].map((col) => (
