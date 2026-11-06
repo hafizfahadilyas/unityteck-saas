@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useClerk, useSignIn, useSignUp, useUser } from '@clerk/clerk-react';
 import { isClerkConfigured } from '../../../auth/clerkSession';
 import {
+  establishStorefrontSession,
   rememberPendingCustomer,
-  saveStorefrontCustomer,
   sendClerkEmailCode,
   startClerkGoogle,
   verifyClerkEmailCode,
@@ -17,22 +17,15 @@ import {
 import { useCart } from '../context/CartContext';
 import { cartChoiceLine } from '../cartLine';
 import {
-  User,
   Package,
   Award,
-  MapPin,
   LogOut,
   CheckCircle2,
   Truck,
-  ShieldCheck,
-  Sparkles,
   Coffee,
   Mail,
-  Smartphone,
   KeyRound,
-  ArrowRight,
   RefreshCw,
-  Share2
 } from 'lucide-react';
 
 import { useTenant } from '../../../context/TenantContext';
@@ -63,24 +56,15 @@ type ClerkCustomerBridge = {
 };
 
 function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
-  const { user, loginUser, logoutUser, language, showToast, lastOrder, navigateTo } = useCart();
+  const { user, logoutUser, language, showToast, lastOrder, navigateTo } = useCart();
   const { activeStore, currentOrders } = useTenant();
 
-  // Authentication Mode: 'email-otp' | 'google' | 'phone-otp'
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [authMethod, setAuthMethod] = useState<'email-otp' | 'google'>('email-otp');
-
-  // Clean genuine input states
   const [emailInput, setEmailInput] = useState('');
-  const [nameInput, setNameInput] = useState('');
-  const [phoneInput, setPhoneInput] = useState('');
-  const [cityInput, setCityInput] = useState('');
   const [emailMode, setEmailMode] = useState<'signIn' | 'signUp'>('signIn');
   const [otpStep, setOtpStep] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [authError, setAuthError] = useState('');
+  const [authErrorCode, setAuthErrorCode] = useState('');
 
   const storeDisplayName = activeStore?.name || (language === 'AR' ? 'متجر القهوة المختصة' : 'Specialty Coffee Roasters');
   const isAr = language === 'AR';
@@ -89,72 +73,26 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
     preloadCustomerGoogleScript();
   }, []);
 
-  useEffect(() => {
-    const onReady = (event: Event) => {
-      const detail = (event as CustomEvent<{ storeId?: string; name?: string; email?: string; phone?: string; city?: string }>).detail;
-      if (!detail?.email || detail.storeId !== (activeStore?.id || 'store-coffee')) return;
-      loginUser(detail.name || detail.email.split('@')[0], detail.email, detail.phone, detail.city);
-    };
-    window.addEventListener('unityteck-sf-customer-ready', onReady);
-    return () => window.removeEventListener('unityteck-sf-customer-ready', onReady);
-  }, [activeStore?.id, loginUser]);
-
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordInput.trim().length >= 8 && emailInput.trim()) {
-      if (authMode === 'register' && (!nameInput.trim() || !phoneInput.trim())) {
-        setAuthError(isAr ? 'الاسم ورقم الجوال والبريد مطلوبة.' : 'Name, mobile, and email are required.');
-        return;
-      }
-      setIsSubmitting(true);
-      setAuthError('');
-      try {
-        const res = await fetch('/api/storefront/account', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Store-Id': activeStore?.id || '',
-          },
-          body: JSON.stringify({
-            mode: authMode === 'register' ? 'register' : 'login',
-            email: emailInput.trim(),
-            password: passwordInput,
-            name: nameInput.trim(),
-            phone: phoneInput.trim(),
-            city: cityInput.trim(),
-          }),
-        });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok || !body?.customer) {
-          setAuthError(isAr ? 'تعذر تسجيل الدخول. تحقق من البريد وكلمة المرور.' : 'Sign-in failed. Check the email and password.');
-          return;
-        }
-        const customer = body.customer;
-        loginUser(customer.name || emailInput.trim(), customer.email, customer.phone, customer.city, Number(customer.points) || 0);
-      } catch {
-        setAuthError(isAr ? 'تعذر الاتصال بالحساب.' : 'The account service is unavailable.');
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-    if (!emailInput.trim() || !nameInput.trim() || !phoneInput.trim() || !cityInput.trim()) {
-      setAuthError(isAr ? 'الاسم ورقم الجوال والمدينة والبريد مطلوبة.' : 'Name, mobile, city, and email are required.');
+    const email = emailInput.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAuthErrorCode('EMAIL_INVALID');
       return;
     }
     if (!clerk?.signIn || !clerk.signUp) {
-      setAuthError(isAr ? 'إرسال رمز التحقق غير جاهز.' : 'Email verification is not ready.');
+      setAuthErrorCode('EMAIL_NOT_READY');
       return;
     }
     setIsSubmitting(true);
-    setAuthError('');
+    setAuthErrorCode('');
     try {
-      const mode = await sendClerkEmailCode(clerk.signIn, clerk.signUp, emailInput.trim());
+      const mode = await sendClerkEmailCode(clerk.signIn, clerk.signUp, email);
       setEmailMode(mode);
       setOtpStep(true);
       showToast(isAr ? 'تم إرسال رمز التحقق إلى بريدك.' : 'Verification code sent to your email.');
     } catch {
-      setAuthError(isAr ? 'تعذر إرسال رمز التحقق.' : 'Could not send the verification code.');
+      setAuthErrorCode('EMAIL_SEND_FAILED');
     } finally {
       setIsSubmitting(false);
     }
@@ -164,7 +102,7 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
     e.preventDefault();
     if (!clerk?.signIn || !clerk.signUp || !clerk.setActive || !clerk.setSignUpActive) return;
     setIsSubmitting(true);
-    setAuthError('');
+    setAuthErrorCode('');
     try {
       await verifyClerkEmailCode(
         emailMode,
@@ -174,20 +112,19 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
         clerk.setActive,
         clerk.setSignUpActive,
       );
-      const saved = await saveStorefrontCustomer({
+      establishStorefrontSession({
         storeId: activeStore?.id || 'store-coffee',
-        name: nameInput.trim(),
+        name: '',
         email: emailInput.trim(),
-        phone: phoneInput.trim(),
-        city: cityInput.trim(),
+        phone: '',
+        city: '',
         source: 'email',
       });
-      loginUser(saved.name, saved.email, saved.phone, saved.city);
       setOtpStep(false);
       setOtpCode('');
       void clerk.signOut({ redirectUrl: window.location.href }).catch(() => undefined);
     } catch {
-      setAuthError(isAr ? 'الرمز غير صحيح أو تعذر حفظ العميل.' : 'The code is wrong, or the customer could not be saved.');
+      setAuthErrorCode('CODE_WRONG');
     } finally {
       setIsSubmitting(false);
     }
@@ -208,63 +145,68 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
     return 'Could not open Google sign-in on this domain. Try again.';
   };
 
-  const handleGoogleSignIn = () => {
-    setAuthError('');
-    if (!nameInput.trim() || !phoneInput.trim() || !cityInput.trim()) {
-      setAuthError(isAr ? 'الاسم ورقم الجوال والمدينة مطلوبة قبل جوجل.' : 'Name, mobile number, and city are required before Google.');
+  const authError = (() => {
+    if (!authErrorCode) return '';
+    if (authErrorCode === 'EMAIL_INVALID') return isAr ? 'أدخل بريداً إلكترونياً صحيحاً.' : 'Enter a valid email address.';
+    if (authErrorCode === 'EMAIL_NOT_READY') return isAr ? 'إرسال رمز التحقق غير جاهز.' : 'Email verification is not ready.';
+    if (authErrorCode === 'EMAIL_SEND_FAILED') return isAr ? 'تعذر إرسال رمز التحقق.' : 'Could not send the verification code.';
+    if (authErrorCode === 'CODE_WRONG') return isAr ? 'الرمز غير صحيح.' : 'The code is wrong.';
+    if (authErrorCode === 'RESEND_FAILED') return isAr ? 'تعذر إعادة الإرسال.' : 'Could not resend the code.';
+    return googleErrorText(authErrorCode);
+  })();
+
+  const openClerkGoogle = (storeId: string) => {
+    const signIn = clerk?.signIn;
+    if (!clerk?.isLoaded || !signIn) {
+      setIsSubmitting(false);
+      setAuthErrorCode('GOOGLE_NOT_READY');
       return;
     }
+    rememberPendingCustomer({
+      storeId,
+      name: '',
+      email: emailInput.trim(),
+      phone: '',
+      city: '',
+      source: 'google',
+    });
+    void startClerkGoogle(signIn, 'profile').catch(() => {
+      clearPendingOnFail();
+      setIsSubmitting(false);
+      setAuthErrorCode('GOOGLE_FAILED');
+    });
+  };
+
+  const handleGoogleSignIn = () => {
+    setAuthErrorCode('');
     const storeId = activeStore?.id || 'store-coffee';
     setIsSubmitting(true);
     const clientId = getStoredGoogleClientId();
     if (hasRealGoogleClientId(clientId)) {
       startCustomerGoogleSignIn(clientId, {
         onSuccess: (profile) => {
-          void saveStorefrontCustomer({
+          establishStorefrontSession({
             storeId,
-            name: profile.name || nameInput.trim(),
+            name: profile.name || '',
             email: profile.email,
-            phone: phoneInput.trim(),
-            city: cityInput.trim(),
+            phone: '',
+            city: '',
             source: 'google',
-          })
-            .then((saved) => {
-              loginUser(saved.name, saved.email, saved.phone, saved.city);
-              setIsSubmitting(false);
-            })
-            .catch(() => {
-              setIsSubmitting(false);
-              setAuthError(isAr ? 'تعذر حفظ العميل في قاعدة البيانات.' : 'Could not save the customer.');
-            });
+          });
+          setIsSubmitting(false);
         },
         onError: (code) => {
-          setIsSubmitting(false);
-          setAuthError(googleErrorText(code));
+          if (code === 'GOOGLE_CANCELLED' || code === 'GOOGLE_NO_EMAIL') {
+            setIsSubmitting(false);
+            setAuthErrorCode(code);
+            return;
+          }
+          openClerkGoogle(storeId);
         },
       });
       return;
     }
-
-    const signIn = clerk?.signIn;
-    if (!clerk?.isLoaded || !signIn) {
-      setIsSubmitting(false);
-      setAuthError(googleErrorText('GOOGLE_NOT_READY'));
-      return;
-    }
-
-    rememberPendingCustomer({
-      storeId,
-      name: nameInput.trim(),
-      email: emailInput.trim(),
-      phone: phoneInput.trim(),
-      city: cityInput.trim(),
-      source: 'google',
-    });
-    void startClerkGoogle(signIn, 'profile').catch(() => {
-      clearPendingOnFail();
-      setIsSubmitting(false);
-      setAuthError(googleErrorText('GOOGLE_FAILED'));
-    });
+    openClerkGoogle(storeId);
   };
 
   const clearPendingOnFail = () => {
@@ -322,12 +264,8 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
             </div>
             <h2 className="honor-heading text-xl sm:text-2xl font-black text-neutral-900">
               {language === 'AR'
-                ? authMode === 'login'
-                  ? `تسجيل الدخول إلى ${storeDisplayName}`
-                  : `إنشاء حساب جديد في ${storeDisplayName}`
-                : authMode === 'login'
-                ? `Sign in to ${storeDisplayName}`
-                : `Create ${storeDisplayName} Account`}
+                ? `تسجيل الدخول إلى ${storeDisplayName}`
+                : `Sign in to ${storeDisplayName}`}
             </h2>
             <p className="text-xs text-neutral-500 leading-relaxed">
               {language === 'AR'
@@ -388,21 +326,7 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
             <form onSubmit={handleSendOtp} className="space-y-4 text-xs">
               <div>
                 <label className="block font-semibold text-neutral-700 mb-1">
-                  {language === 'AR' ? 'الاسم الكامل' : 'Full Name'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={nameInput}
-                  onChange={e => setNameInput(e.target.value)}
-                  placeholder={language === 'AR' ? 'مثال: فهد العتيبي' : 'e.g. Fahad Al-Otaibi'}
-                  className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200 focus:border-black focus:outline-hidden"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-neutral-700 mb-1">
-                  {language === 'AR' ? 'البريد الإلكتروني (لتلقي رمز التحقق)' : 'Email Address (for OTP)'}
+                  {language === 'AR' ? 'البريد الإلكتروني' : 'Email address'}
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-3.5 rtl:left-auto rtl:right-3" />
@@ -417,58 +341,14 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-neutral-700 mb-1">
-                  {language === 'AR' ? 'رقم الجوال' : 'Mobile number'}
-                </label>
-                <div className="relative">
-                  <Smartphone className="w-4 h-4 text-neutral-400 absolute left-3 top-3.5 rtl:left-auto rtl:right-3" />
-                  <input
-                    type="tel"
-                    required
-                    value={phoneInput}
-                    onChange={e => setPhoneInput(e.target.value)}
-                    placeholder="05XXXXXXXX"
-                    className="w-full bg-white rounded-xl py-3 pl-9 pr-3 rtl:pl-3 rtl:pr-9 text-neutral-900 font-mono border border-neutral-200 focus:border-black focus:outline-hidden"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block font-semibold text-neutral-700 mb-1">
-                  {language === 'AR' ? 'المدينة' : 'City'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={cityInput}
-                  onChange={e => setCityInput(e.target.value)}
-                  className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200 focus:border-black focus:outline-hidden"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-neutral-700 mb-1">
-                  {language === 'AR' ? 'كلمة المرور' : 'Password'}
-                </label>
-                <input
-                  type="password"
-                  minLength={8}
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200 focus:border-black focus:outline-hidden"
-                />
-              </div>
-
               <button
                 type="submit"
                 disabled={isSubmitting}
                 className="w-full py-3.5 bg-black hover:bg-neutral-800 disabled:bg-neutral-400 text-white font-bold text-xs rounded-full transition-all cursor-pointer shadow-xs active:scale-95"
               >
                 {isSubmitting
-                  ? language === 'AR' ? 'جارٍ الحفظ...' : 'Saving...'
-                  : passwordInput.trim().length >= 8
-                    ? language === 'AR' ? 'متابعة' : 'Continue'
-                    : language === 'AR' ? 'إرسال رمز التحقق' : 'Send verification code'}
+                  ? language === 'AR' ? 'جارٍ الإرسال...' : 'Sending...'
+                  : language === 'AR' ? 'إرسال رمز التحقق' : 'Send verification code'}
               </button>
             </form>
           ) : (
@@ -508,7 +388,7 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
                         setEmailMode(mode);
                         showToast(language === 'AR' ? 'أُعيد إرسال رمز التحقق.' : 'Verification code sent again.');
                       })
-                      .catch(() => setAuthError(language === 'AR' ? 'تعذر إعادة الإرسال.' : 'Could not resend the code.'));
+                      .catch(() => setAuthErrorCode('RESEND_FAILED'));
                   }}
                   className="text-blue-600 hover:underline font-semibold cursor-pointer inline-flex items-center gap-1"
                 >
@@ -534,38 +414,6 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
             </form>
           )}
 
-          {/* Toggle Login / Register */}
-          <div className="text-center pt-2 border-t border-neutral-200 text-xs">
-            {authMode === 'login' ? (
-              <p className="text-neutral-600">
-                {language === 'AR' ? 'ليس لديك حساب بعد؟' : "Don't have an account?"}{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode('register');
-                    setOtpStep(false);
-                  }}
-                  className="font-bold text-black underline hover:text-neutral-700 cursor-pointer"
-                >
-                  {language === 'AR' ? 'سجل الآن مجاناً' : 'Register Now'}
-                </button>
-              </p>
-            ) : (
-              <p className="text-neutral-600">
-                {language === 'AR' ? 'لديك حساب بالفعل؟' : 'Already have an account?'}{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode('login');
-                    setOtpStep(false);
-                  }}
-                  className="font-bold text-black underline hover:text-neutral-700 cursor-pointer"
-                >
-                  {language === 'AR' ? 'تسجيل الدخول' : 'Sign In'}
-                </button>
-              </p>
-            )}
-          </div>
         </div>
       </div>
     );
@@ -582,11 +430,12 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
             </div>
             <div className="space-y-1">
               <h1 className="honor-heading text-xl sm:text-2xl font-bold text-black tracking-normal">
-                {user.name}
+                {user.name || user.email}
               </h1>
               <div className="flex items-center gap-3 text-xs text-neutral-500 font-mono">
-                <span>{user.email}</span>
-                {user.phone && <span>· {user.phone}</span>}
+                {user.name ? <span>{user.email}</span> : null}
+                {user.phone ? <span>{user.name ? '· ' : ''}{user.phone}</span> : null}
+                {user.city ? <span>· {user.city}</span> : null}
               </div>
               <div className="flex items-center gap-2 pt-1 text-xs">
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[11px]">

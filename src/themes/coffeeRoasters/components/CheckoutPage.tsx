@@ -120,8 +120,7 @@ export const CheckoutPage: React.FC = () => {
       },
     )
       .then((order) => {
-        updateSignedInContact(name, phone, city);
-        setLastOrder({
+        const placed = {
           id: order.id,
           orderNumber: order.orderNumber,
           date: order.date,
@@ -130,7 +129,9 @@ export const CheckoutPage: React.FC = () => {
           paymentMethod,
           shippingAddress: { name, phone, city, district, street },
           status: 'Confirmed',
-        });
+        };
+        updateSignedInContact(name, phone, city, placed);
+        setLastOrder(placed);
         clearCart();
         navigateTo('thankyou');
       })

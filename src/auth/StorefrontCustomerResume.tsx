@@ -15,7 +15,7 @@ export function StorefrontCustomerResume() {
     const email = user.primaryEmailAddress?.emailAddress || pending.email;
     if (!email) return;
     started.current = true;
-    const name = user.fullName || user.firstName || pending.name || email.split('@')[0];
+    const name = user.fullName || user.firstName || pending.name || '';
     void (async () => {
       try {
         const phoneDigits = (pending.phone || '').replace(/\D/g, '');

@@ -169,7 +169,7 @@ interface CartContextType {
   toggleLanguage: () => void;
   user: UserState;
   loginUser: (name: string, email: string, phone?: string, city?: string, points?: number) => void;
-  updateSignedInContact: (name: string, phone: string, city: string) => void;
+  updateSignedInContact: (name: string, phone: string, city: string, order?: OrderItemRecord) => void;
   logoutUser: () => void;
   lastOrder: OrderItemRecord | null;
   setLastOrder: (order: OrderItemRecord | null) => void;
@@ -557,14 +557,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     showToast(language === 'AR' ? `مرحباً ${label}` : `Welcome, ${label}`);
   };
 
-  const updateSignedInContact = (name: string, phone: string, city: string) => {
+  const updateSignedInContact = (name: string, phone: string, city: string, order?: OrderItemRecord) => {
     setUser(prev => {
       if (!prev.isLoggedIn) return prev;
+      const orders = order
+        ? [order, ...(prev.orders || [])].filter((row, index, list) => list.findIndex((item) => item.orderNumber === row.orderNumber) === index)
+        : prev.orders;
       return {
         ...prev,
         name: name.trim() || prev.name,
         phone: phone.trim() || prev.phone || '',
         city: city.trim() || prev.city || '',
+        orders,
       };
     });
   };
