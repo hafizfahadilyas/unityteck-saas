@@ -67,7 +67,17 @@ jobs:
           php -l apps/api/routes/api.php
 
       - name: 🚀 Compile Production Vite Bundle
-        run: npm run build
+        env:
+          VITE_USE_API: 'true'
+          VITE_API_URL: /api
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          if [ -z "$VITE_CLERK_PUBLISHABLE_KEY" ]; then
+            echo "::error::Missing GitHub secret VITE_CLERK_PUBLISHABLE_KEY. Live login stays on Authentication not configured."
+            exit 1
+          fi
+          npm run build
 
       - name: 📄 Verify Hostinger .htaccess SPA Routing File
         run: |
