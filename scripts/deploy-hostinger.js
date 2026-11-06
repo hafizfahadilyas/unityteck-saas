@@ -99,8 +99,24 @@ function verifyLiveSite(url) {
   });
 }
 
-async function connectClient(client, target) {
-  console.log(`Connecting ${target.label} (${target.host}) ...`);
+function collectFiles(dir, root, out) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === 'coffee-theme-refs' || entry.name === 'robots.txt') continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) collectFiles(full, root, out);
+    else {
+      out.push({
+        full,
+        rel: path.relative(root, full).split(path.sep).join('/'),
+        size: fs.statSync(full).size,
+      });
+    }
+  }
+}
+
+async function openClient(target) {
+  const client = new ftp.Client(90000);
+  client.ftp.verbose = false;
   const base = {
     host: target.host,
     user: target.user,
@@ -116,28 +132,52 @@ async function connectClient(client, target) {
     console.log(`Secure FTP failed (${tlsErr.message}). Trying plain FTP.`);
     await client.access({ ...base, secure: false });
   }
+  return client;
 }
 
 async function uploadTarget(target) {
-  const client = new ftp.Client(0);
-  client.ftp.verbose = false;
+  const files = [];
+  collectFiles(distDir, distDir, files);
+  const remoteRoot = (target.dir.startsWith('/') ? target.dir : `/${target.dir}`).replace(/\/$/, '') || '';
+  console.log(`Connecting ${target.label} (${target.host}) ...`);
+  console.log(`Uploading ${files.length} files`);
+  let client = await openClient(target);
   try {
-    await connectClient(client, target);
-    const remoteDir = target.dir.startsWith('/') ? target.dir : `/${target.dir}`;
-    await client.ensureDir(remoteDir);
-    console.log(`Uploading dist/ to ${remoteDir}`);
-    let uploaded = false;
-    let attempts = 0;
-    while (!uploaded && attempts < 3) {
-      try {
-        attempts += 1;
-        await client.uploadFromDir(distDir, remoteDir);
-        uploaded = true;
-      } catch (uploadErr) {
-        console.warn(`Upload attempt ${attempts} failed: ${uploadErr.message}`);
-        if (attempts >= 3) throw uploadErr;
-        client.close();
-        await connectClient(client, target);
+    await client.remove(`${remoteRoot}/robots.txt`.replace(/\/{2,}/g, '/'));
+  } catch {
+    /* no old robots file */
+  }
+  const readyDirs = new Set();
+  try {
+    let sent = 0;
+    for (const file of files) {
+      const remotePath = `${remoteRoot}/${file.rel}`.replace(/\/{2,}/g, '/');
+      const parent = path.posix.dirname(remotePath);
+      let attempts = 0;
+      while (attempts < 4) {
+        try {
+          if (!readyDirs.has(parent)) {
+            await client.ensureDir(parent);
+            readyDirs.add(parent);
+          }
+          let same = false;
+          try {
+            same = (await client.size(remotePath)) === file.size;
+          } catch {
+            same = false;
+          }
+          if (!same) await client.uploadFrom(file.full, remotePath);
+          sent += 1;
+          if (sent % 50 === 0 || sent === files.length) console.log(`  ${sent}/${files.length}`);
+          break;
+        } catch (err) {
+          attempts += 1;
+          console.warn(`  ${file.rel} attempt ${attempts}: ${err.message}`);
+          try { client.close(); } catch { /* already closed */ }
+          if (attempts >= 4) throw err;
+          readyDirs.clear();
+          client = await openClient(target);
+        }
       }
     }
     console.log(`Uploaded ${target.label}`);
