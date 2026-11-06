@@ -1509,6 +1509,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           try {
             const products = await tenantApi.fetchStorefrontCatalog(sid);
             applyProductsFromApi(sid, products);
+            await loadStoreScopedData(sid, { tier: 'core' });
           } catch {
             /* keep last list */
           }
@@ -1630,7 +1631,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCacheEpoch((n) => n + 1);
         return;
       }
-      if (dataSourceRef.current !== 'api' || !hasLiveApiAuth()) {
+      const liveReadable =
+        resource === 'orders' ||
+        resource === 'customers' ||
+        resource === 'coupons' ||
+        resource === 'seo' ||
+        resource === 'shipping';
+      if ((dataSourceRef.current !== 'api' || !hasLiveApiAuth()) && !(isApiEnabled() && liveReadable)) {
         setCacheEpoch((n) => n + 1);
         return;
       }
@@ -1880,6 +1887,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setApiReady(true);
         }
         void loadCatalogsAnyway();
+        const sid = activeStoreIdRef.current || (pending?.portal === 'store' ? pending.storeId : '');
+        if (sid && API_MODE) {
+          void loadStoreScopedData(sid, { tier: 'core' }).catch(() => undefined);
+        }
         return;
       }
 
@@ -2002,6 +2013,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (previewOnly || dataSource !== 'api' || !hasLiveApiAuth()) {
       let cancelled = false;
+      if (!previewOnly) {
+        void loadStoreScopedData(activeStoreId, { tier: 'core' }).catch(() => undefined);
+      }
       tenantApi.fetchStorefrontCatalog(activeStoreId).then((products) => {
         if (!cancelled && Array.isArray(products) && products.length > 0) {
           applyProductsFromApi(activeStoreId, products);

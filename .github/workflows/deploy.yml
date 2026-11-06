@@ -40,7 +40,8 @@ jobs:
           cache: 'npm'
 
       - name: 📦 Install Frontend Dependencies
-        run: npm ci || npm install
+        shell: bash
+        run: npm ci --no-audit --no-fund
 
       - name: 🔍 TypeScript Strict Typecheck (Zero Error Policy)
         run: npm run lint
@@ -103,7 +104,8 @@ jobs:
           cache: 'npm'
 
       - name: 📦 Install Runner Dependencies
-        run: npm ci || npm install
+        shell: bash
+        run: npm ci --no-audit --no-fund
 
       - name: 📥 Download Production Build Artifacts
         uses: actions/download-artifact@v4

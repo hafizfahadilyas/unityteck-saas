@@ -102,6 +102,7 @@ function verifyLiveSite(url) {
 function collectFiles(dir, root, out) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'coffee-theme-refs' || entry.name === 'robots.txt') continue;
+    if (entry.name.endsWith('.sqlite') || entry.name.endsWith('.sqlite-journal')) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) collectFiles(full, root, out);
     else {
