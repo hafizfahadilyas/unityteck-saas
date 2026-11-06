@@ -44,8 +44,16 @@ export function readPendingCustomer(): StorefrontCustomerInput | null {
     const raw = sessionStorage.getItem(PENDING_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StorefrontCustomerInput;
-    if (!parsed?.storeId || !parsed.phone || !parsed.city) return null;
-    return parsed;
+    if (!parsed?.storeId) return null;
+    if (parsed.source !== 'google' && !parsed.email) return null;
+    return {
+      storeId: parsed.storeId,
+      name: parsed.name || '',
+      email: parsed.email || '',
+      phone: parsed.phone || '',
+      city: parsed.city || '',
+      source: parsed.source === 'google' ? 'google' : 'email',
+    };
   } catch {
     return null;
   }
@@ -89,6 +97,22 @@ export async function saveStorefrontCustomer(input: StorefrontCustomerInput): Pr
   };
   applyLocalCustomerSession(saved);
   window.dispatchEvent(new CustomEvent('unityteck-customers-updated', { detail: { storeId: saved.storeId } }));
+  window.dispatchEvent(new CustomEvent('unityteck-sf-customer-ready', { detail: saved }));
+  return saved;
+}
+
+/** Google or email sign-in before checkout. Name, phone, and city stay empty until the order. */
+export function establishStorefrontSession(input: StorefrontCustomerInput): SavedStorefrontCustomer {
+  const saved: SavedStorefrontCustomer = {
+    id: '',
+    storeId: input.storeId,
+    name: input.name.trim(),
+    email: input.email.trim().toLowerCase(),
+    phone: input.phone.trim(),
+    city: input.city.trim(),
+    source: input.source,
+  };
+  applyLocalCustomerSession(saved);
   window.dispatchEvent(new CustomEvent('unityteck-sf-customer-ready', { detail: saved }));
   return saved;
 }

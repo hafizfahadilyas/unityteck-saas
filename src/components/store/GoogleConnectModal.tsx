@@ -82,7 +82,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
 
   // Email input for instant verification
   const [merchantEmailInput, setMerchantEmailInput] = useState(
-    currentSEOConfig.googleAccountEmail || storeGoogleEmail(activeStore)
+    storeGoogleEmail(activeStore)
   );
   const [showAdvancedOAuth, setShowAdvancedOAuth] = useState(false);
   const [customClientIdInput, setCustomClientIdInput] = useState(getStoredGoogleClientId());
@@ -687,28 +687,28 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
                     <div className="p-2.5 bg-white/80 dark:bg-slate-900/60 rounded-xl border border-emerald-100 dark:border-emerald-900">
                       <span className="text-[10px] text-slate-500 font-bold block">GA4 Measurement ID</span>
                       <span className="font-bold font-mono text-[11px] text-slate-800 dark:text-slate-200 truncate block">
-                        {selectedGA4MeasurementId || `G-${activeStore.slug.slice(0, 5).toUpperCase()}99`}
+                        {selectedGA4MeasurementId || (isAr ? 'غير متصل' : 'Not connected')}
                       </span>
                     </div>
 
                     <div className="p-2.5 bg-white/80 dark:bg-slate-900/60 rounded-xl border border-emerald-100 dark:border-emerald-900">
                       <span className="text-[10px] text-slate-500 font-bold block">Search Console</span>
                       <span className="font-bold font-mono text-[11px] text-slate-800 dark:text-slate-200 truncate block">
-                        {selectedGSC ? 'Domain Verified' : 'Connected'}
+                        {selectedGSC || (isAr ? 'غير متصل' : 'Not connected')}
                       </span>
                     </div>
 
                     <div className="p-2.5 bg-white/80 dark:bg-slate-900/60 rounded-xl border border-emerald-100 dark:border-emerald-900">
                       <span className="text-[10px] text-slate-500 font-bold block">Tag Manager</span>
                       <span className="font-bold font-mono text-[11px] text-slate-800 dark:text-slate-200 truncate block">
-                        {selectedGTM || `GTM-${activeStore.slug.slice(0, 4).toUpperCase()}82`}
+                        {selectedGTM || (isAr ? 'غير متصل' : 'Not connected')}
                       </span>
                     </div>
 
                     <div className="p-2.5 bg-white/80 dark:bg-slate-900/60 rounded-xl border border-emerald-100 dark:border-emerald-900">
                       <span className="text-[10px] text-slate-500 font-bold block">Google Ads & Indexing</span>
                       <span className="font-bold font-mono text-[11px] text-slate-800 dark:text-slate-200 truncate block">
-                        {selectedAds || 'Active & Live'}
+                        {selectedAds || (isAr ? 'غير متصل' : 'Not connected')}
                       </span>
                     </div>
                   </div>
@@ -732,8 +732,8 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                         {isAr
-                          ? 'ربط فوري يمنحك مصادقة شاملة لـ GA4 و Search Console و Tag Manager و Indexing API ومؤشرات الأداء بضغطة زر واحدة.'
-                          : 'One-click authorization for GA4, Search Console, Tag Manager, Google Ads & Core Web Vitals.'}
+                          ? 'يسجّل مالك هذا المتجر الدخول بحساب جوجل الخاص به. لا يُنشأ ربط بدون تلك الموافقة.'
+                          : 'This store’s owner signs in with their own Google account. Nothing is marked connected without that approval.'}
                       </p>
                     </div>
                   </div>
@@ -746,35 +746,31 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
                     <div className="flex flex-col sm:flex-row items-center gap-2.5">
                       <input
                         type="email"
-                        value={merchantEmailInput}
-                        onChange={(e) => setMerchantEmailInput(e.target.value)}
-                        placeholder="e.g. yourstore@gmail.com"
-                        className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={storeGoogleEmail(activeStore)}
+                        readOnly
+                        className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-slate-200"
                         dir="ltr"
                       />
                       <button
                         type="button"
-                        onClick={() => handleStartGoogleConnect('instant')}
+                        onClick={() => handleStartGoogleConnect('oauth')}
                         disabled={isLoading}
                         className="w-full sm:w-auto whitespace-nowrap px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer transform active:scale-95 disabled:opacity-50"
                       >
                         {isLoading ? (
                           <>
                             <RefreshCw className="w-4 h-4 animate-spin" />
-                            <span>{isAr ? 'جاري الربط...' : 'Connecting...'}</span>
+                            <span>{isAr ? 'جاري فتح جوجل...' : 'Opening Google...'}</span>
                           </>
                         ) : (
-                          <>
-                            <Zap className="w-4 h-4" />
-                            <span>{isAr ? 'ربط وتوثيق فوري' : 'Instant 1-Click Connect'}</span>
-                          </>
+                          <span>{isAr ? 'تسجيل الدخول بحساب جوجل' : 'Sign in with Google'}</span>
                         )}
                       </button>
                     </div>
                     <span className="text-[11px] text-slate-400 block">
                       {isAr
-                        ? '✓ معتمد رسميًا — لا يتطلب إعدادات معقدة في Google Cloud Console.'
-                        : '✓ Certified partner flow — no manual Google Cloud project approval needed.'}
+                        ? 'البريد مقفل على مالك هذا المتجر. متجر آخر لا يُستخدم.'
+                        : 'The email is locked to this store’s owner. Another store is not used.'}
                     </span>
                   </div>
 

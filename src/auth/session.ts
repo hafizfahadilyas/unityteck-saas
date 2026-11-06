@@ -1,6 +1,6 @@
 /**
- * Lean auth session (Sanctum bearer). Soft SPA — no full reload.
- * Configured with Lifetime Session Persistence (stays alive indefinitely until explicit logout).
+ * Auth session for the open browser tab only.
+ * Logout or a closed browser session requires a fresh email OTP.
  */
 
 export type AuthPortal = 'master' | 'store';
@@ -29,34 +29,23 @@ export type AuthSession = {
 
 const STORAGE_KEY = 'unityteck_auth';
 const BACKUP_STORAGE_KEY = 'unityteck_auth_lifetime_backup';
-const EXPLICIT_LOGOUT_KEY = 'unityteck_explicit_logout';
-/** ~10 years. Session ends only when the admin signs out. */
-const COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 365 * 10;
+const LIFETIME_FLAG = 'unityteck_session_lifetime';
 
-function readCookieSession(): string | null {
+function clearDurableSession(): void {
   try {
-    if (typeof document === 'undefined') return null;
-    const parts = document.cookie.split(';');
-    for (const part of parts) {
-      const trimmed = part.trim();
-      if (!trimmed.startsWith(`${STORAGE_KEY}=`)) continue;
-      return decodeURIComponent(trimmed.slice(STORAGE_KEY.length + 1));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(BACKUP_STORAGE_KEY);
+      localStorage.removeItem(LIFETIME_FLAG);
+      localStorage.removeItem('unityteck_explicit_logout');
     }
   } catch {
     /* ignore */
   }
-  return null;
-}
-
-function writeCookieSession(serialized: string | null): void {
   try {
     if (typeof document === 'undefined') return;
     const secure = typeof location !== 'undefined' && location.protocol === 'https:' ? '; Secure' : '';
-    if (!serialized) {
-      document.cookie = `${STORAGE_KEY}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
-      return;
-    }
-    document.cookie = `${STORAGE_KEY}=${encodeURIComponent(serialized)}; Path=/; Max-Age=${COOKIE_MAX_AGE_SEC}; SameSite=Lax${secure}`;
+    document.cookie = `${STORAGE_KEY}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
   } catch {
     /* ignore */
   }
@@ -85,34 +74,9 @@ function emitAuthChange(): void {
 
 export function readAuthSession(): AuthSession | null {
   try {
-    if (typeof localStorage === 'undefined') return null;
-
-    // If user explicitly performed logout, respect it until next login
-    if (localStorage.getItem(EXPLICIT_LOGOUT_KEY) === '1') {
-      return null;
-    }
-
-    const primary = parseSession(localStorage.getItem(STORAGE_KEY));
-    if (primary) return primary;
-
-    // Lifetime fallback: backup key, then long-lived cookie (survives a cleared primary key).
-    const backup = parseSession(localStorage.getItem(BACKUP_STORAGE_KEY));
-    if (backup) {
-      const serialized = JSON.stringify(backup);
-      localStorage.setItem(STORAGE_KEY, serialized);
-      writeCookieSession(serialized);
-      return backup;
-    }
-
-    const fromCookie = parseSession(readCookieSession());
-    if (fromCookie) {
-      const serialized = JSON.stringify(fromCookie);
-      localStorage.setItem(STORAGE_KEY, serialized);
-      localStorage.setItem(BACKUP_STORAGE_KEY, serialized);
-      return fromCookie;
-    }
-
-    return null;
+    clearDurableSession();
+    if (typeof sessionStorage === 'undefined') return null;
+    return parseSession(sessionStorage.getItem(STORAGE_KEY));
   } catch {
     return null;
   }
@@ -120,44 +84,28 @@ export function readAuthSession(): AuthSession | null {
 
 export function writeAuthSession(session: AuthSession): void {
   try {
-    if (typeof localStorage === 'undefined') return;
-
-    const sessionWithLifetime: AuthSession = {
+    if (typeof sessionStorage === 'undefined') return;
+    clearDurableSession();
+    const next: AuthSession = {
       ...session,
-      isLifetime: true,
+      isLifetime: false,
       loggedInAt: session.loggedInAt || Date.now(),
     };
-
-    const serialized = JSON.stringify(sessionWithLifetime);
-    localStorage.setItem(STORAGE_KEY, serialized);
-    localStorage.setItem(BACKUP_STORAGE_KEY, serialized);
-    localStorage.setItem('unityteck_session_lifetime', '1');
-    localStorage.removeItem(EXPLICIT_LOGOUT_KEY);
-    writeCookieSession(serialized);
-
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     emitAuthChange();
   } catch {
     /* ignore */
   }
 }
 
-/**
- * Clears session.
- * Protected: If force is not true, auto-logout attempts are prevented to keep the dashboard session alive lifetime.
- */
+/** Ends the tab session. The next login must verify a fresh email OTP. */
 export function clearAuthSession(force = false): void {
   try {
-    if (!force) {
-      console.warn('[Unityteck Auth] clearAuthSession() called without force=true; ignored to keep session alive lifetime.');
-      return;
+    if (!force) return;
+    clearDurableSession();
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(STORAGE_KEY);
     }
-
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(EXPLICIT_LOGOUT_KEY, '1');
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(BACKUP_STORAGE_KEY);
-    }
-    writeCookieSession(null);
     emitAuthChange();
   } catch {
     /* ignore */

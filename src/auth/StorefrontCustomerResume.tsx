@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useClerk, useUser } from '@clerk/clerk-react';
-import { clearPendingCustomer, readPendingCustomer, saveStorefrontCustomer } from './storefrontCustomer';
+import { clearPendingCustomer, establishStorefrontSession, readPendingCustomer, saveStorefrontCustomer } from './storefrontCustomer';
 
 /** After Google returns, write the real customer for that store and keep the local session. */
 export function StorefrontCustomerResume() {
@@ -18,12 +18,25 @@ export function StorefrontCustomerResume() {
     const name = user.fullName || user.firstName || pending.name || email.split('@')[0];
     void (async () => {
       try {
-        await saveStorefrontCustomer({
-          ...pending,
-          name,
-          email,
-          source: 'google',
-        });
+        const phoneDigits = (pending.phone || '').replace(/\D/g, '');
+        const hasDeliveryContact = phoneDigits.length >= 8 && pending.city.trim().length > 0;
+        if (hasDeliveryContact) {
+          await saveStorefrontCustomer({
+            ...pending,
+            name,
+            email,
+            source: 'google',
+          });
+        } else {
+          establishStorefrontSession({
+            storeId: pending.storeId,
+            name,
+            email,
+            phone: '',
+            city: '',
+            source: 'google',
+          });
+        }
         clearPendingCustomer();
       } catch (err) {
         sessionStorage.setItem(

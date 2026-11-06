@@ -28,7 +28,7 @@ const SAUDI_CITIES = [
 ];
 
 export const CheckoutPage: React.FC = () => {
-  const { cart, cartTotal, clearCart, navigateTo, language, setLastOrder, user } = useCart();
+  const { cart, cartTotal, clearCart, navigateTo, language, setLastOrder, user, updateSignedInContact } = useCart();
   const { addOrder, activeStore, syncOrderFromApi } = useTenant();
   const [orderError, setOrderError] = useState('');
 
@@ -120,6 +120,7 @@ export const CheckoutPage: React.FC = () => {
       },
     )
       .then((order) => {
+        updateSignedInContact(name, phone, city);
         setLastOrder({
           id: order.id,
           orderNumber: order.orderNumber,

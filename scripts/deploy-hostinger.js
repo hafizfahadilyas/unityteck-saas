@@ -160,11 +160,14 @@ async function uploadTarget(target) {
             await client.ensureDir(parent);
             readyDirs.add(parent);
           }
+          const replaceAlways = /^(index\.html|\.htaccess)$/.test(file.rel) || /\.(php|html)$/.test(file.rel);
           let same = false;
-          try {
-            same = (await client.size(remotePath)) === file.size;
-          } catch {
-            same = false;
+          if (!replaceAlways) {
+            try {
+              same = (await client.size(remotePath)) === file.size;
+            } catch {
+              same = false;
+            }
           }
           if (!same) await client.uploadFrom(file.full, remotePath);
           sent += 1;

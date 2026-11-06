@@ -23,7 +23,7 @@ export type ClerkSessionOptions = {
   storeParam?: string | null;
 };
 
-/** Map Clerk user → Unityteck lifetime AuthSession (registered email only). */
+/** Map Clerk user → tab session. A closed browser or logout asks for OTP again. */
 export function sessionFromClerkUser(
   portal: AuthPortal,
   user: ClerkUserLike,
@@ -68,7 +68,7 @@ export function sessionFromClerkUser(
       storeId: null,
       storeName: null,
       abilities: abilitiesFor(role),
-      isLifetime: true,
+      isLifetime: false,
       loggedInAt: Date.now(),
     };
     writeAuthSession(session);
@@ -99,7 +99,7 @@ export function sessionFromClerkUser(
     storeId: merchant.storeId,
     storeName: merchant.storeName,
     abilities: abilitiesFor(role),
-    isLifetime: true,
+    isLifetime: false,
     loggedInAt: Date.now(),
   };
   writeAuthSession(session);

@@ -424,6 +424,15 @@ class OrderController extends Controller
                 ->first();
 
             if ($customer) {
+                if ($customerName !== '') {
+                    $customer->name = $customerName;
+                }
+                if ($customerPhone !== '') {
+                    $customer->phone = $customerPhone;
+                }
+                if (! empty($validated['delivery_location'])) {
+                    $customer->city = trim(explode('-', (string) $validated['delivery_location'])[0]);
+                }
                 $customer->total_orders = ($customer->total_orders ?? 0) + 1;
                 $customer->total_spend = (float) ($customer->total_spend ?? 0) + $totalAmount;
                 $customer->avg_order_value = $customer->total_orders > 0 ? round($customer->total_spend / $customer->total_orders, 2) : $totalAmount;

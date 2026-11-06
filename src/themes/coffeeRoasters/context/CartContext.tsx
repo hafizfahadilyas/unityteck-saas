@@ -169,6 +169,7 @@ interface CartContextType {
   toggleLanguage: () => void;
   user: UserState;
   loginUser: (name: string, email: string, phone?: string, city?: string, points?: number) => void;
+  updateSignedInContact: (name: string, phone: string, city: string) => void;
   logoutUser: () => void;
   lastOrder: OrderItemRecord | null;
   setLastOrder: (order: OrderItemRecord | null) => void;
@@ -543,16 +544,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginUser = (name: string, email: string, phone?: string, city?: string, points?: number) => {
+    const label = name.trim() || email;
     setUser(prev => ({
       ...prev,
       isLoggedIn: true,
-      name,
+      name: name.trim(),
       email,
       phone: phone || prev.phone || '',
       city: city || prev.city || '',
       points: typeof points === 'number' ? points : prev.points || 0
     }));
-    showToast(language === 'AR' ? `مرحباً ${name}` : `Welcome, ${name}`);
+    showToast(language === 'AR' ? `مرحباً ${label}` : `Welcome, ${label}`);
+  };
+
+  const updateSignedInContact = (name: string, phone: string, city: string) => {
+    setUser(prev => {
+      if (!prev.isLoggedIn) return prev;
+      return {
+        ...prev,
+        name: name.trim() || prev.name,
+        phone: phone.trim() || prev.phone || '',
+        city: city.trim() || prev.city || '',
+      };
+    });
   };
 
   const logoutUser = () => {
@@ -609,6 +623,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   } catch {
     tenant = null;
   }
+
+  useEffect(() => {
+    const onReady = (event: Event) => {
+      const detail = (event as CustomEvent<{ storeId?: string; name?: string; email?: string; phone?: string; city?: string }>).detail;
+      if (!detail?.email) return;
+      const storeId = tenant?.activeStore?.id || 'store-coffee';
+      if (detail.storeId && detail.storeId !== storeId) return;
+      loginUser(detail.name || '', detail.email, detail.phone, detail.city);
+    };
+    window.addEventListener('unityteck-sf-customer-ready', onReady);
+    return () => window.removeEventListener('unityteck-sf-customer-ready', onReady);
+  }, [tenant?.activeStore?.id, language]);
 
   // ── Unified Coupon Engine (real store coupons from TenantContext) ──
   const [appliedCoupon, setAppliedCoupon] = useState<CouponItem | null>(null);
@@ -845,6 +871,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toggleLanguage,
         user,
         loginUser,
+        updateSignedInContact,
         logoutUser,
         lastOrder,
         setLastOrder,
@@ -895,6 +922,7 @@ const CART_STUB: CartContextType = {
   toggleLanguage: () => undefined,
   user: { isLoggedIn: false, name: '', email: '', points: 0, orders: [] },
   loginUser: () => undefined,
+  updateSignedInContact: () => undefined,
   logoutUser: () => undefined,
   lastOrder: null,
   setLastOrder: () => undefined,

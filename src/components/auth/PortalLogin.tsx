@@ -14,7 +14,7 @@ import {
   Store,
 } from 'lucide-react';
 import { useSignIn, useSignUp, useClerk } from '@clerk/clerk-react';
-import type { AuthPortal } from '../../auth/session';
+import { readAuthSession, type AuthPortal } from '../../auth/session';
 import { sessionFromClerkUser, isClerkConfigured } from '../../auth/clerkSession';
 import {
   assertStoreLoginEmailAllowed,
@@ -59,17 +59,6 @@ function isAlreadySignedInError(err: unknown): boolean {
   const code = e?.errors?.[0]?.code || '';
   if (code === 'session_exists' || code === 'identifier_already_signed_in') return true;
   return /already signed in|already logged in|session exists/i.test(clerkErrorMessage(err));
-}
-
-function clerkActiveEmail(clerk: { user?: { primaryEmailAddress?: { emailAddress?: string | null } | null; emailAddresses?: Array<{ emailAddress?: string | null }> } | null | undefined }): string {
-  const u = clerk.user;
-  return (
-    u?.primaryEmailAddress?.emailAddress ||
-    u?.emailAddresses?.[0]?.emailAddress ||
-    ''
-  )
-    .trim()
-    .toLowerCase();
 }
 
 /** Outer shell — Clerk hooks only run when publishable key is present. */
@@ -242,6 +231,13 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
   }, [rateLimit.isLocked, rateLimit.remainingSeconds]);
 
   useEffect(() => {
+    if (clerk.loaded === false) return;
+    if (readAuthSession()) return;
+    if (!clerk.session && !clerk.user) return;
+    void clerk.signOut().catch(() => undefined);
+  }, [clerk]);
+
+  useEffect(() => {
     if (otpExpiresIn <= 0) return;
     const interval = setInterval(() => {
       setOtpExpiresIn((s) => Math.max(0, s - 1));
@@ -337,7 +333,6 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
       )) || localSession;
     resetRateLimit(email);
     try {
-      localStorage.setItem('unityteck_session_lifetime', '1');
       localStorage.setItem('unityteck_last_login_email', email);
     } catch {
       /* ignore */
@@ -423,21 +418,6 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
       }
     };
 
-    /** If Clerk already has a live session for this email, resume app login (no OTP). */
-    const resumeExistingClerkSession = async (): Promise<boolean> => {
-      if (!clerk.session && !clerk.user) return false;
-      const activeEmail = clerkActiveEmail(clerk);
-      if (!activeEmail || activeEmail !== email) return false;
-      try {
-        gateEmailForPortal(activeEmail);
-        await finishWithClerkUser(activeEmail, clerk.session?.id);
-        return true;
-      } catch {
-        await clearClerkThenContinue();
-        return false;
-      }
-    };
-
     const startEmailCodeSignIn = async () => {
       const created = await signIn.create({ identifier: email });
       const emailFactor = created.supportedFirstFactors?.find(
@@ -456,8 +436,6 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
     };
 
     try {
-      // Stale Clerk cookie (app logged out, Clerk still signed in) → resume or clear
-      if (await resumeExistingClerkSession()) return;
       if (clerk.session || clerk.user) {
         await clearClerkThenContinue();
       }
@@ -468,7 +446,6 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
         await startEmailCodeSignIn();
       } catch (signInErr) {
         if (isAlreadySignedInError(signInErr)) {
-          if (await resumeExistingClerkSession()) return;
           await clearClerkThenContinue();
           try {
             await startEmailCodeSignIn();
