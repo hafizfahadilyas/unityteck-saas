@@ -187,8 +187,35 @@ import {
   syncThemeWithLive,
   OBSOLETE_FLORA_BLOCK_IDS,
 } from '../../../services/liveThemeSyncService';
+import { isApiEnabled } from '../../../api/client';
+import {
+  createThemePageApi,
+  fetchThemePageApi,
+  fetchThemeRevisionsApi,
+  publishThemePageApi,
+  restoreThemeRevisionApi,
+  updateThemePageApi,
+  type ThemePageRecord,
+} from '../../../api/tenantApi';
+import { isHistoryShortcut, pushHistory, redoHistory, seedHistory, undoHistory } from './builderHistory';
+import { blocksFromLayout, builderPageMeta, builderPageTitles } from './builderPages';
+import { deviceStyleCss, frameWidthPx, isWidgetVisibleOnDevice } from './builderDeviceFrame';
+import { coffeeCanvasMode, showRestoreAllBanner } from './coffeeCanvasMode';
+import {
+  applyDrop,
+  blocksForPublish,
+  columnTemplate,
+  createCoalescedSaver,
+  duplicateBlock,
+  nestIntoColumns,
+  rowSection,
+  widgetPosition,
+  withVisibility,
+  type RowPreset,
+} from './builderInteractions';
 import {
   renderCoffeeBuilderBlock,
+  COFFEE_BUILDER_BLOCK_TYPES,
   COFFEE_FULL_BLEED_TYPES,
 } from './CoffeeBuilderBlocks';
 import { AppProvider, useApp } from '../../../themes/meccaGifts/context/AppContext';
@@ -242,6 +269,14 @@ interface BlockElement {
   titleEn: string;
   titleAr: string;
   visible: boolean;
+  visibleDesktop?: boolean;
+  visibleTablet?: boolean;
+  visibleMobile?: boolean;
+  style?: {
+    desktop?: { padding?: string | number; margin?: string | number; gap?: string | number; fontSize?: string | number; align?: string; color?: string };
+    tablet?: { padding?: string | number; margin?: string | number; gap?: string | number; fontSize?: string | number; align?: string; color?: string };
+    mobile?: { padding?: string | number; margin?: string | number; gap?: string | number; fontSize?: string | number; align?: string; color?: string };
+  };
   templateStyle: string;
   settings: Record<string, any>;
   customHtml?: string;
@@ -710,6 +745,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
             backgroundRepeat: bgRepeatValue,
             backgroundSize: bgSizeValue,
             backgroundAttachment: bgAttachmentValue,
+            ...deviceStyleCss(b, device),
           }}
         >
           {/* Active Canvas Drop Indicator: Above */}
@@ -755,6 +791,16 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
     });
     if (coffeePreview) {
       return wrapBlock(coffeePreview, '', COFFEE_FULL_BLEED_TYPES.has(b.type), true);
+    }
+    if (coffeeCanvasMode(isCoffeeStore, 1, b.type, COFFEE_BUILDER_BLOCK_TYPES) === 'compact') {
+      return wrapBlock(
+        <div className="w-full py-3 px-4 text-center text-xs text-neutral-500 bg-neutral-50 border border-dashed border-neutral-200">
+          {isAr ? 'لا معاينة لهذا القسم في واجهة المتجر' : 'No storefront preview for this section'}
+        </div>,
+        '',
+        false,
+        true,
+      );
     }
 
     // 1. ANNOUNCEMENT BAR
@@ -1351,7 +1397,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: device === 'mobile' ? '1fr' : gridTemplateCols,
+                gridTemplateColumns: device === 'mobile' ? columnTemplate(String(cols), 390) : gridTemplateCols,
                 columnGap: `${colGap}px`,
                 rowGap: `${rowGap}px`,
                 gridAutoFlow: autoFlow as any,
@@ -1403,7 +1449,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                     <div className="space-y-3 w-full flex-1">
                       {colWidgets.length > 0 ? (
                         colWidgets.map((cw: any, cwIdx: number) => (
-                          <div key={cw.id || cwIdx} className="w-full">
+                          <div key={cw.id || cwIdx} className="w-full" style={{ position: widgetPosition(cw) }}>
                             {cw.type === 'featured_posts' ? (
                               <FeaturedPostsBlock settings={cw.settings} isAr={isAr} compact={true} />
                             ) : cw.type === 'text_editor' ? (
@@ -1574,8 +1620,8 @@ const ELEMENTOR_STRUCTURE_PRESETS = [
   },
   {
     id: '25-25-50',
-    titleAr: '٣ أعمدة (٢٥٪ / ٢٥٪ / ٥٠٪) - Elementor Featured',
-    titleEn: '3 Columns (25%, 25%, 50%) - Featured Posts',
+    titleAr: '٣ أعمدة (٢٥٪ / ٢٥٪ / ٥٠٪)',
+    titleEn: '3 columns (25%, 25%, 50%)',
     preview: (
       <div className="flex gap-1 h-5 w-full">
         <div className="w-1/4 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
@@ -1818,7 +1864,7 @@ const CanvasStructurePicker: React.FC<{
             <Plus className="w-6 h-6" />
           </button>
           <span className="text-xs font-black text-slate-800">
-            {isAr ? 'اختر البنية أو أضف حاوية جديدة (SELECT YOUR STRUCTURE)' : 'SELECT YOUR STRUCTURE / CONTAINER'}
+            {isAr ? 'اختر تقسيم الأعمدة' : 'Select a column layout'}
           </span>
           <span className="text-[10px] text-slate-500 font-medium">
             {isAr ? 'انقر على علامة (+) لاختيار تقسيم الأعمدة المناسب فوراً مثل Elementor' : 'Click (+) to pick a column layout structure like Elementor Pro'}
@@ -1828,7 +1874,7 @@ const CanvasStructurePicker: React.FC<{
         <div className="space-y-4 animate-in fade-in zoom-in-95 duration-150">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2">
             <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
-              {isAr ? 'حدد بنية وتقسيم الأعمدة (SELECT YOUR STRUCTURE)' : 'SELECT YOUR STRUCTURE'}
+              {isAr ? 'حدد تقسيم الأعمدة' : 'Select a column layout'}
             </span>
             <button
               type="button"
@@ -2199,20 +2245,20 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       const nameEn = (!isArName ? p.name : (p.subtitle || p.sku || p.name));
       const pAny = p as any;
 
-      const defaultNameAr = isCoffeeStore ? 'محصول بن مختص' : isFlowerStore ? 'باقة ورد طبيعي' : 'منتج مميز';
-      const defaultNameEn = isCoffeeStore ? 'Specialty Coffee Beans' : isFlowerStore ? 'Fresh Flower Bouquet' : 'Featured Product';
+      const defaultNameAr = isCoffeeStore ? '' : isFlowerStore ? 'باقة ورد طبيعي' : 'منتج مميز';
+      const defaultNameEn = isCoffeeStore ? '' : isFlowerStore ? 'Fresh Flower Bouquet' : 'Featured Product';
       const defaultImg = isCoffeeStore
-        ? 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80'
+        ? ''
         : isFlowerStore
         ? '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg'
         : 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80';
-      const defaultCatAr = isCoffeeStore ? 'حبوب القهوة المختصة' : isFlowerStore ? 'باقات الورود الطبيعية' : 'منتجات المتجر';
-      const defaultCatEn = isCoffeeStore ? 'Specialty Coffee Beans' : isFlowerStore ? 'Natural Flower Bouquets' : 'Store Products';
-      const defaultCatSlug = isCoffeeStore ? 'coffee-beans' : isFlowerStore ? 'bouquets' : 'products';
-      const defaultOccasions = isCoffeeStore ? ['قهوة الصباح', 'ركن القهوة'] : isFlowerStore ? ['هدايا الحرم', 'مناسبات خاصة'] : ['عروض حصرية', 'منتجات مميزة'];
-      const defaultTags = isCoffeeStore ? ['مختص', 'تحميص طازج', 'إسبريسو'] : isFlowerStore ? ['طبيعي', 'هولندي', 'فاخر'] : ['أصلي', 'جودة عالية', 'توصيل سريع'];
-      const defaultDescAr = isCoffeeStore ? 'حبوب بن فاخرة منتقاة بعناية ومحمصة بحرفية.' : isFlowerStore ? 'تنسيق فاخر من أجود أنواع الزهور والورود الطبيعية.' : 'منتج عالي الجودة بأفضل المواصفات وضمان الجودة.';
-      const defaultDescEn = isCoffeeStore ? 'Specialty roasted coffee beans carefully selected.' : isFlowerStore ? 'Luxury fresh floral arrangement crafted with premium blooms.' : 'Premium quality product with authentic craftsmanship.';
+      const defaultCatAr = isCoffeeStore ? '' : isFlowerStore ? 'باقات الورود الطبيعية' : 'منتجات المتجر';
+      const defaultCatEn = isCoffeeStore ? '' : isFlowerStore ? 'Natural Flower Bouquets' : 'Store Products';
+      const defaultCatSlug = isCoffeeStore ? '' : isFlowerStore ? 'bouquets' : 'products';
+      const defaultOccasions = isCoffeeStore ? [] : isFlowerStore ? ['هدايا الحرم', 'مناسبات خاصة'] : ['عروض حصرية', 'منتجات مميزة'];
+      const defaultTags = isCoffeeStore ? [] : isFlowerStore ? ['طبيعي', 'هولندي', 'فاخر'] : ['أصلي', 'جودة عالية', 'توصيل سريع'];
+      const defaultDescAr = isCoffeeStore ? '' : isFlowerStore ? 'تنسيق فاخر من أجود أنواع الزهور والورود الطبيعية.' : 'منتج عالي الجودة بأفضل المواصفات وضمان الجودة.';
+      const defaultDescEn = isCoffeeStore ? '' : isFlowerStore ? 'Luxury fresh floral arrangement crafted with premium blooms.' : 'Premium quality product with authentic craftsmanship.';
 
       return {
         id: String(p.id),
@@ -2220,8 +2266,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         nameEn: nameEn || defaultNameEn,
         price: Number(p.discountedPrice || p.price || 0),
         originalPrice: p.originalPrice ? Number(p.originalPrice) : (p.discountedPrice && p.discountedPrice < p.price ? Number(p.price) : undefined),
-        rating: 4.9,
-        reviewsCount: p.salesCount || 135,
+        rating: isCoffeeStore ? undefined : 4.9,
+        reviewsCount: isCoffeeStore ? (p.salesCount || 0) : (p.salesCount || 135),
         image: p.image || defaultImg,
         additionalImages: p.galleryUrls && p.galleryUrls.length > 0 ? p.galleryUrls : [p.image || defaultImg],
         category: p.category || defaultCatAr,
@@ -2233,8 +2279,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         badgeEn: p.originalPrice ? 'Special Offer' : undefined,
         description: p.descriptionAr || p.description || defaultDescAr,
         descriptionEn: p.description || p.descriptionAr || defaultDescEn,
-        flowerTypes: pAny.flowerTypes || (isCoffeeStore ? ['سلالة بوربون', 'كاتورا', 'غيشا'] : isFlowerStore ? ['جوري هولندي فاخر', 'بيبي روز', 'يوكاليبتوس'] : undefined),
-        dimensions: pAny.dimensions || (isCoffeeStore ? 'كيس 250 جرام صمام تفريغ' : isFlowerStore ? 'ارتفاع 50 سم × عرض 35 سم' : undefined),
+        flowerTypes: isCoffeeStore ? undefined : (pAny.flowerTypes || (isFlowerStore ? ['جوري هولندي فاخر', 'بيبي روز', 'يوكاليبتوس'] : undefined)),
+        dimensions: isCoffeeStore ? undefined : (pAny.dimensions || (isFlowerStore ? 'ارتفاع 50 سم × عرض 35 سم' : undefined)),
         inStock: p.stock !== undefined ? p.stock > 0 : true,
         featured: true,
       };
@@ -2305,51 +2351,108 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     setCustomTemplatesList(list);
   }, [activeStore.id, selectedBlock?.type]);
 
-  // Undo & Redo History
+  // Session undo stack. Server history is theme_pages revisions (PB-03).
   const [history, setHistory] = useState<BlockElement[][]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  const historyRef = useRef<{ stack: BlockElement[][]; index: number }>({ stack: [], index: -1 });
+  const skipHistoryRef = useRef(false);
+  const blocksRef = useRef<BlockElement[]>([]);
+  const pageDraftsRef = useRef<Record<string, BlockElement[]>>({});
+  const quietSaveRef = useRef<() => void>(() => {});
+  const saveDebouncerRef = useRef(createCoalescedSaver(500, () => quietSaveRef.current()));
+  const activePageRef = useRef<ThemePageRecord | null>(null);
+  const [pageBusy, setPageBusy] = useState(false);
+  const [revisionsOpen, setRevisionsOpen] = useState(false);
+  const [revisionsBusy, setRevisionsBusy] = useState(false);
+  const [revisions, setRevisions] = useState<Array<{ id: string; created_at?: string }>>([]);
+
+  const applyTree = useCallback((loaded: BlockElement[], replaceHistory: boolean) => {
+    if (replaceHistory) {
+      const seeded = seedHistory(loaded);
+      historyRef.current = seeded;
+      setHistory(seeded.stack);
+      setHistoryIndex(seeded.index);
+    }
+    skipHistoryRef.current = true;
+    setBlocks((prev) => {
+      if (prev === loaded) {
+        skipHistoryRef.current = false;
+        return prev;
+      }
+      return loaded;
+    });
+    setHasUnsavedChanges(false);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     loadBuilderDraftFromApi(activeStore.id, currentThemeId, activeStore)
       .then((next) => {
         if (cancelled || !next?.length) return;
-        const loaded = next as BlockElement[];
-        setBlocks(loaded);
-        setHistory([loaded]);
-        setHistoryIndex(0);
-        setHasUnsavedChanges(false);
+        applyTree(next as BlockElement[], true);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [activeStore.id, currentThemeId]);
+  }, [activeStore.id, currentThemeId, applyTree]);
 
   useEffect(() => {
-    if (blocks.length > 0 && history.length === 0) {
-      setHistory([blocks]);
-      setHistoryIndex(0);
+    if (skipHistoryRef.current) {
+      skipHistoryRef.current = false;
+      return;
     }
-  }, [blocks, history.length]);
+    if (historyRef.current.index < 0) {
+      const seeded = seedHistory(blocks);
+      historyRef.current = seeded;
+      setHistory(seeded.stack);
+      setHistoryIndex(seeded.index);
+      return;
+    }
+    const next = pushHistory(historyRef.current, blocks, (a, b) => a === b);
+    if (next === historyRef.current) return;
+    historyRef.current = next;
+    setHistory(next.stack);
+    setHistoryIndex(next.index);
+  }, [blocks]);
 
   const handleUndo = useCallback(() => {
-    if (historyIndex > 0) {
-      const prev = history[historyIndex - 1];
-      setHistoryIndex((idx) => idx - 1);
-      setBlocks(prev);
-      toast(isAr ? 'تم التراجع خطوة للخلف' : 'Undo step', 'info');
-    }
-  }, [historyIndex, history, isAr, toast]);
+    const next = undoHistory(historyRef.current);
+    if (next === historyRef.current) return;
+    historyRef.current = next;
+    setHistory(next.stack);
+    setHistoryIndex(next.index);
+    skipHistoryRef.current = true;
+    setBlocks(next.stack[next.index]);
+    toast(isAr ? 'تم التراجع خطوة للخلف' : 'Undo step', 'info');
+  }, [isAr, toast]);
 
   const handleRedo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      const next = history[historyIndex + 1];
-      setHistoryIndex((idx) => idx + 1);
-      setBlocks(next);
-      toast(isAr ? 'تمت إعادة الخطوة' : 'Redo step', 'info');
-    }
-  }, [historyIndex, history, isAr, toast]);
+    const next = redoHistory(historyRef.current);
+    if (next === historyRef.current) return;
+    historyRef.current = next;
+    setHistory(next.stack);
+    setHistoryIndex(next.index);
+    skipHistoryRef.current = true;
+    setBlocks(next.stack[next.index]);
+    toast(isAr ? 'تمت إعادة الخطوة' : 'Redo step', 'info');
+  }, [isAr, toast]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const action = isHistoryShortcut(e);
+      if (!action) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) {
+        return;
+      }
+      e.preventDefault();
+      if (action === 'undo') handleUndo();
+      else handleRedo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [handleUndo, handleRedo]);
 
   // Optimized Throttled Mouse Dragging Listeners
   useEffect(() => {
@@ -2559,53 +2662,23 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
 
   // Quick 1-Click Structure Inserter (Elementor Grid Container with 25-25-50 Support)
   const handleQuickAddStructure = useCallback((cols: string, targetIndex?: number) => {
+    const preset: RowPreset = cols === '2' || cols === '3' || cols === '4' || cols === '25-25-50' ? cols : '1';
     const newId = `sec_grid_${Date.now()}`;
-    const isFeaturedLayout = cols === '25-25-50';
-
-    const defaultColumnsData = isFeaturedLayout
-      ? {
-          0: [
-            { id: `cw_label_1_${Date.now()}`, type: 'counter_label', title: '1', settings: { text: '1', fontSize: 82 } },
-            { id: `cw_head_1_${Date.now()}`, type: 'heading', title: 'Featured Category', settings: { text: 'Featured Category', htmlTag: 'h3' } },
-            { id: `cw_art_1_${Date.now()}`, type: 'featured_posts', title: 'Typer Articles', settings: { postSource: 'latest', maxPosts: 2, showImage: true, showMeta: true } },
-          ],
-          1: [
-            { id: `cw_label_2_${Date.now()}`, type: 'counter_label', title: '2', settings: { text: '2', fontSize: 82 } },
-            { id: `cw_head_2_${Date.now()}`, type: 'heading', title: 'Popular Stories', settings: { text: 'Popular Stories', htmlTag: 'h3' } },
-            { id: `cw_art_2_${Date.now()}`, type: 'featured_posts', title: 'Typer Articles', settings: { postSource: 'most_liked', maxPosts: 2, showImage: true, showMeta: true } },
-          ],
-          2: [
-            { id: `cw_label_3_${Date.now()}`, type: 'counter_label', title: '3', settings: { text: '3', fontSize: 82 } },
-            { id: `cw_head_3_${Date.now()}`, type: 'heading', title: 'Editor Picks', settings: { text: 'Editor Picks', htmlTag: 'h3' } },
-            { id: `cw_art_3_${Date.now()}`, type: 'featured_posts', title: 'Typer Articles', settings: { postSource: 'latest', maxPosts: 4, showImage: true, showMeta: true } },
-          ],
-        }
-      : undefined;
-
+    const section = rowSection(preset, newId);
     const newBlock: BlockElement = {
       id: newId,
       type: 'columns_container',
-      titleAr: isFeaturedLayout ? 'قسم المقالات المميزة (Featured Posts 25, 25, 50)' : `حاوية أعمدة شبكية (${cols})`,
-      titleEn: isFeaturedLayout ? 'Featured Posts Section (25, 25, 50)' : `Grid Container (${cols})`,
+      titleAr: preset === '25-25-50' ? 'صف بثلاثة أعمدة' : 'صف أعمدة',
+      titleEn: preset === '25-25-50' ? 'Three column row' : 'Column row',
       visible: true,
-      templateStyle: isFeaturedLayout ? 'cols-3-featured' : 'cols-2-equal',
+      templateStyle: 'cols-equal',
       settings: {
-        layoutColumns: cols,
-        gridOutline: true,
-        columnGap: isFeaturedLayout ? 32 : 16,
-        rowGap: 24,
-        paddingTop: isFeaturedLayout ? 48 : 32,
-        paddingBottom: isFeaturedLayout ? 48 : 32,
-        contentWidth: isFeaturedLayout ? 'full' : 'boxed',
-        bgType: isFeaturedLayout ? 'classic' : 'none',
-        bgImage: isFeaturedLayout
-          ? 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1600&q=80'
-          : undefined,
-        bgPosition: isFeaturedLayout ? 'custom' : 'center',
-        bgCustomX: isFeaturedLayout ? 70 : 0,
-        bgCustomY: isFeaturedLayout ? 66 : 0,
-        bgRepeat: isFeaturedLayout ? 'no-repeat' : 'repeat',
-        columnsData: defaultColumnsData,
+        layoutColumns: section.layoutColumns,
+        columns: section.columns,
+        columnGap: section.columnGap,
+        rowGap: 16,
+        gridOutline: false,
+        columnsData: {},
       },
     };
 
@@ -2619,17 +2692,12 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     });
 
     setSelectedBlockId(newId);
-    setActiveTab(isFeaturedLayout ? 'content' : 'layout');
+    setActiveTab('layout');
+    setRightSidebarVisible(true);
     setActiveOpenInserterIndex(null);
     setHasUnsavedChanges(true);
     toast(
-      isAr
-        ? isFeaturedLayout
-          ? 'تم إدراج قسم المقالات المميزة بتوزيع (25, 25, 50) وإعدادات الخلفية!'
-          : 'تم إدراج الحاوية وتقسيم الأعمدة بنجاح!'
-        : isFeaturedLayout
-          ? 'Inserted Featured Posts (25, 25, 50) with Elementor background settings!'
-          : 'Inserted grid container structure!',
+      isAr ? 'تمت إضافة صف الأعمدة' : 'Column row added',
       'success',
     );
   }, [isAr, toast]);
@@ -2778,21 +2846,21 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         prev.map((b) => {
           if (b.id !== blockId) return b;
           const currentCols = b.settings?.columnsData || {};
-          const currentList = currentCols[colIdx] || [];
+          const columnCount = Array.isArray(b.settings?.columns) ? b.settings.columns.length : 1;
           const newWidget = {
             id: `cw_${widgetData.type || 'widget'}_${Date.now()}`,
             type: widgetData.type || 'widget',
             title: widgetData.titleEn || widgetData.titleAr || widgetData.type,
             settings: widgetData.defaultSettings || widgetData.settings || {},
+            overlap: false,
           };
+          const nested = nestIntoColumns(currentCols, Math.max(columnCount, colIdx + 1), colIdx, newWidget);
+          if (!nested.accepted) return b;
           return {
             ...b,
             settings: {
               ...b.settings,
-              columnsData: {
-                ...currentCols,
-                [colIdx]: [...currentList, newWidget],
-              },
+              columnsData: nested.columnsData,
             },
           };
         }),
@@ -2917,6 +2985,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         return b;
       }),
     );
+    setHasUnsavedChanges(true);
+    saveDebouncerRef.current.push();
   }, [selectedBlockId]);
 
   // Handle Custom Code Update
@@ -3090,10 +3160,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       return;
     }
     setBlocks((prev) => {
-      const next = [...prev];
-      const [movedItem] = next.splice(draggedBlockIdx, 1);
-      next.splice(dropIndex, 0, movedItem);
-      return next;
+      const moved = applyDrop(prev, draggedBlockIdx, dropIndex);
+      return moved.accepted ? moved.items : prev;
     });
     setDraggedBlockIdx(null);
     setDragOverBlockIdx(null);
@@ -3101,20 +3169,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   };
 
   const handleDuplicateBlock = (id: string) => {
-    setBlocks((prev) => {
-      const idx = prev.findIndex((b) => b.id === id);
-      if (idx < 0) return prev;
-      const target = prev[idx];
-      const cloned: BlockElement = {
-        ...target,
-        id: `${target.id}_copy_${Date.now()}`,
-        titleEn: `${target.titleEn} (Copy)`,
-        titleAr: `${target.titleAr} (نسخة)`,
-      };
-      const next = [...prev];
-      next.splice(idx + 1, 0, cloned);
-      return next;
-    });
+    const newId = `${id}_copy_${Date.now()}`;
+    setBlocks((prev) => duplicateBlock(prev, id, newId));
     toast(isAr ? 'تم تكرار القسم بنجاح' : 'Section duplicated successfully', 'success');
   };
 
@@ -3262,8 +3318,81 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     );
   };
 
+  const rememberPage = (page: ThemePageRecord | null) => {
+    activePageRef.current = page;
+  };
+
+  const loadPageDraft = async (pageId: PreviewPage) => {
+    pageDraftsRef.current[previewPage] = blocksRef.current;
+    if (!isApiEnabled()) {
+      const cached = pageDraftsRef.current[pageId];
+      if (cached?.length) applyTree(cached, true);
+      return;
+    }
+    const meta = builderPageMeta(pageId);
+    try {
+      const page = await fetchThemePageApi(activeStore.id, meta.slug);
+      rememberPage(page);
+      const loaded = blocksFromLayout(page.draft_layout);
+      if (loaded) applyTree(loaded as BlockElement[], true);
+      else if (pageDraftsRef.current[pageId]?.length) applyTree(pageDraftsRef.current[pageId], true);
+    } catch {
+      rememberPage(null);
+      if (pageDraftsRef.current[pageId]?.length) applyTree(pageDraftsRef.current[pageId], true);
+    }
+  };
+
+  const ensureThemePage = async (layout: Record<string, unknown>) => {
+    const meta = builderPageMeta(previewPage);
+    const current = activePageRef.current;
+    if (current && current.slug === meta.slug) {
+      return updateThemePageApi(activeStore.id, current.id, {
+        draft_layout: layout,
+        updated_at: current.updated_at,
+      });
+    }
+    try {
+      const existing = await fetchThemePageApi(activeStore.id, meta.slug);
+      return updateThemePageApi(activeStore.id, existing.id, {
+        draft_layout: layout,
+        updated_at: existing.updated_at,
+      });
+    } catch {
+      const titles = builderPageTitles(previewPage);
+      const created = await createThemePageApi(activeStore.id, {
+        slug: meta.slug,
+        type: meta.type,
+        title_en: titles.title_en,
+        title_ar: titles.title_ar,
+        draft_layout: layout,
+      });
+      if (meta.type === 'custom') {
+        return updateThemePageApi(activeStore.id, created.id, { draft_layout: layout });
+      }
+      return created;
+    }
+  };
+
+  blocksRef.current = blocks;
+  quietSaveRef.current = () => {
+    if (!isApiEnabled()) return;
+    const layout = {
+      blocks: blocksRef.current,
+      themeId: currentThemeId,
+      seasonalTheme,
+      typographySettings,
+      mobileMenuIcon,
+    };
+    void ensureThemePage(layout).then((page) => rememberPage(page)).catch(() => {});
+  };
+
   // Real Database Publish Live Sync
-  const handlePublishLive = () => {
+  const handlePublishLive = async () => {
+    if (pageBusy) return;
+    if (!isApiEnabled()) {
+      toast(isAr ? 'واجهة المتجر غير متصلة' : 'Store API is not connected', 'error');
+      return;
+    }
     try {
       const full = readAllThemeSettings(activeStore.id, activeStore);
       const annBlock = blocks.find((b) => b.id === 'announcement');
@@ -3325,7 +3454,17 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       // Write to Store Isolated Theme Database
       writeAllThemeSettings(activeStore.id, full, currentThemeId);
 
-      // Save draft and published blocks with live sync broadcast across all store themes
+      const layout = {
+        blocks: blocksForPublish(blocks),
+        themeId: currentThemeId,
+        seasonalTheme,
+        typographySettings,
+        mobileMenuIcon,
+      };
+      setPageBusy(true);
+      const saved = await ensureThemePage(layout);
+      const published = await publishThemePageApi(activeStore.id, saved.id);
+      rememberPage(published);
       saveThemeBlocks(activeStore.id, currentThemeId, blocks as any, {
         isPublished: true,
         seasonalTheme,
@@ -3347,11 +3486,27 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         isAr ? `تعذر النشر المباشر: ${err?.message || 'خطأ غير معروف'}` : `Publish failed: ${err?.message || 'Unknown error'}`,
         'error',
       );
+    } finally {
+      setPageBusy(false);
     }
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
+    const layout = {
+      blocks,
+      themeId: currentThemeId,
+      seasonalTheme,
+      typographySettings,
+      mobileMenuIcon,
+    };
     try {
+      if (!isApiEnabled()) {
+        toast(isAr ? 'واجهة المتجر غير متصلة' : 'Store API is not connected', 'error');
+        return;
+      }
+      setPageBusy(true);
+      const saved = await ensureThemePage(layout);
+      rememberPage(saved);
       saveThemeBlocks(activeStore.id, currentThemeId, blocks as any, {
         isPublished: false,
         seasonalTheme,
@@ -3364,8 +3519,56 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         isAr ? 'تم حفظ مسودة التصميم بنجاح' : 'Design draft saved successfully!',
         'success',
       );
+    } catch (err: any) {
+      toast(
+        isAr ? `تعذر حفظ المسودة: ${err?.message || 'خطأ غير معروف'}` : `Draft save failed: ${err?.message || 'Unknown error'}`,
+        'error',
+      );
+    } finally {
+      setPageBusy(false);
+    }
+  };
+
+  const openRevisionHistory = async () => {
+    setRevisionsOpen((open) => !open);
+    if (!isApiEnabled()) {
+      setRevisions([]);
+      return;
+    }
+    const meta = builderPageMeta(previewPage);
+    setRevisionsBusy(true);
+    try {
+      let page = activePageRef.current;
+      if (!page || page.slug !== meta.slug) {
+        page = await fetchThemePageApi(activeStore.id, meta.slug);
+        rememberPage(page);
+      }
+      const rows = await fetchThemeRevisionsApi(activeStore.id, page.id);
+      setRevisions(Array.isArray(rows) ? rows : []);
     } catch {
-      toast('Draft saved', 'success');
+      setRevisions([]);
+    } finally {
+      setRevisionsBusy(false);
+    }
+  };
+
+  const restoreRevision = async (revisionId: string) => {
+    if (!isApiEnabled()) return;
+    setPageBusy(true);
+    try {
+      const page = await restoreThemeRevisionApi(activeStore.id, revisionId);
+      rememberPage(page);
+      const loaded = blocksFromLayout(page.draft_layout);
+      if (loaded) applyTree(loaded as BlockElement[], true);
+      setRevisionsOpen(false);
+      toast(isAr ? 'تمت استعادة النسخة' : 'Revision restored', 'success');
+    } catch (err: any) {
+      toast(
+        isAr ? `تعذرت الاستعادة: ${err?.message || 'خطأ غير معروف'}` : `Restore failed: ${err?.message || 'Unknown error'}`,
+        'error',
+      );
+    } finally {
+      setPageBusy(false);
     }
   };
 
@@ -3408,6 +3611,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   const currentActivePageObj = ALL_BUILDER_PAGES.find((p) => p.id === previewPage) || ALL_BUILDER_PAGES[0];
 
   const visibleBlocks = useMemo(() => blocks.filter((b) => b.visible), [blocks]);
+  const frameBlocks = useMemo(
+    () => visibleBlocks.filter((b) => isWidgetVisibleOnDevice(b, device)),
+    [visibleBlocks, device],
+  );
+  const framePx = frameWidthPx(device);
 
   if (!isOpen) return null;
 
@@ -3484,6 +3692,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                       onClick={() => {
                         setPreviewPage(p.id);
                         setPageDropdownOpen(false);
+                        void loadPageDraft(p.id);
                       }}
                       className={`w-full px-3 py-2 rounded-xl text-xs font-bold text-start flex items-center justify-between transition-colors cursor-pointer ${
                         isActive
@@ -3546,12 +3755,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                       type="button"
                       onClick={() => {
                         if (hasUnsavedChanges) {
-                          const proceed = window.confirm(
+                          toast(
                             isAr
-                              ? 'لديك تعديلات غير محفوظة في الثيم الحالي، هل تريد الانتقال لثيم آخر؟'
-                              : 'You have unsaved changes. Switch theme anyway?',
+                              ? 'احفظ المسودة قبل تغيير النمط'
+                              : 'Save the draft before switching theme',
+                            'info',
                           );
-                          if (!proceed) return;
+                          return;
                         }
                         setCurrentThemeId(t.id);
                         setThemeDropdownOpen(false);
@@ -3578,14 +3788,14 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         </div>
 
         {/* Center: Device Viewport & Editor Undo/Redo & Season (Centered & Responsive) */}
-        <div className="flex items-center justify-center gap-1 sm:gap-1.5 shrink-0">
+        <div className="relative flex items-center justify-center gap-1 sm:gap-1.5 shrink-0">
           {/* Device Viewport Switcher (Always accessible on all screen sizes) */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 gap-0.5 shrink-0">
             {[
-              { mode: 'desktop' as DeviceMode, icon: <Monitor className="w-3.5 h-3.5" />, label: 'Desktop', showClass: 'flex' },
-              { mode: 'laptop' as DeviceMode, icon: <Laptop className="w-3.5 h-3.5" />, label: 'Laptop', showClass: 'hidden xl:flex' },
-              { mode: 'tablet' as DeviceMode, icon: <Tablet className="w-3.5 h-3.5" />, label: 'Tablet', showClass: 'flex' },
-              { mode: 'mobile' as DeviceMode, icon: <Smartphone className="w-3.5 h-3.5" />, label: 'Mobile', showClass: 'flex' },
+              { mode: 'desktop' as DeviceMode, icon: <Monitor className="w-3.5 h-3.5" />, label: isAr ? 'حاسوب' : 'Desktop', showClass: 'flex' },
+              { mode: 'laptop' as DeviceMode, icon: <Laptop className="w-3.5 h-3.5" />, label: isAr ? 'محمول' : 'Laptop', showClass: 'hidden xl:flex' },
+              { mode: 'tablet' as DeviceMode, icon: <Tablet className="w-3.5 h-3.5" />, label: isAr ? 'جهاز لوحي' : 'Tablet', showClass: 'flex' },
+              { mode: 'mobile' as DeviceMode, icon: <Smartphone className="w-3.5 h-3.5" />, label: isAr ? 'جوال' : 'Mobile', showClass: 'flex' },
             ].map((d) => (
               <button
                 key={d.mode}
@@ -3605,13 +3815,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
           </div>
 
           {/* Undo & Redo History in Center Context */}
-          <div className="hidden sm:flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-xl border border-slate-200 shrink-0">
+          <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-xl border border-slate-200 shrink-0">
             <button
               type="button"
               onClick={handleUndo}
               disabled={historyIndex <= 0}
               className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              title={isAr ? 'تراجع (Ctrl+Z)' : 'Undo (Ctrl+Z)'}
+              title={isAr ? 'تراجع' : 'Undo'}
             >
               <Undo2 className="w-3.5 h-3.5 rtl:-scale-x-100" />
             </button>
@@ -3620,11 +3830,43 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               onClick={handleRedo}
               disabled={historyIndex >= history.length - 1}
               className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              title={isAr ? 'إعادة (Ctrl+Y)' : 'Redo (Ctrl+Y)'}
+              title={isAr ? 'إعادة' : 'Redo'}
             >
               <Redo2 className="w-3.5 h-3.5 rtl:-scale-x-100" />
             </button>
+            <button
+              type="button"
+              onClick={() => { void openRevisionHistory(); }}
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 cursor-pointer transition-colors"
+              title={isAr ? 'سجل النسخ' : 'Revision history'}
+              aria-busy={revisionsBusy}
+            >
+              <Clock className="w-3.5 h-3.5" />
+            </button>
           </div>
+          {revisionsOpen && (
+            <div className="absolute top-full mt-2 start-1/2 -translate-x-1/2 w-64 bg-white rounded-2xl shadow-2xl ring-1 ring-slate-900/10 border border-slate-200 p-2 z-[140] max-h-64 overflow-y-auto">
+              <div className="px-2 py-1 text-[10px] font-bold text-slate-500 border-b border-slate-100 mb-1">
+                {isAr ? 'سجل النسخ' : 'Revision history'}
+              </div>
+              {revisionsBusy ? (
+                <div className="px-2 py-3 text-xs text-slate-500">{isAr ? 'جار التحميل' : 'Loading'}</div>
+              ) : revisions.length === 0 ? (
+                <div className="px-2 py-3 text-xs text-slate-500">{isAr ? 'لا توجد نسخ محفوظة' : 'No saved revisions'}</div>
+              ) : revisions.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => { void restoreRevision(row.id); }}
+                  className="w-full text-start px-2 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  {row.created_at
+                    ? new Date(row.created_at).toLocaleString(isAr ? 'ar-SA' : 'en-US')
+                    : row.id}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* SEASONAL THEME PRESETS DROPDOWN (Shown on xl+, accessible via Tools on smaller screens) */}
           <div className="relative hidden xl:block" ref={seasonDropdownRef}>
@@ -3741,10 +3983,10 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             type="button"
             onClick={() => handleToggleLanguage(isAr ? 'en' : 'ar')}
             className="px-2 sm:px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs shrink-0"
-            title={isAr ? 'Switch to English' : 'التبديل إلى العربية'}
+            title={isAr ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic'}
           >
             <Globe className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-            <span className="font-extrabold text-[11px]">{isAr ? 'EN' : 'عربي'}</span>
+            <span className="font-extrabold text-[11px]">{isAr ? 'إنجليزي' : 'Arabic'}</span>
           </button>
 
           {/* Shortcode Generator (Visible on 2xl+, in Tools dropdown on < 2xl) */}
@@ -3889,7 +4131,9 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
           <button
             type="button"
             onClick={handleSaveDraft}
-            className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer inline-flex items-center gap-1 shadow-2xs transition-colors shrink-0"
+            disabled={pageBusy}
+            aria-busy={pageBusy}
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer inline-flex items-center gap-1 shadow-2xs transition-colors shrink-0 disabled:opacity-50"
             title={isAr ? 'حفظ المسودة' : 'Save Draft'}
           >
             <Save className="w-3.5 h-3.5 text-slate-500" />
@@ -3900,7 +4144,9 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
           <button
             type="button"
             onClick={handlePublishLive}
-            className="px-3 sm:px-4 py-1.5 rounded-xl text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] shadow-xs shadow-indigo-200 cursor-pointer inline-flex items-center gap-1.5 transition-colors shrink-0"
+            disabled={pageBusy}
+            aria-busy={pageBusy}
+            className="px-3 sm:px-4 py-1.5 rounded-xl text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] shadow-xs shadow-indigo-200 cursor-pointer inline-flex items-center gap-1.5 transition-colors shrink-0 disabled:opacity-50"
             title={isAr ? 'نشر التعديلات للمتجر مباشرة' : 'Publish Live to Store'}
           >
             <Send className="w-3.5 h-3.5 rtl:-scale-x-100" />
@@ -4183,7 +4429,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         <main
           id="theme-builder-canvas-scroll"
           tabIndex={0}
-          className={`flex-1 overflow-y-auto overscroll-contain flex flex-col items-center transition-colors scroll-smooth focus:outline-none ${
+          className={`flex-1 overflow-x-hidden overflow-y-auto overscroll-contain flex flex-col items-center transition-colors scroll-smooth focus:outline-none ${
             screenSize.isMobile ? 'p-1 pb-24' : 'p-2 sm:p-6'
           } ${canvasDarkMode ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}
           style={{
@@ -4191,19 +4437,21 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
           }}
         >
           <div
-            className={`transition-all duration-300 w-full ${
+            data-builder-frame-width={framePx}
+            className={`transition-all duration-300 w-full overflow-x-hidden box-border ${
               device === 'mobile'
                 ? screenSize.isMobile
-                  ? 'w-full rounded-none border-0 shadow-none my-0 bg-white builder-device-mobile'
-                  : 'max-w-[420px] shadow-2xl rounded-[40px] border-[10px] border-slate-900 bg-white my-6 builder-device-mobile relative'
+                  ? 'rounded-none border-0 shadow-none my-0 bg-white builder-device-mobile'
+                  : 'shadow-2xl rounded-[40px] border-[10px] border-slate-900 bg-white my-6 builder-device-mobile relative'
                 : device === 'tablet'
                   ? screenSize.isTablet || screenSize.isMobile
-                    ? 'w-full rounded-none border-0 shadow-none my-0 bg-white builder-device-tablet'
-                    : 'max-w-[768px] shadow-xl rounded-2xl border-[6px] border-slate-700 bg-white my-6 builder-device-tablet relative'
+                    ? 'rounded-none border-0 shadow-none my-0 bg-white builder-device-tablet'
+                    : 'shadow-xl rounded-2xl border-[6px] border-slate-700 bg-white my-6 builder-device-tablet relative'
                   : device === 'laptop'
-                    ? 'max-w-[1024px] shadow-lg rounded-xl border border-slate-200 bg-white my-4 builder-device-laptop relative'
-                    : 'max-w-[1400px] shadow-sm rounded-xl border border-slate-200 bg-white my-4 builder-device-desktop relative'
+                    ? 'shadow-lg rounded-xl border border-slate-200 bg-white my-4 builder-device-laptop relative'
+                    : 'shadow-sm rounded-xl border border-slate-200 bg-white my-4 builder-device-desktop relative'
             }`}
+            style={{ width: '100%', maxWidth: framePx }}
           >
             {/* Authentic Mobile Phone Notch & Dynamic Island Header */}
             {device === 'mobile' && !screenSize.isMobile && (
@@ -4220,7 +4468,12 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             {previewPage === 'home' ? (
               <div className="relative">
                 {/* Alert banner if fewer than 6 sections are loaded */}
-                {visibleBlocks.length < 6 && (
+                {frameBlocks.length === 0 && (
+                  <div className="m-3 py-4 px-4 text-center text-xs text-neutral-500 bg-white border border-dashed border-neutral-200 rounded-xl">
+                    {isAr ? 'اللوحة فارغة' : 'Canvas is empty'}
+                  </div>
+                )}
+                {showRestoreAllBanner(isCoffeeStore, visibleBlocks.length) && (
                   <div className="m-3 p-3 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 flex items-center justify-between text-xs text-amber-900 shadow-sm animate-in fade-in">
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
@@ -4256,12 +4509,14 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 />
 
                 <div className="divide-y divide-slate-100">
-                  {visibleBlocks.map((b, idx) => (
+                  {frameBlocks.map((b) => {
+                    const idx = blocks.findIndex((item) => item.id === b.id);
+                    return (
                     <React.Fragment key={b.id}>
                       <CanvasBlockItem
                         b={b}
                         idx={idx}
-                        totalBlocks={visibleBlocks.length}
+                        totalBlocks={blocks.length}
                         isSelected={selectedBlockId === b.id}
                         headerSubElement={headerSubElement}
                         onSelectHeaderSubElement={(blockId, subKey) => {
@@ -4327,7 +4582,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                         isDragging={draggedBlockIdx !== null}
                       />
                     </React.Fragment>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Elementor Structure Inserter (1-Click Add & Structure Picker) */}
@@ -4485,6 +4741,30 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   <span className="text-[10px] text-slate-400 font-mono">
                     {selectedBlock.templateStyle}
                   </span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {([
+                      ['visibleDesktop', isAr ? 'حاسوب' : 'Desktop'],
+                      ['visibleTablet', isAr ? 'جهاز لوحي' : 'Tablet'],
+                      ['visibleMobile', isAr ? 'جوال' : 'Mobile'],
+                    ] as const).map(([key, label]) => {
+                      const on = selectedBlock[key] !== false;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            setBlocks((prev) => prev.map((item) => (
+                              item.id === selectedBlock.id ? withVisibility(item, { [key]: !on }) : item
+                            )));
+                            setHasUnsavedChanges(true);
+                          }}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${on ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -5599,9 +5879,9 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
           {/* Device Switcher Quick Toggle */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 gap-0.5">
             {[
-              { mode: 'mobile' as DeviceMode, icon: <Smartphone className="w-3.5 h-3.5" />, title: 'Mobile' },
-              { mode: 'tablet' as DeviceMode, icon: <Tablet className="w-3.5 h-3.5" />, title: 'Tablet' },
-              { mode: 'desktop' as DeviceMode, icon: <Monitor className="w-3.5 h-3.5" />, title: 'Desktop' },
+              { mode: 'mobile' as DeviceMode, icon: <Smartphone className="w-3.5 h-3.5" />, title: isAr ? 'جوال' : 'Mobile' },
+              { mode: 'tablet' as DeviceMode, icon: <Tablet className="w-3.5 h-3.5" />, title: isAr ? 'جهاز لوحي' : 'Tablet' },
+              { mode: 'desktop' as DeviceMode, icon: <Monitor className="w-3.5 h-3.5" />, title: isAr ? 'حاسوب' : 'Desktop' },
             ].map((d) => (
               <button
                 key={d.mode}

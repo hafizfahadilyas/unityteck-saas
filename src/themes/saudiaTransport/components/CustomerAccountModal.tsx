@@ -24,6 +24,16 @@ import {
   Check,
   Award,
 } from 'lucide-react';
+import { useSignIn, useSignUp, useClerk } from '@clerk/clerk-react';
+import { isClerkConfigured } from '../../../auth/clerkSession';
+import {
+  rememberPendingCustomer,
+  saveStorefrontCustomer,
+  sendClerkEmailCode,
+  startClerkGoogle,
+  verifyClerkEmailCode,
+} from '../../../auth/storefrontCustomer';
+import { getStoredGoogleClientId, hasRealGoogleClientId, startCustomerGoogleSignIn } from '../../../utils/googleRealAuth';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import type { Order } from '../../../types';
@@ -66,6 +76,9 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
 }) => {
   const { activeStore, currentOrders } = useTenant();
   const { money } = usePrefs();
+  const { isLoaded: signInLoaded, signIn } = useSignIn();
+  const { isLoaded: signUpLoaded, signUp, setActive: setSignUpActive } = useSignUp();
+  const clerk = useClerk();
 
   const sessionKey = `unityteck_transport_customer_${activeStore?.id || 'store-bleco'}`;
 
@@ -85,13 +98,15 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
   // Auth form states
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [nameInput, setNameInput] = useState('');
-  const [phoneInput, setPhoneInput] = useState('+966 5');
+  const [phoneInput, setPhoneInput] = useState('+966 ');
   const [emailInput, setEmailInput] = useState('');
+  const [cityInput, setCityInput] = useState('');
+  const [emailMode, setEmailMode] = useState<'signIn' | 'signUp'>('signIn');
   const [otpStep, setOtpStep] = useState(false);
   const [otpCode, setOtpCode] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('583921');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [authError, setAuthError] = useState(false);
 
   // Garage states
   const [editBrand, setEditBrand] = useState(customer?.garageBrand || 'Toyota');
@@ -101,7 +116,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
   // New address state
   const [showAddAddress, setShowAddAddress] = useState(false);
   const [addrLabel, setAddrLabel] = useState('');
-  const [addrCity, setAddrCity] = useState('الرياض');
+  const [addrCity, setAddrCity] = useState('');
   const [addrDistrict, setAddrDistrict] = useState('');
   const [addrStreet, setAddrStreet] = useState('');
 
@@ -115,89 +130,156 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
     }
   };
 
-  // Google 1-Click Login
-  const handleGoogleSignIn = () => {
-    setIsSubmitting(true);
-    setTimeout(() => {
-      const defaultEmail = emailInput.trim() || 'customer@gmail.com';
-      const defaultName = nameInput.trim() || (isAr ? 'عميل مميز' : 'VIP Customer');
-      const newSession: TransportCustomerSession = {
-        storeId: activeStore?.id || 'store-bleco',
-        id: `google-${Date.now().toString().slice(-6)}`,
-        name: defaultName,
-        email: defaultEmail,
-        phone: phoneInput.trim().length > 7 ? phoneInput.trim() : '+966 55 000 0000',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=160&q=80',
-        garageBrand: 'Toyota',
-        garageModel: 'Land Cruiser',
-        garageYear: '2024',
-        savedAddresses: [
-          {
-            id: 'addr-1',
-            label: isAr ? 'المنزل' : 'Home',
-            city: isAr ? 'الرياض' : 'Riyadh',
-            district: isAr ? 'حي النرجس' : 'Al Narjis',
-            street: isAr ? 'طريق الملك سلمان' : 'King Salman Rd',
-          }
-        ],
+  const storeId = activeStore?.id || '';
+  const detailsReady = nameInput.trim().length > 1 && phoneInput.replace(/\D/g, '').length >= 8 && cityInput.trim().length > 1;
+
+  useEffect(() => {
+    const onReady = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { storeId?: string; id?: string; name?: string; email?: string; phone?: string; city?: string } | undefined;
+      if (!detail?.email || detail.storeId !== storeId) return;
+      saveSession({
+        storeId,
+        id: detail.id || detail.email,
+        name: detail.name || nameInput.trim(),
+        email: detail.email,
+        phone: detail.phone || phoneInput.trim(),
         loggedInAt: new Date().toISOString(),
-      };
-      saveSession(newSession);
-      setIsSubmitting(false);
-      setAuthMessage(isAr ? 'تم تسجيل الدخول بنجاح!' : 'Signed in successfully!');
-      setTimeout(() => setAuthMessage(null), 3000);
-    }, 600);
+      });
+    };
+    window.addEventListener('unityteck-sf-customer-ready', onReady);
+    return () => window.removeEventListener('unityteck-sf-customer-ready', onReady);
+  }, [storeId]);
+
+  const handleGoogleSignIn = () => {
+    setAuthError(false);
+    setAuthMessage(null);
+    if (!storeId || !detailsReady) {
+      setAuthError(true);
+      setAuthMessage(isAr ? 'الاسم ورقم الجوال والمدينة مطلوبة.' : 'Name, mobile number, and city are required.');
+      return;
+    }
+    const clientId = getStoredGoogleClientId();
+    if (hasRealGoogleClientId(clientId)) {
+      setIsSubmitting(true);
+      startCustomerGoogleSignIn(clientId, {
+        onSuccess: (profile) => {
+          void saveStorefrontCustomer({
+            storeId,
+            name: profile.name || nameInput.trim(),
+            email: profile.email,
+            phone: phoneInput.trim(),
+            city: cityInput.trim(),
+            source: 'google',
+          }).then((saved) => {
+            saveSession({
+              storeId,
+              id: saved.id,
+              name: saved.name,
+              email: saved.email,
+              phone: saved.phone,
+              loggedInAt: new Date().toISOString(),
+            });
+            setIsSubmitting(false);
+          }).catch(() => {
+            setIsSubmitting(false);
+            setAuthError(true);
+            setAuthMessage(isAr ? 'تعذر حفظ العميل.' : 'Could not save the customer.');
+          });
+        },
+        onError: () => {
+          setIsSubmitting(false);
+          setAuthError(true);
+          setAuthMessage(isAr ? 'تعذر فتح جوجل.' : 'Could not open Google.');
+        },
+      });
+      return;
+    }
+    if (!isClerkConfigured() || !signInLoaded || !signIn) {
+      setAuthError(true);
+      setAuthMessage(isAr ? 'تسجيل جوجل غير جاهز.' : 'Google sign-in is not ready.');
+      return;
+    }
+    rememberPendingCustomer({
+      storeId,
+      name: nameInput.trim(),
+      email: emailInput.trim(),
+      phone: phoneInput.trim(),
+      city: cityInput.trim(),
+      source: 'google',
+    });
+    void startClerkGoogle(signIn, 'account').catch(() => {
+      setAuthError(true);
+      setAuthMessage(isAr ? 'تعذر فتح جوجل.' : 'Could not open Google.');
+    });
   };
 
-  // OTP Request handler
   const handleRequestOtp = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phoneInput.trim() || phoneInput.length < 8) {
-      setAuthMessage(isAr ? 'يرجى إدخال رقم هاتف صحيح' : 'Please enter a valid phone number');
+    setAuthError(false);
+    setAuthMessage(null);
+    if (!storeId || !detailsReady || !emailInput.includes('@')) {
+      setAuthError(true);
+      setAuthMessage(isAr ? 'الاسم والبريد والجوال والمدينة مطلوبة.' : 'Name, email, mobile, and city are required.');
+      return;
+    }
+    if (!isClerkConfigured() || !signInLoaded || !signUpLoaded || !signIn || !signUp) {
+      setAuthError(true);
+      setAuthMessage(isAr ? 'إرسال الرمز غير جاهز.' : 'Email verification is not ready.');
       return;
     }
     setIsSubmitting(true);
-    setTimeout(() => {
-      const code = String(Math.floor(100000 + Math.random() * 900000));
-      setGeneratedOtp(code);
-      setOtpStep(true);
-      setIsSubmitting(false);
-      setAuthMessage(isAr ? `رمز التحقق المرسل هو: ${code}` : `Your verification code is: ${code}`);
-    }, 500);
+    void sendClerkEmailCode(signIn, signUp, emailInput.trim())
+      .then((mode) => {
+        setEmailMode(mode);
+        setOtpStep(true);
+        setIsSubmitting(false);
+        setAuthMessage(isAr ? 'أُرسل رمز التحقق إلى بريدك.' : 'A verification code was sent to your email.');
+      })
+      .catch(() => {
+        setIsSubmitting(false);
+        setAuthError(true);
+        setAuthMessage(isAr ? 'تعذر إرسال رمز التحقق.' : 'Could not send the verification code.');
+      });
   };
 
-  // Verify OTP handler
   const handleVerifyOtp = (e: React.FormEvent) => {
     e.preventDefault();
-    if (otpCode !== generatedOtp && otpCode !== '123456') {
-      setAuthMessage(isAr ? 'رمز التحقق غير صحيح، حاول مرة أخرى' : 'Invalid code, please try again');
+    if (!signIn || !signUp || !clerk?.setActive || !setSignUpActive) {
+      setAuthError(true);
+      setAuthMessage(isAr ? 'التحقق غير جاهز.' : 'Verification is not ready.');
       return;
     }
-    const newSession: TransportCustomerSession = {
-      storeId: activeStore?.id || 'store-bleco',
-      id: `cust-${Date.now().toString().slice(-6)}`,
-      name: nameInput.trim() || (isAr ? 'عميل بليكو المتميز' : 'Valued Customer'),
-      email: emailInput.trim() || 'customer@bleco.sa',
-      phone: phoneInput.trim(),
-      garageBrand: 'Toyota',
-      garageModel: 'Land Cruiser',
-      garageYear: '2024',
-      savedAddresses: [
-        {
-          id: 'addr-1',
-          label: isAr ? 'المنزل الرئيسي' : 'Main Residence',
-          city: isAr ? 'الرياض' : 'Riyadh',
-          district: isAr ? 'حي حطين' : 'Hittin',
-          street: isAr ? 'شارع التحلية' : 'Tahlia St',
-        }
-      ],
-      loggedInAt: new Date().toISOString(),
-    };
-    saveSession(newSession);
-    setOtpStep(false);
-    setOtpCode('');
-    setAuthMessage(isAr ? 'أهلاً بك! تم تسجيل الدخول بنجاح' : 'Welcome! You have signed in');
-    setTimeout(() => setAuthMessage(null), 3000);
+    setIsSubmitting(true);
+    void verifyClerkEmailCode(emailMode, otpCode.trim(), signIn, signUp, clerk.setActive, setSignUpActive)
+      .then(() => saveStorefrontCustomer({
+        storeId,
+        name: nameInput.trim(),
+        email: emailInput.trim(),
+        phone: phoneInput.trim(),
+        city: cityInput.trim(),
+        source: 'email',
+      }))
+      .then(async (saved) => {
+        saveSession({
+          storeId,
+          id: saved.id,
+          name: saved.name,
+          email: saved.email,
+          phone: saved.phone,
+          loggedInAt: new Date().toISOString(),
+        });
+        setOtpStep(false);
+        setOtpCode('');
+        setIsSubmitting(false);
+        setAuthError(false);
+        setAuthMessage(isAr ? 'تم تسجيل الدخول وحفظ بياناتك.' : 'Signed in and your details were saved.');
+        await clerk.signOut({ redirectUrl: window.location.href });
+      })
+      .catch(() => {
+        setIsSubmitting(false);
+        setAuthError(true);
+        setAuthMessage(isAr ? 'رمز التحقق غير صحيح.' : 'The verification code is incorrect.');
+      });
   };
 
   // Logout
@@ -316,8 +398,8 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
 
         {/* Auth Notification Banner */}
         {authMessage && (
-          <div className="px-4 py-2 bg-emerald-950/80 border-b border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+          <div className={`px-4 py-2 border-b text-xs font-bold flex items-center gap-2 ${authError ? 'bg-rose-950/80 border-rose-500/30 text-rose-200' : 'bg-emerald-950/80 border-emerald-500/30 text-emerald-300'}`}>
+            <CheckCircle2 className={`w-4 h-4 shrink-0 ${authError ? 'text-rose-300' : 'text-emerald-400'}`} />
             <span>{authMessage}</span>
           </div>
         )}
@@ -332,9 +414,9 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                   {isAr ? 'تسجيل الدخول إلى حسابك' : 'Sign in to your account'}
                 </h3>
                 <p className="text-xs text-slate-300">
-                  {isAr 
-                    ? 'سجل دخولك بنقرة واحدة بحساب Google أو عبر رقم الهاتف لمتابعة طلبياتك وتفصيل سيارتك.' 
-                    : 'Sign in to access your custom vehicle specs and track active orders.'}
+                  {isAr
+                    ? 'أدخل الاسم والجوال والمدينة، ثم تابع عبر جوجل أو البريد الإلكتروني.'
+                    : 'Enter your name, mobile, and city, then continue with Google or email.'}
                 </p>
               </div>
 
@@ -351,13 +433,13 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                 </svg>
-                <span>{isAr ? 'المتابعة بنقرة واحدة باستخدام Google' : 'Continue with Google'}</span>
+                <span>{isAr ? 'المتابعة باستخدام جوجل' : 'Continue with Google'}</span>
               </button>
 
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-px bg-white/10" />
                 <span className="text-[10px] uppercase font-bold text-slate-400">
-                  {isAr ? 'أو عبر رقم الجوال والرمز' : 'OR VIA MOBILE & OTP'}
+                  {isAr ? 'أو عبر البريد الإلكتروني' : 'or with email'}
                 </span>
                 <div className="flex-1 h-px bg-white/10" />
               </div>
@@ -383,7 +465,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
 
                   <div>
                     <label className="block text-[11px] font-bold text-slate-300 mb-1.5">
-                      {isAr ? 'رقم الجوال (لإرسال كود التحقق)' : 'Mobile Number (SMS verification)'}
+                      {isAr ? 'رقم الجوال' : 'Mobile number'}
                     </label>
                     <div className="relative">
                       <input
@@ -399,12 +481,39 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                     </div>
                   </div>
 
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1.5">
+                      {isAr ? 'البريد الإلكتروني' : 'Email address'}
+                    </label>
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      required
+                      className="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 focus:border-[#d5a027] text-white text-xs outline-none transition-colors"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1.5">
+                      {isAr ? 'المدينة' : 'City'}
+                    </label>
+                    <input
+                      type="text"
+                      value={cityInput}
+                      onChange={(e) => setCityInput(e.target.value)}
+                      required
+                      className="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 focus:border-[#d5a027] text-white text-xs outline-none transition-colors"
+                    />
+                  </div>
+
                   <button
                     type="submit"
                     disabled={isSubmitting}
                     className="w-full h-11 rounded-xl btn-bashayer-gold font-black text-xs flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:brightness-110 active:scale-98 transition-all"
                   >
-                    <span>{isSubmitting ? (isAr ? 'جاري الإرسال...' : 'Sending...') : (isAr ? 'إرسال رمز التحقق (OTP)' : 'Send Verification OTP')}</span>
+                    <span>{isSubmitting ? (isAr ? 'جارٍ الإرسال...' : 'Sending...') : (isAr ? 'إرسال رمز التحقق' : 'Send verification code')}</span>
                     {isAr ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   </button>
                 </form>
@@ -412,16 +521,16 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                 <form onSubmit={handleVerifyOtp} className="space-y-4 animate-fadeIn">
                   <div className="p-3 rounded-xl bg-[#d5a027]/10 border border-[#d5a027]/30 text-center space-y-1">
                     <p className="text-xs text-slate-200">
-                      {isAr ? `أدخل الرمز المكون من 6 أرقام المرسل إلى` : 'Enter the 6-digit code sent to'}
+                      {isAr ? 'أدخل الرمز المرسل إلى' : 'Enter the code sent to'}
                     </p>
                     <p className="text-xs font-mono font-black text-[#f6c344]" dir="ltr">
-                      {phoneInput}
+                      {emailInput}
                     </p>
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-bold text-slate-300 mb-1.5 text-center">
-                      {isAr ? 'رمز التحقق (أدخل 123456 أو الرمز التجريبي)' : 'Verification Code (Use 123456 or sent code)'}
+                      {isAr ? 'رمز التحقق' : 'Verification code'}
                     </label>
                     <input
                       type="text"
@@ -440,7 +549,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                       onClick={() => setOtpStep(false)}
                       className="w-1/3 h-11 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs cursor-pointer"
                     >
-                      {isAr ? 'تعديل الرقم' : 'Edit Number'}
+                      {isAr ? 'تعديل البيانات' : 'Edit details'}
                     </button>
                     <button
                       type="submit"

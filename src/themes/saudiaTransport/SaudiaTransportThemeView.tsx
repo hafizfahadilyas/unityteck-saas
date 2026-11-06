@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { submitPublicStorefrontOrder } from '../../utils/submitStorefrontOrder';
+import { readTrafficSource } from '../../utils/trafficSource';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { Product, CategoryItem } from '../../types';
 import { 
@@ -763,13 +764,13 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
           {
             customerName: checkoutForm.name,
             customerPhone: checkoutForm.phone,
-            customerEmail: `${checkoutForm.phone.replace(/[^0-9]/g, '')}@tanjeedmakkah.sa`,
+            customerEmail: undefined,
             deliveryLocation: `${checkoutForm.city} - ${checkoutForm.address}`,
             total: cartTotal,
             status: 'pending',
             paymentMethod: checkoutForm.paymentMethod === 'cod' ? 'Cash on Delivery' : 'mada',
-            paymentStatus: checkoutForm.paymentMethod === 'cod' ? 'pending' : 'paid',
-            source: 'Car Store Online',
+            paymentStatus: 'pending',
+            source: readTrafficSource().source,
             items: itemsPayload.map((i) => ({
               id: i.id,
               name: i.name,
@@ -783,16 +784,16 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             toAddOrderPayload: () => ({
               customerName: checkoutForm.name,
               customerPhone: checkoutForm.phone,
-              customerEmail: `${checkoutForm.phone.replace(/[^0-9]/g, '')}@tanjeedmakkah.sa`,
-              deliveryLocation: `${checkoutForm.city} - ${checkoutForm.address}`,
-              itemsCount: cartCount,
-              items: itemsPayload,
-              total: cartTotal,
-              subtotal: cartTotal,
-              status: 'pending',
-              paymentMethod: checkoutForm.paymentMethod === 'cod' ? 'Cash on Delivery' : 'mada',
-              paymentStatus: checkoutForm.paymentMethod === 'cod' ? 'Pending' : 'Paid',
-              source: 'Car Store Online',
+            customerEmail: undefined,
+            deliveryLocation: `${checkoutForm.city} - ${checkoutForm.address}`,
+            itemsCount: cartCount,
+            items: itemsPayload,
+            total: cartTotal,
+            subtotal: cartTotal,
+            status: 'pending',
+            paymentMethod: checkoutForm.paymentMethod === 'cod' ? 'Cash on Delivery' : 'mada',
+            paymentStatus: 'Pending',
+            source: readTrafficSource().source,
               customerNotes: checkoutForm.notes,
               time: new Date().toLocaleTimeString('ar-SA'),
             }),

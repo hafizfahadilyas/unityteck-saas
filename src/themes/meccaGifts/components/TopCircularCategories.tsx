@@ -121,7 +121,7 @@ export const TopCircularCategories: React.FC<TopCircularCategoriesProps> = ({
                 name: isAr ? (c.nameAr || c.name) : (c.nameEn || c.name),
                 nameEn: c.nameEn || c.name,
                 image: c.imageUrl || matchedProd?.image || FALLBACK_PRODUCT_IMAGE,
-                count: currentProducts?.filter(p => p.category === c.name || p.categoryAr === c.name || (p as any).categoryEn === c.nameEn).length || 5,
+                count: currentProducts?.filter(p => p.category === c.name || p.categoryAr === c.name || (p as any).categoryEn === c.nameEn).length || 0,
               };
             });
           }

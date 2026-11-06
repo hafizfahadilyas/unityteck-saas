@@ -45,21 +45,29 @@ export const MasterSEO: React.FC = () => {
   const handleAutoProvisionAllStores = () => {
     saveMasterGlobalTracking(masterTracking);
     stores.forEach((st) => {
-      const slugTag = (st.slug || st.id).slice(0, 5).toUpperCase();
+      const rawHost = String(st.custom_domain || st.domain || st.demo_domain || '')
+        .replace(/^https?:\/\//, '')
+        .split('/')[0]
+        .replace(/^www\./, '');
+      const origin = rawHost ? `https://${rawHost}` : '';
+      const email = String(st.ownerEmail || '').includes('@') ? st.ownerEmail : null;
       updateStoreSEOConfig(st.id, {
-        googleConnected: true,
-        googleAccountEmail: st.ownerEmail || `seo@${st.slug || 'store'}.sa`,
-        ga4MeasurementId: `${masterTracking.masterGa4Id}-${slugTag}`,
-        gtmContainerId: `${masterTracking.masterGtmId}-${slugTag}`,
-        searchConsoleConnected: true,
-        searchConsoleVerificationTag: `google-site-verification=KSA-${slugTag}-AUTO`,
-        indexingApiEnabled: masterTracking.masterIndexingAutoEnabled,
+        googleConnected: false,
+        googleAccountEmail: email,
+        ga4MeasurementId: '',
+        gtmContainerId: '',
+        searchConsoleConnected: false,
+        searchConsoleVerificationTag: '',
+        indexingApiEnabled: false,
+        sitemapUrl: origin ? `${origin}/sitemap.xml` : '',
+        metaTitle: st.nameAr || st.name || '',
+        metaDescription: st.nameAr || st.name || '',
       });
     });
     toast(
       isAr
-        ? `تم تفعيل وربط GTM4 و GA4 والفهرسة التلقائية لجميع المتاجر (${stores.length}) دون تدخل التاجر!`
-        : `Auto-provisioned Master GTM4, GA4 & Indexing Timer across all ${stores.length} stores automatically!`,
+        ? 'تم تجهيز خريطة الموقع وحساب البريد لكل متجر. يبقى جوجل غير مربوط إلى أن يكتمل التفويض الحقيقي.'
+        : 'Sitemap and the store email are ready. Google stays disconnected until a real authorization.',
       'success',
     );
   };
@@ -100,18 +108,12 @@ export const MasterSEO: React.FC = () => {
   });
 
   const handleGlobalSync = () => {
-    setIsSyncingAll(true);
-    setTimeout(() => {
-      setIsSyncingAll(false);
-      setSyncToast(true);
-      toast(
-        isAr
-          ? `تم تحديث بيانات Google لجميع المتاجر (${stores.length})`
-          : `Google data refreshed for all ${stores.length} stores`,
-        'success',
-      );
-      setTimeout(() => setSyncToast(false), 3000);
-    }, 1200);
+    toast(
+      isAr
+        ? 'لا توجد بيانات جوجل للجلب. يبقى الربط مغلقاً إلى أن يكتمل التفويض.'
+        : 'No Google data to refresh. The connection stays closed until authorization is complete.',
+      'success',
+    );
   };
 
   const handleCopyPayload = async () => {

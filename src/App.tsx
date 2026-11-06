@@ -14,6 +14,9 @@ import { StoreSidebar } from './components/store/StoreSidebar';
 import { StoreTopBar } from './components/store/StoreTopBar';
 import { StoreDashboard } from './components/store/StoreDashboard';
 import { SocialOAuthDialogView } from './components/store/SocialOAuthDialogView';
+import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react';
+import { isClerkConfigured } from './auth/clerkSession';
+import { StorefrontCustomerResume } from './auth/StorefrontCustomerResume';
 import { PortalLogin } from './components/auth/PortalLogin';
 import { PortalRegister } from './components/auth/PortalRegister';
 import { PortalPasswordReset } from './components/auth/PortalPasswordReset';
@@ -1355,9 +1358,16 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         ? 'store-1'
         : activeStore?.id || (urlStoreSlug ? urlStoreSlug : 'store-coffee');
 
+    const googleReturn =
+      isClerkConfigured() &&
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('clerk_oauth') === '1';
+
     return (
       <StatusErrorBoundary onHome={() => navigate('/')} onNavigate={navigate}>
         <div dir={dir} lang={locale} className="min-h-screen w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
+          {googleReturn ? <AuthenticateWithRedirectCallback /> : null}
+          {isClerkConfigured() ? <StorefrontCustomerResume /> : null}
           <div className="flex-1">
             <Suspense fallback={<TabFallback />}>
               <DynamicThemeRenderer

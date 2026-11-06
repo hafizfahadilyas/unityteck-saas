@@ -28,6 +28,7 @@ import { ClerkProvider } from '@clerk/clerk-react';
 import App from './App.tsx';
 import './index.css';
 import { getClerkPublishableKey, isClerkConfigured } from './auth/clerkSession';
+import { clerkAllowedRedirectOrigins } from './auth/storefrontOrigins';
 
 const root = document.getElementById('root')!;
 const publishableKey = getClerkPublishableKey();
@@ -35,7 +36,11 @@ const publishableKey = getClerkPublishableKey();
 createRoot(root).render(
   <StrictMode>
     {isClerkConfigured() ? (
-      <ClerkProvider publishableKey={publishableKey} afterSignOutUrl="/">
+      <ClerkProvider
+        publishableKey={publishableKey}
+        afterSignOutUrl="/"
+        allowedRedirectOrigins={clerkAllowedRedirectOrigins()}
+      >
         <App />
       </ClerkProvider>
     ) : (

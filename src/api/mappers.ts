@@ -367,6 +367,8 @@ function mapPaymentMethod(v: unknown): Order['paymentMethod'] {
   if (lower.includes('apple')) return 'Apple Pay';
   if (lower.includes('stc')) return 'stc pay';
   if (lower.includes('visa') || lower.includes('master') || lower === 'visa/mc') return 'Visa/MC';
+  if (lower.includes('tabby')) return 'Tabby';
+  if (lower.includes('tamara')) return 'Tamara';
   if (lower.includes('cash') || lower.includes('cod')) return 'COD';
   return (
     PAYMENT_METHODS.find((x) => x.toLowerCase() === lower) ?? 'COD'
@@ -500,6 +502,7 @@ const CUSTOMER_SOURCES: CustomerSource[] = [
   'Direct',
   'TikTok',
   'Referral',
+  'Google',
   'Other',
 ];
 
@@ -555,7 +558,7 @@ export function mapCustomer(row: ApiCustomerRow): Customer {
     email: str(row.email),
     avatar: row.avatar != null ? str(row.avatar) : undefined,
     status: mapCustomerStatus(row.status),
-    city: str(row.city, 'Makkah'),
+    city: str(row.city, ''),
     country: str(row.country, 'Saudi Arabia'),
     gender: mapGender(row.gender),
     source: mapCustomerSource(row.acquisition_source ?? row.source),

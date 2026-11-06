@@ -121,7 +121,15 @@ export async function apiFetch<T>(
   const token = getAuthToken();
   if (token && !token.startsWith('mock-') && !skipAuth) {
     headers.Authorization = `Bearer ${token}`;
-  } else if (!isPublicEndpoint) {
+  }
+  const guestReadable =
+    isGet &&
+    (path.startsWith('/orders') ||
+      path.startsWith('/customers') ||
+      path.startsWith('/coupons') ||
+      path.startsWith('/seo') ||
+      path.startsWith('/reports'));
+  if (!isPublicEndpoint && !guestReadable && !(token && !token.startsWith('mock-'))) {
     throw new Error(toUserFriendlyError('No active backend API session (mock/guest mode).'));
   }
 

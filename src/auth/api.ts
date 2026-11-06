@@ -686,50 +686,11 @@ export async function loginPortal(
   }
 }
 
-/**
- * Universal Google Login for Merchants (Gmail / Google Workspace)
- * Provisions isolated Saudi tenant store scoped to their Google account
- */
+/** Merchant Google sign-in is closed until a verified store account is linked. */
 export async function loginWithGoogleMerchant(
-  googleAccount?: { email: string; name: string; picture?: string },
+  _googleAccount?: { email: string; name: string; picture?: string },
 ): Promise<LoginResult> {
-  const email = (googleAccount?.email || '').trim().toLowerCase() || 'merchant.saudi@gmail.com';
-  const name = googleAccount?.name || 'تاجر منصة يونيتيك (Saudi Merchant)';
-  const avatar = googleAccount?.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c';
-
-  const isGiftshopDomain =
-    typeof window !== 'undefined' &&
-    (window.location.hostname.includes('giftshop-sa.com') ||
-      window.location.search.includes('store=store-1') ||
-      window.location.search.includes('store=hadaya') ||
-      window.location.search.includes('tab=products'));
-
-  const emailPrefix = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '-').replace(/^-+|-+$/g, '') || 'store';
-  const rawClean = email.split('@')[0].replace(/[._-]/g, ' ');
-  const storeTitle = rawClean.charAt(0).toUpperCase() + rawClean.slice(1);
-  const storeId = isGiftshopDomain ? 'store-1' : `store-${emailPrefix.toLowerCase().slice(0, 16)}`;
-  const storeName = isGiftshopDomain ? 'متجر هدايا - مكة المكرمة' : `متجر ${storeTitle} - السعودية`;
-
-  const session: AuthSession = {
-    token: `google-sso-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-    portal: 'store',
-    user: {
-      id: `user-g-${storeId}`,
-      name,
-      email,
-      role: 'manager',
-      role_label: roleLabel('manager'),
-      role_level: roleLevel('manager'),
-      avatar,
-    },
-    storeId,
-    storeName,
-    abilities: abilitiesFor('manager'),
-  };
-
-  writeAuthSession(session);
-  resetRateLimit(email);
-  return session;
+  throw new Error('STORE_GOOGLE_UNAVAILABLE');
 }
 
 /**

@@ -38,13 +38,13 @@ export const BestSellersSection: React.FC<BestSellersSectionProps> = ({
     builderDevice,
   } = useApp();
 
-  const { activeStore, currentProducts } = useTenant();
+  const { activeStore, currentProducts, dataSource } = useTenant();
   const isAr = language === 'ar';
   const s = settings || {};
 
   // Read merchant customization from Theme Settings / Page Builder
   const themeSettings = React.useMemo(() => {
-    return readAllThemeSettings(activeStore?.id || 'store-1', activeStore);
+    return readAllThemeSettings(activeStore?.id || '', activeStore || { name: '' });
   }, [activeStore]);
 
   const cardSettings = themeSettings.productCards;
@@ -56,10 +56,12 @@ export const BestSellersSection: React.FC<BestSellersSectionProps> = ({
   const storeCatalog = React.useMemo(() => {
     const list = (currentProducts && currentProducts.length > 0)
       ? currentProducts
-      : (products || []);
+      : dataSource === 'api'
+        ? []
+        : (products || []);
     // Filter out inactive products
     return list.filter((p) => (p as any).status !== 'archived');
-  }, [currentProducts, products]);
+  }, [currentProducts, products, dataSource]);
 
   const columnsCount = s.columns || themeSettings.tabs?.columnsCount || themeSettings.customProducts?.columnsCount || 4;
   const limitCount = s.limit || themeSettings.tabs?.numberOfProducts || themeSettings.customProducts?.numberOfProducts || 8;

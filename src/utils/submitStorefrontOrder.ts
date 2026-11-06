@@ -26,7 +26,7 @@ export function toStorefrontOrderPayload(data: StorefrontOrderInput): Record<str
     delivery_location: data.deliveryLocation,
     status: data.status || 'pending',
     payment_method: data.paymentMethod || 'Mada',
-    payment_status: data.paymentStatus || 'paid',
+    payment_status: 'pending',
     source: data.source,
     source_details: data.sourceDetails || data.source,
     items: (data.items || []).map((i) => ({
@@ -52,6 +52,17 @@ export async function submitPublicStorefrontOrder(
   },
 ): Promise<Order> {
   if (isApiEnabled() && !hasLiveApiAuth()) {
+    if (typeof fetch !== 'undefined') {
+      void fetch('/api/storefront/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Store-Id': storeId },
+        body: JSON.stringify({
+          event: 'begin_checkout',
+          path: typeof location !== 'undefined' ? location.pathname : '',
+          source: data.source || 'Direct',
+        }),
+      }).catch(() => undefined);
+    }
     const { order } = await tenantApi.createStorefrontOrder(storeId, toStorefrontOrderPayload(data));
     opts.syncOrderFromApi(order, storeId);
     return order;

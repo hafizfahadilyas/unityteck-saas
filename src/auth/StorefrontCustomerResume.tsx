@@ -1,0 +1,44 @@
+import { useEffect, useRef } from 'react';
+import { useClerk, useUser } from '@clerk/clerk-react';
+import { clearPendingCustomer, readPendingCustomer, saveStorefrontCustomer } from './storefrontCustomer';
+
+/** After Google returns, write the real customer for that store and keep the local session. */
+export function StorefrontCustomerResume() {
+  const { isSignedIn, user } = useUser();
+  const { signOut } = useClerk();
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (started.current || !isSignedIn || !user) return;
+    const pending = readPendingCustomer();
+    if (!pending || pending.source !== 'google') return;
+    const email = user.primaryEmailAddress?.emailAddress || pending.email;
+    if (!email) return;
+    started.current = true;
+    const name = user.fullName || user.firstName || pending.name || email.split('@')[0];
+    void (async () => {
+      try {
+        await saveStorefrontCustomer({
+          ...pending,
+          name,
+          email,
+          source: 'google',
+        });
+        clearPendingCustomer();
+      } catch (err) {
+        sessionStorage.setItem(
+          'unityteck_sf_customer_error',
+          err instanceof Error ? err.message : 'Could not save the customer.',
+        );
+      }
+      const back = `${window.location.pathname}${window.location.search}`;
+      try {
+        await signOut({ redirectUrl: back || '/' });
+      } catch {
+        /* local session is already stored */
+      }
+    })();
+  }, [isSignedIn, user, signOut]);
+
+  return null;
+}

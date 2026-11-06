@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
+import { useSignIn, useSignUp, useClerk } from '@clerk/clerk-react';
 import { useApp } from '../context/AppContext';
+import { useTenant } from '../../../context/TenantContext';
+import { isClerkConfigured } from '../../../auth/clerkSession';
+import {
+  rememberPendingCustomer,
+  saveStorefrontCustomer,
+  sendClerkEmailCode,
+  startClerkGoogle,
+  verifyClerkEmailCode,
+} from '../../../auth/storefrontCustomer';
 import {
   X,
   CheckCircle,
@@ -16,98 +26,160 @@ import {
   Award,
 } from 'lucide-react';
 import { MECCA_LOGO } from '../data/mockData';
-import {
-  getStoredGoogleClientId,
-  initiateRealGoogleOAuth,
-  initiateInstantGoogleConnect,
-} from '../../../utils/googleRealAuth';
 
 interface AuthModalProps {
   isOpen?: boolean;
   onClose?: () => void;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClose: propOnClose }) => {
+export const AuthModal: React.FC<AuthModalProps> = (props) => {
+  if (!isClerkConfigured()) return <AuthModalBody {...props} clerk={null} />;
+  return <AuthModalClerk {...props} />;
+};
+
+function AuthModalClerk(props: AuthModalProps) {
+  const { isLoaded, signIn, setActive } = useSignIn();
+  const { signUp, setActive: setSignUpActive } = useSignUp();
+  const { signOut } = useClerk();
+  return (
+    <AuthModalBody
+      {...props}
+      clerk={{
+        isLoaded,
+        signIn,
+        signUp,
+        setActive,
+        setSignUpActive,
+        signOut,
+      }}
+    />
+  );
+}
+
+function AuthModalBody({
+  isOpen: propIsOpen,
+  onClose: propOnClose,
+  clerk,
+}: AuthModalProps & {
+  clerk: {
+    isLoaded: boolean;
+    signIn: ReturnType<typeof useSignIn>['signIn'];
+    signUp: ReturnType<typeof useSignUp>['signUp'];
+    setActive: ReturnType<typeof useSignIn>['setActive'];
+    setSignUpActive: ReturnType<typeof useSignUp>['setActive'];
+    signOut: (opts?: { redirectUrl?: string }) => Promise<void>;
+  } | null;
+}) {
   const { language, user, loginWithGoogle, logout, setCurrentPage, isAuthModalOpen, setIsAuthModalOpen, cart } = useApp();
+  const { activeStore } = useTenant();
   const isAr = language === 'ar';
+  const storeId = activeStore?.id || '';
 
   const isOpen = propIsOpen !== undefined ? propIsOpen : isAuthModalOpen;
   const onClose = propOnClose || (() => setIsAuthModalOpen(false));
 
-  const [authMethod, setAuthMethod] = useState<'email' | 'otp'>('email');
-  const [emailInput, setEmailInput] = useState('');
   const [nameInput, setNameInput] = useState('');
+  const [phoneInput, setPhoneInput] = useState('');
+  const [cityInput, setCityInput] = useState('');
+  const [emailInput, setEmailInput] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [emailMode, setEmailMode] = useState<'signIn' | 'signUp'>('signIn');
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackError, setFeedbackError] = useState(false);
 
   if (!isOpen) return null;
 
+  const detailsReady = nameInput.trim() && phoneInput.trim() && cityInput.trim();
+
   const handleGoogleAuth = () => {
-    setLoading(true);
     setFeedback(null);
-
-    const onGoogleSuccess = (_token: any, profile: any) => {
-      setLoading(false);
-      const email = profile.email || emailInput.trim() || 'alfahad3110@gmail.com';
-      const name = profile.name || (email.includes('@') ? email.split('@')[0] : 'alfahad');
-      const picture = profile.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=102a1c&color=e6ca98&size=128`;
-      loginWithGoogle(email, name, picture);
-      onClose();
-      setCurrentPage('crm');
-    };
-
-    const targetEmail = emailInput.trim() || 'alfahad3110@gmail.com';
-    const targetName = nameInput.trim() || (targetEmail.includes('@') ? targetEmail.split('@')[0] : 'alfahad');
-
-    const clientId = getStoredGoogleClientId();
-    if (!clientId || clientId.includes('unityteck-ecommerce')) {
-      setLoading(false);
-      setFeedback('Configure a real Google OAuth Client ID to continue.');
+    setFeedbackError(false);
+    if (!storeId) {
+      setFeedbackError(true);
+      setFeedback(isAr ? 'المتجر غير معروف.' : 'Store is not known.');
       return;
     }
-    initiateRealGoogleOAuth({
-      storeSlug: 'hadaya-mecca',
-      clientId,
-      onSuccess: onGoogleSuccess,
-      onError: (err) => {
-        setLoading(false);
-        setFeedback(err || 'Google sign-in failed.');
-      },
+    if (!detailsReady) {
+      setFeedbackError(true);
+      setFeedback(isAr ? 'الاسم ورقم الجوال والمدينة مطلوبة قبل المتابعة.' : 'Name, mobile number, and city are required.');
+      return;
+    }
+    if (!clerk?.isLoaded || !clerk.signIn) {
+      setFeedbackError(true);
+      setFeedback(isAr ? 'تسجيل جوجل غير جاهز بعد.' : 'Google sign-in is not ready yet.');
+      return;
+    }
+    setLoading(true);
+    rememberPendingCustomer({
+      storeId,
+      name: nameInput.trim(),
+      email: emailInput.trim(),
+      phone: phoneInput.trim(),
+      city: cityInput.trim(),
+      source: 'google',
+    });
+    void startClerkGoogle(clerk.signIn, 'crm').catch(() => {
+      setLoading(false);
+      setFeedbackError(true);
+      setFeedback(isAr ? 'تعذر فتح تسجيل جوجل.' : 'Could not open Google sign-in.');
     });
   };
 
-  const handleSendEmailOtp = (e: React.FormEvent) => {
+  const handleSendEmailOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!emailInput.trim()) return;
-    setLoading(true);
     setFeedback(null);
-
-    setTimeout(() => {
-      setLoading(false);
+    setFeedbackError(false);
+    if (!storeId || !emailInput.trim() || !detailsReady) {
+      setFeedbackError(true);
+      setFeedback(isAr ? 'الاسم ورقم الجوال والمدينة والبريد مطلوبة.' : 'Name, mobile, city, and email are required.');
+      return;
+    }
+    if (!clerk?.isLoaded || !clerk.signIn || !clerk.signUp) {
+      setFeedbackError(true);
+      setFeedback(isAr ? 'إرسال رمز التحقق غير جاهز.' : 'Email verification is not ready.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const mode = await sendClerkEmailCode(clerk.signIn, clerk.signUp, emailInput.trim());
+      setEmailMode(mode);
       setOtpSent(true);
-      setFeedback(
-        isAr
-          ? `تم إرسال رمز التحقق المكون من 4 أرقام إلى بريدك الإلكتروني (${emailInput.trim()})`
-          : `A 4-digit verification code has been sent to your email (${emailInput.trim()})`
-      );
-    }, 500);
+      setFeedback(isAr ? 'تم إرسال رمز التحقق إلى بريدك. راجع الوارد.' : 'Verification code sent to your email. Check the inbox.');
+    } catch {
+      setFeedbackError(true);
+      setFeedback(isAr ? 'تعذر إرسال رمز التحقق إلى هذا البريد.' : 'Could not send a verification code to this email.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpCode.trim()) return;
+    if (!otpCode.trim() || !clerk?.signIn || !clerk.signUp || !clerk.setActive || !clerk.setSignUpActive) return;
     setLoading(true);
-
-    setTimeout(() => {
-      setLoading(false);
-      const targetEmail = emailInput.trim() || 'customer@example.com';
-      const targetName = nameInput.trim() || targetEmail.split('@')[0];
-      loginWithGoogle(targetEmail, targetName);
+    setFeedbackError(false);
+    try {
+      await verifyClerkEmailCode(emailMode, otpCode.trim(), clerk.signIn, clerk.signUp, clerk.setActive, clerk.setSignUpActive);
+      const saved = await saveStorefrontCustomer({
+        storeId,
+        name: nameInput.trim(),
+        email: emailInput.trim(),
+        phone: phoneInput.trim(),
+        city: cityInput.trim(),
+        source: 'email',
+      });
+      loginWithGoogle(saved.email, saved.name, undefined, saved.phone, saved.city);
       onClose();
       setCurrentPage('crm');
-    }, 400);
+      void clerk.signOut({ redirectUrl: window.location.href }).catch(() => undefined);
+    } catch {
+      setFeedbackError(true);
+      setFeedback(isAr ? 'الرمز غير صحيح أو تعذر حفظ بيانات العميل.' : 'The code is wrong, or the customer could not be saved.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -157,6 +229,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
               <div>
                 <h4 className="text-base font-bold text-[#102a1c]">{user.name}</h4>
                 <p className="text-xs text-[#8c8275] font-mono">{user.email}</p>
+                {(user.phone || user.city) && (
+                  <p className="text-xs text-[#8c8275] mt-1">
+                    {[user.phone, user.city].filter(Boolean).join(' · ')}
+                  </p>
+                )}
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#102a1c]/10 text-[#102a1c] text-xs font-semibold mt-2">
                   <Sparkles className="w-3.5 h-3.5 text-[#d4af37]" />
                   <span>{isAr ? 'عضوية النخبة الملكية (VIP)' : 'Royal Elite Member (VIP)'}</span>
@@ -222,7 +299,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
           ) : (
             /* Logged Out / Sign In Options */
             <div className="space-y-4">
-              {/* Google 1-Click Sign-In (Real Auth & Instant Connect) */}
+              <div className="space-y-3">
+                <label className="block text-xs font-bold text-[#102a1c]">
+                  {isAr ? 'الاسم' : 'Full name'}
+                  <input
+                    type="text"
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    className="mt-1 w-full py-2.5 px-4 rounded-xl border border-[#d6cfc0] text-sm focus:outline-none focus:border-[#102a1c]"
+                  />
+                </label>
+                <label className="block text-xs font-bold text-[#102a1c]">
+                  {isAr ? 'رقم الجوال' : 'Mobile number'}
+                  <input
+                    type="tel"
+                    value={phoneInput}
+                    onChange={(e) => setPhoneInput(e.target.value)}
+                    placeholder="05XXXXXXXX"
+                    className="mt-1 w-full py-2.5 px-4 rounded-xl border border-[#d6cfc0] text-sm focus:outline-none focus:border-[#102a1c]"
+                    dir="ltr"
+                  />
+                </label>
+                <label className="block text-xs font-bold text-[#102a1c]">
+                  {isAr ? 'المدينة' : 'City'}
+                  <input
+                    type="text"
+                    value={cityInput}
+                    onChange={(e) => setCityInput(e.target.value)}
+                    className="mt-1 w-full py-2.5 px-4 rounded-xl border border-[#d6cfc0] text-sm focus:outline-none focus:border-[#102a1c]"
+                  />
+                </label>
+              </div>
               <button
                 type="button"
                 onClick={handleGoogleAuth}
@@ -248,7 +355,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
                   />
                 </svg>
                 <span className="text-sm font-bold text-slate-800 group-hover:text-[#102a1c]">
-                  {isAr ? 'الدخول المباشر بحساب Google' : 'Continue with Google'}
+                  {isAr ? 'المتابعة باستخدام جوجل' : 'Continue with Google'}
                 </span>
               </button>
 
@@ -259,13 +366,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
               </div>
 
               {feedback && (
-                <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div className={`p-3 border rounded-xl text-xs font-semibold flex items-center gap-2 ${feedbackError ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`}>
+                  <CheckCircle className={`w-4 h-4 shrink-0 ${feedbackError ? 'text-rose-600' : 'text-emerald-600'}`} />
                   <span>{feedback}</span>
                 </div>
               )}
 
-              {/* Email + Instant OTP Form */}
+              {/* Email verification */}
               {!otpSent ? (
                 <form onSubmit={handleSendEmailOtp} className="space-y-3">
                   <div>
@@ -295,7 +402,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
                       <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     ) : (
                       <>
-                        <span>{isAr ? 'إرسال رمز الدخول (OTP)' : 'Send Verification OTP'}</span>
+                        <span>{isAr ? 'إرسال رمز التحقق' : 'Send verification code'}</span>
                         {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
                       </>
                     )}
@@ -306,7 +413,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-xs font-bold text-[#102a1c]">
-                        {isAr ? 'أدخل رمز التحقق (4 أرقام)' : 'Enter 4-Digit Code'}
+                        {isAr ? 'أدخل رمز التحقق' : 'Enter the verification code'}
                       </label>
                       <button
                         type="button"
@@ -320,7 +427,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen: propIsOpen, onClos
                       type="text"
                       maxLength={6}
                       required
-                      placeholder="e.g. 2026"
+                      placeholder="••••••"
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value)}
                       className="w-full py-2.5 px-4 rounded-xl border border-[#102a1c] text-center text-lg font-mono tracking-widest font-bold focus:outline-none bg-slate-50"

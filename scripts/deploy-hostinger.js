@@ -101,27 +101,25 @@ function verifyLiveSite(url) {
 
 async function connectClient(client, target) {
   console.log(`Connecting ${target.label} (${target.host}) ...`);
+  const base = {
+    host: target.host,
+    user: target.user,
+    password: target.password,
+  };
   try {
     await client.access({
-      host: target.host,
-      user: target.user,
-      password: target.password,
-      secure: false,
-    });
-  } catch (plainErr) {
-    console.log(`Plain FTP failed (${plainErr.message}). Trying FTPS.`);
-    await client.access({
-      host: target.host,
-      user: target.user,
-      password: target.password,
+      ...base,
       secure: true,
       secureOptions: { rejectUnauthorized: false },
     });
+  } catch (tlsErr) {
+    console.log(`Secure FTP failed (${tlsErr.message}). Trying plain FTP.`);
+    await client.access({ ...base, secure: false });
   }
 }
 
 async function uploadTarget(target) {
-  const client = new ftp.Client(120000);
+  const client = new ftp.Client(0);
   client.ftp.verbose = false;
   try {
     await connectClient(client, target);
@@ -159,6 +157,11 @@ async function deploy() {
   const htaccessDist = path.join(distDir, '.htaccess');
   if (fs.existsSync(htaccessSource)) {
     fs.copyFileSync(htaccessSource, htaccessDist);
+  }
+
+  const refsDir = path.join(distDir, 'coffee-theme-refs');
+  if (fs.existsSync(refsDir)) {
+    fs.rmSync(refsDir, { recursive: true, force: true });
   }
 
   const ready = selected.map((name) => catalog[name]).filter(Boolean);

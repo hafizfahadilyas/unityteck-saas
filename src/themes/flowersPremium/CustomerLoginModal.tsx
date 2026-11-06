@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { Lock, Mail, Phone, User, X, Flower2 } from 'lucide-react';
 import type { Customer } from '../../types';
 import { writeSfCustomer, type SfCustomerSession } from './sfCustomerSession';
-import { getStoredGoogleClientId, initiateRealGoogleOAuth } from '../../utils/googleRealAuth';
+import { getStoredGoogleClientId, hasRealGoogleClientId, startCustomerGoogleSignIn } from '../../utils/googleRealAuth';
+import { useSignIn } from '@clerk/clerk-react';
+import { isClerkConfigured } from '../../auth/clerkSession';
+import { rememberPendingCustomer, saveStorefrontCustomer, startClerkGoogle } from '../../auth/storefrontCustomer';
 
 type Props = {
   open: boolean;
@@ -31,8 +34,10 @@ export const CustomerLoginModal: React.FC<Props> = ({
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('+966 ');
   const [name, setName] = useState('');
+  const [city, setCity] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const { isLoaded, signIn } = useSignIn();
 
   if (!open) return null;
 
@@ -42,62 +47,63 @@ export const CustomerLoginModal: React.FC<Props> = ({
     onClose();
   };
 
-  const proceedInstantGoogle = () => {
-    setTimeout(() => {
-      setBusy(false);
-      const targetEmail = email.trim() || 'alfahad3110@gmail.com';
-      const targetName = name.trim() || (targetEmail.includes('@') ? targetEmail.split('@')[0] : 'alfahad');
-      const googleSession: SfCustomerSession = {
-        storeId,
-        customerId: `google-${Date.now().toString().slice(-6)}`,
-        name: targetName,
-        email: targetEmail,
-        phone: phone.trim() || '+966 50 123 4567',
-        loggedInAt: new Date().toISOString(),
-      };
-      if (onRegisterLocal) {
-        onRegisterLocal({ name: googleSession.name, email: googleSession.email, phone: googleSession.phone });
-      }
-      finish(googleSession);
-    }, 400);
-  };
-
   const handleGoogleSignIn = () => {
-    setBusy(true);
     setError('');
-    try {
-      const clientId = getStoredGoogleClientId();
-      if (clientId && !clientId.includes('unityteck-ecommerce')) {
-        initiateRealGoogleOAuth({
-          clientId,
-          storeSlug: storeId,
-          onSuccess: (_token, profile) => {
-            setBusy(false);
-            const userEmail = profile.email || email.trim() || 'alfahad3110@gmail.com';
-            const userName = profile.name || (userEmail.includes('@') ? userEmail.split('@')[0] : 'alfahad');
-            const session: SfCustomerSession = {
-              storeId,
-              customerId: `google-${profile.id || Date.now()}`,
-              name: userName,
-              email: userEmail,
-              phone: phone.trim() || '+966 50 123 4567',
-              loggedInAt: new Date().toISOString(),
-            };
-            if (onRegisterLocal) {
-              onRegisterLocal({ name: session.name, email: session.email, phone: session.phone });
-            }
-            finish(session);
-          },
-          onError: () => {
-            proceedInstantGoogle();
-          },
-        });
-        return;
-      }
-    } catch {
-      // fallback
+    if (!name.trim() || !phone.trim() || !city.trim()) {
+      setError(ar ? 'الاسم ورقم الجوال والمدينة مطلوبة.' : 'Name, mobile number, and city are required.');
+      return;
     }
-    proceedInstantGoogle();
+    setBusy(true);
+    const clientId = getStoredGoogleClientId();
+    if (hasRealGoogleClientId(clientId)) {
+      startCustomerGoogleSignIn(clientId, {
+        onSuccess: (profile) => {
+          void saveStorefrontCustomer({
+            storeId,
+            name: profile.name || name.trim(),
+            email: profile.email,
+            phone: phone.trim(),
+            city: city.trim(),
+            source: 'google',
+          }).then((saved) => {
+            setBusy(false);
+            finish({
+              storeId,
+              customerId: saved.id,
+              name: saved.name,
+              email: saved.email,
+              phone: saved.phone,
+              loggedInAt: new Date().toISOString(),
+            });
+          }).catch(() => {
+            setBusy(false);
+            setError(ar ? 'تعذر حفظ العميل.' : 'Could not save the customer.');
+          });
+        },
+        onError: () => {
+          setBusy(false);
+          setError(ar ? 'تعذر فتح جوجل.' : 'Could not open Google.');
+        },
+      });
+      return;
+    }
+    if (!isClerkConfigured() || !isLoaded || !signIn) {
+      setBusy(false);
+      setError(ar ? 'تسجيل جوجل غير جاهز.' : 'Google sign-in is not ready.');
+      return;
+    }
+    rememberPendingCustomer({
+      storeId,
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      city: city.trim(),
+      source: 'google',
+    });
+    void startClerkGoogle(signIn, 'crm').catch(() => {
+      setBusy(false);
+      setError(ar ? 'تعذر فتح جوجل.' : 'Could not open Google.');
+    });
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -132,26 +138,34 @@ export const CustomerLoginModal: React.FC<Props> = ({
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!name.trim() || !email.trim()) {
-      setError(ar ? 'الاسم والبريد مطلوبان' : 'Name and email required');
+    if (!name.trim() || !email.trim() || !phone.trim() || !city.trim()) {
+      setError(ar ? 'الاسم والبريد والجوال والمدينة مطلوبة' : 'Name, email, mobile, and city are required');
       return;
     }
     setBusy(true);
-    setTimeout(() => {
+    void saveStorefrontCustomer({
+      storeId,
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      city: city.trim(),
+      source: 'email',
+    }).then((saved) => {
       setBusy(false);
-      if (onRegisterLocal) {
-        finish(onRegisterLocal({ name: name.trim(), email: email.trim(), phone: phone.trim() }));
-      } else {
-        finish({
-          storeId,
-          customerId: `sf-${Date.now()}`,
-          name: name.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
-          loggedInAt: new Date().toISOString(),
-        });
-      }
-    }, 400);
+      const session: SfCustomerSession = {
+        storeId,
+        customerId: saved.id,
+        name: saved.name,
+        email: saved.email,
+        phone: saved.phone,
+        loggedInAt: new Date().toISOString(),
+      };
+      if (onRegisterLocal) onRegisterLocal({ name: saved.name, email: saved.email, phone: saved.phone });
+      finish(session);
+    }).catch(() => {
+      setBusy(false);
+      setError(ar ? 'تعذر حفظ العميل في قاعدة البيانات.' : 'Could not save the customer.');
+    });
   };
 
   return (
@@ -251,7 +265,7 @@ export const CustomerLoginModal: React.FC<Props> = ({
               </label>
               <label className="block space-y-1">
                 <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--sf-muted)' }}>
-                  {ar ? 'الجوال (اختياري)' : 'Phone (optional)'}
+                  {ar ? 'الجوال' : 'Mobile number'}
                 </span>
                 <div className="relative">
                   <Phone className="w-3.5 h-3.5 absolute start-3 top-1/2 -translate-y-1/2 opacity-50" />
@@ -262,6 +276,17 @@ export const CustomerLoginModal: React.FC<Props> = ({
                     style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-bg, #f8fafc)' }}
                   />
                 </div>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--sf-muted)' }}>
+                  {ar ? 'المدينة' : 'City'}
+                </span>
+                <input
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl text-xs border"
+                  style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-bg, #f8fafc)' }}
+                />
               </label>
               {error ? <p className="text-[11px] font-semibold text-rose-600">{error}</p> : null}
               <button
@@ -294,7 +319,7 @@ export const CustomerLoginModal: React.FC<Props> = ({
               </label>
               <label className="block space-y-1">
                 <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--sf-muted)' }}>
-                  Email
+                  {ar ? 'البريد الإلكتروني' : 'Email address'}
                 </span>
                 <input
                   type="email"
@@ -312,6 +337,17 @@ export const CustomerLoginModal: React.FC<Props> = ({
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl text-xs border"
+                  style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-bg, #f8fafc)' }}
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--sf-muted)' }}>
+                  {ar ? 'المدينة' : 'City'}
+                </span>
+                <input
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl text-xs border"
                   style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-bg, #f8fafc)' }}
                 />

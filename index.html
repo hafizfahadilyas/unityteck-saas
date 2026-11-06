@@ -323,8 +323,10 @@
 
           // On giftshop-sa.com, self-heal any stale coffee preference unless explicitly requested
           var isGiftshopDomain = h.indexOf('giftshop-sa.com') !== -1 || h.indexOf('hadaya') !== -1;
-          var isExplicitCoffee = s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee');
-          var isExplicitCar = s === 'bleco' || s === 'store-bleco' || s === 'cars' || s === 'car' || s === 'alsaeedi' || p.startsWith('/car') || p.startsWith('/bleco');
+          var isCoffeeHost = h.indexOf('mieraf-ksa.com') !== -1;
+          var isCarHost = h.indexOf('tanjeedmakkah.com') !== -1;
+          var isExplicitCoffee = isCoffeeHost || s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee');
+          var isExplicitCar = isCarHost || s === 'bleco' || s === 'store-bleco' || s === 'cars' || s === 'car' || s === 'alsaeedi' || p.startsWith('/car') || p.startsWith('/bleco');
 
           if (isGiftshopDomain && !isExplicitCoffee && !isExplicitCar) {
             try {
@@ -335,8 +337,10 @@
             } catch (e) {}
           }
 
-          var title = isAr ? 'هدايا مكة | متجر الزهور الطبيعية وباقات الورد وتوصيل فنادق الحرم المكي' : 'Hadaya Mecca | Luxury Fresh Flowers, Gifts & 24/7 Haram Hotel Delivery';
-          var desc = isAr ? 'متجر باقات الورد الطبيعي الفاخر، شوكولاتة باتشي وبستاني، وتنسيق هدايا مع خدمة التوصيل السريع إلى جميع فنادق وأبراج مكة المكرمة' : 'Same-day express delivery of premium Ecuadorian roses, Belgian chocolates and VIP pilgrim gift boxes to Makkah Haram clock tower hotels.';
+          if (!isExplicitCoffee && !isExplicitCar && !isGiftshopDomain) return;
+
+          var title = isAr ? 'هدايا مكة | متجر الزهور الطبيعية وباقات الورد وتوصيل فنادق الحرم المكي' : 'Hadaya Mecca | Luxury Fresh Flowers, Gifts and Haram Hotel Delivery';
+          var desc = isAr ? 'متجر باقات الورد الطبيعي الفاخر، شوكولاتة باتشي وبستاني، وتنسيق هدايا مع خدمة التوصيل السريع إلى جميع فنادق وأبراج مكة المكرمة' : 'Fresh flowers, gifts, and delivery to Makkah hotel districts.';
 
           if (isExplicitCoffee) {
             title = isAr ? 'هايبرو السعودية | المتجر الرسمي لمكائن ومستلزمات القهوة المختصة' : 'HiBrew KSA | Official Coffee Store - Espresso Machines & Specialty Coffee Gear';
@@ -357,11 +361,11 @@
       })();
     </script>
 
-    <title>هدايا مكة | متجر الزهور الطبيعية وباقات الورد وتوصيل فنادق الحرم المكي</title>
-    <meta name="description" content="متجر باقات الورد الطبيعي الفاخر، شوكولاتة باتشي وبستاني، وتنسيق هدايا مع خدمة التوصيل السريع إلى جميع فنادق وأبراج مكة المكرمة" />
-    <meta name="keywords" content="هدايا مكة, ورد طبيعي, باقات ورد مكة, توصيل فنادق الحرم, هدايا فاخرة مكة, باتشي وبستاني, متجر زهور" />
-    <meta property="og:title" content="هدايا مكة | متجر الزهور الطبيعية وباقات الورد وتوصيل فنادق الحرم المكي" />
-    <meta property="og:description" content="متجر باقات الورد الطبيعي الفاخر، شوكولاتة باتشي وبستاني، وتنسيق هدايا مع خدمة التوصيل السريع إلى جميع فنادق وأبراج مكة المكرمة" />
+    <title>منصة سوق | التجارة الإلكترونية الشاملة</title>
+    <meta name="description" content="منصة تجارة إلكترونية متعددة المتاجر." />
+    <meta name="keywords" content="منصة سوق, تجارة إلكترونية" />
+    <meta property="og:title" content="منصة سوق | التجارة الإلكترونية الشاملة" />
+    <meta property="og:description" content="منصة تجارة إلكترونية متعددة المتاجر." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
 

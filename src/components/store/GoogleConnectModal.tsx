@@ -212,10 +212,10 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
 
         // Step 3: Finding GA4 Properties
         updateStep(2, 'running');
-        let autoGa4Id = selectedGA4MeasurementId || `G-${activeStore.slug.slice(0, 5).toUpperCase()}99`;
-        let autoGscSite = `sc-domain:${activeStore.custom_domain || `${activeStore.slug}.saasdomain.com`}`;
-        let autoGtmCode = `GTM-${activeStore.slug.slice(0, 4).toUpperCase()}82`;
-        let autoAdsId = '984-210-5491';
+        const autoGa4Id = selectedGA4MeasurementId || '';
+        const autoGscSite = '';
+        const autoGtmCode = selectedGTM || '';
+        const autoAdsId = '';
 
         try {
           const callbackRes = await submitGoogleCallback(activeStore.id, {
@@ -235,20 +235,12 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
             }
           }
         } catch {
-          // Local fallback property detection
-          const randomProp = `properties/${Math.floor(300000000 + Math.random() * 90000000)}`;
           setDiscoveredProperties({
-            analytics: [{ propertyId: randomProp, displayName: `${activeStore.name} (GA4 Web Stream)`, account: userProfile.email }],
-            search_console: [{ siteUrl: autoGscSite, permissionLevel: 'siteOwner' }],
-            tag_manager: [{ accountId: 'accounts/60291084', accountName: activeStore.name, containerId: autoGtmCode, name: 'Web Production' }],
-            google_ads: [{ customerId: autoAdsId, name: `${activeStore.name} Smart Shopping` }],
+            analytics: [],
+            search_console: [],
+            tag_manager: [],
+            google_ads: [],
           });
-
-          setSelectedGA4(randomProp);
-          setSelectedGA4MeasurementId(autoGa4Id);
-          setSelectedGSC(autoGscSite);
-          setSelectedGTM(autoGtmCode);
-          setSelectedAds(autoAdsId);
         }
 
         await new Promise((r) => setTimeout(r, 400));
@@ -276,14 +268,14 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
         // Save integration
         connectGoogleAccount(activeStore.id, userProfile.email);
         updateStoreSEOConfig(activeStore.id, {
-          googleConnected: true,
+          googleConnected: Boolean(tokenResp.access_token),
           googleAccountEmail: userProfile.email,
-          connectedAt: new Date().toISOString().split('T')[0],
-          searchConsoleConnected: true,
-          searchConsoleVerificationTag: `google-site-verification=${activeStore.slug}-KSA-${Math.floor(100000 + Math.random() * 900000)}`,
+          connectedAt: tokenResp.access_token ? new Date().toISOString().split('T')[0] : null,
+          searchConsoleConnected: false,
+          searchConsoleVerificationTag: '',
           ga4MeasurementId: autoGa4Id,
           gtmContainerId: autoGtmCode,
-          indexingApiEnabled: true,
+          indexingApiEnabled: false,
           totalSearchClicks: 0,
           totalSearchImpressions: 0,
           avgCtr: 0,
@@ -291,19 +283,24 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
           indexedUrlsCount: 0,
         });
 
+        if (!tokenResp.access_token) {
+          updateStep(6, 'completed');
+          setIsLoading(false);
+          return;
+        }
         saveStoreGoogleState(activeStore.id, {
           connected: true,
-          accessToken: tokenResp.access_token || 'verified_token',
+          accessToken: tokenResp.access_token,
           expiresAt: Date.now() + 3600000 * 24 * 30,
           accountEmail: userProfile.email,
           accountName: userProfile.name,
           accountPicture: userProfile.picture || null,
-          ga4PropertyId: selectedGA4 || 'properties/398210451',
-          ga4MeasurementId: autoGa4Id,
-          gscSiteUrl: autoGscSite,
-          gtmAccountId: 'accounts/60291084',
-          gtmContainerId: autoGtmCode,
-          indexingEnabled: true,
+          ga4PropertyId: selectedGA4 || null,
+          ga4MeasurementId: autoGa4Id || null,
+          gscSiteUrl: autoGscSite || null,
+          gtmAccountId: null,
+          gtmContainerId: autoGtmCode || null,
+          indexingEnabled: false,
           psiScoreMobile: 0,
           psiScoreDesktop: 0,
           fcp: '—',
@@ -397,30 +394,45 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
       await syncGoogleData(activeStore.id);
 
       // 3. Update tenant state
-      connectGoogleAccount(activeStore.id, accountEmail || activeStore.ownerEmail || 'admin@google.com');
+      const readyEmail = accountEmail || activeStore.ownerEmail || '';
+      if (!readyEmail.includes('@')) {
+        setIsSyncing(false);
+        setErrorMessage(isAr ? 'بريد المتجر غير جاهز.' : 'The store email is not ready.');
+        return;
+      }
+      const saved = getStoreGoogleState(activeStore.id);
+      if (!saved?.accessToken) {
+        setIsSyncing(false);
+        setErrorMessage(
+          isAr
+            ? 'الحساب جاهز. أكمل تفويض جوجل قبل الحفظ.'
+            : 'The account is ready. Finish Google authorization before saving.',
+        );
+        return;
+      }
+      connectGoogleAccount(activeStore.id, readyEmail);
       updateStoreSEOConfig(activeStore.id, {
         googleConnected: true,
-        googleAccountEmail: accountEmail || activeStore.ownerEmail || 'admin@google.com',
+        googleAccountEmail: readyEmail,
         connectedAt: new Date().toISOString().split('T')[0],
-        searchConsoleConnected: true,
-        searchConsoleVerificationTag: `google-site-verification=${activeStore.slug}-verified`,
+        searchConsoleConnected: gscVal.startsWith('http') || gscVal.startsWith('sc-domain:'),
+        searchConsoleVerificationTag: '',
         ga4MeasurementId: ga4Val,
         gtmContainerId: gtmVal,
-        indexingApiEnabled: true,
+        indexingApiEnabled: false,
       });
 
-      // 4. Save local state
       saveStoreGoogleState(activeStore.id, {
         connected: true,
-        accessToken: 'verified_token',
-        expiresAt: Date.now() + 3600000 * 24 * 30,
-        accountEmail: accountEmail || 'verified@google.com',
-        accountName: accountName || 'Google User',
+        accessToken: saved.accessToken,
+        expiresAt: saved.expiresAt,
+        accountEmail: readyEmail,
+        accountName: accountName || saved.accountName,
         accountPicture,
         ga4PropertyId: selectedGA4,
         ga4MeasurementId: ga4Val,
         gscSiteUrl: gscVal,
-        gtmAccountId: 'accounts/verified',
+        gtmAccountId: saved.gtmAccountId,
         gtmContainerId: gtmVal,
         indexingEnabled: true,
         psiScoreMobile: 0,

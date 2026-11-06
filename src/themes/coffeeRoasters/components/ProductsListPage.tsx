@@ -43,7 +43,8 @@ import {
 
 export const ProductsListPage: React.FC = () => {
   const { navigateTo, addToCart, triggerFlyToCart, language, products: contextProducts } = useCart();
-  const { activeStore, currentProducts } = useTenant();
+  const { activeStore, currentProducts, loadMoreCatalog } = useTenant();
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const isAr = language === 'AR';
 
@@ -66,23 +67,39 @@ export const ProductsListPage: React.FC = () => {
     return (currentProducts || []).map((dp) => {
       const img = dp.image || dp.galleryUrls?.[0] || '';
       const sell = Number(dp.discountedPrice || dp.price || 0);
+      const optionRows = Array.isArray(dp.productOptions) ? dp.productOptions : [];
+      const colorOption = optionRows.find((opt) => opt.type === 'color' || /color|لون/i.test(`${opt.name || ''} ${opt.nameAr || ''}`));
+      const sizeOption = optionRows.find((opt) => /size|مقاس|storage/i.test(`${opt.name || ''} ${opt.nameAr || ''}`));
+      const colorValues = Array.isArray(colorOption?.values) ? colorOption.values : [];
+      const sizeValues = Array.isArray(sizeOption?.values) ? sizeOption.values : [];
       return {
         id: String(dp.id),
         name: dp.name,
         nameAr: dp.nameAr || dp.name,
         tagline: dp.subtitle || dp.description || '',
         taglineAr: dp.subtitleAr || dp.description || '',
-        category: (dp.category || 'general') as Product['category'],
+        category: (dp.category || '') as Product['category'],
         categoryAr: dp.categoryAr,
         basePrice: sell,
         originalPrice: dp.originalPrice ? Number(dp.originalPrice) : undefined,
         image: img,
         images: img ? [img, ...(dp.galleryUrls || []).filter((u) => u !== img)] : [],
-        colors: [{ name: 'Default', hex: '#1c1917', image: img }],
-        storageOptions: [{ capacity: 'Standard', ram: 'Default', priceDelta: 0 }],
+        colors: colorValues.map((value) => {
+          const row = typeof value === 'string' ? { label: value, labelAr: value, colorHex: '', imageUrl: img } : value;
+          return {
+            name: row.label,
+            nameAr: row.labelAr || row.label,
+            hex: row.colorHex || '#1c1917',
+            image: row.imageUrl || img,
+          };
+        }),
+        storageOptions: sizeValues.map((value) => {
+          const row = typeof value === 'string' ? { label: value, price: 0 } : value;
+          return { capacity: row.label, ram: '', priceDelta: Number(row.price) || 0 };
+        }),
         specs: [],
-        rating: 0,
-        reviewCount: 0,
+        rating: Number(dp.rating) || 0,
+        reviewCount: Number(dp.reviewsCount) || 0,
       } as Product;
     });
   }, [contextProducts, currentProducts]);
@@ -1056,16 +1073,32 @@ export const ProductsListPage: React.FC = () => {
           </div>
         )}
 
-        {visibleCount < filteredProducts.length && (
+        {(visibleCount < filteredProducts.length || (activeStore?.productsCount || 0) > (currentProducts?.length || 0)) && (
           <div className="flex justify-center pt-2">
             <button
               type="button"
-              onClick={() => setVisibleCount((n) => n + 24)}
-              className="px-6 py-2.5 bg-black text-white text-xs font-bold rounded-full cursor-pointer"
+              disabled={loadingMore}
+              onClick={() => {
+                const remoteLeft = Math.max(0, (activeStore?.productsCount || 0) - (currentProducts?.length || 0));
+                const needRemote = visibleCount + 24 > filteredProducts.length && remoteLeft > 0 && activeStore?.id;
+                if (!needRemote) {
+                  setVisibleCount((n) => n + 24);
+                  return;
+                }
+                setLoadingMore(true);
+                void loadMoreCatalog(activeStore.id)
+                  .finally(() => {
+                    setVisibleCount((n) => n + 24);
+                    setLoadingMore(false);
+                  });
+              }}
+              className="px-6 py-2.5 bg-black text-white text-xs font-bold rounded-full cursor-pointer disabled:opacity-60"
             >
-              {isAr
-                ? `عرض المزيد (${filteredProducts.length - visibleCount})`
-                : `Load more (${filteredProducts.length - visibleCount})`}
+              {loadingMore
+                ? (isAr ? 'جارٍ التحميل...' : 'Loading...')
+                : isAr
+                  ? 'عرض المزيد'
+                  : 'Load more'}
             </button>
           </div>
         )}

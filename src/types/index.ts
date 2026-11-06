@@ -101,6 +101,7 @@ export type CustomerSource =
   | 'Direct' 
   | 'TikTok' 
   | 'Referral' 
+  | 'Google'
   | 'Other';
 
 export interface Customer {

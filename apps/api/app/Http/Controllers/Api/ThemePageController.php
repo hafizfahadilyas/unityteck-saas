@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ThemePage;
 use App\Models\ThemeRevision;
+use App\Models\Store;
 use App\Support\ThemeCache;
+use App\Support\ThemeLayoutGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -241,7 +243,30 @@ class ThemePageController extends Controller
             ], 404);
         }
 
-        $page->fill($this->validated($request, partial: true));
+        $clientStamp = $request->input('updated_at');
+        if (is_string($clientStamp) && $clientStamp !== '' && $page->updated_at) {
+            $clientTime = strtotime($clientStamp);
+            $serverTime = $page->updated_at->getTimestamp();
+            if ($clientTime !== false && abs($clientTime - $serverTime) > 1) {
+                return response()->json([
+                    'message' => 'Page was updated elsewhere. Reload or overwrite.',
+                    'updated_at' => $page->updated_at->toIso8601String(),
+                ], 409);
+            }
+        }
+
+        $data = $this->validated($request, partial: true);
+        unset($data['updated_at']);
+        if (isset($data['draft_layout']) && is_array($data['draft_layout'])) {
+            $plan = (string) (Store::query()->where('id', $id)->value('plan') ?: 'free');
+            $guard = ThemeLayoutGuard::prepare($data['draft_layout'], $id, false, $plan);
+            if ($guard['denied']) {
+                return response()->json(['message' => $guard['message']], 403);
+            }
+            $data['draft_layout'] = $guard['layout'];
+        }
+
+        $page->fill($data);
         $page->store_id = $id;
         $page->updated_by = $request->user()?->id;
         $page->save();
@@ -327,6 +352,7 @@ class ThemePageController extends Controller
             'title_en' => ['nullable', 'string', 'max:255'],
             'title_ar' => ['nullable', 'string', 'max:255'],
             'draft_layout' => ['nullable', 'array'],
+            'updated_at' => ['nullable', 'string'],
             'published_layout' => ['nullable', 'array'],
             'seo' => ['nullable', 'array'],
             'header_mode' => ['nullable', 'string', 'in:global,custom'],

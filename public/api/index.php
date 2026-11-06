@@ -607,6 +607,9 @@ try {
         WHERE image_url LIKE "%/src/assets/images/%"
     ');
 
+    require_once __DIR__ . '/commerce.php';
+    souq_commerce_schema($pdo);
+
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['error' => 'Database initialization failed: ' . $e->getMessage()]);
@@ -626,7 +629,18 @@ if ($uri === '' || $uri === '/') {
 
 $headerStoreId = $_SERVER['HTTP_X_STORE_ID'] ?? null;
 $queryStoreId = $_GET['storeId'] ?? ($_GET['store_id'] ?? null);
-$storeId = $headerStoreId ?: ($queryStoreId ?: 'store-1');
+$hostName = strtolower((string)preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST'] ?? ''));
+if (str_starts_with($hostName, 'www.')) {
+    $hostName = substr($hostName, 4);
+}
+$hostStore = match ($hostName) {
+    'mieraf-ksa.com' => 'store-coffee',
+    'tanjeedmakkah.com' => 'store-bleco',
+    'giftshop-sa.com' => 'store-1',
+    default => '',
+};
+$storeId = $headerStoreId ?: ($queryStoreId ?: $hostStore);
+$GLOBALS['souq_pdo'] = $pdo;
 
 // Match store_id inside path if present (e.g., /stores/{store_id}/...)
 if (preg_match('#^/stores/([^/]+)#', $uri, $mStore)) {
@@ -655,6 +669,27 @@ function formatProduct(array $row): array {
     }
     if (empty($gallery) && !empty($row['image_url'])) {
         $gallery = [$row['image_url']];
+    }
+    foreach (['rating', 'reviewsCount', 'reviews_count', 'salesCount', 'sales_count', 'ratingCount'] as $invented) {
+        unset($full[$invented]);
+    }
+    $reviewCount = 0;
+    $reviewAvg = null;
+    $salesCount = 0;
+    $statsPdo = $GLOBALS['souq_pdo'] ?? null;
+    if ($statsPdo instanceof PDO) {
+        $rev = $statsPdo->prepare('SELECT COUNT(*) c, AVG(rating) a FROM reviews WHERE store_id = ? AND product_id = ? AND is_active = 1');
+        $rev->execute([(string)$row['store_id'], (string)$row['id']]);
+        $revRow = $rev->fetch() ?: ['c' => 0, 'a' => null];
+        $reviewCount = (int)$revRow['c'];
+        $reviewAvg = $reviewCount > 0 ? round((float)$revRow['a'], 2) : null;
+        try {
+            $sales = $statsPdo->prepare('SELECT COALESCE(SUM(quantity), 0) s FROM order_items WHERE store_id = ? AND product_id = ?');
+            $sales->execute([(string)$row['store_id'], (string)$row['id']]);
+            $salesCount = (int)$sales->fetchColumn();
+        } catch (Throwable $e) {
+            $salesCount = 0;
+        }
     }
 
     $rawImg = (string)($row['image_url'] ?? '');
@@ -690,6 +725,11 @@ function formatProduct(array $row): array {
         'is_active' => (bool)($row['is_active'] ?? true),
         'imageVersion' => (string)strtotime($row['updated_at'] ?? 'now'),
         'isStale' => false,
+        'rating' => $reviewAvg,
+        'reviewsCount' => $reviewCount,
+        'reviews_count' => $reviewCount,
+        'salesCount' => $salesCount,
+        'sales_count' => $salesCount,
     ]);
 }
 
@@ -851,13 +891,59 @@ function resolveLiveStoreId(PDO $pdo, string $key): ?string {
     return $found;
 }
 
-function catalogPayload(PDO $pdo, string $storeId): array {
-    $stmt = $pdo->prepare("SELECT * FROM products WHERE store_id = :sid AND (status IS NULL OR status != 'archived') ORDER BY updated_at DESC, id ASC");
-    $stmt->execute([':sid' => $storeId]);
+function listStoreProducts(PDO $pdo, string $storeId, array $query, bool $publicCatalog): array {
+    $page = max(1, (int)($query['page'] ?? 1));
+    $perPage = min(100, max(1, (int)($query['per_page'] ?? ($publicCatalog ? 48 : 25))));
+    if (!empty($query['all'])) {
+        $page = 1;
+        $perPage = 100;
+    }
+    $where = ['store_id = :sid'];
+    $params = [':sid' => $storeId];
+    if ($publicCatalog || (($query['status'] ?? '') !== 'archived' && empty($query['status']))) {
+        $where[] = "(status IS NULL OR status != 'archived')";
+    }
+    if (!empty($query['status']) && in_array($query['status'], ['published', 'draft', 'archived'], true)) {
+        $where[] = 'status = :status';
+        $params[':status'] = $query['status'];
+    }
+    $q = trim((string)($query['q'] ?? ''));
+    if ($q !== '') {
+        $where[] = '(name LIKE :q OR name_ar LIKE :q OR sku LIKE :q OR category LIKE :q OR category_ar LIKE :q)';
+        $params[':q'] = '%' . $q . '%';
+    }
+    $category = trim((string)($query['category'] ?? ''));
+    if ($category !== '' && strtolower($category) !== 'all') {
+        $where[] = '(category = :cat OR category_ar = :cat)';
+        $params[':cat'] = $category;
+    }
+    $stock = (string)($query['stock'] ?? '');
+    if ($stock === '0' || $stock === 'out') {
+        $where[] = 'stock <= 0';
+    } elseif ($stock === 'low') {
+        $where[] = 'stock BETWEEN 1 AND 5';
+    }
+    $sqlWhere = implode(' AND ', $where);
+    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM products WHERE $sqlWhere");
+    $countStmt->execute($params);
+    $total = (int)$countStmt->fetchColumn();
+    $offset = ($page - 1) * $perPage;
+    $stmt = $pdo->prepare("SELECT * FROM products WHERE $sqlWhere ORDER BY updated_at DESC, id ASC LIMIT $perPage OFFSET $offset");
+    $stmt->execute($params);
     $products = [];
-    $categories = [];
+    $seen = [];
     while ($row = $stmt->fetch()) {
+        $id = (string)$row['id'];
+        if (isset($seen[$id])) {
+            continue;
+        }
+        $seen[$id] = true;
         $products[] = formatProduct($row);
+    }
+    $catStmt = $pdo->prepare("SELECT category, category_ar, COUNT(*) c FROM products WHERE store_id = :sid AND (status IS NULL OR status != 'archived') GROUP BY category, category_ar");
+    $catStmt->execute([':sid' => $storeId]);
+    $categories = [];
+    while ($row = $catStmt->fetch()) {
         $label = trim((string)($row['category'] ?? ''));
         $labelAr = trim((string)($row['category_ar'] ?? $label));
         if ($label === '' && $labelAr === '') {
@@ -872,14 +958,34 @@ function catalogPayload(PDO $pdo, string $storeId): array {
                 'count' => 0,
             ];
         }
-        $categories[$cid]['count']++;
+        $categories[$cid]['count'] += (int)$row['c'];
     }
+    $counts = $pdo->prepare("SELECT COUNT(*) total, SUM(CASE WHEN status = 'published' AND is_active = 1 THEN 1 ELSE 0 END) active, SUM(CASE WHEN stock <= 0 THEN 1 ELSE 0 END) out_of_stock, SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) draft FROM products WHERE store_id = :sid");
+    $counts->execute([':sid' => $storeId]);
+    $countRow = $counts->fetch() ?: [];
     return [
         'data' => $products,
         'categories' => array_values($categories),
         'store_id' => $storeId,
-        'meta' => ['total' => count($products)],
+        'meta' => [
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'last_page' => max(1, (int)ceil($total / $perPage)),
+            'sort' => 'updated_at',
+            'dir' => 'desc',
+            'counts' => [
+                'total' => (int)($countRow['total'] ?? 0),
+                'active' => (int)($countRow['active'] ?? 0),
+                'out_of_stock' => (int)($countRow['out_of_stock'] ?? 0),
+                'draft' => (int)($countRow['draft'] ?? 0),
+            ],
+        ],
     ];
+}
+
+function catalogPayload(PDO $pdo, string $storeId, array $query = []): array {
+    return listStoreProducts($pdo, $storeId, $query, true);
 }
 
 // ── ROUTER ──
@@ -905,17 +1011,8 @@ if ($uri === '/health') {
 
 // 2. Auth / Me Mock Endpoint
 if ($uri === '/auth/me') {
-    echo json_encode([
-        'user' => [
-            'id' => 'user-store-1',
-            'name' => 'متجر هدايا',
-            'email' => 'giftshop2030m@gmail.com',
-            'role' => 'manager',
-        ],
-        'portal' => 'store',
-        'store_id' => $storeId,
-        'store_name' => 'متجر هدايا - مكة المكرمة',
-    ]);
+    http_response_code(401);
+    echo json_encode(['message' => 'No active session.']);
     exit;
 }
 
@@ -957,15 +1054,8 @@ if (($uri === '/categories' || strpos($uri, '/categories') === 0) && $method ===
     $parentId = $_GET['parent_id'] ?? null;
     $rootsOnly = !empty($_GET['roots']);
 
-    $isMakkahTarget = in_array($storeId, ['store-1', '1', 'giftshop-sa', 'makkah-fresh-flowers']);
-    if ($isMakkahTarget) {
-        $sql = "SELECT * FROM categories WHERE store_id IN ('store-1', '1', 'giftshop-sa')";
-        $params = [];
-    } else {
-        $sql = "SELECT * FROM categories WHERE (store_id = ? OR store_id = ?)";
-        $altStoreId = $storeId === 'store-coffee' ? 'coffee-store' : ($storeId === 'store-bleco' ? 'bleco-car' : $storeId);
-        $params = [$storeId, $altStoreId];
-    }
+    $sql = "SELECT * FROM categories WHERE store_id = ?";
+    $params = [$storeId];
 
     if (!empty($q)) {
         $sql .= " AND (name LIKE ? OR name_ar LIKE ? OR slug LIKE ?)";
@@ -1026,8 +1116,8 @@ if ($uri === '/categories' && $method === 'POST') {
 
 if (preg_match('#^/categories/([^/]+)$#', $uri, $matches) && in_array($method, ['PATCH', 'PUT', 'POST'])) {
     $catId = $matches[1];
-    $stmt = $pdo->prepare("SELECT * FROM categories WHERE id = ?");
-    $stmt->execute([$catId]);
+    $stmt = $pdo->prepare("SELECT * FROM categories WHERE id = ? AND store_id = ?");
+    $stmt->execute([$catId, $storeId]);
     $existing = $stmt->fetch();
     if ($existing) {
         $name = isset($inputData['name']) ? trim($inputData['name']) : $existing['name'];
@@ -1043,10 +1133,10 @@ if (preg_match('#^/categories/([^/]+)$#', $uri, $matches) && in_array($method, [
         $upd = $pdo->prepare("
             UPDATE categories SET
                 name = ?, name_ar = ?, slug = ?, parent_id = ?, image_url = ?, sort_order = ?, meta_title = ?, meta_description = ?, is_active = ?, updated_at = datetime('now')
-            WHERE id = ?
+            WHERE id = ? AND store_id = ?
         ");
         $upd->execute([
-            $name, $nameAr, $slug, $parentId, $imageUrl, $sortOrder, $metaTitle, $metaDesc, $isActive, $catId
+            $name, $nameAr, $slug, $parentId, $imageUrl, $sortOrder, $metaTitle, $metaDesc, $isActive, $catId, $storeId
         ]);
 
         $sel = $pdo->prepare("SELECT * FROM categories WHERE id = ?");
@@ -1059,48 +1149,34 @@ if (preg_match('#^/categories/([^/]+)$#', $uri, $matches) && in_array($method, [
 
 if (preg_match('#^/categories/([^/]+)$#', $uri, $matches) && $method === 'DELETE') {
     $catId = $matches[1];
-    $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
-    $stmt->execute([$catId]);
+    $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ? AND store_id = ?");
+    $stmt->execute([$catId, $storeId]);
     echo json_encode(['data' => ['id' => $catId, 'deleted' => true]]);
     exit;
 }
 
 // 5. Products Endpoints (CRUD)
 if ($uri === '/products' && $method === 'GET') {
-    $effectiveStore = $storeId;
-
-    $q = "SELECT * FROM products WHERE store_id = :storeId ORDER BY updated_at DESC, id ASC";
-    $stmt = $pdo->prepare($q);
-    $stmt->execute([':storeId' => $effectiveStore]);
-
-    $products = [];
-    while ($row = $stmt->fetch()) {
-        $products[] = formatProduct($row);
+    if ($storeId === '') {
+        http_response_code(422);
+        echo json_encode(['message' => 'store_id is required.', 'data' => []]);
+        exit;
     }
-
-    echo json_encode([
-        'data' => $products,
-        'meta' => [
-            'total' => count($products),
-            'page' => 1,
-            'per_page' => max(1, count($products)),
-            'last_page' => 1,
-        ]
-    ]);
+    echo json_encode(listStoreProducts($pdo, (string)$storeId, $_GET, false));
     exit;
 }
 
 if ($uri === '/products' && $method === 'POST') {
     $id = $inputData['id'] ?? ('prod-' . uniqid());
     $sku = $inputData['sku'] ?? ('SKU-' . strtoupper(substr(uniqid(), -6)));
-    $name = $inputData['name'] ?? 'منتج جديد';
-    $nameAr = $inputData['name_ar'] ?? ($inputData['nameAr'] ?? $name);
+    $name = trim((string)($inputData['name'] ?? ''));
+    $nameAr = trim((string)($inputData['name_ar'] ?? ($inputData['nameAr'] ?? $name)));
     $price = (float)($inputData['price'] ?? 0);
     $origPrice = (float)($inputData['original_price'] ?? ($inputData['originalPrice'] ?? $price));
-    $stock = (int)($inputData['stock'] ?? 10);
-    $cat = $inputData['category'] ?? 'عام';
-    $catAr = $inputData['category_ar'] ?? ($inputData['categoryAr'] ?? $cat);
-    $img = $inputData['image_url'] ?? ($inputData['image'] ?? '/images/hadaya_women_luxury_gift_zedaan.webp');
+    $stock = (int)($inputData['stock'] ?? 0);
+    $cat = trim((string)($inputData['category'] ?? ''));
+    $catAr = trim((string)($inputData['category_ar'] ?? ($inputData['categoryAr'] ?? $cat)));
+    $img = (string)($inputData['image_url'] ?? ($inputData['image'] ?? ''));
     $gal = isset($inputData['gallery_urls']) && is_array($inputData['gallery_urls']) 
         ? json_encode($inputData['gallery_urls']) 
         : (isset($inputData['galleryUrls']) && is_array($inputData['galleryUrls']) ? json_encode($inputData['galleryUrls']) : json_encode([$img]));
@@ -1698,7 +1774,7 @@ if (preg_match('#^/stores/([^/]+)/brands#', $uri, $mBr) || $uri === '/brands') {
         exit;
     }
 
-    $st = $pdo->prepare("SELECT * FROM brands WHERE store_id = ? OR store_id = 'store-1' ORDER BY sort_order ASC");
+    $st = $pdo->prepare("SELECT * FROM brands WHERE store_id = ? ORDER BY sort_order ASC");
     $st->execute([$targetStore]);
     $rows = $st->fetchAll();
     echo json_encode(['success' => true, 'data' => $rows]);
@@ -1760,7 +1836,7 @@ if ($uri === '/storefront/catalog' && $method === 'GET') {
         echo json_encode(['message' => 'Store not found.']);
         exit;
     }
-    echo json_encode(catalogPayload($pdo, $resolved));
+    echo json_encode(catalogPayload($pdo, $resolved, $_GET));
     exit;
 }
 
@@ -1829,6 +1905,13 @@ if ($uri === '/settings' && $method === 'GET') {
         'id' => (string)($_GET['id'] ?? $section),
         'data' => $payload,
     ]);
+    exit;
+}
+
+if (!function_exists('souq_commerce_dispatch')) {
+    require_once __DIR__ . '/commerce.php';
+}
+if (souq_commerce_dispatch($pdo, $uri, $method, (string)$storeId, is_array($inputData) ? $inputData : [])) {
     exit;
 }
 

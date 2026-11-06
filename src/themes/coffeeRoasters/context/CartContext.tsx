@@ -134,6 +134,7 @@ export interface UserState {
   name: string;
   email: string;
   phone?: string;
+  city?: string;
   points: number;
   orders: OrderItemRecord[];
 }
@@ -166,7 +167,7 @@ interface CartContextType {
   setLanguage: (lang: 'EN' | 'AR') => void;
   toggleLanguage: () => void;
   user: UserState;
-  loginUser: (name: string, email: string, phone?: string) => void;
+  loginUser: (name: string, email: string, phone?: string, city?: string, points?: number) => void;
   logoutUser: () => void;
   lastOrder: OrderItemRecord | null;
   setLastOrder: (order: OrderItemRecord | null) => void;
@@ -540,16 +541,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCart([]);
   };
 
-  const loginUser = (name: string, email: string, phone?: string) => {
+  const loginUser = (name: string, email: string, phone?: string, city?: string, points?: number) => {
     setUser(prev => ({
       ...prev,
       isLoggedIn: true,
       name,
       email,
       phone: phone || prev.phone || '',
-      points: prev.points || 0
+      city: city || prev.city || '',
+      points: typeof points === 'number' ? points : prev.points || 0
     }));
-    showToast(`Welcome, ${name}!`);
+    showToast(language === 'AR' ? `مرحباً ${name}` : `Welcome, ${name}`);
   };
 
   const logoutUser = () => {

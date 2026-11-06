@@ -68,10 +68,9 @@ export function getStoredGoogleClientId(): string {
     const custom = localStorage.getItem(GOOGLE_CLIENT_ID_STORAGE);
     if (custom && custom.trim()) return custom.trim();
   } catch {}
-  return (
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID) ||
-    '948210332819-unityteck-ecommerce.apps.googleusercontent.com'
-  );
+  const fromEnv =
+    typeof import.meta !== 'undefined' ? String(import.meta.env?.VITE_GOOGLE_CLIENT_ID || '') : '';
+  return fromEnv.trim();
 }
 
 export function setStoredGoogleClientId(clientId: string): void {
@@ -128,7 +127,87 @@ export function initiateInstantGoogleConnect(options: {
   if (options.onError) {
     options.onError(msg);
   }
-  // Never mint fake tokens / profiles
+}
+
+/** Customer storefront sign-in only. Not Site Kit / analytics scopes. */
+const CUSTOMER_GOOGLE_SCOPES = 'openid email profile';
+
+export function hasRealGoogleClientId(clientId: string | null | undefined): boolean {
+  const id = (clientId || '').trim();
+  return Boolean(id) && !id.includes('unityteck-ecommerce') && id.endsWith('.apps.googleusercontent.com');
+}
+
+/** Load Google Identity Services once so the click can open the account picker immediately. */
+export function preloadCustomerGoogleScript(): void {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('google-gsi-client')) return;
+  const script = document.createElement('script');
+  script.id = 'google-gsi-client';
+  script.src = 'https://accounts.google.com/gsi/client';
+  script.async = true;
+  document.head.appendChild(script);
+}
+
+type GoogleTokenResponse = {
+  access_token?: string;
+  error?: string;
+  error_description?: string;
+};
+
+/**
+ * Opens the real Google account picker for a storefront customer.
+ * Must be called directly from the button click (no await before the popup).
+ * The current origin must be an authorized JavaScript origin on the Google client.
+ */
+export function startCustomerGoogleSignIn(
+  clientId: string,
+  handlers: {
+    onSuccess: (profile: GoogleUserProfile) => void;
+    onError: (message: string) => void;
+  },
+): void {
+  const oauth2 = (window as Window & {
+    google?: {
+      accounts?: {
+        oauth2?: {
+          initTokenClient: (config: {
+            client_id: string;
+            scope: string;
+            callback: (response: GoogleTokenResponse) => void;
+            error_callback?: (error: { message?: string; type?: string }) => void;
+          }) => { requestAccessToken: (override?: { prompt?: string }) => void };
+        };
+      };
+    };
+  }).google?.accounts?.oauth2;
+
+  if (!oauth2) {
+    handlers.onError('GOOGLE_SCRIPT_LOADING');
+    return;
+  }
+
+  const client = oauth2.initTokenClient({
+    client_id: clientId,
+    scope: CUSTOMER_GOOGLE_SCOPES,
+    callback: (response) => {
+      void (async () => {
+        if (!response.access_token || response.error) {
+          handlers.onError(response.error || 'GOOGLE_CANCELLED');
+          return;
+        }
+        const profile = await fetchGoogleUserProfile(response.access_token);
+        if (!profile?.email) {
+          handlers.onError('GOOGLE_NO_EMAIL');
+          return;
+        }
+        handlers.onSuccess(profile);
+      })();
+    },
+    error_callback: () => {
+      handlers.onError('GOOGLE_FAILED');
+    },
+  });
+  client.requestAccessToken({ prompt: 'select_account' });
 }
 
 /**

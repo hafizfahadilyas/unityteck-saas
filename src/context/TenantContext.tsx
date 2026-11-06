@@ -177,6 +177,8 @@ interface TenantContextType {
     resource: StoreResource,
     opts?: { fromRemote?: boolean },
   ) => Promise<void>;
+  /** Next catalog page for this store only. Skips ids already on screen. */
+  loadMoreCatalog: (storeId: string) => Promise<boolean>;
 
   // Mode & Store Navigation
   mode: 'master' | 'store';
@@ -462,6 +464,7 @@ export function createFallbackTenantContext(): TenantContextType {
     cacheEpoch: 1,
     softRefreshTenantData: async () => {},
     revalidateResource: async () => {},
+    loadMoreCatalog: async () => false,
     mode: 'store',
     setMode: () => {},
     canAccessMaster: false,
@@ -964,32 +967,29 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   /** Apply API catalog + persist. Never replace a populated list with [] (transient empty). */
-  const applyProductsFromApi = useCallback((storeId: string, products: Product[]) => {
+  const applyProductsFromApi = useCallback((storeId: string, products: Product[], total?: number) => {
     if (!storeId || !Array.isArray(products)) return;
     setProductsMap((prev) => {
       const prevList = Array.isArray(prev[storeId]) ? prev[storeId] : [];
       if (products.length === 0 && prevList.length > 0) {
         return prev;
       }
-      // A short page must not wipe a fuller catalog already on screen.
-      let nextList = products;
-      if (prevList.length > products.length) {
-        const incoming = new Map(products.map((p) => [p.id, p]));
-        nextList = prevList.map((p) => incoming.get(p.id) ?? p);
-        for (const row of products) {
-          if (!prevList.some((p) => p.id === row.id)) nextList.push(row);
-        }
+      const seen = new Set<string>();
+      const nextList: Product[] = [];
+      for (const row of products) {
+        if (!row?.id || seen.has(row.id)) continue;
+        seen.add(row.id);
+        nextList.push(row);
       }
       const next = { ...prev, [storeId]: nextList };
       saveProductsMap(next);
       return next;
     });
-    if (products.length > 0) {
+    const count = typeof total === 'number' ? total : products.length;
+    if (count > 0) {
       setStores((prev) =>
         prev.map((s) =>
-          s.id === storeId
-            ? { ...s, productsCount: Math.max(s.productsCount || 0, products.length) }
-            : s,
+          s.id === storeId ? { ...s, productsCount: count } : s,
         ),
       );
     }
@@ -1002,9 +1002,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let cancelled = false;
     (async () => {
       try {
-        const page = await tenantApi.fetchProductsPage(activeStoreId, { page: 1, per_page: 24, sort: 'updated_at', dir: 'desc' });
-        if (cancelled || !Array.isArray(page.data) || page.data.length === 0) return;
-        applyProductsFromApi(activeStoreId, page.data);
+        const catalog = await tenantApi.fetchStorefrontCatalogPage(activeStoreId);
+        if (cancelled || catalog.data.length === 0) return;
+        catalogPageRef.current[activeStoreId] = 1;
+        applyProductsFromApi(activeStoreId, catalog.data, catalog.total);
         setApiError(null);
         setCacheEpoch((n) => n + 1);
       } catch {
@@ -1015,6 +1016,28 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cancelled = true;
     };
   }, [activeStoreId, applyProductsFromApi, setApiError]);
+
+  const catalogPageRef = useRef<Record<string, number>>({});
+  const loadMoreCatalog = useCallback(async (storeId: string): Promise<boolean> => {
+    if (!storeId || !API_MODE) return false;
+    const nextPage = (catalogPageRef.current[storeId] || 1) + 1;
+    const page = await tenantApi.fetchStorefrontCatalogPage(storeId, nextPage, 48);
+    if (!page.data.length) return false;
+    catalogPageRef.current[storeId] = nextPage;
+    setProductsMap((prev) => {
+      const prevList = Array.isArray(prev[storeId]) ? prev[storeId] : [];
+      const seen = new Set(prevList.map((row) => row.id));
+      const extra = page.data.filter((row) => row?.id && !seen.has(row.id));
+      if (!extra.length) return prev;
+      const next = { ...prev, [storeId]: [...prevList, ...extra] };
+      saveProductsMap(next);
+      return next;
+    });
+    if (page.total > 0) {
+      setStores((prev) => prev.map((s) => (s.id === storeId ? { ...s, productsCount: page.total } : s)));
+    }
+    return nextPage < page.lastPage;
+  }, []);
 
   const [ordersMap, setOrdersMap] = useState<Record<string, Order[]>>(() => {
     try {
@@ -1353,7 +1376,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     storeId: string,
     opts?: { tier?: 'core' | 'rest' | 'full' },
   ) => {
-    if (!storeId || !hasLiveApiAuth()) return;
+    if (!storeId || !API_MODE) return;
     const tier = opts?.tier ?? 'full';
     const inflightKey = `${storeId}:${tier}`;
     const pending = scopedInflightRef.current.get(inflightKey);
@@ -1371,7 +1394,6 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const page = await tenantApi.fetchProductsPage(storeId, { page: 1, per_page: 24, sort: 'updated_at', dir: 'desc' });
           productList = page.data;
           productTotal = page.meta?.counts?.total ?? page.meta?.total ?? productList.length;
-          if (productList.length > 0) applyProductsFromApi(storeId, productList);
         } catch {
           /* products page fetches its own first page */
         }
@@ -1399,8 +1421,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 : {
                     ...s,
                     productsCount: productTotal > 0 ? productTotal : s.productsCount,
-                    ordersCount: oList.length > 0 ? oList.length : s.ordersCount,
-                    revenue: rev > 0 ? rev : s.revenue,
+                    ordersCount: s1.status === 'fulfilled' ? oList.length : s.ordersCount,
+                    revenue: s1.status === 'fulfilled' ? rev : s.revenue,
                     lastActivity: 'Just now',
                   },
             ),
@@ -1590,20 +1612,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (resource === 'products') {
         let loaded = false;
         try {
-          const page = await tenantApi.fetchProductsPage(storeId, {
-            page: 1,
-            per_page: 24,
-            sort: 'updated_at',
-            dir: 'desc',
-          });
-          if (page.data.length > 0) {
-            applyProductsFromApi(storeId, page.data);
+          const [products, page] = await Promise.all([
+            tenantApi.fetchStorefrontCatalog(storeId),
+            tenantApi.fetchProductsPage(storeId, { page: 1, per_page: 1, sort: 'updated_at', dir: 'desc' }),
+          ]);
+          if (products.length > 0) {
+            const total = page.meta?.counts?.total ?? page.meta?.total ?? products.length;
+            applyProductsFromApi(storeId, products, total);
             loaded = true;
             setApiError(null);
-            const total = page.meta?.counts?.total ?? page.meta?.total ?? page.data.length;
-            if (total > 0) {
-              setStores((prev) => prev.map((s) => (s.id === storeId ? { ...s, productsCount: total } : s)));
-            }
           }
         } catch (err) {
           if (!loaded) {
@@ -1738,10 +1755,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     window.addEventListener(DATA_EVENT, onData as EventListener);
     window.addEventListener('storage', onStorage);
+    const onCustomers = (event: Event) => {
+      const storeId = (event as CustomEvent<{ storeId?: string }>).detail?.storeId;
+      if (storeId) void revalidateResource(storeId, 'customers');
+    };
+    window.addEventListener('unityteck-customers-updated', onCustomers);
     return () => {
       stopBc();
       window.removeEventListener(DATA_EVENT, onData as EventListener);
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener('unityteck-customers-updated', onCustomers);
     };
   }, [revalidateResource, softRefreshTenantData]);
 
@@ -1807,18 +1830,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const ordered = active
             ? [active, ...ids.filter((id) => id !== active)]
             : ids;
-          if (ordered[0]) {
-            const products = await tenantApi.fetchStorefrontCatalog(ordered[0]);
-            if (!cancelled && products.length > 0) applyProductsFromApi(ordered[0], products);
-          }
-          for (const id of ordered.slice(1)) {
-            if (cancelled) return;
-            try {
-              const products = await tenantApi.fetchStorefrontCatalog(id);
-              if (!cancelled && products.length > 0) applyProductsFromApi(id, products);
-            } catch {
-              /* next store */
-            }
+          const only = activeStoreIdRef.current || ordered[0];
+          if (only) {
+            const products = await tenantApi.fetchStorefrontCatalog(only);
+            if (!cancelled && products.length > 0) applyProductsFromApi(only, products);
           }
         } catch {
           /* catalog stays cached */
@@ -2173,7 +2188,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ? storeMedia
       : (INITIAL_MEDIA[activeStoreId] || []);
 
-    const storeProducts = productsMap[activeStoreId] || INITIAL_PRODUCTS[activeStoreId] || [];
+    const storeProducts = productsMap[activeStoreId] || (API_MODE ? [] : INITIAL_PRODUCTS[activeStoreId] || []);
     const storeObj = stores.find((s) => s.id === activeStoreId);
 
     // Guaranteed dynamic sync: all product images in active store's catalog appear in Media Library
@@ -5322,25 +5337,25 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const connectGoogleAccount = (storeId: string, email: string) => {
+    const clean = String(email || '').trim().toLowerCase();
+    if (!clean.includes('@') || clean === 'admin@google.com') return;
     setSeoConfigs(prev => {
       const existing = prev[storeId] || currentSEOConfig;
       return {
         ...prev,
         [storeId]: {
           ...existing,
-          googleConnected: true,
-          googleAccountEmail: email,
-          connectedAt: existing.connectedAt || new Date().toISOString().split('T')[0],
-          searchConsoleConnected: true,
-          searchConsoleVerificationTag: existing.searchConsoleVerificationTag || `google-site-verification=${activeStore.slug}-KSA-${Math.floor(100000 + Math.random() * 900000)}`,
-          indexingApiEnabled: true,
+          googleAccountEmail: clean,
+          googleConnected: false,
+          searchConsoleConnected: false,
+          indexingApiEnabled: false,
         }
       };
     });
 
     addActivity({
-      title: 'Google Account Connected',
-      subtitle: `${email} connected for ${activeStore.name}`,
+      title: 'Google account saved',
+      subtitle: `${clean} saved for ${activeStore.name}`,
       type: 'payment',
     });
   };
@@ -5373,15 +5388,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const existing = prev[storeId] || currentSEOConfig;
       const newEntry = {
         url,
-        submittedAt: 'Just now',
-        status: 'indexed' as const,
+        submittedAt: new Date().toISOString(),
+        status: 'pending' as const,
       };
       return {
         ...prev,
         [storeId]: {
           ...existing,
-          indexedUrlsCount: existing.indexedUrlsCount + 1,
-          lastIndexingPing: 'Just now',
+          lastIndexingPing: newEntry.submittedAt,
           submittedUrls: [newEntry, ...existing.submittedUrls.filter(u => u.url !== url)],
         }
       };
@@ -5692,7 +5706,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const syncProductImagesToMedia = useCallback(
     (targetStoreId?: string): number => {
       const storeId = targetStoreId || activeStoreId;
-      const storeProducts = productsMap[storeId] || INITIAL_PRODUCTS[storeId] || [];
+      const storeProducts = productsMap[storeId] || (API_MODE ? [] : INITIAL_PRODUCTS[storeId] || []);
       const storeObj = stores.find((s) => s.id === storeId);
       let countAdded = 0;
 
@@ -5725,6 +5739,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     cacheEpoch,
     softRefreshTenantData,
     revalidateResource,
+    loadMoreCatalog,
     mode,
         setMode: setModeSafe,
         canAccessMaster,

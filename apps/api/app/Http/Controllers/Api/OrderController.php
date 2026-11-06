@@ -178,6 +178,7 @@ class OrderController extends Controller
             return response()->json(['message' => 'Store not found.'], 404);
         }
 
+        $request->merge(['payment_status' => 'pending']);
         return $this->processCreateOrder($request, $storeId);
     }
 
@@ -231,11 +232,6 @@ class OrderController extends Controller
 
         $status = (string) $order->status;
         $estimated = null;
-        if (in_array($status, ['shipped', 'out_for_delivery'], true)) {
-            $estimated = now()->addDay()->toDateString();
-        } elseif (in_array($status, ['pending', 'processing', 'preparing'], true)) {
-            $estimated = now()->addDays(2)->toDateString();
-        }
 
         return response()->json([
             'data' => [
@@ -393,9 +389,9 @@ class OrderController extends Controller
                 $paymentMethod = 'Mada';
             }
 
-            $rawPaymentStatus = strtolower(trim((string) ($validated['payment_status'] ?? 'paid')));
+            $rawPaymentStatus = strtolower(trim((string) ($validated['payment_status'] ?? 'pending')));
             $validPaymentStatuses = ['pending', 'authorized', 'paid', 'failed', 'cancelled', 'refunded'];
-            $paymentStatus = in_array($rawPaymentStatus, $validPaymentStatuses, true) ? $rawPaymentStatus : 'paid';
+            $paymentStatus = in_array($rawPaymentStatus, $validPaymentStatuses, true) ? $rawPaymentStatus : 'pending';
 
             $rawStatus = strtolower(trim((string) ($validated['status'] ?? 'pending')));
             // Align with dashboard lifecycle (manual + checkout) — never drop a create over status label

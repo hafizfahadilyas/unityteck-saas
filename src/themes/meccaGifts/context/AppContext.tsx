@@ -14,6 +14,8 @@ import {
 interface UserInfo {
   name: string;
   email: string;
+  phone?: string;
+  city?: string;
   avatar: string;
   isLoggedIn: boolean;
 }
@@ -39,7 +41,7 @@ interface AppContextType {
   savedOccasions: OccasionReminder[];
   toastMessage: string | null;
   user: UserInfo;
-  loginWithGoogle: (customEmail?: string, customName?: string, customAvatar?: string) => void;
+  loginWithGoogle: (customEmail?: string, customName?: string, customAvatar?: string, phone?: string, city?: string) => void;
   logout: () => void;
   showInvoiceModal: boolean;
   setShowInvoiceModal: (show: boolean) => void;
@@ -561,14 +563,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const loginWithGoogle = (customEmail?: string, customName?: string, customAvatar?: string) => {
-    const finalEmail = (customEmail && customEmail.trim()) || 'alfahad3110@gmail.com';
-    const finalName = (customName && customName.trim()) || (finalEmail.includes('@') ? finalEmail.split('@')[0] : 'alfahad');
+  const loginWithGoogle = (customEmail?: string, customName?: string, customAvatar?: string, phone?: string, city?: string) => {
+    const finalEmail = (customEmail || '').trim().toLowerCase();
+    if (!finalEmail || !finalEmail.includes('@')) return;
+    const finalName = (customName || '').trim() || finalEmail.split('@')[0];
     const finalAvatar = (customAvatar && customAvatar.trim()) || `https://ui-avatars.com/api/?name=${encodeURIComponent(finalName)}&background=102a1c&color=e6ca98&size=128`;
     
     const newUser: UserInfo = {
       name: finalName,
       email: finalEmail,
+      phone: phone?.trim() || '',
+      city: city?.trim() || '',
       avatar: finalAvatar,
       isLoggedIn: true
     };
@@ -605,6 +610,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setIsAuthModalOpen(false);
   };
+
+  useEffect(() => {
+    const onReady = (event: Event) => {
+      const detail = (event as CustomEvent<{ storeId?: string; email?: string; name?: string; phone?: string; city?: string }>).detail;
+      if (!detail?.email || detail.storeId !== activeStore?.id) return;
+      loginWithGoogle(detail.email, detail.name, undefined, detail.phone, detail.city);
+    };
+    window.addEventListener('unityteck-sf-customer-ready', onReady);
+    return () => window.removeEventListener('unityteck-sf-customer-ready', onReady);
+  }, [activeStore?.id]);
 
   const logout = () => {
     const guestUser: UserInfo = {
@@ -1009,7 +1024,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setOrders(updatedOrders);
     try {
       localStorage.setItem('mecca_gifts_customer_orders', JSON.stringify(updatedOrders));
-      const newPoints = loyaltyPoints + Math.floor(finalTotal * 0.1);
+      const newPoints = loyaltyPoints;
       setLoyaltyPoints(newPoints);
       localStorage.setItem('mecca_gifts_customer_loyalty', String(newPoints));
     } catch {}
@@ -1040,12 +1055,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const storefrontPayload = {
         customerName: newOrder.recipientName,
         customerPhone: newOrder.recipientPhone,
-        customerEmail: user?.email || 'customer@hadayamakkah.sa',
+        customerEmail: user?.email || undefined,
         total: newOrder.total,
         deliveryLocation: `${newOrder.city}, ${newOrder.address}`,
         status: 'pending',
         paymentMethod: newOrder.paymentMethod,
-        paymentStatus: 'paid',
+        paymentStatus: 'pending',
         source: orderSource,
         sourceDetails: attributionDetails ? JSON.stringify(attributionDetails) : orderSource,
         items: newOrder.items.map((i) => ({
@@ -1063,7 +1078,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           ({
             customerName: newOrder.recipientName,
             customerPhone: newOrder.recipientPhone,
-            customerEmail: user?.email || 'customer@hadayamakkah.sa',
+            customerEmail: user?.email || undefined,
             customerAvatar: 'VIP',
             itemsCount: newOrder.items.length,
             itemsSummary: newOrder.items.map((i) => i.product.name).join(', '),
@@ -1085,7 +1100,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             deliveryLocation: `${newOrder.city}, ${newOrder.address}`,
             status: 'pending',
             paymentMethod: newOrder.paymentMethod,
-            paymentStatus: 'Paid',
+            paymentStatus: 'Pending',
             customerNotes: newOrder.cardMessage,
             attribution: attributionDetails,
           }) as any,

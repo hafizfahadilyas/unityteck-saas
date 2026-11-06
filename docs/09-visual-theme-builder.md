@@ -1,7 +1,7 @@
 # Advanced Visual Theme Builder — MASTER PROMPT LOCK
 
 **Date:** 2026-09-29  
-**Status:** LOCKED requirements · **NOT implemented yet**  
+**Status:** LOCKED requirements. Execution order, gates, and step status: `docs/31-page-builder-theme-customizer-execution.md` + `.cursor/rules/page-builder-theme-customizer.mdc`.  
 **Rule:** **DO NOT REBUILD** — Inspect → Understand → Reuse → Extend → Optimize → Secure → Test  
 **Related:** `docs/00` · `docs/01` Phase 5 · `docs/08` · `designs/Theme_Settings_UIUX/` · `.cursor/rules/*`
 

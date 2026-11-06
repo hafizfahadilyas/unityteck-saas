@@ -6,6 +6,8 @@ import { CreditCard, MapPin, Truck, CheckCircle2, ArrowRight, ArrowLeft } from '
 import { MadaIcon, ApplePayIcon, TabbyIcon, TamaraIcon, VisaIcon, MastercardIcon, CodIcon } from './PaymentIcons';
 import { PaymentGatewaySelector, type PaymentMethodId } from '../../../components/storefront/checkout/PaymentGatewaySelector';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
+import { submitPublicStorefrontOrder } from '../../../utils/submitStorefrontOrder';
+import { readTrafficSource } from '../../../utils/trafficSource';
 
 const SAUDI_CITIES = [
   { en: 'Riyadh', ar: 'الرياض' },
@@ -27,7 +29,8 @@ const SAUDI_CITIES = [
 
 export const CheckoutPage: React.FC = () => {
   const { cart, cartTotal, clearCart, navigateTo, language, setLastOrder, user } = useCart();
-  const { addOrder, activeStore } = useTenant();
+  const { addOrder, activeStore, syncOrderFromApi } = useTenant();
+  const [orderError, setOrderError] = useState('');
 
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
@@ -48,78 +51,92 @@ export const CheckoutPage: React.FC = () => {
 
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
-    if (guestBlocked) return;
+    if (guestBlocked || !activeStore?.id) return;
     setIsProcessing(true);
+    setOrderError('');
+    const traffic = readTrafficSource();
+    const paymentLabel =
+      paymentMethod === 'cod'
+        ? 'Cash on Delivery'
+        : paymentMethod === 'mada'
+        ? 'mada'
+        : paymentMethod === 'apple_pay'
+        ? 'Apple Pay'
+        : paymentMethod === 'tabby'
+        ? 'Tabby'
+        : paymentMethod === 'tamara'
+        ? 'Tamara'
+        : 'Credit Card';
+    const lineItems = cart.map((it) => ({
+      id: it.productId || it.id,
+      sku: it.productId || it.id,
+      name: it.productName || (language === 'AR' ? 'منتج' : 'Product'),
+      price: it.unitPrice || 0,
+      quantity: it.quantity || 1,
+      total: (it.unitPrice || 0) * (it.quantity || 1),
+      image: it.image || it.selectedColor?.image || '',
+    }));
+    const payload = {
+      customerName: name,
+      customerPhone: phone,
+      customerEmail: user?.email || undefined,
+      deliveryLocation: `${city} - ${district}, ${street}`,
+      itemsCount: cart.reduce((acc, curr) => acc + (curr.quantity || 1), 0),
+      items: lineItems,
+      subtotal: cartTotal,
+      total: cartTotal,
+      status: 'pending' as const,
+      paymentMethod: paymentLabel as any,
+      paymentStatus: 'Pending' as const,
+      source: traffic.source as any,
+      sourceDetails: traffic.details,
+      customerNotes: `City: ${city}, District: ${district}, Street: ${street}`,
+    };
 
-    setTimeout(() => {
-      const orderId = `HB-${Math.floor(100000 + Math.random() * 900000)}`;
-      const newOrder = {
-        id: orderId,
-        orderNumber: orderId,
-        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-        items: [...cart],
+    void submitPublicStorefrontOrder(
+      activeStore.id,
+      {
+        customerName: name,
+        customerPhone: phone,
+        customerEmail: user?.email || undefined,
         total: cartTotal,
-        paymentMethod,
-        shippingAddress: {
-          name,
-          phone,
-          city,
-          district,
-          street
-        },
-        status: 'Confirmed'
-      };
-
-      // 1. Theme-level state for receipt rendering in ThankYouPage
-      setLastOrder(newOrder);
-
-      // 2. Central Multi-Store SaaS persistence (store-coffee isolated)
-      if (typeof addOrder === 'function') {
-        const paymentLabel =
-          paymentMethod === 'cod'
-            ? 'Cash on Delivery'
-            : paymentMethod === 'mada'
-            ? 'mada'
-            : paymentMethod === 'apple_pay'
-            ? 'Apple Pay'
-            : paymentMethod === 'tabby'
-            ? 'Tabby'
-            : paymentMethod === 'tamara'
-            ? 'Tamara'
-            : 'Credit Card';
-
-        addOrder(
-          {
-            customerName: name,
-            customerPhone: phone,
-            customerEmail: `${phone.replace(/[^0-9]/g, '')}@mieraf-ksa.com`,
-            deliveryLocation: `${city} - ${district}, ${street}`,
-            itemsCount: cart.reduce((acc, curr) => acc + (curr.quantity || 1), 0),
-            items: cart.map((it) => ({
-              id: it.productId || it.id,
-              sku: it.productId || it.id,
-              name: it.productName || 'HiBrew Coffee Product',
-              price: it.unitPrice || 0,
-              quantity: it.quantity || 1,
-              total: (it.unitPrice || 0) * (it.quantity || 1),
-              image: it.image || it.selectedColor?.image || '',
-            })),
-            subtotal: cartTotal,
-            total: cartTotal,
-            status: 'pending',
-            paymentMethod: paymentLabel as any,
-            paymentStatus: paymentMethod === 'cod' ? 'Pending' : 'Paid',
-            source: 'Coffee Store Online' as any,
-            customerNotes: `City: ${city}, District: ${district}, Street: ${street}`,
-          },
-          activeStore?.id || 'store-coffee'
-        );
-      }
-
-      setIsProcessing(false);
-      clearCart();
-      navigateTo('thankyou');
-    }, 1000);
+        deliveryLocation: payload.deliveryLocation,
+        status: 'pending',
+        paymentMethod: paymentLabel,
+        paymentStatus: 'Pending',
+        source: traffic.source,
+        sourceDetails: traffic.details,
+        items: lineItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+      },
+      {
+        syncOrderFromApi,
+        addOrder,
+        toAddOrderPayload: () => payload,
+      },
+    )
+      .then((order) => {
+        setLastOrder({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          date: order.date,
+          items: [...cart],
+          total: cartTotal,
+          paymentMethod,
+          shippingAddress: { name, phone, city, district, street },
+          status: 'Confirmed',
+        });
+        clearCart();
+        navigateTo('thankyou');
+      })
+      .catch(() => {
+        setOrderError(language === 'AR' ? 'تعذر حفظ الطلب. حاول مرة أخرى.' : 'The order could not be saved. Try again.');
+      })
+      .finally(() => setIsProcessing(false));
   };
 
   if (cart.length === 0) {
@@ -334,6 +351,10 @@ export const CheckoutPage: React.FC = () => {
                   </span>
                 </div>
               </div>
+
+              {orderError ? (
+                <p className="text-[11px] text-rose-700">{orderError}</p>
+              ) : null}
 
               {guestBlocked ? (
                 <p className="text-[11px] text-rose-700" data-checkout-guest="blocked">

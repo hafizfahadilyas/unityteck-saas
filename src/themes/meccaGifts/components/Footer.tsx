@@ -78,10 +78,10 @@ export const Footer: React.FC<FooterCustomProps> = ({
   }, [products, isCoffee, isAuto]);
 
   const whatsappNumber = s.whatsappNumber || activeStore?.contactPhone || MECCA_WHATSAPP;
-  const phoneNumber = s.phoneNumber || activeStore?.contactPhone || '+966 50 123 4567';
-  const emailAddress = s.emailAddress || activeStore?.email || (isCoffee ? 'care@mieraf-ksa.com' : 'care@store.sa');
-  const vatNumber = s.vatNumber || activeStore?.taxNumber || '310123456700003';
-  const crNumber = s.crNumber || activeStore?.crNumber || '4030123456';
+  const phoneNumber = s.phoneNumber || activeStore?.contactPhone || '';
+  const emailAddress = s.emailAddress || activeStore?.email || '';
+  const vatNumber = s.vatNumber || activeStore?.taxNumber || '';
+  const crNumber = s.crNumber || activeStore?.crNumber || '';
 
   const instagramUrl = s.instagramUrl || 'https://www.instagram.com';
   const twitterUrl = s.twitterUrl || 'https://x.com';

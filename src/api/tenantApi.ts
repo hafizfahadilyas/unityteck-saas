@@ -1960,14 +1960,29 @@ export async function saveBuilderLayoutApi(
   return res.data;
 }
 
-/** Guest storefront catalog — published + active products for one store only. */
+/** One page of one store. Never the whole 10,000-row catalog. */
+export async function fetchStorefrontCatalogPage(
+  storeId: string,
+  page = 1,
+  perPage = 48,
+): Promise<{ data: Product[]; total: number; lastPage: number }> {
+  const q = `?store_id=${encodeURIComponent(storeId)}&page=${page}&per_page=${perPage}`;
+  const res = await apiFetch<{ data?: ApiProductRow[]; meta?: { total?: number; last_page?: number } }>(
+    `/storefront/catalog${q}`,
+    { storeId, skipAuth: true },
+  );
+  const data = (res.data ?? []).map(mapProduct);
+  return {
+    data,
+    total: Number(res.meta?.total ?? data.length),
+    lastPage: Number(res.meta?.last_page ?? 1),
+  };
+}
+
+/** Guest storefront catalog — first page only, for the open store. */
 export async function fetchStorefrontCatalog(storeId: string): Promise<Product[]> {
-  const q = `?store_id=${encodeURIComponent(storeId)}`;
-  const res = await apiFetch<{ data?: ApiProductRow[] }>(`/storefront/catalog${q}`, {
-    storeId,
-    skipAuth: true,
-  });
-  return (res.data ?? []).map(mapProduct);
+  const page = await fetchStorefrontCatalogPage(storeId);
+  return page.data;
 }
 
 export async function fetchStorefrontThemeApi(storeId?: string, slug?: string): Promise<any> {
@@ -1991,6 +2006,7 @@ export interface ThemePageRecord {
   header_mode?: string;
   footer_mode?: string;
   status?: string;
+  updated_at?: string | null;
 }
 
 export async function fetchThemePagesApi(storeId: string): Promise<ThemePageRecord[]> {

@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\CustomerController;
+use App\Http\Controllers\Api\StorefrontCustomerController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\MediaController;
@@ -389,6 +390,7 @@ Route::get('/storefront/builder-layout', [StoreThemeController::class, 'storefro
 
 // Public per-store product catalog (no auth). Isolated by store_id / slug.
 Route::get('/storefront/catalog', [ProductController::class, 'storefrontCatalog']);
+Route::post('/storefront/customers', [StorefrontCustomerController::class, 'upsert']);
 
 // Public Inbound Webhooks for official Payment Gateways and Couriers
 Route::post('/webhooks/payments/{provider}', [WebhooksController::class, 'paymentWebhook']);
