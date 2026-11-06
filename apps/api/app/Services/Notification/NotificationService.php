@@ -71,12 +71,12 @@ class NotificationService
                 'name_ar' => 'تم استلام وتأكيد الطلب',
                 'sms_template_ar' => 'مرحباً {{customer_name}}، تم استلام طلبك رقم {{order_number}} لدى {{store_name}} بمبلغ {{order_total}} ر.س.',
                 'sms_template_en' => 'Hello {{customer_name}}, order #{{order_number}} at {{store_name}} received for {{order_total}} SAR.',
-                'whatsapp_template_ar' => "🎉 *مرحباً {{customer_name}}*\n\nتم تأكيد طلبك من *{{store_name}}*!\n\n📋 *الطلب:* #{{order_number}}\n💰 *الإجمالي:* {{order_total}} {{currency}}\n💳 *الدفع:* {{payment_method}} ({{payment_status}})\n📍 *التوصيل:* {{delivery_city}}",
-                'whatsapp_template_en' => "🎉 *Hello {{customer_name}}*\n\nOrder confirmed at *{{store_name}}*!\n\n📋 *Order:* #{{order_number}}\n💰 *Total:* {{order_total}} {{currency}}\n💳 *Payment:* {{payment_method}} ({{payment_status}})\n📍 *Delivery:* {{delivery_city}}",
+                'whatsapp_template_ar' => "🎉 *مرحباً {{customer_name}}*\n\nتم تأكيد طلبك من *{{store_name}}*!\n\n📋 *الطلب:* #{{order_number}}\n💰 *الإجمالي:* {{order_total}} {{currency}}\n💳 *الدفع:* {{payment_method}} ({{payment_status}})\n📍 *التوصيل:* {{delivery_city}}\n🔗 تتبع الطلب: {{order_track_url}}",
+                'whatsapp_template_en' => "🎉 *Hello {{customer_name}}*\n\nOrder confirmed at *{{store_name}}*!\n\n📋 *Order:* #{{order_number}}\n💰 *Total:* {{order_total}} {{currency}}\n💳 *Payment:* {{payment_method}} ({{payment_status}})\n📍 *Delivery:* {{delivery_city}}\n🔗 Track your order: {{order_track_url}}",
                 'email_subject_ar' => 'تأكيد الطلب #{{order_number}} — {{store_name}}',
                 'email_subject_en' => 'Order confirmed #{{order_number}} — {{store_name}}',
-                'email_body_ar' => '<p>مرحباً {{customer_name}}،</p><p>تم استلام طلبك <strong>#{{order_number}}</strong> بمبلغ <strong>{{order_total}} {{currency}}</strong>.</p><p>الدفع: {{payment_method}} — {{payment_status}}</p><p>التوصيل: {{delivery_city}}</p><p>{{store_name}}</p>',
-                'email_body_en' => '<p>Hello {{customer_name}},</p><p>We received order <strong>#{{order_number}}</strong> for <strong>{{order_total}} {{currency}}</strong>.</p><p>Payment: {{payment_method}} — {{payment_status}}</p><p>Delivery: {{delivery_city}}</p><p>{{store_name}}</p>',
+                'email_body_ar' => '<p>مرحباً {{customer_name}}،</p><p>تم استلام طلبك <strong>#{{order_number}}</strong> بمبلغ <strong>{{order_total}} {{currency}}</strong>.</p><p>الدفع: {{payment_method}} — {{payment_status}}</p><p>التوصيل: {{delivery_city}}</p><p><a href="{{order_track_url}}">تتبع الطلب</a></p><p>{{store_name}}</p>',
+                'email_body_en' => '<p>Hello {{customer_name}},</p><p>We received order <strong>#{{order_number}}</strong> for <strong>{{order_total}} {{currency}}</strong>.</p><p>Payment: {{payment_method}} — {{payment_status}}</p><p>Delivery: {{delivery_city}}</p><p><a href="{{order_track_url}}">Track your order</a></p><p>{{store_name}}</p>',
             ],
             'order_processing' => [
                 'event' => 'order_processing',
@@ -197,17 +197,37 @@ class NotificationService
             ? ('https://track.unityteck.sa/?c=' . urlencode(strtolower($courierName !== '' ? $courierName : 'courier')) . '&awb=' . urlencode($trackingNumber))
             : '';
 
+        $frontendBase = rtrim((string) env('FRONTEND_URL', ''), '/');
+        $storeUrl = '';
+        if ($store) {
+            $domain = trim((string) ($store->custom_domain ?: $store->domain ?: ''));
+            if ($domain !== '') {
+                $storeUrl = preg_match('#^https?://#i', $domain) ? $domain : ('https://' . $domain);
+            } elseif ($frontendBase !== '') {
+                $slug = trim((string) ($store->slug ?: ''));
+                $storeUrl = $slug !== '' ? ($frontendBase . '/' . rawurlencode($slug)) : $frontendBase;
+            }
+        } elseif ($frontendBase !== '') {
+            $storeUrl = $frontendBase;
+        }
+        $orderNumber = (string) ($order->order_number ?: $order->id);
+        $orderTrackUrl = $storeUrl !== ''
+            ? (rtrim($storeUrl, '/') . '/track-order?order=' . rawurlencode($orderNumber))
+            : '';
+
         $totalVal = (float) ($order->total_amount ?? $order->total ?? 0);
 
         $replacements = [
             '{{customer_name}}' => (string) ($order->customer_name ?: ''),
-            '{{order_number}}' => (string) ($order->order_number ?: $order->id),
+            '{{order_number}}' => $orderNumber,
             '{{order_total}}' => number_format($totalVal, 2),
             '{{currency}}' => (string) ($order->currency ?: 'SAR'),
             '{{payment_method}}' => (string) ($order->payment_method ?: ''),
             '{{payment_status}}' => (string) ($order->payment_status ?: ''),
             '{{delivery_city}}' => (string) ($order->delivery_location ?: ''),
             '{{store_name}}' => $storeName,
+            '{{store_url}}' => $storeUrl,
+            '{{order_track_url}}' => $orderTrackUrl,
             '{{courier_name}}' => $courierName,
             '{{tracking_number}}' => $trackingNumber,
             '{{tracking_url}}' => $trackingUrl,

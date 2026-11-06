@@ -182,10 +182,15 @@ import { CartProvider as CoffeeCartProvider } from '../../../themes/coffeeRoaste
 import {
   createCanonicalBlocks,
   getLiveOrStoredBlocks,
+  loadBuilderDraftFromApi,
   saveThemeBlocks,
   syncThemeWithLive,
   OBSOLETE_FLORA_BLOCK_IDS,
 } from '../../../services/liveThemeSyncService';
+import {
+  renderCoffeeBuilderBlock,
+  COFFEE_FULL_BLEED_TYPES,
+} from './CoffeeBuilderBlocks';
 import { AppProvider, useApp } from '../../../themes/meccaGifts/context/AppContext';
 import { resolveStoreTheme, getThemeManifest } from '../../../themes/registry';
 import { getStoreDisplayName } from '../../../utils/storeLocalization';
@@ -453,6 +458,11 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
     const isCoffeeStore = activeStore?.id === 'store-coffee' || activeStore?.domain?.includes('coffee');
     const [canvasDropTarget, setCanvasDropTarget] = useState<'above' | 'below' | null>(null);
 
+    // Coffee / sparse canvas blocks often omit `settings` — keep every `b.settings.*` access safe
+    if (!b.settings || typeof b.settings !== 'object') {
+      (b as { settings: Record<string, any> }).settings = {};
+    }
+
     const handleBlockDragOver = (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -632,15 +642,34 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
       </>
     );
 
-    const wrapBlock = (content: React.ReactNode, extraClass: string = '') => {
-      const bgPositionValue = b.settings.bgPosition === 'custom'
-        ? `${b.settings.bgCustomX ?? 70}${b.settings.bgCustomXUnit || 'px'} ${b.settings.bgCustomY ?? 66}${b.settings.bgCustomYUnit || 'px'}`
-        : (b.settings.bgPosition && b.settings.bgPosition !== 'default' ? b.settings.bgPosition : undefined);
-      const bgRepeatValue = b.settings.bgRepeat || (b.settings.bgImage ? 'no-repeat' : undefined);
-      const bgSizeValue = b.settings.bgSize && b.settings.bgSize !== 'default' ? b.settings.bgSize : (b.settings.bgPosition === 'custom' ? 'auto' : undefined);
-      const bgAttachmentValue = b.settings.bgAttachment && b.settings.bgAttachment !== 'default' ? b.settings.bgAttachment : undefined;
-      const bgImageValue = b.settings.bgImage ? `url("${b.settings.bgImage}")` : undefined;
-      const isFullWidth = b.settings.contentWidth === 'full' || b.settings.isFullWidth;
+    const wrapBlock = (
+      content: React.ReactNode,
+      extraClass: string = '',
+      forceFullBleed = false,
+      /** HiBrew live preview — same chrome as storefront; ignore Elementor section bg/padding paint */
+      coffeeNative = false,
+    ) => {
+      // Coffee / legacy blocks may omit settings — never crash the canvas
+      const s = (b.settings && typeof b.settings === 'object' ? b.settings : {}) as Record<string, any>;
+
+      const bgPositionValue = coffeeNative
+        ? undefined
+        : s.bgPosition === 'custom'
+          ? `${s.bgCustomX ?? 70}${s.bgCustomXUnit || 'px'} ${s.bgCustomY ?? 66}${s.bgCustomYUnit || 'px'}`
+          : (s.bgPosition && s.bgPosition !== 'default' ? s.bgPosition : undefined);
+      const bgRepeatValue = coffeeNative ? undefined : (s.bgRepeat || (s.bgImage ? 'no-repeat' : undefined));
+      const bgSizeValue = coffeeNative
+        ? undefined
+        : s.bgSize && s.bgSize !== 'default'
+          ? s.bgSize
+          : (s.bgPosition === 'custom' ? 'auto' : undefined);
+      const bgAttachmentValue = coffeeNative
+        ? undefined
+        : s.bgAttachment && s.bgAttachment !== 'default'
+          ? s.bgAttachment
+          : undefined;
+      const bgImageValue = coffeeNative || !s.bgImage ? undefined : `url("${s.bgImage}")`;
+      const isFullWidth = forceFullBleed || s.contentWidth === 'full' || s.isFullWidth;
 
       return (
         <div
@@ -654,6 +683,8 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
           onDragLeave={handleBlockDragLeave}
           onDrop={handleBlockDrop}
           className={`group relative transition-all cursor-pointer ${extraClass} ${
+            coffeeNative ? 'bg-transparent' : ''
+          } ${
             isDraggingThisBlock ? 'opacity-35 grayscale ring-2 ring-dashed ring-cyan-400 scale-[0.99]' : ''
           } ${
             isSelected
@@ -661,11 +692,19 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
               : 'hover:ring-1 hover:ring-cyan-300'
           }`}
           style={{
-            paddingTop: device === 'mobile' && b.settings.mobilePaddingTop ? `${b.settings.mobilePaddingTop}px` : (b.settings.paddingTop ? `${b.settings.paddingTop}px` : undefined),
-            paddingBottom: device === 'mobile' && b.settings.mobilePaddingBottom ? `${b.settings.mobilePaddingBottom}px` : (b.settings.paddingBottom ? `${b.settings.paddingBottom}px` : undefined),
-            marginTop: b.settings.marginTop ? `${b.settings.marginTop}px` : undefined,
-            marginBottom: b.settings.marginBottom ? `${b.settings.marginBottom}px` : undefined,
-            backgroundColor: b.settings.bgColor || undefined,
+            paddingTop: coffeeNative
+              ? undefined
+              : device === 'mobile' && s.mobilePaddingTop
+                ? `${s.mobilePaddingTop}px`
+                : (s.paddingTop ? `${s.paddingTop}px` : undefined),
+            paddingBottom: coffeeNative
+              ? undefined
+              : device === 'mobile' && s.mobilePaddingBottom
+                ? `${s.mobilePaddingBottom}px`
+                : (s.paddingBottom ? `${s.paddingBottom}px` : undefined),
+            marginTop: coffeeNative ? undefined : (s.marginTop ? `${s.marginTop}px` : undefined),
+            marginBottom: coffeeNative ? undefined : (s.marginBottom ? `${s.marginBottom}px` : undefined),
+            backgroundColor: coffeeNative ? undefined : (s.bgColor || undefined),
             backgroundImage: bgImageValue,
             backgroundPosition: bgPositionValue,
             backgroundRepeat: bgRepeatValue,
@@ -707,24 +746,36 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
       );
     };
 
+    // Coffee Artisan — Word C-ANN…C-REV live previews (never flower Mecca components)
+    const coffeePreview = renderCoffeeBuilderBlock({
+      type: b.type,
+      isAr,
+      activeStore,
+      builderDevice: device === 'laptop' ? 'desktop' : device,
+    });
+    if (coffeePreview) {
+      return wrapBlock(coffeePreview, '', COFFEE_FULL_BLEED_TYPES.has(b.type), true);
+    }
+
     // 1. ANNOUNCEMENT BAR
     if (b.type === 'announcement') {
+      const ann = (b.settings && typeof b.settings === 'object' ? b.settings : {}) as Record<string, any>;
       return wrapBlock(
         <div
           className="px-4 py-2.5 text-xs font-semibold border-b transition-all"
           style={{
-            backgroundColor: b.settings.bgColor || '#102a1c',
-            color: b.settings.textColor || '#e6ca98',
+            backgroundColor: ann.bgColor || '#102a1c',
+            color: ann.textColor || '#e6ca98',
           }}
         >
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 truncate">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
-              <span className="truncate">{isAr ? b.settings.textAr || '🌸 توصيل مجاني وسريع لكافة فنادق وأبراج مكة المكرمة' : b.settings.textEn || '🌸 Complimentary Express Delivery to all Makkah Hotels & Towers'}</span>
+              <span className="truncate">{isAr ? ann.textAr || 'توصيل سريع لجميع مدن المملكة' : ann.textEn || 'Express delivery across KSA'}</span>
             </div>
-            {b.settings.showButton && (
+            {ann.showButton && (
               <span className="px-2.5 py-0.5 rounded-full bg-[#e6ca98] text-[#102a1c] text-[10px] font-extrabold shadow-xs shrink-0">
-                {isAr ? b.settings.buttonTextAr || 'اطلب الآن' : b.settings.buttonTextEn || 'Order Now'}
+                {isAr ? ann.buttonTextAr || 'اطلب الآن' : ann.buttonTextEn || 'Order Now'}
               </span>
             )}
           </div>
@@ -735,8 +786,10 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
     if (b.type === 'header' || b.type === 'navbar') {
       if (isCoffeeStore) {
         return wrapBlock(
-          <div className="hibrew-theme-root w-full">
-            <CoffeeHeader />
+          <div className="hibrew-theme-root @container w-full max-w-full min-w-0 overflow-x-clip">
+            <CoffeeCartProvider>
+              <CoffeeHeader />
+            </CoffeeCartProvider>
           </div>
         );
       }
@@ -780,7 +833,9 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
       if (isCoffeeStore) {
         return wrapBlock(
           <div className="hibrew-theme-root w-full">
-            <CoffeeHeroSlider3D />
+            <CoffeeCartProvider>
+              <CoffeeHeroSlider3D />
+            </CoffeeCartProvider>
           </div>
         );
       }
@@ -1010,7 +1065,9 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
       if (isCoffeeStore && b.type === 'featured_machines') {
         return wrapBlock(
           <div className="hibrew-theme-root w-full">
-            <CoffeeFlagshipSection />
+            <CoffeeCartProvider>
+              <CoffeeFlagshipSection />
+            </CoffeeCartProvider>
           </div>
         );
       }
@@ -1074,7 +1131,9 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
       if (isCoffeeStore) {
         return wrapBlock(
           <div className="hibrew-theme-root w-full">
-            <CoffeeFooter />
+            <CoffeeCartProvider>
+              <CoffeeFooter />
+            </CoffeeCartProvider>
           </div>
         );
       }
@@ -1980,6 +2039,15 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     return initialPage || 'home';
   });
 
+  // Apply page switch from sidebar / parent when builder opens on a target page
+  useEffect(() => {
+    if (!initialPage) return;
+    const allowed = ['home', 'catalog', 'product', 'cart', 'checkout', 'thankyou', 'crm', 'about', 'contact', 'location', 'track-order', 'privacy', 'return'];
+    if (allowed.includes(initialPage) && initialPage !== previewPage) {
+      setPreviewPage(initialPage);
+    }
+  }, [initialPage, isOpen]);
+
   // Keep previewPage synced to URL & sessionStorage so reloads stay on active subpage
   useEffect(() => {
     try {
@@ -1991,7 +2059,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       }
     } catch {}
   }, [previewPage]);
-  const [selectedBlockId, setSelectedBlockId] = useState<string>('sec_natural_flowers');
+  const [selectedBlockId, setSelectedBlockId] = useState<string>(() =>
+    activeStore?.id === 'store-coffee' || currentThemeId?.includes?.('coffee')
+      ? 'announcement_bar'
+      : 'sec_natural_flowers',
+  );
   const [activeTab, setActiveTab] = useState<'content' | 'templates' | 'styling' | 'layout' | 'code' | 'ai'>('content');
   const [canvasDarkMode, setCanvasDarkMode] = useState(false);
   const [previewModeOnly, setPreviewModeOnly] = useState(false);
@@ -2238,6 +2310,23 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
   useEffect(() => {
+    let cancelled = false;
+    loadBuilderDraftFromApi(activeStore.id, currentThemeId, activeStore)
+      .then((next) => {
+        if (cancelled || !next?.length) return;
+        const loaded = next as BlockElement[];
+        setBlocks(loaded);
+        setHistory([loaded]);
+        setHistoryIndex(0);
+        setHasUnsavedChanges(false);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore.id, currentThemeId]);
+
+  useEffect(() => {
     if (blocks.length > 0 && history.length === 0) {
       setHistory([blocks]);
       setHistoryIndex(0);
@@ -2385,6 +2474,15 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
 
           const defaultBlocks = createInitialBlocksForTheme(currentThemeId, activeStore);
           let finalBlocks = healed;
+
+          // Coffee: strip retired C-BAN stacked promo banners block from saved layouts
+          if (
+            currentThemeId.includes('coffee') ||
+            activeStore?.id === 'store-coffee' ||
+            activeStore?.domain?.includes?.('coffee')
+          ) {
+            finalBlocks = finalBlocks.filter((b: any) => b.type !== 'banners' && b.id !== 'banners');
+          }
 
           // If flora-luxe draft has obsolete removed sections from the old design, purge them and ensure fresh live sections
           if (currentThemeId === 'theme-flora-luxe' || (!currentThemeId.includes('coffee') && !currentThemeId.includes('transport') && !currentThemeId.includes('saudia'))) {
@@ -3292,19 +3390,19 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     labelEn: string;
     badge?: string;
   }> = [
-    { id: 'home', icon: Home, labelAr: 'الرئيسية (Home Page)', labelEn: 'Home Page' },
-    { id: 'catalog', icon: LayoutGrid, labelAr: 'كافة التشكيلات والكتالوج (All Collections)', labelEn: 'All Collections Catalog', badge: 'Shop' },
-    { id: 'product', icon: ShoppingBag, labelAr: 'صفحة تفاصيل المنتج (Product Detail)', labelEn: 'Product Details Page', badge: 'VIP' },
-    { id: 'cart', icon: ShoppingCart, labelAr: 'سلة المشتريات والهدايا (Shopping Cart)', labelEn: 'Shopping Bag / Cart' },
-    { id: 'checkout', icon: CreditCard, labelAr: 'الدفع السريع وفاتورة زاتكا (Express Checkout)', labelEn: 'Saudi Checkout (ZATCA)', badge: 'KSA' },
-    { id: 'thankyou', icon: CheckCircle2, labelAr: 'الفاتورة وتأكيد الطلب (Tax Invoice & Success)', labelEn: 'Thank You & Tax Invoice' },
-    { id: 'crm', icon: Award, labelAr: 'بوابة كبار الشخصيات ونقاط الولاء (VIP CRM Portal)', labelEn: 'VIP CRM & Account', badge: 'VIP' },
-    { id: 'about', icon: Info, labelAr: 'من نحن وبوتيك مكة (About Hadaya Makkah)', labelEn: 'About Hadaya Makkah' },
-    { id: 'contact', icon: Phone, labelAr: 'اتصل بنا وفروع الحرم (VIP Concierge & Contact)', labelEn: 'VIP Concierge & Contact' },
-    { id: 'location', icon: MapPin, labelAr: 'فروع مكة ومواقع المتاجر (Store Locator)', labelEn: 'Makkah Branches Locator' },
-    { id: 'track-order', icon: Truck, labelAr: 'تتبع مسار التوصيل المباشر (Track Sacred Delivery)', labelEn: 'Live Delivery Tracker', badge: 'Live' },
-    { id: 'privacy', icon: Lock, labelAr: 'سياسة الخصوصية والأمان (Privacy & Protection)', labelEn: 'Privacy Policy' },
-    { id: 'return', icon: RotateCcw, labelAr: 'ضمان النضارة والاسترجاع (Freshness Guarantee)', labelEn: 'Return Policy' },
+    { id: 'home', icon: Home, labelAr: 'الرئيسية', labelEn: 'Home Page' },
+    { id: 'catalog', icon: LayoutGrid, labelAr: 'الكتالوج والتشكيلات', labelEn: 'All Collections Catalog', badge: 'Shop' },
+    { id: 'product', icon: ShoppingBag, labelAr: 'تفاصيل المنتج', labelEn: 'Product Details Page', badge: 'VIP' },
+    { id: 'cart', icon: ShoppingCart, labelAr: 'سلة المشتريات', labelEn: 'Shopping Bag / Cart' },
+    { id: 'checkout', icon: CreditCard, labelAr: 'الدفع', labelEn: 'Saudi Checkout (ZATCA)', badge: 'KSA' },
+    { id: 'thankyou', icon: CheckCircle2, labelAr: 'تأكيد الطلب والفاتورة', labelEn: 'Thank You & Tax Invoice' },
+    { id: 'crm', icon: Award, labelAr: 'حساب العميل والولاء', labelEn: 'VIP CRM & Account', badge: 'VIP' },
+    { id: 'about', icon: Info, labelAr: 'من نحن', labelEn: 'About' },
+    { id: 'contact', icon: Phone, labelAr: 'اتصل بنا', labelEn: 'Contact' },
+    { id: 'location', icon: MapPin, labelAr: 'فروع المتجر', labelEn: 'Store Locator' },
+    { id: 'track-order', icon: Truck, labelAr: 'تتبع الطلب', labelEn: 'Live Delivery Tracker', badge: 'Live' },
+    { id: 'privacy', icon: Lock, labelAr: 'سياسة الخصوصية', labelEn: 'Privacy Policy' },
+    { id: 'return', icon: RotateCcw, labelAr: 'سياسة الإرجاع', labelEn: 'Return Policy' },
   ];
 
   const currentActivePageObj = ALL_BUILDER_PAGES.find((p) => p.id === previewPage) || ALL_BUILDER_PAGES[0];
@@ -3907,7 +4005,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             {/* TAB CONTENT */}
             {leftTab === 'widgets' ? (
               <div className="flex-1 overflow-y-auto">
-                <BuilderWidgetLibrary onAddWidget={handleAddWidget} isAr={isAr} />
+                <BuilderWidgetLibrary onAddWidget={handleAddWidget} isAr={isAr} isCoffee={isCoffeeStore} />
               </div>
             ) : (
               <>
@@ -3961,7 +4059,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <button
                               type="button"
                               onClick={(e) => {
@@ -3979,8 +4077,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                                 e.stopPropagation();
                                 handleDuplicateBlock(b.id);
                               }}
-                              className="p-1 hover:bg-slate-200 rounded text-slate-500 cursor-pointer"
-                              title={isAr ? 'تكرار القسم' : 'Duplicate'}
+                              className="p-1 hover:bg-indigo-100 hover:text-indigo-700 rounded text-indigo-600 cursor-pointer"
+                              title={isAr ? 'نسخ القسم' : 'Copy / Duplicate'}
                             >
                               <Copy className="w-3 h-3" />
                             </button>
@@ -4788,7 +4886,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                             {isAr ? 'الموضع (Position)' : 'Position'}
                           </label>
                           <select
-                            value={selectedBlock.settings.bgPosition || 'custom'}
+                            value={selectedBlock.settings?.bgPosition || 'custom'}
                             onChange={(e) => handleUpdateBlockSetting('bgPosition', e.target.value)}
                             className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white"
                           >
@@ -4800,19 +4898,19 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                         </div>
 
                         {/* Custom X & Y Position sliders (Step 1: X 70px, Y 66px) */}
-                        {selectedBlock.settings.bgPosition === 'custom' && (
+                        {(selectedBlock.settings?.bgPosition || 'custom') === 'custom' && (
                           <div className="p-2.5 rounded-xl bg-pink-50/50 border border-pink-200 space-y-2.5">
                             <div>
                               <div className="flex items-center justify-between text-[10px] font-bold text-slate-700 mb-1">
                                 <span>{isAr ? 'موضع X الأفقي (X Position)' : 'X Position (px)'}</span>
-                                <span className="font-mono text-pink-600 font-extrabold">{selectedBlock.settings.bgCustomX ?? 70}px</span>
+                                <span className="font-mono text-pink-600 font-extrabold">{selectedBlock.settings?.bgCustomX ?? 70}px</span>
                               </div>
                               <input
                                 type="range"
                                 min="0"
                                 max="300"
                                 step="2"
-                                value={selectedBlock.settings.bgCustomX ?? 70}
+                                value={selectedBlock.settings?.bgCustomX ?? 70}
                                 onChange={(e) => handleUpdateBlockSetting('bgCustomX', Number(e.target.value))}
                                 className="w-full accent-pink-600 cursor-pointer"
                               />

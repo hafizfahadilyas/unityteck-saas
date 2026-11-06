@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -24,6 +24,9 @@ import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from './ToastProvider';
 import type { MediaAsset, MediaType } from '../../types/media';
+import { SYSTEM_MEDIA_FOLDERS, mediaFolderLabel } from '../../constants/mediaFolders';
+import { isApiEnabled } from '../../api/client';
+import { fetchMediaFolders } from '../../api/tenantApi';
 import {
   formatBytes,
   detectMediaType,
@@ -91,6 +94,26 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedFolder, setSelectedFolder] = useState<string>(initialFolder);
+  const [extraFolderSlugs, setExtraFolderSlugs] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!isOpen || !isApiEnabled()) {
+      setExtraFolderSlugs([]);
+      return;
+    }
+    fetchMediaFolders(activeStore.id)
+      .then((rows) => setExtraFolderSlugs(rows.map((r) => r.slug)))
+      .catch(() => setExtraFolderSlugs([]));
+  }, [isOpen, activeStore.id]);
+
+  const folderSlugs = useMemo(() => {
+    const slugs = new Set<string>(SYSTEM_MEDIA_FOLDERS.map((f) => f.slug));
+    extraFolderSlugs.forEach((s) => slugs.add(s));
+    currentMedia.forEach((m) => {
+      if (m.folder) slugs.add(m.folder);
+    });
+    return Array.from(slugs).sort();
+  }, [extraFolderSlugs, currentMedia]);
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [focusedAsset, setFocusedAsset] = useState<MediaAsset | null>(null);
   const [displayLimit, setDisplayLimit] = useState(24);
@@ -618,12 +641,11 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
                     }}
                   >
                     <option value="all">{isAr ? 'جميع المجلدات' : 'All Folders'}</option>
-                    <option value="products">{isAr ? 'المنتجات' : 'Products'}</option>
-                    <option value="banners">{isAr ? 'البانرات والعروض' : 'Banners & Hero'}</option>
-                    <option value="categories">{isAr ? 'التصنيفات' : 'Categories'}</option>
-                    <option value="branding">{isAr ? 'الهوية والشعار' : 'Branding & Logos'}</option>
-                    <option value="marketing">{isAr ? 'التسويق والفيديوهات' : 'Marketing & Videos'}</option>
-                    <option value="general">{isAr ? 'عام' : 'General'}</option>
+                    {folderSlugs.map((slug) => (
+                      <option key={slug} value={slug}>
+                        {mediaFolderLabel(slug, isAr)}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

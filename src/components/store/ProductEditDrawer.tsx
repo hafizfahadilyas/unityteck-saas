@@ -467,7 +467,14 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
 
   return (
     <>
-      <div className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-md flex flex-col h-full max-h-[calc(100vh-140px)] sticky top-24 overflow-hidden animate-in fade-in slide-in-from-end-4 duration-150">
+      <div
+        className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-md flex flex-col sticky top-2 overflow-hidden animate-in fade-in slide-in-from-end-4 duration-150"
+        style={{
+          // Header 4rem + sticky top 0.5rem + 4rem so the action bar stays above the screen-bottom corner.
+          height: 'calc(100dvh - 8.5rem)',
+          maxHeight: 'calc(100dvh - 8.5rem)',
+        }}
+      >
         {/* ── Top Header Bar ── */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-900/40 shrink-0">
           <div className="min-w-0">
@@ -502,7 +509,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
         </div>
 
         {/* ── Accordion Sections List (Scrollable Area) ── */}
-        <div className="flex-1 overflow-y-auto custom-scroll p-4 space-y-3.5">
+        <div className="flex-1 min-h-0 overflow-y-auto custom-scroll p-4 space-y-3.5">
           {/* 1. Product Images */}
           {isSectionVisible('images') && (
           <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/50">
@@ -534,7 +541,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
             </div>
 
             {sectionsOpen.images && (
-              <div className="p-3.5 pt-0 space-y-3 border-t border-slate-100 dark:border-slate-800/80">
+              <div className="p-3.5 pt-2 space-y-3 border-t border-slate-100 dark:border-slate-800/80">
                 {/* Hidden File Inputs for Zero-lag Instant Selection */}
                 <input
                   ref={mainFileInputRef}
@@ -560,7 +567,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                 />
 
                 {/* Main Image Large Preview */}
-                <div className="relative aspect-[4/3] w-full rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center group">
+                <div className="relative min-h-72 w-full rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center group">
                   <img
                     src={mainImage || FALLBACK_PRODUCT_IMAGE}
                     alt={name}
@@ -1052,7 +1059,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
             </div>
 
             {sectionsOpen.inventory && (
-              <div className="p-3.5 pt-0 space-y-2.5 border-t border-slate-100 dark:border-slate-800/80">
+              <div className="p-3.5 pt-2.5 space-y-2.5 border-t border-slate-100 dark:border-slate-800/80">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">

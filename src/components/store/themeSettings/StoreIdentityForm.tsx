@@ -6,6 +6,7 @@ import { useToast } from '../../common/ToastProvider';
 import {
   defaultStoreIdentity,
   readStoreIdentity,
+  splitStoreName,
   writeStoreIdentity,
   type StoreIdentitySettings,
 } from '../../../themes/settings/storeIdentity';
@@ -20,30 +21,55 @@ export const StoreIdentityForm: React.FC = () => {
   const { activeStore } = useTenant();
   const { locale } = usePrefs();
   const { toast } = useToast();
-  const [form, setForm] = useState<StoreIdentitySettings>(() =>
-    readStoreIdentity(activeStore.id, activeStore),
-  );
+  const [form, setForm] = useState<StoreIdentitySettings>(() => {
+    const loaded = readStoreIdentity(activeStore.id, activeStore);
+    return { ...loaded, ...splitStoreName(loaded) };
+  });
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
-    setForm(readStoreIdentity(activeStore.id, activeStore));
+    const loaded = readStoreIdentity(activeStore.id, activeStore);
+    setForm({ ...loaded, ...splitStoreName(loaded) });
   }, [activeStore.id, activeStore.name, activeStore.logo, activeStore.ownerEmail]);
 
   const patch = <K extends keyof StoreIdentitySettings>(key: K, value: StoreIdentitySettings[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const onSave = (e: React.FormEvent) => {
+  const onSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    writeStoreIdentity(activeStore.id, form);
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      const saved: StoreIdentitySettings = {
+        ...form,
+        storeNameEn: form.storeNameEn || '',
+        storeNameAr: form.storeNameAr || '',
+        storeName: (form.storeNameEn || '').trim() || form.storeName,
+      };
+      writeStoreIdentity(activeStore.id, saved);
+      const { readAllThemeSettings, writeAllThemeSettings } = await import(
+        '../../../themes/settings/themeSettingsStore'
+      );
+      const full = readAllThemeSettings(activeStore.id, activeStore);
+      full.identity = saved as typeof full.identity;
+      writeAllThemeSettings(activeStore.id, full);
       setSavedFlash(true);
-      toast(locale === 'ar' ? 'تم حفظ هوية المتجر' : 'Store identity saved', 'success');
-      setTimeout(() => setSavedFlash(false), 2500);
-    }, 350);
+      toast(
+        locale === 'ar'
+          ? 'تم حفظ هوية المتجر في قاعدة البيانات'
+          : 'Store identity saved to the database',
+        'success',
+      );
+      window.setTimeout(() => setSavedFlash(false), 2500);
+    } catch {
+      toast(
+        locale === 'ar' ? 'فشل حفظ هوية المتجر' : 'Failed to save store identity',
+        'error',
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const onReset = () => {
@@ -108,15 +134,15 @@ export const StoreIdentityForm: React.FC = () => {
           </span>
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent)' }}>
-              Theme Settings · 01
+              {locale === 'ar' ? 'إعدادات القالب' : 'Theme settings'}
             </p>
             <h2 className="text-base sm:text-lg font-extrabold tracking-tight">
               {locale === 'ar' ? 'هوية المتجر والمعلومات' : 'Store Identity & Information'}
             </h2>
             <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
               {locale === 'ar'
-                ? 'الاسم · الشعار · التواصل · السجل التجاري — لكل متجر (store_id)'
-                : 'Name · logo · contact · CR — scoped per store_id'}
+                ? 'الاسم والشعار والتواصل والسجل التجاري لكل متجر'
+                : 'Name, logo, contact, and commercial registration for this store'}
             </p>
           </div>
         </div>
@@ -129,13 +155,14 @@ export const StoreIdentityForm: React.FC = () => {
       </div>
 
       <div className="space-y-4">
-        {field(locale === 'ar' ? 'اسم المتجر' : 'Store name', 'storeName')}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          {field('Tagline (EN)', 'taglineEn', { dir: 'ltr' })}
-          {field('الشعار (عربي)', 'taglineAr', { dir: 'rtl' })}
+          {field(locale === 'ar' ? 'اسم المتجر بالإنجليزية' : 'Store name in English', 'storeNameEn', { dir: 'ltr' })}
+          {field(locale === 'ar' ? 'اسم المتجر بالعربية' : 'Store name in Arabic', 'storeNameAr', { dir: 'rtl' })}
+          {field(locale === 'ar' ? 'الوصف بالإنجليزية' : 'Tagline in English', 'taglineEn', { dir: 'ltr' })}
+          {field(locale === 'ar' ? 'الوصف بالعربية' : 'Tagline in Arabic', 'taglineAr', { dir: 'rtl' })}
         </div>
         <MediaUploadField
-          label={locale === 'ar' ? 'شعار المتجر (Store Logo)' : 'Store Logo'}
+          label={locale === 'ar' ? 'شعار المتجر' : 'Store logo'}
           value={form.logoUrl}
           onChange={(url) => setForm((prev) => ({ ...prev, logoUrl: url }))}
           recommendedSize="200 × 200 px"
@@ -158,13 +185,13 @@ export const StoreIdentityForm: React.FC = () => {
           </div>
           <div className="space-y-1.5">
             <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
-              <span className="w-2 h-2 rounded-full bg-emerald-500" /> WhatsApp
+              <span className="w-2 h-2 rounded-full bg-emerald-500" /> {locale === 'ar' ? 'واتساب' : 'WhatsApp'}
             </span>
             {field('', 'whatsapp', { dir: 'ltr', placeholder: '+966 50 000 0000' })}
           </div>
           <div className="space-y-1.5">
             <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
-              <Mail className="w-3 h-3 text-indigo-500" /> Email
+              <Mail className="w-3 h-3 text-indigo-500" /> {locale === 'ar' ? 'البريد' : 'Email'}
             </span>
             {field('', 'email', { type: 'email', dir: 'ltr', placeholder: 'support@store.sa' })}
           </div>
@@ -179,13 +206,13 @@ export const StoreIdentityForm: React.FC = () => {
         <div className="grid grid-cols-1 gap-3">
           <div className="space-y-1.5">
             <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
-              <MapPin className="w-3 h-3 text-rose-500" /> Address EN
+              <MapPin className="w-3 h-3 text-rose-500" /> {locale === 'ar' ? 'العنوان بالإنجليزية' : 'Address in English'}
             </span>
             {field('', 'addressEn', { dir: 'ltr', placeholder: 'King Fahd Rd, Riyadh' })}
           </div>
           <div className="space-y-1.5">
             <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
-              <MapPin className="w-3 h-3 text-rose-500" /> العنوان عربي
+              <MapPin className="w-3 h-3 text-rose-500" /> {locale === 'ar' ? 'العنوان بالعربية' : 'Address in Arabic'}
             </span>
             {field('', 'addressAr', { dir: 'rtl', placeholder: 'طريق الملك فهد، الرياض' })}
           </div>
@@ -193,9 +220,9 @@ export const StoreIdentityForm: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {field(locale === 'ar' ? 'المدينة' : 'City', 'city')}
-          {field('Instagram', 'instagram', { dir: 'ltr', placeholder: '@handle' })}
-          {field(locale === 'ar' ? 'السجل التجاري (CR)' : 'Commercial Registration (CR)', 'commercialReg', { dir: 'ltr' })}
-          {field(locale === 'ar' ? 'الرقم الضريبي (VAT)' : 'VAT Number', 'vatNumber', { dir: 'ltr' })}
+          {field(locale === 'ar' ? 'إنستغرام' : 'Instagram', 'instagram', { dir: 'ltr', placeholder: '@handle' })}
+          {field(locale === 'ar' ? 'السجل التجاري' : 'Commercial registration', 'commercialReg', { dir: 'ltr' })}
+          {field(locale === 'ar' ? 'الرقم الضريبي' : 'Tax number', 'vatNumber', { dir: 'ltr' })}
         </div>
       </div>
 
@@ -204,7 +231,7 @@ export const StoreIdentityForm: React.FC = () => {
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--accent)' }}>
             <HardDrive className="w-3.5 h-3.5" />
-            <span>{locale === 'ar' ? 'مسار مجلد المشروع المحلي المرتبط (Local Workspace)' : 'Connected Local Workspace Path'}</span>
+            <span>{locale === 'ar' ? 'مسار المجلد المحلي المرتبط' : 'Connected local folder'}</span>
           </span>
           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
             {locale === 'ar' ? 'متصل' : 'Connected'}

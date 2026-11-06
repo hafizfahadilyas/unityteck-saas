@@ -23,9 +23,13 @@ import {
 import {
   getStorePageBySlug,
   getStorePages,
+  hydrateStorePages,
   StoreCustomPage,
 } from '../../../services/storePagesService';
 import { useTenant } from '../../../context/TenantContext';
+import { isApiEnabled } from '../../../api/client';
+import { trackStorefrontOrder } from '../../../api/tenantApi';
+import { mapTrackApiToMeccaResult } from '../../../utils/orderTrackingDisplay';
 import { useApp } from '../context/AppContext';
 
 interface MeccaStaticPageProps {
@@ -79,10 +83,17 @@ export const MeccaStaticPage: React.FC<MeccaStaticPageProps> = ({ slug, onBackTo
   const [contactSent, setContactSent] = useState(false);
 
   const reloadData = () => {
-    const list = getStorePages(activeStore?.id || 'store-1', activeStore);
-    setAllPages(list);
-    const found = getStorePageBySlug(activeStore?.id || 'store-1', effectiveSlug, activeStore);
-    setPageData(found);
+    const storeId = activeStore?.id || '';
+    if (!storeId) {
+      setAllPages([]);
+      setPageData(undefined);
+      return;
+    }
+    void hydrateStorePages(storeId).then(() => {
+      const list = getStorePages(storeId, activeStore);
+      setAllPages(list);
+      setPageData(getStorePageBySlug(storeId, effectiveSlug, activeStore));
+    });
   };
 
   useEffect(() => {
@@ -97,43 +108,61 @@ export const MeccaStaticPage: React.FC<MeccaStaticPageProps> = ({ slug, onBackTo
     if (!trackInput.trim()) return;
 
     setIsSearchingTrack(true);
-    setTimeout(() => {
-      setIsSearchingTrack(false);
+    void (async () => {
       const cleanNum = trackInput.trim().toUpperCase();
+      try {
+        if (isApiEnabled() && activeStore?.id) {
+          const data = await trackStorefrontOrder(activeStore.id, {
+            order_number: trackInput.trim(),
+            phone: trackInput.trim(),
+          });
+          setTrackingResult(mapTrackApiToMeccaResult(data, isAr));
+          return;
+        }
 
-      const foundOrder = (currentOrders || []).find((o: any) => {
-        const orderNum = String(o.orderNumber || o.id || '').toUpperCase();
-        const oPhone = String(o.customerPhone || '').replace(/[^0-9]/g, '');
-        return (cleanNum && orderNum.includes(cleanNum)) || (cleanNum.length >= 7 && oPhone.includes(cleanNum));
-      });
+        const foundOrder = (currentOrders || []).find((o: any) => {
+          const orderNum = String(o.orderNumber || o.id || '').toUpperCase();
+          const oPhone = String(o.customerPhone || '').replace(/[^0-9]/g, '');
+          return (cleanNum && orderNum.includes(cleanNum)) || (cleanNum.length >= 7 && oPhone.includes(cleanNum));
+        });
 
-      if (foundOrder) {
-        const isDelivered = foundOrder.status === 'delivered';
-        const isShipped = foundOrder.status === 'shipped' || isDelivered;
-        setTrackingResult({
-          orderNumber: foundOrder.orderNumber || foundOrder.id,
-          status: isAr
-            ? (isDelivered ? 'تم تسليم الطلب بنجاح' : isShipped ? 'الطلب في طريقه للتوصيل' : 'جاري تجهيز وتنسيق الباقة')
-            : (isDelivered ? 'Delivered Successfully' : isShipped ? 'Out for Delivery' : 'Preparing & Arranging'),
-          courier: isAr ? 'مندوب التوصيل المبرد الفوري' : 'Refrigerated Express Courier',
-          estimatedDelivery: isAr ? 'اليوم خلال موعدك المفضل' : 'Today within selected delivery slot',
-          destination: foundOrder.deliveryLocation || (isAr ? 'مكة المكرمة' : 'Makkah'),
-          itemsCount: foundOrder.itemsCount || 1,
-          steps: [
-            { titleAr: 'تم استلام وتأكيد الطلب', titleEn: 'Order Received & Confirmed', done: true },
-            { titleAr: 'تنسيق الأزهار وتجهيز كرت الإهداء', titleEn: 'Floral Arrangement & Gift Card', done: true },
-            { titleAr: 'فحص النضارة والتغليف المبرد', titleEn: 'Quality & Freshness Inspection', done: isShipped },
-            { titleAr: 'انطلاق مندوب التوصيل', titleEn: 'Dispatched with Courier', done: isShipped },
-            { titleAr: 'اكتمال التسليم للعميل', titleEn: 'Delivered', done: isDelivered },
-          ]
-        });
-      } else {
-        setTrackingResult({
-          notFound: true,
-          orderNumber: cleanNum,
-        });
+        if (foundOrder) {
+          const isDelivered = foundOrder.status === 'delivered';
+          const isShipped = foundOrder.status === 'shipped' || isDelivered;
+          setTrackingResult({
+            orderNumber: foundOrder.orderNumber || foundOrder.id,
+            status: isAr
+              ? isDelivered
+                ? 'تم تسليم الطلب بنجاح'
+                : isShipped
+                  ? 'الطلب في طريقه للتوصيل'
+                  : 'جاري تجهيز وتنسيق الباقة'
+              : isDelivered
+                ? 'Delivered Successfully'
+                : isShipped
+                  ? 'Out for Delivery'
+                  : 'Preparing & Arranging',
+            courier: foundOrder.shippingCompany || (isAr ? 'مندوب التوصيل المبرد' : 'Refrigerated Express Courier'),
+            estimatedDelivery: isAr ? 'اليوم خلال موعدك المفضل' : 'Today within selected slot',
+            destination: foundOrder.deliveryLocation || (isAr ? 'مكة المكرمة' : 'Makkah'),
+            itemsCount: foundOrder.itemsCount || 1,
+            steps: [
+              { titleAr: 'تم استلام وتأكيد الطلب', titleEn: 'Order Received & Confirmed', done: true },
+              { titleAr: 'تنسيق الأزهار وتجهيز كرت الإهداء', titleEn: 'Floral Arrangement & Gift Card', done: true },
+              { titleAr: 'فحص النضارة والتغليف المبرد', titleEn: 'Quality & Freshness Inspection', done: isShipped },
+              { titleAr: 'انطلاق مندوب التوصيل', titleEn: 'Dispatched with Courier', done: isShipped },
+              { titleAr: 'اكتمال التسليم للعميل', titleEn: 'Delivered', done: isDelivered },
+            ],
+          });
+        } else {
+          setTrackingResult({ notFound: true, orderNumber: cleanNum });
+        }
+      } catch {
+        setTrackingResult({ notFound: true, orderNumber: cleanNum });
+      } finally {
+        setIsSearchingTrack(false);
       }
-    }, 500);
+    })();
   };
 
   const handleContactSubmit = (e: React.FormEvent) => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTenant } from '../../context/TenantContext';
+import { submitPublicStorefrontOrder } from '../../utils/submitStorefrontOrder';
 import { Product } from '../../types';
 import { generateStoreSEO, applySEOToDOM } from '../../utils/storeSEO';
 import { 
@@ -125,7 +126,7 @@ import { AVAILABLE_ICONS } from '../store/visualBuilder/icons/IconLibraryModal';
 import { DynamicThemeRenderer } from './DynamicThemeRenderer';
 import { OfferVideoBanner } from '../../themes/meccaGifts/components/OfferVideoBanner';
 import { getStoreDisplayName } from '../../utils/storeLocalization';
-import { getStorePageBySlug } from '../../services/storePagesService';
+import { getStorePageBySlug, hydrateStorePages } from '../../services/storePagesService';
 
 export interface StoreFrontPreviewProps {
   isAdmin?: boolean;
@@ -146,6 +147,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
     clearCart,
     currentShipping,
     addOrder,
+    syncOrderFromApi,
     currentSEOConfig,
     currentCoupons,
     currentCustomers,
@@ -157,6 +159,16 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
   useEffect(() => {
     recordStoreVisit?.(activeStore.id);
   }, [activeStore.id, recordStoreVisit]);
+  const [contentPagesReady, setContentPagesReady] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    void hydrateStorePages(activeStore.id).then(() => {
+      if (!cancelled) setContentPagesReady((n) => n + 1);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore.id]);
   const { locale: lang, money, theme, currency } = usePrefs();
 
   const [viewMode, setViewMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
@@ -578,10 +590,9 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
       return;
     }
     setCheckoutComplete(true);
-    const orderRef = `WM-${Date.now().toString().slice(-6)}`;
     const totalSnapshot = finalTotal;
     const districtSnapshot = selectedMakkahDistrict;
-    setTimeout(() => {
+    void (async () => {
       let utmAttrs: { source?: string; medium?: string; campaign?: string; term?: string; content?: string } = {};
       try {
         const rawUtm = sessionStorage.getItem(`unityteck_utm_${activeStore.id}`);
@@ -602,71 +613,105 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
         return null;
       })();
       const resolvedSource = utmMapped || checkoutOrderSource || 'Direct';
+      const paymentMethod =
+        paymentChoice === 'mada'
+          ? 'Mada'
+          : paymentChoice === 'apple_pay'
+            ? 'Apple Pay'
+            : paymentChoice === 'tabby'
+              ? 'Visa/MC'
+              : 'COD';
 
-      addOrder({
-        customerName: customer.name,
-        customerPhone: customer.phone || '+966 50 000 0000',
-        itemsCount: cart.reduce((sum, item) => sum + item.quantity, 0),
-        itemsSummary: cart.map(i => `${i.product.name} (x${i.quantity})`).join(', '),
-        total: totalSnapshot,
-        shippingFee: shippingFee,
-        shippingCompany: 'Saudi Post (SPL)',
-        source: resolvedSource,
-        sourceDetails: `Public Storefront Web Checkout · Source: ${resolvedSource} · Makkah Delivery (${districtSnapshot}) · ${customer.email}${utmAttrs.campaign ? ` · Campaign: ${utmAttrs.campaign}` : ''}`,
-        deliveryLocation: districtSnapshot,
-        shippingAddress: `${districtSnapshot}, Makkah, Kingdom of Saudi Arabia`,
-        status: 'pending',
-        paymentMethod:
-          paymentChoice === 'mada'
-            ? 'Mada'
-            : paymentChoice === 'apple_pay'
-              ? 'Apple Pay'
-              : paymentChoice === 'tabby'
-                ? 'Visa/MC'
-                : 'COD',
-        medium: utmAttrs.medium || (resolvedSource === 'Direct' ? 'Direct' : 'Web'),
-        campaign: utmAttrs.campaign,
-        utmTerm: utmAttrs.term,
-        utmContent: utmAttrs.content,
-      });
-
-      // Fire GA4 ecommerce purchase event if gtag is available
-      if (typeof window !== 'undefined' && (window as unknown as { gtag?: (...args: unknown[]) => void }).gtag) {
-        try {
-          (window as unknown as { gtag: (...args: unknown[]) => void }).gtag('event', 'purchase', {
-            transaction_id: orderRef,
-            value: totalSnapshot,
-            currency: 'SAR',
-            items: cart.map(i => ({
-              item_id: i.product.id,
-              item_name: i.product.name,
-              price: i.product.price,
+      try {
+        const persisted = await submitPublicStorefrontOrder(
+          activeStore.id,
+          {
+            customerName: customer.name,
+            customerPhone: customer.phone || '+966 50 000 0000',
+            customerEmail: customer.email,
+            total: totalSnapshot,
+            deliveryLocation: districtSnapshot,
+            status: 'pending',
+            paymentMethod,
+            paymentStatus: paymentChoice === 'cod' ? 'pending' : 'paid',
+            source: resolvedSource,
+            sourceDetails: `Public Storefront Web Checkout · Source: ${resolvedSource} · Makkah Delivery (${districtSnapshot}) · ${customer.email}${utmAttrs.campaign ? ` · Campaign: ${utmAttrs.campaign}` : ''}`,
+            items: cart.map((i) => ({
+              id: i.product.id,
+              name: i.product.name,
               quantity: i.quantity,
+              price: i.product.price,
             })),
-          });
-        } catch {
-          // ignore
+          },
+          {
+            syncOrderFromApi,
+            addOrder,
+            toAddOrderPayload: () => ({
+              customerName: customer.name,
+              customerPhone: customer.phone || '+966 50 000 0000',
+              itemsCount: cart.reduce((sum, item) => sum + item.quantity, 0),
+              itemsSummary: cart.map((i) => `${i.product.name} (x${i.quantity})`).join(', '),
+              total: totalSnapshot,
+              shippingFee: shippingFee,
+              shippingCompany: 'Saudi Post (SPL)',
+              source: resolvedSource,
+              sourceDetails: `Public Storefront Web Checkout · Source: ${resolvedSource} · Makkah Delivery (${districtSnapshot}) · ${customer.email}${utmAttrs.campaign ? ` · Campaign: ${utmAttrs.campaign}` : ''}`,
+              deliveryLocation: districtSnapshot,
+              shippingAddress: `${districtSnapshot}, Makkah, Kingdom of Saudi Arabia`,
+              status: 'pending',
+              paymentMethod,
+              medium: utmAttrs.medium || (resolvedSource === 'Direct' ? 'Direct' : 'Web'),
+              campaign: utmAttrs.campaign,
+              utmTerm: utmAttrs.term,
+              utmContent: utmAttrs.content,
+            }),
+          },
+        );
+
+        const orderRef = persisted.orderNumber || persisted.id;
+
+        if (typeof window !== 'undefined' && (window as unknown as { gtag?: (...args: unknown[]) => void }).gtag) {
+          try {
+            (window as unknown as { gtag: (...args: unknown[]) => void }).gtag('event', 'purchase', {
+              transaction_id: orderRef,
+              value: totalSnapshot,
+              currency: 'SAR',
+              items: cart.map((i) => ({
+                item_id: i.product.id,
+                item_name: i.product.name,
+                price: i.product.price,
+                quantity: i.quantity,
+              })),
+            });
+          } catch {
+            // ignore
+          }
         }
+
+        clearCart();
+        setCouponApplied(false);
+        setCouponCode('');
+        setCheckoutComplete(false);
+        setShowCartDrawer(false);
+        setLastThankYou({ ref: orderRef, total: totalSnapshot, district: districtSnapshot });
+        setSfPage('thankyou');
+        setOrderToast({
+          message:
+            lang === 'ar'
+              ? `تم استلام طلبك بنجاح لدى ${storeIdentity.storeName || activeStore.name}!`
+              : `Order placed successfully at ${storeIdentity.storeName || activeStore.name}!`,
+          show: true,
+        });
+        setTimeout(() => setOrderToast(null), 4000);
+      } catch {
+        setCheckoutComplete(false);
+        setOrderToast({
+          message: lang === 'ar' ? 'تعذر إتمام الطلب. حاول مرة أخرى.' : 'Could not place order. Please try again.',
+          show: true,
+        });
+        setTimeout(() => setOrderToast(null), 4000);
       }
-
-      clearCart();
-      setCouponApplied(false);
-      setCouponCode('');
-      setCheckoutComplete(false);
-      setShowCartDrawer(false);
-      setLastThankYou({ ref: orderRef, total: totalSnapshot, district: districtSnapshot });
-      setSfPage('thankyou');
-      setOrderToast({
-        message: lang === 'ar'
-          ? `تم استلام طلبك بنجاح لدى ${storeIdentity.storeName || activeStore.name}!`
-          : `Order placed successfully at ${storeIdentity.storeName || activeStore.name}!`,
-        show: true,
-      });
-
-      setTimeout(() => {
-        setOrderToast(null);
-      }, 4000);
-    }, 1200);
+    })();
   };
 
   const handleCheckout = () => {
@@ -1321,6 +1366,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
             money={money}
             onBack={() => setSfPage('home')}
             initialOrderRef={lastThankYou?.ref}
+            storeId={activeStore.id}
           />
         ) : sfPage === 'blog' ? (
           <BlogPageView
@@ -1346,7 +1392,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
               {customPageContent?.body || (lang === 'ar' ? 'أهلاً بكم في متجرنا بمكة المكرمة.' : 'Welcome to our specialized boutique page.')}
             </div>
           </div>
-        ) : getStorePageBySlug(activeStore.id, sfPage, activeStore) ? (() => {
+        ) : contentPagesReady >= 0 && getStorePageBySlug(activeStore.id, sfPage, activeStore) ? (() => {
           const storePage = getStorePageBySlug(activeStore.id, sfPage, activeStore)!;
           return (
             <div className="p-6 sm:p-12 max-w-4xl mx-auto space-y-6 min-h-[420px]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>

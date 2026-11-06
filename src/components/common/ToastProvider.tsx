@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
+import { toUserFriendlyError } from '../../utils/userFriendlyError';
 
 type ToastKind = 'success' | 'error' | 'info' | 'warning';
 
@@ -57,7 +58,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const toast = useCallback(
     (message: string, kind: ToastKind = 'info') => {
       const id = nextId++;
-      setItems((prev) => [...prev.slice(-2), { id, kind, message }]);
+      // Errors from API / catch blocks may be technical — always sanitize for UI.
+      const safeMessage =
+        kind === 'error' || kind === 'warning'
+          ? toUserFriendlyError(message)
+          : message;
+      setItems((prev) => [...prev.slice(-2), { id, kind, message: safeMessage }]);
       window.setTimeout(() => dismiss(id), 3500);
     },
     [dismiss],

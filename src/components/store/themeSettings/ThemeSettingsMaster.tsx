@@ -47,6 +47,8 @@ import { CustomProductsForm } from './CustomProductsForm';
 import { SpecialOfferCountdownForm } from './SpecialOfferCountdownForm';
 import { StoreStatisticsForm } from './StoreStatisticsForm';
 import { ConnectedWorkspaceBanner } from '../../common/ConnectedWorkspaceBanner';
+import { CoffeeThemeSettingsHub } from './coffee/CoffeeThemeSettingsHub';
+import { isCoffeeStore } from '../../../themes/settings/coffeeThemeDefaults';
 
 export interface ThemeSectionMeta {
   id: string;
@@ -264,15 +266,18 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
 interface ThemeSettingsMasterProps {
   onOpenStorefront?: () => void;
   onOpenThemeCustomizer?: (sectionId?: string) => void;
+  onOpenPageBuilder?: () => void;
 }
 
 export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
   onOpenStorefront,
   onOpenThemeCustomizer,
+  onOpenPageBuilder,
 }) => {
   const { activeStore } = useTenant();
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
+  const coffeeStore = isCoffeeStore(activeStore);
 
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -299,6 +304,37 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
   const activeSection = useMemo(() => {
     return THEME_SECTIONS.find((s) => s.id === activeSectionId);
   }, [activeSectionId]);
+
+  if (coffeeStore) {
+    return (
+      <div className="space-y-6">
+        <ConnectedWorkspaceBanner page="settings" />
+        <div
+          className="p-5 rounded-2xl border"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black">
+              <Palette className="w-4 h-4" />
+            </span>
+            <h2 className="text-lg font-black tracking-tight">
+              {isAr ? 'إعدادات ثيم متجر القهوة' : 'Coffee Store Theme Settings'}
+            </h2>
+          </div>
+          <p className="text-xs text-muted mb-4">
+            {isAr
+              ? 'أقسام وثيقة ثيم القهوة فقط — الصور والنصوص يضبطها التاجر من الإعدادات (ديناميكي بالكامل).'
+              : 'Coffee Word sections only — merchant sets all images and copy in settings (fully dynamic).'}
+          </p>
+          <CoffeeThemeSettingsHub
+            onOpenStorefront={onOpenStorefront}
+            onOpenThemeCustomizer={onOpenThemeCustomizer}
+            onOpenPageBuilder={onOpenPageBuilder}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

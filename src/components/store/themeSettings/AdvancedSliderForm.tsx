@@ -24,6 +24,7 @@ import {
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { MediaUploadField } from '../../common/MediaUploadField';
 import {
   readAllThemeSettings,
   writeAllThemeSettings,
@@ -70,20 +71,7 @@ export const AdvancedSliderForm: React.FC = () => {
 
   const slides = settings.slides && settings.slides.length > 0 ? settings.slides : [];
   const safeIdx = Math.min(activeSlideIdx, Math.max(0, slides.length - 1));
-  const activeSlide: SliderSlide = slides[safeIdx] || {
-    id: 'slide-fallback',
-    type: 'image',
-    image: '/hero_coffee_banner_white_1.jpg',
-    title: 'HiBrew Barista Pro™ H7A',
-    subtitle: 'Dual independent PID thermoblock & 20-bar Italian pump.',
-    buttonText: 'Shop Now →',
-    buttonUrl: '#products',
-    badge: 'Flagship',
-    buttonBgColor: '#c88a58',
-    buttonTextColor: '#FFFFFF',
-    buttonStyle: 'filled',
-    buttonBorderRadius: 12,
-  };
+  const activeSlide: SliderSlide | null = slides[safeIdx] || null;
 
   const updateActiveSlide = (patch: Partial<SliderSlide>) => {
     setSettings((prev) => {
@@ -94,51 +82,27 @@ export const AdvancedSliderForm: React.FC = () => {
   };
 
   const handleAddSlide = () => {
-    const isCoffee = activeStore.id === 'store-coffee' || activeStore.category?.includes('قهوة');
-    const isCar = activeStore.id === 'store-bleco' || activeStore.category?.includes('سيارات');
-
     const newSlide: SliderSlide = {
       id: `slide-${Date.now()}`,
       type: 'image',
-      image: isCoffee
-        ? '/hero_coffee_banner_white_1.jpg'
-        : isCar
-        ? 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1920&q=80'
-        : 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80',
-      title: isCoffee
-        ? (isAr ? 'ماكينة قهوة احترافية جديدة' : 'New Flagship Espresso Machine')
-        : isCar
-        ? (isAr ? 'تفصيل أرضيات جلدية جديدة' : 'New Custom Leather Floor Mats')
-        : (isAr ? 'باقة ورد طبيعي فاخرة' : 'New Luxury Floral Bouquet'),
-      titleAr: isCoffee ? 'ماكينة قهوة احترافية جديدة' : isCar ? 'تفصيل أرضيات جلدية جديدة' : 'باقة ورد طبيعي فاخرة',
-      titleEn: isCoffee ? 'New Flagship Espresso Machine' : isCar ? 'New Custom Leather Floor Mats' : 'New Luxury Floral Bouquet',
-      subtitle: isCoffee
-        ? (isAr ? 'استخلاص متطور بضغط 20 بار مع تحكم حراري دقيق.' : 'Advanced 20-bar extraction with precision PID temperature.')
-        : isCar
-        ? (isAr ? 'تفصيل دقيق لكافة موديلات السيارات مع ضمان 5 سنوات.' : 'Precision laser fit for all vehicle makes with 5-year warranty.')
-        : (isAr ? 'ورود طبيعية مستوردة طازجة للمناسبات السعيدة.' : 'Fresh imported natural flowers crafted for sacred moments.'),
-      subtitleAr: isCoffee
-        ? 'استخلاص متطور بضغط 20 بار مع تحكم حراري دقيق.'
-        : isCar
-        ? 'تفصيل دقيق لكافة موديلات السيارات مع ضمان 5 سنوات.'
-        : 'ورود طبيعية مستوردة طازجة للمناسبات السعيدة.',
-      subtitleEn: isCoffee
-        ? 'Advanced 20-bar extraction with precision PID temperature.'
-        : isCar
-        ? 'Precision laser fit for all vehicle makes with 5-year warranty.'
-        : 'Fresh imported natural flowers crafted for sacred moments.',
-      buttonText: isAr ? 'تسوّق الآن →' : 'Shop Now →',
-      buttonTextAr: 'تسوّق الآن →',
-      buttonTextEn: 'Shop Now →',
-      buttonUrl: '#products',
-      buttonBgColor: isCoffee ? '#c88a58' : isCar ? '#d97706' : '#059669',
+      image: '',
+      title: '',
+      titleAr: '',
+      titleEn: '',
+      subtitle: '',
+      subtitleAr: '',
+      subtitleEn: '',
+      buttonText: '',
+      buttonTextAr: '',
+      buttonTextEn: '',
+      buttonUrl: '',
       buttonTextColor: '#FFFFFF',
       buttonIcon: 'ShoppingBag',
       buttonStyle: 'filled',
       buttonBorderRadius: 12,
-      badge: isAr ? 'وصل حديثاً' : 'New Arrival',
-      badgeAr: 'وصل حديثاً',
-      badgeEn: 'New Arrival',
+      badge: '',
+      badgeAr: '',
+      badgeEn: '',
     };
 
     setSettings((prev) => ({
@@ -206,7 +170,7 @@ export const AdvancedSliderForm: React.FC = () => {
       on ? 'bg-emerald-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
     }`;
 
-  const SelectedButtonIcon = BUTTON_ICON_MAP[activeSlide.buttonIcon || 'ShoppingBag'] || ShoppingBag;
+  const SelectedButtonIcon = BUTTON_ICON_MAP[activeSlide?.buttonIcon || 'ShoppingBag'] || ShoppingBag;
 
   return (
     <div className="space-y-4 text-slate-900 dark:text-slate-100 font-sans">
@@ -403,7 +367,7 @@ export const AdvancedSliderForm: React.FC = () => {
       </div>
 
       {/* SUB-SECTION 1: TEXTS & BADGE */}
-      {activeControlTab === 'content' && (
+      {activeControlTab === 'content' && activeSlide && (
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3.5 animate-in fade-in duration-200 shadow-2xs text-xs">
           <div>
             <label className="text-[10px] font-bold text-slate-400 block mb-1">
@@ -445,7 +409,7 @@ export const AdvancedSliderForm: React.FC = () => {
       )}
 
       {/* SUB-SECTION 2: BUTTON CUSTOMIZATION (CTA) */}
-      {activeControlTab === 'button' && (
+      {activeControlTab === 'button' && activeSlide && (
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3.5 animate-in fade-in duration-200 shadow-2xs text-xs">
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -562,46 +526,18 @@ export const AdvancedSliderForm: React.FC = () => {
       )}
 
       {/* SUB-SECTION 3: IMAGE & MEDIA */}
-      {activeControlTab === 'media' && (
+      {activeControlTab === 'media' && activeSlide && (
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3.5 animate-in fade-in duration-200 shadow-2xs text-xs">
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 block mb-1">
-              {isAr ? 'رابط صورة البانر (URL)' : 'Banner Image URL'}
-            </label>
-            <input
-              type="text"
-              value={activeSlide.image || ''}
-              onChange={(e) => updateActiveSlide({ image: e.target.value })}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono text-slate-900 dark:text-white"
-              dir="ltr"
-            />
-          </div>
-
-          {/* Preset fast galleries tailored to active store */}
-          <div>
-            <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1.5">
-              {isAr ? 'صور سريعة مقترحة لمتجرك' : 'Suggested Store Images'}
-            </span>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { url: '/hero_coffee_banner_white_1.jpg', label: 'Flagship H7A' },
-                { url: '/hero_coffee_banner_white_2.jpg', label: 'Titanium Mill' },
-                { url: '/hero_coffee_banner_white_3.jpg', label: 'Luxury Bar' },
-              ].map((preset, pIdx) => (
-                <button
-                  key={pIdx}
-                  type="button"
-                  onClick={() => updateActiveSlide({ image: preset.url })}
-                  className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-emerald-500 bg-slate-50 dark:bg-slate-800 text-start cursor-pointer group transition-all"
-                >
-                  <img src={preset.url} alt="" className="w-full h-12 object-cover rounded-lg mb-1" />
-                  <span className="text-[9px] font-bold block truncate text-slate-600 dark:text-slate-300 group-hover:text-emerald-600">
-                    {preset.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
+          <MediaUploadField
+            label={isAr ? 'صورة الشريحة' : 'Slide image'}
+            value={activeSlide.image || ''}
+            onChange={(url) => updateActiveSlide({ image: url })}
+            altText={activeSlide.imageAlt || (isAr ? activeSlide.titleAr : activeSlide.titleEn) || activeSlide.title}
+            onAltTextChange={(alt) => updateActiveSlide({ imageAlt: alt })}
+            aspectRatio="banner"
+            initialFolder="banners"
+            recommendedSize="1920 × 800 px"
+          />
         </div>
       )}
 

@@ -11,6 +11,8 @@ export interface WindowedPaginationProps {
   isAr?: boolean;
   itemLabel?: string;
   pageSizeOptions?: number[];
+  /** Cumulative rows already on screen (scroll-to-load). Range stays 1–shown. */
+  shownCount?: number;
 }
 
 export function getPaginationWindow(currentPage: number, totalPages: number): (number | '...')[] {
@@ -36,11 +38,20 @@ export const WindowedPagination: React.FC<WindowedPaginationProps> = ({
   isAr = false,
   itemLabel,
   pageSizeOptions = [10, 25, 50, 100],
+  shownCount,
 }) => {
   const safePage = Math.min(Math.max(1, currentPage), Math.max(1, totalPages));
   const pages = getPaginationWindow(safePage, Math.max(1, totalPages));
-  const fromRecord = totalCount > 0 ? (safePage - 1) * pageSize + 1 : 0;
-  const toRecord = Math.min(safePage * pageSize, totalCount);
+  const fromRecord =
+    shownCount != null
+      ? totalCount > 0
+        ? 1
+        : 0
+      : totalCount > 0
+        ? (safePage - 1) * pageSize + 1
+        : 0;
+  const toRecord =
+    shownCount != null ? Math.min(shownCount, totalCount) : Math.min(safePage * pageSize, totalCount);
 
   const defaultItemLabel = isAr ? 'عنصر' : 'items';
   const label = itemLabel || defaultItemLabel;

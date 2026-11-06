@@ -82,7 +82,7 @@ export const StoreOverviewHeader: React.FC<StoreOverviewHeaderProps> = React.mem
           <button
             type="button"
             onClick={() => setShowDatePicker((prev) => !prev)}
-            className="inline-flex items-center justify-between gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-800 shadow-2xs hover:border-teal-500/50"
+            className="w-full sm:w-auto inline-flex items-center justify-between gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-800 shadow-2xs hover:border-teal-500/50"
           >
             <Calendar className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300 shrink-0" />
             <span className="truncate">{selectedRangeLabel}</span>
@@ -124,7 +124,7 @@ export const StoreOverviewHeader: React.FC<StoreOverviewHeaderProps> = React.mem
       </div>
 
       {/* ── Action Required Alert Banner (Pixel-perfect Amber Banner) ── */}
-      {!isAlertDismissed && (
+      {!isAlertDismissed && (missingSettingsCount ?? 0) > 0 && (
         <div className="p-3.5 sm:p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/90 dark:bg-amber-950/25 border-amber-200/90 dark:border-amber-800/50 transition-all">
           <div className="flex items-start sm:items-center gap-3 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-300/60 dark:border-amber-700/60 mt-0.5 sm:mt-0">
@@ -205,7 +205,7 @@ export const StoreOverviewHeader: React.FC<StoreOverviewHeaderProps> = React.mem
             <button
               type="button"
               onClick={() => setIsAlertDismissed(true)}
-              aria-label="Dismiss alert"
+              aria-label={isAr ? 'إغلاق التنبيه' : 'Dismiss alert'}
               className="p-1 rounded-lg text-amber-700 dark:text-amber-400 hover:bg-amber-200/60 dark:hover:bg-amber-900/60 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />

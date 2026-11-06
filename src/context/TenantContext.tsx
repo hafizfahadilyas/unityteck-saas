@@ -83,12 +83,62 @@ import {
 } from '../api/cacheTags';
 import * as tenantApi from '../api/tenantApi';
 import { readAuthSession, writeAuthSession, hasLiveApiAuth, clearAuthSession } from '../auth/session';
+import { exchangeClerkForSanctum } from '../auth/api';
 import { DEFAULT_COMMERCE_THEME_ID, defaultThemeSettings } from '../auth/defaultTheme';
 import { effectivePlanCode } from '../auth/plans';
 import { canDeleteEntities } from '../auth/roles';
+import { toUserFriendlyError } from '../utils/userFriendlyError';
 
 const API_MODE = isApiEnabled();
 const isLiveApiActive = () => API_MODE && hasLiveApiAuth();
+
+/** Drop oversized browser snapshots so first paint is not stuck on JSON.parse. Live API refills. */
+function purgeHeavyDashboardCaches(): void {
+  if (typeof localStorage === 'undefined') return;
+  const limits: Record<string, number> = {
+    unityteck_products_map: 480_000,
+    unityteck_customers_map: 480_000,
+    unityteck_media_map: 240_000,
+    unityteck_orders_map: 80_000,
+    unityteck_coupons_map: 200_000,
+  };
+  try {
+    for (const [key, max] of Object.entries(limits)) {
+      const raw = localStorage.getItem(key);
+      if (raw && raw.length > max) localStorage.removeItem(key);
+    }
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+function readLeanLocalJson<T>(key: string, maxChars: number): T | null {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    if (raw.length > maxChars) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+purgeHeavyDashboardCaches();
+
+function mergeOrdersKeepItems(prevList: Order[], incoming: Order[]): Order[] {
+  if (!prevList.length) return incoming;
+  const prevById = new Map(prevList.map((o) => [o.id, o]));
+  return incoming.map((o) => {
+    if (o.items && o.items.length > 0) return o;
+    const old = prevById.get(o.id);
+    if (old?.items && old.items.length > 0) return { ...o, items: old.items };
+    return o;
+  });
+}
 
 /** Safe shell until Laravel stores load — never shown as fake commerce metrics. */
 const PLACEHOLDER_STORE: Store = {
@@ -145,7 +195,10 @@ interface TenantContextType {
   toggleMasterGrant: (storeId: string) => void;
   toggleStoreStatus: (storeId: string) => void;
   updateStorePlan: (storeId: string, plan: PlanType) => void;
+  updateCanvaTemplatesPerCategory: (storeId: string, limit: number | null) => void;
   updateStoreLanguages: (storeId: string, languages: { english: boolean; arabic: boolean }) => void;
+  /** Master SuperAdmin only — change store login / owner email. */
+  updateStoreOwnerEmail: (storeId: string, ownerEmail: string) => void;
   deleteStore: (storeId: string) => void;
 
   // Platform Metrics
@@ -212,7 +265,12 @@ interface TenantContextType {
 
   currentOrders: Order[];
   allOrders: Record<string, Order[]>;
-  addOrder: (order: Omit<Order, 'id' | 'storeId' | 'orderNumber' | 'date'>, targetStoreId?: string) => void;
+  addOrder: (
+    order: Omit<Order, 'id' | 'storeId' | 'orderNumber' | 'date'> & { date?: string },
+    targetStoreId?: string,
+  ) => Promise<Order>;
+  /** Insert or replace an order row returned from Laravel (storefront or authenticated create). */
+  syncOrderFromApi: (order: Order, targetStoreId?: string) => void;
   updateOrderStatus: (orderId: string, status: Order['status'], targetStoreId?: string) => void;
   updateOrder: (orderId: string, patch: Partial<Order>, targetStoreId?: string) => void;
   processOrderReturn: (
@@ -242,6 +300,7 @@ interface TenantContextType {
   currentCoupons: CouponItem[];
   allCoupons: Record<string, CouponItem[]>;
   addCoupon: (coupon: Omit<CouponItem, 'id' | 'storeId' | 'usageCount'>) => void;
+  updateCoupon: (couponId: string, patch: Partial<CouponItem>) => void;
   deleteCoupon: (couponId: string) => void;
   toggleCouponStatus: (couponId: string) => void;
   recordCouponUsage: (code: string) => void;
@@ -416,7 +475,9 @@ export function createFallbackTenantContext(): TenantContextType {
     toggleMasterGrant: () => {},
     toggleStoreStatus: () => {},
     updateStorePlan: () => {},
+    updateCanvaTemplatesPerCategory: () => {},
     updateStoreLanguages: () => {},
+    updateStoreOwnerEmail: () => {},
     deleteStore: () => {},
     platformMetrics: {
       totalRevenue: 28450,
@@ -481,7 +542,8 @@ export function createFallbackTenantContext(): TenantContextType {
     togglePublishProduct: () => {},
     currentOrders: [],
     allOrders: {},
-    addOrder: () => {},
+    addOrder: async () => ({}) as Order,
+    syncOrderFromApi: () => {},
     updateOrderStatus: () => {},
     updateOrder: () => {},
     processOrderReturn: async () => {},
@@ -489,6 +551,7 @@ export function createFallbackTenantContext(): TenantContextType {
     deleteOrder: () => {},
     currentCoupons: (INITIAL_COUPONS && store && INITIAL_COUPONS[store.id]) || [],
     addCoupon: () => {},
+    updateCoupon: () => {},
     toggleCouponStatus: () => {},
     deleteCoupon: () => {},
     currentShipping: (INITIAL_SHIPPING && store && INITIAL_SHIPPING[store.id]) || [],
@@ -661,7 +724,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         ) {
           return 'store-bleco';
         }
-        if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html')) {
+        const host = (window.location.hostname || '').toLowerCase().replace(/^www\./, '');
+        if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html') || host === 'mieraf-ksa.com') {
           return 'store-coffee';
         }
         if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || s === 'giftshop' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
@@ -736,7 +800,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           p.startsWith('/bleco')
         ) {
           targetId = 'store-bleco';
-        } else if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html')) {
+        } else if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html') || (window.location.hostname || '').toLowerCase().replace(/^www\./, '') === 'mieraf-ksa.com') {
           targetId = 'store-coffee';
         } else if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || s === 'giftshop' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
           targetId = 'store-1';
@@ -764,7 +828,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
   const [dataSource, setDataSource] = useState<'mock' | 'api'>(() => (isLiveApiActive() ? 'api' : 'mock'));
   const [apiReady, setApiReady] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const [apiError, setApiErrorState] = useState<string | null>(null);
+  /** Always store merchant-safe copy — never SQL / HTTP / artisan dumps. */
+  const setApiError = useCallback((msg: string | null) => {
+    if (msg == null || String(msg).trim() === '') {
+      setApiErrorState(null);
+      return;
+    }
+    setApiErrorState(toUserFriendlyError(msg));
+  }, []);
   const dataSourceRef = useRef<'mock' | 'api'>(isLiveApiActive() ? 'api' : 'mock');
   dataSourceRef.current = dataSource;
   const activeStoreIdRef = useRef(activeStoreId);
@@ -774,6 +846,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   
   // Isolated data sets with localStorage lifetime persistence
   const [customersMap, setCustomersMap] = useState<Record<string, Customer[]>>(() => {
+    if (API_MODE) {
+      return readLeanLocalJson<Record<string, Customer[]>>('unityteck_customers_map', 480_000) || {};
+    }
     try {
       if (typeof localStorage !== 'undefined') {
         const saved = localStorage.getItem('unityteck_customers_map');
@@ -797,7 +872,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
     } catch {}
-    return isLiveApiActive() ? {} : INITIAL_CUSTOMERS;
+    return API_MODE ? {} : INITIAL_CUSTOMERS;
   });
 
   const saveCustomersMap = (map: Record<string, Customer[]>) => {
@@ -813,12 +888,20 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   );
 
   const [productsMap, setProductsMap] = useState<Record<string, Product[]>>(() => {
+    if (API_MODE) {
+      return readLeanLocalJson<Record<string, Product[]>>('unityteck_products_map', 480_000) || {};
+    }
     try {
       if (typeof localStorage !== 'undefined') {
         const saved = localStorage.getItem('unityteck_products_map');
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            // Live API mode: keep last cached catalog as-is. Never "heal" with
+            // INITIAL_* seeds — that wiped real Hostinger rows (e.g. coffee 15→5).
+            if (API_MODE) {
+              return parsed;
+            }
             let updated = false;
             Object.keys(INITIAL_PRODUCTS).forEach((storeId) => {
               const initList = INITIAL_PRODUCTS[storeId] || [];
@@ -838,22 +921,23 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               parsed['store-bleco'] = INITIAL_PRODUCTS['store-bleco'];
               updated = true;
             }
+            // Coffee heal (mock mode only): legacy Ethiopian demos / truncated catalog.
             const coffeeProds = parsed['store-coffee'];
-            const hasOldCoffee =
-              !coffeeProds ||
-              !Array.isArray(coffeeProds) ||
+            const initCoffee = INITIAL_PRODUCTS['store-coffee'] || [];
+            const hasLegacyEthiopianBeans =
+              Array.isArray(coffeeProds) &&
               coffeeProds.some(
                 (p: Product) =>
                   p.id === 'cof-prod-101' ||
-                  p.sku?.startsWith('COF-ETH-') ||
-                  p.id === 'hb-nordic-cabinet' ||
-                  p.id === 'hb-doublewall-paper-cups' ||
-                  p.id === 'hb-boltfilter-58-naked' ||
-                  p.id === 'hb-mill-g5-pro' ||
-                  (p.image && p.image.endsWith('.jpg')),
+                  p.id === 'cof-prod-102' ||
+                  Boolean(p.sku?.startsWith('COF-ETH-')),
               );
-            if (hasOldCoffee) {
-              parsed['store-coffee'] = INITIAL_PRODUCTS['store-coffee'];
+            const coffeeTooShort =
+              !coffeeProds ||
+              !Array.isArray(coffeeProds) ||
+              coffeeProds.length < initCoffee.length;
+            if (hasLegacyEthiopianBeans || coffeeTooShort) {
+              parsed['store-coffee'] = initCoffee;
               updated = true;
             }
             if (updated) {
@@ -864,24 +948,81 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
     } catch {}
-    return isLiveApiActive() ? {} : INITIAL_PRODUCTS;
+    return API_MODE ? {} : INITIAL_PRODUCTS;
   });
 
   const saveProductsMap = (map: Record<string, Product[]>) => {
     try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('unityteck_products_map', JSON.stringify(map));
+      if (typeof localStorage === 'undefined') return;
+      const raw = JSON.stringify(map);
+      if (raw.length > 480_000) {
+        localStorage.removeItem('unityteck_products_map');
+        return;
       }
+      localStorage.setItem('unityteck_products_map', raw);
     } catch {}
   };
 
+  /** Apply API catalog + persist. Never replace a populated list with [] (transient empty). */
+  const applyProductsFromApi = useCallback((storeId: string, products: Product[]) => {
+    if (!storeId || !Array.isArray(products)) return;
+    setProductsMap((prev) => {
+      const prevList = Array.isArray(prev[storeId]) ? prev[storeId] : [];
+      if (products.length === 0 && prevList.length > 0) {
+        return prev;
+      }
+      // A short page must not wipe a fuller catalog already on screen.
+      let nextList = products;
+      if (prevList.length > products.length) {
+        const incoming = new Map(products.map((p) => [p.id, p]));
+        nextList = prevList.map((p) => incoming.get(p.id) ?? p);
+        for (const row of products) {
+          if (!prevList.some((p) => p.id === row.id)) nextList.push(row);
+        }
+      }
+      const next = { ...prev, [storeId]: nextList };
+      saveProductsMap(next);
+      return next;
+    });
+    if (products.length > 0) {
+      setStores((prev) =>
+        prev.map((s) =>
+          s.id === storeId
+            ? { ...s, productsCount: Math.max(s.productsCount || 0, products.length) }
+            : s,
+        ),
+      );
+    }
+  }, []);
+
+  // Public catalog is the list that fills Products. Do this even with a Sanctum
+  // token — /products?all=1 was timing out behind orders and leaving the table empty.
+  useEffect(() => {
+    if (!API_MODE || !activeStoreId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const page = await tenantApi.fetchProductsPage(activeStoreId, { page: 1, per_page: 24, sort: 'updated_at', dir: 'desc' });
+        if (cancelled || !Array.isArray(page.data) || page.data.length === 0) return;
+        applyProductsFromApi(activeStoreId, page.data);
+        setApiError(null);
+        setCacheEpoch((n) => n + 1);
+      } catch {
+        /* keep whatever catalog is already in memory */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStoreId, applyProductsFromApi, setApiError]);
+
   const [ordersMap, setOrdersMap] = useState<Record<string, Order[]>>(() => {
-    // Prefer live API when available; until then hydrate demo seed (Makkah = 6 orders).
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem('unityteck_orders_map');
       }
     } catch {}
+    if (API_MODE) return {};
     return {
       'store-1': [...(INITIAL_ORDERS['store-1'] || [])],
       'store-coffee': [...(INITIAL_ORDERS['store-coffee'] || [])],
@@ -948,7 +1089,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (Array.isArray(parsed) && parsed.length > 0) {
             return parsed.map((u: UpdateRelease) => ({
               ...u,
-              deployedStoreIds: Array.from(new Set([...(u.deployedStoreIds || []), 'store-1', 'store-coffee', 'store-bleco'])),
+              deployedStoreIds: Array.from(new Set(u.deployedStoreIds || [])),
             }));
           }
         }
@@ -961,18 +1102,40 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     API_MODE ? [] : INITIAL_AUDIT_LOGS,
   );
 
-  // Multi-Theme System: Completely isolated per store. No store can see another store's themes.
+  // Multi-Theme System: installed themes are per store. Marketplace may list others as paid only.
   const [allStoreThemes, setAllStoreThemes] = useState<Record<string, ThemeItem[]>>(() => {
+    const healCoffeeOneTheme = (map: Record<string, ThemeItem[]>): Record<string, ThemeItem[]> => {
+      const coffeeList = map['store-coffee'];
+      if (!Array.isArray(coffeeList) || coffeeList.length <= 1) return map;
+      const official =
+        coffeeList.find((t) => t.id === 'theme-coffee-artisan' || t.id === 'theme-coffee') ||
+        coffeeList.find((t) => t.isDefault) ||
+        coffeeList[0];
+      if (!official) return map;
+      const next = {
+        ...map,
+        'store-coffee': [{ ...official, id: 'theme-coffee-artisan', isDefault: true, storeId: 'store-coffee' }],
+      };
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('unityteck_store_themes_map', JSON.stringify(next));
+        }
+      } catch {
+        /* ignore */
+      }
+      return next;
+    };
+
     try {
       if (typeof localStorage !== 'undefined') {
         const saved = localStorage.getItem('unityteck_store_themes_map');
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed && typeof parsed === 'object') return parsed;
+          if (parsed && typeof parsed === 'object') return healCoffeeOneTheme(parsed);
         }
       }
     } catch {}
-    return INITIAL_STORE_THEMES;
+    return healCoffeeOneTheme({ ...INITIAL_STORE_THEMES });
   });
 
   const saveStoreThemesMap = (map: Record<string, ThemeItem[]>) => {
@@ -984,19 +1147,40 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const [storeActiveTheme, setStoreActiveTheme] = useState<Record<string, string>>(() => {
-    try {
-      if (typeof localStorage !== 'undefined') {
-        const saved = localStorage.getItem('unityteck_store_active_theme_map');
-        if (saved) return JSON.parse(saved);
-      }
-    } catch {
-      /* fallback */
-    }
-    return {
+    const defaults = {
       'store-1': 'theme-flora-luxe',
       'store-coffee': 'theme-coffee-artisan',
       'store-bleco': 'theme-saudia-transport',
     };
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem('unityteck_store_active_theme_map');
+        if (saved) {
+          const parsed = JSON.parse(saved) as Record<string, string>;
+          // Coffee: only official theme stays active (drop removed coffee skins)
+          const coffeeActive = parsed['store-coffee'];
+          if (
+            coffeeActive &&
+            coffeeActive !== 'theme-coffee-artisan' &&
+            coffeeActive !== 'theme-coffee' &&
+            (coffeeActive.includes('coffee') || coffeeActive.includes('hibrew'))
+          ) {
+            parsed['store-coffee'] = 'theme-coffee-artisan';
+            try {
+              localStorage.setItem('unityteck_store_active_theme_map', JSON.stringify(parsed));
+            } catch {
+              /* ignore */
+            }
+          } else if (!coffeeActive) {
+            parsed['store-coffee'] = 'theme-coffee-artisan';
+          }
+          return { ...defaults, ...parsed };
+        }
+      }
+    } catch {
+      /* fallback */
+    }
+    return defaults;
   });
   const [storeActiveHomepage, setStoreActiveHomepage] = useState<Record<string, string>>(() => {
     try {
@@ -1062,6 +1246,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Central Media Library (Store isolated with automated cross-niche healing)
   const [mediaMap, setMediaMap] = useState<Record<string, MediaAsset[]>>(() => {
+    if (API_MODE) {
+      return readLeanLocalJson<Record<string, MediaAsset[]>>('unityteck_media_map', 240_000) || {};
+    }
     try {
       const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('unityteck_media_map') : null;
       if (saved) {
@@ -1159,109 +1346,124 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [notificationCount] = useState(4);
 
   const [cacheEpoch, setCacheEpoch] = useState(0);
+  const storeLoadedAtRef = useRef<Record<string, number>>({});
+  const scopedInflightRef = useRef(new Map<string, Promise<void>>());
 
-  const loadStoreScopedData = useCallback(async (storeId: string) => {
+  const loadStoreScopedData = useCallback(async (
+    storeId: string,
+    opts?: { tier?: 'core' | 'rest' | 'full' },
+  ) => {
     if (!storeId || !hasLiveApiAuth()) return;
+    const tier = opts?.tier ?? 'full';
+    const inflightKey = `${storeId}:${tier}`;
+    const pending = scopedInflightRef.current.get(inflightKey);
+    if (pending) return pending;
 
-    const settled = await Promise.allSettled([
-      tenantApi.fetchProducts(storeId),
-      tenantApi.fetchOrders(storeId),
-      tenantApi.fetchCustomers(storeId),
-      tenantApi.fetchCoupons(storeId),
-      tenantApi.fetchShipping(storeId),
-      tenantApi.fetchSeo(storeId),
-      tenantApi.fetchShippingMethods(storeId),
-      tenantApi.fetchCouriers(storeId),
-      tenantApi.fetchPaymentGateways(storeId),
-      tenantApi.fetchPaymentTransactions(storeId),
-      tenantApi.fetchDomainsApi(storeId),
-      tenantApi.fetchCourierShipments(storeId),
-    ]);
+    const job = (async () => {
+      const runCore = tier === 'core' || tier === 'full';
+      const runRest = tier === 'rest' || tier === 'full';
 
-    const isUnauthorized = settled.some(
-      (s) => s.status === 'rejected' && String(s.reason?.message || s.reason).includes('401'),
-    );
-    if (isUnauthorized) {
-      // Keep user session alive lifetime; fallback store data gracefully without auto-logout
-      console.warn('Some store endpoints returned unauthorized; keeping session active.');
-    }
+      if (runCore) {
+        storeLoadedAtRef.current[storeId] = Date.now();
+        let productList: Product[] = [];
+        let productTotal = 0;
+        try {
+          const page = await tenantApi.fetchProductsPage(storeId, { page: 1, per_page: 24, sort: 'updated_at', dir: 'desc' });
+          productList = page.data;
+          productTotal = page.meta?.counts?.total ?? page.meta?.total ?? productList.length;
+          if (productList.length > 0) applyProductsFromApi(storeId, productList);
+        } catch {
+          /* products page fetches its own first page */
+        }
+        const settled = await Promise.allSettled([
+          tenantApi.fetchOrders(storeId, { all: true, lean: true }),
+          tenantApi.fetchCustomers(storeId),
+        ]);
+        const [s1, s2] = settled;
+        if (s1.status === 'fulfilled' && Array.isArray(s1.value)) {
+          setOrdersMap((prev) => ({
+            ...prev,
+            [storeId]: mergeOrdersKeepItems(prev[storeId] || [], s1.value),
+          }));
+        }
+        if (s2.status === 'fulfilled' && Array.isArray(s2.value)) {
+          setCustomersMap((prev) => ({ ...prev, [storeId]: s2.value }));
+        }
+        if (productList.length > 0 || s1.status === 'fulfilled') {
+          const oList = s1.status === 'fulfilled' ? s1.value : [];
+          const rev = oList.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+          setStores((prev) =>
+            prev.map((s) =>
+              s.id !== storeId
+                ? s
+                : {
+                    ...s,
+                    productsCount: productTotal > 0 ? productTotal : s.productsCount,
+                    ordersCount: oList.length > 0 ? oList.length : s.ordersCount,
+                    revenue: rev > 0 ? rev : s.revenue,
+                    lastActivity: 'Just now',
+                  },
+            ),
+          );
+        }
+      }
 
-    const [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11] = settled;
-
-    if (s0.status === 'fulfilled' && Array.isArray(s0.value) && s0.value.length > 0) {
-      setProductsMap((prev) => ({ ...prev, [storeId]: s0.value }));
-    }
-    // Apply API orders; merge demo seed for store-1 so KPI Total 6 / Delivered 4 is not wiped when API is sparse.
-    if (s1.status === 'fulfilled' && Array.isArray(s1.value)) {
-      setOrdersMap((prev) => {
-        const seed = INITIAL_ORDERS[storeId] || [];
-        let next = s1.value;
-        if (seed.length > 0) {
-          if (s1.value.length === 0) {
-            next = seed;
-          } else if (seed.length > s1.value.length) {
-            const byId = new Map<string, Order>();
-            for (const o of seed) byId.set(o.id, o);
-            for (const o of s1.value) byId.set(o.id, o);
-            next = Array.from(byId.values());
+      if (runRest) {
+        const settled = await Promise.allSettled([
+          tenantApi.fetchCoupons(storeId),
+          tenantApi.fetchShipping(storeId),
+          tenantApi.fetchSeo(storeId),
+          tenantApi.fetchShippingMethods(storeId),
+          tenantApi.fetchCouriers(storeId),
+          tenantApi.fetchPaymentGateways(storeId),
+          tenantApi.fetchPaymentTransactions(storeId),
+          tenantApi.fetchDomainsApi(storeId),
+          tenantApi.fetchCourierShipments(storeId),
+        ]);
+        const [s3, s4, s5, s6, s7, s8, s9, s10, s11] = settled;
+        if (s3.status === 'fulfilled' && Array.isArray(s3.value)) {
+          setCouponsMap((prev) => ({ ...prev, [storeId]: s3.value }));
+        }
+        if (s4.status === 'fulfilled' && Array.isArray(s4.value)) {
+          setShippingMap((prev) => ({ ...prev, [storeId]: s4.value }));
+        }
+        if (s5.status === 'fulfilled' && s5.value) {
+          setSeoConfigs((prev) => ({ ...prev, [storeId]: s5.value }));
+        }
+        if (s6.status === 'fulfilled' && Array.isArray(s6.value) && s6.value.length > 0) {
+          setShippingMethodsMap((prev) => ({ ...prev, [storeId]: s6.value }));
+        }
+        if (s7.status === 'fulfilled' && Array.isArray(s7.value) && s7.value.length > 0) {
+          setCouriersMap((prev) => ({ ...prev, [storeId]: s7.value }));
+        }
+        if (s8.status === 'fulfilled' && Array.isArray(s8.value) && s8.value.length > 0) {
+          setPaymentGatewaysMap((prev) => ({ ...prev, [storeId]: s8.value }));
+        }
+        if (s9.status === 'fulfilled') {
+          const tx = s9.value as { data?: PaymentTransactionItem[] };
+          if (tx?.data && tx.data.length > 0) {
+            setPaymentTransactionsMap((prev) => ({ ...prev, [storeId]: tx.data as PaymentTransactionItem[] }));
           }
         }
-        return { ...prev, [storeId]: next };
-      });
-    }
-    if (s2.status === 'fulfilled' && Array.isArray(s2.value) && s2.value.length > 0) {
-      setCustomersMap((prev) => ({ ...prev, [storeId]: s2.value }));
-    }
-    if (s3.status === 'fulfilled' && Array.isArray(s3.value)) {
-      setCouponsMap((prev) => ({ ...prev, [storeId]: s3.value }));
-    }
-    if (s4.status === 'fulfilled' && Array.isArray(s4.value)) {
-      setShippingMap((prev) => ({ ...prev, [storeId]: s4.value }));
-    }
-    if (s5.status === 'fulfilled' && s5.value) {
-      setSeoConfigs((prev) => ({ ...prev, [storeId]: s5.value }));
-    }
-    if (s6?.status === 'fulfilled' && Array.isArray(s6.value) && s6.value.length > 0) {
-      setShippingMethodsMap((prev) => ({ ...prev, [storeId]: s6.value }));
-    }
-    if (s7?.status === 'fulfilled' && Array.isArray(s7.value) && s7.value.length > 0) {
-      setCouriersMap((prev) => ({ ...prev, [storeId]: s7.value }));
-    }
-    if (s8?.status === 'fulfilled' && Array.isArray(s8.value) && s8.value.length > 0) {
-      setPaymentGatewaysMap((prev) => ({ ...prev, [storeId]: s8.value }));
-    }
-    if (s9?.status === 'fulfilled' && s9.value?.data?.length > 0) {
-      setPaymentTransactionsMap((prev) => ({ ...prev, [storeId]: s9.value.data }));
-    }
-    if (s10?.status === 'fulfilled' && Array.isArray(s10.value) && s10.value.length > 0) {
-      setDomains((prev) => {
-        const otherStoresDomains = prev.filter((d) => d.storeId !== storeId);
-        return [...otherStoresDomains, ...s10.value];
-      });
-    }
-    if (s11?.status === 'fulfilled' && Array.isArray(s11.value)) {
-      setShipmentsMap((prev) => ({ ...prev, [storeId]: s11.value }));
-    }
+        if (s10.status === 'fulfilled' && Array.isArray(s10.value) && s10.value.length > 0) {
+          setDomains((prev) => {
+            const otherStoresDomains = prev.filter((d) => d.storeId !== storeId);
+            return [...otherStoresDomains, ...s10.value];
+          });
+        }
+        if (s11.status === 'fulfilled' && Array.isArray(s11.value)) {
+          setShipmentsMap((prev) => ({ ...prev, [storeId]: s11.value }));
+        }
+      }
+    })();
 
-    if (s0.status === 'fulfilled' || s1.status === 'fulfilled') {
-      const pList = s0.status === 'fulfilled' ? s0.value : [];
-      const oList = s1.status === 'fulfilled' ? s1.value : [];
-      const rev = oList.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-      setStores((prev) =>
-        prev.map((s) =>
-          s.id !== storeId
-            ? s
-            : {
-                ...s,
-                productsCount: pList.length > 0 ? pList.length : s.productsCount,
-                ordersCount: oList.length > 0 ? oList.length : s.ordersCount,
-                revenue: rev > 0 ? rev : s.revenue,
-                lastActivity: 'Just now',
-              },
-        ),
-      );
+    scopedInflightRef.current.set(inflightKey, job);
+    try {
+      await job;
+    } finally {
+      scopedInflightRef.current.delete(inflightKey);
     }
-  }, []);
+  }, [applyProductsFromApi]);
 
   const clearTenantMaps = useCallback(() => {
     setStores([]);
@@ -1277,6 +1479,21 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const softRefreshTenantData = useCallback(async () => {
     if (!isApiEnabled() || dataSourceRef.current !== 'api') {
+      // Pure mock mode only — never re-seed INITIAL_* when VITE_USE_API is on
+      // (that path previously wiped live catalogs after a failed Sanctum exchange).
+      if (API_MODE) {
+        const sid = activeStoreIdRef.current;
+        if (sid) {
+          try {
+            const products = await tenantApi.fetchStorefrontCatalog(sid);
+            applyProductsFromApi(sid, products);
+          } catch {
+            /* keep last list */
+          }
+        }
+        setCacheEpoch((n) => n + 1);
+        return;
+      }
       // Mock mode: Re-synchronize latest master catalog data for all stores
       setStores((prev) => {
         const parsedMap = new Map(prev.map((s) => [s.id, s]));
@@ -1327,6 +1544,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
     if (!hasLiveApiAuth()) {
+      const sid = activeStoreIdRef.current;
+      if (sid) {
+        try {
+          const products = await tenantApi.fetchStorefrontCatalog(sid);
+          applyProductsFromApi(sid, products);
+        } catch {
+          /* keep last list */
+        }
+      }
+      setCacheEpoch((n) => n + 1);
       return;
     }
     try {
@@ -1341,13 +1568,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       } catch {}
       const sid = activeStoreIdRef.current;
-      if (sid) await loadStoreScopedData(sid);
+      if (sid) await loadStoreScopedData(sid, { tier: 'core' });
       bumpCacheTag(platformTag());
       setCacheEpoch(getCacheEpoch() + 1);
     } catch {
       setCacheEpoch((n) => n + 1);
     }
-  }, [loadStoreScopedData]);
+  }, [loadStoreScopedData, applyProductsFromApi]);
 
   /** Always replace maps from DB — never keep a stale snapshot after writes. */
   const revalidateResource = useCallback(
@@ -1356,24 +1583,43 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       resource: StoreResource,
       opts?: { fromRemote?: boolean },
     ) => {
-      if (!storeId || !isApiEnabled() || dataSourceRef.current !== 'api') {
+      if (!storeId || !isApiEnabled()) {
         setCacheEpoch((n) => n + 1);
         return;
       }
-      if (!hasLiveApiAuth()) return;
+      if (resource === 'products') {
+        let loaded = false;
+        try {
+          const page = await tenantApi.fetchProductsPage(storeId, {
+            page: 1,
+            per_page: 24,
+            sort: 'updated_at',
+            dir: 'desc',
+          });
+          if (page.data.length > 0) {
+            applyProductsFromApi(storeId, page.data);
+            loaded = true;
+            setApiError(null);
+            const total = page.meta?.counts?.total ?? page.meta?.total ?? page.data.length;
+            if (total > 0) {
+              setStores((prev) => prev.map((s) => (s.id === storeId ? { ...s, productsCount: total } : s)));
+            }
+          }
+        } catch (err) {
+          if (!loaded) {
+            setApiError(err instanceof Error ? err.message : 'API unavailable');
+          }
+        }
+        setCacheEpoch((n) => n + 1);
+        return;
+      }
+      if (dataSourceRef.current !== 'api' || !hasLiveApiAuth()) {
+        setCacheEpoch((n) => n + 1);
+        return;
+      }
 
       try {
         switch (resource) {
-          case 'products': {
-            const products = await tenantApi.fetchProducts(storeId);
-            setProductsMap((prev) => ({ ...prev, [storeId]: products }));
-            setStores((prev) =>
-              prev.map((s) =>
-                s.id === storeId ? { ...s, productsCount: products.length } : s,
-              ),
-            );
-            break;
-          }
           case 'orders': {
             const orders = await tenantApi.fetchOrders(storeId);
             setOrdersMap((prev) => ({ ...prev, [storeId]: orders }));
@@ -1424,7 +1670,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCacheEpoch((n) => n + 1);
       }
     },
-    [loadStoreScopedData, softRefreshTenantData],
+    [loadStoreScopedData, softRefreshTenantData, applyProductsFromApi],
   );
 
   // Live bus: any bumpCacheTag → re-render dependents (lifetime, no hard refresh)
@@ -1449,18 +1695,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       const parsed = parseStoreTag(detail.tag);
       if (parsed) {
-        if (parsed.resource === 'products') {
-          try {
-            const raw = localStorage.getItem('unityteck_products_map');
-            if (raw) {
-              const pMap = JSON.parse(raw);
-              if (pMap && typeof pMap === 'object') {
-                setProductsMap(pMap);
-                setCacheEpoch((n) => n + 1);
-              }
-            }
-          } catch {}
-        }
+        // Products: never trust stale localStorage over live API — revalidate only.
+        // Applying raw localStorage here previously wiped a healthy catalog mid-session.
         if (parsed.resource === 'theme') {
           try {
             const savedTheme = localStorage.getItem('unityteck_store_active_theme_map');
@@ -1533,7 +1769,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     window.addEventListener('focus', onFocus);
     // Poll at 120s (was 12s) — avoids constant state churn that resets scroll
     const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible' && dataSourceRef.current === 'api') {
+      if (document.visibilityState === 'visible') {
         throttledRefresh();
       }
     }, 120_000);
@@ -1556,20 +1792,83 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let cancelled = false;
 
     (async () => {
-      // If user does not have live auth, operate safely in resilient mock mode with preview data
+      const loadCatalogsAnyway = async () => {
+        try {
+          const apiStores = await tenantApi.fetchStores();
+          if (cancelled) return;
+          if (Array.isArray(apiStores) && apiStores.length > 0) {
+            setStores((prev) => (prev.length > 0 ? prev : apiStores));
+          }
+          const ids = Array.from(new Set([
+            ...(Array.isArray(apiStores) ? apiStores.map((s) => s.id) : []),
+            activeStoreIdRef.current,
+          ].filter(Boolean))) as string[];
+          const active = activeStoreIdRef.current;
+          const ordered = active
+            ? [active, ...ids.filter((id) => id !== active)]
+            : ids;
+          if (ordered[0]) {
+            const products = await tenantApi.fetchStorefrontCatalog(ordered[0]);
+            if (!cancelled && products.length > 0) applyProductsFromApi(ordered[0], products);
+          }
+          for (const id of ordered.slice(1)) {
+            if (cancelled) return;
+            try {
+              const products = await tenantApi.fetchStorefrontCatalog(id);
+              if (!cancelled && products.length > 0) applyProductsFromApi(id, products);
+            } catch {
+              /* next store */
+            }
+          }
+        } catch {
+          /* catalog stays cached */
+        }
+      };
+
+      // Clerk session without a Sanctum token must not block the dashboard.
+      // Exchange continues in the background; authTick reloads live API data when it lands.
       if (!hasLiveApiAuth()) {
+        const pending = readAuthSession();
+        if (pending?.user?.email && pending.portal) {
+          void exchangeClerkForSanctum(pending.portal, pending.user.email, pending.storeId);
+        }
         if (cancelled) return;
         dataSourceRef.current = 'mock';
         setDataSource('mock');
-        setStores((prev) => (prev.length > 0 ? prev : INITIAL_STORES));
-        setProductsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_PRODUCTS));
-        // Never inject fake seeded orders — empty until real checkout/manual/API
+        setStores((prev) => (prev.length > 0 ? prev : (API_MODE ? prev : INITIAL_STORES)));
+        setProductsMap((prev) => {
+          if (API_MODE) return prev;
+          const next = { ...prev };
+          let healed = false;
+          Object.keys(INITIAL_PRODUCTS).forEach((id) => {
+            const init = INITIAL_PRODUCTS[id] || [];
+            if (!Array.isArray(next[id]) || next[id].length === 0) {
+              next[id] = init;
+              healed = true;
+            }
+          });
+          if (healed) {
+            try {
+              localStorage.setItem('unityteck_products_map', JSON.stringify(next));
+            } catch {
+              /* ignore */
+            }
+          }
+          return Object.keys(next).length > 0 ? next : INITIAL_PRODUCTS;
+        });
         setOrdersMap((prev) => (Object.keys(prev).length > 0 ? prev : {}));
-        setCustomersMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_CUSTOMERS));
+        setCustomersMap((prev) => (Object.keys(prev).length > 0 ? prev : (API_MODE ? {} : INITIAL_CUSTOMERS)));
         setCouponsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_COUPONS));
         setShippingMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_SHIPPING));
-        setApiError(null);
-        setApiReady(true);
+        if (!cancelled) {
+          setApiError(null);
+          setApiReady(true);
+        }
+        void loadCatalogsAnyway();
+        return;
+      }
+
+      if (!hasLiveApiAuth()) {
         return;
       }
 
@@ -1581,31 +1880,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (!cancelled) {
           dataSourceRef.current = 'mock';
           setDataSource('mock');
-          setStores(INITIAL_STORES);
-          setProductsMap(INITIAL_PRODUCTS);
+          if (!API_MODE) {
+            setStores(INITIAL_STORES);
+            setProductsMap(INITIAL_PRODUCTS);
+          }
           setOrdersMap({});
-          setCustomersMap(INITIAL_CUSTOMERS);
+          setCustomersMap(API_MODE ? {} : INITIAL_CUSTOMERS);
           setApiReady(true);
         }
-        return;
-      }
-
-      try {
-        await tenantApi.fetchHealth();
-      } catch (err) {
-        if (cancelled) return;
-        const message = err instanceof Error ? err.message : 'API unavailable';
-        console.warn(`[TenantContext] API offline (${message}). Gracefully operating in resilient fallback mode.`);
-        dataSourceRef.current = 'mock';
-        setDataSource('mock');
-        setStores((prev) => (prev.length > 0 ? prev : INITIAL_STORES));
-        setProductsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_PRODUCTS));
-        setOrdersMap((prev) => (Object.keys(prev).length > 0 ? prev : {}));
-        setCustomersMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_CUSTOMERS));
-        setCouponsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_COUPONS));
-        setShippingMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_SHIPPING));
-        setApiError(`${message} — start: npm run api:serve (Running in resilient fallback mode)`);
-        setApiReady(true);
         return;
       }
 
@@ -1629,32 +1911,61 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const preferred =
           session?.portal === 'store' && session.storeId
             ? session.storeId
-            : apiStores[0].id;
+            : apiStores.some((s) => s.id === activeStoreIdRef.current)
+              ? activeStoreIdRef.current
+              : apiStores[0].id;
         setActiveStoreId((prev) =>
           apiStores.some((s) => s.id === prev) ? prev : preferred,
         );
-
-        await Promise.all(
-          apiStores.map((s) => loadStoreScopedData(s.id).catch(() => undefined)),
-        );
-
-        if (cancelled) return;
         setApiError(null);
         setApiReady(true);
-        bumpCacheTag(platformTag());
-        setCacheEpoch(getCacheEpoch() + 1);
+
+        const activeId = preferred;
+        void (async () => {
+          await loadStoreScopedData(activeId, { tier: 'core' }).catch(() => undefined);
+          if (cancelled) return;
+          window.setTimeout(() => {
+            if (!cancelled) void loadStoreScopedData(activeId, { tier: 'rest' });
+          }, 450);
+          // Other stores load when opened. Prefetching every tenant blocks the active catalog
+          // (3 stores now, 100 later).
+          if (!cancelled) {
+            bumpCacheTag(platformTag());
+            setCacheEpoch(getCacheEpoch() + 1);
+          }
+        })();
       } catch (err) {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : 'API unavailable';
-        console.warn(`[TenantContext] API store load warning (${message}). Gracefully retaining store preview data.`);
-        dataSourceRef.current = 'mock';
-        setDataSource('mock');
-        setStores((prev) => (prev.length > 0 ? prev : INITIAL_STORES));
-        setProductsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_PRODUCTS));
+        console.warn(`[TenantContext] API store load warning (${message}). Keeping the live catalog path.`);
+        // A slow /stores call must not flip the catalog to "not connected".
+        if (API_MODE) {
+          dataSourceRef.current = 'api';
+          setDataSource('api');
+        } else {
+          dataSourceRef.current = 'mock';
+          setDataSource('mock');
+        }
+        setStores((prev) => (prev.length > 0 ? prev : (API_MODE ? prev : INITIAL_STORES)));
+        setProductsMap((prev) =>
+          Object.keys(prev).length > 0 ? prev : API_MODE ? prev : INITIAL_PRODUCTS,
+        );
         setOrdersMap((prev) => (Object.keys(prev).length > 0 ? prev : {}));
-        setCustomersMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_CUSTOMERS));
+        setCustomersMap((prev) => (Object.keys(prev).length > 0 ? prev : (API_MODE ? {} : INITIAL_CUSTOMERS)));
         setApiError(message);
         setApiReady(true);
+        const sid = activeStoreIdRef.current;
+        if (sid && API_MODE) {
+          try {
+            const products = await tenantApi.fetchStorefrontCatalog(sid);
+            if (!cancelled && products.length > 0) {
+              applyProductsFromApi(sid, products);
+              setApiError(null);
+            }
+          } catch {
+            /* empty state stays until Reload */
+          }
+        }
       }
     })();
 
@@ -1663,65 +1974,45 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [loadStoreScopedData, clearTenantMaps, authTick]);
 
-  // Soft-refresh when switching active store in API mode
+  // Soft-refresh when switching active store. Products load even if the session token is stale.
   useEffect(() => {
-    if (dataSource !== 'api' || !activeStoreId || !hasLiveApiAuth()) return;
+    if (!activeStoreId || !API_MODE) return;
+
+    const previewOnly =
+      typeof window !== 'undefined' &&
+      (() => {
+        const q = new URLSearchParams(window.location.search);
+        return q.get('fullscreen') === '1' || q.get('preview') === '1' || q.get('tab') === 'storefront';
+      })();
+
+    if (previewOnly || dataSource !== 'api' || !hasLiveApiAuth()) {
+      let cancelled = false;
+      tenantApi.fetchStorefrontCatalog(activeStoreId).then((products) => {
+        if (!cancelled && Array.isArray(products) && products.length > 0) {
+          applyProductsFromApi(activeStoreId, products);
+        }
+      }).catch(() => {});
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (Date.now() - (storeLoadedAtRef.current[activeStoreId] || 0) < 12_000) {
+      return;
+    }
 
     let cancelled = false;
-    (async () => {
-      try {
-        const [products, orders, customers] = await Promise.all([
-          tenantApi.fetchProducts(activeStoreId),
-          tenantApi.fetchOrders(activeStoreId),
-          tenantApi.fetchCustomers(activeStoreId),
-        ]);
-        if (cancelled) return;
-        setProductsMap((prev) => ({ ...prev, [activeStoreId]: products }));
-        setOrdersMap((prev) => {
-          const seed = INITIAL_ORDERS[activeStoreId] || [];
-          let next = orders;
-          if (seed.length > 0) {
-            if (orders.length === 0) {
-              next = seed;
-            } else if (seed.length > orders.length) {
-              const byId = new Map<string, Order>();
-              for (const o of seed) byId.set(o.id, o);
-              for (const o of orders) byId.set(o.id, o);
-              next = Array.from(byId.values());
-            }
-          }
-          return { ...prev, [activeStoreId]: next };
-        });
-        setCustomersMap((prev) => ({ ...prev, [activeStoreId]: customers }));
-
-        // Always replace support maps — never keep first-load stale snapshot
-        await Promise.all([
-          tenantApi.fetchCoupons(activeStoreId).then((coupons) => {
-            if (!cancelled) {
-              setCouponsMap((prev) => ({ ...prev, [activeStoreId]: coupons }));
-            }
-          }),
-          tenantApi.fetchShipping(activeStoreId).then((shipping) => {
-            if (!cancelled) {
-              setShippingMap((prev) => ({ ...prev, [activeStoreId]: shipping }));
-            }
-          }),
-          tenantApi.fetchSeo(activeStoreId).then((seo) => {
-            if (!cancelled) {
-              setSeoConfigs((prev) => ({ ...prev, [activeStoreId]: seo }));
-            }
-          }),
-        ]);
-      } catch (err) {
-        // Keep session alive lifetime; do not clear auth on background error
-        console.warn('Store settings/seo load error:', err);
-      }
-    })();
+    void loadStoreScopedData(activeStoreId, { tier: 'core' }).then(() => {
+      if (cancelled) return;
+      window.setTimeout(() => {
+        if (!cancelled) void loadStoreScopedData(activeStoreId, { tier: 'rest' });
+      }, 450);
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [activeStoreId, dataSource]);
+  }, [activeStoreId, dataSource, applyProductsFromApi, loadStoreScopedData]);
 
   // Active store object
   const activeStore = useMemo(() => {
@@ -1795,7 +2086,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Isolated Channels for currently selected store
   const currentChannels = useMemo(() => {
-    return channelsMap[activeStoreId] || channelsMap['store-1'] || [];
+    return channelsMap[activeStoreId] || [];
   }, [channelsMap, activeStoreId, cacheEpoch]);
 
   // Isolated Products for currently selected store
@@ -1815,32 +2106,32 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Isolated Shipping
   const currentShipping = useMemo(() => {
-    return shippingMap[activeStoreId] || shippingMap['store-1'] || [];
+    return shippingMap[activeStoreId] || [];
   }, [shippingMap, activeStoreId, cacheEpoch]);
 
   // Isolated Configurable Shipping Methods
   const currentShippingMethods = useMemo(() => {
-    return shippingMethodsMap[activeStoreId] || shippingMethodsMap['store-1'] || [];
+    return shippingMethodsMap[activeStoreId] || [];
   }, [shippingMethodsMap, activeStoreId, cacheEpoch]);
 
   // Isolated Courier Integrations
   const currentCouriers = useMemo(() => {
-    return couriersMap[activeStoreId] || couriersMap['store-1'] || [];
+    return couriersMap[activeStoreId] || [];
   }, [couriersMap, activeStoreId, cacheEpoch]);
 
   // Isolated Shipments
   const currentShipments = useMemo(() => {
-    return shipmentsMap[activeStoreId] || shipmentsMap['store-1'] || [];
+    return shipmentsMap[activeStoreId] || [];
   }, [shipmentsMap, activeStoreId, cacheEpoch]);
 
   // Isolated Payment Gateways
   const currentPaymentGateways = useMemo(() => {
-    return paymentGatewaysMap[activeStoreId] || paymentGatewaysMap['store-1'] || [];
+    return paymentGatewaysMap[activeStoreId] || [];
   }, [paymentGatewaysMap, activeStoreId, cacheEpoch]);
 
   // Isolated Payment Transactions
   const currentPaymentTransactions = useMemo(() => {
-    return paymentTransactionsMap[activeStoreId] || paymentTransactionsMap['store-1'] || [];
+    return paymentTransactionsMap[activeStoreId] || [];
   }, [paymentTransactionsMap, activeStoreId, cacheEpoch]);
 
   // Isolated Media for currently selected store
@@ -2035,9 +2326,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const session = readAuthSession();
     if (!session || session.portal !== 'store') return;
     if (mode === 'master') setMode('store');
-    if (activeStoreId && session.storeId !== activeStoreId) {
-      session.storeId = activeStoreId;
-      writeAuthSession(session);
+    // Only pin live Sanctum sessions — Clerk/JWT stubs must NOT writeAuthSession
+    // (emits unityteck-auth → authTick → boot effect → exchange spam → 429).
+    if (activeStoreId && session.storeId !== activeStoreId && hasLiveApiAuth()) {
+      writeAuthSession({ ...session, storeId: activeStoreId });
     }
   }, [mode, activeStoreId]);
 
@@ -2143,20 +2435,18 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         {
           id: `dom-${Date.now()}`,
           storeId: newId,
-          domainName: `${storeData.slug}.saasdomain.com`,
-          sslStatus: 'active',
-          dnsVerified: true,
-          hostingTier: storeData.plan === 'pro' ? 'Hostinger Shared Business' : 'Hostinger Shared Starter',
-          monthlyFee: storeData.plan === 'pro' ? 49 : 29,
-          paymentReceived: true,
-          status: 'active',
-          nameservers: ['ns1.dns-parking.com', 'ns2.dns-parking.com'],
+          domainName: storeData.domain || storeData.custom_domain || '',
+          sslStatus: 'pending',
+          dnsVerified: false,
+          hostingTier: 'Hostinger Cloud',
+          monthlyFee: 0,
+          paymentReceived: false,
+          status: 'dns_propagation',
+          nameservers: [],
           registeredDate: new Date().toISOString().split('T')[0],
-          hostingId: `hst-shared-${newId.slice(-4)}`,
-          databaseId: `u948210332_${storeData.slug.replace(/[^a-z0-9]/gi, '')}`,
-          deploymentStatus: 'live',
-          hostingerPlan: storeData.plan === 'pro' ? 'Hostinger Shared Business' : 'Hostinger Shared Starter',
-          domainType: 'demo',
+          deploymentStatus: 'pending',
+          hostingerPlan: 'Hostinger Cloud',
+          domainType: 'custom',
         },
         ...prev
       ]);
@@ -2178,6 +2468,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           email: storeData.ownerEmail,
           plan: storeData.plan,
           master_granted_pro: storeData.masterGrantedPro,
+          hosting_mode: 'shared',
+          db_isolation: 'shared_store_id',
           status: storeData.status === 'suspended' ? 'suspended' : storeData.status,
           logo: storeData.logo,
           accent_color: storeData.accentColor,
@@ -2301,6 +2593,28 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const updateCanvaTemplatesPerCategory = (storeId: string, limit: number | null) => {
+    const normalized =
+      limit == null || !Number.isFinite(limit) || limit < 1 ? null : Math.min(100, Math.floor(limit));
+
+    setStores((prev) =>
+      prev.map((s) =>
+        s.id === storeId ? { ...s, canvaTemplatesPerCategory: normalized } : s,
+      ),
+    );
+
+    if (dataSourceRef.current === 'api') {
+      void tenantApi
+        .updateStore(storeId, { canva_templates_per_category: normalized })
+        .then((updated) => {
+          setStores((prev) => prev.map((s) => (s.id === storeId ? updated : s)));
+        })
+        .catch((err) => {
+          setApiError(err instanceof Error ? err.message : 'Update Canva template limit failed');
+        });
+    }
+  };
+
   const updateStorePlan = (storeId: string, plan: PlanType) => {
     setStores(prev => prev.map(s => {
       if (s.id === storeId) {
@@ -2330,6 +2644,34 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }));
     bumpCacheTag(platformTag());
     bumpCacheTag(storeTag(storeId, 'settings'));
+  };
+
+  /** Master SuperAdmin only — updates store owner/login email on the tenant record. */
+  const updateStoreOwnerEmail = (storeId: string, ownerEmail: string) => {
+    const normalized = String(ownerEmail || '')
+      .trim()
+      .toLowerCase();
+    if (!storeId || !normalized.includes('@')) return;
+
+    setStores((prev) =>
+      prev.map((s) => {
+        if (s.id !== storeId) return s;
+        return { ...s, ownerEmail: normalized, email: normalized };
+      }),
+    );
+    bumpCacheTag(platformTag());
+    bumpCacheTag(storeTag(storeId, 'settings'));
+
+    if (dataSourceRef.current === 'api') {
+      void tenantApi
+        .updateStore(storeId, { email: normalized, owner_email: normalized } as any)
+        .then((updated) => {
+          setStores((prev) => prev.map((s) => (s.id === storeId ? updated : s)));
+        })
+        .catch((err) => {
+          setApiError(err instanceof Error ? err.message : 'Update owner email failed');
+        });
+    }
   };
 
   const addActivity = (item: Omit<ActivityItem, 'id' | 'timeAgo'>) => {
@@ -3036,6 +3378,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           gallery_urls: prodData.galleryUrls ?? [],
           video_url: prodData.videoUrl ?? null,
           tags: prodData.tags ?? [],
+          product_options: prodData.productOptions ?? [],
+          custom_fields: prodData.customFields ?? [],
+          conditional_rules: prodData.conditionalRules ?? [],
           badge: prodData.badge ?? null,
           badge_en: prodData.badgeEn ?? null,
           seo_title: prodData.seoTitle ?? null,
@@ -3045,10 +3390,29 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           is_active: prodData.isActive ?? true,
           is_featured: prodData.isFeatured ?? false,
         })
-        .then((created) => {
+        .then(async (created) => {
+          let variations = prodData.variations;
+          if (Array.isArray(prodData.variations) && prodData.variations.length > 0) {
+            try {
+              variations = await tenantApi.syncProductVariations(
+                storeId,
+                created.id,
+                prodData.variations.map((row) => ({ ...row, productId: created.id, storeId })),
+              );
+            } catch (err) {
+              setApiError(err instanceof Error ? err.message : 'Save variants failed');
+            }
+          }
+          const saved: Product = {
+            ...created,
+            productOptions: prodData.productOptions ?? created.productOptions,
+            variations,
+            customFields: prodData.customFields ?? created.customFields,
+            conditionalRules: prodData.conditionalRules ?? created.conditionalRules,
+          };
           setProductsMap((prev) => ({
             ...prev,
-            [storeId]: [created, ...(prev[storeId] || [])],
+            [storeId]: [saved, ...(prev[storeId] || [])],
           }));
           setStores((prev) =>
             prev.map((s) =>
@@ -3211,6 +3575,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (patch.galleryUrls !== undefined) body.gallery_urls = patch.galleryUrls;
       if (patch.videoUrl !== undefined) body.video_url = patch.videoUrl;
       if (patch.tags !== undefined) body.tags = patch.tags;
+      if (patch.productOptions !== undefined) body.product_options = patch.productOptions;
+      if (patch.customFields !== undefined) body.custom_fields = patch.customFields;
+      if (patch.conditionalRules !== undefined) body.conditional_rules = patch.conditionalRules;
       if (patch.badge !== undefined) body.badge = patch.badge ?? null;
       if (patch.badgeEn !== undefined) body.badge_en = patch.badgeEn ?? null;
       if (patch.seoTitle !== undefined) body.seo_title = patch.seoTitle;
@@ -3222,10 +3589,41 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       void tenantApi
         .updateProduct(storeId!, productId, body)
-        .then((updated) => {
+        .then(async (updated) => {
+          let variations = patch.variations;
+          if (patch.variations !== undefined) {
+            try {
+              variations = await tenantApi.syncProductVariations(
+                storeId!,
+                productId,
+                patch.variations,
+              );
+            } catch (err) {
+              setApiError(err instanceof Error ? err.message : 'Save variants failed');
+            }
+          }
           setProductsMap((prev) => {
             const nextList = (prev[storeId!] || []).map((p) =>
-              p.id === productId ? { ...updated, imageVersion: String(Date.now()) } : p,
+              p.id === productId
+                ? {
+                    ...p,
+                    ...updated,
+                    productOptions:
+                      patch.productOptions !== undefined
+                        ? patch.productOptions
+                        : updated.productOptions ?? p.productOptions,
+                    variations: variations !== undefined ? variations : updated.variations ?? p.variations,
+                    customFields:
+                      patch.customFields !== undefined
+                        ? patch.customFields
+                        : updated.customFields ?? p.customFields,
+                    conditionalRules:
+                      patch.conditionalRules !== undefined
+                        ? patch.conditionalRules
+                        : updated.conditionalRules ?? p.conditionalRules,
+                    imageVersion: String(Date.now()),
+                  }
+                : p,
             );
             const nextMap = {
               ...prev,
@@ -3378,8 +3776,113 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Orders
-  const addOrder = (orderData: Omit<Order, 'id' | 'storeId' | 'orderNumber' | 'date'> & { date?: string }, targetStoreId?: string) => {
+  const buildOrderCreateApiPayload = (
+    orderData: Omit<Order, 'id' | 'storeId' | 'orderNumber' | 'date'> & { date?: string },
+    mappedSource: CustomerSource,
+  ) => ({
+    customer_name: orderData.customerName,
+    customer_email: orderData.customerEmail,
+    customer_phone: orderData.customerPhone,
+    total_amount: orderData.total,
+    source: orderData.source || mappedSource,
+    source_details: orderData.sourceDetails || orderData.source,
+    delivery_location: orderData.deliveryLocation,
+    status: orderData.status || 'pending',
+    payment_method: orderData.paymentMethod || 'Mada',
+    payment_status: orderData.paymentStatus || 'Paid',
+    items:
+      orderData.items?.map((i) => ({
+        product_id: i.id,
+        name: i.name,
+        quantity: i.quantity,
+        price: i.price,
+      })) || [],
+  });
+
+  const syncOrderFromApi = (order: Order, targetStoreId?: string) => {
+    const sId = targetStoreId || order.storeId || activeStoreId;
+    setOrdersMap((prev) => {
+      const list = prev[sId] || [];
+      const withoutDup = list.filter((o) => o.id !== order.id);
+      const next = { ...prev, [sId]: [order, ...withoutDup] };
+      saveOrdersMap(next);
+      return next;
+    });
+    setStores((prev) => {
+      const next = prev.map((s) =>
+        s.id === sId
+          ? {
+              ...s,
+              ordersCount: (s.ordersCount || 0) + 1,
+              revenue: (s.revenue || 0) + (order.total || 0),
+            }
+          : s,
+      );
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('unityteck_stores', JSON.stringify(next));
+        }
+      } catch {}
+      return next;
+    });
+    addActivity({
+      title: 'New customer order placed',
+      subtitle: `${order.customerName} · ${order.orderNumber} (SAR ${order.total})`,
+      type: 'order',
+    });
+    if (dataSourceRef.current === 'api') {
+      bumpCacheTag(storeTag(sId, 'orders'));
+      bumpCacheTag(storeTag(sId, 'customers'));
+      bumpCacheTag(storeTag(sId, 'products'));
+      void Promise.all([
+        revalidateResource(sId, 'orders'),
+        revalidateResource(sId, 'customers'),
+        revalidateResource(sId, 'products'),
+      ]);
+    }
+  };
+
+  const addOrder = async (
+    orderData: Omit<Order, 'id' | 'storeId' | 'orderNumber' | 'date'> & { date?: string },
+    targetStoreId?: string,
+  ): Promise<Order> => {
     const sId = targetStoreId || activeStoreId;
+
+    let mappedSource: CustomerSource = 'Direct';
+    if (orderData.source?.includes('WhatsApp')) mappedSource = 'WhatsApp';
+    else if (orderData.source?.includes('Instagram')) mappedSource = 'Instagram';
+    else if (orderData.source?.includes('Google')) mappedSource = 'Google Ads';
+    else if (orderData.source?.includes('Facebook')) mappedSource = 'Facebook';
+    else if (orderData.source?.includes('Snapchat')) mappedSource = 'Snapchat';
+    else if (orderData.source?.includes('TikTok')) mappedSource = 'TikTok';
+    else if (orderData.source?.includes('Referral')) mappedSource = 'Referral';
+
+    if (dataSourceRef.current === 'api' && hasLiveApiAuth()) {
+      try {
+        const { order, customer } = await tenantApi.createOrder(
+          sId,
+          buildOrderCreateApiPayload(orderData, mappedSource),
+        );
+        syncOrderFromApi(order, sId);
+        if (customer) {
+          setCustomersMap((prev) => {
+            const list = prev[sId] || [];
+            const idx = list.findIndex((c) => c.id === customer.id);
+            const nextList =
+              idx >= 0 ? list.map((c, i) => (i === idx ? customer : c)) : [customer, ...list];
+            const nextMap = { ...prev, [sId]: nextList };
+            saveCustomersMap(nextMap);
+            return nextMap;
+          });
+        }
+        return order;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Create order failed';
+        setApiError(msg);
+        throw err instanceof Error ? err : new Error(msg);
+      }
+    }
+
     const newOrdId = `ord-${Date.now()}`;
     const existingNums = (ordersMap[sId] || []).map((o) => o.orderNumber);
     const newOrdNum = nextSequentialOrderNumber(existingNums);
@@ -3391,20 +3894,24 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       date: orderData.date || new Date().toISOString().split('T')[0],
       isArchived: false,
     };
-    setOrdersMap(prev => {
+    setOrdersMap((prev) => {
       const next = {
         ...prev,
-        [sId]: [newOrd, ...(prev[sId] || [])]
+        [sId]: [newOrd, ...(prev[sId] || [])],
       };
       saveOrdersMap(next);
       return next;
     });
-    setStores(prev => {
-      const next = prev.map(s => s.id === sId ? {
-        ...s,
-        ordersCount: (s.ordersCount || 0) + 1,
-        revenue: (s.revenue || 0) + (orderData.total || 0),
-      } : s);
+    setStores((prev) => {
+      const next = prev.map((s) =>
+        s.id === sId
+          ? {
+              ...s,
+              ordersCount: (s.ordersCount || 0) + 1,
+              revenue: (s.revenue || 0) + (orderData.total || 0),
+            }
+          : s,
+      );
       try {
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('unityteck_stores', JSON.stringify(next));
@@ -3413,27 +3920,20 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return next;
     });
 
-    // Dynamic Customer Auto-Update or Creation
     const cPhone = orderData.customerPhone?.trim() || '';
     const cEmail = orderData.customerEmail?.trim().toLowerCase() || '';
     const cName = orderData.customerName?.trim() || 'Customer';
-    const city = orderData.deliveryLocation ? orderData.deliveryLocation.split('-')[0].trim() : 'Makkah';
+    const city = orderData.deliveryLocation
+      ? orderData.deliveryLocation.split('-')[0].trim()
+      : 'Makkah';
 
-    let mappedSource: CustomerSource = 'Direct';
-    if (orderData.source?.includes('WhatsApp')) mappedSource = 'WhatsApp';
-    else if (orderData.source?.includes('Instagram')) mappedSource = 'Instagram';
-    else if (orderData.source?.includes('Google')) mappedSource = 'Google Ads';
-    else if (orderData.source?.includes('Facebook')) mappedSource = 'Facebook';
-    else if (orderData.source?.includes('Snapchat')) mappedSource = 'Snapchat';
-    else if (orderData.source?.includes('TikTok')) mappedSource = 'TikTok';
-    else if (orderData.source?.includes('Referral')) mappedSource = 'Referral';
-
-    setCustomersMap(prev => {
+    setCustomersMap((prev) => {
       const currentCusts = prev[sId] || [];
-      const matchIndex = currentCusts.findIndex(c => 
-        (cEmail && c.email?.toLowerCase() === cEmail) || 
-        (cPhone && c.phone?.replace(/\D/g, '') === cPhone.replace(/\D/g, '')) ||
-        (cName && c.name.toLowerCase() === cName.toLowerCase())
+      const matchIndex = currentCusts.findIndex(
+        (c) =>
+          (cEmail && c.email?.toLowerCase() === cEmail) ||
+          (cPhone && c.phone?.replace(/\D/g, '') === cPhone.replace(/\D/g, '')) ||
+          (cName && c.name.toLowerCase() === cName.toLowerCase()),
       );
 
       let nextList = [...currentCusts];
@@ -3441,11 +3941,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const existing = currentCusts[matchIndex];
         const newTotalOrders = (existing.totalOrders || 0) + 1;
         const newTotalSpending = (existing.totalSpending || 0) + (orderData.total || 0);
-        const newAvg = newTotalOrders > 0 ? Math.round(newTotalSpending / newTotalOrders) : newTotalSpending;
+        const newAvg =
+          newTotalOrders > 0 ? Math.round(newTotalSpending / newTotalOrders) : newTotalSpending;
         const shouldBeVip = newTotalSpending >= 1500 || newTotalOrders >= 3;
-        const updatedStatus = shouldBeVip ? 'VIP' : (existing.status === 'Inactive' || existing.status === 'New' ? 'Active' : existing.status);
+        const updatedStatus = shouldBeVip
+          ? 'VIP'
+          : existing.status === 'Inactive' || existing.status === 'New'
+            ? 'Active'
+            : existing.status;
 
-        const updatedCust: Customer = {
+        nextList[matchIndex] = {
           ...existing,
           totalOrders: newTotalOrders,
           totalSpending: newTotalSpending,
@@ -3454,8 +3959,6 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           status: updatedStatus,
           group: shouldBeVip ? 'VIP' : existing.group,
         };
-
-        nextList[matchIndex] = updatedCust;
       } else {
         const shouldBeVip = (orderData.total || 0) >= 1500;
         const newCust: Customer = {
@@ -3489,13 +3992,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       type: 'order',
     });
 
-    // Auto-deduct inventory for all ordered products
     const orderItems = orderData.items;
     if (orderItems && orderItems.length > 0) {
-      setProductsMap(prev => {
+      setProductsMap((prev) => {
         const storeProducts = prev[sId] || [];
-        const nextProducts = storeProducts.map(p => {
-          const item = orderItems.find(i => i.id === p.id);
+        const nextProducts = storeProducts.map((p) => {
+          const item = orderItems.find((i) => i.id === p.id);
           if (item) {
             const nextStock = Math.max(0, (p.stock || 0) - (item.quantity || 1));
             return {
@@ -3512,41 +4014,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     }
 
-    // API Mode Sync (Hostinger DB / Laravel Backend)
-    if (dataSourceRef.current === 'api') {
-      void tenantApi
-        .createOrder(sId, {
-          customer_name: orderData.customerName,
-          customer_email: orderData.customerEmail,
-          customer_phone: orderData.customerPhone,
-          total_amount: orderData.total,
-          source: orderData.source || mappedSource,
-          source_details: orderData.sourceDetails || orderData.source,
-          delivery_location: orderData.deliveryLocation,
-          status: orderData.status || 'pending',
-          payment_method: orderData.paymentMethod || 'Mada',
-          payment_status: orderData.paymentStatus || 'Paid',
-          items: orderData.items?.map(i => ({
-            product_id: i.id,
-            name: i.name,
-            quantity: i.quantity,
-            price: i.price,
-          })) || [],
-        })
-        .then(async () => {
-          bumpCacheTag(storeTag(sId, 'orders'));
-          bumpCacheTag(storeTag(sId, 'customers'));
-          bumpCacheTag(storeTag(sId, 'products'));
-          await Promise.all([
-            revalidateResource(sId, 'orders'),
-            revalidateResource(sId, 'customers'),
-            revalidateResource(sId, 'products'),
-          ]);
-        })
-        .catch(err => {
-          console.warn('API Order create sync non-blocking note:', err);
-        });
-    }
+    return newOrd;
   };
 
   const updateOrderStatus = (orderId: string, status: Order['status'], targetStoreId?: string) => {
@@ -3953,11 +4421,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           min_order_amount: coupon.minOrderValue ?? 0,
           max_uses: coupon.maxUsage || null,
           status: coupon.status,
-          is_active: coupon.status === 'active',
+          is_active: coupon.isActive ?? coupon.status === 'active',
           expires_at:
             coupon.noExpiry || !coupon.validUntil || coupon.validUntil === '—'
               ? null
               : `${coupon.validUntil}${coupon.expiryTime ? `T${coupon.expiryTime}:00` : 'T23:59:59'}`,
+          design_type: coupon.designType ?? 'solid_color',
+          design_color: coupon.couponColor ?? null,
+          design_image_url: coupon.imageUrl ?? null,
         })
         .then((created) => {
           setCouponsMap((prev) => {
@@ -3978,6 +4449,46 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         .catch((err) => {
           setApiError(err instanceof Error ? err.message : 'Create coupon failed');
         });
+    }
+  };
+
+  const updateCoupon = (couponId: string, patch: Partial<CouponItem>) => {
+    setCouponsMap((prev) => {
+      const next = {
+        ...prev,
+        [activeStoreId]: (prev[activeStoreId] || []).map((c) =>
+          c.id === couponId ? { ...c, ...patch } : c,
+        ),
+      };
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('unityteck_coupons_map', JSON.stringify(next));
+        }
+      } catch {}
+      return next;
+    });
+
+    if (dataSourceRef.current === 'api') {
+      const body: tenantApi.UpdateCouponPayload = {};
+      if (patch.code) body.code = patch.code;
+      if (patch.discountType) body.discount_type = patch.discountType;
+      if (patch.discountValue !== undefined) body.discount_value = patch.discountValue;
+      if (patch.minOrderValue !== undefined) body.min_order_amount = patch.minOrderValue;
+      if (patch.maxUsage !== undefined) body.max_uses = patch.maxUsage || null;
+      if (patch.status) body.status = patch.status;
+      if (patch.isActive !== undefined) body.is_active = patch.isActive;
+      if (patch.designType !== undefined) body.design_type = patch.designType;
+      if (patch.couponColor !== undefined) body.design_color = patch.couponColor;
+      if (patch.imageUrl !== undefined) body.design_image_url = patch.imageUrl;
+      if (patch.validUntil !== undefined) {
+        body.expires_at =
+          patch.noExpiry || !patch.validUntil || patch.validUntil === '—'
+            ? null
+            : `${patch.validUntil}${patch.expiryTime ? `T${patch.expiryTime}:00` : 'T23:59:59'}`;
+      }
+      void tenantApi.updateCoupon(activeStoreId, couponId, body).catch((err) => {
+        setApiError(err instanceof Error ? err.message : 'Update coupon failed');
+      });
     }
   };
 
@@ -4003,14 +4514,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const toggleCouponStatus = (couponId: string) => {
-    let nextStatus: CouponItem['status'] = 'active';
+    let nextActive = true;
     setCouponsMap((prev) => {
       const next = {
         ...prev,
         [activeStoreId]: (prev[activeStoreId] || []).map((c) => {
           if (c.id !== couponId) return c;
-          nextStatus = c.status === 'active' ? 'expired' : 'active';
-          return { ...c, status: nextStatus };
+          nextActive = !(c.isActive ?? c.status === 'active');
+          return { ...c, isActive: nextActive };
         }),
       };
       try {
@@ -4024,8 +4535,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (dataSourceRef.current === 'api') {
       void tenantApi
         .updateCoupon(activeStoreId, couponId, {
-          status: nextStatus,
-          is_active: nextStatus === 'active',
+          is_active: nextActive,
         })
         .catch((err) => {
           setApiError(err instanceof Error ? err.message : 'Update coupon failed');
@@ -4730,25 +5240,22 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setOrdersMap((prev) => ({ ...prev, [newId]: prev[newId] || [] }));
     }
 
-    // Provision domain entry (Strictly Hostinger Shared Hosting)
     setDomains(prev => [
       {
         id: `dom-${Date.now()}`,
         storeId: newId,
-        domainName: `${slug}.saasdomain.com`,
-        sslStatus: 'active',
-        dnsVerified: true,
-        hostingTier: clientData.plan === 'pro' ? 'Hostinger Shared Business' : 'Hostinger Shared Starter',
-        monthlyFee: clientData.plan === 'pro' ? 49 : 29,
-        paymentReceived: true,
-        status: 'active',
-        nameservers: ['ns1.dns-parking.com', 'ns2.dns-parking.com'],
+        domainName: '',
+        sslStatus: 'pending',
+        dnsVerified: false,
+        hostingTier: 'Hostinger Cloud',
+        monthlyFee: 0,
+        paymentReceived: false,
+        status: 'dns_propagation',
+        nameservers: [],
         registeredDate: new Date().toISOString().split('T')[0],
-        hostingId: `hst-shared-${newId.slice(-4)}`,
-        databaseId: `u948210332_${slug.replace(/[^a-z0-9]/gi, '')}`,
-        deploymentStatus: 'live',
-        hostingerPlan: clientData.plan === 'pro' ? 'Hostinger Shared Business' : 'Hostinger Shared Starter',
-        domainType: 'demo',
+        deploymentStatus: 'pending',
+        hostingerPlan: 'Hostinger Cloud',
+        domainType: 'custom',
       },
       ...prev
     ]);
@@ -4946,6 +5453,25 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ),
     }));
     bumpCacheTag(storeTag(storeId, 'media' as any));
+
+    if (isApiEnabled()) {
+      const apiBody: {
+        file_name?: string;
+        alt?: string;
+        caption?: string;
+        folder?: string;
+      } = {};
+      if (patch.fileName !== undefined) apiBody.file_name = patch.fileName;
+      if (patch.title !== undefined) apiBody.file_name = patch.title;
+      if (patch.altText !== undefined) apiBody.alt = patch.altText;
+      if (patch.caption !== undefined) apiBody.caption = patch.caption;
+      if (patch.folder !== undefined) apiBody.folder = patch.folder;
+      if (Object.keys(apiBody).length > 0) {
+        void tenantApi.updateMedia(storeId, id, apiBody).catch((err) => {
+          console.warn('API updateMedia sync failed:', err);
+        });
+      }
+    }
   };
 
   const deleteMediaAsset = (id: string, targetStoreId?: string): boolean => {
@@ -5212,7 +5738,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         toggleMasterGrant,
         toggleStoreStatus,
         updateStorePlan,
+        updateCanvaTemplatesPerCategory,
         updateStoreLanguages,
+        updateStoreOwnerEmail,
         deleteStore,
         platformMetrics,
         recentActivities: activities,
@@ -5264,6 +5792,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         currentOrders,
         allOrders: ordersMap,
         addOrder,
+        syncOrderFromApi,
         updateOrderStatus,
         updateOrder,
         processOrderReturn,
@@ -5275,6 +5804,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         currentCoupons,
         allCoupons: couponsMap,
         addCoupon,
+        updateCoupon,
         deleteCoupon,
         toggleCouponStatus,
         recordCouponUsage,

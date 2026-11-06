@@ -1130,7 +1130,21 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                               {getStoreDisplayName(s, locale)}
                             </span>
                             <span className="text-[10px] uppercase font-mono" style={{ color: 'var(--muted)' }}>
-                              {s.plan === 'pro' ? 'Pro' : isAr ? 'مجانية' : s.plan}
+                              {s.plan === 'premium'
+                                ? isAr
+                                  ? 'مميزة'
+                                  : 'Premium'
+                                : s.plan === 'pro' || s.plan === 'paid'
+                                  ? isAr
+                                    ? 'احترافية'
+                                    : 'Pro'
+                                  : s.plan === 'custom'
+                                    ? isAr
+                                      ? 'مخصصة'
+                                      : 'Custom'
+                                    : isAr
+                                      ? 'مجانية'
+                                      : 'Free'}
                             </span>
                           </div>
                         </div>

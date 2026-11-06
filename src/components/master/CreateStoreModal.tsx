@@ -114,7 +114,9 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({ isOpen, onCl
             <div>
               <h3 className="font-bold text-base">{isAr ? 'إنشاء متجر جديد' : 'Create New Store'}</h3>
               <p className="text-xs text-teal-200/80">
-                {isAr ? 'تجهيز مستأجر تاجر جديد ومعزول' : 'Provision a new isolated merchant tenant'}
+                {isAr
+                  ? 'لوحة واحدة وقاعدة واحدة. بيانات كل متجر بمعرّفها فقط.'
+                  : 'One dashboard and one database. Each store’s data stays on its own id.'}
               </p>
             </div>
           </div>
@@ -187,9 +189,12 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({ isOpen, onCl
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-900 bg-white"
               >
                 <option value="pro">
-                  {isAr ? `تاجر Pro (${money(299)}/شهرياً)` : `Pro Merchant (${money(299)}/mo)`}
+                  {isAr ? `الباقة الاحترافية (${money(300)} / شهرياً)` : `Pro (${money(300)} / month)`}
                 </option>
-                <option value="free">{isAr ? 'الباقة المجانية' : 'Free Tier'}</option>
+                <option value="premium">
+                  {isAr ? `الباقة المميزة (${money(500)} / شهرياً)` : `Premium (${money(500)} / month)`}
+                </option>
+                <option value="free">{isAr ? 'الباقة المجانية' : 'Free'}</option>
               </select>
             </div>
           </div>

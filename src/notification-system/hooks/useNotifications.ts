@@ -1,11 +1,54 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
+import { hasLiveApiAuth } from '../../auth/session';
+import {
+  fetchNotificationDeliveriesApi,
+  markNotificationDeliveriesReadApi,
+} from '../../api/tenantApi';
 import { NotificationItem, NotificationZone } from '../types/notification.types';
 import { NotificationEngine } from '../services/notificationEngine';
 import { notificationAPI } from '../services/notificationAPI';
 import { WhatsAppService } from '../services/whatsappService';
 import { useRealtimeSync } from './useRealtimeSync';
 import { usePrefs } from '../../i18n/PrefsContext';
+
+const DELIVERY_ID_PREFIX = 'delivery-';
+
+function mapDeliveryRowToNotification(row: Record<string, unknown>): NotificationItem {
+  const id = String(row.id ?? '');
+  const channel = String(row.channel ?? 'email');
+  const event = String(row.event ?? 'order_update');
+  const status = String(row.status ?? 'sent');
+  const createdAt = String(row.created_at ?? new Date().toISOString());
+  const preview = String(row.preview ?? row.recipient ?? '');
+  const merchantRead = Boolean(row.merchant_read);
+
+  return {
+    id: `${DELIVERY_ID_PREFIX}${id}`,
+    dedup_key: `delivery-${id}`,
+    registryCode: 'customer_delivery_log',
+    zone: status === 'failed' ? 'zone1_issues' : 'zone3_urgent',
+    category: 'Orders',
+    severity: status === 'failed' ? 'critical' : 'info',
+    status: merchantRead ? 'read' : 'unread',
+    title: `${channel.toUpperCase()} · ${event.replace(/_/g, ' ')}`,
+    titleAr: `${channel.toUpperCase()} · ${event.replace(/_/g, ' ')}`,
+    description: preview,
+    descriptionAr: preview,
+    timestamp: createdAt,
+    read: merchantRead,
+    dismissed: false,
+    actionLabel: 'View orders',
+    actionLabelAr: 'عرض الطلبات',
+    actionType: 'navigate',
+    destination: 'orders',
+    metadata: {
+      deliveryId: id,
+      orderId: row.order_id ? String(row.order_id) : undefined,
+      orderNumber: row.order_number ? String(row.order_number) : undefined,
+    },
+  };
+}
 
 const DISMISSED_KEY = 'souq_dismissed_notifications';
 const READ_KEY = 'souq_read_notifications';
@@ -68,15 +111,22 @@ export interface NotificationsContextValue {
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
 
 function useNotificationsInternal(): NotificationsContextValue {
-  const { activeStore, currentOrders, currentProducts, currentCustomers, currentCoupons } = useTenant();
+  const { activeStore, currentOrders, currentProducts, currentCustomers, currentCoupons, dataSource } =
+    useTenant();
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
 
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => getStoredSet(DISMISSED_KEY));
   const [readIds, setReadIds] = useState<Set<string>>(() => getStoredSet(READ_KEY));
   const [snoozedMap, setSnoozedMap] = useState<Record<string, string>>(() => getSnoozedMap());
-  const [rawItems, setRawItems] = useState<NotificationItem[]>([]);
+  const [engineItems, setEngineItems] = useState<NotificationItem[]>([]);
+  const [deliveryItems, setDeliveryItems] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const rawItems = useMemo(
+    () => [...deliveryItems, ...engineItems],
+    [deliveryItems, engineItems],
+  );
 
   // Sync engine computation
   const computeNotifications = useCallback(() => {
@@ -88,16 +138,37 @@ function useNotificationsInternal(): NotificationsContextValue {
         currentCustomers,
         currentCoupons,
       });
-      setRawItems(generated);
+      setEngineItems(generated);
       notificationAPI.saveToCache(generated);
     } finally {
       setIsLoading(false);
     }
   }, [activeStore, currentOrders, currentProducts, currentCustomers, currentCoupons]);
 
+  const loadDeliveryNotifications = useCallback(async () => {
+    if (dataSource !== 'api' || !hasLiveApiAuth() || !activeStore?.id) {
+      setDeliveryItems([]);
+      return;
+    }
+    try {
+      const res = await fetchNotificationDeliveriesApi(activeStore.id, {
+        unread_only: false,
+        limit: 40,
+      });
+      const rows = (res.data?.items ?? []) as Record<string, unknown>[];
+      setDeliveryItems(rows.map(mapDeliveryRowToNotification));
+    } catch {
+      setDeliveryItems([]);
+    }
+  }, [activeStore?.id, dataSource]);
+
   useEffect(() => {
     computeNotifications();
   }, [computeNotifications]);
+
+  useEffect(() => {
+    void loadDeliveryNotifications();
+  }, [loadDeliveryNotifications, currentOrders.length]);
 
   // Realtime background sync every 120s (reduced from 30s to eliminate CPU spikes)
   useRealtimeSync(computeNotifications, 120000);
@@ -151,15 +222,28 @@ function useNotificationsInternal(): NotificationsContextValue {
   }, [zone1Items, zone2Items, zone3Items]);
 
   // Mark as read (optimistic)
-  const markAsRead = useCallback((id: string) => {
-    setReadIds((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      saveStoredSet(READ_KEY, next);
-      return next;
-    });
-    void notificationAPI.markAsRead(id);
-  }, []);
+  const markAsRead = useCallback(
+    (id: string) => {
+      setReadIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        saveStoredSet(READ_KEY, next);
+        return next;
+      });
+      if (id.startsWith(DELIVERY_ID_PREFIX) && dataSource === 'api' && hasLiveApiAuth()) {
+        const deliveryId = id.slice(DELIVERY_ID_PREFIX.length);
+        void markNotificationDeliveriesReadApi(activeStore?.id, { ids: [deliveryId] }).then(() =>
+          loadDeliveryNotifications(),
+        );
+        setDeliveryItems((prev) =>
+          prev.map((item) => (item.id === id ? { ...item, read: true, status: 'read' } : item)),
+        );
+        return;
+      }
+      void notificationAPI.markAsRead(id);
+    },
+    [activeStore?.id, dataSource, loadDeliveryNotifications],
+  );
 
   // Mark all as read (optimistic)
   const markAllAsRead = useCallback(
@@ -174,8 +258,14 @@ function useNotificationsInternal(): NotificationsContextValue {
         return next;
       });
       void notificationAPI.markAllAsRead();
+      if (dataSource === 'api' && hasLiveApiAuth() && activeStore?.id) {
+        void markNotificationDeliveriesReadApi(activeStore.id, { all: true }).then(() =>
+          loadDeliveryNotifications(),
+        );
+        setDeliveryItems((prev) => prev.map((item) => ({ ...item, read: true, status: 'read' })));
+      }
     },
-    [activeNotifications],
+    [activeNotifications, activeStore?.id, dataSource, loadDeliveryNotifications],
   );
 
   // Dismiss notification (optimistic)
@@ -274,7 +364,10 @@ function useNotificationsInternal(): NotificationsContextValue {
       dismissNotification,
       snoozeNotification,
       handleAction,
-      refresh: computeNotifications,
+      refresh: () => {
+        computeNotifications();
+        void loadDeliveryNotifications();
+      },
     }),
     [
       activeNotifications,
@@ -289,6 +382,7 @@ function useNotificationsInternal(): NotificationsContextValue {
       snoozeNotification,
       handleAction,
       computeNotifications,
+      loadDeliveryNotifications,
     ],
   );
 }

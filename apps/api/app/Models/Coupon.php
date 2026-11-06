@@ -26,6 +26,9 @@ class Coupon extends Model
         'status',
         'is_active',
         'expires_at',
+        'design_type',
+        'design_color',
+        'design_image_url',
     ];
 
     protected function casts(): array

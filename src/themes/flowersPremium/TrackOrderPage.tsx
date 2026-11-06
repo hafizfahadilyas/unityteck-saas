@@ -17,6 +17,9 @@ import {
   Calendar,
 } from 'lucide-react';
 import type { Order } from '../../types';
+import { isApiEnabled } from '../../api/client';
+import { trackStorefrontOrder, type StorefrontTrackOrderResult } from '../../api/tenantApi';
+import { trackingStatusLabel } from '../../utils/orderTrackingDisplay';
 
 interface TrackOrderPageProps {
   lang: string;
@@ -24,6 +27,7 @@ interface TrackOrderPageProps {
   money: (n: number) => string;
   onBack: () => void;
   initialOrderRef?: string;
+  storeId?: string;
 }
 
 export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({
@@ -32,9 +36,14 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({
   money,
   onBack,
   initialOrderRef = '',
+  storeId,
 }) => {
   const isAr = lang === 'ar';
   const [searchQuery, setSearchQuery] = useState(initialOrderRef || '');
+  const [phoneQuery, setPhoneQuery] = useState('');
+  const [apiTrack, setApiTrack] = useState<StorefrontTrackOrderResult | null>(null);
+  const [trackError, setTrackError] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [activeStep, setActiveStep] = useState(3); // Step 4 (0-indexed 3): Out for delivery
 
   useEffect(() => {
@@ -45,20 +54,53 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({
     }
   }, []);
 
-  // Look for order by query or fallback to first order or demo data
-  const matchedOrder = orders.find(
-    (o) =>
-      o.id.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-      o.customerPhone.includes(searchQuery.trim()) ||
-      o.customerName.toLowerCase().includes(searchQuery.toLowerCase().trim())
-  ) || (orders.length > 0 ? orders[0] : null);
+  const handleTrack = () => {
+    if (!searchQuery.trim() || !storeId || !isApiEnabled()) return;
+    setIsSearching(true);
+    setTrackError(false);
+    void trackStorefrontOrder(storeId, {
+      order_number: searchQuery.trim(),
+      phone: phoneQuery.trim() || searchQuery.trim(),
+    })
+      .then((data) => {
+        setApiTrack(data);
+        const s = data.status.toLowerCase();
+        if (s === 'delivered' || s === 'completed') setActiveStep(4);
+        else if (s === 'shipped' || s === 'out_for_delivery') setActiveStep(3);
+        else if (s === 'processing' || s === 'preparing') setActiveStep(2);
+        else setActiveStep(1);
+      })
+      .catch(() => {
+        setApiTrack(null);
+        setTrackError(true);
+      })
+      .finally(() => setIsSearching(false));
+  };
 
-  const displayOrderRef = matchedOrder?.id ? `WM-${matchedOrder.id.slice(-6).toUpperCase()}` : 'WM-782419';
-  const displayCustomer = matchedOrder?.customerName || (isAr ? 'عبدالله بن سلطان الشريف' : 'Abdullah Al-Sharif');
-  const displayPhone = matchedOrder?.customerPhone || '+966 50 442 8819';
-  const displayLocation = matchedOrder?.deliveryLocation || (isAr ? 'فندق برج الساعة - فيرمونت مكة' : 'Makkah Clock Royal Tower Hotel');
-  const displayTotal = matchedOrder ? money(matchedOrder.total) : `${money(490)}`;
-  const displaySummary = matchedOrder?.itemsSummary || (isAr ? 'باقة جوري ملكي أحمر فاخر (x1) · كرت إهداء خاص' : 'Royal Red Velvet Rose Bouquet (x1) · Luxury Card');
+  const matchedOrder = apiTrack
+    ? undefined
+    : orders.find(
+        (o) =>
+          o.id.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+          o.customerPhone.includes(searchQuery.trim()) ||
+          o.customerName.toLowerCase().includes(searchQuery.toLowerCase().trim()),
+      );
+
+  const displayOrderRef = apiTrack
+    ? apiTrack.order_number
+    : matchedOrder?.orderNumber || matchedOrder?.id || (trackError ? '—' : '—');
+  const displayCustomer = matchedOrder?.customerName || (isAr ? '—' : '—');
+  const displayPhone = phoneQuery || matchedOrder?.customerPhone || '';
+  const displayLocation =
+    apiTrack?.delivery_location ||
+    matchedOrder?.deliveryLocation ||
+    (isAr ? '—' : '—');
+  const displayTotal = matchedOrder ? money(matchedOrder.total) : '—';
+  const displaySummary =
+    apiTrack?.items_summary ||
+    matchedOrder?.itemsSummary ||
+    (isAr ? '—' : '—');
+  const displayStatus = apiTrack ? trackingStatusLabel(apiTrack.status, isAr) : matchedOrder?.status;
 
   const steps = [
     {
@@ -156,26 +198,44 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({
         <label className="text-xs font-bold block" style={{ color: 'var(--sf-text)' }}>
           {isAr ? 'ابحث برقم الطلب أو رقم الجوال:' : 'Search by Order Number or Phone:'}
         </label>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch gap-2">
           <div className="relative flex-1">
             <Search className="w-4 h-4 opacity-50 absolute start-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder={isAr ? 'أدخل رقم الطلب مثل: WM-782419 أو 0504428819' : 'Enter reference e.g. WM-782419 or phone'}
+              placeholder={isAr ? 'رقم الطلب (#001)' : 'Order number (#001)'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full ps-9 pe-4 py-2.5 rounded-xl border text-xs outline-none focus:ring-2 focus:ring-emerald-500"
               style={{ background: 'var(--sf-bg)', borderColor: 'var(--sf-border)', color: 'var(--sf-text)' }}
             />
           </div>
+          <input
+            type="tel"
+            placeholder={isAr ? 'جوال (آخر 4 أرقام أو كامل)' : 'Phone (last 4 or full)'}
+            value={phoneQuery}
+            onChange={(e) => setPhoneQuery(e.target.value)}
+            className="sm:w-48 px-4 py-2.5 rounded-xl border text-xs outline-none focus:ring-2 focus:ring-emerald-500"
+            style={{ background: 'var(--sf-bg)', borderColor: 'var(--sf-border)', color: 'var(--sf-text)' }}
+          />
           <button
             type="button"
-            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-transform active:scale-95"
+            disabled={isSearching || !searchQuery.trim()}
+            onClick={handleTrack}
+            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-transform active:scale-95"
           >
             <Search className="w-3.5 h-3.5" />
-            <span>{isAr ? 'تتبع' : 'Track'}</span>
+            <span>{isSearching ? (isAr ? 'جاري البحث...' : 'Searching…') : isAr ? 'تتبع' : 'Track'}</span>
           </button>
         </div>
+        {trackError && (
+          <p className="text-xs text-rose-600 font-bold">
+            {isAr ? 'لم يتم العثور على الطلب. تحقق من الرقم والجوال.' : 'Order not found. Check order number and phone.'}
+          </p>
+        )}
+        {displayStatus && apiTrack && (
+          <p className="text-xs font-bold text-emerald-700">{displayStatus}</p>
+        )}
       </div>
 
       {/* Order Summary & Dispatch Card */}

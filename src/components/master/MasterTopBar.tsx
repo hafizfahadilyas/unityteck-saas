@@ -10,6 +10,7 @@ import {
   LogOut,
   RefreshCw,
   X,
+  Menu,
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { PrefsSwitcher } from '../common/PrefsSwitcher';
@@ -19,6 +20,7 @@ import { getStoreDisplayName } from '../../utils/storeLocalization';
 interface MasterTopBarProps {
   onOpenCreateStore: () => void;
   onSignOut: () => void;
+  onMobileMenuOpen?: () => void;
 }
 
 /**
@@ -29,6 +31,7 @@ interface MasterTopBarProps {
 export const MasterTopBar: React.FC<MasterTopBarProps> = ({
   onOpenCreateStore,
   onSignOut,
+  onMobileMenuOpen,
 }) => {
   const {
     searchQuery,
@@ -67,7 +70,7 @@ export const MasterTopBar: React.FC<MasterTopBarProps> = ({
 
   return (
     <header
-      className="h-16 border-b px-2.5 sm:px-4 lg:px-6 flex items-center justify-between gap-1.5 sm:gap-2.5 w-full bg-[var(--surface)] text-[var(--text)] border-[var(--border)] shrink-0 z-30 select-none"
+      className="min-h-14 sm:h-16 border-b px-2 sm:px-4 lg:px-6 flex items-center justify-between gap-1 sm:gap-2.5 w-full bg-[var(--surface)] text-[var(--text)] border-[var(--border)] shrink-0 z-30 select-none max-lg:sticky max-lg:top-0"
       style={{
         background: 'var(--surface)',
         borderColor: 'var(--border)',
@@ -76,8 +79,19 @@ export const MasterTopBar: React.FC<MasterTopBarProps> = ({
       }}
       data-chrome="master-topbar"
     >
+      {onMobileMenuOpen ? (
+        <button
+          type="button"
+          className="lg:hidden shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-xl border transition-colors"
+          style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--input-bg)' }}
+          aria-label={locale === 'ar' ? 'فتح القائمة' : 'Open menu'}
+          onClick={onMobileMenuOpen}
+        >
+          <Menu className="w-5 h-5" aria-hidden />
+        </button>
+      ) : null}
       {/* 1. SEARCH BAR (Responsive fluid sizing) */}
-      <div className="flex-1 min-w-[80px] max-w-[140px] xs:max-w-[180px] sm:max-w-[220px] md:max-w-xs lg:max-w-sm xl:max-w-md relative">
+      <div className="flex-1 min-w-0 max-w-[min(42vw,9.5rem)] sm:min-w-[130px] sm:max-w-[220px] md:max-w-xs lg:max-w-sm xl:max-w-md relative shrink">
         <Search
           className="w-3.5 h-3.5 sm:w-4 sm:h-4 absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-60"
           style={{ color: 'var(--muted)' }}
@@ -111,7 +125,7 @@ export const MasterTopBar: React.FC<MasterTopBarProps> = ({
             type="button"
             onClick={() => setSearchQuery('')}
             className="w-4 h-4 absolute end-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-            aria-label="Clear"
+            aria-label={locale === 'ar' ? 'مسح البحث' : 'Clear'}
           >
             <X className="w-3 h-3" />
           </button>

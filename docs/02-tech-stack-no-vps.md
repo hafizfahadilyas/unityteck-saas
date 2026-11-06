@@ -1,7 +1,19 @@
-# Tech Stack — NO VPS (LOCKED)
+# Tech Stack — Hostinger Cloud (no separate VPS)
 
-**Rule:** Shared / managed hosting only. **VPS mat lo** is phase mein.  
-Future: dedicated DB / client hosting possible — architecture ready, abhi NO VPS.
+**Current package:** Hostinger Cloud. One central repo: `https://github.com/hafizfahadilyas/unityteck-saas`.
+
+| Piece | Where |
+|-------|--------|
+| Platform name | Master Admin chrome: **Souq Platform** / **منصة سوق** |
+| Subscription site + API + MySQL | This Hostinger Cloud account |
+| Coffee domain | `mieraf-ksa.com` on the central Hostinger (`store-coffee`, login `mieraf.sa8@gmail.com`) |
+| Car and every other store | Custom domain on this same central Hostinger. One upload updates them together. |
+| Flowers hosting | Separate Hostinger account. Its own upload. Data stays `store-1`. |
+| Flowers store | Flowers catalog only (`store-1`) |
+| Plans | Pro **300 SAR / month**, Premium **500 SAR / month** |
+
+**Rule:** Managed Hostinger Cloud only. Do not add a separate VPS.  
+Future: dedicated DB / client hosting possible — architecture ready.
 
 Golden rules saath: ultra-fast · **bina full refresh** · **kahin pe bhi cache/old data na dikhe**.
 
@@ -14,7 +26,7 @@ Golden rules saath: ultra-fast · **bina full refresh** · **kahin pe bhi cache/
 | Master + Store Admin | **React 19 + Vite + TypeScript + Tailwind** | Hostinger static / public HTML | Dashboard SPA |
 | Admin data layer | **TanStack Query + React Router** | (same SPA) | Cache tags, soft nav, no reload |
 | Public Storefront | **Next.js 15 (SSR/ISR)** | **Vercel** (free/hobby → pro) | SEO + instant revalidate |
-| API | **Laravel 11 + PHP 8.2+ + Sanctum** | **Hostinger** shared / cloud | Auth, CRUD, tenant isolation |
+| API | **Laravel 11 + PHP 8.2+ + Sanctum** | **Hostinger Cloud** | Auth, CRUD, tenant isolation |
 | Database | **MySQL 8** | Hostinger MySQL | Central DB + `store_id` |
 | Queues / cron | Laravel scheduler + Hostinger cron | Hostinger | Backups, emails, indexing jobs |
 | Media / images | **Cloudflare R2 + CDN** | Cloudflare | Hashed/versioned URLs |

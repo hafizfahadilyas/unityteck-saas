@@ -53,6 +53,17 @@ return [
     ],
 
     /*
+    | Meta Graph — Instagram Content Publishing + Facebook Page posts (per-store tokens).
+    | Platform App ID/Secret optional for future OAuth; stores paste Page token like WhatsApp.
+    */
+    'meta' => [
+        'app_id' => env('META_APP_ID'),
+        'app_secret' => env('META_APP_SECRET'),
+        'graph_version' => env('META_GRAPH_VERSION', 'v19.0'),
+        'oauth_redirect_uri' => env('META_OAUTH_REDIRECT_URI'),
+    ],
+
+    /*
     | KSA SMS — Unifonic Cloud and/or Taqnyat (store notification settings may override sender_id).
     */
     'sms' => [

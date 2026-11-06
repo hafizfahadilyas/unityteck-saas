@@ -3,6 +3,7 @@ import { Product, CartItem, Order, Language, OccasionReminder, SavedAddress, Add
 import { PRODUCTS, INITIAL_ORDERS, INITIAL_OCCASIONS, INITIAL_ADDRESSES } from '../data/mockData';
 import { COFFEE_STORE_PRODUCTS } from '../../../data/hadayaMeccaData';
 import { useTenant } from '../../../context/TenantContext';
+import { submitPublicStorefrontOrder } from '../../../utils/submitStorefrontOrder';
 import { CouponItem } from '../../../types';
 import {
   CartInterceptConfig,
@@ -44,7 +45,18 @@ interface AppContextType {
   setShowInvoiceModal: (show: boolean) => void;
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
-  addToCart: (product: Product, quantity?: number, addons?: AddonOption[], cardMessage?: string, size?: string) => void;
+  addToCart: (
+    product: Product,
+    quantity?: number,
+    addons?: AddonOption[],
+    cardMessage?: string,
+    size?: string,
+    variation?: {
+      variationId?: string | null;
+      selectedOptions?: Record<string, string>;
+      unitPrice?: number;
+    },
+  ) => void;
   removeFromCart: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, newQuantity: number) => void;
   clearCart: () => void;
@@ -79,7 +91,17 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { currentProducts, currentOrders, activeStore, currentCoupons, addOrder: tenantAddOrder, updateOrderStatus, updateOrder, recordCouponUsage } = useTenant();
+  const {
+    currentProducts,
+    currentOrders,
+    activeStore,
+    currentCoupons,
+    addOrder: tenantAddOrder,
+    syncOrderFromApi,
+    updateOrderStatus,
+    updateOrder,
+    recordCouponUsage,
+  } = useTenant();
 
   const [syncTick, setSyncTick] = useState(0);
 
@@ -138,6 +160,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           additionalImages: p.galleryUrls && p.galleryUrls.length > 0 ? p.galleryUrls : [p.image],
           category: p.category || (isCoffee ? 'حبوب القهوة المختصة' : 'باقات الورود الطبيعية'),
           categoryEn: pAny.categoryEn || p.category || (isCoffee ? 'Specialty Beans' : 'Natural Flower Bouquets'),
+          categoryAr: pAny.categoryAr || p.categoryAr || (isArName ? p.category : undefined),
           categorySlug: pAny.categorySlug || (p.category ? p.category.toLowerCase().replace(/\s+/g, '-') : (isCoffee ? 'coffee-beans' : 'bouquets')),
           occasions: p.tags || (isCoffee ? ['قهوة الصباح', 'محاصيل مختارة'] : ['هدايا الحرم', 'مناسبات خاصة']),
           tags: p.tags || (isCoffee ? ['قهوة مختصة', 'محمصة', 'حبوب بن'] : ['طبيعي', 'هولندي', 'فاخر']),
@@ -192,7 +215,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!raw) return null;
     const clean = raw.toLowerCase().trim();
     if (clean === 'storefront') return 'home'; // SaaS dashboard tab param -> storefront home
-    if (clean === 'shop') return 'catalog';
+    if (clean === 'shop' || clean === 'products') return 'catalog';
     if (clean === 'profile' || clean === 'account' || clean === 'orders') return 'crm';
     if (['home', 'catalog', 'product', 'cart', 'checkout', 'thankyou', 'crm'].includes(clean)) {
       return clean;
@@ -218,7 +241,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (path === '/cart') return 'cart';
         if (path === '/checkout') return 'checkout';
         if (path === '/crm' || path === '/profile' || path === '/account' || path === '/orders') return 'crm';
-        if (path === '/catalog' || path === '/shop') return 'catalog';
+        if (path === '/catalog' || path === '/shop' || path === '/products') return 'catalog';
         if (path === '/product') return 'product';
         if (path === '/thankyou') return 'thankyou';
       }
@@ -415,6 +438,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addons?: AddonOption[];
     cardMessage?: string;
     size?: string;
+    variation?: {
+      variationId?: string | null;
+      selectedOptions?: Record<string, string>;
+      unitPrice?: number;
+    };
   } | null>(null);
 
   const [visitorId] = useState<string>(() => {
@@ -597,10 +625,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     quantity: number = 1,
     addons: AddonOption[] = [],
     cardMessage?: string,
-    size?: string
+    size?: string,
+    variation?: {
+      variationId?: string | null;
+      selectedOptions?: Record<string, string>;
+      unitPrice?: number;
+    },
   ) => {
+    const variationId = variation?.variationId || null;
     const existingIndex = cart.findIndex(
-      (item) => item.productId === product.id && item.selectedSize === size
+      (item) =>
+        item.productId === product.id &&
+        item.selectedSize === size &&
+        (item.variationId || null) === variationId
     );
 
     if (existingIndex > -1) {
@@ -615,7 +652,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         quantity,
         addons,
         cardMessage,
-        selectedSize: size || 'الحجم الكلاسيكي'
+        selectedSize: size || 'الحجم الكلاسيكي',
+        variationId,
+        selectedOptions: variation?.selectedOptions,
+        unitPrice: variation?.unitPrice ?? product.price,
       };
       setCart((prev) => [newItem, ...prev]);
     }
@@ -629,7 +669,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     quantity: number = 1,
     addons: AddonOption[] = [],
     cardMessage?: string,
-    size?: string
+    size?: string,
+    variation?: {
+      variationId?: string | null;
+      selectedOptions?: Record<string, string>;
+      unitPrice?: number;
+    },
   ) => {
     const storeId = activeStore?.id || 'store-1';
     const isFlowersStore =
@@ -650,7 +695,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       if (!isAlreadyDismissed) {
         // 1ST CLICK: Trigger Cart Intercept Modal!
-        pendingAddToCartRef.current = { product, quantity, addons, cardMessage, size };
+        pendingAddToCartRef.current = { product, quantity, addons, cardMessage, size, variation };
         setIsCartInterceptOpen(true);
 
         // Record impression in real backend tracking API (MySQL)
@@ -672,7 +717,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     // 2ND TIME (or once interacted/dismissed): Add directly to cart without modal!
-    directAddToCart(product, quantity, addons, cardMessage, size);
+    directAddToCart(product, quantity, addons, cardMessage, size, variation);
   };
 
   const handleCartInterceptPrimary = () => {
@@ -685,8 +730,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Add pending item to cart
     if (pendingAddToCartRef.current) {
-      const { product, quantity, addons, cardMessage, size } = pendingAddToCartRef.current;
-      directAddToCart(product, quantity, addons, cardMessage, size);
+      const { product, quantity, addons, cardMessage, size, variation } = pendingAddToCartRef.current;
+      directAddToCart(product, quantity, addons, cardMessage, size, variation);
       pendingAddToCartRef.current = null;
     }
 
@@ -745,8 +790,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch {}
 
     if (pendingAddToCartRef.current) {
-      const { product, quantity, addons, cardMessage, size } = pendingAddToCartRef.current;
-      directAddToCart(product, quantity, addons, cardMessage, size);
+      const { product, quantity, addons, cardMessage, size, variation } = pendingAddToCartRef.current;
+      directAddToCart(product, quantity, addons, cardMessage, size, variation);
       pendingAddToCartRef.current = null;
     }
 
@@ -772,8 +817,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch {}
 
     if (pendingAddToCartRef.current) {
-      const { product, quantity, addons, cardMessage, size } = pendingAddToCartRef.current;
-      directAddToCart(product, quantity, addons, cardMessage, size);
+      const { product, quantity, addons, cardMessage, size, variation } = pendingAddToCartRef.current;
+      directAddToCart(product, quantity, addons, cardMessage, size, variation);
       pendingAddToCartRef.current = null;
     }
 
@@ -970,61 +1015,81 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch {}
     setLastOrder(newOrder);
 
-    // Sync order to dashboard with dynamic UTM / Traffic attribution
     if (tenantAddOrder && activeStore?.id) {
+      let orderSource = 'Direct / Storefront';
+      let attributionDetails: any = null;
       try {
-        let orderSource = 'Direct / Storefront';
-        let attributionDetails: any = null;
-        try {
-          const stored = sessionStorage.getItem('selia_traffic_attribution') || localStorage.getItem('selia_traffic_attribution');
-          if (stored) {
-            attributionDetails = JSON.parse(stored);
-            if (attributionDetails.source) {
-              const src = attributionDetails.source.toLowerCase();
-              if (src.includes('google')) orderSource = `Google Ads (${attributionDetails.medium || 'cpc'})`;
-              else if (src.includes('tiktok')) orderSource = `TikTok Ads (${attributionDetails.medium || 'reels'})`;
-              else if (src.includes('snapchat')) orderSource = `Snapchat (${attributionDetails.medium || 'stories'})`;
-              else if (src.includes('instagram')) orderSource = `Instagram (${attributionDetails.medium || 'bio'})`;
-              else if (src.includes('whatsapp')) orderSource = `WhatsApp (${attributionDetails.medium || 'direct'})`;
-              else if (src.includes('qr_stand')) orderSource = `Hotel QR Stand`;
-              else orderSource = `${attributionDetails.source} (${attributionDetails.campaign || 'Campaign'})`;
-            }
+        const stored =
+          sessionStorage.getItem('selia_traffic_attribution') ||
+          localStorage.getItem('selia_traffic_attribution');
+        if (stored) {
+          attributionDetails = JSON.parse(stored);
+          if (attributionDetails.source) {
+            const src = attributionDetails.source.toLowerCase();
+            if (src.includes('google')) orderSource = `Google Ads (${attributionDetails.medium || 'cpc'})`;
+            else if (src.includes('tiktok')) orderSource = `TikTok Ads (${attributionDetails.medium || 'reels'})`;
+            else if (src.includes('snapchat')) orderSource = `Snapchat (${attributionDetails.medium || 'stories'})`;
+            else if (src.includes('instagram')) orderSource = `Instagram (${attributionDetails.medium || 'bio'})`;
+            else if (src.includes('whatsapp')) orderSource = `WhatsApp (${attributionDetails.medium || 'direct'})`;
+            else if (src.includes('qr_stand')) orderSource = `Hotel QR Stand`;
+            else orderSource = `${attributionDetails.source} (${attributionDetails.campaign || 'Campaign'})`;
           }
-        } catch {}
+        }
+      } catch {}
 
-        tenantAddOrder({
-          orderNumber: `#${newOrder.orderId}`,
-          customerName: newOrder.recipientName,
-          customerPhone: newOrder.recipientPhone,
-          customerEmail: user?.email || 'customer@hadayamakkah.sa',
-          customerAvatar: 'VIP',
-          itemsCount: newOrder.items.length,
-          itemsSummary: newOrder.items.map((i) => i.product.name).join(', '),
-          items: newOrder.items.map((i) => ({
-            id: i.productId,
-            name: i.product.name,
-            sku: (i.product as any).sku || 'HM-ITEM',
-            price: i.product.price,
-            quantity: i.quantity,
-            total: i.product.price * i.quantity,
-            image: i.product.image,
-          })),
-          subtotal: newOrder.subtotal,
-          discountAmount: newOrder.discount,
-          shippingFee: newOrder.shipping,
-          tax: Math.round(newOrder.total * 0.15),
-          total: newOrder.total,
-          source: orderSource,
-          deliveryLocation: `${newOrder.city}, ${newOrder.address}`,
-          status: 'pending',
-          paymentMethod: newOrder.paymentMethod,
-          paymentStatus: 'Paid',
-          customerNotes: newOrder.cardMessage,
-          attribution: attributionDetails,
-        } as any);
-      } catch (err) {
-        console.warn('Tenant order sync non-blocking error:', err);
-      }
+      const storefrontPayload = {
+        customerName: newOrder.recipientName,
+        customerPhone: newOrder.recipientPhone,
+        customerEmail: user?.email || 'customer@hadayamakkah.sa',
+        total: newOrder.total,
+        deliveryLocation: `${newOrder.city}, ${newOrder.address}`,
+        status: 'pending',
+        paymentMethod: newOrder.paymentMethod,
+        paymentStatus: 'paid',
+        source: orderSource,
+        sourceDetails: attributionDetails ? JSON.stringify(attributionDetails) : orderSource,
+        items: newOrder.items.map((i) => ({
+          id: i.productId,
+          name: i.product.name,
+          quantity: i.quantity,
+          price: i.product.price,
+        })),
+      };
+
+      void submitPublicStorefrontOrder(activeStore.id, storefrontPayload, {
+        syncOrderFromApi,
+        addOrder: tenantAddOrder,
+        toAddOrderPayload: () =>
+          ({
+            customerName: newOrder.recipientName,
+            customerPhone: newOrder.recipientPhone,
+            customerEmail: user?.email || 'customer@hadayamakkah.sa',
+            customerAvatar: 'VIP',
+            itemsCount: newOrder.items.length,
+            itemsSummary: newOrder.items.map((i) => i.product.name).join(', '),
+            items: newOrder.items.map((i) => ({
+              id: i.productId,
+              name: i.product.name,
+              sku: (i.product as any).sku || 'HM-ITEM',
+              price: i.product.price,
+              quantity: i.quantity,
+              total: i.product.price * i.quantity,
+              image: i.product.image,
+            })),
+            subtotal: newOrder.subtotal,
+            discountAmount: newOrder.discount,
+            shippingFee: newOrder.shipping,
+            tax: Math.round(newOrder.total * 0.15),
+            total: newOrder.total,
+            source: orderSource,
+            deliveryLocation: `${newOrder.city}, ${newOrder.address}`,
+            status: 'pending',
+            paymentMethod: newOrder.paymentMethod,
+            paymentStatus: 'Paid',
+            customerNotes: newOrder.cardMessage,
+            attribution: attributionDetails,
+          }) as any,
+      }).catch((err) => console.error('Tenant order sync failed:', err));
     }
 
     clearCart();

@@ -2,7 +2,6 @@ import React, { useRef, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { Product } from '../types';
-import { PRODUCTS } from '../data/products';
 import { handleImageError } from '../../../utils/imageFallback';
 import {
   Zap,
@@ -38,7 +37,7 @@ const SliderCard: React.FC<SliderCardProps> = ({
     product.images?.[0] ||
     product.colors?.[0]?.image ||
     (product as any).image ||
-    '/src/assets/images/hibrew_h7a_flagship_machine.png';
+    '/images/coffee_hero_flagship_machine_1791218907782.jpg';
 
   const prodTitle = isAr ? product.nameAr || product.name : product.name;
   const prodSlug = (product as any).slug || String(product.id) || (product.name || '').toLowerCase().replace(/\s+/g, '-');
@@ -55,7 +54,7 @@ const SliderCard: React.FC<SliderCardProps> = ({
           alt={prodTitle}
           loading="lazy" decoding="async"
           onError={(e) =>
-            handleImageError(e, '/src/assets/images/hibrew_h7a_flagship_machine.png')
+            handleImageError(e, '/images/coffee_hero_flagship_machine_1791218907782.jpg')
           }
           className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-500 drop-shadow-sm select-none pointer-events-none"
         />
@@ -256,7 +255,7 @@ export const ShopTripleSlidersSection: React.FC = () => {
   // Dynamic products catalog
   const catalog: Product[] = useMemo(() => {
     if (contextProducts && contextProducts.length > 0) return contextProducts;
-    return PRODUCTS;
+    return [];
   }, [contextProducts]);
 
   // Handlers
@@ -266,7 +265,7 @@ export const ShopTripleSlidersSection: React.FC = () => {
     const prodImg =
       product.images?.[0] ||
       product.colors?.[0]?.image ||
-      '/src/assets/images/hibrew_h7a_flagship_machine.png';
+      '/images/coffee_hero_flagship_machine_1791218907782.jpg';
     if (triggerFlyToCart && rect) {
       triggerFlyToCart(rect, prodImg);
     }

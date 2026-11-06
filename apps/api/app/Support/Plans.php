@@ -18,6 +18,7 @@ final class Plans
      * @return array<string, array{
      *   id: string,
      *   name: string,
+     *   price_sar: int|null,
      *   product_limit: int|null,
      *   order_limit: int|null,
      *   storage_mb: int|null,
@@ -31,36 +32,56 @@ final class Plans
             'free' => [
                 'id' => 'plan-free',
                 'name' => 'Free',
+                'price_sar' => 0,
                 'product_limit' => 50,
                 'order_limit' => 100,
                 'storage_mb' => 512,
                 'team_seats' => 1,
-                'features' => ['catalog', 'orders', 'basic_seo', 'themes_basic'],
+                'features' => ['catalog', 'orders', 'basic_seo', 'themes_basic', 'media_studio'],
             ],
             'paid' => [
                 'id' => 'plan-paid',
                 'name' => 'Paid',
+                'price_sar' => null,
                 'product_limit' => 500,
                 'order_limit' => 2000,
                 'storage_mb' => 5120,
                 'team_seats' => 5,
-                'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'themes_basic'],
+                'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio'],
             ],
             'pro' => [
                 'id' => 'plan-pro',
                 'name' => 'Pro',
+                'price_sar' => 300,
                 'product_limit' => 5000,
                 'order_limit' => null,
                 'storage_mb' => 51200,
                 'team_seats' => 20,
                 'features' => [
                     'catalog', 'orders', 'seo', 'coupons', 'shipping',
-                    'themes_basic', 'themes', 'backups', 'zatca', 'analytics', 'ai',
+                    'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain',
+                    'whatsapp', 'social',
+                ],
+            ],
+            'premium' => [
+                'id' => 'plan-premium',
+                'name' => 'Premium',
+                'price_sar' => 500,
+                'product_limit' => null,
+                'order_limit' => null,
+                'storage_mb' => 102400,
+                'team_seats' => 50,
+                'features' => [
+                    'catalog', 'orders', 'seo', 'coupons', 'shipping',
+                    'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain',
+                    'whatsapp', 'social',
+                    'backups', 'zatca', 'ai', 'api_access', 'advanced_seo', 'advanced_analytics',
                 ],
             ],
             'custom' => [
                 'id' => 'plan-custom',
                 'name' => 'Custom',
+                'price_sar' => null,
                 'product_limit' => null,
                 'order_limit' => null,
                 'storage_mb' => null,
@@ -74,7 +95,7 @@ final class Plans
     {
         $c = strtolower(trim((string) $code));
 
-        return in_array($c, ['free', 'paid', 'pro', 'custom'], true) ? $c : 'free';
+        return in_array($c, ['free', 'paid', 'pro', 'premium', 'custom'], true) ? $c : 'free';
     }
 
     /**
@@ -95,6 +116,7 @@ final class Plans
      *   code: string,
      *   billed_code: string,
      *   name: string,
+     *   price_sar: int|null,
      *   product_limit: int|null,
      *   order_limit: int|null,
      *   storage_mb: int|null,
@@ -115,15 +137,16 @@ final class Plans
         // Prefer DB plan row when present (Hostinger may customize Custom)
         $db = Plan::query()->where('code', $effective)->first();
         if ($db) {
-            $features = is_array($db->features) ? $db->features : $meta['features'];
+            $custom = $effective === 'custom';
             $meta = [
                 'id' => $db->id,
-                'name' => $db->name,
-                'product_limit' => $db->product_limit,
+                'name' => $db->name ?: $meta['name'],
+                'price_sar' => $db->price_sar ?? $meta['price_sar'],
+                'product_limit' => $custom ? $db->product_limit : $meta['product_limit'],
                 'order_limit' => $meta['order_limit'],
-                'storage_mb' => $db->storage_mb,
-                'team_seats' => $db->team_seats,
-                'features' => $features,
+                'storage_mb' => $custom ? $db->storage_mb : $meta['storage_mb'],
+                'team_seats' => $custom ? $db->team_seats : $meta['team_seats'],
+                'features' => $custom && is_array($db->features) ? $db->features : $meta['features'],
             ];
         }
 
@@ -133,10 +156,13 @@ final class Plans
             ->where('store_id', $store->id)
             ->count();
 
+        $canva = CanvaTemplates::entitlement($store);
+
         return [
             'code' => $effective,
             'billed_code' => $billed,
             'name' => $meta['name'],
+            'price_sar' => $meta['price_sar'],
             'product_limit' => $meta['product_limit'],
             'order_limit' => $meta['order_limit'],
             'storage_mb' => $meta['storage_mb'],
@@ -146,6 +172,9 @@ final class Plans
             'products_used' => $productsUsed,
             'subscription_status' => $subLife['status'],
             'subscription' => $subLife,
+            'canva_templates_per_category' => $canva['canva_templates_per_category'],
+            'canva_free_default' => $canva['free_default'],
+            'media_studio' => $canva['media_studio'],
         ];
     }
 
@@ -165,6 +194,12 @@ final class Plans
         }
         // Full themes unlocks basic theme access
         if ($feature === 'themes_basic' && in_array('themes', $features, true)) {
+            return true;
+        }
+        if ($feature === 'seo' && in_array('advanced_seo', $features, true)) {
+            return true;
+        }
+        if ($feature === 'analytics' && in_array('advanced_analytics', $features, true)) {
             return true;
         }
 

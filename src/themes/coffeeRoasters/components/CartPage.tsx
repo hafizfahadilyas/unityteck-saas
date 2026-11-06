@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
+import { cartChoiceLine } from '../cartLine';
+import { useTenant } from '../../../context/TenantContext';
+import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 import { Trash2, ArrowRight, ShoppingBag, ShieldCheck, Tag, Truck, Check, Coffee } from 'lucide-react';
 
 export const CartPage: React.FC = () => {
@@ -18,6 +21,10 @@ export const CartPage: React.FC = () => {
     language
   } = useCart();
 
+  const { activeStore } = useTenant();
+  const showCoupon = activeStore?.id
+    ? resolveCoffeeThemeSettings(activeStore.id, activeStore).checkoutFields?.showCoupon !== false
+    : true;
   const [couponCode, setCouponCode] = useState('');
   const discountAmount = couponDiscount;
   const appliedCoupon = appliedCouponObj?.code || null;
@@ -91,10 +98,11 @@ export const CartPage: React.FC = () => {
                     <h3 className="font-bold text-sm sm:text-base text-neutral-900 truncate sm:whitespace-normal">
                       {item.productName}
                     </h3>
-                    <div className="text-xs text-neutral-500 flex items-center gap-2">
-                      <span>{language === 'AR' && item.selectedColor.nameAr ? item.selectedColor.nameAr : item.selectedColor.name}</span>
-                      <span>·</span>
-                      <span>{item.selectedStorage.capacity}</span>
+                    <div className="text-xs text-neutral-500">
+                      <span>{cartChoiceLine(item, language === 'AR')}</span>
+                      {item.purchaseNotes && item.purchaseNotes.length > 0 && (
+                        <span className="block mt-0.5">{item.purchaseNotes.join(' · ')}</span>
+                      )}
                     </div>
 
                     {item.selectedWarranty && (
@@ -240,8 +248,8 @@ export const CartPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Promo Code Form */}
-              <form onSubmit={handleApplyCoupon} className="pt-2">
+              {showCoupon ? (
+              <form onSubmit={handleApplyCoupon} data-checkout-coupon="on" className="pt-2">
                 <div className="flex gap-2">
                   <div className="relative flex-1 min-w-0">
                     <Tag className={`w-4 h-4 text-neutral-400 absolute ${language === 'AR' ? 'right-3' : 'left-3'} top-3`} />
@@ -261,6 +269,7 @@ export const CartPage: React.FC = () => {
                   </button>
                 </div>
               </form>
+              ) : null}
 
               {/* Checkout Button */}
               <button

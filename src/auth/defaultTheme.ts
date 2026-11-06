@@ -6,17 +6,12 @@
 export const DEFAULT_COMMERCE_THEME_ID = 'theme-mecca-gifts';
 
 export const getDefaultStoreTheme = (storeId?: string): string => {
-  if (storeId === 'store-coffee' || storeId?.includes('coffee')) return 'theme-coffee';
+  // Coffee = one official theme only (catalog id theme-coffee-artisan; registry aliases theme-coffee)
+  if (storeId === 'store-coffee' || storeId?.includes('coffee')) return 'theme-coffee-artisan';
   if (storeId === 'store-bleco' || storeId?.includes('bleco') || storeId?.includes('car')) return 'theme-saudia-transport';
-  if (storeId === 'store-1' || storeId?.includes('flower') || storeId?.includes('gift')) return 'theme-mecca-gifts';
+  if (storeId === 'store-1' || storeId?.includes('flower') || storeId?.includes('gift')) return 'theme-flora-luxe';
   // Unknown new store: neutral default pack (merchant can switch) — no Flora cross-leak
   return DEFAULT_COMMERCE_THEME_ID;
-};
-
-export const getDefaultStoreTheme = (storeId?: string): string => {
-  if (storeId === 'store-coffee' || storeId?.includes('coffee')) return 'theme-coffee';
-  if (storeId === 'store-bleco' || storeId?.includes('bleco') || storeId?.includes('car')) return 'theme-saudia-transport';
-  return 'theme-mecca-gifts';
 };
 
 export type ThemeMode = 'basic' | 'full';

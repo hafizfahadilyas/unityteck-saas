@@ -19,6 +19,10 @@ import {
   recordFailedAttempt,
   resetRateLimit,
 } from './security';
+import {
+  getStoreLoginEmailOverride,
+  isStoreLoginEmailActive,
+} from './storeEmailAccess';
 
 export type LoginResult = AuthSession;
 
@@ -59,18 +63,15 @@ export const DEMO_CREDENTIALS = {
     supportPassword: 'WardSupport@2026!Secure',
   },
   coffee: {
-    email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_COFFEE_ADMIN_EMAIL) || 'rayan@specialtycoffee.sa',
+    email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_COFFEE_ADMIN_EMAIL) || 'mieraf.sa8@gmail.com',
     password: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_COFFEE_ADMIN_PASSWORD) || 'CoffeeStore@2026!Secure',
     name: 'متجر القهوة المختصة',
     storeId: 'store-coffee',
     aliases: [
-      'rayan@specialtycoffee.sa',
-      'coffee@specialtycoffee.sa',
-      'admin@specialtycoffee.sa',
+      'mieraf.sa8@gmail.com',
       'coffee',
-      'rayan',
+      'mieraf',
       'store-coffee',
-      'specialtycoffee',
     ],
   },
   car: {
@@ -100,6 +101,189 @@ type DemoClient = {
   storeId: string;
   storeName: string;
 };
+
+export type RegisteredMerchant = {
+  storeId: string;
+  storeName: string;
+  /** Canonical login email for this merchant */
+  email: string;
+  /** All emails / aliases that may open this store */
+  emails: string[];
+};
+
+/** Emails that count as real login identifiers (skip short aliases like "coffee"). */
+function emailLikeIdentifiers(values: readonly string[]): string[] {
+  return values
+    .map((v) => v.trim().toLowerCase())
+    .filter((v) => v.includes('@'));
+}
+
+/**
+ * Resolve URL ?store= / ?demo= param → canonical store id.
+ * Empty / unknown → null (generic merchant portal).
+ */
+export function resolveStoreIdFromLoginParam(param: string | null | undefined): string | null {
+  const p = String(param || '')
+    .toLowerCase()
+    .trim();
+  if (!p) return null;
+  if (p === 'coffee' || p === 'store-coffee' || p === 'specialtycoffee' || p === 'roasters') {
+    return 'store-coffee';
+  }
+  if (
+    p === 'bleco' ||
+    p === 'store-bleco' ||
+    p === 'car' ||
+    p === 'cars' ||
+    p === 'tanjeed' ||
+    p === 'alsaeedi' ||
+    p === 'blacko'
+  ) {
+    return 'store-bleco';
+  }
+  if (
+    p === 'store-1' ||
+    p === 'makkah' ||
+    p === 'giftshop' ||
+    p === 'flowers' ||
+    p === 'gifts' ||
+    p === 'hadaya' ||
+    p === 'ward'
+  ) {
+    return 'store-1';
+  }
+  if (p.startsWith('store-')) return p;
+  return null;
+}
+
+/** Seeded + locally registered merchants (one entry per store). */
+export function listRegisteredMerchants(): RegisteredMerchant[] {
+  const seeded: RegisteredMerchant[] = [
+    {
+      storeId: DEMO_CREDENTIALS.store.storeId,
+      storeName: 'Makkah Flowers',
+      email: DEMO_CREDENTIALS.store.email.toLowerCase(),
+      emails: emailLikeIdentifiers([
+        DEMO_CREDENTIALS.store.email,
+        DEMO_CREDENTIALS.store.supportEmail,
+        ...(DEMO_CREDENTIALS.store.aliases as readonly string[]),
+      ]),
+    },
+    {
+      storeId: DEMO_CREDENTIALS.coffee.storeId,
+      storeName: DEMO_CREDENTIALS.coffee.name,
+      email: DEMO_CREDENTIALS.coffee.email.toLowerCase(),
+      emails: emailLikeIdentifiers([
+        DEMO_CREDENTIALS.coffee.email,
+        ...(DEMO_CREDENTIALS.coffee.aliases as readonly string[]),
+      ]),
+    },
+    {
+      storeId: DEMO_CREDENTIALS.car.storeId,
+      storeName: DEMO_CREDENTIALS.car.name,
+      email: DEMO_CREDENTIALS.car.email.toLowerCase(),
+      emails: emailLikeIdentifiers([
+        DEMO_CREDENTIALS.car.email,
+        'owner@tanjeedmakkah.com',
+        ...(DEMO_CREDENTIALS.car.aliases as readonly string[]),
+      ]),
+    },
+  ];
+
+  const registered = readDemoClients().map((c) => ({
+    storeId: c.storeId,
+    storeName: c.storeName,
+    email: c.email.toLowerCase(),
+    emails: [c.email.toLowerCase()],
+  }));
+
+  // Registered clients win over seeded if same storeId (keep both emails by merging)
+  const byStore = new Map<string, RegisteredMerchant>();
+  for (const m of [...seeded, ...registered]) {
+    const prev = byStore.get(m.storeId);
+    if (!prev) {
+      byStore.set(m.storeId, { ...m, emails: [...new Set(m.emails)] });
+      continue;
+    }
+    byStore.set(m.storeId, {
+      storeId: m.storeId,
+      storeName: m.storeName || prev.storeName,
+      email: prev.email,
+      emails: [...new Set([...prev.emails, ...m.emails])],
+    });
+  }
+
+  // Master SuperAdmin login-email overrides win (only new email may open the store)
+  return [...byStore.values()].map((m) => {
+    const override = getStoreLoginEmailOverride(m.storeId);
+    if (!override) return m;
+    return {
+      ...m,
+      email: override,
+      emails: [override],
+    };
+  });
+}
+
+/** Find which registered store this email belongs to (or null). */
+export function findRegisteredMerchantByEmail(email: string): RegisteredMerchant | null {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized || !normalized.includes('@')) return null;
+
+  const masterEmails = emailLikeIdentifiers([
+    DEMO_CREDENTIALS.master.email,
+    ...(DEMO_CREDENTIALS.master.aliases as readonly string[]),
+  ]);
+  if (masterEmails.includes(normalized) || normalized.includes('master@')) {
+    return null; // master is not a merchant store
+  }
+
+  for (const m of listRegisteredMerchants()) {
+    if (m.emails.includes(normalized)) return m;
+  }
+  return null;
+}
+
+export function isMasterLoginEmail(email: string): boolean {
+  const normalized = email.trim().toLowerCase();
+  const masterEmails = emailLikeIdentifiers([
+    DEMO_CREDENTIALS.master.email,
+    ...(DEMO_CREDENTIALS.master.aliases as readonly string[]),
+  ]);
+  return (
+    masterEmails.includes(normalized) ||
+    normalized === 'master@unityteck.com' ||
+    normalized.startsWith('master@')
+  );
+}
+
+/**
+ * Strict store login gate:
+ * - Only a registered merchant email may open a store.
+ * - If URL targets a specific store, email must belong to that store.
+ * - Coffee email cannot open Flowers, and vice versa.
+ * - Master Admin Active/Inactive: inactive store email cannot login.
+ */
+export function assertStoreLoginEmailAllowed(
+  email: string,
+  storeParam?: string | null,
+): RegisteredMerchant {
+  const merchant = findRegisteredMerchantByEmail(email);
+  if (!merchant) {
+    throw new Error('STORE_EMAIL_UNREGISTERED');
+  }
+
+  const expectedStoreId = resolveStoreIdFromLoginParam(storeParam);
+  if (expectedStoreId && merchant.storeId !== expectedStoreId) {
+    throw new Error('STORE_EMAIL_WRONG_STORE');
+  }
+
+  if (!isStoreLoginEmailActive(merchant.storeId)) {
+    throw new Error('STORE_EMAIL_INACTIVE');
+  }
+
+  return merchant;
+}
 
 const DEMO_CLIENTS_KEY = 'unityteck_demo_clients';
 const DEMO_PW_KEY = 'unityteck_demo_passwords';
@@ -810,19 +994,25 @@ export async function resetPassword(
   }
 }
 
+/** OTP validity window — 1 minute */
+export const OTP_TTL_SECONDS = 60;
+
 function mockRequestOtp(
   portal: AuthPortal,
   email: string,
   purpose: 'login' | 'reset',
 ): OtpRequestResult {
   const normalized = email.trim().toLowerCase();
-  const publicMsg: OtpRequestResult = {
-    ok: true,
-    message: 'If that email exists, a code was sent.',
-    delivery: 'stubbed',
-    expires_in: 600,
-  };
-  if (!mockKnownEmail(portal, normalized)) return publicMsg;
+  // Always issue a local OTP for login (passwordless). Reset still requires known email.
+  if (purpose === 'reset' && !mockKnownEmail(portal, normalized)) {
+    return {
+      ok: true,
+      message: 'If that email exists, a code was sent.',
+      delivery: 'stubbed',
+      expires_in: OTP_TTL_SECONDS,
+    };
+  }
+
   const code = String(Math.floor(100000 + Math.random() * 900000));
   try {
     const raw = sessionStorage.getItem(MOCK_OTP_KEY);
@@ -832,7 +1022,14 @@ function mockRequestOtp(
   } catch {
     /* ignore */
   }
-  return { ...publicMsg, dev_code: code };
+  return {
+    ok: true,
+    message: 'Verification code ready. SMTP not configured — use the on-screen code.',
+    delivery: 'on_screen',
+    expires_in: OTP_TTL_SECONDS,
+    // Shown in UI when real email delivery is unavailable
+    dev_code: code,
+  };
 }
 
 export async function requestOtp(
@@ -844,11 +1041,40 @@ export async function requestOtp(
     return mockRequestOtp(portal, email, purpose);
   }
   try {
-    return await apiFetch<OtpRequestResult>('/auth/otp/request', {
+    const res = await apiFetch<OtpRequestResult>('/auth/otp/request', {
       method: 'POST',
       body: { email: email.trim(), portal, purpose },
       skipAuth: true,
     });
+
+    const delivery = (res.delivery || '').toLowerCase();
+    const emailDelivered = delivery === 'email';
+
+    // No real inbox delivery → keep a local copy of the same code for SPA login fallback
+    if (purpose === 'login' && !emailDelivered) {
+      if (res.dev_code) {
+        try {
+          const normalized = email.trim().toLowerCase();
+          const raw = sessionStorage.getItem(MOCK_OTP_KEY);
+          const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+          map[`${portal}:${purpose}:${normalized}`] = String(res.dev_code);
+          sessionStorage.setItem(MOCK_OTP_KEY, JSON.stringify(map));
+        } catch {
+          /* ignore */
+        }
+        return {
+          ...res,
+          expires_in: OTP_TTL_SECONDS,
+          message: 'SMTP not sending real mail — use the on-screen OTP code.',
+        };
+      }
+      return mockRequestOtp(portal, email, purpose);
+    }
+
+    return {
+      ...res,
+      expires_in: OTP_TTL_SECONDS,
+    };
   } catch {
     return mockRequestOtp(portal, email, purpose);
   }
@@ -883,6 +1109,286 @@ export async function verifyOtp(
   });
 }
 
+/** Resolve a mock session from email/username after OTP succeeds (no password). */
+function mockSessionFromEmail(portal: AuthPortal, identifier: string): AuthSession {
+  const normalized = (identifier || '').trim().toLowerCase();
+  if (!normalized) {
+    throw new Error('يرجى إدخال البريد الإلكتروني / Email is required.');
+  }
+
+  if (portal === 'master') {
+    const demo = DEMO_CREDENTIALS.master;
+    const isMasterIdentifier =
+      normalized === demo.email.toLowerCase() ||
+      (demo.aliases as readonly string[]).includes(normalized);
+    if (!isMasterIdentifier) {
+      throw new Error('بيانات دخول إدارة المنصة غير صحيحة / Invalid master credentials.');
+    }
+    return mockSession(
+      'master',
+      {
+        id: 'user-master-1',
+        name: 'Unityteck Master SuperAdmin',
+        email: demo.email,
+        role: 'super_admin',
+      },
+      null,
+      null,
+      'mock-master-token',
+    );
+  }
+
+  const seeded = DEMO_CREDENTIALS.store;
+  const coffeeCreds = DEMO_CREDENTIALS.coffee;
+  const carCreds = DEMO_CREDENTIALS.car;
+
+  const registeredClients = readDemoClients();
+  const existingClient = registeredClients.find(
+    (c) =>
+      c.email.toLowerCase() === normalized ||
+      c.name.toLowerCase() === normalized ||
+      c.storeId.toLowerCase() === normalized,
+  );
+  if (existingClient) {
+    return mockSession(
+      'store',
+      {
+        id: `user-${existingClient.storeId}`,
+        name: existingClient.name,
+        email: existingClient.email,
+        role: 'manager',
+      },
+      existingClient.storeId,
+      existingClient.storeName,
+      `mock-store-${existingClient.storeId}`,
+    );
+  }
+
+  const isCoffeeIdentifier =
+    normalized === coffeeCreds.email.toLowerCase() ||
+    (coffeeCreds.aliases as readonly string[]).includes(normalized);
+  if (isCoffeeIdentifier) {
+    return mockSession(
+      'store',
+      {
+        id: 'store-coffee',
+        name: 'ريان السليمان (Rayan Al-Sulaiman)',
+        email: coffeeCreds.email,
+        role: 'manager',
+      },
+      'store-coffee',
+      'متجر القهوة المختصة',
+      'mock-store-coffee-token',
+    );
+  }
+
+  const isCarIdentifier =
+    normalized === carCreds.email.toLowerCase() ||
+    (carCreds.aliases as readonly string[]).includes(normalized);
+  if (isCarIdentifier) {
+    return mockSession(
+      'store',
+      {
+        id: 'store-bleco',
+        name: 'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو)',
+        email: carCreds.email,
+        role: 'manager',
+      },
+      'store-bleco',
+      'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو للتجارة)',
+      'mock-store-bleco-token',
+    );
+  }
+
+  const isMakkahIdentifier =
+    normalized === seeded.email.toLowerCase() ||
+    normalized === seeded.supportEmail.toLowerCase() ||
+    (seeded.aliases as readonly string[]).includes(normalized);
+  if (isMakkahIdentifier) {
+    const isSupport = normalized === seeded.supportEmail.toLowerCase();
+    return mockSession(
+      'store',
+      {
+        id: 'user-store-1',
+        name: isSupport ? 'Makkah Gifts Support' : 'Makkah Gifts Store',
+        email: seeded.email,
+        role: isSupport ? 'support' : 'manager',
+      },
+      'store-1',
+      'Makkah Flowers',
+      'mock-store-token',
+    );
+  }
+
+  // Passwordless OTP: any verified email can open an isolated merchant session
+  const emailPrefix =
+    normalized.split('@')[0].replace(/[^a-zA-Z0-9]/g, '-').replace(/^-+|-+$/g, '') || 'store';
+  const storeId = `store-${emailPrefix.toLowerCase().slice(0, 16)}`;
+  const storeName = `متجر ${emailPrefix} - السعودية`;
+  return mockSession(
+    'store',
+    {
+      id: `user-otp-${storeId}`,
+      name: emailPrefix,
+      email: normalized,
+      role: 'manager',
+    },
+    storeId,
+    storeName,
+    `mock-store-otp-${storeId}`,
+  );
+}
+
+function consumeMockOtp(portal: AuthPortal, email: string, code: string): void {
+  const normalized = email.trim().toLowerCase();
+  const raw = sessionStorage.getItem(MOCK_OTP_KEY);
+  const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  const key = `${portal}:login:${normalized}`;
+  if (map[key] !== code.trim()) {
+    throw new Error('رمز التحقق غير صحيح أو منتهي / Invalid or expired code.');
+  }
+  delete map[key];
+  sessionStorage.setItem(MOCK_OTP_KEY, JSON.stringify(map));
+}
+
+/**
+ * Email OTP login — request code via requestOtp(), then verify + open lifetime session.
+ */
+/** Dedupe + cooldown so failed Clerk→Sanctum never infinite-loops (422/429 storms). */
+const clerkExchangeInflight = new Map<string, Promise<AuthSession | null>>();
+const clerkExchangeFailUntil = new Map<string, number>();
+
+function clerkExchangeKey(portal: AuthPortal, email: string, storeId?: string | null): string {
+  return `${portal}:${email.trim().toLowerCase()}:${storeId || ''}`;
+}
+
+/**
+ * After Clerk verifies email, mint a real Sanctum PAT so /products etc. work.
+ * Falls back to the local Clerk session if API is offline.
+ */
+export async function exchangeClerkForSanctum(
+  portal: AuthPortal,
+  email: string,
+  storeId?: string | null,
+): Promise<AuthSession | null> {
+  if (!isApiEnabled()) return null;
+
+  const key = clerkExchangeKey(portal, email, storeId);
+  const failUntil = clerkExchangeFailUntil.get(key) ?? 0;
+  if (Date.now() < failUntil) {
+    return null;
+  }
+
+  const inflight = clerkExchangeInflight.get(key);
+  if (inflight) return inflight;
+
+  const run = (async (): Promise<AuthSession | null> => {
+    try {
+      const data = await Promise.race([
+        apiFetch<LoginResponse>('/auth/clerk/exchange', {
+          method: 'POST',
+          body: {
+            email: email.trim().toLowerCase(),
+            portal,
+            store_id: storeId || undefined,
+          },
+          skipAuth: true,
+        }),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Clerk exchange timeout')), 5000);
+        }),
+      ]);
+      if (!data?.token || !data?.user) {
+        clerkExchangeFailUntil.set(key, Date.now() + 60_000);
+        return null;
+      }
+      clerkExchangeFailUntil.delete(key);
+      const session = toSession(data);
+      writeAuthSession(session);
+      return session;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // 422 wrong email / 429 rate limit / timeout — back off hard
+      const backoffMs = /429|Too Many/i.test(msg)
+        ? 120_000
+        : /422|matching account|Unprocessable/i.test(msg)
+          ? 300_000
+          : 60_000;
+      clerkExchangeFailUntil.set(key, Date.now() + backoffMs);
+      console.warn('Clerk→Sanctum exchange unavailable:', err);
+      return null;
+    } finally {
+      clerkExchangeInflight.delete(key);
+    }
+  })();
+
+  clerkExchangeInflight.set(key, run);
+  return run;
+}
+
+export async function loginWithEmailOtp(
+  portal: AuthPortal,
+  email: string,
+  code: string,
+): Promise<LoginResult> {
+  const cleanEmail = email.trim();
+  const cleanCode = code.trim();
+
+  const secCheck = validateAuthInput(cleanEmail, cleanCode);
+  if (!secCheck.isSecure) {
+    throw new Error(secCheck.messageAr || secCheck.messageEn || 'Security check failed. Malicious input blocked.');
+  }
+
+  if (!cleanCode || cleanCode.length !== 6) {
+    throw new Error('رمز التحقق يجب أن يتكون من 6 أرقام / Verification code must be 6 digits.');
+  }
+
+  const finishLocal = (): AuthSession => {
+    consumeMockOtp(portal, cleanEmail, cleanCode);
+    const session = mockSessionFromEmail(portal, cleanEmail);
+    writeAuthSession(session);
+    resetRateLimit(cleanEmail.toLowerCase());
+    return session;
+  };
+
+  if (!isApiEnabled()) {
+    return finishLocal();
+  }
+
+  try {
+    const data = await Promise.race([
+      apiFetch<LoginResponse & { ok?: boolean; verified?: boolean }>('/auth/otp/verify', {
+        method: 'POST',
+        body: { email: cleanEmail, portal, purpose: 'login', code: cleanCode },
+        skipAuth: true,
+      }),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('API OTP login timeout — backend server unreachable')), 4000);
+      }),
+    ]);
+
+    if (data?.token && data?.user) {
+      const session = toSession(data);
+      writeAuthSession(session);
+      resetRateLimit(cleanEmail.toLowerCase());
+      return session;
+    }
+
+    // Verified without token payload — map local identity
+    const session = mockSessionFromEmail(portal, cleanEmail);
+    writeAuthSession(session);
+    resetRateLimit(cleanEmail.toLowerCase());
+    return session;
+  } catch (err) {
+    console.warn('Backend OTP login unavailable, falling back to secure local OTP:', err);
+    try {
+      return finishLocal();
+    } catch (mockErr) {
+      throw mockErr instanceof Error ? mockErr : err;
+    }
+  }
+}
+
 export async function logoutPortal(): Promise<void> {
   try {
     const token = getAuthToken();
@@ -898,6 +1404,17 @@ export async function logoutPortal(): Promise<void> {
       }
     }
   } finally {
+    // Clear Clerk browser session too — otherwise next OTP login hits "You're already signed in."
+    try {
+      const clerkApi = (typeof window !== 'undefined'
+        ? (window as Window & { Clerk?: { signOut?: () => Promise<void> } }).Clerk
+        : undefined);
+      if (clerkApi?.signOut) {
+        await clerkApi.signOut();
+      }
+    } catch {
+      // ignore Clerk sign-out failures
+    }
     clearAuthSession(true);
   }
 }

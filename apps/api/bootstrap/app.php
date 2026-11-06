@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule) {
+        // Hostinger: * * * * * php artisan schedule:run
+        $schedule->command('social:publish-due')->everyMinute()->withoutOverlapping();
+    })
     ->withMiddleware(function (Middleware $middleware) {
         // API SPA — never redirect to missing web route('login') (that caused HTTP 500).
         $middleware->redirectGuestsTo(fn (Request $request) => null);

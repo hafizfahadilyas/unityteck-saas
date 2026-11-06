@@ -48,34 +48,36 @@ import {
   HelpCircle,
   Clock,
   Compass,
+  GripVertical,
+  ArrowUp,
+  ArrowDown,
+  Copy,
 } from 'lucide-react';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
-import { DynamicThemeRenderer } from '../../storefront/DynamicThemeRenderer';
+import { updateThemeSettingsApi } from '../../../api/tenantApi';
 import { getDefaultStoreTheme } from '../../../auth/defaultTheme';
-
-// Import All 19 Theme Settings Forms
-import { StoreIdentityForm } from '../themeSettings/StoreIdentityForm';
-import { GeneralOptionsForm } from '../themeSettings/GeneralOptionsForm';
-import { StoreColorsForm } from '../themeSettings/StoreColorsForm';
-import { CategoryCartCustomerForm } from '../themeSettings/CategoryCartCustomerForm';
-import { AdvancedSliderForm } from '../themeSettings/AdvancedSliderForm';
-import { ProductVideosForm } from '../themeSettings/ProductVideosForm';
-import { ProductTabsForm } from '../themeSettings/ProductTabsForm';
-import { DetailedProductsForm } from '../themeSettings/DetailedProductsForm';
-import { ImageGridForm } from '../themeSettings/ImageGridForm';
-import { CustomLinksForm } from '../themeSettings/CustomLinksForm';
-import { BannersForm } from '../themeSettings/BannersForm';
-import { BlogForm } from '../themeSettings/BlogForm';
-import { AnnouncementBarForm } from '../themeSettings/AnnouncementBarForm';
-import { EnhancedFeaturesForm } from '../themeSettings/EnhancedFeaturesForm';
-import { ProductCardsForm } from '../themeSettings/ProductCardsForm';
-import { CustomProductsForm } from '../themeSettings/CustomProductsForm';
-import { SpecialOfferCountdownForm } from '../themeSettings/SpecialOfferCountdownForm';
-import { StoreStatisticsForm } from '../themeSettings/StoreStatisticsForm';
-import { CustomCodeForm } from '../themeSettings/CustomCodeForm';
-import { HeaderElementsForm } from '../themeSettings/HeaderElementsForm';
+import {
+  COFFEE_CUSTOMIZER_SECTIONS,
+  LEGACY_TO_COFFEE_SECTION,
+} from './coffeeCustomizerCatalog';
+import {
+  resolveCustomizerThemeFamily,
+  sectionsForPreviewPage,
+} from './customizerPageSections';
+import { readAllThemeSettings } from '../../../themes/settings/themeSettingsStore';
+import { isCoffeeStore, resolveCoffeeThemeSettings } from '../../../themes/settings/coffeeThemeDefaults';
+import {
+  countSectionElements,
+  duplicateCustomizerSectionContent,
+  mergePanelOrder,
+  moveIdInList,
+  readPanelOrder,
+  swapIdInList,
+  writePanelOrder,
+} from './customizerSidebarActions';
+import { CustomizerSectionForm } from './CustomizerSectionForm';
 
 export interface WordPressThemeCustomizerProps {
   isOpen: boolean;
@@ -162,7 +164,7 @@ export const CUSTOMIZER_SECTIONS: CustomizerSectionMeta[] = [
     id: '05_advanced_slider',
     num: '05',
     titleEn: 'Hero Slider & Banners',
-    titleAr: 'سلايدر الواجهة الرئيسية (Hero)',
+    titleAr: 'سلايدر الواجهة الرئيسية',
     descEn: 'Hero slides manager, autoplay speed, images, and CTA buttons',
     descAr: 'إدارة شرائح البانر، السرعة، الصور، وأزرار الشراء',
     icon: SlidersHorizontal,
@@ -302,9 +304,9 @@ export const CUSTOMIZER_SECTIONS: CustomizerSectionMeta[] = [
     id: '19_custom_code',
     num: '19',
     titleEn: 'Custom Code (CSS & JS)',
-    titleAr: 'الأكواد البرمجية المخصصة (CSS & JS)',
+    titleAr: 'الأكواد البرمجية المخصصة',
     descEn: 'Custom CSS styles, Snap/Meta/TikTok tracking pixels & head tags',
-    descAr: 'تنسيقات CSS مخصصة، بكسل التتبع، أكواد سناب وتيك توك وسكريبتات الهيدر',
+    descAr: 'تنسيقات مخصصة وأكواد التتبع في الترويسة',
     icon: Code2,
     category: 'code',
   },
@@ -317,9 +319,10 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
   targetThemeId,
 }) => {
   const { activeStore, storeActiveTheme } = useTenant();
-  const { locale } = usePrefs();
+  const { locale, setLocale } = usePrefs();
   const isAr = locale === 'ar';
   const { toast } = useToast();
+  const coffeeStore = isCoffeeStore(activeStore);
 
   const [activeSectionId, setActiveSectionId] = useState<string | null>(initialSectionId);
   const [deviceView, setDeviceView] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
@@ -331,16 +334,70 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
   const [previewPage, setPreviewPage] = useState<string>('home');
   const [isPageDropdownOpen, setIsPageDropdownOpen] = useState(false);
   const [isSaved, setIsSaved] = useState(true);
+  /** Mount preview on next frame — chrome paints first, iframe boots without idle delay */
+  const [previewMounted, setPreviewMounted] = useState(false);
+  const [wideLayout, setWideLayout] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches,
+  );
+  /** Per-page sidebar panel order (UI only) */
+  const [panelOrderIds, setPanelOrderIds] = useState<string[]>([]);
+  const [dragPanelId, setDragPanelId] = useState<string | null>(null);
+  const [langSwitchFlash, setLangSwitchFlash] = useState(false);
 
   const pageDropdownRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Sync initial section id if prop changes
   useEffect(() => {
-    if (initialSectionId) {
-      setActiveSectionId(initialSectionId);
+    if (!isOpen) {
+      setPreviewMounted(false);
+      return;
     }
-  }, [initialSectionId]);
+    // Warm HTTP cache for iframe SPA (same-origin chunks) before/while mounting
+    try {
+      void import('../../storefront/DynamicThemeRenderer');
+      if (coffeeStore) {
+        void import('../../../themes/coffeeRoasters/CoffeeRoastersThemeView');
+      } else if (activeStore?.id === 'store-bleco') {
+        void import('../../../themes/saudiaTransport/SaudiaTransportThemeView');
+      } else {
+        void import('../../../themes/meccaGifts/MeccaGiftsThemeView');
+      }
+    } catch {
+      /* ignore prefetch errors */
+    }
+    let cancelled = false;
+    const raf = window.requestAnimationFrame(() => {
+      if (!cancelled) setPreviewMounted(true);
+    });
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(raf);
+    };
+  }, [isOpen, coffeeStore, activeStore?.id]);
+
+  // Sync initial section id if prop changes (map legacy → coffee Word ids when needed)
+  useEffect(() => {
+    if (!initialSectionId) return;
+    if (coffeeStore) {
+      setActiveSectionId(LEGACY_TO_COFFEE_SECTION[initialSectionId] || initialSectionId);
+      return;
+    }
+    setActiveSectionId(initialSectionId);
+  }, [initialSectionId, coffeeStore]);
+
+  const sectionCatalog = coffeeStore ? COFFEE_CUSTOMIZER_SECTIONS : CUSTOMIZER_SECTIONS;
+
+  const elementCounts = useMemo(() => {
+    if (!activeStore?.id) return {} as Record<string, number>;
+    const settings = coffeeStore
+      ? resolveCoffeeThemeSettings(activeStore.id, activeStore)
+      : readAllThemeSettings(activeStore.id, activeStore);
+    const map: Record<string, number> = {};
+    for (const sec of sectionCatalog) {
+      map[sec.id] = countSectionElements(settings, sec.id);
+    }
+    return map;
+  }, [activeStore, coffeeStore, sectionCatalog, isSaved, previewRefreshKey]);
 
   // Close page dropdown when clicking outside or pressing Escape
   useEffect(() => {
@@ -416,6 +473,11 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
     return getDefaultStoreTheme(activeStore?.id);
   }, [targetThemeId, activeStore?.id, storeActiveTheme]);
 
+  const themeFamily = useMemo(
+    () => resolveCustomizerThemeFamily(activeThemeId || (coffeeStore ? 'theme-coffee-artisan' : '')),
+    [activeThemeId, coffeeStore],
+  );
+
   // Compute isolated live storefront preview URL
   const previewIframeUrl = useMemo(() => {
     const slug =
@@ -435,30 +497,228 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
   }, [activeStore?.slug, activeStore?.id, activeThemeId, previewPage]);
 
   const activeSection = useMemo(() => {
-    return CUSTOMIZER_SECTIONS.find((s) => s.id === activeSectionId) || null;
-  }, [activeSectionId]);
+    return sectionCatalog.find((s) => s.id === activeSectionId) || null;
+  }, [activeSectionId, sectionCatalog]);
 
-  // Categories metadata with item counts
-  const categoriesList = useMemo(
-    () => [
-      { id: 'all' as CustomizerCategory, labelAr: 'الكل (٢٠)', labelEn: 'All (20)', icon: Layers },
-      { id: 'identity' as CustomizerCategory, labelAr: 'الهوية والمظهر (٣)', labelEn: 'Identity & Style (3)', icon: Palette },
-      { id: 'layout' as CustomizerCategory, labelAr: 'الهيدر والتخطيط (٤)', labelEn: 'Header & Layout (4)', icon: SlidersVertical },
-      { id: 'media' as CustomizerCategory, labelAr: 'الوسائط والبانرات (٤)', labelEn: 'Media & Hero (4)', icon: ImageIcon },
-      { id: 'products' as CustomizerCategory, labelAr: 'المنتجات والمتجر (٤)', labelEn: 'Products & Shop (4)', icon: ShoppingBag },
-      { id: 'marketing' as CustomizerCategory, labelAr: 'التسويق والثقة (٥)', labelEn: 'Marketing & Trust (5)', icon: Award },
-      { id: 'code' as CustomizerCategory, labelAr: 'كود مخصص (١)', labelEn: 'Custom Code (1)', icon: Code2 },
-    ],
-    [],
+  /** Sidebar panels allowed for the currently previewed storefront page */
+  const pageAllowedSectionIds = useMemo(() => {
+    const ids = sectionsForPreviewPage(themeFamily, previewPage);
+    return ids ? new Set(ids) : null;
+  }, [themeFamily, previewPage]);
+
+  const pageScopedCatalog = useMemo(() => {
+    if (!pageAllowedSectionIds) return sectionCatalog;
+    return sectionCatalog.filter((s) => pageAllowedSectionIds.has(s.id));
+  }, [sectionCatalog, pageAllowedSectionIds]);
+
+  // Load / refresh per-page sidebar order when page or catalog changes
+  useEffect(() => {
+    const catalogIds = pageScopedCatalog.map((s) => s.id);
+    const saved = activeStore?.id ? readPanelOrder(activeStore.id, previewPage) : null;
+    setPanelOrderIds(mergePanelOrder(catalogIds, saved));
+  }, [activeStore?.id, previewPage, pageScopedCatalog]);
+
+  const orderedPageCatalog = useMemo(() => {
+    if (!panelOrderIds.length) return pageScopedCatalog;
+    const byId = new Map(pageScopedCatalog.map((s) => [s.id, s]));
+    const ordered: typeof pageScopedCatalog = [];
+    for (const id of panelOrderIds) {
+      const row = byId.get(id);
+      if (row) ordered.push(row);
+    }
+    for (const s of pageScopedCatalog) {
+      if (!ordered.some((o) => o.id === s.id)) ordered.push(s);
+    }
+    return ordered;
+  }, [pageScopedCatalog, panelOrderIds]);
+
+  const persistPanelOrder = useCallback(
+    (ids: string[]) => {
+      setPanelOrderIds(ids);
+      if (activeStore?.id) writePanelOrder(activeStore.id, previewPage, ids);
+      setIsSaved(false);
+    },
+    [activeStore?.id, previewPage],
   );
 
+  const movePanel = useCallback(
+    (fromId: string, toId: string) => {
+      if (fromId === toId) return;
+      const from = panelOrderIds.indexOf(fromId);
+      const to = panelOrderIds.indexOf(toId);
+      if (from < 0 || to < 0) return;
+      persistPanelOrder(moveIdInList(panelOrderIds, from, to));
+    },
+    [panelOrderIds, persistPanelOrder],
+  );
+
+  const nudgePanel = useCallback(
+    (id: string, dir: -1 | 1) => {
+      const idx = panelOrderIds.indexOf(id);
+      if (idx < 0) return;
+      persistPanelOrder(swapIdInList(panelOrderIds, idx, dir));
+    },
+    [panelOrderIds, persistPanelOrder],
+  );
+
+  const handleCopyPanel = useCallback(
+    (sectionId: string) => {
+      if (!activeStore?.id) return;
+      const result = duplicateCustomizerSectionContent(activeStore.id, sectionId, activeStore);
+      toast(isAr ? result.messageAr : result.messageEn, result.ok ? 'success' : 'error');
+      if (result.ok && result.kind === 'item') {
+        setIsSaved(false);
+        setActiveSectionId(sectionId);
+        try {
+          iframeRef.current?.contentWindow?.dispatchEvent(new CustomEvent('unityteck-theme-settings'));
+          iframeRef.current?.contentWindow?.postMessage(
+            { type: 'UNITYTECK_PREVIEW_SYNC', event: 'theme-updated', timestamp: Date.now() },
+            '*',
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+    },
+    [activeStore, isAr, toast],
+  );
+
+  const syncPreviewLang = useCallback(
+    (next: 'en' | 'ar') => {
+      if (next === locale) return;
+      setLangSwitchFlash(true);
+      setLocale(next);
+      try {
+        localStorage.setItem('unityteck_coffee_lang', next === 'ar' ? 'AR' : 'EN');
+      } catch {
+        /* ignore */
+      }
+      try {
+        iframeRef.current?.contentWindow?.postMessage(
+          { type: 'UNITYTECK_PREVIEW_LANG', lang: next === 'ar' ? 'AR' : 'EN', timestamp: Date.now() },
+          '*',
+        );
+      } catch {
+        /* ignore */
+      }
+      window.setTimeout(() => setLangSwitchFlash(false), 220);
+    },
+    [locale, setLocale],
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1280px)');
+    const apply = () => setWideLayout(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
+
+  const focusPreviewSection = useCallback((sectionId: string | null, index?: number) => {
+    setActiveSectionId(sectionId);
+    if (!sectionId) return;
+    try {
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: 'UNITYTECK_PREVIEW_FOCUS', section: sectionId, index, timestamp: Date.now() },
+        '*',
+      );
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFocus = (event: Event) => {
+      const detail = (event as CustomEvent<{ section?: string; index?: number }>).detail;
+      if (!detail?.section) return;
+      focusPreviewSection(detail.section, detail.index);
+    };
+    window.addEventListener('unityteck-preview-focus', onFocus);
+    return () => window.removeEventListener('unityteck-preview-focus', onFocus);
+  }, [focusPreviewSection]);
+
+  const switchPreviewPage = useCallback((pageId: string) => {
+    setPreviewPage(pageId);
+    setActiveSectionId(null);
+    setSearchQuery('');
+    setSelectedCategory('all');
+    setIsPageDropdownOpen(false);
+    setDragPanelId(null);
+    setMobileTab((tab) => (tab === 'controls' ? tab : 'preview'));
+  }, []);
+
+  // When preview page changes, drop an open section that does not belong to that page
+  useEffect(() => {
+    if (!activeSectionId || !pageAllowedSectionIds) return;
+    if (!pageAllowedSectionIds.has(activeSectionId)) {
+      setActiveSectionId(null);
+    }
+  }, [previewPage, pageAllowedSectionIds, activeSectionId]);
+
+  // Reset category chip if it has no panels on this page
+  useEffect(() => {
+    if (selectedCategory === 'all') return;
+    const has = orderedPageCatalog.some((s) => s.category === selectedCategory);
+    if (!has) setSelectedCategory('all');
+  }, [previewPage, orderedPageCatalog, selectedCategory]);
+
+  // Categories metadata with live counts for the current page scope
+  const categoriesList = useMemo(() => {
+    const count = (cat: CustomizerCategory | 'all') =>
+      cat === 'all'
+        ? orderedPageCatalog.length
+        : orderedPageCatalog.filter((s) => s.category === cat).length;
+    return [
+      {
+        id: 'all' as CustomizerCategory,
+        labelAr: `الكل (${count('all')})`,
+        labelEn: `All (${count('all')})`,
+        icon: Layers,
+      },
+      {
+        id: 'identity' as CustomizerCategory,
+        labelAr: `الهوية والمظهر (${count('identity')})`,
+        labelEn: `Identity & Style (${count('identity')})`,
+        icon: Palette,
+      },
+      {
+        id: 'layout' as CustomizerCategory,
+        labelAr: `الهيدر والتخطيط (${count('layout')})`,
+        labelEn: `Header & Layout (${count('layout')})`,
+        icon: SlidersVertical,
+      },
+      {
+        id: 'media' as CustomizerCategory,
+        labelAr: `الوسائط والبانرات (${count('media')})`,
+        labelEn: `Media & Hero (${count('media')})`,
+        icon: ImageIcon,
+      },
+      {
+        id: 'products' as CustomizerCategory,
+        labelAr: `المنتجات والمتجر (${count('products')})`,
+        labelEn: `Products & Shop (${count('products')})`,
+        icon: ShoppingBag,
+      },
+      {
+        id: 'marketing' as CustomizerCategory,
+        labelAr: `التسويق والثقة (${count('marketing')})`,
+        labelEn: `Marketing & Trust (${count('marketing')})`,
+        icon: Award,
+      },
+      {
+        id: 'code' as CustomizerCategory,
+        labelAr: `كود مخصص (${count('code')})`,
+        labelEn: `Custom Code (${count('code')})`,
+        icon: Code2,
+      },
+    ].filter((c) => c.id === 'all' || count(c.id) > 0);
+  }, [orderedPageCatalog]);
+
   const filteredSections = useMemo(() => {
-    return CUSTOMIZER_SECTIONS.filter((s) => {
-      // Category filter
+    return orderedPageCatalog.filter((s) => {
       if (selectedCategory !== 'all' && s.category !== selectedCategory) {
         return false;
       }
-      // Search query filter
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase().trim();
       return (
@@ -469,7 +729,9 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
         s.num.includes(q)
       );
     });
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, orderedPageCatalog]);
+
+  const canReorderPanels = !searchQuery.trim() && selectedCategory === 'all';
 
   // ══════════════════════════════════════════════════════════════
   // DYNAMIC PAGES LIST PER THEME (Automatic Adjustment for each theme)
@@ -501,7 +763,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
         {
           id: 'product-detail',
           nameEn: 'Flagship Espresso Detail',
-          nameAr: 'تفاصيل الماكينة (Dual-Boiler 20-Bar)',
+          nameAr: 'تفاصيل الماكينة',
           descEn: 'PID temperature, specs, 3D gallery & technical breakdown',
           descAr: 'التحكم بالحرارة PID، المواصفات الفنية ومعرض الصور',
           icon: Sparkles,
@@ -509,7 +771,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
         {
           id: 'product-buy',
           nameEn: 'Barista Buy Now Checkout',
-          nameAr: 'شراء سريع مباشر (Barista Pro)',
+          nameAr: 'شراء سريع مباشر',
           descEn: 'Quick buy with Tabby/Tamara 4 installments',
           descAr: 'شراء فوري مع تقسيط تابي وتمارا على 4 دفعات',
           icon: Zap,
@@ -539,9 +801,18 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
           icon: Star,
         },
         {
+          id: 'custom-order',
+          nameEn: 'Custom Product Builder',
+          nameAr: 'طلب منتج مخصص عبر واتساب',
+          descEn: 'WhatsApp custom-order form fields and CTAs',
+          descAr: 'نموذج الطلب المخصص وحقول واتساب',
+          icon: Package,
+          badge: 'Builder',
+        },
+        {
           id: 'profile',
           nameEn: 'Coffee Club VIP Account',
-          nameAr: 'الملف الشخصي ونادي القهوة VIP',
+          nameAr: 'الملف الشخصي ونادي القهوة',
           descEn: 'Order tracking, saved addresses & roastery rewards',
           descAr: 'تتبع الشحنات، العناوين المحفوظة ونقاط الولاء',
           icon: User,
@@ -812,19 +1083,35 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
     ];
   }, [activeThemeId]);
 
+  // Keep preview page valid when theme family / page list changes
+  useEffect(() => {
+    if (!themePages.some((p) => p.id === previewPage)) {
+      setPreviewPage(themePages[0]?.id || 'home');
+    }
+  }, [themePages, previewPage]);
+
   // Active Page Metadata
   const activePageMeta = useMemo(() => {
     return themePages.find((p) => p.id === previewPage) || themePages[0];
   }, [themePages, previewPage]);
 
   const handleManualSave = useCallback(() => {
+    if (!activeStore?.id) return;
     setIsSaved(true);
-    setPreviewRefreshKey((k) => k + 1);
-    toast(
-      isAr ? 'تم حفظ ونشر كافة إعدادات القالب وتطبيقها بنجاح!' : 'All theme customizations published successfully!',
-      'success',
-    );
-  }, [isAr, toast]);
+    void import('../../../api/tenantApi')
+      .then(({ updateThemeSettingsApi }) => updateThemeSettingsApi(activeStore.id, { publish: true }))
+      .then(() => {
+        setPreviewRefreshKey((k) => k + 1);
+        toast(
+          isAr ? 'تم نشر إعدادات القالب على المتجر.' : 'Theme settings published to the store.',
+          'success',
+        );
+      })
+      .catch(() => {
+        setIsSaved(false);
+        toast(isAr ? 'تعذر النشر.' : 'Publish failed.', 'error');
+      });
+  }, [activeStore?.id, isAr, toast]);
 
   const storeDisplayName = (isAr ? activeStore?.nameAr : activeStore?.nameEn) || activeStore?.name || 'Store';
 
@@ -879,36 +1166,89 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
           <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold shrink-0">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             <Database className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span className="truncate">{isAr ? 'متصل بقاعدة هوستنجر' : 'Hostinger DB Live'}</span>
+            <span className="truncate">{isAr ? 'متصل بقاعدة البيانات' : 'Database connected'}</span>
+          </div>
+
+          {/* Ultra-fast EN | AR — syncs chrome + live preview iframe without reload */}
+          <div
+            className={`hidden sm:flex items-center gap-0.5 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 shrink-0 transition-opacity duration-150 ${
+              langSwitchFlash ? 'opacity-70' : 'opacity-100'
+            }`}
+            title={isAr ? 'تبديل لغة لوحة التحكم والمعاينة فوراً' : 'Instant customizer + preview language'}
+          >
+            <button
+              type="button"
+              onClick={() => syncPreviewLang('en')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-black cursor-pointer transition-all duration-150 ${
+                !isAr
+                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-emerald-400 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => syncPreviewLang('ar')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-black cursor-pointer transition-all duration-150 ${
+                isAr
+                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-emerald-400 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              AR
+            </button>
           </div>
         </div>
 
-        {/* Center: Mobile View Switcher (Controls vs Live Preview) Visible on small screens */}
-        <div className="flex md:hidden items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shrink-0">
-          <button
-            type="button"
-            onClick={() => setMobileTab('controls')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              mobileTab === 'controls'
-                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-2xs'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>{isAr ? 'التخصيص' : 'Controls'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileTab('preview')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              mobileTab === 'preview'
-                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-2xs'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>{isAr ? 'المعاينة' : 'Preview'}</span>
-          </button>
+        {/* Center: Mobile View Switcher + instant EN|AR */}
+        <div className="flex md:hidden items-center gap-1.5 shrink-0">
+          <div className="flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => setMobileTab('controls')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                mobileTab === 'controls'
+                  ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>{isAr ? 'التخصيص' : 'Controls'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('preview')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                mobileTab === 'preview'
+                  ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>{isAr ? 'المعاينة' : 'Preview'}</span>
+            </button>
+          </div>
+          <div className="flex items-center p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800">
+            <button
+              type="button"
+              onClick={() => syncPreviewLang('en')}
+              className={`px-2 py-1 rounded-lg text-[10px] font-black cursor-pointer ${
+                !isAr ? 'bg-white dark:bg-slate-900 text-indigo-600' : 'text-slate-500'
+              }`}
+            >
+              {isAr ? 'إنجليزي' : 'English'}
+            </button>
+            <button
+              type="button"
+              onClick={() => syncPreviewLang('ar')}
+              className={`px-2 py-1 rounded-lg text-[10px] font-black cursor-pointer ${
+                isAr ? 'bg-white dark:bg-slate-900 text-indigo-600' : 'text-slate-500'
+              }`}
+            >
+              {isAr ? 'عربي' : 'Arabic'}
+            </button>
+          </div>
         </div>
 
         {/* Right: Published Button */}
@@ -932,20 +1272,22 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
       {/* ══════════════════════════════════════════════════════════════ */}
       {/* MAIN CONTAINER: SIDEBAR (START) + LIVE PREVIEW (END) */}
       {/* ══════════════════════════════════════════════════════════════ */}
-      <div className="flex-1 flex overflow-hidden min-h-0 relative">
+      <div className="flex-1 flex overflow-hidden min-h-0 relative" data-customizer-layout="three-panel">
         {/* ─── SIDEBAR: WORDPRESS CUSTOMIZER PANELS ─── */}
         <aside
+          data-panel="sections"
           className={`h-full flex flex-col bg-white dark:bg-slate-900 border-e border-slate-200 dark:border-slate-800 transition-all duration-300 z-20 shrink-0 shadow-lg ${
-            // Responsive mobile switching
             mobileTab === 'preview' ? 'hidden md:flex' : 'flex'
           } ${
             isSidebarHidden
               ? 'w-0 -translate-x-full rtl:translate-x-full overflow-hidden'
-              : 'w-full md:w-[440px] lg:w-[460px] xl:w-[480px]'
+              : wideLayout
+                ? 'w-[min(320px,34vw)] min-w-[280px]'
+                : 'w-full md:w-[min(100%,420px)] lg:w-[440px]'
           }`}
         >
           {/* Subheader: Active Section Breadcrumb Navigation */}
-          {activeSection ? (
+          {activeSection && !wideLayout ? (
             <div className="px-3 py-2.5 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0">
               <button
                 type="button"
@@ -973,7 +1315,11 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={isAr ? 'ابحث في عناصر التخصيص الـ ١٩…' : 'Search in 19 customizer sections…'}
+                  placeholder={
+                    isAr
+                      ? `ابحث في عناصر هذه الصفحة (${orderedPageCatalog.length})…`
+                      : `Search this page’s panels (${orderedPageCatalog.length})…`
+                  }
                   className="w-full ps-9 pe-8 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-400"
                 />
                 {searchQuery && (
@@ -1014,7 +1360,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
 
           {/* Scrollable Sidebar Body */}
           <div className="flex-1 overflow-y-auto min-h-0 p-3 space-y-2">
-            {activeSection ? (
+            {activeSection && !wideLayout ? (
               /* ACTIVE SECTION FORM */
               <div className="animate-in fade-in duration-150 space-y-4">
                 {/* Active Section Info Card */}
@@ -1037,28 +1383,13 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                   </div>
                 </div>
 
-                {/* Form Component Container */}
+                {/* Form Component Container — lazy per section (keeps open fast) */}
                 <div className="space-y-4">
-                  {activeSection.id === '00_header_builder' && <HeaderElementsForm />}
-                  {activeSection.id === '01_store_identity' && <StoreIdentityForm />}
-                  {activeSection.id === '02_general_options' && <GeneralOptionsForm />}
-                  {activeSection.id === '03_store_colors' && <StoreColorsForm />}
-                  {activeSection.id === '04_category_cart_customer' && <CategoryCartCustomerForm />}
-                  {activeSection.id === '05_advanced_slider' && <AdvancedSliderForm />}
-                  {activeSection.id === '06_product_videos' && <ProductVideosForm />}
-                  {activeSection.id === '07_product_tabs' && <ProductTabsForm />}
-                  {activeSection.id === '08_detailed_products' && <DetailedProductsForm />}
-                  {activeSection.id === '09_image_grid' && <ImageGridForm />}
-                  {activeSection.id === '10_custom_links' && <CustomLinksForm />}
-                  {activeSection.id === '11_banners' && <BannersForm />}
-                  {activeSection.id === '12_blog' && <BlogForm />}
-                  {activeSection.id === '13_announcement_bar' && <AnnouncementBarForm />}
-                  {activeSection.id === '14_enhanced_features' && <EnhancedFeaturesForm />}
-                  {activeSection.id === '15_product_cards' && <ProductCardsForm />}
-                  {activeSection.id === '16_custom_products' && <CustomProductsForm />}
-                  {activeSection.id === '17_special_offer_countdown' && <SpecialOfferCountdownForm />}
-                  {activeSection.id === '18_store_statistics' && <StoreStatisticsForm />}
-                  {activeSection.id === '19_custom_code' && <CustomCodeForm />}
+                  <CustomizerSectionForm
+                    sectionId={activeSection.id}
+                    isAr={isAr}
+                    onBack={() => setActiveSectionId(null)}
+                  />
                 </div>
 
                 {/* Bottom Quick Return / Save Helper */}
@@ -1083,48 +1414,135 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                 </div>
               </div>
             ) : (
-              /* SECTIONS LIST ACCORDION */
+              /* SECTIONS LIST — drag / up-down / copy (page-scoped) */
               <div className="space-y-1">
-                <div className="px-2 py-1 flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  <span>{isAr ? 'عناصر التخصيص المتاحة' : 'Customizer Panels'}</span>
-                  <span className="text-[10px] font-mono text-slate-500">
-                    {filteredSections.length} / {CUSTOMIZER_SECTIONS.length}
+                <div className="px-2 py-1 flex items-center justify-between gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="truncate">
+                    {isAr
+                      ? `عناصر الصفحة: ${activePageMeta.nameAr}`
+                      : `Panels for: ${activePageMeta.nameEn}`}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-500 shrink-0">
+                    {filteredSections.length} / {orderedPageCatalog.length}
                   </span>
                 </div>
+                {canReorderPanels ? (
+                  <p className="px-2 pb-1 text-[10px] text-slate-400 font-medium normal-case tracking-normal">
+                    {isAr
+                      ? 'اسحب بالماوس أو استخدم الأسهم لإعادة الترتيب · زر النسخ لنسخ عنصر داخل القسم'
+                      : 'Drag or use arrows to reorder · Copy duplicates an item inside the panel'}
+                  </p>
+                ) : null}
 
-                {filteredSections.map((sec) => {
+                {filteredSections.map((sec, index) => {
                   const SecIcon = sec.icon;
+                  const orderIndex = panelOrderIds.indexOf(sec.id);
+                  const isDragging = dragPanelId === sec.id;
                   return (
-                    <button
+                    <div
                       key={sec.id}
-                      type="button"
-                      onClick={() => setActiveSectionId(sec.id)}
-                      className="w-full text-start p-2.5 rounded-2xl border border-transparent hover:border-slate-200 dark:hover:border-slate-800 bg-transparent hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-all flex items-center justify-between gap-3 cursor-pointer group"
+                      onDragOver={(e) => {
+                        if (!canReorderPanels || !dragPanelId) return;
+                        e.preventDefault();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (!canReorderPanels || !dragPanelId) return;
+                        movePanel(dragPanelId, sec.id);
+                        setDragPanelId(null);
+                      }}
+                      className={`rounded-2xl border transition-all duration-150 flex items-stretch gap-0.5 group min-w-0 ${
+                        isDragging
+                          ? 'border-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/50 opacity-80 scale-[0.99]'
+                          : activeSectionId === sec.id
+                            ? 'border-indigo-300 bg-indigo-50/70 dark:bg-indigo-950/40'
+                            : 'border-transparent hover:border-slate-200 dark:hover:border-slate-800 bg-transparent hover:bg-slate-100/80 dark:hover:bg-slate-800/80'
+                      }`}
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        {/* Number Badge */}
-                        <span className="w-6 h-6 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-950/80 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors shrink-0">
-                          {sec.num}
+                      {canReorderPanels ? (
+                        <span
+                          draggable
+                          onDragStart={(e) => {
+                            setDragPanelId(sec.id);
+                            try {
+                              e.dataTransfer.effectAllowed = 'move';
+                              e.dataTransfer.setData('text/plain', sec.id);
+                            } catch {
+                              /* ignore */
+                            }
+                          }}
+                          onDragEnd={() => setDragPanelId(null)}
+                          className="w-6 flex items-center justify-center text-slate-400 cursor-grab active:cursor-grabbing shrink-0 self-stretch rounded-s-2xl hover:text-indigo-600 dark:hover:text-indigo-400"
+                          title={isAr ? 'اسحب لإعادة الترتيب' : 'Drag to reorder'}
+                        >
+                          <GripVertical className="w-3.5 h-3.5" />
                         </span>
+                      ) : null}
 
-                        {/* Icon */}
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 group-hover:bg-indigo-600 group-hover:text-white transition-all shrink-0 shadow-2xs">
-                          <SecIcon className="w-4 h-4" />
+                      <button
+                        type="button"
+                        onClick={() => focusPreviewSection(sec.id)}
+                        className="flex-1 min-w-0 text-start py-2 ps-1 pe-1 flex items-center justify-between gap-1.5 cursor-pointer"
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="w-6 h-6 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-950/80 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors shrink-0">
+                            {String(index).padStart(2, '0')}
+                          </span>
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 group-hover:bg-indigo-600 group-hover:text-white transition-all shrink-0">
+                            <SecIcon className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100 block truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                              {isAr ? sec.titleAr : sec.titleEn}
+                            </span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 block truncate mt-0.5">
+                              {(elementCounts[sec.id] || 0) > 0
+                                ? (isAr ? `${elementCounts[sec.id]} عناصر · ` : `${elementCounts[sec.id]} elements · `)
+                                : ''}
+                              {isAr ? sec.descAr : sec.descEn}
+                            </span>
+                          </div>
                         </div>
+                      </button>
 
-                        {/* Title & Description */}
-                        <div className="min-w-0">
-                          <span className="text-xs font-bold text-slate-900 dark:text-slate-100 block truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                            {isAr ? sec.titleAr : sec.titleEn}
-                          </span>
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 block truncate mt-0.5">
-                            {isAr ? sec.descAr : sec.descEn}
-                          </span>
-                        </div>
+                      <div className="flex flex-row items-center justify-center gap-0.5 pe-1 py-1 shrink-0">
+                        <button
+                          type="button"
+                          disabled={!canReorderPanels || orderIndex <= 0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            nudgePanel(sec.id, -1);
+                          }}
+                          className="p-1 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-900 hover:text-indigo-600 disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
+                          title={isAr ? 'تحريك لأعلى' : 'Move up'}
+                        >
+                          <ArrowUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!canReorderPanels || orderIndex < 0 || orderIndex >= panelOrderIds.length - 1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            nudgePanel(sec.id, 1);
+                          }}
+                          className="p-1 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-900 hover:text-indigo-600 disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
+                          title={isAr ? 'تحريك لأسفل' : 'Move down'}
+                        >
+                          <ArrowDown className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyPanel(sec.id);
+                          }}
+                          className="p-1 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-900 hover:text-emerald-600 cursor-pointer"
+                          title={isAr ? 'نسخ عنصر داخل هذا القسم' : 'Copy / duplicate item in this panel'}
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
                       </div>
-
-                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 shrink-0 rtl:rotate-180 transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" />
-                    </button>
+                    </div>
                   );
                 })}
 
@@ -1172,7 +1590,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                     ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-emerald-400 shadow-2xs font-bold ring-1 ring-slate-900/10'
                     : 'text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'
                 }`}
-                title={isAr ? 'معاينة سطح المكتب (Desktop)' : 'Desktop View'}
+                title={isAr ? 'معاينة سطح المكتب' : 'Desktop View'}
               >
                 <Monitor className="w-3.5 h-3.5" />
               </button>
@@ -1184,7 +1602,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                     ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-emerald-400 shadow-2xs font-bold ring-1 ring-slate-900/10'
                     : 'text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'
                 }`}
-                title={isAr ? 'معاينة الجهاز اللوحي (Tablet 768px)' : 'Tablet View (768px)'}
+                title={isAr ? 'معاينة الجهاز اللوحي ٧٦٨ بكسل' : 'Tablet View (768px)'}
               >
                 <Tablet className="w-3.5 h-3.5" />
               </button>
@@ -1196,7 +1614,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                     ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-emerald-400 shadow-2xs font-bold ring-1 ring-slate-900/10'
                     : 'text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'
                 }`}
-                title={isAr ? 'معاينة الجوال (Mobile 390px)' : 'Mobile View (390px)'}
+                title={isAr ? 'معاينة الجوال ٣٩٠ بكسل' : 'Mobile View (390px)'}
               >
                 <Smartphone className="w-3.5 h-3.5" />
               </button>
@@ -1218,6 +1636,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
 
         {/* ─── RIGHT PANEL: LIVE INTERACTIVE STOREFRONT PREVIEW ─── */}
         <main
+          data-panel="preview"
           className={`flex-1 h-full bg-slate-100/90 dark:bg-slate-950 flex flex-col min-w-0 overflow-hidden relative transition-colors ${
             mobileTab === 'controls' ? 'hidden md:flex' : 'flex'
           }`}
@@ -1283,10 +1702,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                           <button
                             key={page.id}
                             type="button"
-                            onClick={() => {
-                              setPreviewPage(page.id);
-                              setIsPageDropdownOpen(false);
-                            }}
+                            onClick={() => switchPreviewPage(page.id)}
                             className={`w-full p-2 rounded-xl text-start flex items-center justify-between gap-2.5 cursor-pointer transition-colors ${
                               isCurrent
                                 ? 'bg-indigo-600 text-white font-bold shadow-xs'
@@ -1307,8 +1723,12 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                                 <span className="text-xs font-bold block truncate">
                                   {isAr ? page.nameAr : page.nameEn}
                                 </span>
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 block truncate leading-tight mt-0.5">
-                                  {isAr ? page.nameEn : page.nameAr}
+                                <span
+                                  className={`text-[10px] block truncate leading-tight mt-0.5 ${
+                                    isCurrent ? 'text-white/70' : 'text-slate-400 dark:text-slate-500'
+                                  }`}
+                                >
+                                  {isAr ? page.descAr : page.descEn}
                                 </span>
                               </div>
                             </div>
@@ -1345,7 +1765,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                       ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-emerald-400 shadow-2xs font-bold ring-1 ring-slate-900/10'
                       : 'text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'
                   }`}
-                  title={isAr ? 'معاينة سطح المكتب (Desktop)' : 'Desktop View'}
+                  title={isAr ? 'معاينة سطح المكتب' : 'Desktop view'}
                 >
                   <Monitor className="w-3.5 h-3.5" />
                 </button>
@@ -1357,7 +1777,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                       ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-emerald-400 shadow-2xs font-bold ring-1 ring-slate-900/10'
                       : 'text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'
                   }`}
-                  title={isAr ? 'معاينة الجهاز اللوحي (Tablet 768px)' : 'Tablet View (768px)'}
+                  title={isAr ? 'معاينة الجهاز اللوحي' : 'Tablet view'}
                 >
                   <Tablet className="w-3.5 h-3.5" />
                 </button>
@@ -1369,7 +1789,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                       ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-emerald-400 shadow-2xs font-bold ring-1 ring-slate-900/10'
                       : 'text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'
                   }`}
-                  title={isAr ? 'معاينة الجوال (Mobile 390px)' : 'Mobile View (390px)'}
+                  title={isAr ? 'معاينة الجوال' : 'Mobile view'}
                 >
                   <Smartphone className="w-3.5 h-3.5" />
                 </button>
@@ -1408,14 +1828,14 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
           </div>
 
           {/* Storefront Viewport Container with True Viewport Isolation */}
-          <div className="flex-1 w-full h-full overflow-hidden flex items-center justify-center p-0 sm:p-2 md:p-3 bg-slate-100/90 dark:bg-slate-950/80 transition-colors">
+          <div className="flex-1 w-full h-full min-h-0 overflow-auto flex items-center justify-center p-0 sm:p-2 md:p-3 bg-slate-100/90 dark:bg-slate-950/80 transition-colors">
             <div
-              className={`transition-all duration-300 ease-in-out bg-white dark:bg-slate-900 shadow-2xl relative flex flex-col ${
+              className={`transition-all duration-300 ease-in-out bg-white dark:bg-slate-900 shadow-2xl relative flex flex-col max-h-full ${
                 deviceView === 'desktop'
                   ? 'w-full h-full rounded-none border-0'
                   : deviceView === 'tablet'
-                  ? 'w-[768px] max-w-full h-[95%] my-auto rounded-[28px] border-8 border-slate-300 dark:border-slate-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] ring-1 ring-slate-400/20 overflow-hidden'
-                  : 'w-[390px] max-w-full h-[96%] my-auto rounded-[44px] border-[10px] border-slate-300 dark:border-slate-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] ring-1 ring-slate-400/20 overflow-hidden relative flex flex-col'
+                  ? 'w-[min(768px,100%)] max-w-full h-[min(95%,100%)] my-auto rounded-[20px] sm:rounded-[28px] border-4 sm:border-8 border-slate-300 dark:border-slate-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] ring-1 ring-slate-400/20 overflow-hidden'
+                  : 'w-[min(390px,100%)] max-w-full h-[min(96%,100%)] my-auto rounded-[28px] sm:rounded-[44px] border-[6px] sm:border-[10px] border-slate-300 dark:border-slate-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] ring-1 ring-slate-400/20 overflow-hidden relative flex flex-col'
               }`}
             >
               {/* Realistic Mobile Speaker & Island Notch for Phone view */}
@@ -1435,14 +1855,29 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                 </div>
               )}
 
-              {/* Dynamic Theme Storefront View inside True Isolated Iframe */}
-              <iframe
-                ref={iframeRef}
-                key={`${previewPage}-${activeThemeId}`}
-                src={`${previewIframeUrl}${previewRefreshKey ? `&_k=${previewRefreshKey}` : ''}`}
-                title={isAr ? 'معاينة المتجر الحية' : 'Live Storefront Sync Preview'}
-                className="w-full flex-1 border-0 bg-white dark:bg-slate-950 transition-opacity duration-200"
-              />
+              {/* Isolated preview — mount after first paint so chrome stays snappy */}
+              {previewMounted ? (
+                <iframe
+                  ref={iframeRef}
+                  key={`${previewPage}-${activeThemeId}`}
+                  src={`${previewIframeUrl}${previewRefreshKey ? `&_k=${previewRefreshKey}` : ''}`}
+                  title={isAr ? 'معاينة المتجر الحية' : 'Live Storefront Sync Preview'}
+                  data-storefront-preview="live"
+                  data-preview-store={activeStore?.id || ''}
+                  className="w-full flex-1 border-0 bg-white dark:bg-slate-950 transition-opacity duration-200"
+                  loading="eager"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-full flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+                  <div className="flex flex-col items-center gap-2 text-slate-400">
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    <span className="text-[11px] font-bold">
+                      {isAr ? 'جاري تحميل المعاينة…' : 'Loading preview…'}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Mobile Bottom Home Bar Indicator */}
               {deviceView === 'mobile' && (
@@ -1453,6 +1888,62 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
             </div>
           </div>
         </main>
+
+        {wideLayout && !isSidebarHidden ? (
+        <aside
+          data-panel="fields"
+          className="h-full min-h-0 w-[380px] flex flex-col bg-white dark:bg-slate-900 border-s border-slate-200 dark:border-slate-800 shrink-0"
+        >
+          <div className="flex-1 overflow-y-auto min-h-0 p-3">
+            {activeSection ? (
+              <div className="animate-in fade-in duration-150 space-y-4">
+                <div className="p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-indigo-600 text-white shrink-0 shadow-xs">
+                    {React.createElement(activeSection.icon, { className: 'w-4 h-4' })}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-xs font-black text-slate-900 dark:text-white truncate">
+                      {isAr ? activeSection.titleAr : activeSection.titleEn}
+                    </h3>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                      {isAr ? activeSection.descAr : activeSection.descEn}
+                    </p>
+                  </div>
+                </div>
+                <CustomizerSectionForm
+                  sectionId={activeSection.id}
+                  isAr={isAr}
+                  onBack={() => setActiveSectionId(null)}
+                />
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSectionId(null)}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer flex items-center gap-1.5 transition-colors"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+                    <span>{isAr ? 'العودة للأقسام' : 'Back to Panels'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleManualSave}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                  >
+                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>{isAr ? 'تطبيق التعديلات' : 'Apply Changes'}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-6 text-center" data-panel="fields-empty">
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                  {isAr ? 'اختر قسماً من القائمة لتعديل حقوله.' : 'Select a panel to edit its fields.'}
+                </p>
+              </div>
+            )}
+          </div>
+        </aside>
+        ) : null}
       </div>
     </div>
   );

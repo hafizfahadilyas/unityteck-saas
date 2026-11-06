@@ -2,6 +2,7 @@
  * Runtime prefs: theme · locale · currency · branding (Top 15 palettes / fonts / weights).
  */
 
+import './storeChrome';
 import {
   applyBrandCss,
   BrandFontId,

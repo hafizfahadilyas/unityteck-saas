@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
-import type { StoreCategory } from '../../types';
+import type { CategoryFieldType, StoreCategory } from '../../types';
+import { getCategoryDepth, parentPickerOptions } from '../../utils/categoryHierarchy';
 import { FolderTree, Plus, Pencil, Trash2, X, Flower2, Layers, CheckCircle2, Tag } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -17,6 +18,7 @@ import { MediaUploadField } from '../common/MediaUploadField';
 import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
 import { COFFEE_CATEGORIES_SEED } from '../../data/coffeeStoreData';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
+import { toUserFriendlyError } from '../../utils/userFriendlyError';
 
 type FormState = {
   name: string;
@@ -544,6 +546,16 @@ export const StoreCategories: React.FC = () => {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  type FieldDraft = {
+    id?: string;
+    nameEn: string;
+    nameAr: string;
+    fieldType: CategoryFieldType;
+    optionsText: string;
+    sort: string;
+    active: boolean;
+  };
+  const [fieldDrafts, setFieldDrafts] = useState<FieldDraft[]>([]);
 
   const [search, setSearch] = useState('');
   const [parentFilter, setParentFilter] = useState<string>('all');
@@ -602,7 +614,11 @@ export const StoreCategories: React.FC = () => {
         } catch {}
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load categories');
+      setError(
+        toUserFriendlyError(
+          err instanceof Error ? err.message : 'Failed to load categories',
+        ),
+      );
     } finally {
       if (!silent) setLoading(false);
     }
@@ -714,10 +730,42 @@ export const StoreCategories: React.FC = () => {
     }
   };
 
+  const loadFieldDrafts = useCallback(
+    async (categoryId: string | null) => {
+      if (!isApiEnabled()) {
+        setFieldDrafts([]);
+        return;
+      }
+      try {
+        const defs = await tenantApi.fetchCategoryFieldDefinitions(
+          activeStore.id,
+          categoryId ?? undefined,
+        );
+        setFieldDrafts(
+          defs
+            .filter((d) => d.categoryId === categoryId)
+            .map((d) => ({
+            id: d.id,
+            nameEn: d.nameEn,
+            nameAr: d.nameAr ?? '',
+            fieldType: d.fieldType,
+            optionsText: (d.options ?? []).join(', '),
+            sort: String(d.sort),
+            active: d.active,
+          })),
+        );
+      } catch {
+        setFieldDrafts([]);
+      }
+    },
+    [activeStore.id],
+  );
+
   const openAdd = () => {
     if (denyMutate()) return;
     setEditingId(null);
     setForm(emptyForm());
+    setFieldDrafts([]);
     setShowModal(true);
   };
 
@@ -725,6 +773,7 @@ export const StoreCategories: React.FC = () => {
     if (denyMutate()) return;
     setEditingId(c.id);
     setForm(formFrom(c));
+    void loadFieldDrafts(c.id);
     setShowModal(true);
   };
 
@@ -750,16 +799,19 @@ export const StoreCategories: React.FC = () => {
     };
 
     setSaving(true);
+    let targetCategoryId: string | null = editingId;
     try {
       if (isApiEnabled()) {
         if (editingId) {
           const updated = await tenantApi.updateCategory(activeStore.id, editingId, payload);
           setRows((prev) => prev.map((r) => (r.id === editingId ? updated : r)));
+          targetCategoryId = editingId;
           bumpStore(activeStore.id, 'categories');
           toast('Category updated', 'success');
         } else {
           const created = await tenantApi.createCategory(activeStore.id, payload);
           setRows((prev) => [...prev, created]);
+          targetCategoryId = created.id;
           bumpStore(activeStore.id, 'categories');
           toast('Category created', 'success');
         }
@@ -811,10 +863,35 @@ export const StoreCategories: React.FC = () => {
           } catch {}
           bumpStore(activeStore.id, 'categories');
           toast('Category created', 'success');
+          targetCategoryId = created.id;
         }
       }
+
+      if (isApiEnabled() && targetCategoryId && fieldDrafts.length > 0) {
+        for (const fd of fieldDrafts) {
+          if (!fd.nameEn.trim()) continue;
+          const body = {
+            category_id: targetCategoryId,
+            name_en: fd.nameEn.trim(),
+            name_ar: fd.nameAr.trim() || null,
+            field_type: fd.fieldType,
+            options: fd.optionsText
+              ? fd.optionsText.split(',').map((s) => s.trim()).filter(Boolean)
+              : null,
+            sort: parseInt(fd.sort, 10) || 0,
+            active: fd.active,
+          };
+          if (fd.id) {
+            await tenantApi.updateCategoryFieldDefinition(activeStore.id, fd.id, body);
+          } else {
+            await tenantApi.createCategoryFieldDefinition(activeStore.id, body);
+          }
+        }
+      }
+
       setShowModal(false);
       setEditingId(null);
+      setFieldDrafts([]);
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Save category failed', 'error');
     } finally {
@@ -854,8 +931,10 @@ export const StoreCategories: React.FC = () => {
       header: isAr ? 'التصنيف' : 'Category',
       sortable: true,
       className: 'px-4',
-      render: (c) => (
-        <div className="flex items-center gap-3">
+      render: (c) => {
+        const depth = getCategoryDepth(rows, c.id);
+        return (
+        <div className="flex items-center gap-3" style={{ paddingInlineStart: depth * 16 }}>
           {c.imageUrl ? (
             <img
               src={c.imageUrl}
@@ -874,7 +953,8 @@ export const StoreCategories: React.FC = () => {
             </span>
           </div>
         </div>
-      ),
+        );
+      },
     },
     {
       key: 'slug',
@@ -963,7 +1043,7 @@ export const StoreCategories: React.FC = () => {
     },
   ];
 
-  const parentOptionsForForm = rows.filter((r) => r.id !== editingId && !r.parentId);
+  const parentOptionsForForm = parentPickerOptions(rows, editingId, isAr);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-200">
@@ -1172,7 +1252,7 @@ export const StoreCategories: React.FC = () => {
                   <option value="">{isAr ? '— تصنيف رئيسي —' : '— Root category —'}</option>
                   {parentOptionsForForm.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {isAr ? (r.nameAr || r.name) : r.name}
+                      {`${'— '.repeat(r.depth)}${r.label}`}
                     </option>
                   ))}
                 </select>
@@ -1211,6 +1291,107 @@ export const StoreCategories: React.FC = () => {
                 />
                 <span className="font-semibold">{isAr ? 'نشط (ظاهر في المتجر)' : 'Active (visible)'}</span>
               </label>
+
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-sm">
+                    {isAr ? 'حقول مخصصة لهذا التصنيف' : 'Custom fields for this category'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFieldDrafts((prev) => [
+                        ...prev,
+                        {
+                          nameEn: '',
+                          nameAr: '',
+                          fieldType: 'text',
+                          optionsText: '',
+                          sort: String((prev.length + 1) * 10),
+                          active: true,
+                        },
+                      ])
+                    }
+                    className="text-xs font-semibold text-blue-600 hover:underline"
+                  >
+                    {isAr ? '+ حقل' : '+ Add field'}
+                  </button>
+                </div>
+                {fieldDrafts.length === 0 ? (
+                  <p className="text-xs text-slate-500">
+                    {isAr ? 'لا حقول مخصصة — أضف حقولاً لمنتجات هذا التصنيف.' : 'No custom fields yet.'}
+                  </p>
+                ) : (
+                  fieldDrafts.map((fd, idx) => (
+                    <div
+                      key={fd.id ?? `draft-${idx}`}
+                      className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2"
+                    >
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          value={fd.nameEn}
+                          onChange={(e) =>
+                            setFieldDrafts((prev) =>
+                              prev.map((x, i) => (i === idx ? { ...x, nameEn: e.target.value } : x)),
+                            )
+                          }
+                          placeholder={isAr ? 'الاسم (EN)' : 'Name (EN)'}
+                          className="px-2 py-1.5 text-xs border rounded-lg dark:bg-slate-900"
+                        />
+                        <input
+                          value={fd.nameAr}
+                          onChange={(e) =>
+                            setFieldDrafts((prev) =>
+                              prev.map((x, i) => (i === idx ? { ...x, nameAr: e.target.value } : x)),
+                            )
+                          }
+                          placeholder={isAr ? 'الاسم (AR)' : 'Name (AR)'}
+                          className="px-2 py-1.5 text-xs border rounded-lg dark:bg-slate-900"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <select
+                          value={fd.fieldType}
+                          onChange={(e) =>
+                            setFieldDrafts((prev) =>
+                              prev.map((x, i) =>
+                                i === idx ? { ...x, fieldType: e.target.value as CategoryFieldType } : x,
+                              ),
+                            )
+                          }
+                          className="px-2 py-1.5 text-xs border rounded-lg dark:bg-slate-900"
+                        >
+                          <option value="text">{isAr ? 'نص' : 'Text'}</option>
+                          <option value="number">{isAr ? 'رقم' : 'Number'}</option>
+                          <option value="select">{isAr ? 'قائمة' : 'Select'}</option>
+                          <option value="boolean">{isAr ? 'نعم/لا' : 'Yes/No'}</option>
+                          <option value="url">{isAr ? 'رابط' : 'URL'}</option>
+                        </select>
+                        {fd.fieldType === 'select' ? (
+                          <input
+                            value={fd.optionsText}
+                            onChange={(e) =>
+                              setFieldDrafts((prev) =>
+                                prev.map((x, i) => (i === idx ? { ...x, optionsText: e.target.value } : x)),
+                              )
+                            }
+                            placeholder={isAr ? 'خيارات مفصولة بفاصلة' : 'Options, comma-separated'}
+                            className="flex-1 min-w-[120px] px-2 py-1.5 text-xs border rounded-lg dark:bg-slate-900"
+                          />
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => setFieldDrafts((prev) => prev.filter((_, i) => i !== idx))}
+                          className="text-xs text-rose-600 font-semibold"
+                        >
+                          {isAr ? 'حذف' : 'Remove'}
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
               <div className="pt-2 flex justify-end gap-2">
                 <button
                   type="button"

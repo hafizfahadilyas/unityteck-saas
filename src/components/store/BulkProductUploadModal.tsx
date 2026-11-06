@@ -19,6 +19,8 @@ import {
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import type { Product } from '../../types';
+import { isCoffeeStore } from '../../themes/settings/coffeeThemeDefaults';
+import { isFlowerStore } from '../../themes/settings/themeSettingsStore';
 
 interface BulkProductUploadModalProps {
   isOpen: boolean;
@@ -26,6 +28,15 @@ interface BulkProductUploadModalProps {
   onImportProducts: (products: Omit<Product, 'id' | 'storeId' | 'publishedAt' | 'isStale'>[]) => void;
   currentProducts: Product[];
   storeName: string;
+  storeId: string;
+}
+
+type DemoVertical = 'coffee' | 'flowers' | 'general';
+
+function resolveDemoVertical(store: { id?: string; name?: string }): DemoVertical {
+  if (isCoffeeStore(store)) return 'coffee';
+  if (isFlowerStore(store)) return 'flowers';
+  return 'general';
 }
 
 interface ParsedProductRow {
@@ -305,7 +316,7 @@ const SAMPLE_50_FLOWER_ITEMS: ParsedProductRow[] = [
   }
 ];
 
-// Generate 30 more items to make full 50 items
+// Generate 30 more items to make full 50 items (flowers vertical only)
 for (let i = 21; i <= 50; i++) {
   const cats = ['Luxury Hand Bouquets', 'Rose Boxes', 'Preserved Forever Roses', 'Luxury Vases', 'Chocolates & Combos'];
   const cat = cats[i % cats.length];
@@ -326,12 +337,274 @@ for (let i = 21; i <= 50; i++) {
   });
 }
 
+/** Coffee vertical demo catalog — never used for flowers / other tenants. */
+const SAMPLE_50_COFFEE_ITEMS: ParsedProductRow[] = [
+  {
+    name: 'Ethiopian Yirgacheffe Washed 250g',
+    nameAr: 'إثيوبي يرغاتشيف مغسول 250 جرام',
+    category: 'Specialty Coffee Beans',
+    sku: 'COF-001',
+    price: 89,
+    discountedPrice: 75,
+    stock: 40,
+    offersAllowed: true,
+    productType: 'Physical',
+    description: 'Bright floral single-origin beans with citrus acidity, light-medium roast for pour-over.',
+    image: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    name: 'Colombia Supremo Medium Roast 500g',
+    nameAr: 'كولومبيا سوبريمو تحميص متوسط 500 جرام',
+    category: 'Specialty Coffee Beans',
+    sku: 'COF-002',
+    price: 120,
+    discountedPrice: 99,
+    stock: 35,
+    offersAllowed: true,
+    productType: 'Physical',
+    description: 'Balanced caramel sweetness and cocoa notes, ideal for espresso and milk drinks.',
+    image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    name: 'HiBrew Dual Boiler Espresso Machine 20 Bar',
+    nameAr: 'ماكينة إسبريسو هاي برو دوال بويلر 20 بار',
+    category: 'Espresso Machines',
+    sku: 'COF-003',
+    price: 2490,
+    discountedPrice: 2290,
+    stock: 8,
+    offersAllowed: true,
+    productType: 'Physical',
+    description: 'Home barista dual-boiler machine with PID temperature control and steam wand.',
+    image: 'https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    name: 'Titanium Conical Burr Grinder Pro',
+    nameAr: 'مطحنة تيتانيوم مخروطية احترافية',
+    category: 'Brewing Gear',
+    sku: 'COF-004',
+    price: 890,
+    discountedPrice: 790,
+    stock: 15,
+    offersAllowed: true,
+    productType: 'Physical',
+    description: '40 grind settings conical burr mill for espresso through French press.',
+    image: 'https://images.unsplash.com/photo-1610889556528-9a770e32642f?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    name: 'V60 Ceramic Dripper Set with Filters',
+    nameAr: 'طقم تقطير سيراميك في 60 مع فلاتر',
+    category: 'Brewing Gear',
+    sku: 'COF-005',
+    price: 145,
+    discountedPrice: 119,
+    stock: 28,
+    offersAllowed: true,
+    productType: 'Physical',
+    description: 'Pour-over dripper kit with glass server and 40 paper filters.',
+    image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    name: 'Double Wall Glass Latte Cup 350ml (Set of 2)',
+    nameAr: 'كوب لاتيه زجاجي مزدوج الجدار 350 مل (طقم 2)',
+    category: 'Drinkware',
+    sku: 'COF-006',
+    price: 95,
+    discountedPrice: 79,
+    stock: 50,
+    offersAllowed: true,
+    productType: 'Physical',
+    description: 'Heat-resistant borosilicate cups that keep drinks hot without burning hands.',
+    image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    name: 'Saudi Signature Espresso Blend 1kg',
+    nameAr: 'خلطة إسبريسو التوقيع السعودية 1 كجم',
+    category: 'Specialty Coffee Beans',
+    sku: 'COF-007',
+    price: 210,
+    discountedPrice: 185,
+    stock: 22,
+    offersAllowed: true,
+    productType: 'Physical',
+    description: 'Dark chocolate and date notes roasted for café-grade espresso shots.',
+    image: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    name: 'Manual Lever Espresso Maker Compact',
+    nameAr: 'ماكينة إسبريسو يدوية مدمجة',
+    category: 'Espresso Machines',
+    sku: 'COF-008',
+    price: 560,
+    discountedPrice: 499,
+    stock: 12,
+    offersAllowed: false,
+    productType: 'Physical',
+    description: 'Portable lever espresso maker for travel and small kitchens.',
+    image: 'https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    name: 'Barista Gift Box — Beans + Cup + Filters',
+    nameAr: 'بوكس هدية باريستا — بن وكوب وفلاتر',
+    category: 'Gift Sets',
+    sku: 'COF-009',
+    price: 259,
+    discountedPrice: 229,
+    stock: 18,
+    offersAllowed: true,
+    productType: 'Physical',
+    description: 'Ready gift set with 250g beans, ceramic cup, and pour-over filters.',
+    image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    name: 'Stainless Steel Milk Frothing Pitcher 600ml',
+    nameAr: 'إبريق رغوة حليب ستانلس 600 مل',
+    category: 'Brewing Gear',
+    sku: 'COF-010',
+    price: 75,
+    discountedPrice: 65,
+    stock: 45,
+    offersAllowed: true,
+    productType: 'Physical',
+    description: 'Latte-art pitcher with measurement marks and spout for microfoam.',
+    image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=600&q=80'
+  }
+];
+
+for (let i = 11; i <= 50; i++) {
+  const cats = ['Specialty Coffee Beans', 'Espresso Machines', 'Brewing Gear', 'Drinkware', 'Gift Sets'];
+  const cat = cats[i % cats.length];
+  const price = 65 + i * 11;
+  SAMPLE_50_COFFEE_ITEMS.push({
+    name: `Specialty Coffee Edition #${i} (${cat})`,
+    nameAr: `إصدار القهوة المختصة رقم ${i} (${cat})`,
+    category: cat,
+    sku: `COF-${String(i).padStart(3, '0')}`,
+    price,
+    discountedPrice: price - 20,
+    stock: 10 + (i % 30),
+    offersAllowed: i % 3 !== 0,
+    productType: 'Physical',
+    description: 'Curated specialty coffee assortment for home barista and café training kits.',
+    image: SAMPLE_50_COFFEE_ITEMS[i % 10].image
+  });
+}
+
+/** Neutral demo catalog for non-coffee / non-flower stores. */
+const SAMPLE_50_GENERIC_ITEMS: ParsedProductRow[] = [
+  {
+    name: 'Premium Store Product Sample 01',
+    nameAr: 'منتج تجريبي للمتجر رقم 01',
+    category: 'Store Products',
+    sku: 'PRD-001',
+    price: 99,
+    discountedPrice: 85,
+    stock: 25,
+    offersAllowed: true,
+    productType: 'Physical',
+    description: 'Sample catalog row for CSV import testing. Replace with your real products.',
+    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80'
+  }
+];
+
+for (let i = 2; i <= 50; i++) {
+  const price = 50 + i * 9;
+  SAMPLE_50_GENERIC_ITEMS.push({
+    name: `Premium Store Product Sample ${String(i).padStart(2, '0')}`,
+    nameAr: `منتج تجريبي للمتجر رقم ${String(i).padStart(2, '0')}`,
+    category: 'Store Products',
+    sku: `PRD-${String(i).padStart(3, '0')}`,
+    price,
+    discountedPrice: price - 15,
+    stock: 10 + (i % 40),
+    offersAllowed: i % 2 === 0,
+    productType: 'Physical',
+    description: 'Sample catalog row for CSV import testing. Replace with your real products.',
+    image: SAMPLE_50_GENERIC_ITEMS[0].image
+  });
+}
+
+function demoCatalogForVertical(vertical: DemoVertical): ParsedProductRow[] {
+  if (vertical === 'coffee') return SAMPLE_50_COFFEE_ITEMS;
+  if (vertical === 'flowers') return SAMPLE_50_FLOWER_ITEMS;
+  return SAMPLE_50_GENERIC_ITEMS;
+}
+
+function demoCopy(vertical: DemoVertical, locale: string) {
+  const isAr = locale === 'ar';
+  if (vertical === 'coffee') {
+    return {
+      step2Title: isAr ? 'تحميل 50 منتج قهوة جاهزة' : 'Download 50 Coffee Ready CSV',
+      step2Desc: isAr
+        ? 'ملف يحتوي على 50 منتج قهوة مختصة بأسعار وصور وSKU وتصنيفات'
+        : 'Download pre-filled 50 specialty coffee catalog CSV to inspect or customize.',
+      loadTitle: isAr ? 'معاينة ورفع 50 منتج قهوة فوراً' : '1-Click Load 50 Coffee Catalog',
+      loadDesc: isAr
+        ? 'تجاوز رفع الملف وقم بتعبئة 50 منتج قهوة ومعدات باريستا مباشرة بنقرة واحدة'
+        : 'Instantly populate 50 specialty coffee and barista items into the preview table.',
+      downloadToast: isAr
+        ? 'تم تحميل كتالوج 50 منتج قهوة جاهز للاستيراد'
+        : 'Downloaded complete 50-product coffee catalog ready for import!',
+      loadToast: isAr
+        ? 'تم تجهيز 50 منتج قهوة للمعاينة والرفع بنجاح'
+        : 'Loaded 50 coffee products into preview! Click Confirm to import.',
+      filePrefix: '50_coffee_products',
+      templateFile: 'coffee_products_demo_template.csv',
+      defaultCategory: 'Specialty Coffee Beans',
+      defaultDescription: 'Specialty coffee product.',
+    };
+  }
+  if (vertical === 'flowers') {
+    return {
+      step2Title: isAr ? 'تحميل 50 منتج ورود جاهزة' : 'Download 50 Flowers Ready CSV',
+      step2Desc: isAr
+        ? 'ملف يحتوي على 50 منتج ورود وهدايا بأسعار وصور وSKU وتصنيفات'
+        : 'Download pre-filled 50 flowers catalog CSV to inspect or customize.',
+      loadTitle: isAr ? 'معاينة ورفع 50 منتج ورود فوراً' : '1-Click Load 50 Flowers Catalog',
+      loadDesc: isAr
+        ? 'تجاوز رفع الملف وقم بتعبئة 50 منتج ورود وهدايا فخمة مباشرة بنقرة واحدة'
+        : 'Instantly populate 50 luxury flowers and gift items into the preview table.',
+      downloadToast: isAr
+        ? 'تم تحميل كتالوج 50 منتج ورود جاهز للاستيراد'
+        : 'Downloaded complete 50-product flowers catalog ready for import!',
+      loadToast: isAr
+        ? 'تم تجهيز 50 منتج ورود للمعاينة والرفع بنجاح'
+        : 'Loaded 50 floral products into preview! Click Confirm to import.',
+      filePrefix: '50_flowers_products',
+      templateFile: 'flowers_products_demo_template.csv',
+      defaultCategory: 'Luxury Hand Bouquets',
+      defaultDescription: 'Premium fresh flower arrangement.',
+    };
+  }
+  return {
+    step2Title: isAr ? 'تحميل 50 منتج جاهزة' : 'Download 50 Products Ready CSV',
+    step2Desc: isAr
+      ? 'ملف يحتوي على 50 منتج تجريبي بأسعار وصور وSKU وتصنيفات'
+      : 'Download pre-filled 50-product catalog CSV to inspect or customize.',
+    loadTitle: isAr ? 'معاينة ورفع 50 منتج فوراً' : '1-Click Load 50 Products Catalog',
+    loadDesc: isAr
+      ? 'تجاوز رفع الملف وقم بتعبئة 50 منتج تجريبي مباشرة بنقرة واحدة'
+      : 'Instantly populate 50 sample products into the preview table.',
+    downloadToast: isAr
+      ? 'تم تحميل كتالوج 50 منتج جاهز للاستيراد'
+      : 'Downloaded complete 50-product catalog ready for import!',
+    loadToast: isAr
+      ? 'تم تجهيز 50 منتج للمعاينة والرفع بنجاح'
+      : 'Loaded 50 products into preview! Click Confirm to import.',
+    filePrefix: '50_store_products',
+    templateFile: 'store_products_demo_template.csv',
+    defaultCategory: 'Store Products',
+    defaultDescription: 'Premium store product.',
+  };
+}
+
 export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
   isOpen,
   onClose,
   onImportProducts,
   currentProducts,
-  storeName
+  storeName,
+  storeId
 }) => {
   const { t, locale, dir, money } = usePrefs();
   const { toast } = useToast();
@@ -343,6 +616,10 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   if (!isOpen) return null;
+
+  const vertical = resolveDemoVertical({ id: storeId, name: storeName });
+  const demoCatalog = demoCatalogForVertical(vertical);
+  const copy = demoCopy(vertical, locale);
 
   // 1. Download Demo Template CSV (Excel & Google Sheets compatible)
   const handleDownloadDemoTemplate = () => {
@@ -359,7 +636,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
       'ImageURL'
     ];
 
-    const demoRows = SAMPLE_50_FLOWER_ITEMS.slice(0, 10).map((row) => [
+    const demoRows = demoCatalog.slice(0, 10).map((row) => [
       `"${row.name.replace(/"/g, '""')}"`,
       `"${row.category}"`,
       `"${row.sku}"`,
@@ -377,7 +654,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `giftshop_products_demo_template.csv`);
+    link.setAttribute('download', copy.templateFile);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -385,13 +662,13 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
 
     toast(
       locale === 'ar'
-        ? 'تم تحميل نموذج ملف Google Sheets / Excel التجريبي بنجاح'
+        ? 'تم تحميل نموذج ملف جداول جوجل أو إكسل التجريبي بنجاح'
         : 'Demo CSV template downloaded! You can open it in Google Sheets or Excel.',
       'success'
     );
   };
 
-  // 2. Download Full 50-Item Flowers Catalog Demo File
+  // 2. Download Full 50-Item Catalog Demo File (store-vertical isolated)
   const handleDownload50CatalogCsv = () => {
     const headers = [
       'Name',
@@ -406,7 +683,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
       'ImageURL'
     ];
 
-    const fullRows = SAMPLE_50_FLOWER_ITEMS.map((row) => [
+    const fullRows = demoCatalog.map((row) => [
       `"${row.name.replace(/"/g, '""')}"`,
       `"${row.category}"`,
       `"${row.sku}"`,
@@ -424,30 +701,20 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `50_flowers_products_ready_for_giftshop.csv`);
+    link.setAttribute('download', `${copy.filePrefix}_ready.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    toast(
-      locale === 'ar'
-        ? 'تم تحميل كتالوج 50 منتج ورود جاهز للاستيراد'
-        : 'Downloaded complete 50-product flowers catalog ready for import!',
-      'success'
-    );
+    toast(copy.downloadToast, 'success');
   };
 
-  // 3. One-Click Instant Load 50 Demo Products
+  // 3. One-Click Instant Load 50 Demo Products (same vertical only)
   const handleLoadDemo50Direct = () => {
-    setParsedRows(SAMPLE_50_FLOWER_ITEMS);
-    setUploadFileName('50_flowers_catalog_ready.csv');
-    toast(
-      locale === 'ar'
-        ? 'تم تجهيز 50 منتج ورود للمعاينة والرفع بنجاح'
-        : 'Loaded 50 floral products into preview! Click "Import to Catalog" to commit.',
-      'info'
-    );
+    setParsedRows(demoCatalog);
+    setUploadFileName(`${copy.filePrefix}_ready.csv`);
+    toast(copy.loadToast, 'info');
   };
 
   // 4. File Drag & Drop / File Select Parser
@@ -497,17 +764,17 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
           const cols = parseRow(lines[i]);
           if (!cols[0]) continue;
           const name = cols[0];
-          const category = cols[1] || 'Luxury Hand Bouquets';
+          const category = cols[1] || copy.defaultCategory;
           const sku = cols[2] || `SKU-${Date.now().toString().slice(-4)}-${i}`;
           const price = parseFloat(cols[3]) || 150;
           const discountedPrice = cols[4] ? parseFloat(cols[4]) : undefined;
           const stock = parseInt(cols[5], 10) || 20;
           const offersAllowed = (cols[6] || '').toLowerCase() !== 'no';
           const productType = cols[7] || 'Physical';
-          const description = cols[8] || 'Premium fresh flower arrangement.';
+          const description = cols[8] || copy.defaultDescription;
           const image = cols[9] && cols[9].startsWith('http')
             ? cols[9]
-            : SAMPLE_50_FLOWER_ITEMS[(i - 1) % SAMPLE_50_FLOWER_ITEMS.length].image;
+            : demoCatalog[(i - 1) % demoCatalog.length].image;
 
           rows.push({
             name,
@@ -655,7 +922,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-extrabold flex items-center gap-2">
-                <span>{locale === 'ar' ? 'استيراد وتصدير المنتجات بالجملة' : 'Bulk Products Import & Export'}</span>
+                <span>{locale === 'ar' ? 'استيراد منتجات' : 'Import Products'}</span>
                 <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-emerald-800">
                   50+ Products
                 </span>
@@ -687,7 +954,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
             }`}
           >
             <UploadCloud className="w-4 h-4" />
-            <span>{locale === 'ar' ? 'رفع واستيراد المنتجات (CSV / Sheets)' : 'Bulk Upload & Import'}</span>
+            <span>{locale === 'ar' ? 'استيراد منتجات' : 'Import Products'}</span>
           </button>
           <button
             onClick={() => setActiveTab('export')}
@@ -698,7 +965,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
             }`}
           >
             <Download className="w-4 h-4" />
-            <span>{locale === 'ar' ? 'تصدير المنتجات الحالية (Export CSV)' : 'Export Catalog to CSV'}</span>
+            <span>{locale === 'ar' ? 'تصدير الكتالوج إلى ملف CSV' : 'Export Catalog to CSV'}</span>
           </button>
         </div>
 
@@ -735,12 +1002,10 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">Step 2 (Demo)</span>
                     <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      {locale === 'ar' ? 'تحميل 50 منتج ورود جاهزة' : 'Download 50 Flowers Ready CSV'}
+                      {copy.step2Title}
                     </h4>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      {locale === 'ar'
-                        ? 'ملف يحتوي على 50 منتج ورود وهدايا حقيقي بأسعار وصور وSKU وتصنيفات'
-                        : 'Download pre-filled 50 flowers catalog CSV to inspect or customize.'}
+                      {copy.step2Desc}
                     </p>
                   </div>
                   <button
@@ -759,12 +1024,10 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
                       ⚡ Quick 1-Click Test
                     </span>
                     <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      {locale === 'ar' ? 'معاينة ورفع 50 منتج فوراً' : '1-Click Load 50 Flowers Catalog'}
+                      {copy.loadTitle}
                     </h4>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      {locale === 'ar'
-                        ? 'تجاوز رفع الملف وقم بتعبئة 50 منتج ورود وهدايا فخمة مباشرة بنقرة واحدة!'
-                        : 'Instantly populate 50 luxury flowers and gift items into the preview table.'}
+                      {copy.loadDesc}
                     </p>
                   </div>
                   <button

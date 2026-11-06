@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('slug')->unique();
             $table->string('domain')->nullable();
             $table->enum('status', ['active', 'inactive', 'pending', 'suspended'])->default('pending');
-            $table->enum('plan', ['free', 'paid', 'pro', 'custom'])->default('free');
+            $table->enum('plan', ['free', 'paid', 'pro', 'premium', 'custom'])->default('free');
             $table->boolean('master_granted_pro')->default(false);
             $table->string('currency', 10)->default('SAR');
             $table->string('phone', 32)->nullable();

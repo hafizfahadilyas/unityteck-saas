@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { Store as StoreType, PlanType } from '../../types';
-import { 
+import {
   Store, 
   Search, 
   Filter, 
@@ -23,7 +23,9 @@ import {
   RefreshCw,
   MessageSquare,
   Save,
-  X
+  X,
+  Mail,
+  Pencil,
 } from 'lucide-react';
 
 import { usePrefs } from '../../i18n/PrefsContext';
@@ -36,6 +38,15 @@ import {
 } from '../../utils/storeLocalization';
 import { readAuthSession } from '../../auth/session';
 import { canDeleteEntities } from '../../auth/roles';
+import {
+  findRegisteredMerchantByEmail,
+  listRegisteredMerchants,
+} from '../../auth/api';
+import {
+  isStoreLoginEmailActive,
+  setStoreLoginEmailOverride,
+  toggleStoreLoginEmailActive,
+} from '../../auth/storeEmailAccess';
 import { fetchMasterWhatsAppQuotas, updateMasterWhatsAppQuotaApi } from '../../services/whatsappManagerService';
 import { MasterStoreWhatsAppQuota } from '../../types/whatsapp';
 
@@ -50,7 +61,9 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
     toggleMasterGrant,
     toggleStoreStatus,
     updateStorePlan,
+    updateCanvaTemplatesPerCategory,
     updateStoreLanguages,
+    updateStoreOwnerEmail,
     deleteStore,
     addAuditLog,
     allProducts,
@@ -112,6 +125,112 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPlan, setFilterPlan] = useState<string>('All');
   const [filterStatus, setFilterStatus] = useState<string>('All');
+  /** Bumps when Master toggles / changes a store login email */
+  const [emailAccessEpoch, setEmailAccessEpoch] = useState(0);
+  const [editingEmailStoreId, setEditingEmailStoreId] = useState<string | null>(null);
+  const [emailDraft, setEmailDraft] = useState('');
+
+  const resolveStoreLoginEmail = (store: StoreType): string => {
+    const registered = listRegisteredMerchants().find((m) => m.storeId === store.id);
+    if (registered?.email) return registered.email;
+    const fromOwner = (store.ownerEmail || store.email || '').trim().toLowerCase();
+    if (fromOwner.includes('@')) {
+      const merchant = findRegisteredMerchantByEmail(fromOwner);
+      if (merchant) return merchant.email;
+      return fromOwner;
+    }
+    return '—';
+  };
+
+  const handleToggleLoginEmail = (store: StoreType) => {
+    const next = toggleStoreLoginEmailActive(store.id);
+    setEmailAccessEpoch((n) => n + 1);
+    const storeDisplayName = getStoreDisplayName(store, locale);
+    const loginEmail = resolveStoreLoginEmail(store);
+    addAuditLog({
+      adminId: 'master-admin-01',
+      adminName: 'Master SuperAdmin',
+      storeId: store.id,
+      action: 'store_update',
+      resource: `Store login email: ${loginEmail}`,
+      details: `Login email set to ${next ? 'Active' : 'Inactive'} for ${storeDisplayName}`,
+      status: 'success',
+      ipAddress: '185.199.108.153',
+    });
+    toast(
+      next
+        ? isAr
+          ? `تم تفعيل بريد الدخول لـ «${storeDisplayName}» (${loginEmail})`
+          : `Login email Activated for ${storeDisplayName} (${loginEmail})`
+        : isAr
+          ? `تم تعطيل بريد الدخول لـ «${storeDisplayName}» — لن يفتح تسجيل الدخول`
+          : `Login email Inactive for ${storeDisplayName} — login blocked`,
+      'success',
+    );
+  };
+
+  const startEditLoginEmail = (store: StoreType) => {
+    setEditingEmailStoreId(store.id);
+    setEmailDraft(resolveStoreLoginEmail(store) === '—' ? '' : resolveStoreLoginEmail(store));
+  };
+
+  const cancelEditLoginEmail = () => {
+    setEditingEmailStoreId(null);
+    setEmailDraft('');
+  };
+
+  const saveLoginEmailChange = (store: StoreType) => {
+    const nextEmail = emailDraft.trim().toLowerCase();
+    if (!nextEmail.includes('@') || !nextEmail.includes('.')) {
+      toast(
+        isAr ? 'يرجى إدخال بريد إلكتروني صحيح' : 'Please enter a valid email address',
+        'error',
+      );
+      return;
+    }
+
+    // Another store already owns this login email?
+    const taken = findRegisteredMerchantByEmail(nextEmail);
+    if (taken && taken.storeId !== store.id) {
+      toast(
+        isAr
+          ? 'هذا البريد مسجّل لمتجر آخر. اختر بريداً مختلفاً.'
+          : 'This email is already registered to another store. Choose a different one.',
+        'error',
+      );
+      return;
+    }
+
+    try {
+      const saved = setStoreLoginEmailOverride(store.id, nextEmail);
+      updateStoreOwnerEmail(store.id, saved);
+      setEmailAccessEpoch((n) => n + 1);
+      setEditingEmailStoreId(null);
+      setEmailDraft('');
+      const storeDisplayName = getStoreDisplayName(store, locale);
+      addAuditLog({
+        adminId: 'master-admin-01',
+        adminName: 'Master SuperAdmin',
+        storeId: store.id,
+        action: 'store_update',
+        resource: `Store login email: ${saved}`,
+        details: `Changed login email for ${storeDisplayName} to ${saved}`,
+        status: 'success',
+        ipAddress: '185.199.108.153',
+      });
+      toast(
+        isAr
+          ? `تم تغيير بريد الدخول لـ «${storeDisplayName}» إلى ${saved}`
+          : `Login email for ${storeDisplayName} changed to ${saved}`,
+        'success',
+      );
+    } catch {
+      toast(
+        isAr ? 'تعذر حفظ بريد الدخول' : 'Could not save login email',
+        'error',
+      );
+    }
+  };
 
   const [showWhatsAppQuotasModal, setShowWhatsAppQuotasModal] = useState(false);
   const [quotasLoading, setQuotasLoading] = useState(false);
@@ -278,22 +397,22 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
           deltaLabel={isAr ? 'من إجمالي المتاجر' : 'operational'}
         />
         <OverviewStatCard
-          label={isAr ? 'تجار باقة Pro' : 'Pro Tier Merchants'}
-          value={amount(stores.filter((s) => s.plan === 'pro').length)}
+          label={isAr ? 'اشتراك احترافي ومميز' : 'Pro and Premium'}
+          value={amount(stores.filter((s) => s.plan === 'pro' || s.plan === 'premium' || s.plan === 'paid').length)}
           icon={Crown}
           tone="warn"
           sparkline={[
-            Math.max(0, stores.filter((s) => s.plan === 'pro').length - 1),
-            stores.filter((s) => s.plan === 'pro').length,
+            Math.max(0, stores.filter((s) => s.plan === 'pro' || s.plan === 'premium' || s.plan === 'paid').length - 1),
+            stores.filter((s) => s.plan === 'pro' || s.plan === 'premium' || s.plan === 'paid').length,
           ]}
           delta={
             stores.length > 0
               ? Math.round(
-                  (stores.filter((s) => s.plan === 'pro').length / stores.length) * 100,
+                  (stores.filter((s) => s.plan === 'pro' || s.plan === 'premium' || s.plan === 'paid').length / stores.length) * 100,
                 )
               : null
           }
-          deltaLabel={isAr ? 'نسبة Pro' : 'high tier'}
+          deltaLabel={isAr ? 'من إجمالي المتاجر' : 'of all stores'}
         />
         <OverviewStatCard
           label={isAr ? 'إجمالي مبيعات المنصة' : 'Total Platform GMV'}
@@ -361,14 +480,49 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
             ? storeOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0)
             : store.revenue;
 
-          const hostingerId =
-            store.hosting_id ||
-            `hst_${store.id.replace(/^store[-_]?/i, 're-') || 'shared_01'}`;
+          const onCentralHost = store.id !== 'store-1';
+          const hostAccount = onCentralHost
+            ? isAr
+              ? 'الاستضافة المركزية'
+              : 'Central Hostinger'
+            : isAr
+              ? 'استضافة الزهور'
+              : 'Flowers Hostinger';
+          const hostDetail = onCentralHost
+            ? isAr
+              ? 'القهوة والسيارات والمتاجر الجديدة'
+              : 'Coffee, cars, and new stores'
+            : isAr
+              ? 'حساب منفصل'
+              : 'Separate account';
 
+          const realDomain = store.custom_domain || store.domain || store.demo_domain || '';
+          const coffeeStore = store.id === 'store-coffee';
           const displayDomain =
-            store.custom_domain ||
-            store.demo_domain ||
-            `${store.slug || store.id}.saasdomain.com`;
+            realDomain ||
+            (isAr
+              ? coffeeStore
+                ? 'النطاق المجاني بانتظار الربط'
+                : 'بانتظار النطاق المخصص'
+              : coffeeStore
+                ? 'Included domain not connected'
+                : 'Custom domain not connected');
+          const planLabel =
+            store.plan === 'premium'
+              ? isAr
+                ? 'مميزة'
+                : 'Premium'
+              : store.plan === 'pro' || store.plan === 'paid'
+                ? isAr
+                  ? 'احترافية'
+                  : 'Pro'
+                : store.plan === 'custom'
+                  ? isAr
+                    ? 'مخصصة'
+                    : 'Custom'
+                  : isAr
+                    ? 'مجانية'
+                    : 'Free';
 
               const storeDisplayName = getStoreDisplayName(store, locale);
               const storeDisplayCategory = getStoreDisplayCategory(store, locale);
@@ -486,10 +640,10 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-slate-400 flex items-center gap-1 shrink-0">
-                      <Database className="w-3 h-3 text-slate-400" /> {isAr ? 'استضافة Hostinger المشتركة:' : 'Hostinger Shared:'}
+                      <Database className="w-3 h-3 text-slate-400" /> {isAr ? 'الاستضافة:' : 'Hosting:'}
                     </span>
                     <span className="font-mono text-slate-700 dark:text-slate-200 truncate text-end">
-                      {hostingerId} ({isAr ? 'MySQL معزولة' : 'MySQL isolated'})
+                      {hostAccount} ({hostDetail})
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
@@ -498,7 +652,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                     </span>
                     <span className="flex items-center gap-1 shrink-0">
                       <span className="uppercase font-mono text-[10px] bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 px-1.5 py-0.5 rounded font-bold">
-                        {store.plan === 'pro' ? 'Pro' : isAr ? 'مجانية' : store.plan}
+                        {planLabel}
                       </span>
                       {store.masterGrantedPro && (
                         <span className="text-[10px] text-amber-700 font-bold bg-amber-50 border border-amber-200/80 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
@@ -554,6 +708,109 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                       </button>
                     </div>
                   </div>
+
+                  {/* Master SuperAdmin only: login email Active/Inactive + Change */}
+                  {(() => {
+                    const loginEmail = resolveStoreLoginEmail(store);
+                    const emailActive = isStoreLoginEmailActive(store.id);
+                    const isEditing = editingEmailStoreId === store.id;
+                    void emailAccessEpoch;
+                    return (
+                      <div className="pt-2.5 pb-0.5 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 shrink-0">
+                            <Mail className="w-3.5 h-3.5 text-teal-600" />
+                            <span>{isAr ? 'بريد دخول المتجر:' : 'Store login email:'}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleLoginEmail(store)}
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border cursor-pointer transition-colors ${
+                              emailActive
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/40'
+                                : 'bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/40'
+                            }`}
+                            title={
+                              isAr
+                                ? 'تفعيل / تعطيل بريد الدخول (سوبر أدمن فقط)'
+                                : 'Activate / deactivate login email (SuperAdmin only)'
+                            }
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                emailActive ? 'bg-emerald-500' : 'bg-rose-500'
+                              }`}
+                            />
+                            {emailActive
+                              ? isAr
+                                ? 'نشط'
+                                : 'Active'
+                              : isAr
+                                ? 'غير نشط'
+                                : 'Inactive'}
+                          </button>
+                        </div>
+
+                        {isEditing ? (
+                          <div className="space-y-1.5">
+                            <input
+                              type="email"
+                              value={emailDraft}
+                              onChange={(e) => setEmailDraft(e.target.value)}
+                              dir="ltr"
+                              placeholder="name@example.com"
+                              className="w-full px-2.5 py-1.5 rounded-lg border text-[11px] font-mono outline-none focus:ring-2 focus:ring-teal-500/30 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100"
+                            />
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={cancelEditLoginEmail}
+                                className="px-2 py-1 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"
+                              >
+                                {isAr ? 'إلغاء' : 'Cancel'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => saveLoginEmailChange(store)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-teal-600 text-white hover:bg-teal-700 cursor-pointer"
+                              >
+                                <Save className="w-3 h-3" />
+                                {isAr ? 'حفظ البريد' : 'Save email'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between gap-2">
+                            <p
+                              className="font-mono text-[10px] text-slate-600 dark:text-slate-300 truncate text-start min-w-0"
+                              dir="ltr"
+                              title={loginEmail}
+                            >
+                              {loginEmail}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => startEditLoginEmail(store)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-extrabold border border-teal-200 text-teal-700 bg-teal-50 hover:bg-teal-100 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/30 cursor-pointer shrink-0"
+                              title={
+                                isAr
+                                  ? 'تغيير بريد الدخول (سوبر أدمن فقط)'
+                                  : 'Change login email (SuperAdmin only)'
+                              }
+                            >
+                              <Pencil className="w-3 h-3" />
+                              {isAr ? 'تغيير' : 'Change'}
+                            </button>
+                          </div>
+                        )}
+                        <p className="text-[9px] text-slate-400 dark:text-slate-500">
+                          {isAr
+                            ? 'تغيير بريد الدخول متاح لسوبر أدمن المنصة فقط'
+                            : 'Login email can be changed by platform SuperAdmin only'}
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -595,6 +852,43 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                       ? isAr ? 'إلغاء المنحة' : 'Revoke Grant'
                       : isAr ? 'منح Pro' : 'Grant Pro'}
                   </button>
+
+                  <label
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-xl border text-[10px] font-bold"
+                    style={{ borderColor: 'var(--border)' }}
+                    title={
+                      isAr
+                        ? 'عدد قوالب كانفا المجانية لكل نوع (فارغ = ٥ أو برو غير محدود)'
+                        : 'Free Canva templates per category (empty = 5, or unlimited on Pro)'
+                    }
+                  >
+                    <span className="text-muted whitespace-nowrap">
+                      {isAr ? 'قوالب/نوع' : 'Tpls/type'}
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      className="w-12 px-1 py-0.5 rounded-lg border text-[11px] font-mono bg-transparent"
+                      style={{ borderColor: 'var(--border)' }}
+                      value={store.canvaTemplatesPerCategory ?? ''}
+                      placeholder="5"
+                      onChange={(e) => {
+                        const raw = e.target.value.trim();
+                        const next = raw === '' ? null : Number(raw);
+                        updateCanvaTemplatesPerCategory(
+                          store.id,
+                          next == null || Number.isNaN(next) ? null : next,
+                        );
+                        toast(
+                          isAr
+                            ? `تم تحديث حد القوالب لـ «${storeDisplayName}»`
+                            : `Template limit updated for ${storeDisplayName}`,
+                          'success',
+                        );
+                      }}
+                    />
+                  </label>
 
                   {userCanDelete && (
                     <button

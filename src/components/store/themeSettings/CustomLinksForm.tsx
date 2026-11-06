@@ -20,6 +20,7 @@ import {
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { MediaUploadField } from '../../common/MediaUploadField';
 import {
   readAllThemeSettings,
   writeAllThemeSettings,
@@ -690,16 +691,15 @@ export const CustomLinksForm: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <span className="text-[10px] font-bold text-muted block mb-1">Image URL (Recommended: 1150 × 409 px)</span>
-                <input
-                  type="text"
-                  value={link.image}
-                  onChange={(e) => updateLink(link.id, { image: e.target.value })}
-                  className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none font-mono text-[11px]"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
-                />
-              </div>
+              <MediaUploadField
+                label={isAr ? 'صورة البطاقة' : 'Card image'}
+                value={link.image || ''}
+                onChange={(url) => updateLink(link.id, { image: url })}
+                altText={isAr ? (link.titleAr || link.title) : (link.titleEn || link.title)}
+                aspectRatio="banner"
+                initialFolder="banners"
+                recommendedSize="1150 × 409 px"
+              />
             </div>
           ))}
         </div>

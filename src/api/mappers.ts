@@ -6,6 +6,10 @@ import type {
   Order,
   PlanType,
   Product,
+  ProductConditionalRuleDefinition,
+  ProductCustomField,
+  ProductOptionDefinition,
+  ProductVariation,
   ShippingZone,
   Store,
   StoreSEOConfig,
@@ -88,6 +92,10 @@ export function mapStore(row: ApiStoreRow): Store {
     ownerEmail: str(row.email ?? row.owner_email, ''),
     plan: mapPlan(row.plan),
     masterGrantedPro: Boolean(row.master_granted_pro),
+    canvaTemplatesPerCategory:
+      row.canva_templates_per_category == null || row.canva_templates_per_category === ''
+        ? null
+        : num(row.canva_templates_per_category, 5),
     status: mapStoreStatus(row.status),
     productsCount: num(row.products_count),
     ordersCount: num(row.orders_count),
@@ -119,6 +127,138 @@ function asStringArray(v: unknown): string[] {
     }
   }
   return [];
+}
+
+function asRecordArray(v: unknown): Record<string, unknown>[] {
+  if (Array.isArray(v)) {
+    return v.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object');
+  }
+  if (typeof v === 'string' && v.trim()) {
+    try {
+      return asRecordArray(JSON.parse(v));
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function mapCustomFields(raw: unknown): ProductCustomField[] | undefined {
+  const rows = asRecordArray(raw);
+  if (rows.length === 0) return undefined;
+  return rows.map((field, i) => ({
+    id: str(field.id, `cf_${i}`),
+    name: str(field.name),
+    nameAr: field.nameAr == null || field.nameAr === '' ? undefined : str(field.nameAr),
+    description: field.description == null || field.description === '' ? undefined : str(field.description),
+    imageUrl:
+      (field.imageUrl ?? field.image_url) == null || (field.imageUrl ?? field.image_url) === ''
+        ? undefined
+        : str(field.imageUrl ?? field.image_url),
+    videoUrl:
+      (field.videoUrl ?? field.video_url) == null || (field.videoUrl ?? field.video_url) === ''
+        ? undefined
+        : str(field.videoUrl ?? field.video_url),
+    contentEn: field.contentEn == null || field.contentEn === '' ? undefined : str(field.contentEn),
+    contentAr: field.contentAr == null || field.contentAr === '' ? undefined : str(field.contentAr),
+    hidden: Boolean(field.hidden),
+    type: field.type == null || field.type === '' ? undefined : str(field.type),
+    required: Boolean(field.required),
+    conditionalRule:
+      field.conditionalRule == null || field.conditionalRule === '' ? undefined : str(field.conditionalRule),
+    conditions: asRecordArray(field.conditions).map((rule) => ({
+      fieldId: str(rule.fieldId ?? rule.field_id),
+      operator: str(rule.operator),
+      value: rule.value == null ? undefined : str(rule.value),
+    })),
+    conditionJoin: field.conditionJoin === 'OR' ? 'OR' : 'AND',
+    extraPrice: num(field.extraPrice ?? field.extra_price),
+    options: Array.isArray(field.options)
+      ? field.options
+          .map((opt) => {
+            if (typeof opt === 'string') return opt;
+            if (opt && typeof opt === 'object') {
+              const row = opt as Record<string, unknown>;
+              return str(row.label ?? row.value ?? '');
+            }
+            return '';
+          })
+          .filter(Boolean)
+      : [],
+    value: field.value == null || field.value === '' ? undefined : str(field.value),
+  }));
+}
+
+function mapConditionalRules(raw: unknown): ProductConditionalRuleDefinition[] | undefined {
+  const rows = asRecordArray(raw);
+  if (rows.length === 0) return undefined;
+  return rows.map((rule, i) => {
+    const names = rule.targetFieldNames ?? rule.target_field_names;
+    return {
+      id: str(rule.id, `rule_${i}`),
+      optionName: str(rule.optionName ?? rule.option_name),
+      operator: str(rule.operator, 'equals'),
+      value: str(rule.value),
+      action: rule.action === 'hide' ? 'hide' as const : 'show' as const,
+      targetFieldNames: Array.isArray(names) ? names.map((name) => String(name)) : [],
+    };
+  });
+}
+
+function mapProductOptions(raw: unknown): ProductOptionDefinition[] | undefined {
+  const rows = asRecordArray(raw);
+  if (rows.length === 0) return undefined;
+  return rows.map((opt, i) => ({
+    id: str(opt.id, `opt_${i}`),
+    name: str(opt.name),
+    nameAr: opt.nameAr == null || opt.nameAr === '' ? undefined : str(opt.nameAr),
+    type: opt.type == null ? undefined : str(opt.type),
+    visible: opt.visible === undefined ? true : Boolean(opt.visible),
+    values: Array.isArray(opt.values) ? (opt.values as ProductOptionDefinition['values']) : [],
+  }));
+}
+
+function mapVariationRows(raw: unknown): ProductVariation[] | undefined {
+  const rows = asRecordArray(raw);
+  if (rows.length === 0) return undefined;
+  return rows.map((row) => {
+    const optsRaw = row.options;
+    let options: Record<string, string> = {};
+    if (optsRaw && typeof optsRaw === 'object' && !Array.isArray(optsRaw)) {
+      options = Object.fromEntries(
+        Object.entries(optsRaw as Record<string, unknown>)
+          .filter(([, v]) => v != null && v !== '')
+          .map(([k, v]) => [k, String(v)]),
+      );
+    }
+    return {
+      id: str(row.id),
+      storeId: str(row.store_id ?? row.storeId),
+      productId: str(row.product_id ?? row.productId),
+      sku: str(row.sku),
+      barcode: row.barcode == null || row.barcode === '' ? null : str(row.barcode),
+      options,
+      price: row.price == null || row.price === '' ? null : num(row.price),
+      compareAtPrice:
+        (row.compare_at_price ?? row.compareAtPrice) == null ||
+        (row.compare_at_price ?? row.compareAtPrice) === ''
+          ? null
+          : num(row.compare_at_price ?? row.compareAtPrice),
+      stock: num(row.stock),
+      weight: row.weight == null || row.weight === '' ? null : num(row.weight),
+      weightUnit: row.weight_unit == null || row.weight_unit === '' ? 'kg' : str(row.weight_unit),
+      lowStockAlert:
+        row.low_stock_alert == null || row.low_stock_alert === ''
+          ? null
+          : num(row.low_stock_alert),
+      unlimitedStock: Boolean(row.unlimited_stock ?? row.unlimitedStock ?? false),
+      imageUrl:
+        (row.image_url ?? row.imageUrl) == null || (row.image_url ?? row.imageUrl) === ''
+          ? null
+          : str(row.image_url ?? row.imageUrl),
+      isActive: (row.is_active ?? row.isActive) === undefined ? true : Boolean(row.is_active ?? row.isActive),
+    };
+  });
 }
 
 export function mapProduct(row: ApiProductRow): Product {
@@ -178,6 +318,10 @@ export function mapProduct(row: ApiProductRow): Product {
       row.spec_comparison_image ? str(row.spec_comparison_image) : (row.specComparisonImage ? str(row.specComparisonImage) : undefined),
     specComparisonImageAr:
       row.spec_comparison_image_ar ? str(row.spec_comparison_image_ar) : (row.specComparisonImageAr ? str(row.specComparisonImageAr) : undefined),
+    productOptions: mapProductOptions(row.product_options ?? row.productOptions),
+    customFields: mapCustomFields(row.custom_fields ?? row.customFields),
+    conditionalRules: mapConditionalRules(row.conditional_rules ?? row.conditionalRules),
+    variations: mapVariationRows(row.variations),
   };
 }
 
@@ -317,6 +461,36 @@ export function mapOrder(row: ApiOrderRow): Order {
   };
 }
 
+/** Map dashboard Order patch (camelCase) to Laravel PATCH /orders/{id} body. */
+export function orderPatchToApi(patch: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const src = patch;
+
+  const assign = (camel: string, snake: string) => {
+    if (src[camel] !== undefined) out[snake] = src[camel];
+    else if (src[snake] !== undefined) out[snake] = src[snake];
+  };
+
+  assign('status', 'status');
+  assign('trackingNumber', 'tracking_number');
+  assign('shippingStatus', 'shipping_status');
+  if (src.shippingCompany !== undefined) out.courier_code = src.shippingCompany;
+  else if (src.shipping_company !== undefined) out.courier_code = src.shipping_company;
+  else if (src.courier_code !== undefined) out.courier_code = src.courier_code;
+  if (src.paymentStatus !== undefined) out.payment_status = src.paymentStatus;
+  else if (src.payment_status !== undefined) out.payment_status = src.payment_status;
+  assign('paymentMethod', 'payment_method');
+  assign('codStatus', 'cod_status');
+  assign('codNotes', 'cod_notes');
+  assign('refundStatus', 'refund_status');
+  assign('refundAmount', 'refund_amount');
+  assign('returnReason', 'return_reason');
+  assign('returnNotes', 'return_notes');
+  if (src.restock !== undefined) out.restock = src.restock;
+
+  return out;
+}
+
 const CUSTOMER_SOURCES: CustomerSource[] = [
   'Instagram',
   'Google Ads',
@@ -393,6 +567,12 @@ export function mapCustomer(row: ApiCustomerRow): Customer {
     lastOrderDate: row.last_order_date
       ? dateSlice(row.last_order_date)
       : '—',
+    lastLogin:
+      row.last_login != null
+        ? str(row.last_login)
+        : row.last_login_at != null
+          ? str(row.last_login_at)
+          : undefined,
   };
 }
 
@@ -402,6 +582,14 @@ export function mapCoupon(row: ApiCouponRow): CouponItem {
   const statusRaw = str(row.status, 'active');
   const status: CouponItem['status'] =
     statusRaw === 'expired' || statusRaw === 'scheduled' ? statusRaw : 'active';
+  const isActive =
+    row.is_active === undefined ? status === 'active' : Boolean(row.is_active);
+
+  const designRaw = str(row.design_type, 'solid_color');
+  const designType: CouponItem['designType'] =
+    designRaw === 'image_based' || designRaw === 'image_only'
+      ? designRaw
+      : 'solid_color';
 
   return {
     id: str(row.id),
@@ -413,6 +601,10 @@ export function mapCoupon(row: ApiCouponRow): CouponItem {
     usageCount: num(row.usage_count),
     maxUsage: num(row.max_uses ?? row.max_usage, 0),
     status,
+    isActive,
+    designType,
+    couponColor: row.design_color ? str(row.design_color) : undefined,
+    imageUrl: row.design_image_url ? str(row.design_image_url) : undefined,
     validUntil: row.expires_at ? dateSlice(row.expires_at) : '—',
   };
 }

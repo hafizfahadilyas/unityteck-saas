@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { listAvailableProductChannels } from '../../config/productChannels';
 
 export interface ProductFilterCriteria {
   channel: string;
@@ -339,11 +340,11 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                 className="w-full appearance-none pl-9 pr-3.5 py-2.5 text-xs bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer text-right rtl:text-right"
               >
                 <option value="All">{isAr ? 'جميع القنوات' : 'All Channels'}</option>
-                <option value="Online Store">{isAr ? 'المتجر الإلكتروني' : 'Online Store'}</option>
-                <option value="POS">{isAr ? 'نقاط البيع (POS)' : 'Point of Sale (POS)'}</option>
-                <option value="Instagram">{isAr ? 'إنستغرام' : 'Instagram Shopping'}</option>
-                <option value="TikTok">{isAr ? 'تيك توك' : 'TikTok Shop'}</option>
-                <option value="WhatsApp">{isAr ? 'واتساب' : 'WhatsApp Commerce'}</option>
+                {listAvailableProductChannels().map((ch) => (
+                  <option key={ch.id} value={ch.value}>
+                    {isAr ? ch.labelAr : ch.labelEn}
+                  </option>
+                ))}
               </select>
               <ChevronDown className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -793,10 +794,12 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                   onChange={(e) => setNewCriteria({ ...newCriteria, channel: e.target.value })}
                   className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
                 >
-                  <option value="All">All Channels</option>
-                  <option value="Online Store">Online Store</option>
-                  <option value="POS">POS</option>
-                  <option value="Instagram">Instagram</option>
+                  <option value="All">{isAr ? 'جميع القنوات' : 'All Channels'}</option>
+                  {listAvailableProductChannels().map((ch) => (
+                    <option key={ch.id} value={ch.value}>
+                      {isAr ? ch.labelAr : ch.labelEn}
+                    </option>
+                  ))}
                 </select>
               </div>
 

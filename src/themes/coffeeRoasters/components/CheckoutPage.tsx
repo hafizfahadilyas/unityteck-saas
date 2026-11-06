@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
+import { cartChoiceLine } from '../cartLine';
 import { useTenant } from '../../../context/TenantContext';
 import { CreditCard, MapPin, Truck, CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react';
 import { MadaIcon, ApplePayIcon, TabbyIcon, TamaraIcon, VisaIcon, MastercardIcon, CodIcon } from './PaymentIcons';
 import { PaymentGatewaySelector, type PaymentMethodId } from '../../../components/storefront/checkout/PaymentGatewaySelector';
+import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 
 const SAUDI_CITIES = [
   { en: 'Riyadh', ar: 'الرياض' },
@@ -34,11 +36,19 @@ export const CheckoutPage: React.FC = () => {
   const [street, setStreet] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'tabby' | 'tamara' | 'mada' | 'apple_pay' | 'card' | 'cod'>('mada');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [orderNote, setOrderNote] = useState('');
+  const checkoutFields = activeStore?.id
+    ? resolveCoffeeThemeSettings(activeStore.id, activeStore).checkoutFields
+    : undefined;
+  const showShipping = checkoutFields?.showShipping !== false;
+  const showOrderNote = checkoutFields?.showOrderNote === true;
+  const guestBlocked = checkoutFields?.allowGuest === false && !user;
 
   const installmentSAR = Math.round(cartTotal / 4);
 
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
+    if (guestBlocked) return;
     setIsProcessing(true);
 
     setTimeout(() => {
@@ -82,7 +92,7 @@ export const CheckoutPage: React.FC = () => {
           {
             customerName: name,
             customerPhone: phone,
-            customerEmail: `${phone.replace(/[^0-9]/g, '')}@specialtycoffee.sa`,
+            customerEmail: `${phone.replace(/[^0-9]/g, '')}@mieraf-ksa.com`,
             deliveryLocation: `${city} - ${district}, ${street}`,
             itemsCount: cart.reduce((acc, curr) => acc + (curr.quantity || 1), 0),
             items: cart.map((it) => ({
@@ -198,6 +208,8 @@ export const CheckoutPage: React.FC = () => {
                   />
                 </div>
 
+                {showShipping ? (
+                <>
                 <div>
                   <label className="block font-semibold text-neutral-700 mb-1">
                     {language === 'AR' ? 'المدينة' : 'City'}
@@ -240,7 +252,20 @@ export const CheckoutPage: React.FC = () => {
                     className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
                   />
                 </div>
+                </>
+                ) : null}
               </div>
+              {showOrderNote ? (
+                <label className="block text-xs font-semibold text-neutral-700 space-y-1">
+                  <span>{language === 'AR' ? 'ملاحظة الطلب' : 'Order note'}</span>
+                  <textarea
+                    value={orderNote}
+                    onChange={(e) => setOrderNote(e.target.value)}
+                    data-checkout-note="on"
+                    className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
+                  />
+                </label>
+              ) : null}
             </div>
 
             {/* 2. Saudi Authorized Payment Gateways */}
@@ -275,7 +300,8 @@ export const CheckoutPage: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <h4 className="font-bold text-neutral-900 truncate">{item.productName}</h4>
                       <span className="text-[11px] text-neutral-500 block">
-                        {item.quantity}x · {language === 'AR' && item.selectedColor.nameAr ? item.selectedColor.nameAr : item.selectedColor.name} · {item.selectedStorage.capacity}
+                        {item.quantity}x · {cartChoiceLine(item, language === 'AR')}
+                        {item.purchaseNotes && item.purchaseNotes.length > 0 ? ` · ${item.purchaseNotes.join(' · ')}` : ''}
                       </span>
                       {item.customCornerSpecs && (
                         <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-mono inline-block mt-0.5">
@@ -309,9 +335,15 @@ export const CheckoutPage: React.FC = () => {
                 </div>
               </div>
 
+              {guestBlocked ? (
+                <p className="text-[11px] text-rose-700" data-checkout-guest="blocked">
+                  {language === 'AR' ? 'يلزم تسجيل الدخول قبل إتمام الشراء.' : 'Sign in before placing the order.'}
+                </p>
+              ) : null}
+
               <button
                 type="submit"
-                disabled={isProcessing}
+                disabled={isProcessing || guestBlocked}
                 className="w-full py-3.5 sm:py-4 bg-black hover:bg-neutral-800 disabled:bg-neutral-400 text-white font-extrabold text-xs sm:text-sm rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
               >
                 {isProcessing ? (

@@ -17,13 +17,22 @@ export type PlanFeature =
   | 'backups'
   | 'zatca'
   | 'analytics'
+  | 'reports'
   | 'ai'
+  | 'media_studio'
+  | 'custom_domain'
+  | 'whatsapp'
+  | 'social'
+  | 'api_access'
+  | 'advanced_seo'
+  | 'advanced_analytics'
   | 'all';
 
 export type PlanInfo = {
   code: PlanType;
   billedCode: PlanType;
   name: string;
+  priceSar: number | null;
   productLimit: number | null;
   orderLimit: number | null;
   storageMb: number | null;
@@ -38,22 +47,25 @@ const CATALOG: Record<
 > = {
   free: {
     name: 'Free',
+    priceSar: 0,
     productLimit: 50,
     orderLimit: 100,
     storageMb: 512,
     teamSeats: 1,
-    features: ['catalog', 'orders', 'basic_seo', 'themes_basic'],
+    features: ['catalog', 'orders', 'basic_seo', 'themes_basic', 'media_studio'],
   },
   paid: {
     name: 'Paid',
+    priceSar: null,
     productLimit: 500,
     orderLimit: 2000,
     storageMb: 5120,
     teamSeats: 5,
-    features: ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'themes_basic'],
+    features: ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio'],
   },
   pro: {
     name: 'Pro',
+    priceSar: 300,
     productLimit: 5000,
     orderLimit: null,
     storageMb: 51200,
@@ -64,16 +76,48 @@ const CATALOG: Record<
       'seo',
       'coupons',
       'shipping',
+      'analytics',
+      'reports',
       'themes_basic',
       'themes',
+      'media_studio',
+      'custom_domain',
+      'whatsapp',
+      'social',
+    ],
+  },
+  premium: {
+    name: 'Premium',
+    priceSar: 500,
+    productLimit: null,
+    orderLimit: null,
+    storageMb: 102400,
+    teamSeats: 50,
+    features: [
+      'catalog',
+      'orders',
+      'seo',
+      'coupons',
+      'shipping',
+      'analytics',
+      'reports',
+      'themes_basic',
+      'themes',
+      'media_studio',
+      'custom_domain',
+      'whatsapp',
+      'social',
       'backups',
       'zatca',
-      'analytics',
       'ai',
+      'api_access',
+      'advanced_seo',
+      'advanced_analytics',
     ],
   },
   custom: {
     name: 'Custom',
+    priceSar: null,
     productLimit: null,
     orderLimit: null,
     storageMb: null,
@@ -90,11 +134,14 @@ export const STORE_TAB_PLAN_FEATURE: Record<string, PlanFeature | null> = {
   invoices: 'orders',
   products: 'catalog',
   categories: 'catalog',
+  media: 'media_studio',
+  canva: 'media_studio',
+  brands: 'catalog',
   customers: null,
   marketing: null,
-  analytics: null,
-  reports: null,
-  whatsapp: null,
+  analytics: 'analytics',
+  reports: 'reports',
+  whatsapp: 'whatsapp',
   seo: 'seo',
   coupons: 'coupons',
   shipping: 'shipping',
@@ -109,7 +156,7 @@ export const STORE_TAB_PLAN_FEATURE: Record<string, PlanFeature | null> = {
 
 export function normalizePlanCode(plan?: string | null): PlanType {
   const p = String(plan || 'free').toLowerCase();
-  if (p === 'paid' || p === 'pro' || p === 'custom' || p === 'free') return p;
+  if (p === 'paid' || p === 'pro' || p === 'premium' || p === 'custom' || p === 'free') return p;
   return 'free';
 }
 
@@ -131,6 +178,7 @@ export function planInfoForStore(
     code,
     billedCode,
     name: meta.name,
+    priceSar: meta.priceSar,
     productLimit: meta.productLimit,
     orderLimit: meta.orderLimit,
     storageMb: meta.storageMb,
@@ -149,6 +197,8 @@ export function planHasFeature(
   if (info.features.includes(feature)) return true;
   if (feature === 'seo' && info.features.includes('basic_seo')) return true;
   if (feature === 'themes_basic' && info.features.includes('themes')) return true;
+  if (feature === 'seo' && info.features.includes('advanced_seo')) return true;
+  if (feature === 'analytics' && info.features.includes('advanced_analytics')) return true;
   return false;
 }
 

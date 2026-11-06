@@ -14,7 +14,7 @@ export type UserRole =
   | 'store_manager'
   | 'store_staff';
 
-export type PlanType = 'free' | 'paid' | 'pro' | 'custom';
+export type PlanType = 'free' | 'paid' | 'pro' | 'premium' | 'custom';
 
 export interface StoreLanguagesConfig {
   english: boolean;
@@ -36,6 +36,8 @@ export interface Store {
   ownerEmail: string;
   plan: PlanType;
   masterGrantedPro: boolean;
+  /** Master override: Free unlocks N templates per Canva category (null = plan default 5). Pro ignores. */
+  canvaTemplatesPerCategory?: number | null;
   status: 'active' | 'pending' | 'suspended';
   productsCount: number;
   ordersCount: number;
@@ -115,7 +117,8 @@ export interface Customer {
   country: string;
   gender: 'Male' | 'Female' | 'Other';
   source: CustomerSource;
-  group: 'VIP' | 'Regular' | 'Wholesale';
+  /** Built-in (VIP/Regular/Wholesale) or merchant-defined custom group name */
+  group: string;
   totalOrders: number;
   totalSpending: number;
   avgOrderValue: number;
@@ -136,7 +139,27 @@ export interface Customer {
   availableCoupons?: number;
   expiringSoonCount?: number;
   aiInsights?: string[];
+  lastLogin?: string;
+  wishlistItems?: { id: string; name?: string; nameAr?: string }[];
+  rewards?: { id: string; title?: string; titleAr?: string; points?: number }[];
+  walletBalance?: number;
 }
+
+export type CustomerWalletTransaction = {
+  id: string | number;
+  storeId: string;
+  customerId: string;
+  type: 'add' | 'deduct';
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  reason?: string | null;
+  employeeId?: string | null;
+  employeeName?: string | null;
+  notifyChannel?: string | null;
+  resetLoyalty: boolean;
+  createdAt: string;
+};
 
 export interface ChannelPerformance {
   id: string;
@@ -188,6 +211,18 @@ export interface Product {
   descriptionEn?: string | null;
   subtitle?: string | null;
   subtitleAr?: string | null;
+  /** Google Product Category taxonomy path / ID */
+  googleTaxonomy?: string | null;
+  /** Multi-category assignment (primary remains `category`) */
+  categories?: string[];
+  /** Sales channels from central productChannels registry */
+  salesChannels?: string[];
+  /** Discount schedule (ISO date strings) */
+  discountStartAt?: string | null;
+  discountEndAt?: string | null;
+  /** Promotional badge custom text + icon key when badge === 'promo' */
+  badgeText?: string | null;
+  badgeIcon?: string | null;
   /** Homepage / collection featuring (independent of badge ribbon) */
   isFeatured?: boolean;
   productType?: string;
@@ -225,12 +260,54 @@ export interface Product {
   specs?: any[];
 }
 
+export type ProductCustomFieldType =
+  | 'Short Text'
+  | 'Long Text'
+  | 'Number'
+  | 'Single Choice'
+  | 'Single Choice Image'
+  | 'Single Choice Color'
+  | 'Multiple Choice'
+  | 'Multiple Choice Image'
+  | 'Multiple Choice Color'
+  | 'Image Upload'
+  | 'Date'
+  | 'Time'
+  | 'Date and Time'
+  | 'Location'
+  | 'File Upload'
+  | 'Color Selector'
+  | 'Size Selector'
+  | 'Divider'
+  | string;
+
+export interface ProductCustomFieldCondition {
+  fieldId: string;
+  operator: string;
+  value?: string;
+}
+
 export interface ProductCustomField {
   id: string;
   name: string;
-  type?: 'Text' | 'File Upload' | 'Date' | 'Dropdown' | 'Number' | 'Time' | 'Multiple Choice' | string;
+  nameAr?: string;
+  /** Optional merchant instructions shown to the customer */
+  description?: string;
+  /** Learn-more block: this product's own image */
+  imageUrl?: string;
+  /** Learn-more block: this product's own video */
+  videoUrl?: string;
+  contentEn?: string;
+  contentAr?: string;
+  /** Hidden blocks stay saved and stay off the storefront */
+  hidden?: boolean;
+  type?: ProductCustomFieldType;
   required?: boolean;
+  /** Legacy single-rule string (kept for backward compatibility) */
   conditionalRule?: string;
+  /** Structured visibility rules */
+  conditions?: ProductCustomFieldCondition[];
+  conditionJoin?: 'AND' | 'OR';
   extraPrice?: number;
   options?: string[];
   value?: string;
@@ -239,14 +316,28 @@ export interface ProductCustomField {
 export interface ProductOptionValueItem {
   id: string;
   label: string;
+  labelAr?: string;
   colorHex?: string;
+  imageUrl?: string;
+  videoUrl?: string;
   selected?: boolean;
+  /** Extra MRP added to the product price. Empty means no extra. */
+  price?: number | null;
+  /** Extra selling price. Empty means the MRP extra is the selling extra. */
+  salePrice?: number | null;
+  stock?: number | null;
+  sku?: string;
+  weight?: number | null;
+  weightUnit?: 'kg' | 'g' | string | null;
 }
 
 export interface ProductOptionDefinition {
   id: string;
   name: string;
-  type?: 'color' | 'select' | 'text' | string;
+  nameAr?: string;
+  type?: 'color' | 'select' | 'text' | 'image' | string;
+  /** Storefront visibility. Hidden options stay in the variant matrix. */
+  visible?: boolean;
   values: string[] | ProductOptionValueItem[];
 }
 
@@ -274,9 +365,17 @@ export interface ProductVariation {
   storeId: string;
   productId: string;
   sku: string;
+  barcode?: string | null;
   options: Record<string, string>;
+  /** Selling price paid by the customer for this variant */
   price: number | null;
+  /** MRP / compare-at price. Discount is the gap when this is higher than price. */
+  compareAtPrice?: number | null;
   stock: number;
+  weight?: number | null;
+  weightUnit?: 'kg' | 'g' | 'lb' | string | null;
+  lowStockAlert?: number | null;
+  unlimitedStock?: boolean;
   imageUrl: string | null;
   isActive: boolean;
 }
@@ -298,6 +397,20 @@ export interface StoreCategory {
   metaTitleEn?: string | null;
   metaDescriptionEn?: string | null;
   isActive: boolean;
+}
+
+export type CategoryFieldType = 'text' | 'number' | 'select' | 'boolean' | 'url';
+
+export interface CategoryFieldDefinition {
+  id: string;
+  storeId: string;
+  categoryId: string | null;
+  nameEn: string;
+  nameAr: string | null;
+  fieldType: CategoryFieldType;
+  options: string[] | null;
+  sort: number;
+  active: boolean;
 }
 
 export type OrderStatus = 
@@ -501,7 +614,7 @@ export interface DomainRecord {
   domainName: string;
   sslStatus: 'active' | 'issuing' | 'expired' | 'pending';
   dnsVerified: boolean;
-  hostingTier: 'Hostinger Shared Starter' | 'Hostinger Shared Premium' | 'Hostinger Shared Business' | 'Starter Shared' | 'Premium Shared' | 'Business Shared' | 'Pro Cloud' | 'Enterprise Dedicated';
+  hostingTier: 'Hostinger Cloud' | 'Hostinger Shared Starter' | 'Hostinger Shared Premium' | 'Hostinger Shared Business' | 'Starter Shared' | 'Premium Shared' | 'Business Shared' | 'Pro Cloud' | 'Enterprise Dedicated';
   monthlyFee: number;
   paymentReceived: boolean;
   status: 'active' | 'pending_payment' | 'dns_propagation' | 'suspended' | 'live';
@@ -621,6 +734,8 @@ export interface CouponItem {
   maxUsage: number;
   usageLimitPerCustomer?: number;
   status: 'active' | 'expired' | 'scheduled';
+  isActive?: boolean;
+  designType?: 'solid_color' | 'image_based' | 'image_only';
   startDate?: string;
   validUntil: string;
   expiryTime?: string;

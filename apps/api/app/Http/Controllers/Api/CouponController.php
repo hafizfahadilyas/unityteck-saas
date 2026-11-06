@@ -46,6 +46,9 @@ class CouponController extends Controller
             'status' => ['nullable', Rule::in(['active', 'expired', 'scheduled'])],
             'is_active' => ['nullable', 'boolean'],
             'expires_at' => ['nullable', 'date'],
+            'design_type' => ['nullable', Rule::in(['solid_color', 'image_based', 'image_only'])],
+            'design_color' => ['nullable', 'string', 'max:32'],
+            'design_image_url' => ['nullable', 'string'],
         ]);
 
         $code = strtoupper(trim($data['code']));
@@ -71,6 +74,9 @@ class CouponController extends Controller
             'status' => $data['status'] ?? 'active',
             'is_active' => $data['is_active'] ?? true,
             'expires_at' => $data['expires_at'] ?? null,
+            'design_type' => $data['design_type'] ?? 'solid_color',
+            'design_color' => $data['design_color'] ?? null,
+            'design_image_url' => $data['design_image_url'] ?? null,
         ]);
 
         return response()->json(['data' => $coupon], 201);
@@ -95,6 +101,9 @@ class CouponController extends Controller
             'status' => ['sometimes', Rule::in(['active', 'expired', 'scheduled'])],
             'is_active' => ['sometimes', 'boolean'],
             'expires_at' => ['nullable', 'date'],
+            'design_type' => ['sometimes', Rule::in(['solid_color', 'image_based', 'image_only'])],
+            'design_color' => ['nullable', 'string', 'max:32'],
+            'design_image_url' => ['nullable', 'string'],
         ]);
 
         if (isset($data['code'])) {

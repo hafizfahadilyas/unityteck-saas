@@ -29,6 +29,10 @@ export interface Product {
   dimensions?: string;
   inStock: boolean;
   featured?: boolean;
+  /** Catalog options / variants from shared product system */
+  productOptions?: any[];
+  variations?: any[];
+  stock?: number;
 }
 
 export interface AddonOption {
@@ -45,6 +49,11 @@ export interface CartItem {
   product: Product;
   quantity: number;
   selectedSize?: string;
+  /** Selected catalog variant (parent product + variant id) */
+  variationId?: string | null;
+  selectedOptions?: Record<string, string>;
+  /** Confirmed unit price at add-to-cart time */
+  unitPrice?: number;
   cardMessage?: string;
   senderName?: string;
   recipientName?: string;

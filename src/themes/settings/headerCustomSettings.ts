@@ -45,6 +45,8 @@ export interface HeaderLogoSettings {
   hoverEffect: 'scale' | 'glow' | 'rotate' | 'none';
   linkUrl: string;
   template: string;
+  /** When true, the storefront uses titleEn / titleAr. Otherwise the locked logo word stays. */
+  applyTitle?: boolean;
 }
 
 export interface HeaderActionsSettings {
@@ -129,6 +131,10 @@ export interface HeaderNavigationSettings {
   vipPortalLabelEn: string;
   vipPortalColor: string;
   links: HeaderNavLink[];
+  /** Desktop menu. Empty means the locked storefront menu stays. */
+  desktopLinks?: HeaderNavLink[];
+  /** Mobile menu. Empty means the locked storefront menu stays. */
+  mobileLinks?: HeaderNavLink[];
 }
 
 export interface HeaderLanguageSettings {

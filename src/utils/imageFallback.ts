@@ -34,19 +34,67 @@ export function isValidMediaUrl(url?: string | null): boolean {
   );
 }
 
+/** HiBrew / coffee theme catalog media (served from public/images). */
+export const COFFEE_PRODUCT_MEDIA: Record<string, string> = {
+  'hb-h10a-dualboiler': '/images/coffee_hero_flagship_machine_1791218907782.jpg',
+  'hb-barista-silver-pro': '/images/product_machine_silver_pro.png',
+  'hb-smart-capsule-compact': '/images/product_machine_compact_black.png',
+  'hb-thermal-drip-brewer': '/images/product_machine_drip_carafe.png',
+  'hb-classic-duo-espresso': '/images/product_machine_delonghi_black.png',
+  'hb-mill-g5-pro': '/images/coffee_grinder_mill_banner_1791218928342.jpg',
+  'hb-nordic-cabinet': '/images/coffee_corner_luxury_station_1791219182840.jpg',
+  'bundle-mill-g5': '/images/coffee_grinder_mill_banner_1791218928342.jpg',
+};
+
+/** Legacy root paths that 404 — map to real public/images assets. */
+const LEGACY_COFFEE_PATH_ALIASES: Record<string, string> = {
+  '/hero_coffee_banner_white_1.jpg': '/images/coffee_banner_white_gray_1.jpg',
+  '/hero_coffee_banner_white_2.jpg': '/images/coffee_banner_white_gray_2.jpg',
+  '/hero_coffee_banner_white_3.jpg': '/images/coffee_banner_white_gray_3.jpg',
+  '/hero_coffee_banner_white_1.webp': '/images/coffee_banner_white_gray_1.webp',
+  '/hero_coffee_banner_white_2.webp': '/images/coffee_banner_white_gray_2.webp',
+  '/hero_coffee_banner_white_3.webp': '/images/coffee_banner_white_gray_3.webp',
+};
+
 /**
  * Normalize any legacy /src/assets/images/ paths to canonical /images/
  */
 export function cleanImageUrl(url?: string | null): string {
   if (!url || typeof url !== 'string') return FALLBACK_PRODUCT_IMAGE;
   let trimmed = url.trim();
+  if (!trimmed) return FALLBACK_PRODUCT_IMAGE;
   if (trimmed.startsWith('./src/assets/images/')) {
     trimmed = trimmed.replace('./src/assets/images/', '/images/');
   }
   if (trimmed.startsWith('/src/assets/images/')) {
     trimmed = trimmed.replace('/src/assets/images/', '/images/');
   }
+  if (trimmed.startsWith('src/assets/images/')) {
+    trimmed = trimmed.replace('src/assets/images/', '/images/');
+  }
+  if (LEGACY_COFFEE_PATH_ALIASES[trimmed]) {
+    return LEGACY_COFFEE_PATH_ALIASES[trimmed];
+  }
   return trimmed;
+}
+
+/**
+ * Resolve coffee hero/banner media. Empty merchant upload → product catalog image.
+ * Returns '' when nothing usable (caller should hide the <img>).
+ */
+export function resolveCoffeeMediaUrl(
+  url?: string | null,
+  productId?: string | null,
+): string {
+  const raw = (url || '').trim();
+  if (raw && !/unsplash\.com|images\.unsplash|picsum\.photos|placeholder\.com/i.test(raw)) {
+    const cleaned = cleanImageUrl(raw);
+    if (cleaned && cleaned !== FALLBACK_PRODUCT_IMAGE) return cleaned;
+    if (cleaned && raw) return cleaned;
+  }
+  const pid = (productId || '').trim();
+  if (pid && COFFEE_PRODUCT_MEDIA[pid]) return COFFEE_PRODUCT_MEDIA[pid];
+  return '';
 }
 
 /**
@@ -63,6 +111,17 @@ export function handleImageError(
   if (currentSrc.includes('src/assets/images/')) {
     target.src = currentSrc.replace(/^.*src\/assets\/images\//, '/images/');
     return;
+  }
+
+  // Legacy HiBrew root banner paths → public/images aliases
+  try {
+    const pathOnly = currentSrc.replace(/^https?:\/\/[^/]+/, '').split('?')[0];
+    if (LEGACY_COFFEE_PATH_ALIASES[pathOnly]) {
+      target.src = LEGACY_COFFEE_PATH_ALIASES[pathOnly];
+      return;
+    }
+  } catch {
+    /* ignore */
   }
 
   if (!target.dataset.fallbackApplied) {
@@ -103,12 +162,15 @@ export const KNOWN_PRODUCT_CATALOG_IMAGES: Record<string, string> = {
   'COF-ACA-11': 'https://images.unsplash.com/photo-1509785307050-d4066910ec1e?auto=format&fit=crop&w=800&q=80',
   // Milk Pitcher
   'COF-PIT-12': 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?auto=format&fit=crop&w=800&q=80',
-  // HiBrew Flagship Machines (Pure PNG catalog)
-  'hb-h10a-dualboiler': '/images/hibrew_h7a_flagship_machine.png',
+  // HiBrew Flagship Machines / mills / cabinets (public/images catalog)
+  'hb-h10a-dualboiler': '/images/coffee_hero_flagship_machine_1791218907782.jpg',
   'hb-barista-silver-pro': '/images/product_machine_silver_pro.png',
   'hb-smart-capsule-compact': '/images/product_machine_compact_black.png',
   'hb-thermal-drip-brewer': '/images/product_machine_drip_carafe.png',
   'hb-classic-duo-espresso': '/images/product_machine_delonghi_black.png',
+  'hb-mill-g5-pro': '/images/coffee_grinder_mill_banner_1791218928342.jpg',
+  'hb-nordic-cabinet': '/images/coffee_corner_luxury_station_1791219182840.jpg',
+  'bundle-mill-g5': '/images/coffee_grinder_mill_banner_1791218928342.jpg',
   // Luxury Flowers & Hadaya Makkah Catalog (Pure Local Images)
   'WM-PEONY-05': '/images/hadaya_pink_peonies_1791216156090.jpg',
   'wm-peony-05': '/images/hadaya_pink_peonies_1791216156090.jpg',
@@ -160,7 +222,7 @@ export function resolveProductThumbnail(item?: {
 } | null): string {
   if (!item) return FALLBACK_PRODUCT_IMAGE;
   if (item.image && typeof item.image === 'string' && item.image.trim().length > 5) {
-    return item.image;
+    return cleanImageUrl(item.image);
   }
 
   // 1. Direct SKU or ID match

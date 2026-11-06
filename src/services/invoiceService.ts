@@ -86,7 +86,7 @@ export function getStoreInvoiceProfile(storeId: string, store?: Partial<Store>):
       nameAr: (store as any)?.nameAr || 'متجر مكائن ومستلزمات القهوة (HiBrew KSA)',
       companyNameEn: 'HiBrew Specialty Coffee & Equipment Est.',
       companyNameAr: 'مؤسسة هاي برو لتقنيات ومعدات القهوة المختصة',
-      email: (store as any)?.email || store?.ownerEmail || 'billing@specialtycoffee.sa',
+      email: (store as any)?.email || store?.ownerEmail || 'billing@mieraf-ksa.com',
       phone: (store as any)?.phone || '+966 11 489 2030',
       addressEn: 'Riyadh Showroom, King Fahd Road, Al-Olaya',
       addressAr: 'معرض الرياض الرئيسي، طريق الملك فهد، حي العليا',

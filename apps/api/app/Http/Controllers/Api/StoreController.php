@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Plan;
 use App\Models\Store;
 use App\Models\StoreUser;
+use App\Models\Subscription;
 use App\Support\DefaultTheme;
+use App\Support\HostingerCloud;
+use App\Support\Plans;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -67,8 +71,9 @@ class StoreController extends Controller
             'slug' => ['required', 'string', 'max:191', 'unique:stores,slug'],
             'domain' => ['nullable', 'string', 'max:191'],
             'status' => ['nullable', Rule::in(['active', 'inactive', 'pending', 'suspended'])],
-            'plan' => ['nullable', Rule::in(['free', 'paid', 'pro', 'custom'])],
+            'plan' => ['nullable', Rule::in(['free', 'paid', 'pro', 'premium', 'custom'])],
             'master_granted_pro' => ['nullable', 'boolean'],
+            'canva_templates_per_category' => ['nullable', 'integer', 'min:1', 'max:100'],
             'currency' => ['nullable', 'string', 'max:10'],
             'phone' => ['nullable', 'string', 'max:32'],
             'email' => ['nullable', 'email', 'max:191'],
@@ -85,18 +90,48 @@ class StoreController extends Controller
 
         $data['id'] = $data['id'] ?? 'store-'.Str::lower(Str::random(8));
         $data['status'] = $data['status'] ?? 'pending';
-        $data['plan'] = $data['plan'] ?? 'free';
+        $data['plan'] = $data['plan'] ?? 'pro';
         $data['currency'] = $data['currency'] ?? 'SAR';
-        $data['hosting_mode'] = $data['hosting_mode'] ?? 'shared';
-        $data['db_isolation'] = $data['db_isolation'] ?? 'shared_store_id';
+        // New stores join the central Hostinger. Flowers stays on its own account.
+        $data['hosting_mode'] = 'shared';
+        $data['db_isolation'] = 'shared_store_id';
         $data['master_granted_pro'] = (bool) ($data['master_granted_pro'] ?? false);
+
+        $probe = new Store($data);
+        if (! empty($data['domain']) && ! Plans::hasFeature($probe, 'custom_domain')) {
+            $data['domain'] = null;
+        }
 
         $store = Store::query()->create($data);
 
-        // Every new client store gets the default dummy e-commerce theme (basic or full by plan)
         DefaultTheme::assignToStore($store);
 
-        return response()->json(['data' => $store->fresh()], 201);
+        $planId = Plans::catalog()[Plans::normalizeCode($store->plan)]['id'] ?? 'plan-pro';
+        if (Plan::query()->where('id', $planId)->exists()) {
+            $existingSub = Subscription::withoutGlobalScope('store')->where('store_id', $store->id)->first();
+            if ($existingSub) {
+                $existingSub->fill([
+                    'plan_id' => $planId,
+                    'status' => 'active',
+                    'billing_interval' => 'monthly',
+                ])->save();
+            } else {
+                Subscription::withoutGlobalScope('store')->create([
+                    'id' => 'sub-'.Str::lower(Str::random(10)),
+                    'store_id' => $store->id,
+                    'plan_id' => $planId,
+                    'status' => 'active',
+                    'billing_interval' => 'monthly',
+                    'starts_at' => now(),
+                    'ends_at' => now()->addMonth(),
+                ]);
+            }
+        }
+
+        return response()->json([
+            'data' => $store->fresh(),
+            'hosting' => HostingerCloud::domainPolicy($store->id),
+        ], 201);
     }
 
     public function update(Request $request, string $id): JsonResponse
@@ -108,8 +143,9 @@ class StoreController extends Controller
             'slug' => ['sometimes', 'string', 'max:191', Rule::unique('stores', 'slug')->ignore($store->id)],
             'domain' => ['nullable', 'string', 'max:191'],
             'status' => ['sometimes', Rule::in(['active', 'inactive', 'pending', 'suspended'])],
-            'plan' => ['sometimes', Rule::in(['free', 'paid', 'pro', 'custom'])],
+            'plan' => ['sometimes', Rule::in(['free', 'paid', 'pro', 'premium', 'custom'])],
             'master_granted_pro' => ['sometimes', 'boolean'],
+            'canva_templates_per_category' => ['nullable', 'integer', 'min:1', 'max:100'],
             'currency' => ['sometimes', 'string', 'max:10'],
             'phone' => ['nullable', 'string', 'max:32'],
             'email' => ['nullable', 'email', 'max:191'],

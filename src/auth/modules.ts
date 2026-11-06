@@ -10,6 +10,7 @@ export const STORE_TAB_ABILITY: Record<string, string | null> = {
   orders: 'orders.read',
   invoices: 'orders.read',
   products: 'products.read',
+  canva: null,
   media: null,
   categories: 'products.read',
   brands: 'products.read',

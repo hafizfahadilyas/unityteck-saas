@@ -38,6 +38,9 @@ class Product extends Model
         'gallery_urls',
         'video_url',
         'tags',
+        'product_options',
+        'custom_fields',
+        'conditional_rules',
         'badge',
         'badge_en',
         'seo_title',
@@ -60,6 +63,9 @@ class Product extends Model
             'is_featured' => 'boolean',
             'gallery_urls' => 'array',
             'tags' => 'array',
+            'product_options' => 'array',
+            'custom_fields' => 'array',
+            'conditional_rules' => 'array',
         ];
     }
 

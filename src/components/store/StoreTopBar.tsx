@@ -17,12 +17,14 @@ import {
   Sliders,
   ReceiptText,
   Sparkles,
+  Menu,
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { PrefsSwitcher } from '../common/PrefsSwitcher';
 import { readAuthSession } from '../../auth/session';
 import { useToast } from '../common/ToastProvider';
 import { preloadVisualThemeBuilder } from './visualBuilder/preloadVisualBuilder';
+import { preloadWordPressThemeCustomizer } from './themeCustomizer/preloadWordPressThemeCustomizer';
 import { BellDropdown } from '../../notification-system';
 
 interface StoreTopBarProps {
@@ -36,6 +38,7 @@ interface StoreTopBarProps {
   onCustomizeTheme?: (targetThemeId?: string, targetPage?: string) => void;
   onOpenThemeCustomizer?: (sectionId?: string) => void;
   onNavigateTab?: (tab: string) => void;
+  onMobileMenuOpen?: () => void;
 }
 
 /**
@@ -60,6 +63,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
   onCustomizeTheme,
   onOpenThemeCustomizer,
   onNavigateTab,
+  onMobileMenuOpen,
 }) => {
   const { activeStore, switchToMaster } = useTenant();
   const { t, locale } = usePrefs();
@@ -128,15 +132,16 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
     return () => document.removeEventListener('mousedown', onDoc);
   }, [showProfileMenu, showStoreInfo]);
 
-  // Eagerly prefetch theme builder after topbar mounts
+  // Eagerly prefetch theme builder + customizer after topbar mounts
   useEffect(() => {
-    if (onCustomizeTheme) {
+    if (onCustomizeTheme || onOpenThemeCustomizer) {
       const timer = setTimeout(() => {
-        preloadVisualThemeBuilder();
-      }, 500);
+        if (onCustomizeTheme) preloadVisualThemeBuilder();
+        if (onOpenThemeCustomizer) preloadWordPressThemeCustomizer();
+      }, 350);
       return () => clearTimeout(timer);
     }
-  }, [onCustomizeTheme]);
+  }, [onCustomizeTheme, onOpenThemeCustomizer]);
 
   const storeDisplayName = (isAr ? activeStore?.nameAr : activeStore?.nameEn) || activeStore?.name;
 
@@ -177,7 +182,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
 
   return (
     <header
-      className="h-16 border-b px-2.5 sm:px-3.5 md:px-4 flex items-center justify-between gap-1.5 sm:gap-2 w-full bg-[var(--surface)] text-[var(--text)] border-[var(--border)] shrink-0 z-30 select-none"
+      className="min-h-14 sm:h-16 border-b px-2 sm:px-3.5 md:px-4 flex items-center justify-between gap-1 sm:gap-2 w-full bg-[var(--surface)] text-[var(--text)] border-[var(--border)] shrink-0 z-30 select-none max-lg:sticky max-lg:top-0"
       style={{
         background: 'var(--surface)',
         borderColor: 'var(--border)',
@@ -186,10 +191,21 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
       }}
       data-chrome="store-topbar"
     >
+      {onMobileMenuOpen ? (
+        <button
+          type="button"
+          className="lg:hidden shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-xl border transition-colors"
+          style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--input-bg)' }}
+          aria-label={isAr ? 'فتح القائمة' : 'Open menu'}
+          onClick={onMobileMenuOpen}
+        >
+          <Menu className="w-5 h-5" aria-hidden />
+        </button>
+      ) : null}
       {/* 1. SEARCH BAR (Responsive fluid sizing, Enter to search, clearable) */}
       <form
         onSubmit={handleSearchSubmit}
-        className="flex-1 min-w-[90px] sm:min-w-[130px] md:min-w-[150px] max-w-[200px] xl:max-w-xs relative shrink"
+        className="flex-1 min-w-0 max-w-[min(42vw,9.5rem)] sm:min-w-[130px] sm:max-w-[180px] md:max-w-[220px] xl:max-w-xs relative shrink"
       >
         <button
           type="submit"
@@ -274,7 +290,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
             title={`${storeDisplayName} (${activeStore?.id}) - ${isAr ? 'انقر لعرض التفاصيل' : 'Click for store info'}`}
           >
             <Store className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <span className="truncate max-w-[70px] xs:max-w-[85px] sm:max-w-[110px] md:max-w-[130px] xl:max-w-[160px]">
+            <span className="truncate max-w-[4.5rem] sm:max-w-[110px] md:max-w-[130px] xl:max-w-[160px]">
               {storeDisplayName}
             </span>
             <span
@@ -487,9 +503,9 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
         {/* NOTIFICATIONS BELL */}
         <BellDropdown onNavigateTab={onNavigateTab} />
 
-        {/* PREFERENCES: LANGUAGE & THEME */}
+        {/* PREFERENCES: LANGUAGE & THEME — desktop/tablet; mobile uses profile menu */}
         <div className="h-4 w-px hidden xl:block opacity-40 mx-0.5" style={{ background: 'var(--border)' }} aria-hidden />
-        <div className="shrink-0">
+        <div className="hidden md:block shrink-0">
           <PrefsSwitcher compact variant="default" />
         </div>
         <div className="h-4 w-px hidden xl:block opacity-40 mx-0.5" style={{ background: 'var(--border)' }} aria-hidden />
@@ -545,6 +561,10 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                   <span className="truncate">{roleLabel} · {storeDisplayName}</span>
                 </div>
+              </div>
+
+              <div className="md:hidden px-1 pb-1">
+                <PrefsSwitcher compact variant="default" />
               </div>
 
               {onNavigateTab ? (

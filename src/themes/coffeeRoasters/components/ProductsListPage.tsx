@@ -2,13 +2,14 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { Product } from '../types';
-import { CATEGORIES } from '../data/products';
 import { HeroSlider3D } from './HeroSlider3D';
 import { ExclusivePerksBar } from './ExclusivePerksBar';
 import { ShopTripleSlidersSection } from './ShopTripleSlidersSection';
 import { HonorProductCard } from './HonorProductCard';
 import { ShopFeaturedCarouselSection } from './ShopFeaturedCarouselSection';
 import { resolveProductThumbnail } from '../../../utils/imageFallback';
+import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
+import { productCardFlags, shopGridClass } from '../../settings/coffeeModularSettings';
 import {
   Star,
   Search,
@@ -48,30 +49,61 @@ export const ProductsListPage: React.FC = () => {
 
   // Active store details with localization fallback
   const storeName = isAr
-    ? activeStore?.nameAr || activeStore?.name || 'متجر مكائن ومستلزمات القهوة (HiBrew KSA)'
-    : activeStore?.nameEn || activeStore?.name || 'HiBrew KSA Official Coffee Store';
+    ? activeStore?.nameAr || activeStore?.name || 'متجر القهوة'
+    : activeStore?.nameEn || activeStore?.name || 'Coffee Store';
 
   const storeCurrency = isAr ? 'ر.س' : (activeStore?.currency || 'SAR');
+  const cardFlags = productCardFlags(
+    activeStore?.id ? resolveCoffeeThemeSettings(activeStore.id, activeStore).featuredProducts : null,
+  );
+  const shopSettings = activeStore?.id ? resolveCoffeeThemeSettings(activeStore.id, activeStore).shop : undefined;
 
   // Master product source: priority to context products (which already merges database/API products)
   const masterProducts: Product[] = useMemo(() => {
     if (contextProducts && contextProducts.length > 0) {
       return contextProducts;
     }
-    return [];
-  }, [contextProducts]);
+    return (currentProducts || []).map((dp) => {
+      const img = dp.image || dp.galleryUrls?.[0] || '';
+      const sell = Number(dp.discountedPrice || dp.price || 0);
+      return {
+        id: String(dp.id),
+        name: dp.name,
+        nameAr: dp.nameAr || dp.name,
+        tagline: dp.subtitle || dp.description || '',
+        taglineAr: dp.subtitleAr || dp.description || '',
+        category: (dp.category || 'general') as Product['category'],
+        categoryAr: dp.categoryAr,
+        basePrice: sell,
+        originalPrice: dp.originalPrice ? Number(dp.originalPrice) : undefined,
+        image: img,
+        images: img ? [img, ...(dp.galleryUrls || []).filter((u) => u !== img)] : [],
+        colors: [{ name: 'Default', hex: '#1c1917', image: img }],
+        storageOptions: [{ capacity: 'Standard', ram: 'Default', priceDelta: 0 }],
+        specs: [],
+        rating: 0,
+        reviewCount: 0,
+      } as Product;
+    });
+  }, [contextProducts, currentProducts]);
+
+  const catalogPriceCeiling = useMemo(() => {
+    const max = masterProducts.reduce((m, p) => Math.max(m, Number(p.basePrice) || 0), 0);
+    return Math.max(500, Math.ceil(max / 50) * 50);
+  }, [masterProducts]);
 
   // Filters State
   const [selectedCat, setSelectedCat] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [priceRange, setPriceRange] = useState<number>(3500);
+  const [priceRange, setPriceRange] = useState<number>(1000000);
   const [onlyInStock, setOnlyInStock] = useState<boolean>(false);
-  const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'rating'>('featured');
+  const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'rating'>(shopSettings?.defaultSort || 'featured');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [mobileViewMode, setMobileViewMode] = useState<'carousel' | 'grid'>('grid');
   const [activeMobileSlide, setActiveMobileSlide] = useState(0);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(shopSettings?.perPage || 24);
 
   const carouselRef = useRef<HTMLDivElement>(null);
 
@@ -87,25 +119,19 @@ export const ProductsListPage: React.FC = () => {
       count: masterProducts.length
     });
 
-    CATEGORIES.forEach(cat => {
-      map.set(cat.id, {
-        id: cat.id,
-        name: cat.name,
-        nameAr: cat.nameAr || cat.name,
-        count: 0
-      });
-    });
-
     masterProducts.forEach(prod => {
-      const catKey = String(prod.category || 'machines').toLowerCase();
+      const raw = String(prod.category || '').trim();
+      const catKey = raw.toLowerCase();
+      if (!catKey || catKey === 'all') return;
+      const nameAr = String((prod as { categoryAr?: string }).categoryAr || raw);
       if (map.has(catKey)) {
         const item = map.get(catKey)!;
         item.count += 1;
       } else {
         map.set(catKey, {
           id: catKey,
-          name: catKey.charAt(0).toUpperCase() + catKey.slice(1),
-          nameAr: catKey,
+          name: raw.charAt(0).toUpperCase() + raw.slice(1),
+          nameAr,
           count: 1
         });
       }
@@ -156,21 +182,27 @@ export const ProductsListPage: React.FC = () => {
     return result;
   }, [masterProducts, selectedCat, searchQuery, priceRange, onlyInStock, sortBy]);
 
+  useEffect(() => {
+    setVisibleCount(shopSettings?.perPage || 24);
+  }, [selectedCat, searchQuery, priceRange, onlyInStock, sortBy]);
+
+  const visibleProducts = filteredProducts;
+
   // Active filters count for clear button badge
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (selectedCat !== 'all') count++;
     if (searchQuery.trim()) count++;
-    if (priceRange < 3500) count++;
+    if (priceRange < catalogPriceCeiling) count++;
     if (onlyInStock) count++;
     if (sortBy !== 'featured') count++;
     return count;
-  }, [selectedCat, searchQuery, priceRange, onlyInStock, sortBy]);
+  }, [selectedCat, searchQuery, priceRange, onlyInStock, sortBy, catalogPriceCeiling]);
 
   const handleResetFilters = () => {
     setSelectedCat('all');
     setSearchQuery('');
-    setPriceRange(3500);
+    setPriceRange(1000000);
     setOnlyInStock(false);
     setSortBy('featured');
   };
@@ -213,14 +245,14 @@ export const ProductsListPage: React.FC = () => {
   };
 
   const nextSlide = () => {
-    if (!filteredProducts.length) return;
-    const nextIdx = (activeMobileSlide + 1) % filteredProducts.length;
+    if (!visibleProducts.length) return;
+    const nextIdx = (activeMobileSlide + 1) % visibleProducts.length;
     scrollToSlide(nextIdx);
   };
 
   const prevSlide = () => {
-    if (!filteredProducts.length) return;
-    const prevIdx = (activeMobileSlide - 1 + filteredProducts.length) % filteredProducts.length;
+    if (!visibleProducts.length) return;
+    const prevIdx = (activeMobileSlide - 1 + visibleProducts.length) % visibleProducts.length;
     scrollToSlide(prevIdx);
   };
 
@@ -229,7 +261,7 @@ export const ProductsListPage: React.FC = () => {
     if (e) {
       e.stopPropagation();
       const btnRect = (e.currentTarget as HTMLElement)?.getBoundingClientRect();
-      const prodImg = (product as any).image || product.colors?.[0]?.image || product.images?.[0] || '/src/assets/images/hibrew_h7a_flagship_machine.png';
+      const prodImg = (product as any).image || product.colors?.[0]?.image || product.images?.[0] || '/images/coffee_hero_flagship_machine_1791218907782.jpg';
       if (triggerFlyToCart && btnRect) {
         triggerFlyToCart(btnRect, prodImg);
       }
@@ -255,7 +287,7 @@ export const ProductsListPage: React.FC = () => {
       bgColor: 'bg-amber-500/10',
       borderColor: 'border-amber-500/20',
       tag: isAr ? 'هندسة إيطالية' : 'Italian Engineering',
-      title: isAr ? 'استخلاص ٢٠ بار ونظام دبل بويلر PID' : '20-Bar Extraction & Dual PID Boilers',
+      title: isAr ? 'استخلاص ٢٠ بار وغلايات مزدوجة' : '20-Bar Extraction and Dual Boilers',
       description: isAr
         ? 'مضخات إيطالية تجارية متطورة مع تحكم حراري رقمي مستقل يضمن استخلاص نكهات البن بدقة وثبات حراري متواصل.'
         : 'Commercial Italian pumps with dual independent PID temperature regulation for balanced and rich crema.'
@@ -267,7 +299,7 @@ export const ProductsListPage: React.FC = () => {
       bgColor: 'bg-amber-400/10',
       borderColor: 'border-amber-400/20',
       tag: isAr ? 'طحن ميكروني' : 'Micron Precision',
-      title: isAr ? 'مطاحن تيتانيوم CNC مخروطية ٤٠ مم' : '40mm CNC Titanium Conical Burrs',
+      title: isAr ? 'مطاحن تيتانيوم مخروطية ٤٠ مم' : '40mm Titanium Conical Burrs',
       description: isAr
         ? 'شفرات تيتانيوم صلبة تقلل التراكم الحراري مع ضبط دقيق مستمر يناسب درجات الإسبريسو الفاخر والتقطير V60.'
         : 'Titanium-coated burrs minimizing thermal friction with stepless micro-adjustments for espresso & filter.'
@@ -336,9 +368,9 @@ export const ProductsListPage: React.FC = () => {
             >
               {isAr ? 'الرئيسية' : 'Home'}
             </button>
-            <span className="text-neutral-400">&gt;</span>
+            <span className="text-neutral-600">&gt;</span>
             <span className="text-neutral-900 font-semibold">{isAr ? 'متجر المنتجات' : 'Shop'}</span>
-            <span className="text-neutral-400">&gt;</span>
+            <span className="text-neutral-600">&gt;</span>
             <span className="text-neutral-500">
               {selectedCat === 'all'
                 ? isAr ? 'جميع المنتجات' : 'All Products'
@@ -503,8 +535,8 @@ export const ProductsListPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Secondary Filter Bar: Price Slider & Quick Search */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-neutral-200/80 shadow-2xs space-y-3.5">
+        {shopSettings?.showFilters === false ? null : (
+        <div data-shop-filters="on" className="bg-white rounded-2xl p-4 sm:p-5 border border-neutral-200/80 shadow-2xs space-y-3.5">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             
             {/* Price Range Slider */}
@@ -521,9 +553,9 @@ export const ProductsListPage: React.FC = () => {
               <input
                 type="range"
                 min="100"
-                max="3500"
+                max={catalogPriceCeiling}
                 step="50"
-                value={priceRange}
+                value={Math.min(priceRange, catalogPriceCeiling)}
                 onChange={e => setPriceRange(Number(e.target.value))}
                 className="w-full accent-black cursor-pointer h-1.5 bg-neutral-200 rounded-lg appearance-none"
               />
@@ -555,9 +587,9 @@ export const ProductsListPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setPriceRange(3500)}
+                onClick={() => setPriceRange(1000000)}
                 className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${
-                  priceRange === 3500
+                  priceRange >= catalogPriceCeiling
                     ? 'bg-black text-white'
                     : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                 }`}
@@ -616,11 +648,11 @@ export const ProductsListPage: React.FC = () => {
                 </span>
               )}
 
-              {priceRange < 3500 && (
+              {priceRange < catalogPriceCeiling && (
                 <span className="inline-flex items-center gap-1 bg-neutral-100 text-neutral-800 px-2.5 py-1 rounded-full text-[11px]">
                   <span>{isAr ? 'أقصى سعر:' : 'Max Price:'}</span>
                   <span className="font-semibold font-sans">{priceRange} {storeCurrency}</span>
-                  <button type="button" onClick={() => setPriceRange(3500)} className="hover:text-black">
+                  <button type="button" onClick={() => setPriceRange(1000000)} className="hover:text-black">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -645,6 +677,7 @@ export const ProductsListPage: React.FC = () => {
             </div>
           )}
         </div>
+        )}
 
         {/* 5. Genuine Empty State (Rule 1 Compliance) */}
         {filteredProducts.length === 0 && (
@@ -658,7 +691,7 @@ export const ProductsListPage: React.FC = () => {
                 {isAr ? 'لم يتم العثور على أي نتائج مطابقة' : 'No Matching Products Found'}
               </h3>
               <p className="text-xs sm:text-sm text-neutral-500 leading-relaxed max-w-md mx-auto">
-                {searchQuery.trim() || selectedCat !== 'all' || priceRange < 3500 || onlyInStock
+                {searchQuery.trim() || selectedCat !== 'all' || priceRange < catalogPriceCeiling || onlyInStock
                   ? isAr
                     ? 'لم يتم العثور على أي منتج يطابق معايير التصفية الحالية. جرّب تعديل كلمات البحث، توسيع نطاق السعر، أو اختيار تصنيف آخر.'
                     : 'No products matched your active filters. Try broadening your search query, increasing your price limit, or selecting another category.'
@@ -689,8 +722,8 @@ export const ProductsListPage: React.FC = () => {
             <div className="flex items-center justify-between px-2 mb-3">
               <span className="text-xs font-semibold text-neutral-600 bg-neutral-100 px-3.5 py-1 rounded-full">
                 {isAr
-                  ? `المنتج ${activeMobileSlide + 1} من ${filteredProducts.length}`
-                  : `Product ${activeMobileSlide + 1} of ${filteredProducts.length}`}
+                  ? `المنتج ${activeMobileSlide + 1} من ${visibleProducts.length}`
+                  : `Product ${activeMobileSlide + 1} of ${visibleProducts.length}`}
               </span>
 
               <div className="flex items-center gap-1.5">
@@ -719,15 +752,15 @@ export const ProductsListPage: React.FC = () => {
               className="flex items-stretch gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar py-2 px-1 -mx-1"
               style={{ WebkitOverflowScrolling: 'touch', scrollSnapType: 'x mandatory' }}
             >
-              {filteredProducts.map((product, pIdx) => {
-                const topImg = (product as any).image || product.colors?.[0]?.image || product.images?.[0] || '/src/assets/images/hibrew_h7a_flagship_machine.png';
+              {visibleProducts.map((product, pIdx) => {
+                const topImg = (product as any).image || product.colors?.[0]?.image || product.images?.[0] || '/images/coffee_hero_flagship_machine_1791218907782.jpg';
                 const bottomImg = product.colors?.[1]?.image || product.images?.[1] || (product as any).image || product.colors?.[0]?.image || topImg;
                 const prodTitle = isAr ? product.nameAr || product.name : product.name;
                 const prodSpecs = product.specs && product.specs.length > 0
                   ? product.specs.slice(0, 3).map(s => isAr ? s.valueAr || s.value : s.value)
                   : product.tagline
                   ? (isAr && product.taglineAr ? product.taglineAr : product.tagline).split('·').map(t => t.trim()).filter(Boolean).slice(0, 3)
-                  : (isAr ? ['مضخة 20 بار', 'تحكم حراري PID', 'مقبس تجاري 58مم'] : ['20-Bar Pump', 'PID Control', '58mm Group']);
+                  : (isAr ? ['مضخة ٢٠ بار', 'تحكم حراري رقمي', 'مقبس ٥٨ مم'] : ['20-Bar Pump', 'Digital heat control', '58mm group']);
                 const isJustAdded = recentlyAddedId === product.id;
 
                 return (
@@ -746,8 +779,10 @@ export const ProductsListPage: React.FC = () => {
                           src={topImg}
                           alt=""
                           className="w-full h-full object-contain pointer-events-none select-none"
+                          loading="lazy"
+                          decoding="async"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/src/assets/images/hibrew_h7a_flagship_machine.png';
+                            (e.target as HTMLImageElement).src = '/images/coffee_hero_flagship_machine_1791218907782.jpg';
                           }}
                         />
                       </div>
@@ -797,8 +832,10 @@ export const ProductsListPage: React.FC = () => {
                           src={bottomImg}
                           alt=""
                           className="w-full h-full object-contain pointer-events-none select-none"
+                          loading="lazy"
+                          decoding="async"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/src/assets/images/hibrew_h7a_flagship_machine.png';
+                            (e.target as HTMLImageElement).src = '/images/coffee_hero_flagship_machine_1791218907782.jpg';
                           }}
                         />
                       </div>
@@ -843,9 +880,9 @@ export const ProductsListPage: React.FC = () => {
             </div>
 
             {/* Dots */}
-            {filteredProducts.length > 1 && (
+            {visibleProducts.length > 1 && (
               <div className="flex items-center justify-center gap-1.5 mt-4">
-                {filteredProducts.map((_, idx) => (
+                {visibleProducts.map((_, idx) => (
                   <button
                     key={idx}
                     type="button"
@@ -862,12 +899,19 @@ export const ProductsListPage: React.FC = () => {
         )}
 
         {/* 7. Grid View (Always on Desktop/Tablet, or when Grid is chosen on Mobile) */}
-        {((mobileViewMode === 'grid') || (viewMode === 'grid')) && filteredProducts.length > 0 && (
-          <div className={`${mobileViewMode === 'carousel' ? 'hidden sm:grid' : 'grid'} grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-6`}>
-            {filteredProducts.map(product => (
+        {viewMode === 'grid' && filteredProducts.length > 0 && (
+          <div
+            data-shop-grid="catalog"
+            data-cols-mobile={shopSettings?.columnsMobile || 2}
+            data-cols-tablet={shopSettings?.columnsTablet || 3}
+            data-cols-desktop={shopSettings?.columnsDesktop || 4}
+            className={`${mobileViewMode === 'carousel' ? 'hidden sm:grid' : 'grid'} ${shopGridClass(shopSettings)}`}
+          >
+            {visibleProducts.map(product => (
               <HonorProductCard
                 key={product.id}
                 product={product}
+                flags={cardFlags}
                 onBuyNow={(p) => handleBuyNow(undefined, p)}
                 onAddToCart={(p) => handleAddToCart(undefined, p)}
               />
@@ -876,10 +920,10 @@ export const ProductsListPage: React.FC = () => {
         )}
 
         {/* 8. Desktop List View (When list view is toggled) */}
-        {viewMode === 'list' && mobileViewMode !== 'carousel' && filteredProducts.length > 0 && (
-          <div className="hidden sm:flex flex-col gap-4">
-            {filteredProducts.map(product => {
-              const prodImg = (product as any).image || product.colors?.[0]?.image || product.images?.[0] || '/src/assets/images/hibrew_h7a_flagship_machine.png';
+        {viewMode === 'list' && filteredProducts.length > 0 && (
+          <div className={`${mobileViewMode === 'carousel' ? 'hidden sm:flex' : 'flex'} flex-col gap-4`}>
+            {visibleProducts.map(product => {
+              const prodImg = (product as any).image || product.colors?.[0]?.image || product.images?.[0] || '/images/coffee_hero_flagship_machine_1791218907782.jpg';
               const prodTitle = isAr ? product.nameAr || product.name : product.name;
               const prodTagline = isAr ? product.taglineAr || product.tagline : product.tagline;
               const isJustAdded = recentlyAddedId === product.id;
@@ -895,51 +939,70 @@ export const ProductsListPage: React.FC = () => {
                       onClick={() => navigateTo('product-detail', String(product.id))}
                       className="w-28 h-28 shrink-0 bg-[#F8F9FA] rounded-xl p-2 flex items-center justify-center overflow-hidden cursor-pointer"
                     >
+                      {cardFlags.showImage ? (
                       <img
                         src={prodImg}
                         alt={prodTitle}
                         className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
+                        loading="lazy"
+                        decoding="async"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/src/assets/images/hibrew_h7a_flagship_machine.png';
+                          (e.target as HTMLImageElement).src = '/images/coffee_hero_flagship_machine_1791218907782.jpg';
                         }}
                       />
+                      ) : null}
                     </div>
 
                     <div className="space-y-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        {product.badge && (
+                        {cardFlags.showBadge && product.badge ? (
                           <span className="text-[10px] font-bold text-white bg-black px-2 py-0.5 rounded-full">
-                            {isAr ? product.badgeAr || product.badge : product.badge}
+                            {isAr ? product.badgeAr : product.badge}
                           </span>
-                        )}
+                        ) : null}
+                        {cardFlags.showRating && typeof product.rating === 'number' && product.rating > 0 ? (
                         <div className="flex items-center gap-1 text-xs text-amber-500">
                           <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          <span className="font-bold">{product.rating || 4.9}</span>
-                          <span className="text-neutral-400">({product.reviewCount || 15})</span>
+                          <span className="font-bold">{product.rating}</span>
+                          {typeof product.reviewCount === 'number' && product.reviewCount > 0 ? (
+                            <span className="text-neutral-600">({product.reviewCount})</span>
+                          ) : null}
                         </div>
+                        ) : null}
                       </div>
 
+                      {cardFlags.showTitle ? (
                       <h3
                         onClick={() => navigateTo('product-detail', String(product.id))}
                         className="font-bold text-base text-neutral-900 group-hover:text-amber-800 transition-colors truncate cursor-pointer"
                       >
                         {prodTitle}
                       </h3>
+                      ) : null}
 
                       <p className="text-xs text-neutral-500 line-clamp-1">
                         {prodTagline}
                       </p>
 
+                      {cardFlags.showPrice ? (
                       <div className="flex items-center gap-2 pt-1">
                         <span className="text-lg font-black text-neutral-950 font-sans">
                           {(Number(product.basePrice) || 0).toLocaleString()} {storeCurrency}
                         </span>
                         {product.originalPrice && Number(product.originalPrice) > Number(product.basePrice) && (
-                          <span className="text-xs text-neutral-400 line-through font-sans">
+                          <span className="text-xs text-neutral-600 line-through font-sans">
                             {Number(product.originalPrice).toLocaleString()} {storeCurrency}
                           </span>
                         )}
                       </div>
+                      ) : null}
+                      {cardFlags.showStock && typeof (product as Product & { stock?: number }).stock === 'number' ? (
+                        <p className="text-[11px] text-neutral-500">
+                          {(product as Product & { stock?: number }).stock! > 0
+                            ? (isAr ? `المتوفر ${(product as Product & { stock?: number }).stock}` : `In stock ${(product as Product & { stock?: number }).stock}`)
+                            : (isAr ? 'نفد المخزون' : 'Out of stock')}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 
@@ -954,6 +1017,7 @@ export const ProductsListPage: React.FC = () => {
                       <span>{isAr ? 'شراء فوري' : 'Buy Now'}</span>
                     </button>
 
+                    {cardFlags.showAddToCart ? (
                     <button
                       type="button"
                       onClick={(e) => handleAddToCart(e, product)}
@@ -975,6 +1039,7 @@ export const ProductsListPage: React.FC = () => {
                         </>
                       )}
                     </button>
+                    ) : null}
 
                     <button
                       type="button"
@@ -988,6 +1053,20 @@ export const ProductsListPage: React.FC = () => {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {visibleCount < filteredProducts.length && (
+          <div className="flex justify-center pt-2">
+            <button
+              type="button"
+              onClick={() => setVisibleCount((n) => n + 24)}
+              className="px-6 py-2.5 bg-black text-white text-xs font-bold rounded-full cursor-pointer"
+            >
+              {isAr
+                ? `عرض المزيد (${filteredProducts.length - visibleCount})`
+                : `Load more (${filteredProducts.length - visibleCount})`}
+            </button>
           </div>
         )}
 

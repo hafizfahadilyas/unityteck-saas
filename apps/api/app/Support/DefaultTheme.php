@@ -27,7 +27,7 @@ final class DefaultTheme
      */
     public static function settingsForPlan(string $effectivePlanCode, ?Store $store = null): array
     {
-        $full = in_array(Plans::normalizeCode($effectivePlanCode), ['pro', 'custom'], true);
+        $full = in_array(Plans::normalizeCode($effectivePlanCode), ['pro', 'premium', 'custom'], true);
         $accent = $store?->accent_color ?: self::PREVIEW_COLOR;
 
         if ($full) {

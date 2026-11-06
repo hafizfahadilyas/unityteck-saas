@@ -53,6 +53,17 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     impactLevel: 'high',
   },
   {
+    id: 'canva',
+    category: 'store_admin_pages',
+    nameEn: 'Design Studio',
+    nameAr: 'استوديو التصميم',
+    descriptionEn: 'Store design workspace for templates, creatives, and social posts.',
+    descriptionAr: 'مساحة تصميم المتجر للقوالب والمواد البصرية والمنشورات.',
+    iconName: 'Paintbrush',
+    defaultEnabled: true,
+    impactLevel: 'standard',
+  },
+  {
     id: 'products',
     category: 'store_admin_pages',
     nameEn: 'Products Catalog & Inventory',

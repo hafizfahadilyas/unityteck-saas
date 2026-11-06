@@ -53,7 +53,7 @@ export const TopProductsCard: React.FC<TopProductsCardProps> = React.memo(({
   }, [products, salesByProductId, locale]);
 
   return (
-    <div className="p-3.5 sm:p-4 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs flex flex-col h-full min-h-[260px] max-h-[320px]">
+    <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-xs flex flex-col h-full min-h-[280px] max-h-[320px]">
       {/* ── Card Header ── */}
       <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800/80 mb-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">

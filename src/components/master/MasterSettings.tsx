@@ -39,11 +39,11 @@ export const MasterSettings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<MasterSettingsTab>('platform');
 
   // Platform details
-  const [platformName, setPlatformName] = useState('Unityteck');
+  const [platformName, setPlatformName] = useState(isAr ? 'منصة سوق' : 'Souq Platform');
   const [platformTagline, setPlatformTagline] = useState(
     isAr
-      ? 'منصة التجارة الإلكترونية السعودية متعددة المتاجر'
-      : 'Saudi Multi-Store SaaS E-Commerce Platform'
+      ? 'التجارة الإلكترونية الشاملة'
+      : 'Complete e-commerce'
   );
   const [platformLogo, setPlatformLogo] = useState('/favicon.svg');
   const [supportEmail, setSupportEmail] = useState('admin@unityteck.sa');

@@ -8,6 +8,7 @@ import { defaultStoreIdentity, readStoreIdentity, writeStoreIdentity, type Store
 import { type HeaderCustomSettings, DEFAULT_HEADER_SETTINGS, getDefaultHeaderSettings } from './headerCustomSettings';
 import { getThemeManifest } from '../registry';
 import { bumpStore } from '../../api/cacheTags';
+import type { CoffeeModularSlice } from './coffeeModularSettings';
 
 export interface CustomMenuItem {
   id: string;
@@ -135,6 +136,7 @@ export interface SliderSlide {
   productId?: string;
   type: 'image' | 'video';
   image: string;
+  imageAlt?: string;
   fallbackImage?: string;
   videoUrl?: string;
   title: string;
@@ -287,15 +289,53 @@ export interface CustomLinkItem {
   image: string;
   title: string;
   subtitle: string;
+  /** Optional bilingual overrides (coffee / Word panels). */
+  titleEn?: string;
+  titleAr?: string;
+  subtitleEn?: string;
+  subtitleAr?: string;
   category: string;
+  categoryEn?: string;
+  categoryAr?: string;
   link: string;
   linkType?: 'Product' | 'Category' | 'Brand' | 'Landing Page' | 'Article' | 'Blog Category' | 'Discounts' | 'Brands' | 'Blog' | 'External Link';
   targetId?: string;
   externalUrl?: string;
   showButton?: boolean;
   buttonText?: string;
+  buttonTextEn?: string;
+  buttonTextAr?: string;
   buttonColor?: string;
   buttonStyle?: 'filled' | 'outline' | 'glass';
+}
+
+/** Locale-isolated label for custom link cards (never mix EN+AR). */
+export function customLinkTitle(item: CustomLinkItem | undefined, lang: 'en' | 'ar' | 'EN' | 'AR', fallback = ''): string {
+  if (!item) return fallback;
+  const ar = lang === 'ar' || lang === 'AR';
+  if (ar) return (item.titleAr || item.title || item.titleEn || fallback).trim();
+  return (item.titleEn || item.title || item.titleAr || fallback).trim();
+}
+
+export function customLinkSubtitle(item: CustomLinkItem | undefined, lang: 'en' | 'ar' | 'EN' | 'AR', fallback = ''): string {
+  if (!item) return fallback;
+  const ar = lang === 'ar' || lang === 'AR';
+  if (ar) return (item.subtitleAr || item.subtitle || item.subtitleEn || fallback).trim();
+  return (item.subtitleEn || item.subtitle || item.subtitleAr || fallback).trim();
+}
+
+export function customLinkButton(item: CustomLinkItem | undefined, lang: 'en' | 'ar' | 'EN' | 'AR', fallback = ''): string {
+  if (!item) return fallback;
+  const ar = lang === 'ar' || lang === 'AR';
+  if (ar) return (item.buttonTextAr || item.buttonText || item.buttonTextEn || fallback).trim();
+  return (item.buttonTextEn || item.buttonText || item.buttonTextAr || fallback).trim();
+}
+
+export function customLinkCategory(item: CustomLinkItem | undefined, lang: 'en' | 'ar' | 'EN' | 'AR', fallback = ''): string {
+  if (!item) return fallback;
+  const ar = lang === 'ar' || lang === 'AR';
+  if (ar) return (item.categoryAr || item.category || item.categoryEn || fallback).trim();
+  return (item.categoryEn || item.category || item.categoryAr || fallback).trim();
 }
 
 export interface CustomLinksSettings {
@@ -382,14 +422,24 @@ export interface BlogSettings {
 export interface AnnouncementMessage {
   id: string;
   icon: string;
+  /** Legacy single-locale text (kept in sync with textEn). */
   text: string;
+  textEn?: string;
+  textAr?: string;
   link?: string;
   active: boolean;
+  /** Per-message colors (Word C-ANN). */
+  bgColor?: string;
+  textColor?: string;
 }
+
+export type AnnouncementDisplayMode = 'rotate' | 'stacked' | 'single';
 
 export interface AnnouncementBarSettings {
   enabled: boolean;
   messages: AnnouncementMessage[];
+  /** Word C-ANN: rotate | stacked | single (manual order). */
+  displayMode?: AnnouncementDisplayMode;
   animationType: 'marquee' | 'rotate' | 'fade';
   direction: 'rtl' | 'ltr';
   animationSpeed: 'slow' | 'medium' | 'fast';
@@ -414,21 +464,82 @@ export interface AnnouncementBarSettings {
   mobileVersion: boolean;
 }
 
+/** Locale-pure announcement label — AR never falls back to EN (and vice versa) except legacy `text`. */
+export function announcementMessageLabel(
+  message: AnnouncementMessage,
+  locale: 'en' | 'ar',
+): string {
+  if (locale === 'ar') {
+    return (message.textAr || message.text || '').trim();
+  }
+  return (message.textEn || message.text || '').trim();
+}
+
+/** Active announcements with non-empty text for the current storefront rules. */
+export function eligibleAnnouncements(
+  bar: AnnouncementBarSettings | null | undefined,
+  locale?: 'en' | 'ar',
+): AnnouncementMessage[] {
+  if (!bar?.enabled) return [];
+  return (bar.messages || []).filter((m) => {
+    if (m.active === false) return false;
+    if (locale) return Boolean(announcementMessageLabel(m, locale));
+    return Boolean(
+      (m.textEn || '').trim() || (m.textAr || '').trim() || (m.text || '').trim(),
+    );
+  });
+}
+
+export type FeaturePreviewDevice = 'desktop' | 'tablet' | 'mobile';
+
+export type FeatureLinkType =
+  | 'none'
+  | 'url'
+  | 'product'
+  | 'category'
+  | 'page'
+  | 'whatsapp';
+
+export type FeatureIconShape = 'rounded' | 'circle' | 'square' | 'none';
+
+export type FeatureContentAlign = 'left' | 'center' | 'right';
+
 export interface EnhancedFeatureItem {
   id: string;
   icon: string;
+  /** Legacy single-locale title (kept in sync with titleEn in the form). */
   title: string;
+  titleEn?: string;
+  titleAr?: string;
+  /** Legacy single-locale description (kept in sync with descriptionEn). */
   description: string;
+  descriptionEn?: string;
+  descriptionAr?: string;
   linkText?: string;
   linkUrl?: string;
+  linkType?: FeatureLinkType;
+  mediaType?: 'icon' | 'image';
+  imageUrl?: string;
+  iconBg?: string;
+  iconColor?: string;
+  iconSize?: number;
+  iconShape?: FeatureIconShape;
+  showDesktop?: boolean;
+  showTablet?: boolean;
+  showMobile?: boolean;
 }
 
 export interface EnhancedFeaturesSettings {
   enabled: boolean;
   mainTitle: string;
+  mainTitleEn?: string;
+  mainTitleAr?: string;
   subtitle: string;
+  subtitleEn?: string;
+  subtitleAr?: string;
   layoutStyle: 'classic-cards' | 'minimal' | 'floating' | 'glass' | 'timeline';
   itemsPerRowDesktop: number;
+  itemsPerRowTablet?: number;
   itemsPerRowMobile: number;
   features: EnhancedFeatureItem[];
   cardBackground: 'white' | 'glass' | 'dark';
@@ -437,6 +548,55 @@ export interface EnhancedFeaturesSettings {
   shadow: boolean;
   iconAnimation: 'floating' | 'pulse' | 'zoom' | 'none';
   hoverEffect: 'zoom' | 'lift' | 'glow';
+  bgColor?: string;
+  contentAlign?: FeatureContentAlign;
+  itemSpacingDesktop?: number;
+  itemSpacingMobile?: number;
+  sectionPaddingDesktop?: number;
+  sectionPaddingMobile?: number;
+}
+
+export function featureItemTitle(
+  item: EnhancedFeatureItem,
+  lang: 'en' | 'ar',
+): string {
+  if (lang === 'ar') {
+    return (item.titleAr || item.title || item.titleEn || '').trim();
+  }
+  return (item.titleEn || item.title || item.titleAr || '').trim();
+}
+
+export function featureItemDescription(
+  item: EnhancedFeatureItem,
+  lang: 'en' | 'ar',
+): string {
+  if (lang === 'ar') {
+    return (item.descriptionAr || item.description || item.descriptionEn || '').trim();
+  }
+  return (item.descriptionEn || item.description || item.descriptionAr || '').trim();
+}
+
+export function featureLinkKind(item: EnhancedFeatureItem): FeatureLinkType {
+  if (item.linkType) return item.linkType;
+  const url = (item.linkUrl || '').trim().toLowerCase();
+  if (!url) return 'none';
+  if (
+    url === 'whatsapp-custom-order' ||
+    url.includes('whatsapp') ||
+    url.includes('wa.me')
+  ) {
+    return 'whatsapp';
+  }
+  return 'url';
+}
+
+export function featureShowsOn(
+  item: EnhancedFeatureItem,
+  device: FeaturePreviewDevice,
+): boolean {
+  if (device === 'desktop') return item.showDesktop !== false;
+  if (device === 'tablet') return item.showTablet !== false;
+  return item.showMobile !== false;
 }
 
 export interface ProductCardsSettings {
@@ -527,7 +687,7 @@ export interface MaintenanceModeSettings {
   whatsappNumber: string;
 }
 
-export interface AllThemeSettings {
+export interface AllThemeSettings extends Partial<CoffeeModularSlice> {
   identity: StoreIdentitySettings;
   general: GeneralOptionsSettings;
   colors: StoreColorsSettings;
@@ -548,6 +708,8 @@ export interface AllThemeSettings {
   statistics: StoreStatisticsSettings;
   customHeader?: HeaderCustomSettings;
   maintenance?: MaintenanceModeSettings;
+  /** Internal: coffee modular seeds applied once — merchant empties stay empty. */
+  _coffeeModularSeeded?: boolean;
   updatedAt: string;
 }
 
@@ -848,15 +1010,16 @@ function buildRawDefaultThemeSettings(fallback: {
       enableDarkModeSwitch: true,
       forceDarkMode: false,
       primaryBgColor: '#FFFFFF',
-      secondaryBgColor: isCoffee ? '#1a110c' : isCar ? '#0f172a' : '#F8FAFC',
-      mainTextColor: isCoffee ? '#f7ede2' : '#111827',
-      secondaryTextColor: isCoffee ? '#c88a58' : '#6B7280',
-      headerBgColor: isCoffee ? '#160e0a' : isCar ? '#020617' : '#032320',
-      headerTextColor: '#FFFFFF',
+      // HiBrew coffee storefront is light (locked) — never seed dark page/header paints
+      secondaryBgColor: isCoffee ? '#FFFFFF' : isCar ? '#0f172a' : '#F8FAFC',
+      mainTextColor: isCoffee ? '#171717' : '#111827',
+      secondaryTextColor: isCoffee ? '#525252' : '#6B7280',
+      headerBgColor: isCoffee ? '#FFFFFF' : isCar ? '#020617' : '#032320',
+      headerTextColor: isCoffee ? '#111111' : '#FFFFFF',
       productCardBgColor: '#FFFFFF',
       promoLabelBgColor: isCoffee ? '#c88a58' : isCar ? '#d97706' : '#EF4444',
       enableLoadingScreen: false,
-      enableDashboardLoader: true,
+      enableDashboardLoader: false,
       loadingAnimatedLogo: true,
       loadingIndicator: true,
       loadingCustomBg: false,
@@ -1398,7 +1561,7 @@ export function isFlowerStore(store: { id?: string; name?: string }): boolean {
 }
 
 const FLOWER_CONTENT_PATTERN =
-  /photo-1518895949257|photo-1563245372|photo-1526047932273|photo-1490750967868|photo-1561181286|bouquet|flower|floral|vases?\b|haram|makkah|dutch|bridal|زهور|باقات|مكة|الحرم/i;
+  /photo-1518895949257|photo-1563245372|photo-1526047932273|photo-1490750967868|photo-1561181286|bouquet|flower|floral|vases?\b|haram|makkah|dutch|bridal|Use code MKS|Get 50% OFF|زهور|باقات|مكة|الحرم/i;
 
 /** Detects floral seed content that must never appear on non-flower stores. */
 export function containsFlowerContent(section: unknown): boolean {
@@ -1420,6 +1583,7 @@ const CONTENT_SECTION_KEYS = [
   'banners',
   'blog',
   'announcementBar',
+  'slider',
   'enhancedFeatures',
   'specialOffer',
   'statistics',
@@ -1452,6 +1616,20 @@ export function defaultThemeSettingsMap(fallback: {
   s.customLinks = { ...s.customLinks, links: [] };
   s.banners = { ...s.banners, banners: [] };
   s.blog = { ...s.blog, articles: [] };
+  // Empty slider/announcements → coffee/car keep built-in storefront (parso) until Theme Settings save.
+  s.slider = { ...s.slider, slides: [], enabled: false };
+  s.announcementBar = { ...s.announcementBar, enabled: false, messages: [] };
+  // Never leave flower/Makkah feature-icon copy on coffee/car defaults
+  s.enhancedFeatures = {
+    ...s.enhancedFeatures,
+    mainTitle: '',
+    mainTitleEn: '',
+    mainTitleAr: '',
+    subtitle: '',
+    subtitleEn: '',
+    subtitleAr: '',
+    features: [],
+  };
   if (s.statistics) s.statistics = { ...s.statistics, items: [] };
   if (s.maintenance) {
     s.maintenance = {
@@ -1462,6 +1640,7 @@ export function defaultThemeSettingsMap(fallback: {
       subtitleAr: '',
     };
   }
+
   return base;
 }
 
@@ -1549,7 +1728,7 @@ export function readAllThemeSettings(
         ? defaults.slider
         : (parsed.slider || defaults.slider);
 
-      return {
+      const merged: AllThemeSettings = {
         ...defaults,
         ...parsed,
         identity: { ...defaults.identity, ...(parsed.identity || {}) },
@@ -1573,6 +1752,7 @@ export function readAllThemeSettings(
         customHeader: safeCustomHeader,
         maintenance: { ...(defaults.maintenance || {}), ...(parsed.maintenance || {}) },
       };
+      return merged;
     }
   } catch {
     /* fallback to defaults */
@@ -1580,10 +1760,44 @@ export function readAllThemeSettings(
   return defaults;
 }
 
+const themeSettingsApiSyncTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** Debounced Hostinger PUT — keeps every Save path on real DB (per store_id). */
+function scheduleThemeSettingsApiSync(
+  storeId: string,
+  settings: AllThemeSettings,
+  themeId: string | undefined,
+): void {
+  if (typeof window === 'undefined' || !storeId) return;
+  const prev = themeSettingsApiSyncTimers.get(storeId);
+  if (prev) clearTimeout(prev);
+  themeSettingsApiSyncTimers.set(
+    storeId,
+    setTimeout(() => {
+      themeSettingsApiSyncTimers.delete(storeId);
+      void (async () => {
+        try {
+          const { isApiEnabled } = await import('../../api/client');
+          if (!isApiEnabled()) return;
+          const { updateThemeSettingsApi } = await import('../../api/tenantApi');
+          const { updatedAt: _u, ...payload } = settings as AllThemeSettings & { updatedAt?: string };
+          await updateThemeSettingsApi(storeId, {
+            theme_id: themeId || resolveStoreActiveThemeId(storeId),
+            settings: payload as Record<string, unknown>,
+          });
+        } catch {
+          /* local write already succeeded; forms may surface toast on explicit save */
+        }
+      })();
+    }, 450),
+  );
+}
+
 export function writeAllThemeSettings(
   storeId: string,
   settings: AllThemeSettings,
   explicitThemeId?: string,
+  opts?: { syncApi?: boolean },
 ): void {
   const targetThemeId = explicitThemeId || resolveStoreActiveThemeId(storeId);
   const next = { ...settings, updatedAt: new Date().toISOString() };
@@ -1611,5 +1825,9 @@ export function writeAllThemeSettings(
         detail: { tag: `store:${storeId}:theme-settings`, version: Date.now() },
       }),
     );
+    // Default: sync to Hostinger. Hydrate-from-API callers pass syncApi: false.
+    if (opts?.syncApi !== false) {
+      scheduleThemeSettingsApiSync(storeId, next, targetThemeId);
+    }
   }
 }

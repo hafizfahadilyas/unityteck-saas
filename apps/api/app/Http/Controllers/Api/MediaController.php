@@ -116,8 +116,9 @@ class MediaController extends Controller
             ]);
 
             return response()->json([
-                'data' => $media,
+                'data' => $this->stampVersion($media),
                 'message' => 'File uploaded, auto-optimized and saved successfully.',
+                'store_id' => $storeId,
             ], 201);
         }
 
@@ -190,9 +191,25 @@ class MediaController extends Controller
         ]);
 
         return response()->json([
-            'data' => $media,
+            'data' => $this->stampVersion($media),
             'message' => 'Media asset saved to store library',
+            'store_id' => $storeId,
         ], 201);
+    }
+
+    /**
+     * POST /stores/{storeId}/media — folder is this store only. Body store_id is ignored.
+     */
+    public function storeForStore(Request $request, string $storeId): JsonResponse
+    {
+        $id = $this->scopedStoreId($request, $storeId);
+        if ($id instanceof JsonResponse) {
+            return $id;
+        }
+
+        $request->attributes->set('store_id', $id);
+
+        return $this->store($request);
     }
 
     public function show(Request $request, string $id): JsonResponse
@@ -372,6 +389,50 @@ class MediaController extends Controller
         $usages = MediaUsage::query()->forStore($storeId)->where('media_id', $id)->get();
 
         return response()->json(['data' => $usages]);
+    }
+
+    private function scopedStoreId(Request $request, string $urlStoreId): string|JsonResponse
+    {
+        $actor = $request->attributes->get('store_id');
+        $portal = $request->attributes->get('portal');
+
+        if ($portal === 'master' && (! is_string($actor) || trim($actor) === '')) {
+            $target = $this->canonicalStoreId($urlStoreId);
+
+            return $target !== ''
+                ? $target
+                : response()->json(['message' => 'Store id is required.'], 400);
+        }
+
+        if (! is_string($actor) || trim($actor) === '') {
+            return response()->json([
+                'message' => 'X-Store-Id header is required for store-scoped routes.',
+            ], 400);
+        }
+
+        $actorId = $this->canonicalStoreId($actor);
+        if ($actorId !== $this->canonicalStoreId($urlStoreId)) {
+            return response()->json(['message' => 'Access denied to this store.'], 403);
+        }
+
+        return $actorId;
+    }
+
+    private function stampVersion(Media $media): Media
+    {
+        $version = $media->updated_at?->getTimestamp() ?? time();
+        $media->timestamps = false;
+        foreach (['url', 'optimized_url', 'webp_url', 'thumbnail_url'] as $field) {
+            $value = $media->{$field};
+            if (! is_string($value) || $value === '') {
+                continue;
+            }
+            $path = strtok($value, '?') ?: $value;
+            $media->{$field} = $path.'?v='.$version;
+        }
+        $media->save();
+
+        return $media;
     }
 
     /**

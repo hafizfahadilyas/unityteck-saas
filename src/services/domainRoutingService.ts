@@ -19,11 +19,11 @@ export interface SimulatedDomain {
 
 export const PRESET_SIMULATED_DOMAINS: SimulatedDomain[] = [
   {
-    domain: 'specialtycoffee.sa',
+    domain: 'mieraf-ksa.com',
     expectedStoreId: 'store-coffee',
     expectedThemeId: 'coffee-roasters',
-    labelAr: 'متجر محامص القهوة المختصة (نطاق سعودي رسمي)',
-    labelEn: 'Specialty Coffee Store (Official .sa Domain)',
+    labelAr: 'نطاق القهوة المضمّن على الاستضافة السحابية',
+    labelEn: 'Coffee included domain on Hostinger Cloud',
     type: 'custom',
   },
   {
@@ -194,6 +194,23 @@ export function resolveDomainLocal(
     };
   }
 
+  if (clean === 'mieraf-ksa.com') {
+    const coffee = stores.find((s) => s.id === 'store-coffee');
+    if (coffee) {
+      return {
+        resolved: true,
+        storeId: coffee.id,
+        storeSlug: coffee.slug,
+        storeName: coffee.name,
+        domain: clean,
+        domainType: 'custom',
+        activeThemeId: resolveStoreActiveTheme(coffee),
+        sslStatus: coffee.ssl_status || 'pending',
+        store: coffee,
+      };
+    }
+  }
+
   // 1. Check in domains records
   if (domains && domains.length > 0) {
     const matchedDomain = domains.find(
@@ -232,7 +249,7 @@ export function resolveDomainLocal(
         domain: clean,
         domainType: clean === sDemo ? 'subdomain' : 'custom',
         activeThemeId: resolveStoreActiveTheme(store),
-        sslStatus: 'active',
+        sslStatus: store.ssl_status || 'pending',
         store,
       };
     }

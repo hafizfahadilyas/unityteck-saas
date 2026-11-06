@@ -13,6 +13,7 @@ import { CreateStoreModal } from './components/master/CreateStoreModal';
 import { StoreSidebar } from './components/store/StoreSidebar';
 import { StoreTopBar } from './components/store/StoreTopBar';
 import { StoreDashboard } from './components/store/StoreDashboard';
+import { SocialOAuthDialogView } from './components/store/SocialOAuthDialogView';
 import { PortalLogin } from './components/auth/PortalLogin';
 import { PortalRegister } from './components/auth/PortalRegister';
 import { PortalPasswordReset } from './components/auth/PortalPasswordReset';
@@ -25,7 +26,7 @@ import { PrefsProvider, usePrefs } from './i18n/PrefsContext';
 import { useSoftPath } from './hooks/useSoftPath';
 import { usePermissions } from './hooks/usePermissions';
 import { STORE_TAB_ABILITY, MASTER_TAB_ABILITY } from './auth/modules';
-import { readAuthSession, clearAuthSession } from './auth/session';
+import { readAuthSession, clearAuthSession, writeAuthSession } from './auth/session';
 import type { AuthPortal, AuthSession } from './auth/session';
 import { logoutPortal, clearAppCache, loginPortal } from './auth/api';
 import {
@@ -104,6 +105,9 @@ const StoreProducts = lazy(() =>
 const StoreMediaLibrary = lazy(() =>
   import('./components/store/StoreMediaLibrary').then((m) => ({ default: m.StoreMediaLibrary })),
 );
+const StoreCanvaStudio = lazy(() =>
+  import('./components/store/StoreCanvaStudio').then((m) => ({ default: m.StoreCanvaStudio })),
+);
 const StoreCategories = lazy(() =>
   import('./components/store/StoreCategories').then((m) => ({ default: m.StoreCategories })),
 );
@@ -166,6 +170,9 @@ const StoreBlogManagement = lazy(() =>
 const StoreWhatsAppManager = lazy(() =>
   import('./components/store/whatsapp/StoreWhatsAppManager').then((m) => ({ default: m.StoreWhatsAppManager })),
 );
+const StoreSocialPublisher = lazy(() =>
+  import('./components/store/StoreSocialPublisher').then((m) => ({ default: m.StoreSocialPublisher })),
+);
 const StoreArticleCommerceTools = lazy(() =>
   import('./components/store/blog/StoreArticleCommerceTools').then((m) => ({ default: m.StoreArticleCommerceTools })),
 );
@@ -199,6 +206,7 @@ const StoreBackupRestoreCenter = lazy(() =>
 );
 import { preloadVisualThemeBuilder } from './components/store/visualBuilder/preloadVisualBuilder';
 import { ThemeBuilderLoadingShell } from './components/store/visualBuilder/ThemeBuilderLoadingShell';
+import { preloadWordPressThemeCustomizer } from './components/store/themeCustomizer/preloadWordPressThemeCustomizer';
 
 const VisualThemeBuilder = lazy<React.ComponentType<any>>(() =>
   preloadVisualThemeBuilder().then((m: any) => ({
@@ -207,7 +215,7 @@ const VisualThemeBuilder = lazy<React.ComponentType<any>>(() =>
 );
 
 const WordPressThemeCustomizer = lazy(() =>
-  import('./components/store/themeCustomizer/WordPressThemeCustomizer').then((m) => ({
+  preloadWordPressThemeCustomizer().then((m: any) => ({
     default: m.WordPressThemeCustomizer,
   })),
 );
@@ -248,10 +256,20 @@ function NotificationCenterPage({ onNavigateTab }: { onNavigateTab: (tab: string
   );
 }
 
+/** Ultra-light tab switch fallback — never block dashboard with full brand splash. */
 function TabFallback() {
   const { activeStore } = useTenant();
   const search = typeof window !== 'undefined' ? window.location.search.toLowerCase() : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
+  const isPreviewEmbed =
+    typeof window !== 'undefined' &&
+    (new URLSearchParams(window.location.search).get('preview') === '1' ||
+      new URLSearchParams(window.location.search).get('embed') === '1');
+
+  // Customizer iframe / embed: blank paint is faster than branded splash
+  if (isPreviewEmbed) {
+    return <div className="min-h-[40vh] w-full bg-white dark:bg-slate-950" aria-busy="true" />;
+  }
 
   const isCar =
     activeStore?.id === 'store-bleco' ||
@@ -288,26 +306,25 @@ function TabFallback() {
 
   const themeSettings = readAllThemeSettings(fallbackStoreId, activeStore);
   const isEnabled = themeSettings.colors?.enableDashboardLoader ?? true;
-  if (!isEnabled) return null;
+  if (!isEnabled) {
+    return (
+      <div className="flex items-center justify-center min-h-[120px] w-full" aria-busy="true">
+        <div className="w-5 h-5 rounded-full border-2 border-slate-300 border-t-emerald-500 animate-spin" />
+      </div>
+    );
+  }
 
+  // Compact inline only — full brand splash reserved for true storefront first paint
   return (
-    <DashboardLoader
-      enabled={isEnabled}
-      storeId={activeStore?.id || fallbackStoreId}
-      storeName={activeStore?.name}
-      taglineEn={themeSettings.colors?.loadingSubtitle}
-      logoUrl={
-        isCar
-          ? (activeStore?.logo && !activeStore.logo.includes('brand-logo')
-              ? activeStore.logo
-              : 'https://cdn.salla.sa/cdn-cgi/image/fit=scale-down,width=400,height=400,onerror=redirect,format=auto/wYYVD/OZbzrkkW0icMZlcDNOiZnU4PSjwq6WxXgCkwT0PQ.png')
-          : isCoffee
-          ? (activeStore?.logo && !activeStore.logo.includes('brand-logo')
-              ? activeStore.logo
-              : '/src/assets/images/hibrew_h7a_flagship_machine.png')
-          : (themeSettings.colors?.loadingLogoUrl || activeStore?.logo)
-      }
-    />
+    <div className="flex items-center justify-center min-h-[120px] w-full p-4" aria-busy="true" role="status">
+      <DashboardLoader
+        inline
+        enabled
+        storeId={activeStore?.id || fallbackStoreId}
+        storeName={activeStore?.name}
+        messageEn="Loading…"
+      />
+    </div>
   );
 }
 
@@ -359,7 +376,7 @@ function AdminContent() {
   });
 
 const getDefaultStoreTheme = (storeId?: string): string => {
-  if (storeId === 'store-coffee' || storeId?.includes('coffee')) return 'theme-coffee';
+  if (storeId === 'store-coffee' || storeId?.includes('coffee')) return 'theme-coffee-artisan';
   if (storeId === 'store-bleco' || storeId?.includes('bleco') || storeId?.includes('car')) return 'theme-saudia-transport';
   return 'theme-flora-luxe';
 };
@@ -443,10 +460,9 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         url.searchParams.delete('builder');
         url.searchParams.delete('themeId');
         url.searchParams.delete('builderPage');
-        if (url.searchParams.get('tab') === 'builder') {
-          url.searchParams.set('tab', 'dashboard');
-        }
+        url.searchParams.set('tab', 'dashboard');
         window.history.replaceState({}, '', url.toString());
+        localStorage.setItem('unityteck_store_tab', 'dashboard');
       }
     } catch {}
   }, []);
@@ -563,7 +579,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   }, []);
 
   const setStoreTab = React.useCallback((tab: string) => {
-    const targetTab = tab === 'inventory' || tab === 'storefront' ? 'dashboard' : tab;
+    const targetTab = tab === 'inventory' || tab === 'storefront' || tab === 'builder' ? 'dashboard' : tab;
     setStoreTabState(targetTab);
     try {
       localStorage.setItem('unityteck_store_tab', targetTab);
@@ -575,6 +591,17 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     } catch {}
   }, []);
 
+  const builderExitRef = React.useRef(false);
+  useEffect(() => {
+    if (isVisualBuilderOpen) {
+      builderExitRef.current = true;
+      return;
+    }
+    if (!builderExitRef.current) return;
+    builderExitRef.current = false;
+    setStoreTab('dashboard');
+  }, [isVisualBuilderOpen, setStoreTab]);
+
   useEffect(() => {
     if (storeTab === 'inventory' || storeTab === 'storefront') {
       setStoreTab('dashboard');
@@ -584,6 +611,30 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   const [isCreateStoreOpen, setIsCreateStoreOpen] = useState(false);
   const [storeSearch, setStoreSearch] = useState('');
   const [selectedCommerceArticleId, setSelectedCommerceArticleId] = useState<string | undefined>(undefined);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [mode, masterTab, storeTab]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileNavOpen(false);
+    };
+    const onResize = () => {
+      if (window.matchMedia('(min-width: 1024px)').matches) setMobileNavOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResize);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [mobileNavOpen]);
 
   const isMasterLogin =
     path === '/master/login' || (!session && (path === '/master' || path === '/master/'));
@@ -725,7 +776,39 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     if (typeof window === 'undefined') return;
     const isExplicitLoginPage = window.location.pathname.includes('/login');
     const params = new URLSearchParams(window.location.search);
-    const storeParam = (params.get('store') || params.get('demo') || '').toLowerCase().trim();
+    // Normalize malformed deep-links like ?store%3Dcoffee=&customizer=1 → store=coffee
+    let storeParam = (params.get('store') || params.get('demo') || '').toLowerCase().trim();
+    if (!storeParam) {
+      for (const key of [...params.keys()]) {
+        if (key.toLowerCase().startsWith('store=')) {
+          storeParam = key.slice(6).replace(/=+$/, '').toLowerCase().trim();
+          params.delete(key);
+          if (storeParam) params.set('store', storeParam);
+          try {
+            const next = `${window.location.pathname}?${params.toString()}${window.location.hash || ''}`;
+            window.history.replaceState({}, '', next.replace(/\?$/, ''));
+          } catch {
+            /* ignore */
+          }
+          break;
+        }
+      }
+    }
+    if (!storeParam) {
+      const rawMatch = window.location.search.match(/[?&]store(?:=|%3D)([^&]*)/i);
+      if (rawMatch?.[1]) {
+        storeParam = decodeURIComponent(rawMatch[1]).replace(/=+$/, '').toLowerCase().trim();
+        if (storeParam) {
+          params.set('store', storeParam);
+          try {
+            const next = `${window.location.pathname}?${params.toString()}${window.location.hash || ''}`;
+            window.history.replaceState({}, '', next);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    }
     const pathnameLower = window.location.pathname.toLowerCase();
     const effectiveSlug =
       storeParam ||
@@ -826,7 +909,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         isAutoSwitchingRef.current = true;
         const creds =
           targetStoreId === 'store-coffee'
-            ? { email: 'rayan@specialtycoffee.sa', pass: 'CoffeeStore@2026!Secure', slug: 'coffee' }
+            ? { email: 'mieraf.sa8@gmail.com', pass: 'CoffeeStore@2026!Secure', slug: 'coffee' }
             : targetStoreId === 'store-bleco'
             ? { email: 'admin@bleco.sa', pass: 'BlackoStore@2026!Secure', slug: 'bleco' }
             : { email: 'admin@giftshop-sa.com', pass: 'MakkahStore@2026!Secure', slug: 'flowers' };
@@ -858,13 +941,35 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     }
   }, [navigate, switchToStore, switchToMaster, session, activeStore?.id, isPublicStorefront, storeTab, setStoreTab]);
 
-  // Force login: protected routes without session → start gate
+  // Recover a lifetime session before sending the admin to the gate.
   useEffect(() => {
     if (session) return;
+    const recovered = readAuthSession();
+    if (recovered) {
+      setSession(recovered);
+      return;
+    }
     if (isAuthPage) return;
     if (activeStatus) return;
     navigate('/');
   }, [session, isAuthPage, activeStatus, navigate]);
+
+  // Renew the saved session while the dashboard is open. Never signs the admin out.
+  useEffect(() => {
+    if (!session?.token) return;
+    const renew = () => {
+      const current = readAuthSession();
+      if (current?.token) writeAuthSession(current);
+      try {
+        const clerkApi = (window as Window & { Clerk?: { session?: { touch?: () => Promise<void> } } }).Clerk;
+        void clerkApi?.session?.touch?.();
+      } catch {
+        /* ignore */
+      }
+    };
+    const id = window.setInterval(renew, 10 * 60 * 1000);
+    return () => window.clearInterval(id);
+  }, [session?.token]);
 
   // Already signed in on login/register/reset → dashboard (only if matching portal, preserving store query)
   useEffect(() => {
@@ -984,15 +1089,23 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     }
   }, [session?.portal, session?.storeId, mode, activeStoreId, activeStore?.id, setMode, switchToStore, isPublicStorefront]);
 
-  // Eagerly prefetch theme builder during store idle time so opening it is 100% instant
+  // Prefetch the editor only inside the store dashboard. The public storefront must not load it.
   useEffect(() => {
-    if (mode === 'store') {
+    if (mode === 'store' && !isPublicStorefront) {
       const timer = setTimeout(() => {
         preloadVisualThemeBuilder();
-      }, 600);
+        preloadWordPressThemeCustomizer();
+      }, 120);
       return () => clearTimeout(timer);
     }
-  }, [mode]);
+  }, [mode, isPublicStorefront]);
+
+  // Deep-link ?customizer=1 — start chunk fetch immediately
+  useEffect(() => {
+    if (isThemeCustomizerOpen) {
+      void preloadWordPressThemeCustomizer();
+    }
+  }, [isThemeCustomizerOpen]);
 
   const handleLoginSuccess = useCallback(
     (portal: AuthPortal, storeId?: string | null) => {
@@ -1067,10 +1180,10 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     });
   }, [session, mode, activeStore?.name]);
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
     const wasMaster = session?.portal === 'master';
     try {
-      void logoutPortal();
+      await logoutPortal();
     } catch {
       // ignore
     }
@@ -1285,13 +1398,16 @@ const getDefaultStoreTheme = (storeId?: string): string => {
             <MasterSidebar
               currentTab={masterTab}
               onSelectTab={(tab) => setMasterTab(tab)}
+              mobileOpen={mobileNavOpen}
+              onMobileClose={() => setMobileNavOpen(false)}
             />
             <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
               <MasterTopBar
                 onOpenCreateStore={() => setIsCreateStoreOpen(true)}
                 onSignOut={() => void requestLogout()}
+                onMobileMenuOpen={() => setMobileNavOpen(true)}
               />
-              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pb-16">
+              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pb-16 contain-paint touch-pan-y overscroll-y-contain">
                 <Suspense fallback={<TabFallback />}>
                   {masterTab === 'dashboard' && (
                     <MasterDashboard onOpenCreateStore={() => setIsCreateStoreOpen(true)} />
@@ -1346,6 +1462,8 @@ const getDefaultStoreTheme = (storeId?: string): string => {
             <StoreSidebar
               currentTab={storeTab}
               onSelectTab={(tab) => setStoreTab(tab)}
+              mobileOpen={mobileNavOpen}
+              onMobileClose={() => setMobileNavOpen(false)}
             />
             <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
               <StoreTopBar
@@ -1357,11 +1475,14 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                 onCustomizeTheme={handleOpenCustomizeTheme}
                 onOpenThemeCustomizer={handleOpenThemeCustomizer}
                 onNavigateTab={setStoreTab}
+                onMobileMenuOpen={() => setMobileNavOpen(true)}
                 searchPlaceholder={
                   storeTab === 'customers' ? t('searchCustomers') : t('searchStore')
                 }
               />
-              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pb-16">
+              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pb-16 contain-paint touch-pan-y overscroll-y-contain">
+                {/* Unmount heavy store tabs while customizer fullscreen is open */}
+                {isThemeCustomizerOpen ? null : (
                 <Suspense fallback={<TabFallback />}>
                   {!isStoreControlEnabled(activeStore?.id, storeTab) &&
                   !['dashboard', 'notifications'].includes(storeTab) ? (
@@ -1397,7 +1518,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {storeTab === 'notifications' && (
                     <NotificationCenterPage onNavigateTab={setStoreTab} />
                   )}
-                  {storeTab === 'customers' && <StoreCustomers />}
+                  {storeTab === 'customers' && <StoreCustomers onNavigateTab={setStoreTab} />}
                   {storeTab === 'marketing' && (
                     <StoreMarketingHub onNavigateTab={setStoreTab} />
                   )}
@@ -1408,9 +1529,11 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {storeTab === 'whatsapp' && (
                     <StoreWhatsAppManager onNavigateTab={setStoreTab} />
                   )}
+                  {storeTab === 'social' && <StoreSocialPublisher onNavigateTab={setStoreTab} />}
                   {storeTab === 'seo' && <StoreSEO />}
                   {storeTab === 'products' && <StoreProducts />}
                   {storeTab === 'media' && <StoreMediaLibrary />}
+                  {storeTab === 'canva' && <StoreCanvaStudio onNavigateTab={setStoreTab} />}
                   {storeTab === 'categories' && <StoreCategories />}
                   {storeTab === 'brands' && <StoreBrandsView onBackToProducts={() => setStoreTab('products')} />}
                   {storeTab === 'orders' && <StoreOrders />}
@@ -1480,12 +1603,26 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                       onNavigateTab={setStoreTab}
                     />
                   )}
-                  {storeTab === 'appstore' && <StoreAppStore />}
+                  {storeTab === 'appstore' && (
+                    <StoreAppStore
+                      onOpenStorefront={() => {
+                        const storeSlug =
+                          activeStore?.slug ||
+                          (activeStore?.id === 'store-coffee'
+                            ? 'coffee'
+                            : activeStore?.id === 'store-bleco'
+                              ? 'bleco'
+                              : 'flowers');
+                        navigate(`/?store=${storeSlug}&fullscreen=1`);
+                      }}
+                    />
+                  )}
                   {storeTab === 'payments' && <StorePayments />}
                   {storeTab === 'settings' && <StoreSettings />}
                     </>
                   )}
                 </Suspense>
+                )}
               </main>
             </div>
           </>
@@ -1534,6 +1671,9 @@ const getDefaultStoreTheme = (storeId?: string): string => {
 }
 
 export default function App() {
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('social_oauth') === '1') {
+    return <SocialOAuthDialogView />;
+  }
   return (
     <TenantProvider>
       <ToastProvider>

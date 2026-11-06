@@ -38,6 +38,7 @@ import {
   User
 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
+import { submitPublicStorefrontOrder } from '../../utils/submitStorefrontOrder';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { Product, CategoryItem } from '../../types';
 import { 
@@ -108,7 +109,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
   initialPage = 'home',
   isAdmin = false
 }) => {
-  const { activeStore, addOrder, recordStoreVisit, currentProducts, addToCart: tenantAddToCart } = useTenant();
+  const { activeStore, addOrder, syncOrderFromApi, recordStoreVisit, currentProducts, addToCart: tenantAddToCart } = useTenant();
   const prefs = usePrefs();
   const locale = prefs?.locale;
   const setLocale = prefs?.setLocale;
@@ -163,16 +164,37 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     }
   }, [storeId, recordStoreVisit]);
 
-  useEffect(() => {
-    try {
-      document.title = isAr 
-        ? 'متجر السعيدي لخدمات السيارات — تنجيد مكة | تلابيس مقاعد وأرضيات ليزر ودايموند'
-        : 'Al-Saeedi Car Upholstery & Accessories Makkah | Custom Seat Covers & 5D Floor Mats';
-    } catch {}
-  }, [currentLang, isAr]);
-
   // View Mode: 'home' vs 'catalog'
   const [viewMode, setViewMode] = useState<'home' | 'catalog'>('home');
+
+  useEffect(() => {
+    try {
+      const storeName = isAr
+        ? (activeStore?.nameAr || activeStore?.name || 'متجر السيارات')
+        : (activeStore?.nameEn || activeStore?.name || 'Car Store');
+      document.title = viewMode === 'catalog'
+        ? (isAr ? `المنتجات | ${storeName}` : `Products | ${storeName}`)
+        : (isAr ? `${storeName} | تنجيد وإكسسوارات` : `${storeName} | Upholstery and accessories`);
+      const desc = viewMode === 'catalog'
+        ? (isAr
+          ? `منتجات ${storeName} مع التصفية حسب التصنيف. الأسعار بالريال والتوصيل داخل المملكة.`
+          : `${storeName} products with category filters. Prices in SAR and delivery across Saudi Arabia.`)
+        : (isAr
+          ? `${storeName}. تنجيد وإكسسوارات مع التوصيل داخل المملكة.`
+          : `${storeName}. Upholstery and accessories with delivery across Saudi Arabia.`);
+      let meta = document.querySelector('meta[name="description"]');
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('name', 'description');
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', desc);
+      if (!isAdmin) {
+        document.documentElement.lang = isAr ? 'ar' : 'en';
+        document.documentElement.dir = isAr ? 'rtl' : 'ltr';
+      }
+    } catch {}
+  }, [isAr, viewMode, isAdmin, activeStore?.name, activeStore?.nameAr, activeStore?.nameEn]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [navDropdownOpen, setNavDropdownOpen] = useState(false);
   const [searchBarOpen, setSearchBarOpen] = useState(false);
@@ -491,8 +513,15 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     return storeCatalog.filter(product => {
       // 1. Category Tab Filter
       if (activeCategory) {
-        if (activeCategory.id === 'cat-floors' && product.type !== 'floor-mat') return false;
-        if (activeCategory.id === 'cat-clothing' && product.type !== 'seat-cover') return false;
+        const id = activeCategory.id;
+        const en = (activeCategory.nameEn || '').toLowerCase();
+        const ar = activeCategory.nameAr || '';
+        const blob = `${product.type || ''} ${product.category || ''} ${product.categoryAr || ''} ${product.name || ''} ${product.nameAr || ''}`.toLowerCase();
+        const builtIn =
+          (id === 'cat-floors' && (product.type === 'floor-mat' || blob.includes('floor') || blob.includes('ارض') || blob.includes('أرض'))) ||
+          (id === 'cat-clothing' && (product.type === 'seat-cover' || blob.includes('seat') || blob.includes('تلبيس') || blob.includes('مقعد')));
+        const named = (en && blob.includes(en)) || (ar && blob.includes(ar.toLowerCase()));
+        if (!builtIn && !named) return false;
       }
 
       // 2. Car Brand Filter (Strict: When a brand is selected, ONLY show matching products, do NOT pollute with floor mats)
@@ -710,39 +739,73 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
       return;
     }
 
-    const orderNumber = `#ALS-${Math.floor(1000 + Math.random() * 9000)}`;
-    addOrder({
-      customerName: checkoutForm.name,
-      customerPhone: checkoutForm.phone,
-      customerEmail: `${checkoutForm.phone.replace(/[^0-9]/g, '')}@tanjeedmakkah.sa`,
-      deliveryLocation: `${checkoutForm.city} - ${checkoutForm.address}`,
-      itemsCount: cartCount,
-      items: cart.map(it => {
-        const sp = it.specs as any;
-        const carDetail = sp ? `[${sp.brandNameAr || sp.brand || ''} ${sp.model || ''} ${sp.year || ''} - ${sp.seatsLabelAr || it.selectedCoverage || ''} - ${it.selectedColor?.nameAr || ''}${sp.includeBundle ? ' + ملمع بلاكو' : ''}]` : `(${it.selectedColor?.nameAr || 'بيج'} - ${it.selectedCoverage || ''})`;
-        return {
-          id: it.product.id,
-          sku: it.product.sku,
-          name: `${it.product.nameAr || it.product.name} ${carDetail}`.trim(),
-          price: it.unitPrice,
-          quantity: it.quantity,
-          total: it.unitPrice * it.quantity,
-          image: it.selectedColor?.image || it.product.image
-        };
-      }),
-      total: cartTotal,
-      subtotal: cartTotal,
-      status: 'pending',
-      paymentMethod: checkoutForm.paymentMethod === 'cod' ? 'Cash on Delivery' : 'mada',
-      paymentStatus: checkoutForm.paymentMethod === 'cod' ? 'Pending' : 'Paid',
-      source: 'Car Store Online',
-      customerNotes: checkoutForm.notes,
-      time: new Date().toLocaleTimeString('ar-SA'),
-    }, storeId);
+    const storeIdResolved = storeId || activeStore?.id || 'store-bleco';
+    const itemsPayload = cart.map((it) => {
+      const sp = it.specs as any;
+      const carDetail = sp
+        ? `[${sp.brandNameAr || sp.brand || ''} ${sp.model || ''} ${sp.year || ''} - ${sp.seatsLabelAr || it.selectedCoverage || ''} - ${it.selectedColor?.nameAr || ''}${sp.includeBundle ? ' + ملمع بلاكو' : ''}]`
+        : `(${it.selectedColor?.nameAr || 'بيج'} - ${it.selectedCoverage || ''})`;
+      return {
+        id: it.product.id,
+        sku: it.product.sku,
+        name: `${it.product.nameAr || it.product.name} ${carDetail}`.trim(),
+        price: it.unitPrice,
+        quantity: it.quantity,
+        total: it.unitPrice * it.quantity,
+        image: it.selectedColor?.image || it.product.image,
+      };
+    });
 
-    setOrderCompleteData({ orderNumber, total: cartTotal });
-    setCart([]);
-    setCheckoutOpen(false);
+    void (async () => {
+      try {
+        const persisted = await submitPublicStorefrontOrder(
+          storeIdResolved,
+          {
+            customerName: checkoutForm.name,
+            customerPhone: checkoutForm.phone,
+            customerEmail: `${checkoutForm.phone.replace(/[^0-9]/g, '')}@tanjeedmakkah.sa`,
+            deliveryLocation: `${checkoutForm.city} - ${checkoutForm.address}`,
+            total: cartTotal,
+            status: 'pending',
+            paymentMethod: checkoutForm.paymentMethod === 'cod' ? 'Cash on Delivery' : 'mada',
+            paymentStatus: checkoutForm.paymentMethod === 'cod' ? 'pending' : 'paid',
+            source: 'Car Store Online',
+            items: itemsPayload.map((i) => ({
+              id: i.id,
+              name: i.name,
+              quantity: i.quantity,
+              price: i.price,
+            })),
+          },
+          {
+            syncOrderFromApi,
+            addOrder,
+            toAddOrderPayload: () => ({
+              customerName: checkoutForm.name,
+              customerPhone: checkoutForm.phone,
+              customerEmail: `${checkoutForm.phone.replace(/[^0-9]/g, '')}@tanjeedmakkah.sa`,
+              deliveryLocation: `${checkoutForm.city} - ${checkoutForm.address}`,
+              itemsCount: cartCount,
+              items: itemsPayload,
+              total: cartTotal,
+              subtotal: cartTotal,
+              status: 'pending',
+              paymentMethod: checkoutForm.paymentMethod === 'cod' ? 'Cash on Delivery' : 'mada',
+              paymentStatus: checkoutForm.paymentMethod === 'cod' ? 'Pending' : 'Paid',
+              source: 'Car Store Online',
+              customerNotes: checkoutForm.notes,
+              time: new Date().toLocaleTimeString('ar-SA'),
+            }),
+          },
+        );
+        setOrderCompleteData({ orderNumber: persisted.orderNumber, total: cartTotal });
+      } catch {
+        alert(isAr ? 'تعذر إتمام الطلب. حاول مرة أخرى.' : 'Could not place order. Please try again.');
+        return;
+      }
+      setCart([]);
+      setCheckoutOpen(false);
+    })();
   };
 
   const storeDisplayName = isAr 

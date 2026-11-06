@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
+import { cartChoiceLine } from '../cartLine';
 import {
   CheckCircle2,
   Package,
@@ -35,7 +36,7 @@ export const ThankYouPage: React.FC = () => {
       productName: it.name,
       unitPrice: it.price || 0,
       quantity: it.quantity || 1,
-      image: it.image || '/src/assets/images/hibrew_h7a_flagship_machine.png',
+      image: it.image || '/images/coffee_hero_flagship_machine_1791218907782.jpg',
       selectedColor: { name: 'Standard', nameAr: 'قياسي', hex: '#333', image: it.image || '' },
       selectedStorage: { capacity: 'Standard', ram: '', priceDelta: 0 },
     })),
@@ -264,7 +265,10 @@ export const ThankYouPage: React.FC = () => {
                         {item.productName}
                       </h4>
                       <p className="text-[11px] text-neutral-500">
-                        {language === 'AR' && item.selectedColor.nameAr ? item.selectedColor.nameAr : item.selectedColor.name} · {item.selectedStorage.capacity}
+                        {cartChoiceLine(item, language === 'AR')}
+                        {'purchaseNotes' in item && item.purchaseNotes && item.purchaseNotes.length > 0
+                          ? ` · ${item.purchaseNotes.join(' · ')}`
+                          : ''}
                       </p>
                       <span className="text-[11px] text-neutral-400 font-mono">
                         {item.quantity} x {language === 'AR' ? `${item.unitPrice.toLocaleString()}.00 ر.س` : `SAR ${item.unitPrice.toLocaleString()}.00`}

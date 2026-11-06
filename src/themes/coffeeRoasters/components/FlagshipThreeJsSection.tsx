@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
-import { readAllThemeSettings } from '../../settings/themeSettingsStore';
+import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 import { PRODUCTS } from '../data/products';
 import { ChevronRight, ShoppingBag } from 'lucide-react';
 
@@ -299,16 +299,20 @@ export const FlagshipThreeJsSection: React.FC = () => {
 
   const themeSettings = useMemo(() => {
     try {
-      return readAllThemeSettings(activeStore?.id, activeStore);
+      if (!activeStore?.id) return null;
+      return resolveCoffeeThemeSettings(activeStore.id, activeStore);
     } catch {
       return null;
     }
   }, [activeStore, version]);
 
-  const configuredBanners = themeSettings?.banners?.banners;
-  const b0 = configuredBanners?.[0];
-  const b1 = configuredBanners?.[1];
-  const b2 = configuredBanners?.[2];
+  // Word C-FSB — featuredSectionBanners (NOT C-BAN `banners`)
+  const fsb = themeSettings?.featuredSectionBanners;
+  const configuredBanners = (fsb?.enabled !== false ? fsb?.banners : []) || [];
+  const activeBanners = configuredBanners.filter((b) => b.enabled !== false);
+  const b0 = activeBanners[0];
+  const b1 = activeBanners[1];
+  const b2 = activeBanners[2];
 
   const resolveImage = (img: string | undefined, fallback: string) => {
     if (!img) return fallback;
@@ -316,6 +320,22 @@ export const FlagshipThreeJsSection: React.FC = () => {
     if (lower.startsWith('http') || lower.startsWith('data:') || lower.startsWith('/')) return img;
     return fallback;
   };
+
+  const parsePrice = (raw?: string, fallback = 0) => {
+    const n = Number(String(raw || '').replace(/[^\d.]/g, ''));
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  };
+
+  const sectionTitle =
+    language === 'AR'
+      ? fsb?.titleAr || 'إصدارات الفئة الرائدة المتميزة'
+      : fsb?.titleEn || 'Featured HiBrew Flagships';
+  const sectionSub =
+    language === 'AR'
+      ? fsb?.subtitleAr || 'تصاميم استثنائية وهندسة دقيقة تمنحك استخلاصاً تجارياً فائق الجودة.'
+      : fsb?.subtitleEn || 'Cutting-edge engineering and bespoke aesthetics for the ultimate coffee experience.';
+
+  if (fsb?.enabled === false) return null;
 
   return (
     <section className="w-full max-w-[1360px] mx-auto px-4 lg:px-8 py-8 sm:py-16 space-y-8 sm:space-y-10 select-none overflow-hidden">
@@ -326,14 +346,12 @@ export const FlagshipThreeJsSection: React.FC = () => {
         <h2 className={`text-2xl sm:text-4xl font-extrabold text-neutral-900 text-center ${
           language === 'AR' ? 'leading-[1.38] tracking-normal' : 'leading-tight tracking-[-0.01em]'
         }`}>
-          {language === 'AR' ? 'إصدارات الفئة الرائدة المتميزة' : 'Featured HiBrew Flagships'}
+          {sectionTitle}
         </h2>
         <p className={`text-xs sm:text-sm text-neutral-500 max-w-2xl mx-auto ${
           language === 'AR' ? 'leading-relaxed' : 'leading-normal'
         }`}>
-          {language === 'AR'
-            ? 'تصاميم استثنائية وهندسة دقيقة تمنحك استخلاصاً تجارياً فائق الجودة.'
-            : 'Cutting-edge engineering and bespoke aesthetics for the ultimate coffee experience.'}
+          {sectionSub}
         </p>
       </div>
 
@@ -341,13 +359,13 @@ export const FlagshipThreeJsSection: React.FC = () => {
       {/* ROW 1: Saudi Cafe Dual-Boiler Flagship & Macro Crema                       */}
       {/* ========================================================================= */}
       <KeyProductRow
-        id={b0?.link?.replace('#', '') || "hb-h10a-dualboiler"}
-        title={b0?.title || "HiBrew Dual-Boiler 20-Bar Barista Pro"}
-        titleAr={b0?.title || "ماكينة إسبريسو هاي برو الاحترافية 20 بار دبل بويلر"}
-        price={1899}
+        id={b0?.productId || "hb-h10a-dualboiler"}
+        title={b0?.titleEn || "HiBrew Dual-Boiler 20-Bar Barista Pro"}
+        titleAr={b0?.titleAr || "ماكينة إسبريسو هاي برو الاحترافية 20 بار دبل بويلر"}
+        price={b0?.showPrice !== false ? parsePrice(b0?.price, 1899) : 1899}
         originalPrice={2299}
-        imgLeft={resolveImage(b0?.image, saudiCafeMachine)}
-        imgRight={baristaCremaMacro}
+        imgLeft={resolveImage(b0?.images?.[0], saudiCafeMachine)}
+        imgRight={resolveImage(b0?.images?.[1], baristaCremaMacro)}
         imgLeftAlt="Commercial Dual-Boiler Machine on Cafe Counter"
         imgRightAlt="Macro Golden Crema Bottomless Extraction"
         bgGradientClass="bg-gradient-to-br from-[#F4ECE1] to-[#EADFCF]"
@@ -359,13 +377,13 @@ export const FlagshipThreeJsSection: React.FC = () => {
       {/* ROW 2: Barista Milk Steaming & Precision Titanium Grinder G5             */}
       {/* ========================================================================= */}
       <KeyProductRow
-        id={b1?.link?.replace('#', '') || "hb-mill-g5-pro"}
-        title={b1?.title || "HiBrew Conical Burr Coffee Mill G5"}
-        titleAr={b1?.title || "مطحنة القهوة الكهربائية بتروس تيتانيوم G5"}
-        price={489}
+        id={b1?.productId || "hb-mill-g5-pro"}
+        title={b1?.titleEn || "HiBrew Conical Burr Coffee Mill G5"}
+        titleAr={b1?.titleAr || "مطحنة القهوة الكهربائية بتروس تيتانيوم G5"}
+        price={b1?.showPrice !== false ? parsePrice(b1?.price, 489) : 489}
         originalPrice={650}
-        imgLeft={resolveImage(b1?.image, baristaMilkSteaming)}
-        imgRight={baristaTampingShot}
+        imgLeft={resolveImage(b1?.images?.[0], baristaMilkSteaming)}
+        imgRight={resolveImage(b1?.images?.[1], baristaTampingShot)}
         imgLeftAlt="Barista Steaming Milk with Pitcher"
         imgRightAlt="Barista Tamping Ground Espresso into Portafilter"
         bgGradientClass="bg-gradient-to-br from-[#F8E2D8] to-[#EFCFC2]"
@@ -377,13 +395,13 @@ export const FlagshipThreeJsSection: React.FC = () => {
       {/* ROW 3: 58mm Naked Walnut Boltfilter & Artisan Collection                 */}
       {/* ========================================================================= */}
       <KeyProductRow
-        id={b2?.link?.replace('#', '') || "hb-boltfilter-58-naked"}
-        title={b2?.title || "58mm Naked Walnut Boltfilter"}
-        titleAr={b2?.title || "بورتافلتر مكشوف مقاس 58 ملم خشب الجوز"}
-        price={159}
+        id={b2?.productId || "hb-boltfilter-58-naked"}
+        title={b2?.titleEn || "58mm Naked Walnut Boltfilter"}
+        titleAr={b2?.titleAr || "بورتافلتر مكشوف مقاس 58 ملم خشب الجوز"}
+        price={b2?.showPrice !== false ? parsePrice(b2?.price, 159) : 159}
         originalPrice={220}
-        imgLeft={resolveImage(b2?.image, espressoWoodPitcher)}
-        imgRight={saudiCoffeeCollage}
+        imgLeft={resolveImage(b2?.images?.[0], espressoWoodPitcher)}
+        imgRight={resolveImage(b2?.images?.[1], saudiCoffeeCollage)}
         imgLeftAlt="Glass Espresso Mini Pitcher with Wooden Handle"
         imgRightAlt="Luxury Saudi Coffee Master Collection"
         bgGradientClass="bg-gradient-to-br from-[#E6ECE5] to-[#D5E0D4]"

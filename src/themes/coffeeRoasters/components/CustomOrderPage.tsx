@@ -1,6 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
+import {
+  resolveCoffeeThemeSettings,
+} from '../../settings/coffeeThemeDefaults';
+import { bi } from '../../settings/coffeeModularSettings';
 import { CustomCornerOrderSpecs } from '../types';
 import {
   Ruler,
@@ -387,7 +391,7 @@ const ACCESSORIES_LIST: AccessoryItem[] = [
     nameAr: 'شطاف أكواب احترافي مدمج (ستانلس ستيل 304)',
     unitPrice: 280,
     descriptionAr: 'شطاف ضغط عالي مع وصلات دخول المياه ومجرى تصريف مباشر مدمج بالسطح.',
-    image: './src/assets/images/coffee_barista_accessories_set_1791219198302.jpg'
+    image: '/images/coffee_barista_accessories_set_1791219198302.jpg'
   },
   {
     id: 'acc-knockbox',
@@ -395,7 +399,7 @@ const ACCESSORIES_LIST: AccessoryItem[] = [
     nameAr: 'صندوق نوك بوكس مدمج لمخلفات القهوة',
     unitPrice: 220,
     descriptionAr: 'وعاء مدمج بالسطح بقضيب مطاطي قوي لامتصاص صوت الطرق وسهولة التفريغ.',
-    image: './src/assets/images/hibrew_portafilter_isolated.jpg'
+    image: '/images/hibrew_portafilter_isolated.jpg'
   },
   {
     id: 'acc-faucet',
@@ -403,7 +407,7 @@ const ACCESSORIES_LIST: AccessoryItem[] = [
     nameAr: 'صنبور مياه باريستا مخصص للفلترة',
     unitPrice: 340,
     descriptionAr: 'صنبور ستانلس ستيل مطفي بمقبض تحكم دقيق متصل بأنظمة التناضح والفلترة.',
-    image: './src/assets/images/product_machine_silver_pro.png'
+    image: '/images/product_machine_silver_pro.png'
   },
   {
     id: 'acc-pump',
@@ -411,7 +415,7 @@ const ACCESSORIES_LIST: AccessoryItem[] = [
     nameAr: 'مضخة مياه أوتوماتيكية صامتة لجالون الماء',
     unitPrice: 460,
     descriptionAr: 'مضخة كهربائية هادئة 220V تزود ماكينة الإسبريسو بالماء المضغوط من الجالون تلقائياً.',
-    image: './src/assets/images/hibrew_espresso_isolated.jpg'
+    image: '/images/hibrew_espresso_isolated.jpg'
   },
   {
     id: 'acc-covers',
@@ -419,7 +423,7 @@ const ACCESSORIES_LIST: AccessoryItem[] = [
     nameAr: 'حصائر سيليكون حرارية وأغطية حماية للسطح',
     unitPrice: 120,
     descriptionAr: 'حصائر سميكة مقاومة للحرارة والخدش وانسكاب السوائل مع غطاء قماشي واقٍ.',
-    image: './src/assets/images/hibrew_scale_isolated.jpg'
+    image: '/images/hibrew_scale_isolated.jpg'
   },
   {
     id: 'acc-grips',
@@ -427,7 +431,7 @@ const ACCESSORIES_LIST: AccessoryItem[] = [
     nameAr: 'مقابض باريستا إضافية وحوامل بورتافلتر مغناطيسية',
     unitPrice: 150,
     descriptionAr: 'طقم مثبتات جدارية مغناطيسية أنيقة لتعليق البورتافلتر والمكبس والفرش.',
-    image: './src/assets/images/hibrew_barista_kit_isolated.jpg'
+    image: '/images/hibrew_barista_kit_isolated.jpg'
   }
 ];
 
@@ -435,21 +439,63 @@ export const CustomOrderPage: React.FC = () => {
   const { language, addCustomCornerToCart, navigateTo, showToast, storeIdentity } = useCart();
   const { activeStore } = useTenant();
   const isAr = language === 'AR';
+  const [settingsTick, setSettingsTick] = useState(0);
 
-  // Dynamic WhatsApp details from store owner settings
+  useEffect(() => {
+    const sync = () => setSettingsTick((n) => n + 1);
+    window.addEventListener('unityteck-theme-settings', sync);
+    return () => window.removeEventListener('unityteck-theme-settings', sync);
+  }, []);
+
+  const customOrder = useMemo(() => {
+    try {
+      if (!activeStore?.id) return null;
+      return resolveCoffeeThemeSettings(activeStore.id, activeStore)?.customOrder || null;
+    } catch {
+      return null;
+    }
+  }, [activeStore, settingsTick]);
+
+  const [extraFieldValues, setExtraFieldValues] = useState<Record<string, string>>({});
+  const customFields = (customOrder?.fields || []).filter((f) => f.enabled !== false);
+
+  // Dynamic WhatsApp — theme C-CPB number first, then store identity (no fake fallback)
   const rawWhatsAppPhone =
+    customOrder?.whatsappNumber ||
     storeIdentity?.whatsapp ||
     (activeStore as any)?.whatsapp ||
     storeIdentity?.phone ||
     activeStore?.phone ||
-    '+966549876543';
+    '';
 
-  let cleanWhatsAppPhone = rawWhatsAppPhone.replace(/\D/g, '') || '966549876543';
+  let cleanWhatsAppPhone = String(rawWhatsAppPhone || '').replace(/\D/g, '');
   if (cleanWhatsAppPhone.startsWith('05')) {
     cleanWhatsAppPhone = '966' + cleanWhatsAppPhone.substring(1);
   } else if (cleanWhatsAppPhone.startsWith('5') && cleanWhatsAppPhone.length === 9) {
     cleanWhatsAppPhone = '966' + cleanWhatsAppPhone;
   }
+
+  const pageTitle = bi(
+    language,
+    customOrder?.titleEn,
+    customOrder?.titleAr,
+    isAr ? 'تفصيل ركن القهوة حسب الطلب' : 'Custom Made / Tailor-Made Coffee Station',
+  );
+  const pageSubtitle = bi(
+    language,
+    customOrder?.subtitleEn,
+    customOrder?.subtitleAr,
+    isAr
+      ? 'صمّم ركن قهوتك المثالي بأدق المقاسات واختيارات الأخشاب والرخام الطبيعي والتقسيمات الداخلية مع حساب فوري للسعر أو طلب عرض سعر رسمي واستشارة مجانية.'
+      : 'Configure your bespoke coffee corner: exact dimensions in cm, solid MDF or Chipboard, sintered stone or natural marble, internal bays, and barista add-ons.',
+  );
+  const waCta = bi(
+    language,
+    customOrder?.ctaEn,
+    customOrder?.ctaAr,
+    isAr ? 'إرسال عبر واتساب' : 'Send on WhatsApp',
+  );
+  const waPrefix = bi(language, customOrder?.whatsappMessageEn, customOrder?.whatsappMessageAr);
 
   const dynamicStoreName = isAr
     ? storeIdentity?.storeName || activeStore?.nameAr || activeStore?.name || 'متجر القهوة'
@@ -764,6 +810,8 @@ export const CustomOrderPage: React.FC = () => {
 
   // Pre-filled WhatsApp link with full technical specifications
   const whatsappUrl = useMemo(() => {
+    if (!cleanWhatsAppPhone) return '';
+
     const textAr = `مرحباً ${dynamicStoreName} ☕️
 أرغب في الحصول على استشارة وعرض سعر لتفصيل ركن قهوة مخصص بالمواصفات التالية:
 • رقم الطلب: ${generatedRfqId || 'طلب جديد'}
@@ -797,12 +845,24 @@ ${pricingBreakdown.total ? `• Estimated Total: ${pricingBreakdown.total.toLoca
 
 Please contact me to confirm the details. Thank you!`;
 
-    const message = isAr ? textAr : textEn;
+    const extras = customFields
+      .map((f) => {
+        const val = (extraFieldValues[f.id] || '').trim();
+        if (!val) return '';
+        const label = bi(language, f.labelEn, f.labelAr);
+        return `• ${label}: ${val}`;
+      })
+      .filter(Boolean)
+      .join('\n');
+
+    const body = isAr ? textAr : textEn;
+    const message = [waPrefix, body, extras].filter(Boolean).join('\n\n');
     return `https://wa.me/${cleanWhatsAppPhone}?text=${encodeURIComponent(message)}`;
   }, [
     dynamicStoreName,
     cleanWhatsAppPhone,
     isAr,
+    language,
     width,
     depth,
     height,
@@ -812,7 +872,10 @@ Please contact me to confirm the details. Thank you!`;
     rfqPhone,
     rfqCity,
     generatedRfqId,
-    pricingBreakdown.total
+    pricingBreakdown.total,
+    waPrefix,
+    customFields,
+    extraFieldValues,
   ]);
 
   return (
@@ -837,7 +900,7 @@ Please contact me to confirm the details. Thank you!`;
             </button>
             <span>/</span>
             <span className="text-black font-bold">
-              {language === 'AR' ? 'تفصيل حسب الطلب' : 'Custom Made'}
+              {pageTitle}
             </span>
           </div>
 
@@ -848,12 +911,10 @@ Please contact me to confirm the details. Thank you!`;
                 <span>{language === 'AR' ? 'التخطيط - التصميم - التنفيذ' : 'Planning - Design - Execution'}</span>
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-neutral-950 font-sans">
-                {language === 'AR' ? 'تفصيل ركن القهوة حسب الطلب' : 'Custom Made / Tailor-Made Coffee Station'}
+                {pageTitle}
               </h1>
               <p className="text-sm sm:text-base text-neutral-600 leading-relaxed">
-                {language === 'AR'
-                  ? 'صمّم ركن قهوتك المثالي بأدق المقاسات واختيارات الأخشاب والرخام الطبيعي والتقسيمات الداخلية مع حساب فوري للسعر أو طلب عرض سعر رسمي واستشارة مجانية.'
-                  : 'Configure your bespoke coffee corner: exact dimensions in cm, solid MDF or Chipboard, sintered stone or natural marble, internal bays, and barista add-ons.'}
+                {pageSubtitle}
               </p>
             </div>
 
@@ -1988,6 +2049,32 @@ Please contact me to confirm the details. Thank you!`;
                 })}
               </div>
 
+              {/* Theme C-CPB custom fields from Customize Themes */}
+              {customFields.length > 0 ? (
+                <div className="space-y-3 pt-2 border-t border-neutral-100">
+                  <p className="text-xs font-bold text-neutral-800">
+                    {isAr ? 'حقول الطلب المخصص' : 'Custom order fields'}
+                  </p>
+                  {customFields.map((f) => (
+                    <div key={f.id} className="space-y-1.5">
+                      <label className="text-xs font-bold text-neutral-800 block">
+                        {bi(language, f.labelEn, f.labelAr)}
+                        {f.required ? <span className="text-rose-500"> *</span> : null}
+                      </label>
+                      <input
+                        type={f.type === 'number' ? 'number' : 'text'}
+                        required={f.required}
+                        value={extraFieldValues[f.id] || ''}
+                        onChange={(e) =>
+                          setExtraFieldValues((prev) => ({ ...prev, [f.id]: e.target.value }))
+                        }
+                        className="w-full bg-neutral-50 border border-neutral-300 rounded-xl px-3.5 py-2.5 text-xs text-neutral-900 focus:outline-hidden focus:border-black"
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
               {/* General Notes Field */}
               <div className="space-y-2 pt-2 border-t border-neutral-100">
                 <label className="text-xs font-bold text-neutral-800 block">
@@ -2293,16 +2380,22 @@ Please contact me to confirm the details. Thank you!`;
                   </button>
                 )}
 
-                {/* Direct WhatsApp Consultation Button */}
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-2xl transition-colors flex items-center justify-center gap-2 border border-emerald-200/60"
-                >
-                  <MessageCircle className="w-4 h-4 text-emerald-600" />
-                  <span>{language === 'AR' ? 'استشارة المهندس عبر واتساب (فوري)' : 'Chat with Engineer via WhatsApp'}</span>
-                </a>
+                {/* Direct WhatsApp Consultation Button — only when store number is configured */}
+                {whatsappUrl ? (
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-2xl transition-colors flex items-center justify-center gap-2 border border-emerald-200/60"
+                  >
+                    <MessageCircle className="w-4 h-4 text-emerald-600" />
+                    <span>{waCta}</span>
+                  </a>
+                ) : (
+                  <div className="w-full py-2.5 text-center text-xs text-neutral-400 border border-dashed border-neutral-200 rounded-2xl">
+                    {language === 'AR' ? 'رقم واتساب غير مُعدّ بعد' : 'WhatsApp number not configured yet'}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2373,14 +2466,32 @@ Please contact me to confirm the details. Thank you!`;
                       onChange={e => setRfqCity(e.target.value)}
                       className="w-full bg-neutral-50 border border-neutral-300 rounded-xl p-3 text-xs text-neutral-900 focus:outline-hidden cursor-pointer"
                     >
-                      <option value="الرياض (Riyadh)">الرياض (Riyadh)</option>
-                      <option value="جدة (Jeddah)">جدة (Jeddah)</option>
-                      <option value="الدمام والخبر (Dammam & Khobar)">الدمام والخبر (Dammam & Khobar)</option>
-                      <option value="مكة المكرمة (Mecca)">مكة المكرمة (Mecca)</option>
-                      <option value="المدينة المنورة (Medina)">المدينة المنورة (Medina)</option>
-                      <option value="القصيم (Qassim)">القصيم (Qassim)</option>
-                      <option value="أبها وخميس مشيط (Abha)">أبها وخميس مشيط (Abha)</option>
-                      <option value="مدينة أخرى بالمملكة (Other KSA City)">مدينة أخرى بالمملكة (Other KSA City)</option>
+                      {(language === 'AR'
+                        ? [
+                            'الرياض',
+                            'جدة',
+                            'الدمام والخبر',
+                            'مكة المكرمة',
+                            'المدينة المنورة',
+                            'القصيم',
+                            'أبها وخميس مشيط',
+                            'مدينة أخرى بالمملكة',
+                          ]
+                        : [
+                            'Riyadh',
+                            'Jeddah',
+                            'Dammam & Khobar',
+                            'Makkah',
+                            'Medina',
+                            'Qassim',
+                            'Abha',
+                            'Other KSA City',
+                          ]
+                      ).map((city) => (
+                        <option key={city} value={city}>
+                          {city}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -2433,6 +2544,7 @@ Please contact me to confirm the details. Thank you!`;
                 </div>
 
                 <div className="pt-4 flex flex-col sm:flex-row gap-3">
+                  {whatsappUrl ? (
                   <a
                     href={whatsappUrl}
                     target="_blank"
@@ -2440,8 +2552,9 @@ Please contact me to confirm the details. Thank you!`;
                     className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2"
                   >
                     <MessageCircle className="w-4 h-4" />
-                    <span>{language === 'AR' ? 'فتح المحادثة عبر واتساب الآن' : 'Open WhatsApp Chat'}</span>
+                    <span>{waCta}</span>
                   </a>
+                  ) : null}
 
                   <button
                     type="button"

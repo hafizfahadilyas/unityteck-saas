@@ -4,6 +4,15 @@ export type MediaProcessingStatus = 'ready' | 'uploading' | 'optimizing' | 'fail
 export type MediaOptimizationStatus = 'optimized' | 'original' | 'in_progress';
 export type MediaSource = 'upload' | 'gdrive' | 'url' | 'seed';
 
+export interface MediaFolderRecord {
+  id: string;
+  storeId: string;
+  name: string;
+  slug: string;
+  parentId?: string | null;
+  createdAt?: string;
+}
+
 export interface MediaUsage {
   id: string;
   type: 

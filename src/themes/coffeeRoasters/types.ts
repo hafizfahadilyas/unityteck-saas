@@ -66,7 +66,8 @@ export interface Product {
   nameAr?: string;
   tagline: string;
   taglineAr?: string;
-  category: CategoryId;
+  category: CategoryId | string;
+  categoryAr?: string;
   basePrice: number;
   originalPrice?: number;
   badge?: string;
@@ -87,6 +88,60 @@ export interface Product {
   sallaUrl?: string;
   specComparisonImage?: string;
   specComparisonImageAr?: string;
+  videoUrl?: string;
+  customFields?: Array<{
+    id?: string;
+    name?: string;
+    description?: string;
+    imageUrl?: string;
+    videoUrl?: string;
+    contentEn?: string;
+    contentAr?: string;
+    value?: string;
+    hidden?: boolean;
+    type?: string;
+    required?: boolean;
+    extraPrice?: number;
+    options?: string[];
+    conditions?: Array<{ fieldId: string; operator: string; value?: string }>;
+    conditionJoin?: 'AND' | 'OR';
+  }>;
+  productOptions?: Array<{
+    id?: string;
+    name: string;
+    type?: string;
+    visible?: boolean;
+    values: Array<
+      | string
+      | {
+          id?: string;
+          label: string;
+          colorHex?: string;
+          imageUrl?: string;
+          selected?: boolean;
+          price?: number | null;
+          salePrice?: number | null;
+        }
+    >;
+  }>;
+  variations?: Array<{
+    id: string;
+    options: Record<string, string>;
+    price: number | null;
+    compareAtPrice?: number | null;
+    stock: number;
+    imageUrl: string | null;
+    isActive: boolean;
+    unlimitedStock?: boolean;
+    sku?: string;
+  }>;
+  conditionalRules?: Array<{
+    optionName: string;
+    operator: string;
+    value: string;
+    action: 'show' | 'hide';
+    targetFieldNames: string[];
+  }>;
 }
 
 export interface CustomCornerOrderSpecs {
@@ -159,6 +214,8 @@ export interface CartItem {
   selectedWarranty?: WarrantyOption;
   selectedBundles?: BundleOption[];
   customCornerSpecs?: CustomCornerOrderSpecs;
+  optionSummary?: string;
+  purchaseNotes?: string[];
 }
 
 export interface HonorBannerEvent {

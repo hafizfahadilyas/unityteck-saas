@@ -57,6 +57,7 @@ import {
   BarChart3,
   FileText,
   Palette,
+  Paintbrush,
   Files,
   BookOpen,
   Sparkles,
@@ -106,6 +107,7 @@ const renderIcon = (name: string, className = 'w-5 h-5') => {
     case 'FileText': return <FileText className={className} />;
     case 'Search': return <Search className={className} />;
     case 'Palette': return <Palette className={className} />;
+    case 'Paintbrush': return <Paintbrush className={className} />;
     case 'Files': return <Files className={className} />;
     case 'BookOpen': return <BookOpen className={className} />;
     case 'Sparkles': return <Sparkles className={className} />;

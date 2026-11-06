@@ -9,7 +9,7 @@
 
 import { DEFAULT_HEADER_SETTINGS } from '../themes/settings/headerCustomSettings';
 import { isApiEnabled } from '../api/client';
-import { saveBuilderLayoutApi } from '../api/tenantApi';
+import { fetchBuilderLayoutApi, saveBuilderLayoutApi } from '../api/tenantApi';
 
 export interface ThemeBlockElement {
   id: string;
@@ -41,6 +41,42 @@ export const OBSOLETE_FLORA_BLOCK_IDS = [
   'newsletter',
 ];
 
+/** Flower / Flora-luxe block types that must never stay on coffee page-builder layouts. */
+export const COFFEE_FORBIDDEN_FLORA_TYPES = [
+  'discounted_bouquets_3d',
+  'product_section_natural',
+  'product_section_chocolate',
+  'product_section_luxury',
+  'product_section_cake',
+  'product_section_vases',
+  'product_section_mawajeeb',
+  'sec_natural_flowers',
+  'sec_chocolate_roses',
+  'sec_luxury_gifts',
+  'sec_cake_roses',
+  'sec_flower_vases',
+  'sec_mawajeeb',
+  'circle_categories',
+  'best_sellers',
+  'trending_this_week',
+  'magazine_section',
+  'occasion_why_us',
+  'custom_gift_banner',
+  'promo_banners_pair',
+  'marquee_banner',
+  'faq',
+  /** Retired HiBrew C-BAN stacked promo strip (Barista Pro / G5 / Oak) */
+  'banners',
+];
+
+/** Every canvas block must have a settings object (coffee/car presets often omitted it). */
+function withDefaultSettings(blocks: ThemeBlockElement[]): ThemeBlockElement[] {
+  return blocks.map((b) => ({
+    ...b,
+    settings: b.settings && typeof b.settings === 'object' ? b.settings : {},
+  }));
+}
+
 /**
  * Generate canonical, production-accurate initial blocks for any theme.
  * Exactly matches https://giftshop-sa.com/ (18 active sections on homepage).
@@ -60,7 +96,7 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
 
   // CAR / TRANSPORT THEME
   if (isCar) {
-    return [
+    return withDefaultSettings([
       {
         id: 'header',
         type: 'header',
@@ -77,6 +113,7 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
         titleAr: 'سلايدر خدمات السيارات والأسطول',
         visible: true,
         templateStyle: 'hero-transport-motion',
+        settings: {},
       },
       {
         id: 'store_features_bar',
@@ -85,6 +122,7 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
         titleAr: 'مميزات وضمانات خدمات السيارات',
         visible: true,
         templateStyle: 'features-transport',
+        settings: {},
       },
       {
         id: 'circle_categories',
@@ -93,6 +131,7 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
         titleAr: 'أقسام وتصنيفات خدمات السيارات',
         visible: true,
         templateStyle: 'cats-transport',
+        settings: {},
       },
       {
         id: 'best_sellers',
@@ -101,6 +140,7 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
         titleAr: 'الخدمات الأكثر طلباً',
         visible: true,
         templateStyle: 'bestsellers-transport',
+        settings: {},
       },
       {
         id: 'promo_countdown_banner',
@@ -109,6 +149,7 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
         titleAr: 'عرض خاص على صيانة الأسطول',
         visible: true,
         templateStyle: 'countdown-urgent-amber',
+        settings: {},
       },
       {
         id: 'footer',
@@ -117,13 +158,23 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
         titleAr: `تذييل المتجر (${storeNameAr})`,
         visible: true,
         templateStyle: 'footer-transport',
+        settings: {},
       },
-    ];
+    ]);
   }
 
-  // COFFEE ROASTERY THEME
+  // COFFEE ROASTERY THEME — Word doc C-ANN…C-REV (HiBrew only; never flower block types)
   if (isCoffee) {
-    return [
+    return withDefaultSettings([
+      {
+        id: 'announcement_bar',
+        type: 'announcement_bar',
+        titleEn: 'Promotional Announcements',
+        titleAr: 'الإعلانات الترويجية',
+        visible: true,
+        templateStyle: 'ann-rotate-dual',
+        settings: { contentWidth: 'full', isFullWidth: true },
+      },
       {
         id: 'header',
         type: 'header',
@@ -131,111 +182,122 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
         titleAr: `رأس المحمصة والقائمة (${storeNameAr})`,
         visible: true,
         templateStyle: 'header-coffee-artisan',
-        settings: { bgColor: brandBg, textColor: '#FAF9F5', accentColor: brandAccent, stickyHeader: true },
+        settings: {
+          bgColor: brandBg,
+          textColor: '#FAF9F5',
+          accentColor: brandAccent,
+          stickyHeader: true,
+          contentWidth: 'full',
+          isFullWidth: true,
+        },
       },
       {
-        id: 'hero_slider',
-        type: 'hero_slider',
-        titleEn: 'Specialty Coffee Roasters - 3D Motion Hero Slider',
-        titleAr: 'سلايدر محاصيل القهوة المختصة وأدوات الباريستا',
+        id: 'hero_banners',
+        type: 'hero_banners',
+        titleEn: 'Hero Banners',
+        titleAr: 'بانرات الواجهة',
         visible: true,
         templateStyle: 'hero-3d-motion',
+        settings: { contentWidth: 'full', isFullWidth: true },
       },
       {
-        id: 'marquee_banner',
-        type: 'marquee_banner',
-        titleEn: 'Fresh Specialty Beans · Barista Tools · Express KSA Delivery',
-        titleAr: 'محاصيل بن فاخرة طازجة التحميص · أدوات باريستا احترافية · شحن سريع',
+        id: 'featured_categories_products',
+        type: 'featured_categories_products',
+        titleEn: 'Featured Categories & Products',
+        titleAr: 'التصنيفات والمنتجات المميزة',
         visible: true,
-        templateStyle: 'marquee-pulsing-gold',
+        templateStyle: 'cats-products-grid',
+        settings: {},
+      },
+      {
+        id: 'featured_section_banners',
+        type: 'featured_section_banners',
+        titleEn: 'Featured Section Banners',
+        titleAr: 'بانرات القسم المميز',
+        visible: true,
+        templateStyle: 'flagship-dual',
+        settings: {},
+      },
+      {
+        id: 'featured_products',
+        type: 'featured_products',
+        titleEn: 'Featured Products Section',
+        titleAr: 'قسم المنتجات المميزة',
+        visible: true,
+        templateStyle: 'featured-tabs',
+        settings: {},
+      },
+      {
+        id: 'image_banners',
+        type: 'image_banners',
+        titleEn: 'Image Banner Section',
+        titleAr: 'قسم بانرات الصور',
+        visible: true,
+        templateStyle: 'img-banners-3col',
+        settings: {},
       },
       {
         id: 'store_features_bar',
         type: 'store_features_bar',
-        titleEn: 'Roastery Features & Express Delivery Bar',
-        titleAr: 'مميزات المحمصة الحرفية والشحن السريع',
+        titleEn: 'Feature Icons Section',
+        titleAr: 'قسم أيقونات المميزات',
         visible: true,
-        templateStyle: 'features-4col-pills',
+        templateStyle: 'features-icons-row',
+        settings: {},
       },
       {
-        id: 'circle_categories',
-        type: 'circle_categories',
-        titleEn: 'Coffee Collections (Top 6)',
-        titleAr: 'مجموعات محاصيل القهوة وأدوات التحضير',
+        id: 'exclusive_benefits',
+        type: 'exclusive_benefits',
+        titleEn: 'Exclusive Benefits',
+        titleAr: 'المزايا الحصرية',
         visible: true,
-        templateStyle: 'cats-gold-rings',
+        templateStyle: 'perks-row',
+        settings: {},
       },
       {
-        id: 'best_sellers',
-        type: 'best_sellers',
-        titleEn: 'Best Selling Specialty Beans',
-        titleAr: 'محاصيل البن الأكثر طلباً ومبيعاً',
+        id: 'product_carousel',
+        type: 'product_carousel',
+        titleEn: 'Product Carousel Section',
+        titleAr: 'كاروسيل المنتجات',
         visible: true,
-        templateStyle: 'bestsellers-4cards',
+        templateStyle: 'carousel-machines',
+        settings: {},
       },
       {
-        id: 'discounted_bouquets_3d',
-        type: 'discounted_bouquets_3d',
-        titleEn: 'Specialty Beans & Roaster Bundles (3D Gallery)',
-        titleAr: 'معرض محاصيل البن المختارة وعروض الباريستا (3D)',
+        id: 'product_carousel_banner',
+        type: 'product_carousel_banner',
+        titleEn: 'Product Carousel + Banner',
+        titleAr: 'كاروسيل مع بانر',
         visible: true,
-        templateStyle: 'prod-3d-tilt-slider',
+        templateStyle: 'carousel-plus-banner',
+        settings: {},
       },
       {
-        id: 'sec_natural_flowers',
-        type: 'product_section_natural',
-        titleEn: 'Single Origin Specialty Coffee Beans',
-        titleAr: 'محاصيل البن الفاخرة (سنجل أوريجن)',
+        id: 'newsletter',
+        type: 'newsletter',
+        titleEn: 'Newsletter & Discount Coupon Sign-up',
+        titleAr: 'النشرة وكوبون الخصم',
         visible: true,
-        templateStyle: 'prod-4col-luxury',
+        templateStyle: 'newsletter-hibrew',
+        settings: {},
       },
       {
-        id: 'sec_chocolate_roses',
-        type: 'product_section_chocolate',
-        titleEn: 'Signature Micro-lots & Reserve Roasts',
-        titleAr: 'محاصيل مميزة وميكرولوت نادر',
+        id: 'custom_order',
+        type: 'custom_order',
+        titleEn: 'Custom Product Builder',
+        titleAr: 'منشئ المنتج المخصص',
         visible: true,
-        templateStyle: 'prod-4col-luxury',
-      },
-      {
-        id: 'sec_luxury_gifts',
-        type: 'product_section_luxury',
-        titleEn: 'Espresso Machines & Commercial Grinders',
-        titleAr: 'مكائن الإسبريسو والمطاحن الاحترافية',
-        visible: true,
-        templateStyle: 'prod-4col-luxury',
-      },
-      {
-        id: 'trending_this_week',
-        type: 'trending_this_week',
-        titleEn: 'Trending Coffee Blends This Week',
-        titleAr: 'المحاصيل الأكثر رواجاً هذا الأسبوع',
-        visible: true,
-        templateStyle: 'trending-carousel',
+        templateStyle: 'custom-order-wa',
+        settings: {},
       },
       {
         id: 'reviews',
         type: 'reviews',
-        titleEn: 'Verified Coffee Lovers Testimonials',
-        titleAr: 'تقييمات وتجارب عشاق القهوة الموثقة',
+        titleEn: 'Customer Reviews',
+        titleAr: 'تقييمات العملاء',
         visible: true,
         templateStyle: 'reviews-verified-slider',
-      },
-      {
-        id: 'faq',
-        type: 'faq',
-        titleEn: 'Frequently Asked Questions',
-        titleAr: 'الأسئلة الشائعة والأجوبة الفورية',
-        visible: true,
-        templateStyle: 'faq-accordion-emerald',
-      },
-      {
-        id: 'magazine_section',
-        type: 'magazine_section',
-        titleEn: 'Coffee Roasting & Brewing Articles',
-        titleAr: 'مقالات وأسرار تحضير القهوة المختصة',
-        visible: true,
-        templateStyle: 'mag-editorial-3col',
+        settings: {},
       },
       {
         id: 'footer',
@@ -243,14 +305,15 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
         titleEn: `Store Footer (${storeNameEn})`,
         titleAr: `تذييل المتجر (${storeNameAr})`,
         visible: true,
-        templateStyle: 'footer-royal-emerald',
+        templateStyle: 'footer-hibrew',
+        settings: { contentWidth: 'full', isFullWidth: true },
       },
-    ];
+    ]);
   }
 
   // DEFAULT FLORA-LUXE (HADAYA MAKKAH FLOWERS)
   // EXACT MATCH TO LIVE: https://giftshop-sa.com/ (18 ACTIVE SECTIONS)
-  return [
+  return withDefaultSettings([
     {
       id: 'header',
       type: 'header',
@@ -470,7 +533,7 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
       templateStyle: 'footer-royal-emerald',
       settings: {},
     },
-  ];
+  ]);
 }
 
 export interface GetBlocksOptions {
@@ -491,7 +554,7 @@ export function getLiveOrStoredBlocks(
   options?: GetBlocksOptions
 ): ThemeBlockElement[] {
   const canonical = createCanonicalBlocks(themeId, store);
-  if (typeof localStorage === 'undefined') return canonical;
+  if (typeof localStorage === 'undefined') return withDefaultSettings(canonical);
 
   const pubKey = `selia_builder_published_${storeId}_${themeId}`;
   const draftKey = `selia_builder_draft_${storeId}_${themeId}`;
@@ -501,12 +564,44 @@ export function getLiveOrStoredBlocks(
   // Only builder should access draft data; storefronts strictly consume published blocks
   const raw = options?.forBuilderDraft ? (rawDraft || rawPub) : rawPub;
 
-  if (!raw) return canonical;
-
+  if (!raw) return withDefaultSettings(canonical);
   try {
     const parsed = JSON.parse(raw);
     const candidateBlocks: any[] = Array.isArray(parsed) ? parsed : parsed.blocks || [];
-    if (!candidateBlocks || candidateBlocks.length === 0) return canonical;
+    if (!candidateBlocks || candidateBlocks.length === 0) return withDefaultSettings(canonical);
+
+    const isCoffeeLayout =
+      (themeId && themeId.includes('coffee')) || store?.id === 'store-coffee';
+
+    // Coffee: if draft/publish still carries flower Flora blocks → reset to HiBrew Word canonical
+    if (isCoffeeLayout) {
+      const hasFlowerLeak = candidateBlocks.some(
+        (b) =>
+          COFFEE_FORBIDDEN_FLORA_TYPES.includes(b.type) ||
+          COFFEE_FORBIDDEN_FLORA_TYPES.includes(b.id) ||
+          /floral|bouquet|roses|flora|ورد|باقات/i.test(
+            `${b.titleEn || ''} ${b.titleAr || ''} ${b.templateStyle || ''}`,
+          ),
+      );
+      if (hasFlowerLeak) {
+        try {
+          const resetPayload = {
+            themeId,
+            blocks: canonical,
+            updatedAt: new Date().toISOString(),
+            healedFrom: 'coffee-flora-leak',
+          };
+          if (options?.forBuilderDraft) {
+            localStorage.setItem(draftKey, JSON.stringify(resetPayload));
+          } else {
+            localStorage.setItem(pubKey, JSON.stringify(resetPayload));
+          }
+        } catch {
+          /* ignore */
+        }
+        return withDefaultSettings(canonical);
+      }
+    }
 
     // Self-heal and purge obsolete blocks that were removed from the live site
     if (themeId === 'theme-flora-luxe' || !themeId.includes('coffee')) {
@@ -538,24 +633,26 @@ export function getLiveOrStoredBlocks(
           }
         } catch {}
 
-        return merged;
+        return withDefaultSettings(merged);
       }
     }
 
-    return candidateBlocks.map((b) => ({
-      id: b.id || `block_${Date.now()}_${Math.random()}`,
-      type: b.type || 'generic',
-      titleEn: b.titleEn || 'Section',
-      titleAr: b.titleAr || 'قسم',
-      visible: b.visible !== false,
-      templateStyle: b.templateStyle || 'tpl-default',
-      settings: b.settings || {},
-      customHtml: b.customHtml || '',
-      customCss: b.customCss || '',
-      customJs: b.customJs || '',
-    }));
+    return withDefaultSettings(
+      candidateBlocks.map((b) => ({
+        id: b.id || `block_${Date.now()}_${Math.random()}`,
+        type: b.type || 'generic',
+        titleEn: b.titleEn || 'Section',
+        titleAr: b.titleAr || 'قسم',
+        visible: b.visible !== false,
+        templateStyle: b.templateStyle || 'tpl-default',
+        settings: b.settings || {},
+        customHtml: b.customHtml || '',
+        customCss: b.customCss || '',
+        customJs: b.customJs || '',
+      })),
+    );
   } catch {
-    return canonical;
+    return withDefaultSettings(canonical);
   }
 }
 
@@ -613,6 +710,46 @@ export function saveThemeBlocks(
       });
     }
   } catch {}
+}
+
+/**
+ * Builder open: MySQL draft is the source of truth for this store_id.
+ * localStorage is written only after that read succeeds.
+ * Empty API draft clears this store's cache and returns the canonical layout.
+ * Returns null when the API is off or the request fails (caller keeps current state).
+ */
+export async function loadBuilderDraftFromApi(
+  storeId: string,
+  themeId: string,
+  store?: any,
+): Promise<ThemeBlockElement[] | null> {
+  if (!isApiEnabled() || !storeId) return null;
+
+  const res = await fetchBuilderLayoutApi(storeId);
+  const rawBlocks = Array.isArray(res?.blocks) ? res.blocks : [];
+  const draftKey = `selia_builder_draft_${storeId}_${themeId}`;
+
+  if (typeof localStorage !== 'undefined') {
+    if (rawBlocks.length === 0) {
+      localStorage.removeItem(draftKey);
+    } else {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          themeId,
+          blocks: rawBlocks,
+          updatedAt: res?.updated_at || new Date().toISOString(),
+          source: 'api',
+        }),
+      );
+    }
+  }
+
+  if (rawBlocks.length === 0) {
+    return createCanonicalBlocks(themeId, store);
+  }
+
+  return getLiveOrStoredBlocks(storeId, themeId, store, { forBuilderDraft: true });
 }
 
 /**

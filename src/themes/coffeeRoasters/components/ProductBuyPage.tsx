@@ -34,6 +34,17 @@ import {
 } from 'lucide-react';
 import { TabbyIcon, TamaraIcon, MadaIcon, ApplePayIcon, VisaIcon, MastercardIcon } from './PaymentIcons';
 import { ProductComparisonSection } from './ProductComparisonSection';
+import { ProductDynamicPurchase } from '../../../components/storefront/ProductDynamicPurchase';
+import {
+  customFieldsExtra,
+  initialOptionSelection,
+  missingRequiredField,
+  purchaseNotes,
+  resolveSelectionPrice,
+  visibleProductOptions,
+  type FieldValueMap,
+} from '../../../utils/storefrontPurchase';
+import { optionValuesList } from '../../../utils/productVariants';
 import baristaKitImg from '../assets/images/hibrew_barista_kit_isolated.jpg';
 import scaleImg from '../assets/images/hibrew_scale_isolated.jpg';
 import specInfographicImg from '../assets/images/hibrew_specs_comparison_infographic.png';
@@ -43,11 +54,8 @@ interface ProductBuyPageProps {
 }
 
 export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false }) => {
-  const { selectedProduct, addToCart, triggerFlyToCart, navigateTo, goBack, language } = useCart();
+  const { selectedProduct, addToCart, triggerFlyToCart, navigateTo, goBack, language, showToast } = useCart();
   const product = selectedProduct;
-
-  const categoryObj = CATEGORIES.find(c => c.id === product.category);
-  const categoryLabel = language === 'AR' ? (categoryObj?.nameAr || 'مكائن القهوة') : (categoryObj?.name || 'Coffee Machines');
 
   type BuyTabType = 'configure' | 'bundles' | 'features' | 'specs' | 'reviews' | 'faq';
   const [activeBuyTab, setActiveBuyTab] = useState<BuyTabType>('configure');
@@ -61,6 +69,8 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   const [selectedBundles, setSelectedBundles] = useState<BundleOption[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [optionPick, setOptionPick] = useState<Record<string, string>>({});
+  const [fieldValues, setFieldValues] = useState<FieldValueMap>({});
 
   // Comparison banner image directly from product entity (API / Database-backed)
   const customSpecImg = useMemo(() => {
@@ -79,8 +89,10 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
       setSelectedWarranty(undefined);
       setActiveImageIndex(0);
       setQuantity(1);
+      setOptionPick(initialOptionSelection(product.productOptions as never, product.variations as never));
+      setFieldValues({});
     }
-  }, [product?.id, product?.colors, product?.images, (product as any)?.image]);
+  }, [product?.id]);
 
   // Glass Zoom Magnifier State (Screenshot 2)
   const [isHoveringImage, setIsHoveringImage] = useState(false);
@@ -165,39 +177,79 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   ]);
 
   // Stable gallery images: all product colors first in fixed order, followed by product images
+  const productColors = product?.colors || [];
+  const productImages = product?.images || [];
   const candidateImages = [
-    ...(product.colors || []).map(c => c.image),
-    ...(product.images || []).filter(img => !product.colors?.some(col => col.image === img)),
+    ...productColors.map(c => c.image),
+    ...productImages.filter(img => !productColors.some(col => col.image === img)),
   ].filter(Boolean) as string[];
 
   // Fallback to product.image or flagship PNG if empty
   if (candidateImages.length === 0) {
-    if ((product as any).image) {
+    if ((product as any)?.image) {
       candidateImages.push((product as any).image);
     } else {
-      candidateImages.push('/src/assets/images/hibrew_h7a_flagship_machine.png');
+      candidateImages.push('/images/hibrew_h7a_flagship_machine.png');
     }
   }
 
   const allImages = Array.from(new Set(candidateImages));
   const displayThumbnails = allImages.slice(0, 5);
 
-  const currentDisplayImage = allImages[activeImageIndex] || selectedColor?.image || product.images[0];
+  const liveOptions = useMemo(
+    () => visibleProductOptions(product?.productOptions as never),
+    [product?.productOptions],
+  );
+  const useDynamicOptions = liveOptions.length > 0;
+  const resolvedPick = useMemo(() => {
+    if (!product || !useDynamicOptions) return null;
+    return resolveSelectionPrice(
+      Number(product.basePrice) || 0,
+      liveOptions,
+      optionPick,
+      product.variations as never,
+    );
+  }, [product, useDynamicOptions, liveOptions, optionPick]);
+  const purchaseFields = (product?.customFields || []).filter(
+    (field) => field && !field.hidden && !String(field.id || '').startsWith('catalog-spec-'),
+  );
+  const hasCustomFields = purchaseFields.length > 0;
+  const fieldExtra = useMemo(
+    () =>
+      customFieldsExtra(
+        purchaseFields as never,
+        fieldValues,
+        product?.conditionalRules as never,
+        optionPick,
+      ),
+    [purchaseFields, product?.conditionalRules, fieldValues, optionPick],
+  );
 
-  const thumbnailFallbackDeltas = [0, 50, 90, 130, 170];
-  const colorOrImagePriceDelta =
-    activeImageIndex < product.colors.length
-      ? (selectedColor?.priceDelta ?? product.colors[activeImageIndex]?.priceDelta ?? thumbnailFallbackDeltas[activeImageIndex] ?? activeImageIndex * 45)
-      : (thumbnailFallbackDeltas[activeImageIndex] ?? activeImageIndex * 45);
+  const currentDisplayImage =
+    (useDynamicOptions && resolvedPick?.image) ||
+    allImages[activeImageIndex] ||
+    selectedColor?.image ||
+    productImages[0];
 
-  const extraPrice = colorOrImagePriceDelta +
-    (selectedStorage?.priceDelta || 0) +
-    (selectedWarranty ? selectedWarranty.price : 0) +
-    selectedBundles.reduce((s, b) => s + b.price, 0);
+  const colorOrImagePriceDelta = useDynamicOptions
+    ? 0
+    : activeImageIndex < productColors.length
+      ? (selectedColor?.priceDelta ?? 0)
+      : 0;
 
-  const unitPrice = product.basePrice + extraPrice;
+  const bundleExtra = selectedBundles.reduce((s, b) => s + b.price, 0);
+  const warrantyExtra = selectedWarranty ? selectedWarranty.price : 0;
+  const catalogExtra = useDynamicOptions ? 0 : colorOrImagePriceDelta + (selectedStorage?.priceDelta || 0);
+  const sellingBase = useDynamicOptions
+    ? (resolvedPick?.selling ?? (Number(product?.basePrice) || 0))
+    : (Number(product?.basePrice) || 0);
+  const unitPrice = sellingBase + catalogExtra + warrantyExtra + bundleExtra + fieldExtra;
   const totalPrice = unitPrice * quantity;
-  const originalUnitPrice = product.originalPrice ? product.originalPrice + extraPrice : Math.round(unitPrice * 1.15);
+  const originalUnitPrice = useDynamicOptions && resolvedPick?.mrp
+    ? resolvedPick.mrp + warrantyExtra + bundleExtra + fieldExtra
+    : product?.originalPrice && product.originalPrice > unitPrice
+      ? product.originalPrice + catalogExtra + warrantyExtra + bundleExtra + fieldExtra
+      : unitPrice;
   const originalPrice = originalUnitPrice * quantity;
   const savingsSAR = originalPrice - totalPrice;
   const installmentSAR = Math.round(totalPrice / 4);
@@ -231,6 +283,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   // Dynamic Product Highlight Bullets (4 key specs per product - Image 1)
   const productBullets = useMemo(() => {
     const isAr = language === 'AR';
+    if (!product) return [];
     if (isAr && product.heroBanner?.featuresAr && product.heroBanner.featuresAr.length > 0) {
       return product.heroBanner.featuresAr.slice(0, 4);
     }
@@ -267,12 +320,13 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
   // Dynamic Discount calculation per product (Image 1)
   const displayDiscount = useMemo(() => {
+    if (!product) return 0;
     if (savingsSAR > 0) return savingsSAR;
     if (product.originalPrice && product.originalPrice > product.basePrice) {
       return (product.originalPrice - product.basePrice) * quantity;
     }
     return Math.round(unitPrice * 0.15) * quantity || 600;
-  }, [savingsSAR, product.originalPrice, product.basePrice, unitPrice, quantity]);
+  }, [savingsSAR, product?.originalPrice, product?.basePrice, unitPrice, quantity]);
 
 
   // Mouse move handler for glass zoom magnifier
@@ -292,7 +346,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     setActiveImageIndex(idx);
     const clickedImg = allImages[idx];
     if (!clickedImg) return;
-    const matchingColor = product.colors.find(col => col.image === clickedImg) || (idx < product.colors.length ? product.colors[idx] : undefined);
+    const matchingColor = productColors.find(col => col.image === clickedImg) || (idx < productColors.length ? productColors[idx] : undefined);
     if (matchingColor) {
       setSelectedColor(matchingColor);
     }
@@ -310,7 +364,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
   const handleColorChange = (c: ProductColor) => {
     setSelectedColor(c);
-    const colorIdx = product.colors.findIndex(col => col.name === c.name);
+    const colorIdx = productColors.findIndex(col => col.name === c.name);
     const foundIdx = allImages.findIndex(img => img === c.image);
     if (foundIdx !== -1) {
       setActiveImageIndex(foundIdx);
@@ -333,19 +387,117 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     priceDelta: colorOrImagePriceDelta,
   };
 
+  const optionSummary = liveOptions
+    .map((opt) => {
+      const picked = optionPick[opt.name];
+      if (!picked) return '';
+      const value = optionValuesList(opt.values).find((row) => row.label === picked);
+      return language === 'AR' && value?.labelAr ? value.labelAr : picked;
+    })
+    .filter(Boolean)
+    .join(' · ');
+  const blockedReason = !product
+    ? null
+    : missingRequiredField(
+        purchaseFields as never,
+        fieldValues,
+        product.conditionalRules as never,
+        optionPick,
+        language === 'AR',
+      ) ||
+      (useDynamicOptions && resolvedPick?.purchasable === false
+        ? language === 'AR'
+          ? 'هذا الخيار غير متوفر'
+          : 'This option is out of stock'
+        : null);
+
   const handleAddToCart = (e?: React.MouseEvent) => {
+    if (!product) return;
+    if (blockedReason) {
+      showToast(blockedReason);
+      return;
+    }
     if (e) {
       const rect = e.currentTarget.getBoundingClientRect();
       triggerFlyToCart(rect, currentDisplayImage || product.colors[0]?.image);
     }
+    const notes = purchaseNotes(
+      purchaseFields as never,
+      fieldValues,
+      product.conditionalRules as never,
+      optionPick,
+    );
+    const labels = optionSummary.split(' · ').filter(Boolean);
+    const colorForCart = useDynamicOptions
+      ? {
+          ...effectiveSelectedColor,
+          name: labels[0] || effectiveSelectedColor.name,
+          nameAr: labels[0] || effectiveSelectedColor.nameAr,
+          image: currentDisplayImage,
+          priceDelta: 0,
+        }
+      : effectiveSelectedColor;
+    const storageForCart = useDynamicOptions
+      ? {
+          capacity: labels.slice(1).join(' · '),
+          capacityAr: labels.slice(1).join(' · '),
+          ram: '',
+          priceDelta: 0,
+        }
+      : selectedStorage;
+    const extra = useDynamicOptions || fieldExtra > 0 || notes.length
+      ? {
+          unitPrice,
+          image: currentDisplayImage,
+          optionSummary: useDynamicOptions ? optionSummary : undefined,
+          purchaseNotes: notes.length ? notes : undefined,
+        }
+      : undefined;
     for (let i = 0; i < quantity; i++) {
-      addToCart(product, effectiveSelectedColor, selectedStorage, selectedWarranty, selectedBundles, false);
+      addToCart(product, colorForCart, storageForCart, selectedWarranty, selectedBundles, false, extra);
     }
   };
 
   const handleInstantBuy = () => {
+    if (!product) return;
+    if (blockedReason) {
+      showToast(blockedReason);
+      return;
+    }
+    const notes = purchaseNotes(
+      purchaseFields as never,
+      fieldValues,
+      product.conditionalRules as never,
+      optionPick,
+    );
+    const labels = optionSummary.split(' · ').filter(Boolean);
+    const colorForCart = useDynamicOptions
+      ? {
+          ...effectiveSelectedColor,
+          name: labels[0] || effectiveSelectedColor.name,
+          nameAr: labels[0] || effectiveSelectedColor.nameAr,
+          image: currentDisplayImage,
+          priceDelta: 0,
+        }
+      : effectiveSelectedColor;
+    const storageForCart = useDynamicOptions
+      ? {
+          capacity: labels.slice(1).join(' · '),
+          capacityAr: labels.slice(1).join(' · '),
+          ram: '',
+          priceDelta: 0,
+        }
+      : selectedStorage;
+    const extra = useDynamicOptions || fieldExtra > 0 || notes.length
+      ? {
+          unitPrice,
+          image: currentDisplayImage,
+          optionSummary: useDynamicOptions ? optionSummary : undefined,
+          purchaseNotes: notes.length ? notes : undefined,
+        }
+      : undefined;
     for (let i = 0; i < quantity; i++) {
-      addToCart(product, effectiveSelectedColor, selectedStorage, selectedWarranty, selectedBundles);
+      addToCart(product, colorForCart, storageForCart, selectedWarranty, selectedBundles, true, extra);
     }
     navigateTo('checkout');
   };
@@ -432,6 +584,17 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  if (!product) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center bg-white text-neutral-600 text-sm">
+        {language === 'AR' ? 'جاري تحميل المنتج' : 'Loading product'}
+      </div>
+    );
+  }
+
+  const categoryObj = CATEGORIES.find((c) => c.id === product.category);
+  const categoryLabel = language === 'AR' ? (categoryObj?.nameAr || 'مكائن القهوة') : (categoryObj?.name || 'Coffee Machines');
 
   // FAQ items
   const FAQS = [
@@ -620,7 +783,9 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               {/* Top-left Spec badge pill (Matches Image 1: Standard 58mm Kit) */}
               <div className="absolute top-2 left-2 sm:top-3 sm:left-4 z-20 pointer-events-none">
                 <span className="px-3.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-[#D2D2D7] bg-white text-neutral-800 font-normal text-[12px] sm:text-[13px] tracking-wide inline-block shadow-none">
-                  {selectedStorage
+                  {useDynamicOptions && optionSummary
+                    ? optionSummary
+                    : selectedStorage
                     ? (language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity)
                     : (language === 'AR' ? (product.badgeAr || product.badge || 'طقم بورتفلتر 58 مم') : (product.badge || 'Standard 58mm Kit'))}
                 </span>
@@ -855,8 +1020,14 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 language === 'AR' ? 'leading-[1.4] tracking-normal' : 'leading-snug tracking-[-0.01em]'
               }`}>
                 {language === 'AR' && product.nameAr ? product.nameAr : product.name}{' '}
-                {selectedStorage ? `${(language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity)} ` : ''}
-                {language === 'AR' && selectedColor?.nameAr ? selectedColor.nameAr : selectedColor?.name}
+                {useDynamicOptions && optionSummary
+                  ? optionSummary
+                  : (
+                    <>
+                      {selectedStorage ? `${(language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity)} ` : ''}
+                      {language === 'AR' && selectedColor?.nameAr ? selectedColor.nameAr : selectedColor?.name}
+                    </>
+                  )}
               </h1>
 
               {/* Star Rating, Total Reviews Link & Brown Paper Airplane Share Icon (Image 2) */}
@@ -997,83 +1168,30 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               </div>
             </div>
 
-            {/* OFFERS SECTION (Exact 1:1 Match with Reference Image 1 & 2) */}
-            <div className="space-y-3 pt-3 border-t border-neutral-100">
-              <div className="flex items-center gap-2">
-                <Gift className="w-4 h-4 text-neutral-900 shrink-0" />
-                <h2 className="text-sm sm:text-base font-extrabold text-neutral-900 tracking-tight">
-                  {language === 'AR' ? 'العروض' : 'Offers'}
-                </h2>
-              </div>
+            {(useDynamicOptions || hasCustomFields) && product && (
+              <ProductDynamicPurchase
+                options={useDynamicOptions ? liveOptions : []}
+                variations={product.variations as never}
+                fields={purchaseFields as never}
+                rules={product.conditionalRules as never}
+                selected={optionPick}
+                onSelect={setOptionPick}
+                fieldValues={fieldValues}
+                onFieldValues={setFieldValues}
+                isAr={language === 'AR'}
+                tone="coffee"
+                basePrice={Number(product.basePrice) || 0}
+              />
+            )}
+            {useDynamicOptions && resolvedPick?.purchasable === false && (
+              <p className="text-xs font-bold text-rose-600">
+                {language === 'AR' ? 'هذا الخيار غير متوفر' : 'This option is out of stock'}
+              </p>
+            )}
 
-              <div className="space-y-2 text-xs text-neutral-800">
-                {/* Offer 1: Subscribe to Get Coupon! (Image 2) */}
-                <div className="flex items-center gap-2.5">
-                  <Mail className="w-4 h-4 text-neutral-900 shrink-0" />
-                  <div className="flex items-center gap-1.5">
-                    <span>{language === 'AR' ? 'اشترك للحصول على كوبون!' : 'Subscribe to Get Coupon!'}</span>
-                    <button
-                      onClick={() => navigateTo('profile')}
-                      className="text-[#8B5A2B] hover:text-[#6F4E37] hover:underline font-semibold cursor-pointer inline-flex items-center"
-                    >
-                      <span>{language === 'AR' ? 'اشتراك' : 'Subscribe'}</span>
-                      <ChevronRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Offer 2: Get free gifts worth up to SAR 298 / 457 (Image 2) */}
-                <div className="flex items-center gap-2.5">
-                  <Gift className="w-4 h-4 text-neutral-900 shrink-0" />
-                  <span>
-                    {language === 'AR'
-                      ? `احصل على هدايا مجانية بقيمة تصل إلى ${savingsSAR || 298} ر.س`
-                      : `Get free gifts worth up to SAR ${savingsSAR || 298}`}
-                  </span>
-                </div>
-
-                {/* Offer 3: Earn 3x Points (Image 2) */}
-                <div className="flex items-center gap-2.5">
-                  <Award className="w-4 h-4 text-neutral-900 shrink-0" />
-                  <div className="flex items-center gap-1.5">
-                    <span>
-                      {language === 'AR'
-                        ? 'اكسب 3 أضعاف نقاط هايبرو على عملية الشراء هذه.'
-                        : 'Earn 3x HiBrew Points on your purchase.'}
-                    </span>
-                    <button
-                      onClick={() => navigateTo('reviews')}
-                      className="text-[#8B5A2B] hover:text-[#6F4E37] hover:underline font-semibold cursor-pointer inline-flex items-center"
-                    >
-                      <span>{language === 'AR' ? 'اعرف المزيد' : 'Learn More'}</span>
-                      <ChevronRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Offer 4: New users get 2000 Points (Image 2) */}
-                <div className="flex items-center gap-2.5">
-                  <Award className="w-4 h-4 text-neutral-900 shrink-0" />
-                  <div className="flex items-center gap-1.5">
-                    <span>
-                      {language === 'AR'
-                        ? 'يحصل المستخدمون الجدد على 2000 نقطة هايبرو عند أول تسجيل.'
-                        : 'New users get 2000 HiBrew Points upon first registration.'}
-                    </span>
-                    <button
-                      onClick={() => navigateTo('profile')}
-                      className="text-[#8B5A2B] hover:text-[#6F4E37] hover:underline font-semibold cursor-pointer inline-flex items-center"
-                    >
-                      <span>{language === 'AR' ? 'تسجيل' : 'Register'}</span>
-                      <ChevronRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-
-            {/* 2. COLOR SELECTION (Screenshot 2 Circular Swatches with Ring) */}
+            {/* 2. COLOR SELECTION — catalog products that have no saved option rows */}
+            {!useDynamicOptions && (
+            <>
             <div className="space-y-3 pt-3 border-t border-neutral-100">
               <h2 className="text-base font-extrabold text-neutral-900 tracking-tight">
                 {language === 'AR' ? 'اللون' : 'Color'}
@@ -1152,6 +1270,8 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 </div>
               </div>
             )}
+            </>
+            )}
 
             {/* 4. OPTIONAL BARISTA ADD-ONS / BUNDLES */}
             {product.bundles && product.bundles.length > 0 && (
@@ -1229,10 +1349,19 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-0.5">
                     <h4 className="font-semibold text-xs sm:text-sm text-neutral-900 leading-snug">
-                      {language === 'AR' && product.nameAr ? product.nameAr : product.name} {selectedStorage ? `(${language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity})` : ''} - {language === 'AR' && selectedColor?.nameAr ? selectedColor.nameAr : selectedColor?.name}
+                      {language === 'AR' && product.nameAr ? product.nameAr : product.name}
+                      {useDynamicOptions && optionSummary
+                        ? ` — ${optionSummary}`
+                        : ` ${selectedStorage ? `(${language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity})` : ''} - ${language === 'AR' && selectedColor?.nameAr ? selectedColor.nameAr : selectedColor?.name}`}
                     </h4>
                     <p className="text-xs text-neutral-500">
-                      {language === 'AR' ? 'اللون:' : 'Color:'} {language === 'AR' && selectedColor?.nameAr ? selectedColor.nameAr : selectedColor?.name} · {selectedStorage ? (language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity) : (language === 'AR' ? 'الإصدار المعتمد' : 'Standard Edition')}
+                      {useDynamicOptions && optionSummary
+                        ? optionSummary
+                        : (
+                          <>
+                            {language === 'AR' ? 'اللون:' : 'Color:'} {language === 'AR' && selectedColor?.nameAr ? selectedColor.nameAr : selectedColor?.name} · {selectedStorage ? (language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity) : (language === 'AR' ? 'الإصدار المعتمد' : 'Standard Edition')}
+                          </>
+                        )}
                     </p>
                   </div>
                   <span className="font-bold text-xs sm:text-sm text-neutral-900 shrink-0 font-sans">
@@ -1241,58 +1370,9 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 </div>
               </div>
 
-              {/* Subtle Divider */}
+              {savingsSAR > 0 ? (
               <div className="border-t border-neutral-200/70" />
-
-              {/* Free Gifts List Gift(2) - Exact clean style as Image 1 */}
-              <div className="space-y-3">
-                <div className="text-xs sm:text-sm font-bold text-neutral-900">
-                  {language === 'AR' ? 'هدايا مجانية (2)' : 'Free Gifts (2)'}
-                </div>
-
-                {/* Gift 1 */}
-                <div className="flex items-start justify-between gap-3 text-xs sm:text-sm">
-                  <div className="space-y-0.5">
-                    <span className="text-neutral-800 font-normal block leading-snug">
-                      {language === 'AR' ? 'طقم باريستا الموزون (تامبر 30 باوند + ربلة تسوية سيليكون)' : 'Precision Barista 30lb Spring Tamper & Silicone Mat'}
-                    </span>
-                    <span className="text-xs text-neutral-400 block">
-                      {language === 'AR' ? 'عرض حصري مع كل ماكينة' : 'Free Trial Bonus Package'}
-                    </span>
-                  </div>
-                  <div className="text-end shrink-0">
-                    <span className="font-bold text-neutral-900 block">
-                      {language === 'AR' ? '0.00 ر.س' : 'SAR 0.00'}
-                    </span>
-                    <span className="text-xs text-neutral-400 line-through block mt-0.5">
-                      {language === 'AR' ? '258.00 ر.س' : 'SAR 258.00'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Gift 2 */}
-                <div className="flex items-start justify-between gap-3 text-xs sm:text-sm">
-                  <div className="space-y-0.5">
-                    <span className="text-neutral-800 font-normal block leading-snug">
-                      {language === 'AR' ? 'بكج الهدايا الترويجي 2 (إبريق تبخير ستانلس 400 مل + قلم لاتيه آرت)' : 'Promotion Gift Package 2 (Sports Kettle 400ml + Latte Art Pen)'}
-                    </span>
-                    <span className="text-xs text-neutral-400 block">
-                      {language === 'AR' ? 'هدية الشراء الفوري' : 'Instant Order Gift'}
-                    </span>
-                  </div>
-                  <div className="text-end shrink-0">
-                    <span className="font-bold text-neutral-900 block">
-                      {language === 'AR' ? '0.00 ر.س' : 'SAR 0.00'}
-                    </span>
-                    <span className="text-xs text-neutral-400 line-through block mt-0.5">
-                      {language === 'AR' ? '199.00 ر.س' : 'SAR 199.00'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Subtle Divider */}
-              <div className="border-t border-neutral-200/70" />
+              ) : null}
 
               {/* Total & Savings - Matching Image 1 */}
               <div>
@@ -1304,14 +1384,16 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                     <div className="text-base sm:text-xl font-bold text-neutral-900 font-sans">
                       {language === 'AR' ? `${totalPrice.toLocaleString()}.00 ر.س` : `SAR ${totalPrice.toLocaleString()}.00`}
                     </div>
+                    {savingsSAR > 0 && (
                     <div className="flex items-center justify-end gap-2 mt-0.5">
                       <span className="text-xs font-semibold text-red-600 font-sans">
-                        {language === 'AR' ? `وفرت ${savingsSAR || 457}.00 ر.س` : `Save SAR ${savingsSAR || 457}.00`}
+                        {language === 'AR' ? `وفرت ${savingsSAR.toLocaleString()}.00 ر.س` : `Save SAR ${savingsSAR.toLocaleString()}.00`}
                       </span>
                       <span className="text-xs text-neutral-400 line-through font-sans">
-                        {language === 'AR' ? `${(totalPrice + (savingsSAR || 457)).toLocaleString()}.00 ر.س` : `SAR ${(totalPrice + (savingsSAR || 457)).toLocaleString()}.00`}
+                        {language === 'AR' ? `${originalPrice.toLocaleString()}.00 ر.س` : `SAR ${originalPrice.toLocaleString()}.00`}
                       </span>
                     </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1320,7 +1402,8 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               <div className="pt-2">
                 <button
                   onClick={handleInstantBuy}
-                  className="w-full py-3.5 sm:py-4 px-8 rounded-full bg-black hover:bg-neutral-800 text-white font-bold text-sm sm:text-base flex items-center justify-center transition-all cursor-pointer active:scale-95 shadow-sm"
+                  disabled={Boolean(blockedReason)}
+                  className="w-full py-3.5 sm:py-4 px-8 rounded-full bg-black hover:bg-neutral-800 text-white font-bold text-sm sm:text-base flex items-center justify-center transition-all cursor-pointer active:scale-95 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span>{language === 'AR' ? 'شراء الآن' : 'Buy Now'}</span>
                 </button>

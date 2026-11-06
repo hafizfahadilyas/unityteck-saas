@@ -475,7 +475,11 @@ class GoogleService
 
                 // Collect diagnostic issues with "What is wrong → Why it matters → Recommended fix"
                 $issues = [];
+                $passedAuditsCount = 0;
                 foreach ($audits as $key => $audit) {
+                    if (isset($audit['score']) && (float) $audit['score'] === 1.0) {
+                        $passedAuditsCount++;
+                    }
                     if (isset($audit['score']) && $audit['score'] !== null && $audit['score'] < 0.9 && !empty($audit['title'])) {
                         $whatIsWrong = $audit['title'];
                         $whyItMatters = $audit['description'] ?? 'Affects page loading speed and mobile shopper conversion.';
@@ -490,16 +494,29 @@ class GoogleService
                             $fix = 'Use font-display: swap to prevent invisible text during font loading.';
                         }
 
+                        $category = 'performance';
+                        if (preg_match('/aria|color-contrast|heading|tap-targets|document-title|html-has-lang|link-name|button-name|image-alt|video-caption|meta-viewport/i', (string) $key)) {
+                            $category = 'accessibility';
+                        } elseif (preg_match('/seo|meta-description|hreflang|canonical|crawlable|is-crawlable|robots-txt|http-status|link-text/i', (string) $key)) {
+                            $category = 'seo';
+                        } elseif (preg_match('/best-practices|https|vulnerab|csp|charset|doctype|geolocation|notification|paste|errors-in-console/i', (string) $key)) {
+                            $category = 'best-practices';
+                        }
+
                         $issues[] = [
                             'id' => $key,
+                            'category' => $category,
                             'title' => $whatIsWrong,
+                            'description' => $whyItMatters,
                             'whyItMatters' => $whyItMatters,
                             'recommendedFix' => $fix,
                             'displayValue' => $audit['displayValue'] ?? null,
                             'score' => $audit['score'],
+                            'status' => 'pending',
+                            'canAutoFix' => false,
                         ];
 
-                        if (count($issues) >= 8) {
+                        if (count($issues) >= 12) {
                             break;
                         }
                     }
@@ -508,19 +525,23 @@ class GoogleService
                 return [
                     'strategy' => $strategy,
                     'testedUrl' => $targetUrl,
+                    'auditedUrl' => $targetUrl,
                     'performanceScore' => $performanceScore,
                     'seoScore' => $seoScore,
                     'accessibilityScore' => $accessibilityScore,
                     'bestPracticesScore' => $bestPracticesScore,
-                    'fcp' => $audits['first-contentful-paint']['displayValue'] ?? '',
-                    'lcp' => $audits['largest-contentful-paint']['displayValue'] ?? '',
-                    'cls' => $audits['cumulative-layout-shift']['displayValue'] ?? '',
-                    'fid' => $audits['max-potential-fid']['displayValue'] ?? '',
-                    'inp' => $audits['interactive']['displayValue'] ?? '',
-                    'tbt' => $audits['total-blocking-time']['displayValue'] ?? '',
-                    'speedIndex' => $audits['speed-index']['displayValue'] ?? '',
+                    'fcp' => $audits['first-contentful-paint']['displayValue'] ?? '—',
+                    'lcp' => $audits['largest-contentful-paint']['displayValue'] ?? '—',
+                    'cls' => $audits['cumulative-layout-shift']['displayValue'] ?? '—',
+                    'fid' => $audits['max-potential-fid']['displayValue'] ?? '—',
+                    'inp' => $audits['interaction-to-next-paint']['displayValue']
+                        ?? ($audits['interactive']['displayValue'] ?? '—'),
+                    'tbt' => $audits['total-blocking-time']['displayValue'] ?? '—',
+                    'speedIndex' => $audits['speed-index']['displayValue'] ?? '—',
+                    'passedAuditsCount' => $passedAuditsCount,
                     'issues' => $issues,
                     'auditedAt' => now()->toIso8601String(),
+                    'source' => 'google_pagespeed',
                 ];
             }
         } catch (\Throwable $e) {

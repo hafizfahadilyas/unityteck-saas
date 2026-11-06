@@ -59,6 +59,25 @@
   width: 100%;
 }
 
+/* Page Builder slice previews — never force full viewport (that creates huge empty gaps) */
+.hibrew-theme-root.coffee-builder-preview {
+  min-height: 0 !important;
+  height: auto !important;
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+}
+
+/* Builder device frames: keep HiBrew light chrome readable on tablet/mobile widths */
+.hibrew-theme-root.coffee-builder-preview img {
+  max-width: 100%;
+  height: auto;
+}
+@media (max-width: 900px) {
+  .hibrew-theme-root.coffee-builder-preview .coffee-builder-header {
+    overflow-x: clip;
+  }
+}
+
 /* Honor-Style Typography: Clean Geometric Sans per language */
 .hibrew-theme-root[dir="ltr"],
 .hibrew-theme-root[dir="ltr"] * {

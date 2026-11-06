@@ -1,7 +1,14 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
-import { readAllThemeSettings } from '../../settings/themeSettingsStore';
+import {
+  announcementMessageLabel,
+  eligibleAnnouncements,
+  type AnnouncementBarSettings,
+  type AnnouncementMessage,
+} from '../../settings/themeSettingsStore';
+import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
+import { coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
 import {
   Search,
   ShoppingBag,
@@ -21,6 +28,116 @@ import {
 } from 'lucide-react';
 
 type MegaMenuKey = 'machines' | 'mills' | 'cabinets' | 'accessories' | 'offers' | 'explore' | null;
+
+const FLOWER_ANN =
+  /Use code MKS|Get 50% OFF|Makkah|Holland|Flowers|floral|bouquet|باقات|زهور/i;
+
+function CoffeeAnnouncementStrip({
+  language,
+  bar,
+  headerAnn,
+}: {
+  language: string;
+  bar?: AnnouncementBarSettings | null;
+  headerAnn?: { enabled?: boolean; bgColor?: string; textColor?: string; messages?: AnnouncementMessage[] } | null;
+}) {
+  const isAr = language === 'AR';
+  const locale = isAr ? 'ar' : 'en';
+  const eligible = (eligibleAnnouncements(bar || undefined, locale) || []).filter(
+    (m) => !FLOWER_ANN.test(`${m.text || ''} ${m.textEn || ''} ${m.textAr || ''}`),
+  );
+  const useBar = Boolean(bar?.enabled && eligible.length > 0);
+  const useHeader = Boolean(headerAnn?.enabled && (headerAnn?.messages?.length || 0) > 0);
+  const [idx, setIdx] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!useBar || bar?.displayMode === 'stacked' || eligible.length < 2) return;
+    if (bar?.displayMode === 'single') return;
+    const ms =
+      bar?.animationSpeed === 'slow' ? 7000 : bar?.animationSpeed === 'fast' ? 3000 : 5000;
+    const t = window.setInterval(() => setIdx((i) => (i + 1) % eligible.length), ms);
+    return () => window.clearInterval(t);
+  }, [useBar, bar?.displayMode, bar?.animationSpeed, eligible.length]);
+
+  if (!useBar && !useHeader) return null;
+
+  if (useBar && bar?.displayMode === 'stacked') {
+    return (
+      <div className="w-full relative z-50">
+        {eligible.map((m) => (
+          <div
+            key={m.id}
+            style={{
+              backgroundColor: m.bgColor || bar?.bgColor || '#000000',
+              color: m.textColor || bar?.textColor || '#FFFFFF',
+            }}
+            className="w-full text-xs font-bold py-2 px-4 text-center flex items-center justify-center gap-2"
+          >
+            <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+            <span>{announcementMessageLabel(m, locale)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (useBar) {
+    const safeIdx = Math.min(idx, Math.max(eligible.length - 1, 0));
+    const m = eligible[safeIdx] || eligible[0];
+    const mode = bar?.displayMode || 'rotate';
+    return (
+      <div
+        style={{
+          backgroundColor: m.bgColor || bar?.bgColor || '#000000',
+          color: m.textColor || bar?.textColor || '#FFFFFF',
+        }}
+        className="w-full text-xs font-bold py-2 px-4 text-center transition-all duration-300 relative z-50 flex items-center justify-center gap-2"
+      >
+        {mode === 'single' && eligible.length > 1 ? (
+          <button
+            type="button"
+            aria-label={language === 'AR' ? 'الإعلان السابق' : 'Previous announcement'}
+            className="p-0.5 opacity-70 hover:opacity-100 cursor-pointer"
+            onClick={() => setIdx((i) => (i - 1 + eligible.length) % eligible.length)}
+          >
+            <ChevronLeft className={`w-3.5 h-3.5 ${isAr ? 'rotate-180' : ''}`} />
+          </button>
+        ) : null}
+        <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+        <span>{announcementMessageLabel(m, locale)}</span>
+        {mode === 'single' && eligible.length > 1 ? (
+          <button
+            type="button"
+            aria-label={language === 'AR' ? 'الإعلان التالي' : 'Next announcement'}
+            className="p-0.5 opacity-70 hover:opacity-100 cursor-pointer"
+            onClick={() => setIdx((i) => (i + 1) % eligible.length)}
+          >
+            <ChevronRight className={`w-3.5 h-3.5 ${isAr ? 'rotate-180' : ''}`} />
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  const bg = headerAnn?.bgColor || '#000000';
+  const fg = headerAnn?.textColor || '#FFFFFF';
+  const text = isAr
+    ? headerAnn?.messages?.[0]?.textAr ||
+      headerAnn?.messages?.[0]?.text ||
+      'شحن سريع لجميع مدن المملكة | ضمان سنتين معتمد'
+    : headerAnn?.messages?.[0]?.textEn ||
+      headerAnn?.messages?.[0]?.text ||
+      'Express delivery across KSA | 2-Year Official Saudi Warranty';
+  return (
+    <div
+      style={{ backgroundColor: bg, color: fg }}
+      className="w-full text-xs font-bold py-2 px-4 text-center transition-all duration-300 relative z-50 flex items-center justify-center gap-2"
+    >
+      <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+      <span>{text}</span>
+    </div>
+  );
+}
 
 interface MegaProductItem {
   id: string;
@@ -116,13 +233,15 @@ export const Header: React.FC = () => {
 
   const allThemeSettings = useMemo(() => {
     try {
-      return readAllThemeSettings(activeStore?.id, activeStore);
+      if (!activeStore?.id) return null;
+      return resolveCoffeeThemeSettings(activeStore.id, activeStore);
     } catch {
       return null;
     }
   }, [activeStore, headerVersion]);
 
   const headerSettings = allThemeSettings?.customHeader;
+  // HiBrew header chrome is locked white/neutral — do not recolor the sticky bar from colors.* defaults.
 
   const [activeMegaMenu, setActiveMegaMenu] = useState<MegaMenuKey>(null);
   const [renderedMegaMenu, setRenderedMegaMenu] = useState<MegaMenuKey>(null);
@@ -210,6 +329,40 @@ export const Header: React.FC = () => {
     setRenderedMegaMenu(null);
   };
 
+  const isArLang = language === 'AR';
+  const logoWord = headerSettings?.logo?.applyTitle
+    ? ((isArLang ? headerSettings.logo.titleAr : headerSettings.logo.titleEn) || (isArLang ? 'هايبرو' : 'HIBREW'))
+    : (isArLang ? 'هايبرو' : 'HIBREW');
+  const logoUrl = headerSettings?.logo?.imageUrl || '';
+  const uploadedLogo = headerSettings?.logo?.mode === 'image_only'
+    && (logoUrl.includes('/stores/') || logoUrl.includes('?v='));
+  const navLabel = (link: { labelAr?: string; labelEn?: string }) =>
+    ((isArLang ? link.labelAr : link.labelEn) || '').trim();
+  const customDesktop = (headerSettings?.navigation?.desktopLinks || [])
+    .filter((link) => link.active !== false && navLabel(link));
+  const customMobile = (headerSettings?.navigation?.mobileLinks || [])
+    .filter((link) => link.active !== false && navLabel(link));
+  const followHeaderLink = (url?: string) => {
+    closeMenuImmediately();
+    setMobileMenuOpen(false);
+    const value = (url || '').trim();
+    if (!value || value === '/' || value === 'home') {
+      navigateTo('home');
+      return;
+    }
+    if (value === 'shop' || value === 'products') {
+      navigateTo('products');
+      return;
+    }
+    if (value === 'cart' || value === 'checkout' || value === 'reviews' || value === 'profile' || value === 'faq' || value === 'contact' || value === 'about') {
+      navigateTo(value);
+      return;
+    }
+    if (/^https?:\/\//i.test(value)) {
+      window.open(value, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   const handleDropdownMouseEnter = () => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
@@ -252,23 +405,14 @@ export const Header: React.FC = () => {
 
   return (
     <>
-      {/* 0. PROMO ANNOUNCEMENT BAR (If enabled in theme customizer) */}
-      {(headerSettings?.announcement?.enabled || allThemeSettings?.announcementBar?.enabled) && (
-        <div
-          style={{
-            backgroundColor: headerSettings?.announcement?.bgColor || allThemeSettings?.announcementBar?.bgColor || '#000000',
-            color: headerSettings?.announcement?.textColor || allThemeSettings?.announcementBar?.textColor || '#FFFFFF',
-          }}
-          className="w-full text-xs font-bold py-2 px-4 text-center transition-all duration-300 relative z-50 flex items-center justify-center gap-2"
-        >
-          <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-          <span>
-            {language === 'AR'
-              ? (headerSettings?.announcement?.messages?.[0]?.textAr || allThemeSettings?.announcementBar?.messages?.[0]?.text || 'شحن سريع لجميع مدن المملكة | ضمان سنتين معتمد')
-              : (headerSettings?.announcement?.messages?.[0]?.textEn || allThemeSettings?.announcementBar?.messages?.[0]?.text || 'Express delivery across KSA | 2-Year Official Saudi Warranty')}
-          </span>
-        </div>
-      )}
+      {/* 0. PROMO BAR — Word C-ANN (rotate / stacked / single) — never flowers MKS */}
+      <div data-customize-section="C-ANN">
+        <CoffeeAnnouncementStrip
+          language={language}
+          bar={allThemeSettings?.announcementBar}
+          headerAnn={headerSettings?.announcement}
+        />
+      </div>
 
       {/* 1. TOP BAR (Honor Style Country/Region Selector Bar) */}
       {countryNoticeVisible && (
@@ -290,7 +434,7 @@ export const Header: React.FC = () => {
 
               <button
                 onClick={dismissCountryNotice}
-                className="px-3.5 py-0.5 rounded-full bg-black text-white text-[11px] font-semibold hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
+                className="hibrew-inherit-btn px-3.5 py-0.5 rounded-full bg-black text-white text-[11px] font-semibold hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
               >
                 {language === 'AR' ? 'متابعة' : 'Continue'}
               </button>
@@ -299,7 +443,7 @@ export const Header: React.FC = () => {
                 onClick={dismissCountryNotice}
                 className="p-1 text-neutral-400 hover:text-black transition-colors cursor-pointer shrink-0"
                 title="Close"
-                aria-label="Close region selector"
+                aria-label={language === 'AR' ? 'إغلاق اختيار المنطقة' : 'Close region selector'}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -310,6 +454,7 @@ export const Header: React.FC = () => {
 
       {/* 2. MAIN HEADER NAVIGATION BAR (Sticky Fixed on Scroll with Honor Slim Profile & Perfect Center Alignment) */}
       <header
+        data-customize-section="00_header_builder"
         className={`sticky top-0 z-50 w-full bg-white text-neutral-900 border-b border-neutral-200/80 transition-all duration-200 ${
           isScrolled ? 'shadow-[0_2px_15px_rgba(0,0,0,0.06)]' : ''
         }`}
@@ -326,13 +471,19 @@ export const Header: React.FC = () => {
                 navigateTo('home');
               }}
               className="flex items-center gap-1.5 sm:gap-2 group focus:outline-hidden cursor-pointer text-start tracking-tight font-black text-xl sm:text-2xl font-sans text-black uppercase shrink-0"
-              title="HiBrew Coffee Official Store KSA"
+              title={logoWord}
             >
-              <svg className="w-5 h-5 sm:w-5.5 sm:h-5.5 text-black shrink-0" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="2.5" />
-                <path d="M12 3.5 A8.5 8.5 0 0 1 20.5 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-              </svg>
-              <span className="tracking-tighter font-extrabold text-[19px] sm:text-[22px]">{language === 'AR' ? 'هايبرو' : 'HIBREW'}</span>
+              {uploadedLogo ? (
+                <img src={logoUrl} alt={logoWord} className="h-5 w-auto max-w-[120px] object-contain" />
+              ) : (
+                <>
+                  <svg className="w-5 h-5 sm:w-5.5 sm:h-5.5 text-black shrink-0" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="2.5" />
+                    <path d="M12 3.5 A8.5 8.5 0 0 1 20.5 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                  </svg>
+                  <span className="tracking-tighter font-extrabold text-[19px] sm:text-[22px]">{logoWord}</span>
+                </>
+              )}
             </button>
           </div>
 
@@ -347,7 +498,7 @@ export const Header: React.FC = () => {
                 setMobileMenuOpen((prev) => !prev);
               }}
               className="p-1.5 text-neutral-900 hover:text-black cursor-pointer active:scale-95 transition-transform"
-              aria-label="Toggle Menu"
+              aria-label={language === 'AR' ? 'فتح القائمة' : 'Toggle Menu'}
             >
               {mobileMenuOpen ? <X className="w-5 h-5 stroke-[2]" /> : <Menu className="w-5 h-5 stroke-[2]" />}
             </button>
@@ -362,7 +513,7 @@ export const Header: React.FC = () => {
                 setIsMiniCartOpen(true);
               }}
               className="relative p-1.5 text-neutral-900 hover:text-black cursor-pointer active:scale-95 transition-transform"
-              aria-label="Cart"
+              aria-label={language === 'AR' ? 'السلة' : 'Cart'}
             >
               <ShoppingBag className="w-5 h-5 stroke-[1.8]" />
               {cartCount > 0 && (
@@ -381,7 +532,7 @@ export const Header: React.FC = () => {
                 setIsSearchOpen(true);
               }}
               className="p-1.5 text-neutral-900 hover:text-black cursor-pointer active:scale-95 transition-transform"
-              aria-label="Search"
+              aria-label={language === 'AR' ? 'بحث' : 'Search'}
             >
               <Search className="w-5 h-5 stroke-[1.8]" />
             </button>
@@ -389,6 +540,18 @@ export const Header: React.FC = () => {
 
           {/* 2. Center: Desktop Nav Items (Flex in-flow layout ensuring zero overlap in both RTL Arabic and LTR English) */}
           <nav className="hidden lg:flex items-center justify-center flex-1 min-w-0 mx-2 lg:mx-3 xl:mx-4 2xl:mx-6 gap-2 lg:gap-2.5 xl:gap-3.5 2xl:gap-5 text-[12px] lg:text-[12.5px] xl:text-[13px] 2xl:text-[13.5px] font-normal text-neutral-800 h-16 whitespace-nowrap">
+            {customDesktop.length > 0 ? customDesktop.map((link) => (
+              <div key={link.id} className="relative h-full flex items-center shrink-0" onMouseEnter={() => scheduleMenuClose(80)}>
+                <button
+                  type="button"
+                  onClick={() => followHeaderLink(link.url)}
+                  className="py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap text-neutral-700 hover:text-black font-normal"
+                >
+                  <span>{navLabel(link)}</span>
+                </button>
+              </div>
+            )) : (
+            <>
             {/* 0. Shop (المتجر) */}
             <div className="relative h-full flex items-center shrink-0" onMouseEnter={() => scheduleMenuClose(80)}>
               <button
@@ -566,6 +729,8 @@ export const Header: React.FC = () => {
                 <span>{language === 'AR' ? 'الدعم والضمان' : 'Support'}</span>
               </button>
             </div>
+            </>
+            )}
           </nav>
 
           {/* 3. Desktop Right: Search, Wishlist, Cart, WhatsApp, Profile, Store Pill, Language */}
@@ -581,7 +746,7 @@ export const Header: React.FC = () => {
                 }}
                 className="p-1.5 text-neutral-800 hover:text-black transition-colors cursor-pointer"
                 title="Search"
-                aria-label="Search"
+                aria-label={language === 'AR' ? 'بحث' : 'Search'}
               >
                 <Search className="w-5 h-5 stroke-[1.8]" />
               </button>
@@ -598,7 +763,7 @@ export const Header: React.FC = () => {
                 }}
                 className="p-1.5 text-neutral-800 hover:text-red-500 transition-colors cursor-pointer"
                 title={language === 'AR' ? 'قائمة الرغبات والمفضلة' : 'Wishlist'}
-                aria-label="Wishlist"
+                aria-label={language === 'AR' ? 'المفضلة' : 'Wishlist'}
               >
                 <Heart className="w-5 h-5 stroke-[1.8]" />
               </button>
@@ -618,7 +783,7 @@ export const Header: React.FC = () => {
                   cartBump ? 'scale-135 text-black' : 'scale-100'
                 }`}
                 title="Cart"
-                aria-label="Cart"
+                aria-label={language === 'AR' ? 'السلة' : 'Cart'}
               >
                 <ShoppingBag
                   className={`w-5 h-5 stroke-[1.8] transition-transform duration-300 ${
@@ -644,17 +809,18 @@ export const Header: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  const rawPhone =
+                  const cleanPhone = coffeeWhatsAppDigits(
                     headerSettings?.actions?.whatsapp?.phoneNumber ||
-                    (activeStore as any)?.whatsapp ||
-                    activeStore?.phone ||
-                    '+966549876543';
-                  const cleanPhone = rawPhone.replace(/\D/g, '') || '966549876543';
+                      (activeStore as any)?.whatsapp ||
+                      activeStore?.phone ||
+                      '',
+                  );
+                  if (!cleanPhone) return;
                   window.open(`https://wa.me/${cleanPhone}`, '_blank');
                 }}
                 className="p-1.5 text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer relative"
                 title={language === 'AR' ? 'تواصل معنا مباشرة عبر واتساب' : 'Chat on WhatsApp'}
-                aria-label="WhatsApp"
+                aria-label={language === 'AR' ? 'واتساب' : 'WhatsApp'}
               >
                 <MessageCircle className="w-5 h-5 stroke-[2] text-emerald-600" />
               </button>
@@ -670,8 +836,8 @@ export const Header: React.FC = () => {
                   navigateTo('profile');
                 }}
                 className="p-1.5 text-neutral-800 hover:text-black transition-colors cursor-pointer"
-                title="User Profile"
-                aria-label="Account"
+                title={language === 'AR' ? 'حساب العميل' : 'User Profile'}
+                aria-label={language === 'AR' ? 'الحساب' : 'Account'}
               >
                 <User className="w-5 h-5 stroke-[1.8]" />
               </button>
@@ -740,15 +906,19 @@ export const Header: React.FC = () => {
                 navigateTo('home');
               }}
               className="flex items-center gap-1.5 font-black text-base sm:text-lg font-sans text-black uppercase cursor-pointer"
-              title="HiBrew Coffee Official Store KSA"
+              title={logoWord}
             >
-              <svg className="w-4 h-4 text-black shrink-0" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="2.5" />
-                <path d="M12 3.5 A8.5 8.5 0 0 1 20.5 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-              </svg>
-              <span className="tracking-tight font-extrabold text-[16px] sm:text-[18px]">
-                {language === 'AR' ? 'هايبرو' : 'HIBREW'}
-              </span>
+              {uploadedLogo ? (
+                <img src={logoUrl} alt={logoWord} className="h-4 w-auto max-w-[96px] object-contain" />
+              ) : (
+                <>
+                  <svg className="w-4 h-4 text-black shrink-0" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="2.5" />
+                    <path d="M12 3.5 A8.5 8.5 0 0 1 20.5 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                  </svg>
+                  <span className="tracking-tight font-extrabold text-[16px] sm:text-[18px]">{logoWord}</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -1161,7 +1331,7 @@ export const Header: React.FC = () => {
 
         {/* 4. HONOR MOBILE DRILLDOWN SLIDE NAVIGATION */}
         {mobileMenuOpen && (
-          <div className="lg:hidden absolute top-full left-0 right-0 w-full h-[calc(100vh-4rem)] max-h-[calc(100dvh-4rem)] bg-white z-[100] border-t border-neutral-200 shadow-[0_25px_50px_rgba(0,0,0,0.22)] overflow-y-auto overscroll-contain text-neutral-800 animate-honor-mega">
+          <div className="lg:hidden absolute top-full left-0 right-0 w-full max-w-full h-[calc(100vh-4rem)] max-h-[calc(100dvh-4rem)] bg-white z-[100] border-t border-neutral-200 shadow-[0_25px_50px_rgba(0,0,0,0.22)] overflow-y-auto overflow-x-hidden overscroll-contain text-neutral-800 animate-honor-mega" data-mobile-nav="panel">
             {/* LEVEL 1: Primary Category List */}
             {!mobileSubNavKey ? (
               <div className="p-4 sm:p-6 pb-24 space-y-4">
@@ -1178,7 +1348,19 @@ export const Header: React.FC = () => {
                 </div>
 
                 {/* Main Drilldown Navigation Items */}
-                <div className="space-y-2">
+                <div className="space-y-2" data-mobile-nav-list="primary">
+                  {customMobile.length > 0 ? customMobile.map((link) => (
+                    <button
+                      key={link.id}
+                      type="button"
+                      onClick={() => followHeaderLink(link.url)}
+                      className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100/80 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
+                    >
+                      <span className="min-w-0 break-words text-start">{navLabel(link)}</span>
+                      {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-neutral-400 shrink-0" />}
+                    </button>
+                  )) : (
+                  <>
                   {/* 0. Home */}
                   <button
                     type="button"
@@ -1326,6 +1508,8 @@ export const Header: React.FC = () => {
                     <span>{user.isLoggedIn ? user.name : language === 'AR' ? 'حسابي / تسجيل الدخول' : 'Account / Login'}</span>
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>
+                  </>
+                  )}
                 </div>
 
                 {/* Bottom Language & Store */}
@@ -1370,7 +1554,7 @@ export const Header: React.FC = () => {
                     type="button"
                     onClick={() => setMobileMenuOpen(false)}
                     className="p-1 text-neutral-400 hover:text-black cursor-pointer"
-                    aria-label="Close Menu"
+                    aria-label={language === 'AR' ? 'إغلاق القائمة' : 'Close Menu'}
                   >
                     <X className="w-4 h-4" />
                   </button>

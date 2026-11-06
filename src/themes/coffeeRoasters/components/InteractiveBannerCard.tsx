@@ -65,6 +65,10 @@ export const InteractiveBannerCard: React.FC<InteractiveBannerProps> = ({
   };
 
   const isLarge = size === 'large';
+  const isCustomizerPreview =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('preview') === '1';
+  const activeVideoUrl = isCustomizerPreview ? undefined : videoUrl;
 
   return (
     <div
@@ -79,11 +83,11 @@ export const InteractiveBannerCard: React.FC<InteractiveBannerProps> = ({
       }`}
     >
       {/* 1. Background Media with 100% Opacity, Zero Shades */}
-      {videoUrl ? (
+      {activeVideoUrl ? (
         <div className="absolute inset-0 w-full h-full bg-[#0C0A09]">
           <video
             ref={videoRef}
-            src={videoUrl}
+            src={activeVideoUrl}
             poster={image}
             autoPlay
             loop
@@ -103,7 +107,7 @@ export const InteractiveBannerCard: React.FC<InteractiveBannerProps> = ({
       )}
 
       {/* Top Video Controls (if video) */}
-      {videoUrl && (
+      {activeVideoUrl && (
         <div className="absolute top-4 sm:top-6 end-4 sm:end-6 flex items-center justify-end z-20 pointer-events-auto">
           <div className="flex items-center gap-2">
             <button

@@ -152,7 +152,7 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
   const effectiveStoreId = explicitUrlStoreId || storeId || (activeStore?.id ? activeStore.id : '') || 'store-coffee';
   const effectiveThemeId =
     themeId || urlThemeParam || (storeActiveTheme && storeActiveTheme[effectiveStoreId]) || (activeStore as any)?.theme_id;
-  const effectiveCategory = category || activeStore.category || (effectiveStoreId === 'store-coffee' ? 'قهوة' : '');
+  const effectiveCategory = category || activeStore?.category || (effectiveStoreId === 'store-coffee' ? 'قهوة' : '');
 
   const manifest = useMemo(
     () => resolveStoreTheme(effectiveStoreId, effectiveThemeId, effectiveCategory),
@@ -229,6 +229,24 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
     [manifest],
   );
 
+  const isPreviewEmbed =
+    typeof window !== 'undefined' &&
+    (() => {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        return q.get('preview') === '1' || q.get('embed') === '1';
+      } catch {
+        return false;
+      }
+    })();
+
+  // Preview iframe / admin embed: skip heavy brand splash — paint theme ASAP
+  const suspenseFallback = isPreviewEmbed ? (
+    <div className="min-h-[40vh] w-full bg-white" aria-busy="true" aria-hidden />
+  ) : (
+    <DashboardLoader storeId={effectiveStoreId} storeName={activeStore?.name} />
+  );
+
   return (
     <div
       data-theme-id={manifest.id}
@@ -237,7 +255,7 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
       style={scopeStyles}
     >
       <ThemeErrorBoundary themeName={manifest.name} locale={locale}>
-        <Suspense fallback={<DashboardLoader storeId={effectiveStoreId} storeName={activeStore?.name} />}>
+        <Suspense fallback={suspenseFallback}>
           <ThemeComponent initialPage={resolvedInitialPage} isAdmin={isAdmin} />
         </Suspense>
       </ThemeErrorBoundary>

@@ -111,23 +111,28 @@ jobs:
           name: dist-production-bundle
           path: dist/
 
-      - name: 🚀 Deploy Fresh Bundle to Hostinger (FTPS / Secure FTP)
+      - name: 🚀 Deploy one build to central and flowers Hostinger
         env:
-          FTP_HOST: ${{ secrets.HOSTINGER_FTP_HOST || secrets.FTP_HOST }}
-          FTP_USER: ${{ secrets.HOSTINGER_FTP_USER || secrets.FTP_USER }}
-          FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD || secrets.FTP_PASSWORD }}
-          FTP_REMOTE_DIR: ${{ secrets.HOSTINGER_FTP_REMOTE_DIR || secrets.FTP_REMOTE_DIR || 'public_html' }}
-          FTP_TARGET_URL: ${{ secrets.TARGET_URL || 'https://giftshop-sa.com/' }}
+          FTP_CENTRAL_HOST: ${{ secrets.FTP_CENTRAL_HOST }}
+          FTP_CENTRAL_USER: ${{ secrets.FTP_CENTRAL_USER }}
+          FTP_CENTRAL_PASSWORD: ${{ secrets.FTP_CENTRAL_PASSWORD }}
+          FTP_CENTRAL_DIR: ${{ secrets.FTP_CENTRAL_DIR || '/' }}
+          FTP_CENTRAL_URL: ${{ secrets.FTP_CENTRAL_URL || 'https://mieraf-ksa.com/' }}
+          FTP_FLOWERS_HOST: ${{ secrets.FTP_FLOWERS_HOST || secrets.HOSTINGER_FTP_HOST || secrets.FTP_HOST }}
+          FTP_FLOWERS_USER: ${{ secrets.FTP_FLOWERS_USER || secrets.HOSTINGER_FTP_USER || secrets.FTP_USER }}
+          FTP_FLOWERS_PASSWORD: ${{ secrets.FTP_FLOWERS_PASSWORD || secrets.HOSTINGER_FTP_PASSWORD || secrets.FTP_PASSWORD }}
+          FTP_FLOWERS_DIR: ${{ secrets.FTP_FLOWERS_DIR || secrets.FTP_REMOTE_DIR || '/public_html' }}
+          FTP_FLOWERS_URL: ${{ secrets.FTP_FLOWERS_URL || secrets.TARGET_URL || 'https://giftshop-sa.com/' }}
         run: |
-          if [ -z "$FTP_HOST" ] || [ -z "$FTP_USER" ] || [ -z "$FTP_PASSWORD" ]; then
-            echo "::warning::Missing Hostinger FTP credentials in GitHub Secrets. Skipping actual file transfer. Please add HOSTINGER_FTP_HOST, HOSTINGER_FTP_USER, and HOSTINGER_FTP_PASSWORD to your repository secrets."
+          if [ -z "$FTP_CENTRAL_HOST" ] && [ -z "$FTP_FLOWERS_HOST" ]; then
+            echo "::warning::No Hostinger FTP secrets yet. Skipping upload."
           else
-            node scripts/deploy-hostinger.js
+            node scripts/deploy-hostinger.js --target=all
           fi
 
       - name: 🔎 Post-Deployment Health Check
         env:
-          TARGET_URL: ${{ secrets.TARGET_URL || 'https://giftshop-sa.com/' }}
+          TARGET_URL: ${{ secrets.FTP_CENTRAL_URL || secrets.TARGET_URL || 'https://mieraf-ksa.com/' }}
         run: |
           echo "Verifying live endpoint at $TARGET_URL ..."
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -L "$TARGET_URL" || echo "000")

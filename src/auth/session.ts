@@ -30,6 +30,48 @@ export type AuthSession = {
 const STORAGE_KEY = 'unityteck_auth';
 const BACKUP_STORAGE_KEY = 'unityteck_auth_lifetime_backup';
 const EXPLICIT_LOGOUT_KEY = 'unityteck_explicit_logout';
+/** ~10 years. Session ends only when the admin signs out. */
+const COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 365 * 10;
+
+function readCookieSession(): string | null {
+  try {
+    if (typeof document === 'undefined') return null;
+    const parts = document.cookie.split(';');
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (!trimmed.startsWith(`${STORAGE_KEY}=`)) continue;
+      return decodeURIComponent(trimmed.slice(STORAGE_KEY.length + 1));
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function writeCookieSession(serialized: string | null): void {
+  try {
+    if (typeof document === 'undefined') return;
+    const secure = typeof location !== 'undefined' && location.protocol === 'https:' ? '; Secure' : '';
+    if (!serialized) {
+      document.cookie = `${STORAGE_KEY}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+      return;
+    }
+    document.cookie = `${STORAGE_KEY}=${encodeURIComponent(serialized)}; Path=/; Max-Age=${COOKIE_MAX_AGE_SEC}; SameSite=Lax${secure}`;
+  } catch {
+    /* ignore */
+  }
+}
+
+function parseSession(raw: string | null): AuthSession | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as AuthSession;
+    if (parsed?.token && parsed?.user?.id && parsed?.portal) return parsed;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
 
 function emitAuthChange(): void {
   try {
@@ -50,22 +92,24 @@ export function readAuthSession(): AuthSession | null {
       return null;
     }
 
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as AuthSession;
-      if (parsed?.token && parsed?.user?.id && parsed?.portal) {
-        return parsed;
-      }
+    const primary = parseSession(localStorage.getItem(STORAGE_KEY));
+    if (primary) return primary;
+
+    // Lifetime fallback: backup key, then long-lived cookie (survives a cleared primary key).
+    const backup = parseSession(localStorage.getItem(BACKUP_STORAGE_KEY));
+    if (backup) {
+      const serialized = JSON.stringify(backup);
+      localStorage.setItem(STORAGE_KEY, serialized);
+      writeCookieSession(serialized);
+      return backup;
     }
 
-    // Lifetime fallback: recover from backup storage if primary key was cleared or dropped
-    const backupRaw = localStorage.getItem(BACKUP_STORAGE_KEY);
-    if (backupRaw) {
-      const backupParsed = JSON.parse(backupRaw) as AuthSession;
-      if (backupParsed?.token && backupParsed?.user?.id && backupParsed?.portal) {
-        localStorage.setItem(STORAGE_KEY, backupRaw);
-        return backupParsed;
-      }
+    const fromCookie = parseSession(readCookieSession());
+    if (fromCookie) {
+      const serialized = JSON.stringify(fromCookie);
+      localStorage.setItem(STORAGE_KEY, serialized);
+      localStorage.setItem(BACKUP_STORAGE_KEY, serialized);
+      return fromCookie;
     }
 
     return null;
@@ -87,7 +131,9 @@ export function writeAuthSession(session: AuthSession): void {
     const serialized = JSON.stringify(sessionWithLifetime);
     localStorage.setItem(STORAGE_KEY, serialized);
     localStorage.setItem(BACKUP_STORAGE_KEY, serialized);
+    localStorage.setItem('unityteck_session_lifetime', '1');
     localStorage.removeItem(EXPLICIT_LOGOUT_KEY);
+    writeCookieSession(serialized);
 
     emitAuthChange();
   } catch {
@@ -111,6 +157,7 @@ export function clearAuthSession(force = false): void {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(BACKUP_STORAGE_KEY);
     }
+    writeCookieSession(null);
     emitAuthChange();
   } catch {
     /* ignore */
@@ -121,8 +168,17 @@ export function getAuthToken(): string | null {
   return readAuthSession()?.token ?? null;
 }
 
-/** Real Sanctum bearer only — mock-* tokens never hit Laravel. */
+/** Real Sanctum PAT only (`{id}|{hash}`). Clerk JWT / mock-* / google-sso never hit Laravel. */
 export function hasLiveApiAuth(): boolean {
   const token = getAuthToken();
-  return Boolean(token && !token.startsWith('mock-'));
+  if (!token) return false;
+  if (
+    token.startsWith('mock-') ||
+    token.startsWith('clerk-') ||
+    token.startsWith('google-sso-')
+  ) {
+    return false;
+  }
+  // Laravel Sanctum personal access token format
+  return token.includes('|');
 }

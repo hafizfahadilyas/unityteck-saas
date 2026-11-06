@@ -15,6 +15,7 @@ class Plan extends Model
         'id',
         'code',
         'name',
+        'price_sar',
         'product_limit',
         'storage_mb',
         'team_seats',
@@ -27,6 +28,7 @@ class Plan extends Model
         return [
             'features' => 'array',
             'is_active' => 'boolean',
+            'price_sar' => 'integer',
             'product_limit' => 'integer',
             'storage_mb' => 'integer',
             'team_seats' => 'integer',

@@ -5,6 +5,8 @@
  * - Never leave old maps after a successful write
  */
 
+import { invalidateApiGetCache } from './client';
+
 const versions = new Map<string, number>();
 const listeners = new Set<(tag: string, version: number) => void>();
 
@@ -93,6 +95,8 @@ export function startCrossTabCacheBridge(): () => void {
 }
 
 export function bumpCacheTag(tag: string, opts?: { localOnly?: boolean }): number {
+  const storeMatch = /^store:([^:]+):/.exec(tag);
+  invalidateApiGetCache(storeMatch?.[1]);
   const next = (versions.get(tag) ?? 0) + 1;
   versions.set(tag, next);
   if (opts?.localOnly) {

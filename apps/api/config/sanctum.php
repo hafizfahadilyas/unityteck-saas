@@ -50,6 +50,7 @@ return [
     |
     */
 
+    // null = personal access tokens never expire. Logout deletes the current token only.
     'expiration' => null,
 
     /*

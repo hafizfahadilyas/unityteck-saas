@@ -1,40 +1,17 @@
 import React, { useMemo, useState, useRef } from 'react';
-import { Check, Download, Lock, Palette, Sparkles, Star, Globe, Upload, FileJson, Eye, ExternalLink } from 'lucide-react';
+import { Check, Download, Lock, Palette, Sparkles, Star, Globe, Upload, Eye } from 'lucide-react';
 import type { ThemeItem } from '../../types';
 import type { Store } from '../../types';
 import { planHasFullThemes, planInfoForStore } from '../../auth/plans';
-import { DEFAULT_COMMERCE_THEME_ID } from '../../auth/defaultTheme';
 import { FLOWERS_THEME_ID, FLOWERS_HOMEPAGES } from '../../themes/flowersPremium/pack';
+import {
+  resolveThemeStoreMeta,
+  type ThemeStoreMeta,
+} from '../../auth/themeMarketplace';
 import { useToast } from '../common/ToastProvider';
 import { usePrefs } from '../../i18n/PrefsContext';
 
-export type ThemeStoreMeta = {
-  priceSar: number;
-  isProOnly: boolean;
-  publisherAr: string;
-  publisherEn: string;
-  blurbAr: string;
-  blurbEn: string;
-};
-
-const THEME_STORE_META: Record<string, ThemeStoreMeta> = {
-  [FLOWERS_THEME_ID]: {
-    priceSar: 0,
-    isProOnly: false,
-    publisherAr: 'منصة سوق · ثيم هدايا مكة الفاخر',
-    publisherEn: 'Unityteck Store · Mecca Luxury Gifts Theme',
-    blurbAr: 'ثيم الزهور الفاخر الحصري المعتمد لمتجر هدايا مكة ومحلات الورود والهدايا · ٢٠ قسماً تفاعلياً وسلايدر ثلاثي الأبعاد.',
-    blurbEn: 'Exclusive official Luxury Floral & Gifts theme for Mecca Gifts. Features 20 interactive sections, 3D slider, video reels, and express checkout.',
-  },
-  'theme-saudia-transport': {
-    priceSar: 0,
-    isProOnly: false,
-    publisherAr: 'مؤسسة بلاكو للتجارة · ثيم تنجيد ودعاسات السيارات الفاخرة',
-    publisherEn: 'Blacko Trading · Luxury Car Upholstery & Saudi Transport Theme',
-    blurbAr: 'الثيم الرسمي المعتمد لمؤسسة بلاكو للتجارة والنقل السعودي · حاسبة تفصيل ليزري فورية، 10 أقسام و10 منتجات، وبكج اليوم الوطني 20%.',
-    blurbEn: 'Official luxury theme for Blacko Trading and Saudi transport. Features instant laser fit calculator, 10 categories, 10 products and National Day 20% bundle.',
-  },
-};
+export type { ThemeStoreMeta };
 
 type Props = {
   themes: ThemeItem[];
@@ -43,6 +20,9 @@ type Props = {
   onInstall: (themeId: string, homepageStyle: string) => void;
   /** Master view can show all catalog; store view still lists Pro locked cards */
   showLockedPreviews?: boolean;
+  /** Optional extras (StoreAppStore may pass these; ignored safely) */
+  mode?: string;
+  onViewInStore?: () => void;
 };
 
 export const ThemeStoreGrid: React.FC<Props> = ({
@@ -62,14 +42,9 @@ export const ThemeStoreGrid: React.FC<Props> = ({
   const listings = useMemo(() => {
     return themes
       .map((theme) => {
-        const meta = THEME_STORE_META[theme.id] ?? {
-          priceSar: theme.tier === 'full' ? 49 : 0,
-          isProOnly: theme.tier === 'full',
-          publisherAr: 'يونيتك للمتاجر',
-          publisherEn: 'Unityteck Platforms',
-          blurbAr: theme.taglineAr || theme.tagline,
-          blurbEn: theme.taglineEn || theme.tagline,
-        };
+        // Store-scoped free: only this store’s own default theme is Included Free.
+        // Cross-store themes are always paid — no free duplicates across tenants.
+        const meta = resolveThemeStoreMeta(theme, store);
         return { theme, meta };
       })
       .filter(({ theme, meta }) => {
@@ -77,13 +52,13 @@ export const ThemeStoreGrid: React.FC<Props> = ({
         const hay = `${theme.name} ${theme.nameEn || ''} ${theme.category} ${theme.categoryEn || ''} ${meta.blurbAr} ${meta.blurbEn}`.toLowerCase();
         return hay.includes(q.trim().toLowerCase());
       });
-  }, [themes, q]);
+  }, [themes, q, store]);
 
   const install = (theme: ThemeItem, meta: ThemeStoreMeta) => {
     if (meta.isProOnly && !full) {
       toast(
         isAr
-          ? 'باقة برو (Pro) مطلوبة لتثبيت هذا الثيم على المتجر.'
+          ? 'باقة برو مطلوبة لتثبيت هذا الثيم على المتجر.'
           : 'Pro plan (or Master Pro grant) required to install this theme.',
         'error',
       );

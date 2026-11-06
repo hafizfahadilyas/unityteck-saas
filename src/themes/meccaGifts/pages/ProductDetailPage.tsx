@@ -30,6 +30,11 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../../utils/imageFallback';
+import { ProductOptionsPicker } from '../../../components/storefront/ProductOptionsPicker';
+import { ProductDynamicPurchase } from '../../../components/storefront/ProductDynamicPurchase';
+import { customFieldsExtra, missingRequiredField, purchaseNotes, type FieldValueMap } from '../../../utils/storefrontPurchase';
+import type { Product as CatalogProduct, ProductVariation } from '../../../types';
+import { isVariantPurchasable } from '../../../utils/productVariants';
 
 interface CustomerReview {
   id: string;
@@ -198,9 +203,40 @@ export const ProductDetailPage: React.FC = () => {
   // Special instructions
   const [specialNote, setSpecialNote] = useState<string>('');
 
+  const [activeVariant, setActiveVariant] = useState<ProductVariation | null>(null);
+
+  useEffect(() => {
+    if (activeVariant?.imageUrl) setActiveImage(activeVariant.imageUrl);
+  }, [activeVariant?.id, activeVariant?.imageUrl]);
+  const [selectedOptionMap, setSelectedOptionMap] = useState<Record<string, string>>({});
+  const [fieldValues, setFieldValues] = useState<FieldValueMap>({});
+  const [fieldError, setFieldError] = useState('');
+  useEffect(() => {
+    setFieldValues({});
+    setFieldError('');
+  }, [product?.id]);
+
+  const hasCatalogOptions = Boolean(
+    product &&
+      Array.isArray((product as any).productOptions) &&
+      (product as any).productOptions.length > 0,
+  );
+
   // Live Price Computations
   const addonsTotal = selectedAddons.reduce((sum, a) => sum + (a.price || 0), 0);
-  const unitPrice = (product?.price || 0) + selectedSize.extra + addonsTotal;
+  const fieldExtra = customFieldsExtra(
+    (product as { customFields?: CatalogProduct['customFields'] } | null)?.customFields,
+    fieldValues,
+    (product as { conditionalRules?: CatalogProduct['conditionalRules'] } | null)?.conditionalRules,
+    selectedOptionMap,
+  );
+  const unitPrice =
+    (hasCatalogOptions && activeVariant?.price != null
+      ? Number(activeVariant.price)
+      : product?.price || 0) +
+    selectedSize.extra +
+    addonsTotal +
+    fieldExtra;
   const subtotal = unitPrice * quantity;
   const freeShippingThreshold = 300;
   const shippingFee = subtotal >= freeShippingThreshold ? 0 : 25;
@@ -323,26 +359,60 @@ export const ProductDetailPage: React.FC = () => {
     return parts.join(' | ');
   }, [includeCard, senderName, recipientName, occasion, cardMessage, selectedRibbon, selectedSlot, specialNote, isAr]);
 
+  const orderNote = [
+    compiledCardNote,
+    purchaseNotes(
+      (product as { customFields?: CatalogProduct['customFields'] } | null)?.customFields,
+      fieldValues,
+      (product as { conditionalRules?: CatalogProduct['conditionalRules'] } | null)?.conditionalRules,
+      selectedOptionMap,
+    ).join(' | '),
+  ].filter(Boolean).join(' | ');
+
+  const guardFields = () => {
+    const missing = missingRequiredField(
+      (product as { customFields?: CatalogProduct['customFields'] } | null)?.customFields,
+      fieldValues,
+      (product as { conditionalRules?: CatalogProduct['conditionalRules'] } | null)?.conditionalRules,
+      selectedOptionMap,
+      isAr,
+    );
+    setFieldError(missing || '');
+    return !missing;
+  };
+
   const handleAddToCart = () => {
     if (!product) return;
-    addToCart(
-      product,
-      quantity,
-      selectedAddons,
-      compiledCardNote,
-      selectedSize.name
-    );
+    if (!guardFields()) return;
+    if (hasCatalogOptions) {
+      if (!isVariantPurchasable(activeVariant, quantity)) {
+        return;
+      }
+      addToCart(product, quantity, selectedAddons, orderNote, selectedSize.name, {
+        variationId: activeVariant?.id || null,
+        selectedOptions: selectedOptionMap,
+        unitPrice: (activeVariant?.price ?? product.price) + fieldExtra,
+      });
+      return;
+    }
+    addToCart(product, quantity, selectedAddons, orderNote, selectedSize.name, fieldExtra > 0 ? { unitPrice: product.price + fieldExtra } : undefined);
   };
 
   const handleBuyNow = () => {
     if (!product) return;
-    addToCart(
-      product,
-      quantity,
-      selectedAddons,
-      compiledCardNote,
-      selectedSize.name
-    );
+    if (!guardFields()) return;
+    if (hasCatalogOptions) {
+      if (!isVariantPurchasable(activeVariant, quantity)) {
+        return;
+      }
+      addToCart(product, quantity, selectedAddons, orderNote, selectedSize.name, {
+        variationId: activeVariant?.id || null,
+        selectedOptions: selectedOptionMap,
+        unitPrice: (activeVariant?.price ?? product.price) + fieldExtra,
+      });
+    } else {
+      addToCart(product, quantity, selectedAddons, orderNote, selectedSize.name, fieldExtra > 0 ? { unitPrice: product.price + fieldExtra } : undefined);
+    }
     setIsCartOpen(false);
     setCurrentPage('checkout');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -447,11 +517,17 @@ export const ProductDetailPage: React.FC = () => {
                   {isAr ? product.badge : product.badgeEn || product.badge}
                 </span>
               )}
-              {product.originalPrice && product.originalPrice > product.price && (
+              {((activeVariant?.compareAtPrice && activeVariant.price != null && activeVariant.compareAtPrice > activeVariant.price) ||
+                (product.originalPrice && product.originalPrice > product.price)) && (
                 <span className="bg-[#8b263e] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                  {isAr
-                    ? `خصم ${Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%`
-                    : `${Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF`}
+                  {(() => {
+                    const mrp = activeVariant?.compareAtPrice && activeVariant.price != null && activeVariant.compareAtPrice > activeVariant.price
+                      ? activeVariant.compareAtPrice
+                      : product.originalPrice || 0;
+                    const sell = activeVariant?.price != null ? activeVariant.price : product.price;
+                    const pct = mrp > sell ? Math.round(((mrp - sell) / mrp) * 100) : 0;
+                    return isAr ? `خصم ${pct}٪` : `${pct}% off`;
+                  })()}
                 </span>
               )}
             </div>
@@ -641,9 +717,13 @@ export const ProductDetailPage: React.FC = () => {
               <span className="text-xs sm:text-sm font-bold text-[#102a1c] dark:text-slate-300">
                 {isAr ? 'ر.س (شامل الضريبة)' : 'SAR (VAT Incl.)'}
               </span>
-              {product.originalPrice && product.originalPrice > product.price && (
+              {((activeVariant?.compareAtPrice && activeVariant.price != null && activeVariant.compareAtPrice > Number(activeVariant.price)) ||
+                (!activeVariant && product.originalPrice && product.originalPrice > product.price)) && (
                 <span className="text-xs text-[#999] dark:text-slate-500 line-through font-mono">
-                  {product.originalPrice + selectedSize.extra} {isAr ? 'ر.س' : 'SAR'}
+                  {(activeVariant?.compareAtPrice && activeVariant.compareAtPrice > Number(activeVariant.price || 0)
+                    ? activeVariant.compareAtPrice
+                    : product.originalPrice || 0) + selectedSize.extra}{' '}
+                  {isAr ? 'ر.س' : 'SAR'}
                 </span>
               )}
             </div>
@@ -694,6 +774,40 @@ export const ProductDetailPage: React.FC = () => {
               <Gift className="w-3.5 h-3.5 text-[#e6ca98]" />
               {isAr ? 'تخصيص الباقة والطلب' : 'Custom Order Options'}
             </h2>
+
+            {hasCatalogOptions && product && (
+              <div className="space-y-1.5 pb-2 border-b border-[#e8e4dc] dark:border-slate-800">
+                <label className="text-[11px] font-bold text-[#102a1c] dark:text-slate-200 block">
+                  {isAr ? 'خيارات المنتج:' : 'Product Options:'}
+                </label>
+                <ProductOptionsPicker
+                  product={product as unknown as CatalogProduct}
+                  isAr={isAr}
+                  onVariantChange={(variant, selected) => {
+                    setActiveVariant(variant);
+                    setSelectedOptionMap(selected);
+                  }}
+                />
+              </div>
+            )}
+
+            {product && Array.isArray((product as CatalogProduct).customFields) && (product as CatalogProduct).customFields!.length > 0 && (
+              <div className="space-y-1">
+                <ProductDynamicPurchase
+                  options={[]}
+                  fields={(product as CatalogProduct).customFields}
+                  rules={(product as CatalogProduct).conditionalRules}
+                  selected={selectedOptionMap}
+                  onSelect={setSelectedOptionMap}
+                  fieldValues={fieldValues}
+                  onFieldValues={setFieldValues}
+                  isAr={isAr}
+                  tone="mecca"
+                  basePrice={Number(product.price) || 0}
+                />
+                {fieldError ? <p className="text-[11px] font-bold text-rose-600">{fieldError}</p> : null}
+              </div>
+            )}
 
             {/* 1. Size Selection */}
             <div className="space-y-1.5">
@@ -967,10 +1081,19 @@ export const ProductDetailPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleAddToCart}
-                  className="flex-1 py-3 px-3 rounded-xl bg-[#102a1c] dark:bg-emerald-600 hover:bg-[#1a3f2b] dark:hover:bg-emerald-700 active:scale-98 text-[#FAF9F5] text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all"
+                  disabled={hasCatalogOptions && !isVariantPurchasable(activeVariant, quantity)}
+                  className="flex-1 py-3 px-3 rounded-xl bg-[#102a1c] dark:bg-emerald-600 hover:bg-[#1a3f2b] dark:hover:bg-emerald-700 active:scale-98 text-[#FAF9F5] text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ShoppingBag className="w-4 h-4 text-[#e6ca98]" />
-                  <span>{isAr ? `أضف للسلة (${grandTotal} ر.س)` : `Add to Bag (${grandTotal} SAR)`}</span>
+                  <span>
+                    {hasCatalogOptions && !isVariantPurchasable(activeVariant, quantity)
+                      ? isAr
+                        ? 'غير متوفر'
+                        : 'Out of stock'
+                      : isAr
+                        ? `أضف للسلة (${grandTotal} ر.س)`
+                        : `Add to Bag (${grandTotal} SAR)`}
+                  </span>
                 </button>
               </div>
 

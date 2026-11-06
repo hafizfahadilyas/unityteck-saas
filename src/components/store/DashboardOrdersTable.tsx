@@ -604,10 +604,11 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
               {paginatedOrders.map((ord) => {
                 const statusStyle = statusChipStyle(ord.status);
                 const firstItem = ord.items?.[0];
+                const summaryName = ord.itemsSummary?.split(/[,|·]/)[0]?.trim();
                 const firstItemName = firstItem
-                  ? getLocalizedItemName(firstItem, locale) || t('standardItem')
-                  : t('standardItem');
-                const itemsCount = ord.items?.length || 0;
+                  ? getLocalizedItemName(firstItem, locale) || summaryName || t('standardItem')
+                  : summaryName || t('standardItem');
+                const itemsCount = ord.items?.length || ord.itemsCount || 0;
 
                 return (
                   <tr

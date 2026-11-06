@@ -41,11 +41,37 @@ export function MasterLoginArt({ className = '' }: { className?: string }) {
   );
 }
 
+type HeroArtProps = {
+  className?: string;
+  /** When true: Arabic-only labels. When false: English-only. Never mix. */
+  isAr?: boolean;
+};
+
 /**
- * Saudi Commerce Cloud & 100 Stores Mission Hero Art
- * Modern enterprise illustration with Saudi digital network, cybersecurity shield, and multi-tenant commerce cloud
+ * Saudi Commerce Cloud hero — city + badge labels follow locale only (no AR/EN mix).
  */
-export function SaudiCommerceHeroArt({ className = '' }: { className?: string }) {
+export function SaudiCommerceHeroArt({ className = '', isAr = false }: HeroArtProps) {
+  const cities = isAr
+    ? {
+        jeddah: 'جدة',
+        makkah: 'مكة',
+        riyadh: 'الرياض',
+        medina: 'المدينة',
+        dammam: 'الدمام',
+      }
+    : {
+        jeddah: 'Jeddah',
+        makkah: 'Makkah',
+        riyadh: 'Riyadh',
+        medina: 'Medina',
+        dammam: 'Dammam',
+      };
+
+  const missionTitle = isAr ? 'مبادرة 100 متجر' : '100 Stores Mission';
+  const missionSub = isAr ? 'تمكين المتاجر السعودية' : 'Empowering Saudi Stores';
+  const securityTitle = isAr ? 'حماية سيبرانية شاملة' : 'Full Cyber Protection';
+  const securitySub = isAr ? 'حماية من الهجمات والاختراق' : 'Anti-SQLi & Anti-DDoS';
+
   return (
     <svg
       className={className}
@@ -73,46 +99,45 @@ export function SaudiCommerceHeroArt({ className = '' }: { className?: string })
         </filter>
       </defs>
 
-      {/* Background card with glass effect */}
       <rect x="18" y="24" width="324" height="242" rx="28" fill="url(#saudiCloudBg)" stroke="#10B981" strokeOpacity="0.3" strokeWidth="1.5" />
 
-      {/* Saudi Network Grid & Connection Waves */}
       <path d="M45 80 Q180 120 315 70" stroke="#34D399" strokeOpacity="0.25" strokeWidth="1.5" strokeDasharray="4 4" />
       <path d="M45 190 Q180 150 315 200" stroke="#34D399" strokeOpacity="0.25" strokeWidth="1.5" strokeDasharray="4 4" />
       <path d="M90 60 L180 120 L270 60" stroke="#F59E0B" strokeOpacity="0.3" strokeWidth="1" />
       <path d="M90 220 L180 160 L270 220" stroke="#F59E0B" strokeOpacity="0.3" strokeWidth="1" />
 
-      {/* City Nodes (Saudi Hubs: Riyadh, Jeddah, Makkah, Medina, Dammam) */}
-      {/* Riyadh (Center Node) */}
       <circle cx="180" cy="140" r="44" fill="#047857" fillOpacity="0.35" filter="url(#saudiGlow)" />
-      {/* Jeddah (West Node) */}
       <circle cx="75" cy="135" r="16" fill="#065F46" stroke="#34D399" strokeWidth="1.5" />
-      <text x="75" y="165" fill="#A7F3D0" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">Jeddah</text>
+      <text x="75" y="165" fill="#A7F3D0" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">
+        {cities.jeddah}
+      </text>
 
-      {/* Makkah (Holy Capital Node) */}
       <circle cx="95" cy="195" r="18" fill="#065F46" stroke="#F59E0B" strokeWidth="2" />
-      <text x="95" y="225" fill="#FDE68A" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">Makkah</text>
+      <text x="95" y="225" fill="#FDE68A" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">
+        {cities.makkah}
+      </text>
 
-      {/* Riyadh (Capital Headquarters) */}
       <circle cx="215" cy="95" r="19" fill="#065F46" stroke="#10B981" strokeWidth="2" />
-      <text x="215" y="70" fill="#A7F3D0" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">Riyadh</text>
+      <text x="215" y="70" fill="#A7F3D0" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">
+        {cities.riyadh}
+      </text>
 
-      {/* Medina */}
       <circle cx="85" cy="75" r="15" fill="#065F46" stroke="#34D399" strokeWidth="1.5" />
-      <text x="85" y="55" fill="#A7F3D0" fontSize="8" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">Medina</text>
+      <text x="85" y="55" fill="#A7F3D0" fontSize="8" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">
+        {cities.medina}
+      </text>
 
-      {/* Eastern Province / Dammam */}
       <circle cx="285" cy="135" r="17" fill="#065F46" stroke="#34D399" strokeWidth="1.5" />
-      <text x="285" y="165" fill="#A7F3D0" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">Dammam</text>
+      <text x="285" y="165" fill="#A7F3D0" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">
+        {cities.dammam}
+      </text>
 
-      {/* Inter-Node Glowing Lines */}
       <line x1="95" y1="195" x2="180" y2="140" stroke="#34D399" strokeWidth="2" opacity="0.6" />
       <line x1="75" y1="135" x2="180" y2="140" stroke="#34D399" strokeWidth="2" opacity="0.6" />
       <line x1="215" y1="95" x2="180" y2="140" stroke="#10B981" strokeWidth="2.5" opacity="0.8" />
       <line x1="285" y1="135" x2="180" y2="140" stroke="#34D399" strokeWidth="2" opacity="0.6" />
       <line x1="85" y1="75" x2="215" y2="95" stroke="#34D399" strokeWidth="1.5" opacity="0.4" />
 
-      {/* Central Cybersecurity Shield (Bank Grade & Anti-SQLi) */}
       <g transform="translate(152, 108)">
         <path
           d="M28 2 C44 2 54 10 54 10 C54 36 38 54 28 60 C18 54 2 36 2 10 C2 10 12 2 28 2 Z"
@@ -120,7 +145,6 @@ export function SaudiCommerceHeroArt({ className = '' }: { className?: string })
           stroke="#ECFDF5"
           strokeWidth="2"
         />
-        {/* Checkmark inside shield */}
         <path
           d="M18 30 L25 37 L39 21"
           stroke="#FFFFFF"
@@ -130,22 +154,30 @@ export function SaudiCommerceHeroArt({ className = '' }: { className?: string })
         />
       </g>
 
-      {/* Mission 100 Stores Saudi Badge */}
       <g transform="translate(195, 175)">
         <rect x="0" y="0" width="125" height="42" rx="12" fill="#042F2E" stroke="#F59E0B" strokeWidth="1.5" />
         <circle cx="16" cy="21" r="9" fill="#F59E0B" />
-        <text x="16" y="24" fill="#000000" fontSize="10" fontWeight="900" textAnchor="middle" fontFamily="sans-serif">🇸🇦</text>
-        <text x="32" y="18" fill="#FDE68A" fontSize="10" fontWeight="800" fontFamily="sans-serif">مبادرة 100 متجر</text>
-        <text x="32" y="31" fill="#99F6E4" fontSize="8" fontWeight="600" fontFamily="sans-serif">100+ Stores Mission</text>
+        <text x="16" y="24" fill="#000000" fontSize="10" fontWeight="900" textAnchor="middle" fontFamily="sans-serif">
+          🇸🇦
+        </text>
+        <text x="32" y="18" fill="#FDE68A" fontSize="10" fontWeight="800" fontFamily="sans-serif">
+          {missionTitle}
+        </text>
+        <text x="32" y="31" fill="#99F6E4" fontSize="8" fontWeight="600" fontFamily="sans-serif">
+          {missionSub}
+        </text>
       </g>
 
-      {/* SSL 256-Bit & SQLi Shield Badge */}
       <g transform="translate(36, 175)">
         <rect x="0" y="0" width="115" height="42" rx="12" fill="#042F2E" stroke="#10B981" strokeWidth="1.5" />
         <circle cx="16" cy="21" r="9" fill="#10B981" />
         <path d="M13 21l2 2 4-4" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <text x="30" y="18" fill="#FFFFFF" fontSize="9" fontWeight="800" fontFamily="sans-serif">حماية سيبرانية شاملة</text>
-        <text x="30" y="31" fill="#6EE7B7" fontSize="8" fontWeight="600" fontFamily="sans-serif">SQLi & Anti-DDoS</text>
+        <text x="30" y="18" fill="#FFFFFF" fontSize="9" fontWeight="800" fontFamily="sans-serif">
+          {securityTitle}
+        </text>
+        <text x="30" y="31" fill="#6EE7B7" fontSize="8" fontWeight="600" fontFamily="sans-serif">
+          {securitySub}
+        </text>
       </g>
     </svg>
   );
@@ -176,39 +208,24 @@ export function StoreLoginArt({ className = '' }: { className?: string }) {
         </linearGradient>
       </defs>
 
-      {/* Soft ground — light on dark hero */}
       <ellipse cx="160" cy="248" rx="118" ry="22" fill="#ECFDF5" opacity="0.22" />
-
-      {/* Leaves */}
       <ellipse cx="118" cy="175" rx="36" ry="16" transform="rotate(-35 118 175)" fill="#34D399" opacity="0.9" />
       <ellipse cx="208" cy="180" rx="34" ry="15" transform="rotate(32 208 180)" fill="#10B981" opacity="0.85" />
-
-      {/* Stems */}
       <path d="M148 130 C145 170 142 200 138 235" stroke="url(#stemGrad)" strokeWidth="5" strokeLinecap="round" />
       <path d="M168 125 C172 165 176 200 182 235" stroke="url(#stemGrad)" strokeWidth="5" strokeLinecap="round" />
       <path d="M158 120 C158 165 158 200 160 238" stroke="url(#stemGrad)" strokeWidth="6" strokeLinecap="round" />
-
-      {/* Cream rose (right) */}
       <circle cx="198" cy="98" r="28" fill="url(#petalCream)" />
       <circle cx="210" cy="88" r="16" fill="#FEF9C3" opacity="0.9" />
       <circle cx="188" cy="92" r="14" fill="#FDE68A" opacity="0.85" />
-
-      {/* Red rose (center) */}
       <circle cx="155" cy="82" r="34" fill="url(#petalRed)" />
       <circle cx="148" cy="72" r="18" fill="#FDA4AF" opacity="0.9" />
       <circle cx="165" cy="78" r="15" fill="#E11D48" opacity="0.75" />
       <circle cx="155" cy="88" r="10" fill="#9F1239" opacity="0.7" />
-
-      {/* Soft white bloom (left) */}
       <circle cx="112" cy="105" r="24" fill="#ECFDF5" />
       <circle cx="104" cy="98" r="12" fill="#A7F3D0" opacity="0.85" />
       <circle cx="120" cy="100" r="11" fill="#FFFFFF" opacity="0.9" />
-
-      {/* Small buds */}
       <circle cx="230" cy="130" r="10" fill="#FB7185" />
       <circle cx="95" cy="140" r="8" fill="#FDE68A" />
-
-      {/* Makkah crescent mark (subtle) */}
       <path
         d="M248 58c-10 2-17 12-15 22 6-4 14-4 20 1 2-11-1-21-5-23z"
         fill="#ECFDF5"

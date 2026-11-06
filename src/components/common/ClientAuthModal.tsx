@@ -24,6 +24,7 @@ import { PlanType } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { initiateRealGoogleOAuth } from '../../utils/googleRealAuth';
 import { loginPortal, DEMO_CREDENTIALS } from '../../auth/api';
+import { toUserFriendlyError } from '../../utils/userFriendlyError';
 
 interface ClientAuthModalProps {
   isOpen: boolean;
@@ -84,7 +85,11 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
       }
       onClose();
     } catch (err) {
-      setLoginError(err instanceof Error ? err.message : 'Invalid password or store credentials.');
+      setLoginError(
+        toUserFriendlyError(
+          err instanceof Error ? err.message : 'Invalid password or store credentials.',
+        ),
+      );
     } finally {
       setLoginLoading(false);
     }

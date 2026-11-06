@@ -51,7 +51,7 @@ export const CatalogPage: React.FC = () => {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [priceMax, setPriceMax] = useState<number>(800);
+  const [priceMax, setPriceMax] = useState<number>(1000000);
   const [minRating, setMinRating] = useState<number>(0);
   const [onlyInStock, setOnlyInStock] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<'featured' | 'price-low' | 'price-high' | 'rating'>('featured');
@@ -62,11 +62,16 @@ export const CatalogPage: React.FC = () => {
   const [currentPageNum, setCurrentPageNum] = useState<number>(1);
   const itemsPerPage = 12;
 
+  const catalogPriceCeiling = useMemo(() => {
+    const max = catalogProducts.reduce((m, p) => Math.max(m, Number(p.price) || 0), 0);
+    return Math.max(500, Math.ceil(max / 10) * 10);
+  }, [catalogProducts]);
+
   // Active filter count
   const activeFiltersCount =
     (selectedCategory ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0) +
-    (priceMax < 800 ? 1 : 0) +
+    (priceMax < catalogPriceCeiling ? 1 : 0) +
     (minRating > 0 ? 1 : 0) +
     (onlyInStock ? 1 : 0);
 
@@ -101,59 +106,59 @@ export const CatalogPage: React.FC = () => {
 
     // 4. Semantic grouping & keywords
     if (t.includes('مخفض') || t.includes('عروض') || t.includes('خصم') || t.includes('discount')) {
-      return !!product.originalPrice || product.category.includes('مخفض') || Boolean(product.badge && product.badge.includes('خصم'));
+      return !!product.originalPrice || (product.category || '').includes('مخفض') || Boolean(product.badge && product.badge.includes('خصم'));
     }
 
     if (t.includes('شوك') || t.includes('باتشي') || t.includes('بستاني') || t.includes('choc') || t.includes('patchi')) {
-      return product.category.includes('شوكولاتة') || product.name.includes('شوكولاتة') || product.name.includes('باتشي') || product.nameEn.toLowerCase().includes('patchi');
+      return (product.category || '').includes('شوكولاتة') || (product.name || '').includes('شوكولاتة') || (product.name || '').includes('باتشي') || (product.nameEn || '').toLowerCase().includes('patchi');
     }
 
     if (t.includes('كيك') || t.includes('بنتو') || t.includes('cake') || t.includes('bento')) {
-      return product.category.includes('كيك') || product.name.includes('كيك') || product.nameEn.toLowerCase().includes('cake');
+      return (product.category || '').includes('كيك') || (product.name || '').includes('كيك') || (product.nameEn || '').toLowerCase().includes('cake');
     }
 
     if (t.includes('قهوة') || t.includes('حلا') || t.includes('ضيافة') || t.includes('coffee')) {
-      return product.category.includes('قهوة') || product.name.includes('قهوة') || product.name.includes('حلا') || product.nameEn.toLowerCase().includes('coffee');
+      return (product.category || '').includes('قهوة') || (product.name || '').includes('قهوة') || (product.name || '').includes('حلا') || (product.nameEn || '').toLowerCase().includes('coffee');
     }
 
     if (t.includes('فاز') || t.includes('كريستال') || t.includes('vase')) {
-      return product.category.includes('فاز') || product.name.includes('فاز') || product.nameEn.toLowerCase().includes('vase');
+      return (product.category || '').includes('فاز') || (product.name || '').includes('فاز') || (product.nameEn || '').toLowerCase().includes('vase');
     }
 
     if (t.includes('طبيعي') || t.includes('باقات') || t.includes('ورد') || t.includes('bouquet') || t.includes('rose') || t.includes('boxes')) {
-      return product.category.includes('باقات') || product.category.includes('ورد') || product.category.toLowerCase().includes('bouquet');
+      return (product.category || '').includes('باقات') || (product.category || '').includes('ورد') || product.category.toLowerCase().includes('bouquet');
     }
 
     if (t.includes('هدايا') || t.includes('ملك') || t.includes('سلة') || t.includes('hamper') || t.includes('gift')) {
-      return product.category.includes('هدايا') || product.category.includes('أطقم') || product.category.toLowerCase().includes('gift') || product.category.toLowerCase().includes('hamper');
+      return (product.category || '').includes('هدايا') || (product.category || '').includes('أطقم') || product.category.toLowerCase().includes('gift') || product.category.toLowerCase().includes('hamper');
     }
 
     if (t.includes('مواليد') || t.includes('مولود') || t.includes('newborn')) {
-      return (product.occasions && product.occasions.some(o => o.includes('مواليد'))) || product.name.includes('مولود');
+      return (product.occasions && product.occasions.some(o => o.includes('مواليد'))) || (product.name || '').includes('مولود');
     }
 
     if (t.includes('تخرج') || t.includes('graduation')) {
-      return (product.occasions && product.occasions.some(o => o.includes('تخرج'))) || product.name.includes('تخرج');
+      return (product.occasions && product.occasions.some(o => o.includes('تخرج'))) || (product.name || '').includes('تخرج');
     }
 
     if (t.includes('مواجيب') || t.includes('لوحات') || t.includes('mawajeeb')) {
-      return (product.occasions && product.occasions.some(o => o.includes('مواجيب'))) || product.name.includes('مواجيب');
+      return (product.occasions && product.occasions.some(o => o.includes('مواجيب'))) || (product.name || '').includes('مواجيب');
     }
 
     if (t.includes('زواج') || t.includes('عروس') || t.includes('حب') || t.includes('wedding')) {
-      return (product.occasions && product.occasions.some(o => o.includes('زواج'))) || product.category.includes('رومانسية') || product.name.includes('عروس') || product.name.includes('زواج');
+      return (product.occasions && product.occasions.some(o => o.includes('زواج'))) || (product.category || '').includes('رومانسية') || (product.name || '').includes('عروس') || (product.name || '').includes('زواج');
     }
 
     if (t.includes('ميلاد') || t.includes('birthday')) {
-      return (product.occasions && product.occasions.some(o => o.includes('ميلاد'))) || product.category.includes('ميلاد') || product.name.includes('ميلاد');
+      return (product.occasions && product.occasions.some(o => o.includes('ميلاد'))) || (product.category || '').includes('ميلاد') || (product.name || '').includes('ميلاد');
     }
 
     if (t.includes('شفاء') || t.includes('سلامة')) {
-      return (product.occasions && product.occasions.some(o => o.includes('شفاء'))) || product.name.includes('سلامة');
+      return (product.occasions && product.occasions.some(o => o.includes('شفاء'))) || (product.name || '').includes('سلامة');
     }
 
     // 5. Fallback partial match on name or description
-    if (product.name.toLowerCase().includes(t) || product.nameEn.toLowerCase().includes(t)) {
+    if ((product.name || '').toLowerCase().includes(t) || (product.nameEn || '').toLowerCase().includes(t)) {
       return true;
     }
 
@@ -171,10 +176,10 @@ export const CatalogPage: React.FC = () => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const match =
-        product.name.toLowerCase().includes(q) ||
-        product.nameEn.toLowerCase().includes(q) ||
-        product.description.toLowerCase().includes(q) ||
-        product.category.toLowerCase().includes(q);
+        (product.name || '').toLowerCase().includes(q) ||
+        (product.nameEn || '').toLowerCase().includes(q) ||
+        (product.description || '').toLowerCase().includes(q) ||
+        (product.category || '').toLowerCase().includes(q);
       if (!match) return false;
     }
 
@@ -190,8 +195,7 @@ export const CatalogPage: React.FC = () => {
     return true;
   });
 
-  // Fallback products if filtered is empty (guarantee page is never blank)
-  const displayProducts = filtered.length > 0 ? filtered : catalogProducts.slice(0, 8);
+  const displayProducts = filtered;
 
   // Sort
   const sorted = [...displayProducts].sort((a, b) => {
@@ -208,7 +212,7 @@ export const CatalogPage: React.FC = () => {
   const resetFilters = () => {
     setSelectedCategory(null);
     setSearchQuery('');
-    setPriceMax(600);
+    setPriceMax(1000000);
     setMinRating(0);
     setOnlyInStock(false);
     setCurrentPageNum(1);
@@ -328,8 +332,10 @@ export const CatalogPage: React.FC = () => {
           <>
             <img
               src={customShopBanner}
-              alt="Shop Banner"
+              alt={isAr ? 'غلاف المتجر' : 'Shop banner'}
               className="absolute inset-0 w-full h-full object-cover filter brightness-[0.4] transition-all duration-500"
+              loading="lazy"
+              decoding="async"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
           </>
@@ -485,18 +491,18 @@ export const CatalogPage: React.FC = () => {
               <input
                 type="range"
                 min="180"
-                max="800"
-                step="20"
-                value={priceMax}
+                max={catalogPriceCeiling}
+                step="10"
+                value={Math.min(priceMax, catalogPriceCeiling)}
                 onChange={(e) => {
                   setPriceMax(Number(e.target.value));
                   setCurrentPageNum(1);
                 }}
                 className="w-full accent-[#102a1c] cursor-pointer"
               />
-              <div className="flex justify-between text-[10px] text-[#8c8275] font-mono">
-                <span>180 ر.س</span>
-                <span>800 ر.س</span>
+              <div className="flex justify-between text-[10px] text-[#3d3830] font-mono">
+                <span>{isAr ? '١٨٠ ر.س' : 'SAR 180'}</span>
+                <span>{catalogPriceCeiling} {isAr ? 'ر.س' : 'SAR'}</span>
               </div>
             </div>
 
@@ -705,8 +711,12 @@ export const CatalogPage: React.FC = () => {
 
                 {/* Empty Fallback Notice if exact filter had 0 results */}
                 {filtered.length === 0 && (
-                  <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
-                    <span>{isAr ? 'لم يتم العثور على نتائج دقيقة للتصفية، نعرض لك هذه التشكيلات المميزة البديلة.' : 'No exact matches found. Displaying recommended alternatives below.'}</span>
+                  <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-3">
+                    <span>
+                      {catalogProducts.length === 0
+                        ? (isAr ? 'لا توجد منتجات في هذا المتجر بعد.' : 'This store has no products yet.')
+                        : (isAr ? 'لا توجد منتجات مطابقة. جرّب تصنيفًا آخر أو أعد ضبط التصفية.' : 'No matching products. Try another category or reset filters.')}
+                    </span>
                     <button
                       onClick={resetFilters}
                       className="font-bold underline text-amber-950 hover:text-black cursor-pointer"
@@ -718,7 +728,7 @@ export const CatalogPage: React.FC = () => {
 
                 {/* Product Cards Grid: Exactly 3 products per row on desktop (lg/xl), 2 on tablet (sm), 1 on mobile */}
                 {viewMode === 'grid' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
+                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-5">
                     {paginated.map((product) => (
                       <ProductCard key={product.id} product={product} />
                     ))}
@@ -741,6 +751,8 @@ export const CatalogPage: React.FC = () => {
                               src={product.image}
                               alt={pName}
                               className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
+                              loading="lazy"
+                              decoding="async"
                               loading="lazy" decoding="async"
                             />
                             {product.badge && (

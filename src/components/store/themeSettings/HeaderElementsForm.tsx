@@ -28,10 +28,12 @@ import {
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { MediaUploadField } from '../../common/MediaUploadField';
 import { WhatsAppBrandIcon } from '../../common/BrandIcons';
 import {
   readAllThemeSettings,
   writeAllThemeSettings,
+  resolveStoreActiveThemeId,
 } from '../../../themes/settings/themeSettingsStore';
 import {
   type HeaderCustomSettings,
@@ -39,6 +41,7 @@ import {
   type HeaderAnnouncementMessage,
   type HeaderNavLink,
 } from '../../../themes/settings/headerCustomSettings';
+import { isCoffeeStore } from '../../../themes/settings/coffeeThemeDefaults';
 
 const ANNOUNCEMENT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Sparkles,
@@ -48,6 +51,119 @@ const ANNOUNCEMENT_ICONS: Record<string, React.ComponentType<{ className?: strin
   Gift,
   Percent,
 };
+
+function HeaderNavListEditor({
+  isAr,
+  title,
+  testId,
+  links,
+  onChange,
+}: {
+  isAr: boolean;
+  title: string;
+  testId: 'desktop' | 'mobile';
+  links: HeaderNavLink[];
+  onChange: (links: HeaderNavLink[]) => void;
+}) {
+  return (
+    <div
+      data-nav-editor={testId}
+      className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 shadow-2xs"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-bold text-slate-500">{title}</span>
+        <button
+          type="button"
+          onClick={() => {
+            onChange([
+              ...links,
+              {
+                id: `nav-${testId}-${Date.now()}`,
+                labelAr: '',
+                labelEn: '',
+                icon: 'Sparkles',
+                url: 'products',
+                active: true,
+              },
+            ]);
+          }}
+          className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] flex items-center gap-1 cursor-pointer hover:bg-emerald-100"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>{isAr ? 'إضافة رابط' : 'Add link'}</span>
+        </button>
+      </div>
+      {links.length === 0 ? (
+        <p className="text-[11px] text-slate-400">
+          {isAr ? 'لا توجد روابط. قائمة المتجر الحالية تبقى كما هي.' : 'No links yet. The current store menu stays as it is.'}
+        </p>
+      ) : (
+        <div className="space-y-2 max-h-72 overflow-y-auto pe-1">
+          {links.map((link, idx) => (
+            <div
+              key={link.id}
+              className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850 space-y-2"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="w-5 h-5 rounded-md bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                  {idx + 1}
+                </span>
+                <input
+                  type="text"
+                  value={link.labelAr}
+                  onChange={(e) => {
+                    const copy = [...links];
+                    copy[idx] = { ...copy[idx], labelAr: e.target.value };
+                    onChange(copy);
+                  }}
+                  placeholder={isAr ? 'الاسم بالعربية' : 'Name in Arabic'}
+                  className="flex-1 px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold"
+                  dir="rtl"
+                />
+                <input
+                  type="text"
+                  value={link.labelEn}
+                  onChange={(e) => {
+                    const copy = [...links];
+                    copy[idx] = { ...copy[idx], labelEn: e.target.value };
+                    onChange(copy);
+                  }}
+                  placeholder={isAr ? 'الاسم بالإنجليزية' : 'Name in English'}
+                  className="flex-1 px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+                  dir="ltr"
+                />
+                <button
+                  type="button"
+                  onClick={() => onChange(links.filter((_, i) => i !== idx))}
+                  className="p-1 text-rose-500 hover:text-rose-700 cursor-pointer"
+                  aria-label={isAr ? 'حذف' : 'Delete'}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-400 font-bold shrink-0">
+                  {isAr ? 'الوجهة' : 'Destination'}
+                </span>
+                <input
+                  type="text"
+                  value={link.url || ''}
+                  onChange={(e) => {
+                    const copy = [...links];
+                    copy[idx] = { ...copy[idx], url: e.target.value };
+                    onChange(copy);
+                  }}
+                  className="w-full px-2 py-0.5 text-[11px] font-mono rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+                  dir="ltr"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export const HeaderElementsForm: React.FC = () => {
   const { activeStore } = useTenant();
@@ -70,19 +186,54 @@ export const HeaderElementsForm: React.FC = () => {
     setHeaderSettings(full.customHeader || getDefaultHeaderSettings(activeStore));
   }, [activeStore.id]);
 
-  const handleSave = (e?: React.FormEvent) => {
+  const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setSaving(true);
-    const full = readAllThemeSettings(activeStore.id, activeStore);
-    full.customHeader = headerSettings;
-    writeAllThemeSettings(activeStore.id, full);
+    try {
+      const full = readAllThemeSettings(activeStore.id, activeStore);
+      full.customHeader = headerSettings;
+      await writeAllThemeSettings(activeStore.id, full);
 
-    setTimeout(() => {
-      setSaving(false);
+      if (isCoffeeStore(activeStore)) {
+        try {
+          const { isApiEnabled } = await import('../../../api/client');
+          if (isApiEnabled()) {
+            const { updateThemeSettingsApi } = await import('../../../api/tenantApi');
+            const themeId = resolveStoreActiveThemeId(activeStore.id) || 'theme-coffee-artisan';
+            await updateThemeSettingsApi(activeStore.id, {
+              theme_id: themeId,
+              settings: { customHeader: headerSettings },
+            });
+          }
+        } catch {
+          toast(
+            isAr
+              ? 'حُفظ محلياً، لكن مزامنة الخادم فشلت. أعد المحاولة.'
+              : 'Saved locally, but server sync failed. Try again.',
+            'error',
+          );
+          setSaving(false);
+          return;
+        }
+      }
+
       setSavedFlash(true);
-      toast(isAr ? 'تم حفظ إعدادات الهيدر بنجاح' : 'Header settings saved successfully', 'success');
-      setTimeout(() => setSavedFlash(false), 2500);
-    }, 250);
+      toast(
+        isCoffeeStore(activeStore)
+          ? isAr
+            ? 'تم حفظ الهيدر في الخادم. الواجهة تتحدّث بعد هذا الحفظ.'
+            : 'Header saved to the server. The storefront updates after this save.'
+          : isAr
+            ? 'تم حفظ إعدادات الهيدر بنجاح'
+            : 'Header settings saved successfully',
+        'success',
+      );
+      window.setTimeout(() => setSavedFlash(false), 2500);
+    } catch {
+      toast(isAr ? 'فشل حفظ الهيدر' : 'Failed to save header', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleReset = () => {
@@ -191,7 +342,7 @@ export const HeaderElementsForm: React.FC = () => {
                   <Heart className="w-4 h-4 fill-rose-500" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold">{isAr ? 'أيقونة المفضلة (Wishlist Heart)' : 'Wishlist (Heart Icon)'}</h4>
+                  <h4 className="text-xs font-bold">{isAr ? 'أيقونة المفضلة' : 'Wishlist icon'}</h4>
                   <p className="text-[10px] text-slate-400">{isAr ? 'إظهار زر التفضيل وحفظ المنتجات بالهيدر' : 'Toggle wishlist heart in header'}</p>
                 </div>
               </div>
@@ -207,7 +358,7 @@ export const HeaderElementsForm: React.FC = () => {
                   }))
                 }
                 className={toggleTrack(wishlist.enabled)}
-                aria-label="Wishlist toggle"
+                aria-label={isAr ? 'تبديل المفضلة' : 'Toggle wishlist'}
               >
                 <span className="bg-white w-4 h-4 rounded-full shadow-md" />
               </button>
@@ -280,7 +431,7 @@ export const HeaderElementsForm: React.FC = () => {
                   <ShoppingBag className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold">{isAr ? 'أيقونة السلة (Shopping Cart)' : 'Shopping Cart Icon'}</h4>
+                  <h4 className="text-xs font-bold">{isAr ? 'أيقونة السلة' : 'Shopping cart icon'}</h4>
                   <p className="text-[10px] text-slate-400">{isAr ? 'أيقونة سلة الشراء والعداد العائم' : 'Cart icon, counter badge and pill'}</p>
                 </div>
               </div>
@@ -296,7 +447,7 @@ export const HeaderElementsForm: React.FC = () => {
                   }))
                 }
                 className={toggleTrack(cartAction.enabled)}
-                aria-label="Cart toggle"
+                aria-label={isAr ? 'تبديل السلة' : 'Toggle cart'}
               >
                 <span className="bg-white w-4 h-4 rounded-full shadow-md" />
               </button>
@@ -399,7 +550,7 @@ export const HeaderElementsForm: React.FC = () => {
                   <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold">{isAr ? 'أيقونة الواتساب (WhatsApp Chat)' : 'WhatsApp Icon'}</h4>
+                  <h4 className="text-xs font-bold">{isAr ? 'أيقونة واتساب' : 'WhatsApp icon'}</h4>
                   <p className="text-[10px] text-slate-400">{isAr ? 'زر الدردشة الفورية مع الدعم في الهيدر' : 'Direct WhatsApp chat in top header'}</p>
                 </div>
               </div>
@@ -415,7 +566,7 @@ export const HeaderElementsForm: React.FC = () => {
                   }))
                 }
                 className={toggleTrack(whatsapp.enabled)}
-                aria-label="WhatsApp toggle"
+                aria-label={isAr ? 'تبديل واتساب' : 'Toggle WhatsApp'}
               >
                 <span className="bg-white w-4 h-4 rounded-full shadow-md" />
               </button>
@@ -443,12 +594,31 @@ export const HeaderElementsForm: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'نص التلميح (عربي)' : 'Tooltip (AR)'}</label>
+                    <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'نص التلميح بالإنجليزية' : 'Tooltip in English'}</label>
                     <input
                       type="text"
-                      value={whatsapp.tooltipAr || 'تواصل معنا واتساب'}
+                      dir="ltr"
+                      value={whatsapp.tooltipEn || ''}
+                      onChange={(e) =>
+                        setHeaderSettings((p) => ({
+                          ...p,
+                          actions: {
+                            ...p.actions,
+                            whatsapp: { ...whatsapp, tooltipEn: e.target.value },
+                          },
+                        }))
+                      }
+                      className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'نص التلميح بالعربية' : 'Tooltip in Arabic'}</label>
+                    <input
+                      type="text"
+                      dir="rtl"
+                      value={whatsapp.tooltipAr || ''}
                       onChange={(e) =>
                         setHeaderSettings((p) => ({
                           ...p,
@@ -494,7 +664,7 @@ export const HeaderElementsForm: React.FC = () => {
                   <User className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold">{isAr ? 'أيقونة الحساب (Profile / Login)' : 'User Profile Icon'}</h4>
+                  <h4 className="text-xs font-bold">{isAr ? 'أيقونة الحساب' : 'Account icon'}</h4>
                   <p className="text-[10px] text-slate-400">{isAr ? 'تسجيل الدخول والملف الشخصي' : 'Customer profile & authentication'}</p>
                 </div>
               </div>
@@ -510,7 +680,7 @@ export const HeaderElementsForm: React.FC = () => {
                   }))
                 }
                 className={toggleTrack(accountAction.enabled)}
-                aria-label="Account toggle"
+                aria-label={isAr ? 'تبديل الحساب' : 'Toggle account'}
               >
                 <span className="bg-white w-4 h-4 rounded-full shadow-md" />
               </button>
@@ -564,7 +734,7 @@ export const HeaderElementsForm: React.FC = () => {
                   <Search className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold">{isAr ? 'أيقونة البحث (Instant Search)' : 'Search Modal Icon'}</h4>
+                  <h4 className="text-xs font-bold">{isAr ? 'أيقونة البحث' : 'Search icon'}</h4>
                   <p className="text-[10px] text-slate-400">{isAr ? 'نافذة البحث الفوري عن المنتجات' : 'Instant product search popup'}</p>
                 </div>
               </div>
@@ -580,7 +750,7 @@ export const HeaderElementsForm: React.FC = () => {
                   }))
                 }
                 className={toggleTrack(searchAction.enabled)}
-                aria-label="Search toggle"
+                aria-label={isAr ? 'تبديل البحث' : 'Toggle search'}
               >
                 <span className="bg-white w-4 h-4 rounded-full shadow-md" />
               </button>
@@ -643,22 +813,20 @@ export const HeaderElementsForm: React.FC = () => {
             </div>
           </div>
 
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'رابط صورة الشعار (URL)' : 'Logo Image URL'}</label>
-            <input
-              type="text"
-              value={headerSettings.logo.imageUrl || ''}
-              onChange={(e) =>
-                setHeaderSettings((p) => ({
-                  ...p,
-                  logo: { ...p.logo, imageUrl: e.target.value },
-                }))
-              }
-              className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-              placeholder="https://..."
-              dir="ltr"
-            />
-          </div>
+          <MediaUploadField
+            label={isAr ? 'صورة الشعار' : 'Logo image'}
+            value={headerSettings.logo.imageUrl || ''}
+            onChange={(url) =>
+              setHeaderSettings((p) => ({
+                ...p,
+                logo: { ...p.logo, imageUrl: url },
+              }))
+            }
+            altText={isAr ? headerSettings.logo.titleAr : headerSettings.logo.titleEn}
+            aspectRatio="square"
+            initialFolder="logo"
+            recommendedSize="512 × 512 px"
+          />
 
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -669,7 +837,7 @@ export const HeaderElementsForm: React.FC = () => {
                 onChange={(e) =>
                   setHeaderSettings((p) => ({
                     ...p,
-                    logo: { ...p.logo, titleAr: e.target.value },
+                    logo: { ...p.logo, titleAr: e.target.value, applyTitle: true },
                   }))
                 }
                 className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold"
@@ -683,7 +851,7 @@ export const HeaderElementsForm: React.FC = () => {
                 onChange={(e) =>
                   setHeaderSettings((p) => ({
                     ...p,
-                    logo: { ...p.logo, titleEn: e.target.value },
+                    logo: { ...p.logo, titleEn: e.target.value, applyTitle: true },
                   }))
                 }
                 className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold"
@@ -726,7 +894,7 @@ export const HeaderElementsForm: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'ارتفاع الشعار (px)' : 'Height (px)'}</label>
+              <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'ارتفاع الشعار' : 'Height'}</label>
               <input
                 type="number"
                 min="20"
@@ -773,104 +941,36 @@ export const HeaderElementsForm: React.FC = () => {
         </div>
       )}
 
-      {/* ─── TAB 3: NAVIGATION MENU LINKS ─── */}
+      {/* ─── TAB 3: DESKTOP AND MOBILE NAV ─── */}
       {activeSubTab === 'navigation' && (
         <div className="space-y-3 animate-in fade-in duration-200 text-xs">
-          <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 shadow-2xs">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase text-slate-400">
-                {isAr ? 'روابط القائمة الرئيسية' : 'Main Menu Navigation Links'}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  const newLink: HeaderNavLink = {
-                    id: `nav-${Date.now()}`,
-                    labelAr: 'رابط جديد',
-                    labelEn: 'New Link',
-                    icon: 'Sparkles',
-                    url: 'products',
-                    active: true,
-                  };
-                  setHeaderSettings((p) => ({
-                    ...p,
-                    navigation: {
-                      ...p.navigation,
-                      links: [...(p.navigation.links || []), newLink],
-                    },
-                  }));
-                }}
-                className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] flex items-center gap-1 cursor-pointer hover:bg-emerald-100"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>{isAr ? 'إضافة رابط' : '+ Add Link'}</span>
-              </button>
-            </div>
-
-            <div className="space-y-2 max-h-72 overflow-y-auto pe-1">
-              {(headerSettings.navigation.links || []).map((link, idx) => (
-                <div
-                  key={link.id}
-                  className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850 space-y-2"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="w-5 h-5 rounded-md bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-500">
-                      {idx + 1}
-                    </span>
-                    <input
-                      type="text"
-                      value={link.labelAr}
-                      onChange={(e) => {
-                        const copy = [...headerSettings.navigation.links];
-                        copy[idx] = { ...copy[idx], labelAr: e.target.value };
-                        setHeaderSettings((p) => ({ ...p, navigation: { ...p.navigation, links: copy } }));
-                      }}
-                      placeholder="الاسم بالعربي"
-                      className="flex-1 px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold"
-                    />
-                    <input
-                      type="text"
-                      value={link.labelEn}
-                      onChange={(e) => {
-                        const copy = [...headerSettings.navigation.links];
-                        copy[idx] = { ...copy[idx], labelEn: e.target.value };
-                        setHeaderSettings((p) => ({ ...p, navigation: { ...p.navigation, links: copy } }));
-                      }}
-                      placeholder="English label"
-                      className="flex-1 px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
-                      dir="ltr"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const filtered = headerSettings.navigation.links.filter((_, i) => i !== idx);
-                        setHeaderSettings((p) => ({ ...p, navigation: { ...p.navigation, links: filtered } }));
-                      }}
-                      className="p-1 text-rose-500 hover:text-rose-700 cursor-pointer"
-                      title={isAr ? 'حذف' : 'Delete'}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-slate-400 font-bold shrink-0">{isAr ? 'الوجهة:' : 'URL:'}</span>
-                    <input
-                      type="text"
-                      value={link.url || link.cat || 'products'}
-                      onChange={(e) => {
-                        const copy = [...headerSettings.navigation.links];
-                        copy[idx] = { ...copy[idx], url: e.target.value };
-                        setHeaderSettings((p) => ({ ...p, navigation: { ...p.navigation, links: copy } }));
-                      }}
-                      className="w-full px-2 py-0.5 text-[11px] font-mono rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
-                      dir="ltr"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <HeaderNavListEditor
+            isAr={isAr}
+            title={isAr ? 'روابط سطح المكتب' : 'Desktop links'}
+            testId="desktop"
+            links={
+              headerSettings.navigation.desktopLinks
+              ?? (isCoffeeStore(activeStore) ? [] : headerSettings.navigation.links)
+            }
+            onChange={(links) =>
+              setHeaderSettings((p) => ({
+                ...p,
+                navigation: { ...p.navigation, desktopLinks: links, links },
+              }))
+            }
+          />
+          <HeaderNavListEditor
+            isAr={isAr}
+            title={isAr ? 'روابط الجوال' : 'Mobile links'}
+            testId="mobile"
+            links={headerSettings.navigation.mobileLinks ?? []}
+            onChange={(links) =>
+              setHeaderSettings((p) => ({
+                ...p,
+                navigation: { ...p.navigation, mobileLinks: links },
+              }))
+            }
+          />
         </div>
       )}
 
@@ -891,7 +991,7 @@ export const HeaderElementsForm: React.FC = () => {
                 }))
               }
               className={toggleTrack(headerSettings.announcement.enabled)}
-              aria-label="Announcement toggle"
+              aria-label={isAr ? 'تبديل الإعلان' : 'Toggle announcement'}
             >
               <span className="bg-white w-4 h-4 rounded-full shadow-md" />
             </button>
@@ -1021,7 +1121,7 @@ export const HeaderElementsForm: React.FC = () => {
       {activeSubTab === 'style' && (
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3.5 animate-in fade-in duration-200 shadow-2xs text-xs">
           <div className="flex items-center justify-between">
-            <span className="font-bold">{isAr ? 'تثبيت الهيدر أثناء التمرير (Sticky Header)' : 'Sticky Header on Scroll'}</span>
+            <span className="font-bold">{isAr ? 'تثبيت الهيدر أثناء التمرير' : 'Keep the header fixed while scrolling'}</span>
             <button
               type="button"
               onClick={() =>
@@ -1031,14 +1131,14 @@ export const HeaderElementsForm: React.FC = () => {
                 }))
               }
               className={toggleTrack(headerSettings.general.sticky)}
-              aria-label="Sticky toggle"
+              aria-label={isAr ? 'تبديل التثبيت' : 'Toggle fixed header'}
             >
               <span className="bg-white w-4 h-4 rounded-full shadow-md" />
             </button>
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="font-bold">{isAr ? 'تأثير الزجاج الشفاف (Backdrop Blur)' : 'Glassmorphism Backdrop Blur'}</span>
+            <span className="font-bold">{isAr ? 'خلفية شفافة ضبابية' : 'Frosted header background'}</span>
             <button
               type="button"
               onClick={() =>
@@ -1048,7 +1148,7 @@ export const HeaderElementsForm: React.FC = () => {
                 }))
               }
               className={toggleTrack(headerSettings.general.backdropBlur)}
-              aria-label="Blur toggle"
+              aria-label={isAr ? 'تبديل الخلفية الضبابية' : 'Toggle frosted background'}
             >
               <span className="bg-white w-4 h-4 rounded-full shadow-md" />
             </button>
@@ -1084,7 +1184,7 @@ export const HeaderElementsForm: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'ارتفاع الحشوة (Padding Y)' : 'Padding Y (px)'}</label>
+              <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'الحشوة العمودية' : 'Vertical padding'}</label>
               <input
                 type="number"
                 min="4"

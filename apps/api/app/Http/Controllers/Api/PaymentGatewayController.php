@@ -308,10 +308,16 @@ class PaymentGatewayController extends Controller
      */
     public function storefrontMethods(Request $request): JsonResponse
     {
-        $storeId = $request->header('X-Store-Id')
+        $rawStore = $request->header('X-Store-Id')
             ?: $request->query('store_id')
-            ?: $request->input('store_id')
-            ?: 'store-coffee';
+            ?: $request->input('store_id');
+        if (! is_string($rawStore) || trim($rawStore) === '') {
+            return response()->json([
+                'data' => [],
+                'message' => 'X-Store-Id is required.',
+            ], 400);
+        }
+        $storeId = $this->canonicalStoreId($rawStore);
 
         $dbGateways = PaymentGateway::query()
             ->forStore($storeId)

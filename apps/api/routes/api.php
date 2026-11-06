@@ -4,10 +4,15 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\CustomerController;
+use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\MediaController;
+use App\Http\Controllers\Api\MediaFolderController;
+use App\Http\Controllers\Api\CategoryFieldController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PlanController;
+use App\Http\Controllers\Api\DesignTemplatesController;
+use App\Http\Controllers\Api\SocialController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProductVariationController;
 use App\Http\Controllers\Api\SeoController;
@@ -21,7 +26,9 @@ use App\Http\Controllers\Api\PaymentGatewayController;
 use App\Http\Controllers\Api\WebhooksController;
 use App\Http\Controllers\Api\AnalyticsReportController;
 use App\Http\Controllers\Api\StoreThemeController;
+use App\Http\Controllers\Api\ThemePageController;
 use App\Http\Controllers\Api\StoreSettingsController;
+use App\Http\Controllers\Api\StoreReviewsController;
 use App\Http\Controllers\Api\DomainController;
 use App\Http\Controllers\Api\BlogController;
 use App\Http\Controllers\Api\NotificationSettingsController;
@@ -36,9 +43,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', [HealthController::class, 'show']);
 Route::get('/stores', [StoreController::class, 'index']);
 Route::get('/stores/{id}', [StoreController::class, 'show']);
-Route::get('/stores/{storeId}/reviews', function () {
-    return response()->json(['success' => true, 'data' => []]);
-});
+Route::get('/stores/{storeId}/reviews', [StoreReviewsController::class, 'index']);
+Route::post('/stores/{storeId}/reviews', [StoreReviewsController::class, 'store']);
 
 // Phase 2.1–2.2 — Holst auth (Sanctum). Separate throttles per action.
 Route::middleware('throttle:8,1')->group(function () {
@@ -51,6 +57,7 @@ Route::middleware('throttle:5,1')->group(function () {
     Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
     Route::post('/auth/otp/request', [AuthController::class, 'requestOtp']);
     Route::post('/auth/otp/verify', [AuthController::class, 'verifyOtp']);
+    Route::post('/auth/clerk/exchange', [AuthController::class, 'exchangeClerkSession']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -63,6 +70,16 @@ Route::middleware('auth:sanctum')->group(function () {
 // Phase 2.3–2.7 — auth + store scope + role/plan/subscription enforce
 Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::get('/plans/current', [PlanController::class, 'current']);
+    Route::get('/design-templates/entitlements', [DesignTemplatesController::class, 'entitlements']);
+    Route::middleware('plan.feature:social')->group(function () {
+    Route::get('/social/accounts', [SocialController::class, 'accounts']);
+    Route::put('/social/accounts', [SocialController::class, 'upsertAccount']);
+    Route::post('/social/accounts/{platform}/test', [SocialController::class, 'testAccount']);
+    Route::post('/social/accounts/{platform}/disconnect', [SocialController::class, 'disconnect']);
+    Route::get('/social/posts', [SocialController::class, 'posts']);
+    Route::post('/social/posts', [SocialController::class, 'schedule']);
+    Route::post('/social/posts/{id}/cancel', [SocialController::class, 'cancel']);
+    });
     Route::get('/subscriptions/current', [SubscriptionController::class, 'current']);
     Route::middleware('role.can:stores.write')->patch(
         '/stores/{storeId}/subscription',
@@ -103,6 +120,10 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
         Route::post('/categories', [CategoryController::class, 'store']);
         Route::patch('/categories/{id}', [CategoryController::class, 'update']);
         Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+
+        Route::post('/category-field-definitions', [CategoryFieldController::class, 'store']);
+        Route::patch('/category-field-definitions/{id}', [CategoryFieldController::class, 'update']);
+        Route::delete('/category-field-definitions/{id}', [CategoryFieldController::class, 'destroy']);
     });
 
     Route::middleware('role.can:orders.read')->get('/orders', [OrderController::class, 'index']);
@@ -129,6 +150,14 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
         Route::post('/customers', [CustomerController::class, 'store']);
         Route::patch('/customers/{id}', [CustomerController::class, 'update']);
         Route::delete('/customers/{id}', [CustomerController::class, 'destroy']);
+    });
+
+    Route::middleware('role.can:customers.read')->group(function () {
+        Route::get('/customers/{customerId}/wallet', [WalletController::class, 'show']);
+        Route::get('/customers/{customerId}/wallet/transactions', [WalletController::class, 'transactions']);
+    });
+    Route::middleware(['role.can:customers.write', 'subscription.writable'])->group(function () {
+        Route::post('/customers/{customerId}/wallet/adjust', [WalletController::class, 'adjust']);
     });
 
     Route::middleware(['role.can:coupons.read', 'plan.feature:coupons'])->get('/coupons', [CouponController::class, 'index']);
@@ -165,6 +194,11 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::delete('/media/{id}', [MediaController::class, 'destroy']);
     Route::get('/media/{id}/usages', [MediaController::class, 'usages']);
 
+    Route::get('/media-folders', [MediaFolderController::class, 'index']);
+    Route::post('/media-folders', [MediaFolderController::class, 'store']);
+    Route::patch('/media-folders/{id}', [MediaFolderController::class, 'update']);
+    Route::delete('/media-folders/{id}', [MediaFolderController::class, 'destroy']);
+
     // Google Cloud & Site Kit Integration Routes (Store-isolated)
     Route::get('/google/auth-url', [GoogleIntegrationController::class, 'getAuthUrl']);
     Route::post('/google/callback', [GoogleIntegrationController::class, 'handleCallback']);
@@ -173,7 +207,7 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::post('/google/properties', [GoogleIntegrationController::class, 'saveProperties']);
     Route::post('/google/sync', [GoogleIntegrationController::class, 'sync']);
     Route::post('/google/disconnect', [GoogleIntegrationController::class, 'disconnect']);
-    Route::get('/google/analytics', [GoogleIntegrationController::class, 'getAnalytics']);
+    Route::get('/google/analytics', [GoogleIntegrationController::class, 'getAnalytics'])->middleware('plan.feature:analytics');
     Route::get('/google/search-console', [GoogleIntegrationController::class, 'getSearchConsole']);
     Route::get('/google/pagespeed', [GoogleIntegrationController::class, 'getPageSpeed']);
 
@@ -208,11 +242,16 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::get('/payments/transactions', [PaymentGatewayController::class, 'transactions']);
 
     // Real Database-Calculated Payment & Shipping Analytics
+    Route::middleware('plan.feature:analytics')->group(function () {
     Route::get('/analytics/overview', [AnalyticsReportController::class, 'overview']);
     Route::get('/analytics/sales-revenue', [AnalyticsReportController::class, 'salesRevenue']);
     Route::get('/analytics/campaigns', [AnalyticsReportController::class, 'campaignAnalytics']);
+    });
+    Route::middleware('plan.feature:ai')->group(function () {
     Route::get('/analytics/ai-insights', [AnalyticsReportController::class, 'aiInsights']);
     Route::post('/analytics/ai-insights/ask', [AnalyticsReportController::class, 'askAi']);
+    });
+    Route::middleware('plan.feature:analytics')->group(function () {
     Route::get('/analytics/behavior', [AnalyticsReportController::class, 'behaviorAnalytics']);
     Route::get('/analytics/customers', [AnalyticsReportController::class, 'customerAnalytics']);
     Route::get('/analytics/products', [AnalyticsReportController::class, 'productAnalytics']);
@@ -220,6 +259,7 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::get('/analytics/search-queries', [AnalyticsReportController::class, 'searchQueries']);
     Route::get('/analytics/payments', [AnalyticsReportController::class, 'paymentReports']);
     Route::get('/analytics/shipping', [AnalyticsReportController::class, 'shippingReports']);
+    });
 
 
     // Theme & Page Builder Persistence (Phase 2.2)
@@ -232,12 +272,26 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::post('/builder-layout', [StoreThemeController::class, 'saveBuilderLayout']);
 
     // Direct storeId parameter routes
+    Route::get('/stores/{storeId}/global-styles', [StoreThemeController::class, 'showGlobalStyles']);
+    Route::put('/stores/{storeId}/global-styles', [StoreThemeController::class, 'updateGlobalStyles']);
     Route::get('/stores/{storeId}/theme-settings', [StoreThemeController::class, 'show']);
     Route::put('/stores/{storeId}/theme-settings', [StoreThemeController::class, 'update']);
+    Route::put('/stores/{storeId}/reviews', [StoreReviewsController::class, 'update']);
     Route::patch('/stores/{storeId}/theme-settings', [StoreThemeController::class, 'update']);
     Route::get('/stores/{storeId}/builder-layout', [StoreThemeController::class, 'getBuilderLayout']);
     Route::put('/stores/{storeId}/builder-layout', [StoreThemeController::class, 'saveBuilderLayout']);
     Route::post('/stores/{storeId}/builder-layout', [StoreThemeController::class, 'saveBuilderLayout']);
+
+    Route::get('/stores/{storeId}/pages', [ThemePageController::class, 'index']);
+    Route::post('/stores/{storeId}/media', [MediaController::class, 'storeForStore']);
+    Route::post('/stores/{storeId}/pages', [ThemePageController::class, 'store']);
+    Route::get('/stores/{storeId}/pages/{pageKey}', [ThemePageController::class, 'show']);
+    Route::put('/stores/{storeId}/pages/{pageId}', [ThemePageController::class, 'update']);
+    Route::delete('/stores/{storeId}/pages/{pageId}', [ThemePageController::class, 'destroy']);
+    Route::post('/stores/{storeId}/pages/{pageId}/publish', [ThemePageController::class, 'publish']);
+    Route::get('/stores/{storeId}/pages/{pageId}/revisions', [ThemePageController::class, 'revisions']);
+    Route::post('/stores/{storeId}/pages/{pageId}/revisions', [ThemePageController::class, 'storeRevision']);
+    Route::post('/stores/{storeId}/revisions/{revisionId}/restore', [ThemePageController::class, 'restore']);
 
     // Store Settings
     Route::get('/store-settings', [StoreSettingsController::class, 'show']);
@@ -258,7 +312,7 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
 
     // Multi-Domain & Custom Domains Management (Phase 6.1)
     Route::get('/domains', [DomainController::class, 'index']);
-    Route::post('/domains', [DomainController::class, 'store']);
+    Route::post('/domains', [DomainController::class, 'store'])->middleware('plan.feature:custom_domain');
     Route::post('/domains/{id}/verify', [DomainController::class, 'verify']);
     Route::post('/domains/{id}/ssl', [DomainController::class, 'ssl']);
     Route::delete('/domains/{id}', [DomainController::class, 'destroy']);
@@ -272,7 +326,7 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
 });
 
 // Store-scoped WhatsApp Store Management & Messaging Center (Strict X-Store-Id isolation)
-Route::middleware('store.id')->group(function () {
+Route::middleware(['store.id', 'plan.feature:whatsapp'])->group(function () {
     Route::get('/whatsapp/overview', [WhatsAppController::class, 'overview']);
     Route::get('/whatsapp/messages', [WhatsAppController::class, 'messages']);
     Route::post('/whatsapp/messages', [WhatsAppController::class, 'sendMessage']);
@@ -322,6 +376,7 @@ Route::middleware('store.id')->group(function () {
 Route::middleware('store.id')->group(function () {
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::get('/categories/{id}', [CategoryController::class, 'show']);
+    Route::get('/category-field-definitions', [CategoryFieldController::class, 'index']);
 });
 
 // Public Dynamic Domain & Subdomain Resolution for Storefront (Phase 6.1)
@@ -331,6 +386,9 @@ Route::get('/resolve-domain', [DomainController::class, 'resolveDomain']);
 // Public Theme & Page Builder Layout for Storefront
 Route::get('/storefront/theme', [StoreThemeController::class, 'storefrontTheme']);
 Route::get('/storefront/builder-layout', [StoreThemeController::class, 'storefrontTheme']);
+
+// Public per-store product catalog (no auth). Isolated by store_id / slug.
+Route::get('/storefront/catalog', [ProductController::class, 'storefrontCatalog']);
 
 // Public Inbound Webhooks for official Payment Gateways and Couriers
 Route::post('/webhooks/payments/{provider}', [WebhooksController::class, 'paymentWebhook']);
@@ -343,6 +401,7 @@ Route::post('/whatsapp/webhook', [WhatsAppController::class, 'handleWebhook']);
 // Public Dynamic Shipping Calculation for Storefront Checkout
 Route::post('/storefront/shipping/calculate', [ShippingController::class, 'calculate']);
 Route::post('/storefront/orders', [OrderController::class, 'storefrontStore']);
+Route::post('/storefront/orders/track', [OrderController::class, 'storefrontTrack']);
 
 // Public Storefront Saudi Payments (Mada, Apple Pay, Tabby, Tamara, Card, COD)
 Route::get('/storefront/payments/methods', [PaymentGatewayController::class, 'storefrontMethods']);

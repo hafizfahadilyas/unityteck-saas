@@ -4,6 +4,7 @@ import {
   mapCoupon,
   mapCustomer,
   mapOrder,
+  orderPatchToApi,
   mapProduct,
   mapSeo,
   mapShipping,
@@ -19,6 +20,7 @@ import {
   type ApiStoreRow,
   type ApiDomainRow,
 } from './mappers';
+import type { MediaFolderRecord } from '../types/media';
 import type {
   CouponItem,
   Customer,
@@ -31,6 +33,7 @@ import type {
   StoreSEOConfig,
   MediaAsset,
   MediaUsage,
+  CategoryFieldDefinition,
   DomainRecord,
   DomainResolutionResult,
   StorefrontPaymentMethod,
@@ -128,6 +131,7 @@ export type ProductListQuery = {
   page?: number;
   per_page?: number;
   all?: boolean;
+  stock?: '0' | 'out' | 'low';
 };
 
 export type ProductListResult = {
@@ -139,6 +143,12 @@ export type ProductListResult = {
     last_page: number;
     sort: string;
     dir: string;
+    counts?: {
+      total: number;
+      active: number;
+      out_of_stock: number;
+      draft: number;
+    };
   };
 };
 
@@ -146,8 +156,15 @@ export async function fetchProducts(
   storeId: string,
   query: ProductListQuery = { all: true },
 ): Promise<Product[]> {
-  const res = await fetchProductsPage(storeId, query);
-  return res.data;
+  try {
+    const res = await fetchProductsPage(storeId, query);
+    return res.data;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Stale Sanctum token must not blank the catalog. Public catalog is the lifetime read path.
+    if (!/401|unauth|session expired|sign in again/i.test(msg)) throw err;
+    return fetchStorefrontCatalog(storeId);
+  }
 }
 
 export async function fetchProductsPage(
@@ -163,6 +180,7 @@ export async function fetchProductsPage(
   if (query.dir) params.set('dir', query.dir);
   if (query.page) params.set('page', String(query.page));
   if (query.per_page) params.set('per_page', String(query.per_page));
+  if (query.stock) params.set('stock', query.stock);
   if (query.all) params.set('all', '1');
 
   const qs = params.toString();
@@ -200,6 +218,9 @@ export type CreateProductPayload = {
   gallery_urls?: string[];
   video_url?: string | null;
   tags?: string[];
+  product_options?: Product['productOptions'];
+  custom_fields?: Product['customFields'];
+  conditional_rules?: Product['conditionalRules'];
   badge?: string | null;
   badge_en?: string | null;
   seo_title?: string | null;
@@ -270,19 +291,38 @@ function mapVariation(row: Record<string, unknown>): ProductVariation {
     storeId: String(row.store_id ?? ''),
     productId: String(row.product_id ?? ''),
     sku: String(row.sku ?? ''),
+    barcode: row.barcode == null || row.barcode === '' ? null : String(row.barcode),
     options,
     price: row.price == null || row.price === '' ? null : Number(row.price),
+    compareAtPrice:
+      row.compare_at_price == null || row.compare_at_price === ''
+        ? null
+        : Number(row.compare_at_price),
     stock: Number(row.stock ?? 0),
+    weight: row.weight == null || row.weight === '' ? null : Number(row.weight),
+    weightUnit: row.weight_unit == null || row.weight_unit === '' ? 'kg' : String(row.weight_unit),
+    lowStockAlert:
+      row.low_stock_alert == null || row.low_stock_alert === ''
+        ? null
+        : Number(row.low_stock_alert),
+    unlimitedStock: Boolean(row.unlimited_stock ?? false),
     imageUrl: row.image_url == null || row.image_url === '' ? null : String(row.image_url),
     isActive: row.is_active === undefined ? true : Boolean(row.is_active),
   };
 }
 
 export type VariationPayload = {
+  id?: string;
   sku: string;
+  barcode?: string | null;
   options?: Record<string, string>;
   price?: number | null;
+  compare_at_price?: number | null;
   stock?: number;
+  weight?: number | null;
+  weight_unit?: string | null;
+  low_stock_alert?: number | null;
+  unlimited_stock?: boolean;
   image_url?: string | null;
   is_active?: boolean;
 };
@@ -332,6 +372,52 @@ export async function deleteVariation(
     method: 'DELETE',
     storeId,
   });
+}
+
+/** Create, update, or remove variant rows so the matrix matches the editor. */
+export async function syncProductVariations(
+  storeId: string,
+  productId: string,
+  variations: ProductVariation[],
+): Promise<ProductVariation[]> {
+  const remote = await fetchVariations(storeId, productId);
+  const remoteIds = new Set(remote.map((row) => row.id));
+  const kept = new Set<string>();
+  const saved: ProductVariation[] = [];
+
+  for (const v of variations) {
+    const payload: VariationPayload = {
+      id: v.id || undefined,
+      sku: v.sku,
+      barcode: v.barcode ?? null,
+      options: v.options || {},
+      price: v.price,
+      compare_at_price: v.compareAtPrice ?? null,
+      stock: Number(v.stock) || 0,
+      weight: v.weight ?? null,
+      weight_unit: v.weightUnit ?? 'kg',
+      low_stock_alert: v.lowStockAlert ?? null,
+      unlimited_stock: !!v.unlimitedStock,
+      image_url: v.imageUrl || null,
+      is_active: v.isActive !== false,
+    };
+    if (v.id && remoteIds.has(v.id)) {
+      saved.push(await updateVariation(storeId, productId, v.id, payload));
+      kept.add(v.id);
+    } else {
+      const created = await createVariation(storeId, productId, payload);
+      saved.push(created);
+      kept.add(created.id);
+    }
+  }
+
+  for (const row of remote) {
+    if (!kept.has(row.id)) {
+      await deleteVariation(storeId, productId, row.id);
+    }
+  }
+
+  return saved;
 }
 
 function mapCategory(row: Record<string, unknown>): StoreCategory {
@@ -433,6 +519,8 @@ export type OrderListQuery = {
   page?: number;
   per_page?: number;
   all?: boolean;
+  /** Skip line-item eager load. List uses items_summary; open row loads items. */
+  lean?: boolean;
 };
 
 export type OrderListResult = {
@@ -478,6 +566,7 @@ export async function fetchOrdersPage(
   if (query.page) params.set('page', String(query.page));
   if (query.per_page) params.set('per_page', String(query.per_page));
   if (query.all) params.set('all', '1');
+  if (query.lean) params.set('lean', '1');
 
   const qs = params.toString();
   const res = await apiFetch<
@@ -519,6 +608,11 @@ export async function createOrder(
   };
 }
 
+export async function fetchOrder(storeId: string, id: string): Promise<Order> {
+  const res = await apiFetch<{ data: ApiOrderRow }>(`/orders/${id}`, { storeId });
+  return mapOrder(res.data);
+}
+
 export async function updateOrderStatus(
   storeId: string,
   id: string,
@@ -540,9 +634,61 @@ export async function updateOrder(
   const res = await apiFetch<ItemResponse<ApiOrderRow>>(`/orders/${id}`, {
     method: 'PATCH',
     storeId,
-    body: payload,
+    body: orderPatchToApi(payload),
   });
   return mapOrder(res.data);
+}
+
+export async function createStorefrontOrder(
+  storeId: string,
+  payload: Record<string, unknown>,
+): Promise<{ order: Order; customer?: Customer }> {
+  const res = await apiFetch<{ data: ApiOrderRow; customer?: ApiCustomerRow }>(
+    '/storefront/orders',
+    {
+      method: 'POST',
+      storeId,
+      body: payload,
+    },
+  );
+  return {
+    order: mapOrder(res.data),
+    customer: res.customer ? mapCustomer(res.customer) : undefined,
+  };
+}
+
+export type StorefrontTrackOrderPayload = {
+  order_number: string;
+  phone: string;
+  store_id?: string;
+};
+
+export type StorefrontTrackOrderResult = {
+  order_number: string;
+  status: string;
+  shipping_status?: string | null;
+  tracking_number?: string | null;
+  courier_code?: string | null;
+  items_summary?: string | null;
+  items_count?: number;
+  delivery_location?: string | null;
+  order_date?: string | null;
+  estimated_delivery?: string | null;
+};
+
+export async function trackStorefrontOrder(
+  storeId: string,
+  payload: StorefrontTrackOrderPayload,
+): Promise<StorefrontTrackOrderResult> {
+  const res = await apiFetch<{ data: StorefrontTrackOrderResult }>(
+    '/storefront/orders/track',
+    {
+      method: 'POST',
+      storeId,
+      body: payload,
+    },
+  );
+  return res.data;
 }
 
 export async function processOrderReturn(
@@ -644,6 +790,104 @@ export async function deleteCustomer(
   await apiFetch(`/customers/${id}`, { method: 'DELETE', storeId });
 }
 
+export type CustomerWalletSnapshot = {
+  balance: number;
+  loyaltyPoints: number;
+};
+
+export type ApiWalletTransactionRow = {
+  id: number | string;
+  store_id: string;
+  customer_id: string;
+  type: 'add' | 'deduct';
+  amount: number | string;
+  balance_before: number | string;
+  balance_after: number | string;
+  reason?: string | null;
+  employee_id?: string | null;
+  employee_name?: string | null;
+  notify_channel?: string | null;
+  reset_loyalty?: boolean;
+  created_at: string;
+};
+
+function mapWalletTransaction(row: ApiWalletTransactionRow): import('../types').CustomerWalletTransaction {
+  return {
+    id: row.id,
+    storeId: String(row.store_id),
+    customerId: String(row.customer_id),
+    type: row.type,
+    amount: Number(row.amount),
+    balanceBefore: Number(row.balance_before),
+    balanceAfter: Number(row.balance_after),
+    reason: row.reason,
+    employeeId: row.employee_id,
+    employeeName: row.employee_name,
+    notifyChannel: row.notify_channel,
+    resetLoyalty: Boolean(row.reset_loyalty),
+    createdAt: String(row.created_at),
+  };
+}
+
+export async function fetchCustomerWalletApi(
+  storeId: string,
+  customerId: string,
+): Promise<CustomerWalletSnapshot> {
+  const res = await apiFetch<{
+    data: { balance: number; loyalty_points: number };
+  }>(`/customers/${customerId}/wallet`, { storeId });
+  return {
+    balance: Number(res.data?.balance ?? 0),
+    loyaltyPoints: Number(res.data?.loyalty_points ?? 0),
+  };
+}
+
+export async function fetchCustomerWalletTransactionsApi(
+  storeId: string,
+  customerId: string,
+): Promise<import('../types').CustomerWalletTransaction[]> {
+  const res = await apiFetch<{ data: ApiWalletTransactionRow[] }>(
+    `/customers/${customerId}/wallet/transactions`,
+    { storeId },
+  );
+  return (res.data ?? []).map(mapWalletTransaction);
+}
+
+export type AdjustCustomerWalletPayload = {
+  type: 'add' | 'deduct';
+  amount: number;
+  reason?: string;
+  reset_loyalty?: boolean;
+  notify_channel?: 'email' | 'sms' | 'whatsapp' | 'none';
+  employee_id?: string;
+  employee_name?: string;
+};
+
+export async function adjustCustomerWalletApi(
+  storeId: string,
+  customerId: string,
+  payload: AdjustCustomerWalletPayload,
+): Promise<{ wallet: CustomerWalletSnapshot; transaction: import('../types').CustomerWalletTransaction }> {
+  const res = await apiFetch<{
+    data: {
+      balance: number;
+      loyalty_points: number;
+      transaction: ApiWalletTransactionRow;
+    };
+  }>(`/customers/${customerId}/wallet/adjust`, {
+    method: 'POST',
+    storeId,
+    body: payload,
+  });
+  return {
+    wallet: {
+      balance: Number(res.data.balance),
+      loyaltyPoints: Number(res.data.loyalty_points),
+    },
+    transaction: mapWalletTransaction(res.data.transaction),
+  };
+}
+
 export async function fetchCoupons(storeId: string): Promise<CouponItem[]> {
   const res = await apiFetch<ListResponse<ApiCouponRow>>('/coupons', {
     storeId,
@@ -660,6 +904,9 @@ export type CreateCouponPayload = {
   status?: CouponItem['status'];
   is_active?: boolean;
   expires_at?: string | null;
+  design_type?: CouponItem['designType'];
+  design_color?: string | null;
+  design_image_url?: string | null;
 };
 
 export type UpdateCouponPayload = Partial<CreateCouponPayload> & {
@@ -921,6 +1168,198 @@ export async function fetchMediaUsages(
   }));
 }
 
+export async function updateMedia(
+  storeId: string,
+  id: string,
+  patch: {
+    file_name?: string;
+    alt?: string;
+    caption?: string;
+    folder?: string;
+  },
+): Promise<MediaAsset> {
+  const res = await apiFetch<ItemResponse<any>>(`/media/${id}`, {
+    method: 'PATCH',
+    storeId,
+    body: {
+      file_name: patch.file_name,
+      alt: patch.alt,
+      caption: patch.caption,
+      folder: patch.folder,
+    },
+  });
+  const row = res.data;
+  return {
+    id: row.id,
+    storeId: row.store_id || storeId,
+    fileName: row.file_name,
+    title: row.file_name,
+    fileType: row.file_type || 'image',
+    mimeType: row.mime || 'image/jpeg',
+    fileSize: row.size_bytes || 0,
+    width: row.width,
+    height: row.height,
+    originalUrl: row.url,
+    optimizedUrl: row.optimized_url || row.url,
+    webpUrl: row.webp_url || row.url,
+    thumbnailUrl: row.thumbnail_url || row.url,
+    altText: row.alt,
+    caption: row.caption,
+    folder: row.folder || 'general',
+    uploadDate: row.created_at,
+    updatedAt: row.updated_at,
+    version: row.version || 1,
+    processingStatus: row.processing_status || 'ready',
+    optimizationStatus: row.optimization_status || 'optimized',
+    source: 'upload',
+  };
+}
+
+export async function fetchMediaFolders(storeId: string): Promise<MediaFolderRecord[]> {
+  const res = await apiFetch<ListResponse<any>>('/media-folders', { storeId });
+  return (res.data ?? []).map((row: any) => ({
+    id: row.id,
+    storeId: row.store_id || storeId,
+    name: row.name,
+    slug: row.slug,
+    parentId: row.parent_id ?? null,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function createMediaFolder(
+  storeId: string,
+  payload: { name: string; slug?: string; parent_id?: string | null },
+): Promise<MediaFolderRecord> {
+  const res = await apiFetch<ItemResponse<any>>('/media-folders', {
+    method: 'POST',
+    storeId,
+    body: payload,
+  });
+  const row = res.data;
+  return {
+    id: row.id,
+    storeId: row.store_id || storeId,
+    name: row.name,
+    slug: row.slug,
+    parentId: row.parent_id ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+export async function updateMediaFolder(
+  storeId: string,
+  id: string,
+  payload: { name?: string; slug?: string; parent_id?: string | null },
+): Promise<MediaFolderRecord> {
+  const res = await apiFetch<ItemResponse<any>>(`/media-folders/${id}`, {
+    method: 'PATCH',
+    storeId,
+    body: payload,
+  });
+  const row = res.data;
+  return {
+    id: row.id,
+    storeId: row.store_id || storeId,
+    name: row.name,
+    slug: row.slug,
+    parentId: row.parent_id ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+export async function deleteMediaFolder(
+  storeId: string,
+  id: string,
+  moveAssets = true,
+): Promise<void> {
+  await apiFetch(`/media-folders/${id}?move_assets=${moveAssets ? 'true' : 'false'}`, {
+    method: 'DELETE',
+    storeId,
+  });
+}
+
+function mapCategoryField(row: Record<string, unknown>): CategoryFieldDefinition {
+  const opts = row.options;
+  let options: string[] | null = null;
+  if (Array.isArray(opts)) {
+    options = opts.map((x) => String(x));
+  } else if (typeof opts === 'object' && opts && 'choices' in opts) {
+    const choices = (opts as { choices?: unknown }).choices;
+    if (Array.isArray(choices)) options = choices.map((x) => String(x));
+  }
+
+  return {
+    id: String(row.id),
+    storeId: String(row.store_id),
+    categoryId: row.category_id ? String(row.category_id) : null,
+    nameEn: String(row.name_en ?? ''),
+    nameAr: row.name_ar ? String(row.name_ar) : null,
+    fieldType: (row.field_type as CategoryFieldDefinition['fieldType']) || 'text',
+    options,
+    sort: Number(row.sort ?? 0),
+    active: row.active === undefined ? true : Boolean(row.active),
+  };
+}
+
+export async function fetchCategoryFieldDefinitions(
+  storeId: string,
+  categoryId?: string,
+): Promise<CategoryFieldDefinition[]> {
+  const qs = categoryId ? `?category_id=${encodeURIComponent(categoryId)}` : '';
+  const res = await apiFetch<ListResponse<Record<string, unknown>>>(
+    `/category-field-definitions${qs}`,
+    { storeId },
+  );
+  return (res.data ?? []).map(mapCategoryField);
+}
+
+export async function createCategoryFieldDefinition(
+  storeId: string,
+  payload: {
+    category_id?: string | null;
+    name_en: string;
+    name_ar?: string | null;
+    field_type: CategoryFieldDefinition['fieldType'];
+    options?: string[] | null;
+    sort?: number;
+    active?: boolean;
+  },
+): Promise<CategoryFieldDefinition> {
+  const res = await apiFetch<ItemResponse<Record<string, unknown>>>(
+    '/category-field-definitions',
+    { method: 'POST', storeId, body: payload },
+  );
+  return mapCategoryField(res.data);
+}
+
+export async function updateCategoryFieldDefinition(
+  storeId: string,
+  id: string,
+  payload: Partial<{
+    category_id: string | null;
+    name_en: string;
+    name_ar: string | null;
+    field_type: CategoryFieldDefinition['fieldType'];
+    options: string[] | null;
+    sort: number;
+    active: boolean;
+  }>,
+): Promise<CategoryFieldDefinition> {
+  const res = await apiFetch<ItemResponse<Record<string, unknown>>>(
+    `/category-field-definitions/${id}`,
+    { method: 'PATCH', storeId, body: payload },
+  );
+  return mapCategoryField(res.data);
+}
+
+export async function deleteCategoryFieldDefinition(
+  storeId: string,
+  id: string,
+): Promise<void> {
+  await apiFetch(`/category-field-definitions/${id}`, { method: 'DELETE', storeId });
+}
+
 // ── Google Cloud / Site Kit Integration APIs ──
 
 export interface GoogleStatusResponse {
@@ -1022,8 +1461,22 @@ export async function fetchGoogleSearchConsoleData(storeId: string): Promise<any
   return apiFetch('/google/search-console', { storeId });
 }
 
-export async function fetchGooglePageSpeedData(storeId: string, strategy: 'mobile' | 'desktop' = 'mobile', refresh = false): Promise<any> {
-  return apiFetch(`/google/pagespeed?strategy=${strategy}${refresh ? '&refresh=1' : ''}`, { storeId });
+export async function fetchGooglePageSpeedData(
+  storeId: string,
+  strategy: 'mobile' | 'desktop' = 'mobile',
+  refresh = false,
+  url?: string,
+): Promise<{
+  strategy: 'mobile' | 'desktop';
+  audit: Record<string, unknown> | null;
+  tested_url?: string | null;
+  source?: string | null;
+  message?: string | null;
+}> {
+  const params = new URLSearchParams({ strategy });
+  if (refresh) params.set('refresh', '1');
+  if (url && url.trim()) params.set('url', url.trim());
+  return apiFetch(`/google/pagespeed?${params.toString()}`, { storeId });
 }
 
 export async function fetchMasterGoogleIntegrations(): Promise<{
@@ -1417,9 +1870,56 @@ export async function fetchThemeSettingsApi(storeId: string): Promise<any> {
   return res.data;
 }
 
+export interface StoreReviewRecord {
+  id: string;
+  author: string;
+  city: string;
+  product: string;
+  productAr?: string;
+  rating: number;
+  title: string;
+  titleAr?: string;
+  comment: string;
+  commentAr?: string;
+  verified: boolean;
+  active: boolean;
+  likes: number;
+  date: string;
+}
+
+export async function fetchStoreReviewsApi(storeId: string): Promise<StoreReviewRecord[]> {
+  const res = await apiFetch<{ success: boolean; data: StoreReviewRecord[] }>(
+    `/stores/${storeId}/reviews`,
+    { storeId },
+  );
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function submitStoreReviewApi(
+  storeId: string,
+  payload: Partial<StoreReviewRecord> & { author: string; comment: string },
+): Promise<StoreReviewRecord> {
+  const res = await apiFetch<{ success: boolean; data: StoreReviewRecord }>(
+    `/stores/${storeId}/reviews`,
+    { method: 'POST', storeId, body: payload },
+  );
+  return res.data;
+}
+
+export async function saveStoreReviewsApi(
+  storeId: string,
+  reviews: StoreReviewRecord[],
+): Promise<StoreReviewRecord[]> {
+  const res = await apiFetch<{ success: boolean; data: StoreReviewRecord[] }>(
+    `/stores/${storeId}/reviews`,
+    { method: 'PUT', storeId, body: { reviews } },
+  );
+  return Array.isArray(res.data) ? res.data : reviews;
+}
+
 export async function updateThemeSettingsApi(
   storeId: string,
-  payload: { theme_id?: string; homepage_style?: string; settings?: Record<string, any> }
+  payload: { theme_id?: string; homepage_style?: string; settings?: Record<string, any>; publish?: boolean }
 ): Promise<any> {
   const res = await apiFetch<{ success: boolean; data: any }>(`/stores/${storeId}/theme-settings`, {
     method: 'PUT',
@@ -1430,7 +1930,13 @@ export async function updateThemeSettingsApi(
 }
 
 export async function fetchBuilderLayoutApi(storeId: string): Promise<any> {
-  const res = await apiFetch<{ success: boolean; data: any }>(`/stores/${storeId}/builder-layout`, { storeId });
+  const res = await apiFetch<{ success: boolean; data: any; store_id?: string }>(
+    `/stores/${storeId}/builder-layout`,
+    { storeId },
+  );
+  if (typeof res.store_id === 'string' && res.store_id !== storeId) {
+    throw new Error('Store mismatch');
+  }
   return res.data;
 }
 
@@ -1454,9 +1960,114 @@ export async function saveBuilderLayoutApi(
   return res.data;
 }
 
-export async function fetchStorefrontThemeApi(storeId?: string): Promise<any> {
-  const q = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
-  return apiFetch(`/storefront/theme${q}`, { storeId });
+/** Guest storefront catalog — published + active products for one store only. */
+export async function fetchStorefrontCatalog(storeId: string): Promise<Product[]> {
+  const q = `?store_id=${encodeURIComponent(storeId)}`;
+  const res = await apiFetch<{ data?: ApiProductRow[] }>(`/storefront/catalog${q}`, {
+    storeId,
+    skipAuth: true,
+  });
+  return (res.data ?? []).map(mapProduct);
+}
+
+export async function fetchStorefrontThemeApi(storeId?: string, slug?: string): Promise<any> {
+  const query = new URLSearchParams();
+  if (storeId) query.set('store_id', storeId);
+  if (slug) query.set('slug', slug);
+  const q = query.toString();
+  return apiFetch(`/storefront/theme${q ? `?${q}` : ''}`, { storeId, skipAuth: true });
+}
+
+export interface ThemePageRecord {
+  id: string;
+  store_id: string;
+  slug: string;
+  type: string;
+  title_en?: string | null;
+  title_ar?: string | null;
+  draft_layout?: Record<string, unknown> | null;
+  published_layout?: Record<string, unknown> | null;
+  seo?: Record<string, unknown> | null;
+  header_mode?: string;
+  footer_mode?: string;
+  status?: string;
+}
+
+export async function fetchThemePagesApi(storeId: string): Promise<ThemePageRecord[]> {
+  const res = await apiFetch<{ success: boolean; data: ThemePageRecord[] }>(`/stores/${storeId}/pages`, { storeId });
+  return res.data ?? [];
+}
+
+export async function fetchThemePageApi(storeId: string, pageKey: string): Promise<ThemePageRecord> {
+  const res = await apiFetch<{ success: boolean; data: ThemePageRecord }>(
+    `/stores/${storeId}/pages/${encodeURIComponent(pageKey)}`,
+    { storeId },
+  );
+  return res.data;
+}
+
+export async function createThemePageApi(
+  storeId: string,
+  payload: {
+    slug: string;
+    type: string;
+    title_en?: string;
+    title_ar?: string;
+    draft_layout?: Record<string, unknown> | null;
+    published_layout?: Record<string, unknown> | null;
+    seo?: Record<string, unknown> | null;
+    status?: string;
+  },
+): Promise<ThemePageRecord> {
+  const res = await apiFetch<{ success: boolean; data: ThemePageRecord }>(`/stores/${storeId}/pages`, {
+    method: 'POST',
+    storeId,
+    body: payload,
+  });
+  return res.data;
+}
+
+export async function updateThemePageApi(
+  storeId: string,
+  pageId: string,
+  payload: Partial<ThemePageRecord>,
+): Promise<ThemePageRecord> {
+  const res = await apiFetch<{ success: boolean; data: ThemePageRecord }>(
+    `/stores/${storeId}/pages/${encodeURIComponent(pageId)}`,
+    { method: 'PUT', storeId, body: payload },
+  );
+  return res.data;
+}
+
+export async function publishThemePageApi(storeId: string, pageId: string): Promise<ThemePageRecord> {
+  const res = await apiFetch<{ success: boolean; data: ThemePageRecord }>(
+    `/stores/${storeId}/pages/${encodeURIComponent(pageId)}/publish`,
+    { method: 'POST', storeId },
+  );
+  return res.data;
+}
+
+export async function deleteThemePageApi(storeId: string, pageId: string): Promise<void> {
+  await apiFetch(`/stores/${storeId}/pages/${encodeURIComponent(pageId)}`, {
+    method: 'DELETE',
+    storeId,
+  });
+}
+
+export async function fetchThemeRevisionsApi(storeId: string, pageId: string): Promise<any[]> {
+  const res = await apiFetch<{ success: boolean; data: any[] }>(
+    `/stores/${storeId}/pages/${encodeURIComponent(pageId)}/revisions`,
+    { storeId },
+  );
+  return res.data ?? [];
+}
+
+export async function restoreThemeRevisionApi(storeId: string, revisionId: string): Promise<ThemePageRecord> {
+  const res = await apiFetch<{ success: boolean; data: ThemePageRecord }>(
+    `/stores/${storeId}/revisions/${encodeURIComponent(revisionId)}/restore`,
+    { method: 'POST', storeId },
+  );
+  return res.data;
 }
 
 export async function fetchStoreSettingsApi(storeId: string): Promise<Record<string, any>> {

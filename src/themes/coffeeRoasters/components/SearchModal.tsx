@@ -57,7 +57,7 @@ export const SearchModal: React.FC = () => {
                   className="flex items-center gap-3 flex-1 cursor-pointer"
                 >
                   <img
-                    src={(prod as any)?.image || prod.images?.[0] || prod.colors?.[0]?.image || '/src/assets/images/hibrew_h7a_flagship_machine.png'}
+                    src={(prod as any)?.image || prod.images?.[0] || prod.colors?.[0]?.image || '/images/hibrew_h7a_flagship_machine.png'}
                     alt={prod.name}
                     className="w-12 h-12 object-contain rounded-xl bg-[#F8F9FA] p-1"
                   />

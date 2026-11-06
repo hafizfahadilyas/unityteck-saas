@@ -9,15 +9,14 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { CartProvider, useCart, RouteType } from './context/CartContext';
 import { useTenant } from '../../context/TenantContext';
-import { readAllThemeSettings } from '../settings/themeSettingsStore';
+import { resolveCoffeeThemeSettings } from '../settings/coffeeThemeDefaults';
 import { Header } from './components/Header';
 import { HomePage } from './components/HomePage';
 import { MiniCartDrawer } from './components/MiniCartDrawer';
 import { SearchModal } from './components/SearchModal';
 import { Footer } from './components/Footer';
 import { FloatingHelpWidget } from './components/FloatingHelpWidget';
-import { CoffeeBrandLoader } from './components/CoffeeBrandLoader';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import './coffeeRoasters.css';
 
 // Code-split secondary routes for blazing fast initial homepage load
@@ -86,7 +85,12 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-const PageLoader = () => <CoffeeBrandLoader />;
+/** Route chunk fallback — thin skeleton, not full brand splash (keeps nav snappy). */
+const PageLoader = () => (
+  <div className="w-full min-h-[28vh] bg-white flex items-start justify-center pt-16" aria-busy="true" role="status">
+    <div className="w-8 h-8 rounded-full border-2 border-neutral-200 border-t-[#8B5A2B] animate-spin" />
+  </div>
+);
 
 interface CoffeeRoastersThemeViewProps {
   initialPage?: string;
@@ -110,16 +114,103 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
     return () => window.removeEventListener('unityteck-theme-settings', onThemeChange);
   }, []);
 
-  const isCustomOrderEnabled = useMemo(() => {
+  useEffect(() => {
+    const alias: Record<string, string> = {
+      '01_store_identity': '00_header_builder',
+      '02_colors': '00_header_builder',
+    };
+    const onMsg = (event: MessageEvent) => {
+      const data = event.data as { type?: string; section?: string; index?: number } | null;
+      if (!data || data.type !== 'UNITYTECK_PREVIEW_FOCUS') return;
+      const raw = String(data.section || '');
+      const section = (alias[raw] || raw).replace(/[^a-zA-Z0-9_-]/g, '');
+      if (!section) return;
+      document.querySelectorAll('.unityteck-customize-focus').forEach((node) => {
+        node.classList.remove('unityteck-customize-focus');
+      });
+      const el = document.querySelector(`[data-customize-section~="${section}"]`);
+      if (el) {
+        el.classList.add('unityteck-customize-focus');
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      if ((raw === 'C-HERO' || section === 'C-HERO') && typeof data.index === 'number') {
+        window.dispatchEvent(new CustomEvent('unityteck-hero-slide', { detail: { index: data.index } }));
+      }
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const coffeeSettings = useMemo(() => {
     try {
       const storeId = tenant?.activeStore?.id || 'store-coffee';
-      const fallbackStore = tenant?.activeStore || { name: 'HiBrew Store' };
-      const s = readAllThemeSettings(storeId, fallbackStore);
-      return Boolean(s?.customOrder?.enabled);
+      const fallbackStore = tenant?.activeStore || { id: storeId, name: 'HiBrew Store' };
+      return resolveCoffeeThemeSettings(storeId, fallbackStore);
     } catch {
-      return false;
+      return null;
     }
   }, [tenant?.activeStore, settingsVer]);
+
+  const [globalTokens, setGlobalTokens] = useState<{
+    fontFamily?: string;
+    radius?: number;
+    containerWidth?: number;
+    colors?: { button?: string };
+  } | null>(null);
+
+  useEffect(() => {
+    const storeId = tenant?.activeStore?.id;
+    if (!storeId) return;
+    let cancelled = false;
+    import('../../api/tenantApi')
+      .then(({ fetchStorefrontThemeApi }) => fetchStorefrontThemeApi(storeId))
+      .then((payload) => {
+        if (cancelled) return;
+        const tokens = payload?.theme?.tokens;
+        if (!tokens || typeof tokens !== 'object') {
+          setGlobalTokens(null);
+          return;
+        }
+        const colors = tokens.colors && typeof tokens.colors === 'object' ? tokens.colors : {};
+        setGlobalTokens({
+          fontFamily: typeof tokens.fontFamily === 'string' ? tokens.fontFamily : undefined,
+          radius: typeof tokens.radius === 'number' ? tokens.radius : undefined,
+          containerWidth: typeof tokens.containerWidth === 'number' ? tokens.containerWidth : undefined,
+          colors: typeof colors.button === 'string' ? { button: colors.button } : undefined,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setGlobalTokens(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tenant?.activeStore?.id, settingsVer]);
+
+  const isCustomOrderEnabled = useMemo(() => {
+    const co = coffeeSettings?.customOrder;
+    if (co && co.enabled === false) return false;
+    return true;
+  }, [coffeeSettings]);
+
+  // Accent and widget tokens only. Never paint page background from colors.background.
+  const themeColorStyle = useMemo(() => {
+    const c = coffeeSettings?.colors;
+    const button = globalTokens?.colors?.button;
+    const style: React.CSSProperties = {
+      ['--theme-accent' as string]: c?.promoLabelBgColor || '#C88A58',
+      ['--theme-header-bg' as string]: c?.headerBgColor || '#FFFFFF',
+      ['--theme-header-text' as string]: c?.headerTextColor || '#111111',
+    };
+    if (button) style['--theme-button' as string] = button;
+    if (globalTokens?.fontFamily) style.fontFamily = globalTokens.fontFamily;
+    if (typeof globalTokens?.radius === 'number') style['--theme-radius' as string] = `${globalTokens.radius}px`;
+    if (typeof globalTokens?.containerWidth === 'number') {
+      style['--theme-container' as string] = `${globalTokens.containerWidth}px`;
+    }
+    delete (style as { backgroundColor?: string }).backgroundColor;
+    return style;
+  }, [coffeeSettings, globalTokens]);
 
   useEffect(() => {
     if (currentRoute === 'custom-order' && !isCustomOrderEnabled) {
@@ -128,44 +219,66 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
   }, [currentRoute, isCustomOrderEnabled, navigateTo]);
 
   useEffect(() => {
-    // Set dynamic SEO & Document metadata for HiBrew KSA
-    if (typeof document !== 'undefined') {
-      const isAr = language === 'AR';
-      document.title = isAr
-        ? 'هايبرو السعودية | المتجر الرسمي لمكائن ومستلزمات القهوة المختصة'
-        : 'HiBrew KSA | Official Coffee Store - Espresso Machines & Specialty Coffee Gear';
-
-      const updateMeta = (name: string, content: string, isProperty = false) => {
-        let el = document.querySelector(isProperty ? `meta[property="${name}"]` : `meta[name="${name}"]`);
-        if (!el) {
-          el = document.createElement('meta');
-          if (isProperty) el.setAttribute('property', name);
-          else el.setAttribute('name', name);
-          document.head.appendChild(el);
+    if (typeof document === 'undefined') return;
+    const isAr = language === 'AR';
+    const storeName = isAr
+      ? (tenant?.activeStore?.nameAr || tenant?.activeStore?.name || 'متجر القهوة')
+      : (tenant?.activeStore?.nameEn || tenant?.activeStore?.name || 'Coffee Store');
+    const titles: Record<string, string> = isAr
+      ? {
+          home: `${storeName} | متجر القهوة`,
+          products: `المنتجات | ${storeName}`,
+          'product-detail': `تفاصيل المنتج | ${storeName}`,
+          'product-buy': `شراء المنتج | ${storeName}`,
+          cart: `السلة | ${storeName}`,
+          checkout: `إتمام الطلب | ${storeName}`,
+          about: `من نحن | ${storeName}`,
+          contact: `تواصل معنا | ${storeName}`,
+          faq: `الأسئلة الشائعة | ${storeName}`,
         }
-        el.setAttribute('content', content);
-      };
-
-      const desc = isAr
-        ? 'متجر هايبرو السعودية الرسمي. متخصصون في مكائن القهوة 20 بار، مطاحن البن التيتانيوم، وأركان ودواليب القهوة الفاخرة مع توصيل سريع لجميع مناطق المملكة.'
-        : 'Official HiBrew KSA store. High-performance 20-bar espresso machines, titanium conical burr grinders, and luxury coffee stations across Saudi Arabia.';
-      updateMeta('description', desc);
-      updateMeta('og:title', document.title, true);
-      updateMeta('og:description', desc, true);
-      updateMeta('og:type', 'website', true);
-      updateMeta('twitter:card', 'summary_large_image');
-
-      // Inject google fonts if needed
-      const fontLinkId = 'hibrew-google-fonts';
-      if (!document.getElementById(fontLinkId)) {
-        const link = document.createElement('link');
-        link.id = fontLinkId;
-        link.rel = 'stylesheet';
-        link.href = 'https://fonts.googleapis.com/css2?family=Staatliches&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Readex+Pro:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700;800;900&display=swap';
-        document.head.appendChild(link);
+      : {
+          home: `${storeName} | Coffee Store`,
+          products: `Products | ${storeName}`,
+          'product-detail': `Product | ${storeName}`,
+          'product-buy': `Buy | ${storeName}`,
+          cart: `Cart | ${storeName}`,
+          checkout: `Checkout | ${storeName}`,
+          about: `About | ${storeName}`,
+          contact: `Contact | ${storeName}`,
+          faq: `Questions | ${storeName}`,
+        };
+    document.title = titles[currentRoute] || titles.home;
+    const desc = isAr
+      ? `تصفح منتجات ${storeName}. تصفية حسب التصنيف، أسعار بالريال، وتوصيل داخل المملكة.`
+      : `Browse ${storeName} products. Filter by category, with prices in SAR and delivery across Saudi Arabia.`;
+    const updateMeta = (name: string, content: string, isProperty = false) => {
+      let el = document.querySelector(isProperty ? `meta[property="${name}"]` : `meta[name="${name}"]`);
+      if (!el) {
+        el = document.createElement('meta');
+        if (isProperty) el.setAttribute('property', name);
+        else el.setAttribute('name', name);
+        document.head.appendChild(el);
       }
+      el.setAttribute('content', content);
+    };
+    updateMeta('description', desc);
+    updateMeta('og:title', document.title, true);
+    updateMeta('og:description', desc, true);
+    updateMeta('og:type', currentRoute === 'products' ? 'website' : 'website', true);
+    updateMeta('twitter:card', 'summary_large_image');
+    if (!isAdmin) {
+      document.documentElement.lang = isAr ? 'ar' : 'en';
+      document.documentElement.dir = isAr ? 'rtl' : 'ltr';
     }
-  }, []);
+    const fontLinkId = 'hibrew-google-fonts';
+    if (!document.getElementById(fontLinkId)) {
+      const link = document.createElement('link');
+      link.id = fontLinkId;
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Staatliches&family=Outfit:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;600;700&family=Readex+Pro:wght@400;600;700&family=Tajawal:wght@400;700&display=swap';
+      document.head.appendChild(link);
+    }
+  }, [language, currentRoute, isAdmin, tenant?.activeStore?.name, tenant?.activeStore?.nameAr, tenant?.activeStore?.nameEn]);
 
   // Handle route switching from initialPage safely (sync only when initialPage prop changes from parent)
   const initialPageRef = React.useRef<string | undefined>(undefined);
@@ -186,6 +299,8 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
         ? 'cart'
         : p === 'checkout'
         ? 'checkout'
+        : p === 'custom-order' || p === 'customorder' || p === 'builder'
+        ? 'custom-order'
         : p === 'profile' || p === 'login'
         ? 'profile'
         : p === 'reviews'
@@ -249,7 +364,10 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
       className="hibrew-theme-root min-h-screen bg-white text-neutral-900 flex flex-col font-sans selection:bg-neutral-900 selection:text-white w-full max-w-full"
       dir={isRtl ? 'rtl' : 'ltr'}
       lang={isRtl ? 'ar' : 'en'}
+      data-paint-page-background="false"
+      style={themeColorStyle}
     >
+      <style>{`.hibrew-theme-root .unityteck-customize-focus{outline:2px solid #4f46e5;outline-offset:3px;border-radius:12px}${globalTokens?.colors?.button ? '.hibrew-theme-root .hibrew-inherit-btn{background-color:var(--theme-button);border-radius:var(--theme-radius,9999px)}' : ''}`}</style>
       {/* 1. Header with Region notice, Full-Width Hover Mega Menus & Detail Sub-Bar */}
       <Header />
 

@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS } from '../data/products';
+import { useTenant } from '../../../context/TenantContext';
 import { HonorProductCard } from './HonorProductCard';
 import { Sparkles, Tag, ArrowRight, ArrowLeft } from 'lucide-react';
+import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
+import { productCardFlags } from '../../settings/coffeeModularSettings';
 
 export const PopularModelsSection: React.FC = () => {
   const { navigateTo, language, products } = useCart();
+  const { activeStore } = useTenant();
   const isAr = language === 'AR';
+  const cardFlags = productCardFlags(
+    activeStore?.id ? resolveCoffeeThemeSettings(activeStore.id, activeStore).featuredProducts : null,
+  );
 
   // Category filter for the popular models
   const [activeTab, setActiveTab] = useState<'all' | 'machines' | 'mills' | 'cabinets' | 'accessories'>('all');
 
-  const storeProducts = products && products.length > 0 ? products : PRODUCTS;
+  const storeProducts = products || [];
 
   // Curated popular models
   const filteredList = storeProducts.filter((p) => {
@@ -72,7 +78,7 @@ export const PopularModelsSection: React.FC = () => {
   });
 
   // Display top 3 to 6 popular models matching the 3-column layout in Images 4 & 5
-  const displayProducts = filteredList.slice(0, 6);
+  const displayProducts = filteredList;
 
   return (
     <section className="w-full max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-6 sm:space-y-8 select-none">
@@ -155,11 +161,17 @@ export const PopularModelsSection: React.FC = () => {
       {/* ========================================================================= */}
       {/* 2. THE PRODUCTS GRID: 2 COLUMNS ON MOBILE & 3 COLUMNS ON DESKTOP        */}
       {/* ========================================================================= */}
+      {displayProducts.length === 0 ? (
+        <p data-product-cards="empty" className="text-center text-sm text-neutral-500 py-8">
+          {isAr ? 'لا منتجات في الكتالوج.' : 'No products in the catalog.'}
+        </p>
+      ) : (
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-6 lg:gap-8">
         {displayProducts.map((product) => (
-          <HonorProductCard key={product.id} product={product} />
+          <HonorProductCard key={product.id} product={product} flags={cardFlags} />
         ))}
       </div>
+      )}
 
       {/* View All Products Action */}
       <div className="pt-4 text-center">

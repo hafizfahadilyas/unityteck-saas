@@ -35,7 +35,7 @@ export const DEFAULT_HOSTINGER_CONFIG: HostingerDbConfig = {
 
 function normalizePlan(plan: PlanType | string | undefined): PlanType {
   const p = String(plan || 'free').toLowerCase();
-  if (p === 'paid' || p === 'pro' || p === 'custom' || p === 'free') return p;
+  if (p === 'paid' || p === 'pro' || p === 'premium' || p === 'custom' || p === 'free') return p;
   if (p === 'starter' || p === 'enterprise') return p === 'enterprise' ? 'pro' : 'free';
   return 'free';
 }
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS \`stores\` (
   \`slug\` VARCHAR(255) NOT NULL,
   \`domain\` VARCHAR(255) NULL DEFAULT NULL,
   \`status\` ENUM('active','inactive','pending','suspended') NOT NULL DEFAULT 'pending',
-  \`plan\` ENUM('free','paid','pro','custom') NOT NULL DEFAULT 'free',
+  \`plan\` ENUM('free','paid','pro','premium','custom') NOT NULL DEFAULT 'free',
   \`master_granted_pro\` TINYINT(1) NOT NULL DEFAULT 0,
   \`currency\` VARCHAR(10) NOT NULL DEFAULT 'SAR',
   \`locale\` VARCHAR(8) NOT NULL DEFAULT 'en',
@@ -547,7 +547,7 @@ export function generateHostingerSeedSql(
   let sql = `-- ====================================================================\n`;
   sql += `-- UNITYTECK HOSTINGER MYSQL SEED (SPA export)\n`;
   sql += `-- Prefer database/hostinger/02_seed.sql for full DatabaseSeeder parity\n`;
-  sql += `-- Plans: free | paid | pro | custom\n`;
+  sql += `-- Plans: free | paid | pro 300 SAR | premium 500 SAR | custom\n`;
   sql += `-- ====================================================================\n\n`;
   sql += `SET FOREIGN_KEY_CHECKS = 0;\n\n`;
 
@@ -555,7 +555,8 @@ export function generateHostingerSeedSql(
   sql += `INSERT INTO \`plans\` (\`id\`, \`code\`, \`name\`, \`product_limit\`, \`storage_mb\`, \`team_seats\`, \`features\`, \`is_active\`) VALUES\n`;
   sql += `  ('plan-free','free','Free',50,512,1,'[\"catalog\",\"orders\",\"basic_seo\"]',1),\n`;
   sql += `  ('plan-paid','paid','Paid',500,5120,5,'[\"catalog\",\"orders\",\"seo\",\"coupons\",\"shipping\",\"analytics\"]',1),\n`;
-  sql += `  ('plan-pro','pro','Pro',5000,51200,20,'[\"catalog\",\"orders\",\"seo\",\"coupons\",\"shipping\",\"themes\",\"backups\",\"zatca\",\"analytics\",\"ai\"]',1),\n`;
+  sql += `  ('plan-pro','pro','Pro',5000,51200,20,'[\"catalog\",\"orders\",\"seo\",\"coupons\",\"shipping\",\"analytics\",\"reports\",\"themes\",\"media_studio\",\"custom_domain\"]',1),\n`;
+  sql += `  ('plan-premium','premium','Premium',NULL,102400,50,'[\"catalog\",\"orders\",\"seo\",\"coupons\",\"shipping\",\"analytics\",\"reports\",\"themes\",\"media_studio\",\"custom_domain\",\"backups\",\"zatca\",\"ai\",\"api_access\",\"advanced_seo\",\"advanced_analytics\"]',1),\n`;
   sql += `  ('plan-custom','custom','Custom',NULL,NULL,NULL,'[\"all\"]',1)\n`;
   sql += `ON DUPLICATE KEY UPDATE \`name\` = VALUES(\`name\`), \`is_active\` = VALUES(\`is_active\`);\n\n`;
 

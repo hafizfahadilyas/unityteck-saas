@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import {
@@ -41,7 +41,16 @@ import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
 import { COFFEE_STORE_WORKSPACE_PATH } from '../../data/coffeeStoreData';
 
 import { readAllThemeSettings, writeAllThemeSettings } from '../../themes/settings/themeSettingsStore';
-import { readStoreIdentity, writeStoreIdentity, type StoreIdentitySettings } from '../../themes/settings/storeIdentity';
+import { readStoreIdentity, splitStoreName, writeStoreIdentity, type StoreIdentitySettings } from '../../themes/settings/storeIdentity';
+import { StoreChromeFields } from './settings/StoreChromeFields';
+import {
+  bindStoreChrome,
+  currentChromeRevision,
+  loadStoreChrome,
+  readChromeCache,
+  saveStoreChrome,
+  type StoreChromeBrand,
+} from '../../i18n/storeChrome';
 
 type SettingsTab = 'general' | 'localization' | 'appearance' | 'maintenance' | 'social' | 'subscription' | 'thresholds' | 'notifications';
 
@@ -50,6 +59,41 @@ export const StoreSettings: React.FC = () => {
   const { t, locale, setLocale, currency, setCurrency, theme, toggleTheme, money, allowedLocales } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
+  const chromeSaveTimer = useRef<number | null>(null);
+  const [chrome, setChrome] = useState<StoreChromeBrand>(() => readChromeCache(activeStore.id));
+
+  useEffect(() => {
+    let stop = false;
+    const cached = readChromeCache(activeStore.id);
+    setChrome(cached);
+    bindStoreChrome(activeStore.id, cached);
+    const seen = currentChromeRevision();
+    void loadStoreChrome(activeStore.id).then((next) => {
+      if (stop || currentChromeRevision() !== seen) return;
+      setChrome(next);
+      bindStoreChrome(activeStore.id, next);
+    });
+    return () => {
+      stop = true;
+      if (chromeSaveTimer.current) window.clearTimeout(chromeSaveTimer.current);
+    };
+  }, [activeStore.id]);
+
+  const updateChrome = (next: StoreChromeBrand) => {
+    setChrome(next);
+    if (next.fill === 'custom' && !/^#[0-9a-fA-F]{6}$/.test(next.customColor)) return;
+    bindStoreChrome(activeStore.id, next);
+    if (chromeSaveTimer.current) window.clearTimeout(chromeSaveTimer.current);
+    chromeSaveTimer.current = window.setTimeout(() => {
+      void saveStoreChrome(activeStore.id, next)
+        .then(() => {
+          toast(isAr ? 'تم حفظ مظهر هذا المتجر' : 'This store appearance was saved', 'success');
+        })
+        .catch(() => {
+          toast(isAr ? 'تعذر حفظ المظهر على الخادم' : 'Could not save appearance on the server', 'error');
+        });
+    }, 450);
+  };
 
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
@@ -132,12 +176,11 @@ export const StoreSettings: React.FC = () => {
     return readStoreIdentity(activeStore.id, activeStore);
   }, [activeStore.id, activeStore]);
 
-  const [storeName, setStoreName] = useState(storeIdentity.storeName || activeStore.name);
-  const [tagline, setTagline] = useState(
-    isAr
-      ? (storeIdentity.taglineAr || 'متجر فاخر يقدم أرقى المنتجات مع شحن فوري')
-      : (storeIdentity.taglineEn || 'Premium boutique store with guaranteed express delivery.')
-  );
+  const splitName = splitStoreName(storeIdentity);
+  const [storeNameEn, setStoreNameEn] = useState(splitName.storeNameEn);
+  const [storeNameAr, setStoreNameAr] = useState(splitName.storeNameAr);
+  const [taglineEn, setTaglineEn] = useState(storeIdentity.taglineEn || '');
+  const [taglineAr, setTaglineAr] = useState(storeIdentity.taglineAr || '');
   const [storeEmail, setStoreEmail] = useState(storeIdentity.email || ('contact@' + activeStore.slug + '.com'));
   const [storePhone, setStorePhone] = useState(storeIdentity.phone || '+966 50 123 4567');
   const [logoUrl, setLogoUrl] = useState(
@@ -175,9 +218,11 @@ export const StoreSettings: React.FC = () => {
     e.preventDefault();
     const updatedIdentity: StoreIdentitySettings = {
       ...storeIdentity,
-      storeName: storeName,
-      taglineAr: isAr ? tagline : (storeIdentity.taglineAr || tagline),
-      taglineEn: !isAr ? tagline : (storeIdentity.taglineEn || tagline),
+      storeNameEn,
+      storeNameAr,
+      storeName: storeNameEn.trim() || storeIdentity.storeName,
+      taglineEn,
+      taglineAr,
       logoUrl: logoUrl,
       email: storeEmail,
       phone: storePhone,
@@ -195,7 +240,7 @@ export const StoreSettings: React.FC = () => {
     bumpStore(activeStore.id, 'theme');
     window.dispatchEvent(
       new CustomEvent('unityteck-store-updated', {
-        detail: { storeId: activeStore.id, name: storeName, logo: logoUrl },
+        detail: { storeId: activeStore.id, name: storeNameEn || storeNameAr, logo: logoUrl },
       }),
     );
     toast(
@@ -421,15 +466,28 @@ export const StoreSettings: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'اسم المتجر' : 'Store Name'}
+                    {isAr ? 'اسم المتجر بالإنجليزية' : 'Store name in English'}
                   </label>
                   <input
                     type="text"
-                    value={storeName}
-                    onChange={(e) => setStoreName(e.target.value)}
+                    value={storeNameEn}
+                    onChange={(e) => setStoreNameEn(e.target.value)}
+                    dir="ltr"
                     className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
+                    {isAr ? 'اسم المتجر بالعربية' : 'Store name in Arabic'}
+                  </label>
+                  <input
+                    type="text"
+                    value={storeNameAr}
+                    onChange={(e) => setStoreNameAr(e.target.value)}
+                    dir="rtl"
+                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
                 </div>
 
@@ -446,14 +504,28 @@ export const StoreSettings: React.FC = () => {
                   />
                 </div>
 
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'شعار المتجر الترويجي' : 'Store Tagline'}
+                    {isAr ? 'الوصف بالإنجليزية' : 'Tagline in English'}
                   </label>
                   <input
                     type="text"
-                    value={tagline}
-                    onChange={(e) => setTagline(e.target.value)}
+                    value={taglineEn}
+                    onChange={(e) => setTaglineEn(e.target.value)}
+                    dir="ltr"
+                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
+                    {isAr ? 'الوصف بالعربية' : 'Tagline in Arabic'}
+                  </label>
+                  <input
+                    type="text"
+                    value={taglineAr}
+                    onChange={(e) => setTaglineAr(e.target.value)}
+                    dir="rtl"
                     className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
@@ -820,7 +892,13 @@ export const StoreSettings: React.FC = () => {
       {/* ── TAB 3: Theme, Colors & Google Fonts (Top 15 + Weights) ── */}
       {activeTab === 'appearance' && (
         <div className="space-y-6">
-          <BrandingPanel title={isAr ? 'تخصيص الهوية والألوان والخطوط' : 'Store Branding, Colors & Typography'} />
+          <BrandingPanel
+            storeScoped
+            activePalette={chrome.fill === 'palette' ? chrome.palette : null}
+            onPaletteSelect={(id) => updateChrome({ ...chrome, palette: id, fill: 'palette', bgImage: chrome.fill === 'image' ? '' : chrome.bgImage })}
+            title={isAr ? 'تخصيص الهوية والألوان والخطوط' : 'Store Branding, Colors & Typography'}
+          />
+          <StoreChromeFields chrome={chrome} onChange={updateChrome} />
         </div>
       )}
 
@@ -964,12 +1042,21 @@ export const StoreSettings: React.FC = () => {
                 className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase font-mono"
                 style={{ background: 'color-mix(in srgb, var(--accent) 15%, var(--surface))', color: 'var(--accent)' }}
               >
-                {activeStore.plan} Plan
+                {isAr
+                  ? activeStore.plan === 'premium'
+                    ? 'الباقة المميزة'
+                    : activeStore.plan === 'pro'
+                      ? 'الباقة الاحترافية'
+                      : 'الباقة المجانية'
+                  : activeStore.plan === 'premium'
+                    ? 'Premium'
+                    : activeStore.plan === 'pro'
+                      ? 'Pro'
+                      : 'Free'}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-              {/* Free Tier */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
               <div
                 className={`p-4 rounded-xl border transition-all ${
                   activeStore.plan === 'free' ? 'border-emerald-500 bg-emerald-50/10' : ''
@@ -977,13 +1064,13 @@ export const StoreSettings: React.FC = () => {
                 style={{ borderColor: activeStore.plan === 'free' ? 'var(--accent)' : 'var(--border)' }}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-sm">Free Tier</span>
+                  <span className="font-bold text-sm">{isAr ? 'مجانية' : 'Free'}</span>
                   {activeStore.plan === 'free' && (
-                    <span className="text-xs font-semibold text-emerald-500">Current Plan</span>
+                    <span className="text-xs font-semibold text-emerald-500">{isAr ? 'الحالية' : 'Current'}</span>
                   )}
                 </div>
                 <p className="text-xs mb-4 leading-relaxed opacity-75">
-                  Standard store with basic product catalog and manual order processing.
+                  {isAr ? 'كتالوج أساسي وطلبات يدوية. النطاق المخصص غير مشمول.' : 'Basic catalog and manual orders. Custom domain is not included.'}
                 </p>
                 <button
                   type="button"
@@ -992,11 +1079,10 @@ export const StoreSettings: React.FC = () => {
                   className="w-full py-1.5 px-3 border rounded-lg text-xs font-semibold cursor-pointer disabled:opacity-50"
                   style={{ borderColor: 'var(--border)' }}
                 >
-                  {activeStore.plan === 'free' ? 'Selected' : 'Downgrade to Free'}
+                  {activeStore.plan === 'free' ? (isAr ? 'محددة' : 'Selected') : isAr ? 'الانتقال للمجانية' : 'Move to Free'}
                 </button>
               </div>
 
-              {/* Pro Tier */}
               <div
                 className={`p-4 rounded-xl border transition-all ${
                   activeStore.plan === 'pro' ? 'border-emerald-500 bg-emerald-50/10' : ''
@@ -1005,19 +1091,21 @@ export const StoreSettings: React.FC = () => {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-bold text-sm flex items-center gap-1.5">
-                    <span>Pro Merchant</span>
+                    <span>{isAr ? 'احترافية · ٣٠٠ ر.س' : 'Pro · 300 SAR'}</span>
                     {activeStore.masterGrantedPro && (
                       <span className="text-[10px] bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 font-bold px-1.5 py-0.5 rounded">
-                        Master Granted
+                        {isAr ? 'منحة الإدارة' : 'Master grant'}
                       </span>
                     )}
                   </span>
                   {activeStore.plan === 'pro' && (
-                    <span className="text-xs font-semibold text-emerald-500">Active</span>
+                    <span className="text-xs font-semibold text-emerald-500">{isAr ? 'مفعلة' : 'Active'}</span>
                   )}
                 </div>
                 <p className="text-xs mb-4 leading-relaxed opacity-75">
-                  Full access to Channel Performance Analytics, VIP customer filters, zero-stale instant publish, and multi-user staff roles.
+                  {isAr
+                    ? 'سيو، تحليلات، تقارير، قوالب، ونطاق مخصص على الاستضافة السحابية.'
+                    : 'SEO, analytics, reports, themes, and a custom domain on Hostinger Cloud.'}
                 </p>
                 <button
                   type="button"
@@ -1026,7 +1114,35 @@ export const StoreSettings: React.FC = () => {
                   className="w-full py-1.5 px-3 text-white rounded-lg text-xs font-semibold cursor-pointer disabled:opacity-50"
                   style={{ background: 'var(--portal-cta)' }}
                 >
-                  {activeStore.plan === 'pro' ? 'Active' : 'Upgrade to Pro'}
+                  {activeStore.plan === 'pro' ? (isAr ? 'مفعلة' : 'Active') : isAr ? 'اختيار الاحترافية' : 'Choose Pro'}
+                </button>
+              </div>
+
+              <div
+                className={`p-4 rounded-xl border transition-all ${
+                  activeStore.plan === 'premium' ? 'border-emerald-500 bg-emerald-50/10' : ''
+                }`}
+                style={{ borderColor: activeStore.plan === 'premium' ? 'var(--accent)' : 'var(--border)' }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-sm">{isAr ? 'مميزة · ٥٠٠ ر.س' : 'Premium · 500 SAR'}</span>
+                  {activeStore.plan === 'premium' && (
+                    <span className="text-xs font-semibold text-emerald-500">{isAr ? 'مفعلة' : 'Active'}</span>
+                  )}
+                </div>
+                <p className="text-xs mb-4 leading-relaxed opacity-75">
+                  {isAr
+                    ? 'كل الاحترافية، مع النسخ الاحتياطي والفوترة والذكاء وواجهة البرمجة وتحليلات متقدمة.'
+                    : 'Everything in Pro, plus backups, tax invoicing, AI, API access, and advanced analytics.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => updateStorePlan(activeStore.id, 'premium')}
+                  disabled={activeStore.plan === 'premium'}
+                  className="w-full py-1.5 px-3 text-white rounded-lg text-xs font-semibold cursor-pointer disabled:opacity-50"
+                  style={{ background: 'var(--portal-cta)' }}
+                >
+                  {activeStore.plan === 'premium' ? (isAr ? 'مفعلة' : 'Active') : isAr ? 'اختيار المميزة' : 'Choose Premium'}
                 </button>
               </div>
             </div>

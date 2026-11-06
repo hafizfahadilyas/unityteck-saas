@@ -1,37 +1,67 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
-import { ShieldCheck, Truck, Star, MessageCircle, Wrench, Layers } from 'lucide-react';
+import { ShieldCheck, Truck, Star, MessageCircle, Wrench, Layers, CreditCard, Palette } from 'lucide-react';
+import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
+import { bi, coffeeModularSeed, coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
+
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  ShieldCheck,
+  Truck,
+  Star,
+  MessageCircle,
+  Wrench,
+  Layers,
+  CreditCard,
+  Palette,
+};
 
 export const ExclusivePerksBar: React.FC = () => {
   const { language, storeIdentity } = useCart();
   const { activeStore } = useTenant();
   const isAr = language === 'AR';
   const storeName = activeStore?.name || (isAr ? 'المتجر' : 'Store');
+  const [tick, setTick] = useState(0);
 
-  // Dynamic WhatsApp details from store owner settings
-  const rawPhone =
-    storeIdentity?.whatsapp ||
-    (activeStore as any)?.whatsapp ||
-    storeIdentity?.phone ||
-    activeStore?.phone ||
-    '+966549876543';
+  useEffect(() => {
+    const sync = () => setTick((n) => n + 1);
+    window.addEventListener('unityteck-theme-settings', sync);
+    return () => window.removeEventListener('unityteck-theme-settings', sync);
+  }, []);
 
-  let cleanPhone = rawPhone.replace(/\D/g, '') || '966549876543';
-  if (cleanPhone.startsWith('05')) {
-    cleanPhone = '966' + cleanPhone.substring(1);
-  } else if (cleanPhone.startsWith('5') && cleanPhone.length === 9) {
-    cleanPhone = '966' + cleanPhone;
-  }
+  const settings = useMemo(() => {
+    try {
+      if (!activeStore?.id) return null;
+      return resolveCoffeeThemeSettings(activeStore.id, activeStore);
+    } catch {
+      return null;
+    }
+  }, [activeStore, tick]);
+
+  const benefits = useMemo(() => {
+    const raw = settings?.exclusiveBenefits;
+    const hasItems = (raw?.items || []).some(
+      (it) => it.enabled !== false && ((it.titleEn || '').trim() || (it.titleAr || '').trim()),
+    );
+    if (hasItems) return raw;
+    // Unconfigured coffee C-BEN → HiBrew seed for display only (merchant clear stays empty via enabled:false)
+    if (raw?.enabled === false) return raw;
+    return coffeeModularSeed().exclusiveBenefits;
+  }, [settings?.exclusiveBenefits]);
+
+  if (benefits?.enabled === false) return null;
+
   const displayPhone =
     storeIdentity?.whatsapp ||
     (activeStore as any)?.whatsapp ||
     storeIdentity?.phone ||
     activeStore?.phone ||
-    '+966 54 987 6543';
+    '';
+  const cleanPhone = coffeeWhatsAppDigits(displayPhone);
 
   const handleOpenWhatsApp = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (!cleanPhone) return;
     const msg = isAr
       ? `السلام عليكم، أود الاستفسار والتواصل بخصوص متجر ${storeName}`
       : `Hello, I would like to get in touch with ${storeName}.`;
@@ -40,92 +70,78 @@ export const ExclusivePerksBar: React.FC = () => {
 
   const handleCustomOrderWhatsApp = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (!cleanPhone) return;
     const msg = isAr
       ? `السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم`
       : `Hello, I would like to inquire about placing a custom coffee corner order.`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  const perks = [
-    {
-      id: 'care',
-      titleAr: 'ضمان الوكيل سنتين',
-      titleEn: 'Store Care (2-Yr Warranty)',
-      descAr: 'احمِ أجهزتك ومعداتك مع صيانة معتمدة لعدة أعوام.',
-      descEn: 'Protect your coffee gear with certified 2-year warranty.',
-      icon: ShieldCheck,
-    },
-    {
-      id: 'delivery',
-      titleAr: 'توصيل مجاني سريع',
-      titleEn: 'Free Express Delivery',
-      descAr: 'توصيل منزلي سريع ومجاني لجميع طلباتك في المملكة.',
-      descEn: 'Fast & free doorstep delivery on all orders across Saudi Arabia.',
-      icon: Truck,
-    },
-    {
-      id: 'installments',
-      titleAr: 'اشتر الآن، وادفع لاحقاً',
-      titleEn: 'Buy Now, Pay Later',
-      descAr: 'قسّم مشترياتك على دفعات ميسرة مع Tabby و Tamara.',
-      descEn: 'Split your purchases into flexible installments with Tabby & Tamara.',
-      isInstallments: true,
-    },
-    {
-      id: 'custom-corner',
-      titleAr: 'تفصيل أركان القهوة',
-      titleEn: 'Custom Corner Orders',
-      descAr: 'تفصيل خشب طبيعي وأسطح فاخرة حسب مقاساتك بدقة.',
-      descEn: 'Handcrafted natural wood & bespoke sintered stone stations.',
-      isCustomAction: true,
-      icon: Layers,
-    },
-  ];
+  const perks = (benefits?.items || [])
+    .filter((it) => it.enabled !== false)
+    .map((it) => {
+      const titleEn = (it.titleEn || '').trim();
+      const titleAr = (it.titleAr || '').trim();
+      const descEn = (it.descriptionEn || '').trim();
+      const descAr = (it.descriptionAr || '').trim();
+      const blob = `${titleEn} ${titleAr} ${descEn} ${descAr}`.toLowerCase();
+      return {
+        id: it.id,
+        titleEn: titleEn || titleAr,
+        titleAr: titleAr || titleEn,
+        descEn: descEn || descAr,
+        descAr: descAr || descEn,
+        icon: it.icon || 'ShieldCheck',
+        isInstallments: /tabby|tamara|install|تقسيط|ادفع لاحقا/.test(blob),
+        isCustomAction: /custom|corner|تفصيل|ركن/.test(blob),
+      };
+    })
+    .filter((p) => p.titleEn || p.titleAr);
+
+  if (!perks.length) return null;
+
+  const sectionTitle = bi(
+    language,
+    benefits?.titleEn,
+    benefits?.titleAr,
+    isAr ? 'مزايا حصرية وخدمات مخصصة' : 'Exclusive Perks & Custom Services',
+  );
+  const sectionSubtitle = bi(language, benefits?.subtitleEn, benefits?.subtitleAr);
 
   return (
-    <section className="w-full max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10 select-none">
-      {/* SECTION HEADER */}
+    <section data-customize-section="C-BEN" className="w-full max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10 select-none">
       <div className="text-start mb-4 sm:mb-6">
         <h2
           className={`text-xl sm:text-2xl lg:text-[28px] font-black text-[#2B1809] ${
             isAr ? 'tracking-normal' : 'tracking-tight'
           }`}
         >
-          {isAr ? 'مزايا حصرية وخدمات مخصصة' : 'Exclusive Perks & Custom Services'}
+          {sectionTitle}
         </h2>
+        {sectionSubtitle ? (
+          <p className="text-xs sm:text-sm text-[#5C422E] mt-1.5 max-w-2xl">{sectionSubtitle}</p>
+        ) : null}
       </div>
 
-      {/* 
-        GRID LAYOUT: 
-        - Mobile: 4 boxes in 2 rows (2x2 grid via grid-cols-2), 
-                  followed by the 5th consultation box spanning both columns (col-span-2) right underneath.
-        - Desktop / Tablet: 5 equal columns in 1 single row (md:grid-cols-5).
-      */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-5">
-        
-        {/* The 4 Core Perks (Bronze Theme) */}
         {perks.map((perk) => {
-          const Icon = perk.icon;
+          const Icon = ICON_MAP[perk.icon] || ShieldCheck;
           return (
             <div
               key={perk.id}
               className="col-span-1 bg-gradient-to-b from-[#FDFBF7] via-[#F8F2EA] to-[#F1E5D6] border-0 rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col justify-between items-center text-center hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group cursor-default min-h-[190px] sm:min-h-[235px]"
             >
-              {/* Card Title */}
               <h3 className="font-bold text-xs sm:text-sm lg:text-[15px] text-[#2B1809] line-clamp-1 mb-2 sm:mb-2.5">
                 {isAr ? perk.titleAr : perk.titleEn}
               </h3>
 
-              {/* Card Center: Icon / Installments pill */}
               <div className="my-auto flex items-center justify-center py-1 sm:py-2">
                 {perk.isInstallments ? (
                   <div className="flex items-center gap-1 sm:gap-1.5 bg-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border-0 shadow-2xs">
                     <span className="text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded bg-[#3DF0B0] text-black">
                       tabby
                     </span>
-                    <span className="text-[8px] sm:text-[9px] font-black text-neutral-400">
-                      &
-                    </span>
+                    <span className="text-[8px] sm:text-[9px] font-black text-neutral-400">&</span>
                     <span className="text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-400 to-rose-400 text-white">
                       tamara
                     </span>
@@ -136,17 +152,15 @@ export const ExclusivePerksBar: React.FC = () => {
                   </div>
                 ) : (
                   <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-full bg-white border-0 flex items-center justify-center shadow-2xs group-hover:scale-110 transition-transform duration-300">
-                    {Icon && <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-[#8C531B]" />}
+                    <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-[#8C531B]" />
                   </div>
                 )}
               </div>
 
-              {/* Card Description */}
               <p className="text-[10px] sm:text-xs text-[#5C422E] leading-snug sm:leading-relaxed font-medium mt-1 mb-2">
                 {isAr ? perk.descAr : perk.descEn}
               </p>
 
-              {/* Custom Order & WhatsApp Buttons in the 4th Box */}
               {perk.isCustomAction ? (
                 <div className="w-full space-y-1.5 pt-1 border-0">
                   <button
@@ -171,11 +185,7 @@ export const ExclusivePerksBar: React.FC = () => {
           );
         })}
 
-        {/* 5TH BOX: CUSTOM ORDER & DIRECT WHATSAPP CONSULTATION */}
-        <div
-          className="col-span-2 md:col-span-1 bg-gradient-to-b from-[#FAF4EC] via-[#F3E7D7] to-[#EBD8C3] border-0 rounded-xl sm:rounded-2xl p-3.5 sm:p-5 flex flex-col justify-between items-center text-center hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group min-h-[190px] sm:min-h-[235px] relative overflow-hidden"
-        >
-          {/* Card Title */}
+        <div className="col-span-2 md:col-span-1 bg-gradient-to-b from-[#FAF4EC] via-[#F3E7D7] to-[#EBD8C3] border-0 rounded-xl sm:rounded-2xl p-3.5 sm:p-5 flex flex-col justify-between items-center text-center hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group min-h-[190px] sm:min-h-[235px] relative overflow-hidden">
           <div className="w-full">
             <h3 className="font-bold text-xs sm:text-sm lg:text-[15px] text-[#2B1809] line-clamp-1">
               {isAr ? 'تفصيل واستشارة فورية' : 'Custom & VIP Care'}
@@ -185,7 +195,6 @@ export const ExclusivePerksBar: React.FC = () => {
             </p>
           </div>
 
-          {/* Center: WhatsApp Icon + Phone Number (Clickable to open WhatsApp) */}
           <button
             type="button"
             onClick={handleCustomOrderWhatsApp}
@@ -197,13 +206,11 @@ export const ExclusivePerksBar: React.FC = () => {
               <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-300 rounded-full animate-ping opacity-75" />
             </div>
             <span className="font-sans font-bold text-[11px] sm:text-xs text-[#2B1809] group-hover/phone:text-[#25D366] tracking-tight dir-ltr transition-colors">
-              {displayPhone}
+              {displayPhone || (isAr ? 'واتساب غير مُعدّ' : 'WhatsApp not set')}
             </span>
           </button>
 
-          {/* Bottom Actions: Custom Order Button + WhatsApp Button directly underneath */}
           <div className="w-full space-y-1.5 mt-1 pt-1.5 border-0">
-            {/* 1. Custom Order Button */}
             <button
               type="button"
               onClick={handleCustomOrderWhatsApp}
@@ -212,8 +219,6 @@ export const ExclusivePerksBar: React.FC = () => {
               <MessageCircle className="w-3.5 h-3.5 fill-[#25D366] text-[#25D366]" />
               <span>{isAr ? 'طلب تفصيل مخصص' : 'Custom Order'}</span>
             </button>
-
-            {/* 2. WhatsApp Button Directly Underneath */}
             <button
               type="button"
               onClick={handleOpenWhatsApp}
@@ -224,7 +229,6 @@ export const ExclusivePerksBar: React.FC = () => {
             </button>
           </div>
         </div>
-
       </div>
     </section>
   );

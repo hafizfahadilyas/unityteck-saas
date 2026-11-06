@@ -70,7 +70,7 @@ export const MonthlySummaryCard: React.FC<MonthlySummaryCardProps> = React.memo(
   ];
 
   return (
-    <div className="p-3.5 sm:p-5 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between w-full h-full min-w-0">
+    <div className="p-3.5 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 shadow-xs flex flex-col justify-between w-full h-full min-h-[280px] min-w-0">
       {/* ── Card Header ── */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3 gap-2">
         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
@@ -107,7 +107,7 @@ export const MonthlySummaryCard: React.FC<MonthlySummaryCardProps> = React.memo(
           return (
             <div
               key={item.id}
-              className="p-2.5 sm:p-3 xl:p-3.5 rounded-2xl bg-[#f8fafc] dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 flex flex-col justify-between group hover:border-teal-400/40 transition-colors min-w-0"
+              className="p-2.5 sm:p-3 xl:p-3.5 rounded-2xl bg-[#f8fafc] dark:bg-slate-800/50 flex flex-col justify-between group transition-colors min-w-0"
             >
               <div className="flex items-start gap-2 sm:gap-2.5 min-w-0">
                 {/* Rounded Icon in soft teal circle */}

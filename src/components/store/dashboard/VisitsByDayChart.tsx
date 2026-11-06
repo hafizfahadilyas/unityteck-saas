@@ -35,7 +35,7 @@ export const VisitsByDayChart: React.FC<VisitsByDayChartProps> = React.memo(({ d
   const barWidth = 32;
 
   return (
-    <div className="p-4 sm:p-5 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+    <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 shadow-xs flex flex-col justify-between h-full min-h-[260px]">
       {/* ── Card Header ── */}
       <div className="flex items-center gap-2 mb-3">
         <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 flex items-center justify-center border border-teal-200/60 dark:border-teal-800/40">

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   Image as ImageIcon,
   Film,
@@ -36,7 +36,9 @@ import {
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
-import type { MediaAsset, MediaType, MediaUsage } from '../../types/media';
+import type { MediaAsset, MediaFolderRecord, MediaType, MediaUsage } from '../../types/media';
+import { SYSTEM_MEDIA_FOLDERS, mediaFolderLabel } from '../../constants/mediaFolders';
+import * as tenantApi from '../../api/tenantApi';
 import {
   formatBytes,
   detectMediaType,
@@ -80,6 +82,70 @@ export const StoreMediaLibrary: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedFolder, setSelectedFolder] = useState<string>('all');
+  const [customFolders, setCustomFolders] = useState<MediaFolderRecord[]>([]);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [folderSaving, setFolderSaving] = useState(false);
+
+  const allFolderSlugs = useMemo(() => {
+    const slugs = new Set<string>(SYSTEM_MEDIA_FOLDERS.map((f) => f.slug));
+    customFolders.forEach((f) => slugs.add(f.slug));
+    currentMedia.forEach((m) => {
+      if (m.folder) slugs.add(m.folder);
+    });
+    return Array.from(slugs).sort();
+  }, [customFolders, currentMedia]);
+
+  const loadCustomFolders = useCallback(async () => {
+    if (!isApiEnabled()) {
+      setCustomFolders([]);
+      return;
+    }
+    try {
+      const list = await tenantApi.fetchMediaFolders(activeStore.id);
+      setCustomFolders(list);
+    } catch {
+      setCustomFolders([]);
+    }
+  }, [activeStore.id]);
+
+  useEffect(() => {
+    void loadCustomFolders();
+  }, [loadCustomFolders]);
+
+  const handleCreateFolder = async () => {
+    const name = newFolderName.trim();
+    if (!name) return;
+    if (!isApiEnabled()) {
+      toast(isAr ? 'يتطلب اتصال API' : 'API connection required', 'error');
+      return;
+    }
+    setFolderSaving(true);
+    try {
+      const created = await tenantApi.createMediaFolder(activeStore.id, { name });
+      setCustomFolders((prev) => [...prev, created]);
+      setNewFolderName('');
+      toast(isAr ? 'تم إنشاء المجلد' : 'Folder created', 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Create folder failed', 'error');
+    } finally {
+      setFolderSaving(false);
+    }
+  };
+
+  const handleDeleteCustomFolder = async (folder: MediaFolderRecord) => {
+    if (!isApiEnabled()) return;
+    try {
+      await tenantApi.deleteMediaFolder(activeStore.id, folder.id, true);
+      setCustomFolders((prev) => prev.filter((f) => f.id !== folder.id));
+      if (selectedFolder === folder.slug) setSelectedFolder('all');
+      toast(isAr ? 'تم حذف المجلد ونقل الملفات إلى عام' : 'Folder deleted; assets moved to General', 'success');
+      currentMedia
+        .filter((m) => m.folder === folder.slug)
+        .forEach((m) => updateMediaAsset(m.id, { folder: 'general' }));
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Delete folder failed', 'error');
+    }
+  };
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [showOnlyUnused, setShowOnlyUnused] = useState(false);
 
@@ -669,8 +735,8 @@ export const StoreMediaLibrary: React.FC = () => {
               <Sparkles className="w-4 h-4" />
               <span>
                 {isAr
-                  ? `استوديو Canva AI وإزالة الخلفية (${studioQuota.usedToday}/${studioQuota.dailyLimit})`
-                  : `Canva AI Studio & BG Remover (${studioQuota.usedToday}/${studioQuota.dailyLimit})`}
+                  ? `استوديو التصميم وعزل الخلفية (${studioQuota.usedToday}/${studioQuota.dailyLimit})`
+                  : `Design studio & background cutout (${studioQuota.usedToday}/${studioQuota.dailyLimit})`}
               </span>
               {isCanvaSoon && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/25 text-white border border-white/30 shrink-0">
@@ -799,6 +865,78 @@ export const StoreMediaLibrary: React.FC = () => {
         </div>
       </div>
 
+      <div className="flex flex-col lg:flex-row gap-4 items-start">
+        <aside
+          className="w-full lg:w-56 shrink-0 p-4 rounded-2xl border space-y-3"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-black uppercase tracking-wide text-muted">
+              {isAr ? 'المجلدات' : 'Folders'}
+            </span>
+            <Folder className="w-4 h-4 text-muted" />
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedFolder('all')}
+            className={`w-full text-start px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
+              selectedFolder === 'all' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            {isAr ? 'جميع الأقسام' : 'All folders'}
+          </button>
+          {allFolderSlugs.map((slug) => {
+            const custom = customFolders.find((f) => f.slug === slug);
+            const count = currentMedia.filter((m) => (m.folder || 'general') === slug).length;
+            return (
+              <div key={slug} className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedFolder(slug)}
+                  className={`flex-1 text-start px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                    selectedFolder === slug
+                      ? 'bg-teal-600 text-white'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {custom ? custom.name : mediaFolderLabel(slug, isAr)}
+                  <span className="opacity-70 ms-1">({count})</span>
+                </button>
+                {custom ? (
+                  <button
+                    type="button"
+                    title={isAr ? 'حذف المجلد' : 'Delete folder'}
+                    onClick={() => void handleDeleteCustomFolder(custom)}
+                    className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+          <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border)' }}>
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder={isAr ? 'مجلد جديد…' : 'New folder…'}
+              className="w-full px-2.5 py-1.5 text-xs rounded-lg border"
+              style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+            />
+            <button
+              type="button"
+              disabled={folderSaving || !newFolderName.trim()}
+              onClick={() => void handleCreateFolder()}
+              className="w-full py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white disabled:opacity-50 flex items-center justify-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {isAr ? 'إنشاء مجلد' : 'Create folder'}
+            </button>
+          </div>
+        </aside>
+
+        <div className="flex-1 min-w-0 space-y-4 w-full">
       {/* ── Drag & Drop Fast Upload Banner ── */}
       <div
         onDragOver={(e) => {
@@ -918,12 +1056,11 @@ export const StoreMediaLibrary: React.FC = () => {
           }}
         >
           <option value="all">{isAr ? 'جميع الأقسام' : 'All Folders'}</option>
-          <option value="products">{isAr ? 'المنتجات' : 'Products'}</option>
-          <option value="banners">{isAr ? 'البانرات والعروض' : 'Banners'}</option>
-          <option value="categories">{isAr ? 'التصنيفات' : 'Categories'}</option>
-          <option value="branding">{isAr ? 'الهوية والشعار' : 'Branding'}</option>
-          <option value="marketing">{isAr ? 'التسويق والفيديو' : 'Marketing'}</option>
-          <option value="general">{isAr ? 'ملفات عامة' : 'General'}</option>
+          {allFolderSlugs.map((slug) => (
+            <option key={slug} value={slug}>
+              {mediaFolderLabel(slug, isAr)}
+            </option>
+          ))}
         </select>
 
         {/* Sort Selector */}
@@ -1081,7 +1218,7 @@ export const StoreMediaLibrary: React.FC = () => {
                         title={
                           isCanvaSoon
                             ? `${isAr ? canvaFeat?.nameAr : canvaFeat?.nameEn} (${isAr ? canvaFeat?.comingSoonTagAr : canvaFeat?.comingSoonTagEn})`
-                            : isAr ? 'تعديل وإزالة الخلفية (Canva AI)' : 'Edit & Remove BG (Canva AI)'
+                            : isAr ? 'تعديل التصميم وعزل الخلفية' : 'Edit design & remove background'
                         }
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -1265,6 +1402,9 @@ export const StoreMediaLibrary: React.FC = () => {
         </div>
       )}
 
+        </div>
+      </div>
+
       {/* ── Slide-Over Asset Details & SEO Inspector Drawer ── */}
       {isDetailsOpen && selectedAsset && (
         <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-2xs animate-in fade-in duration-150">
@@ -1446,6 +1586,24 @@ export const StoreMediaLibrary: React.FC = () => {
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
                 </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold block">{isAr ? 'المجلد' : 'Folder'}</label>
+                  <select
+                    value={selectedAsset.folder || 'general'}
+                    onChange={(e) =>
+                      updateMediaAsset(selectedAsset.id, { folder: e.target.value })
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  >
+                    {allFolderSlugs.map((slug) => (
+                      <option key={slug} value={slug}>
+                        {mediaFolderLabel(slug, isAr)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* "Used By" Tracking List */}
@@ -1504,7 +1662,7 @@ export const StoreMediaLibrary: React.FC = () => {
                   style={{ background: isCanvaSoon ? 'linear-gradient(135deg, #d97706, #b45309)' : 'linear-gradient(135deg, #059669, #0d9488)' }}
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>{isAr ? 'تعديل وعزل الخلفية (Canva AI)' : 'Edit & Remove BG (Canva AI)'}</span>
+                  <span>{isAr ? 'تعديل التصميم وعزل الخلفية' : 'Edit design & remove background'}</span>
                   {isCanvaSoon && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/25 text-white border border-white/30 shrink-0">
                       {isAr ? canvaFeat?.comingSoonTagAr : canvaFeat?.comingSoonTagEn}
@@ -1555,9 +1713,11 @@ export const StoreMediaLibrary: React.FC = () => {
             height,
             title,
             altText: `${title} - ${activeStore.name}`,
-            caption: `Created in Canva AI Studio for ${activeStore.name}`,
+            caption: isAr
+              ? `تصميم من استوديو المنصة — ${activeStore.name}`
+              : `Created in platform design studio — ${activeStore.name}`,
             folder: 'marketing',
-            tags: ['canva-ai', 'studio', activeStore.slug],
+            tags: ['ksa-template', 'studio', activeStore.slug],
             processingStatus: 'ready',
             optimizationStatus: 'optimized',
             source: 'upload',
@@ -1565,7 +1725,7 @@ export const StoreMediaLibrary: React.FC = () => {
           toast(
             isAr
               ? 'تم حفظ التصميم الجديد في مكتبة وسائط المتجر بنجاح!'
-              : 'New AI Studio design saved to your store Media Library!',
+              : 'New design saved to your store Media Library!',
             'success',
           );
         }}

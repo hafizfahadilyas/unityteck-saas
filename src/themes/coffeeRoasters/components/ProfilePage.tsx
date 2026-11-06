@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
+import { cartChoiceLine } from '../cartLine';
 import {
   User,
   Package,
@@ -105,7 +106,7 @@ export const ProfilePage: React.FC = () => {
       productName: it.name,
       unitPrice: it.price || 0,
       quantity: it.quantity || 1,
-      image: it.image || '/src/assets/images/hibrew_h7a_flagship_machine.png',
+      image: it.image || '/images/coffee_hero_flagship_machine_1791218907782.jpg',
       selectedColor: { name: 'Standard', nameAr: 'قياسي', hex: '#333', image: it.image || '' },
       selectedStorage: { capacity: 'Standard', ram: '', priceDelta: 0 },
     })),
@@ -458,7 +459,7 @@ export const ProfilePage: React.FC = () => {
                         <div className="min-w-0">
                           <h4 className="font-bold text-neutral-900 truncate">{item.productName}</h4>
                           <span className="text-[11px] text-neutral-500 block">
-                            {language === 'AR' && item.selectedColor?.nameAr ? item.selectedColor.nameAr : item.selectedColor?.name} · {item.selectedStorage?.capacity}
+                            {cartChoiceLine(item, language === 'AR')}
                           </span>
                         </div>
                       </div>

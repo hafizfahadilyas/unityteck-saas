@@ -24,7 +24,7 @@ export const ThemePreloader: React.FC<ThemePreloaderProps> = ({
   logoUrl = MECCA_LOGO,
   accentColor = '#e6ca98',
   onLoaded,
-  minDuration = 800,
+  minDuration = 120,
   enabled = true,
 }) => {
   const [visible, setVisible] = useState(enabled);
@@ -46,8 +46,8 @@ export const ThemePreloader: React.FC<ThemePreloaderProps> = ({
         setTimeout(() => {
           setVisible(false);
           onLoaded?.();
-        }, 400);
-      }, minDuration);
+        }, 120);
+      }, Math.min(minDuration, 200));
       return () => clearTimeout(timer);
     }
   }, [isLoading, minDuration, onLoaded, enabled]);

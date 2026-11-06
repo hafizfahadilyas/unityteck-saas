@@ -219,10 +219,11 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
         updatedAt: new Date().toISOString(),
       });
 
+      // Contact/support email + phone only — login ownerEmail is Master SuperAdmin-only
       if (updateStoreInfo) {
         await updateStoreInfo(activeStore.id, {
-          ownerEmail: centralEmail,
           phone: centralPhone,
+          email: centralEmail,
         });
       }
 

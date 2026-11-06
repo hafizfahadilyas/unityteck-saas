@@ -21,7 +21,7 @@ class AuthController extends Controller
 {
     private const RESET_TTL_MINUTES = 60;
 
-    private const OTP_TTL_MINUTES = 10;
+    private const OTP_TTL_MINUTES = 1;
 
     public function masterLogin(Request $request): JsonResponse
     {
@@ -48,7 +48,7 @@ class AuthController extends Controller
             ], 403);
         }
 
-        $user->tokens()->where('name', 'master')->delete();
+        // Lifetime: do not revoke older tokens. A session ends only on explicit logout.
         $token = $user->createToken('master', ['portal:master'])->plainTextToken;
 
         return response()->json($this->authPayload(
@@ -85,11 +85,9 @@ class AuthController extends Controller
             'tanjeed' => 'owner@tanjeedmakkah.com',
             'alsaeedi' => 'owner@tanjeedmakkah.com',
             'blacko' => 'owner@tanjeedmakkah.com',
-            'coffee' => 'rayan@specialtycoffee.sa',
-            'rayan' => 'rayan@specialtycoffee.sa',
-            'specialtycoffee' => 'rayan@specialtycoffee.sa',
-            'coffee@specialtycoffee.sa' => 'rayan@specialtycoffee.sa',
-            'admin@specialtycoffee.sa' => 'rayan@specialtycoffee.sa',
+            'coffee' => 'mieraf.sa8@gmail.com',
+            'mieraf' => 'mieraf.sa8@gmail.com',
+            'store-coffee' => 'mieraf.sa8@gmail.com',
         ];
 
         $targetEmail = $aliasMap[$input] ?? $input;
@@ -135,7 +133,7 @@ class AuthController extends Controller
         $store = Store::query()->find($membership->store_id);
         $role = Roles::normalize($membership->role ?: $user->role);
 
-        $user->tokens()->where('name', 'store')->delete();
+        // Lifetime: keep every store session until that admin signs out.
         $token = $user->createToken('store', [
             'portal:store',
             'store:'.$membership->store_id,
@@ -341,7 +339,8 @@ class AuthController extends Controller
     }
 
     /**
-     * Phase 2.2 — OTP request stub (no SMS/email provider yet).
+     * Request OTP (1 minute TTL). Login always stores a code.
+     * Real inbox delivery requires MAIL_MAILER=smtp; log/array only write to laravel.log.
      */
     public function requestOtp(Request $request): JsonResponse
     {
@@ -353,18 +352,21 @@ class AuthController extends Controller
 
         $email = Str::lower($data['email']);
         $user = User::query()->where('email', $email)->first();
+        $userOk = $user && $this->userMatchesPortal($user, $data['portal']);
 
         $public = [
             'ok' => true,
             'message' => 'If that email exists, a code was sent.',
-            'delivery' => 'email',
+            'delivery' => 'stubbed',
             'expires_in' => self::OTP_TTL_MINUTES * 60,
         ];
 
-        if (! $user || ! $this->userMatchesPortal($user, $data['portal'])) {
+        // Reset: do not reveal whether account exists
+        if ($data['purpose'] === 'reset' && ! $userOk) {
             return response()->json($public);
         }
 
+        // Login: always create OTP (passwordless / unknown email handled on verify + SPA fallback)
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
         AuthOtp::query()
@@ -389,7 +391,7 @@ class AuthController extends Controller
             . e($code)
             . '</strong>.</p><p>This code expires in '
             . self::OTP_TTL_MINUTES
-            . ' minutes. If you did not request it, ignore this email.</p>';
+            . ' minute(s). If you did not request it, ignore this email.</p>';
 
         $delivery = 'failed';
         try {
@@ -413,7 +415,11 @@ class AuthController extends Controller
         }
 
         $public['delivery'] = $delivery;
+        $public['message'] = $delivery === 'email'
+            ? 'Verification code sent to your email.'
+            : 'SMTP not configured for real inbox — use on-screen / returned code.';
 
+        // Reveal code whenever real SMTP delivery did not happen (or debug)
         if ($this->shouldRevealStubSecrets() || $delivery !== 'email') {
             $public['dev_code'] = $code;
         }
@@ -422,7 +428,71 @@ class AuthController extends Controller
     }
 
     /**
-     * Phase 2.2 — verify OTP stub (does not issue session yet — Phase 2.3+ roles).
+     * After Clerk (or other IdP) verifies email ownership, mint a Sanctum PAT
+     * so store-scoped APIs (products, orders, …) work. Only registered users.
+     */
+    public function exchangeClerkSession(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'portal' => ['required', 'in:master,store'],
+            'store_id' => ['nullable', 'string'],
+        ]);
+
+        $email = Str::lower(trim($data['email']));
+        $user = User::query()->where('email', $email)->first();
+
+        if (! $user || ! $this->userMatchesPortal($user, $data['portal'])) {
+            throw ValidationException::withMessages([
+                'email' => ['No matching account for this portal.'],
+            ]);
+        }
+
+        if ($data['portal'] === 'master') {
+            $token = $user->createToken('master', ['portal:master'])->plainTextToken;
+
+            return response()->json($this->authPayload(
+                $user,
+                'master',
+                $token,
+                null,
+                null,
+                Roles::SUPER_ADMIN
+            ));
+        }
+
+        $membershipQuery = StoreUser::query()->where('user_id', $user->id);
+        if (! empty($data['store_id'])) {
+            $membershipQuery->where('store_id', $data['store_id']);
+        }
+        $membership = $membershipQuery->orderBy('created_at')->first();
+
+        if (! $membership) {
+            return response()->json([
+                'message' => 'No store membership for this account.',
+            ], 403);
+        }
+
+        $store = Store::query()->find($membership->store_id);
+        $role = Roles::normalize($membership->role ?: $user->role);
+
+        $token = $user->createToken('store', [
+            'portal:store',
+            'store:'.$membership->store_id,
+        ])->plainTextToken;
+
+        return response()->json($this->authPayload(
+            $user,
+            'store',
+            $token,
+            $membership->store_id,
+            $store?->name,
+            $role
+        ));
+    }
+
+    /**
+     * Verify OTP. For purpose=login, issues a lifetime Sanctum session token.
      */
     public function verifyOtp(Request $request): JsonResponse
     {
@@ -452,11 +522,60 @@ class AuthController extends Controller
         $otp->consumed_at = now();
         $otp->save();
 
-        return response()->json([
-            'ok' => true,
-            'verified' => true,
-            'message' => 'Code verified.',
-        ]);
+        if ($data['purpose'] !== 'login') {
+            return response()->json([
+                'ok' => true,
+                'verified' => true,
+                'message' => 'Code verified.',
+            ]);
+        }
+
+        $user = User::query()->where('email', $email)->first();
+        if (! $user || ! $this->userMatchesPortal($user, $data['portal'])) {
+            throw ValidationException::withMessages([
+                'email' => ['No matching account for this portal.'],
+            ]);
+        }
+
+        if ($data['portal'] === 'master') {
+            $token = $user->createToken('master', ['portal:master'])->plainTextToken;
+
+            return response()->json(array_merge(
+                $this->authPayload($user, 'master', $token, null, null, Roles::SUPER_ADMIN),
+                ['ok' => true, 'verified' => true, 'message' => 'Code verified.']
+            ));
+        }
+
+        $membership = StoreUser::query()
+            ->where('user_id', $user->id)
+            ->orderBy('created_at')
+            ->first();
+
+        if (! $membership) {
+            return response()->json([
+                'message' => 'No store membership for this account.',
+            ], 403);
+        }
+
+        $store = Store::query()->find($membership->store_id);
+        $role = Roles::normalize($membership->role ?: $user->role);
+
+        $token = $user->createToken('store', [
+            'portal:store',
+            'store:'.$membership->store_id,
+        ])->plainTextToken;
+
+        return response()->json(array_merge(
+            $this->authPayload(
+                $user,
+                'store',
+                $token,
+                $membership->store_id,
+                $store?->name,
+                $role
+            ),
+            ['ok' => true, 'verified' => true, 'message' => 'Code verified.']
+        ));
     }
 
     private function userMatchesPortal(User $user, string $portal): bool

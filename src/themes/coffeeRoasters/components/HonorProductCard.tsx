@@ -3,6 +3,7 @@ import { useCart } from '../context/CartContext';
 import { Product } from '../types';
 import { Gift, Zap, CheckCircle2, ShoppingBag, Coffee, Sparkles, ShieldCheck, ChevronRight } from 'lucide-react';
 import { resolveProductThumbnail, handleImageError } from '../../../utils/imageFallback';
+import { productCardFlags, type CoffeeFeaturedProductsSettings } from '../../settings/coffeeModularSettings';
 
 interface HonorProductCardProps {
   product: Product;
@@ -12,6 +13,7 @@ interface HonorProductCardProps {
   specLabelAr?: string;
   onBuyNow?: (product: Product) => void;
   onAddToCart?: (product: Product) => void;
+  flags?: Partial<ReturnType<typeof productCardFlags>>;
 }
 
 export const HonorProductCard: React.FC<HonorProductCardProps> = ({
@@ -22,9 +24,12 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
   specLabelAr,
   onBuyNow,
   onAddToCart,
+  flags,
 }) => {
   const { navigateTo, language, addToCart, triggerFlyToCart } = useCart();
   const isAr = language === 'AR';
+  const card = productCardFlags(flags as CoffeeFeaturedProductsSettings | undefined);
+  const stock = (product as Product & { stock?: number }).stock;
 
   // Dynamic calculations
   const price = product.basePrice || 0;
@@ -67,7 +72,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
     product.images?.[0] ||
     product.colors?.[0]?.image ||
     (product as any).image ||
-    '/src/assets/images/hibrew_h7a_flagship_machine.png';
+    '/images/hibrew_h7a_flagship_machine.png';
 
   const prodTitle = isAr ? product.nameAr || product.name : product.name;
   const [justAdded, setJustAdded] = React.useState(false);
@@ -109,6 +114,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
     >
       {/* 1. TOP HEADER: Product Name */}
       <div className="space-y-1.5 sm:space-y-2.5">
+        {card.showTitle ? (
         <h3
           className={`font-black text-xs sm:text-base lg:text-lg text-neutral-900 group-hover:text-black line-clamp-1 transition-colors ${
             isAr ? 'tracking-normal' : 'tracking-tight'
@@ -117,6 +123,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
         >
           {prodTitle}
         </h3>
+        ) : null}
 
         {/* 2. GIFT PERKS PILL (Warm Coffee Bronze Style with SVG icons) */}
         <div className="bg-[#F8F2EC] border-0 rounded-xl sm:rounded-2xl px-2 py-1 sm:px-3 sm:py-1.5 flex items-center justify-between gap-1 sm:gap-2 text-[9px] sm:text-[11px] font-bold text-[#78471A]">
@@ -142,6 +149,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
         </div>
 
         {/* 3. BOLD PRICE + INSTALLMENT NOTE */}
+        {card.showPrice ? (
         <div className="pt-1 sm:pt-2 text-center space-y-0.5 sm:space-y-1">
           <div className="flex items-baseline justify-center gap-1">
             <span className="text-lg sm:text-2xl lg:text-3xl font-black text-black tracking-tight font-sans">
@@ -161,19 +169,30 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
               ? `أو يبدأ من ${monthlyInstallment} ر.س / شهرياً`
               : `Or from ${monthlyInstallment} SAR / mo`}
           </p>
+        </div>
+        ) : null}
 
-          {/* Spec / Variant Pill */}
-          {computedSpec && (
+          {card.showBadge && computedSpec ? (
             <div className="pt-0.5">
               <span className="inline-block text-[8px] sm:text-[10px] font-bold text-neutral-700 bg-neutral-100/90 border-0 px-2 py-0.5 rounded-full font-sans max-w-full truncate">
                 {computedSpec}
               </span>
             </div>
-          )}
+          ) : null}
+          {card.showRating && typeof product.rating === 'number' && product.rating > 0 ? (
+            <p className="text-[9px] sm:text-[11px] text-neutral-500 font-medium">{product.rating}</p>
+          ) : null}
+          {card.showStock && typeof stock === 'number' ? (
+            <p className="text-[9px] sm:text-[11px] text-neutral-500 font-medium">
+              {stock > 0
+                ? (isAr ? `المتوفر ${stock}` : `In stock ${stock}`)
+                : (isAr ? 'نفد المخزون' : 'Out of stock')}
+            </p>
+          ) : null}
         </div>
-      </div>
 
       {/* 4. PRODUCT IMAGE SHOWCASE (Centered, Clean, High Res) */}
+      {card.showImage ? (
       <div className="relative w-full h-32 sm:h-48 lg:h-56 flex items-center justify-center my-2 sm:my-4 overflow-hidden p-1.5 sm:p-3 bg-neutral-50/50 rounded-xl sm:rounded-2xl">
         <img
           src={prodImg}
@@ -185,7 +204,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
             const t = e.target as HTMLImageElement;
             if (!t.dataset.fb) {
               t.dataset.fb = '1';
-              t.src = '/src/assets/images/hibrew_h7a_flagship_machine.png';
+              t.src = '/images/hibrew_h7a_flagship_machine.png';
             } else if (t.dataset.fb === '1') {
               t.dataset.fb = '2';
               t.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%23f1f5f9"/><path d="M70 130 L95 100 L115 120 L130 105 L150 130 Z" fill="%23cbd5e1"/><circle cx="85" cy="80" r="12" fill="%23cbd5e1"/></svg>';
@@ -193,11 +212,12 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
           }}
         />
       </div>
+      ) : null}
 
       {/* 5. BOTTOM ACTION BUTTONS: Dual Buttons [Buy Now + Add to Cart] & Spaced [Learn More] */}
       <div className="pt-2 sm:pt-3 space-y-2">
         {/* Dual CTA Buttons (Side-by-Side) */}
-        <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+        <div className={`${card.showAddToCart ? 'grid grid-cols-2' : 'grid grid-cols-1'} gap-1.5 sm:gap-2`}>
           {/* Buy Now Button */}
           <button
             type="button"
@@ -208,7 +228,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
             <span className="truncate whitespace-nowrap">{isAr ? 'اشتر الآن' : 'Buy Now'}</span>
           </button>
 
-          {/* Add to Cart Button */}
+          {card.showAddToCart ? (
           <button
             type="button"
             onClick={handleAdd}
@@ -230,6 +250,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
               </>
             )}
           </button>
+          ) : null}
         </div>
 
         {/* Learn More Button (Subtle, slightly visible with dedicated spacing) */}

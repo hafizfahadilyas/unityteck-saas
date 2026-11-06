@@ -7,7 +7,10 @@
     "dev": "vite --port=3010 --host=0.0.0.0",
     "api:serve": "cd apps/api && php artisan serve --host=127.0.0.1 --port=8010",
     "build": "vite build",
-    "deploy:hostinger": "vite build && node scripts/deploy-hostinger.js",
+    "deploy:hostinger": "vite build && node scripts/deploy-hostinger.js --target=all",
+    "deploy:central": "vite build && node scripts/deploy-hostinger.js --target=central",
+    "deploy:flowers": "vite build && node scripts/deploy-hostinger.js --target=flowers",
+    "deploy:all": "vite build && node scripts/deploy-hostinger.js --target=all",
     "preview": "vite preview --port=3010",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
@@ -17,6 +20,7 @@
     "restore:confirm": "node scripts/restore-database.js --confirm"
   },
   "dependencies": {
+    "@clerk/clerk-react": "^5.61.11",
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.1",

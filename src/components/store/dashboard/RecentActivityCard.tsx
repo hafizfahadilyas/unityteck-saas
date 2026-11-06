@@ -90,10 +90,14 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = React.memo(
       });
     }
 
-    // 2. Real customer registrations (only when real registeredDate is recorded)
+    // 2. Real customer registrations (only when registered recently within 60 days)
     if (Array.isArray(customers) && customers.length > 0) {
+      const now = Date.now();
+      const sixtyDaysMs = 60 * 24 * 60 * 60 * 1000;
       customers.forEach((cust) => {
         if (!cust.registeredDate) return;
+        const ts = getTimestampMs(cust.registeredDate);
+        if (ts > 0 && (now - ts) > sixtyDaysMs) return; // Ignore ancient 2024 demo registrations
         const cName = getCustomerDisplayName(cust.name, locale) || (isAr ? 'عميل جديد' : 'New Customer');
         const timeAgoEn = formatRelativeTime(cust.registeredDate, 'en');
         const timeAgoAr = formatRelativeTime(cust.registeredDate, 'ar');
@@ -108,7 +112,7 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = React.memo(
           subAr: `كعميل جديد  ${timeAgoAr}`,
           image: cust.avatar || '',
           isAvatar: true,
-          timestampMs: getTimestampMs(cust.registeredDate),
+          timestampMs: ts,
         });
       });
     }
@@ -154,9 +158,9 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = React.memo(
   };
 
   return (
-    <div className="p-4 sm:p-5 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+    <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 shadow-xs flex flex-col h-full min-h-[260px] flex-1">
       {/* ── Card Header ── */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3">
+      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3 shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-[#e6f4f1] dark:bg-teal-950/60 text-[#006d77] dark:text-teal-300 flex items-center justify-center border border-teal-200/50 dark:border-teal-800/40">
             <Activity className="w-4 h-4" />
@@ -176,9 +180,9 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = React.memo(
         </button>
       </div>
 
-      {/* ── Activity Items List or Real Empty State ── */}
+      {/* ── Activity Items List or Real Empty State (fills remaining height) ── */}
       {displayActivities.length === 0 ? (
-        <div className="py-10 px-4 text-center flex flex-col items-center justify-center">
+        <div className="flex-1 min-h-0 py-10 px-4 text-center flex flex-col items-center justify-center">
           <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-[#006d77] dark:text-teal-300 flex items-center justify-center border border-teal-200/50 dark:border-teal-800/40 mb-3">
             <Activity className="w-5 h-5 text-slate-400 dark:text-slate-500" />
           </div>
@@ -190,7 +194,7 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = React.memo(
           </p>
         </div>
       ) : (
-        <div className="space-y-4 pt-1">
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pt-1">
           {displayActivities.map((act) => {
             const hasValidImage = !!act.image && !imageErrors[act.id];
 

@@ -45,33 +45,47 @@ class DatabaseSeeder extends Seeder
                 'id' => 'plan-free',
                 'code' => 'free',
                 'name' => 'Free',
+                'price_sar' => 0,
                 'product_limit' => 50,
                 'storage_mb' => 512,
                 'team_seats' => 1,
-                'features' => ['catalog', 'orders', 'basic_seo', 'themes_basic'],
+                'features' => ['catalog', 'orders', 'basic_seo', 'themes_basic', 'media_studio'],
             ],
             [
                 'id' => 'plan-paid',
                 'code' => 'paid',
                 'name' => 'Paid',
+                'price_sar' => null,
                 'product_limit' => 500,
                 'storage_mb' => 5120,
                 'team_seats' => 5,
-                'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'themes_basic'],
+                'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio'],
             ],
             [
                 'id' => 'plan-pro',
                 'code' => 'pro',
                 'name' => 'Pro',
+                'price_sar' => 300,
                 'product_limit' => 5000,
                 'storage_mb' => 51200,
                 'team_seats' => 20,
-                'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'themes_basic', 'themes', 'backups', 'zatca', 'analytics', 'ai'],
+                'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain'],
+            ],
+            [
+                'id' => 'plan-premium',
+                'code' => 'premium',
+                'name' => 'Premium',
+                'price_sar' => 500,
+                'product_limit' => null,
+                'storage_mb' => 102400,
+                'team_seats' => 50,
+                'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'backups', 'zatca', 'ai', 'api_access', 'advanced_seo', 'advanced_analytics'],
             ],
             [
                 'id' => 'plan-custom',
                 'code' => 'custom',
                 'name' => 'Custom',
+                'price_sar' => null,
                 'product_limit' => null,
                 'storage_mb' => null,
                 'team_seats' => null,
@@ -1229,7 +1243,8 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'HiBrew KSA Coffee Store',
                 'slug' => 'coffee-store',
-                'domain' => 'specialtycoffee.sa',
+                'domain' => 'mieraf-ksa.com',
+                'custom_domain' => 'mieraf-ksa.com',
                 'status' => 'active',
                 'plan' => 'pro',
                 'master_granted_pro' => true,
@@ -1238,7 +1253,7 @@ class DatabaseSeeder extends Seeder
                 'text_direction' => 'rtl',
                 'timezone' => 'Asia/Riyadh',
                 'phone' => '+966549876543',
-                'email' => 'rayan@specialtycoffee.sa',
+                'email' => 'mieraf.sa8@gmail.com',
                 'owner_name' => 'Rayan Al-Sulaiman',
                 'city' => 'Riyadh',
                 'country' => 'Saudi Arabia',
@@ -1251,6 +1266,28 @@ class DatabaseSeeder extends Seeder
                 'orders_count' => 8,
                 'revenue' => 5420,
                 'visitors_count' => 2680,
+            ]
+        );
+
+        Domain::query()->updateOrCreate(
+            ['id' => 'dom-coffee'],
+            [
+                'store_id' => $store->id,
+                'domain_name' => 'mieraf-ksa.com',
+                'is_primary' => true,
+                'ssl_status' => 'provisioning',
+                'dns_configured' => false,
+                'dns_verified' => false,
+                'hosting_tier' => 'Hostinger Cloud',
+                'monthly_fee' => 0,
+                'payment_received' => false,
+                'status' => 'dns_propagation',
+                'nameservers' => [],
+                'registered_date' => '2026-11-06',
+                'hostinger_plan' => 'Hostinger Cloud',
+                'deployment_status' => 'pending',
+                'server_ip' => null,
+                'dns_records' => [],
             ]
         );
 
@@ -1268,8 +1305,13 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        $legacyCoffee = User::query()->where('email', 'rayan@specialtycoffee.sa')->first();
+        if ($legacyCoffee && ! User::query()->where('email', 'mieraf.sa8@gmail.com')->exists()) {
+            $legacyCoffee->forceFill(['email' => 'mieraf.sa8@gmail.com'])->save();
+        }
+
         $storeOwner = User::query()->updateOrCreate(
-            ['email' => 'rayan@specialtycoffee.sa'],
+            ['email' => 'mieraf.sa8@gmail.com'],
             [
                 'id' => 'user-store-coffee-1',
                 'name' => 'Rayan Al-Sulaiman',
@@ -1577,8 +1619,8 @@ class DatabaseSeeder extends Seeder
                 'category' => 'Car Seat Covers, Precision Floor Mats & Accessories',
                 'logo' => 'https://cdn.salla.sa/cdn-cgi/image/fit=scale-down,width=400,height=400,onerror=redirect,format=auto/wYYVD/OZbzrkkW0icMZlcDNOiZnU4PSjwq6WxXgCkwT0PQ.png',
                 'accent_color' => '#127bfe',
-                'hosting_mode' => 'dedicated',
-                'db_isolation' => 'dedicated_mysql',
+                'hosting_mode' => 'shared',
+                'db_isolation' => 'shared_store_id',
                 'products_count' => 12,
                 'orders_count' => 14,
                 'revenue' => 28450,

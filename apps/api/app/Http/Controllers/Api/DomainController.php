@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Domain;
 use App\Models\Store;
 use App\Models\StoreSetting;
+use App\Support\HostingerCloud;
+use App\Support\Plans;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -39,7 +41,15 @@ class DomainController extends Controller
         $store = null;
         $domainType = 'custom';
 
-        if ($domainRecord) {
+        $coffeeHost = strtolower((string) config('souq.coffee_domain', 'mieraf-ksa.com'));
+        if ($cleanDomain === $coffeeHost || $cleanDomain === 'www.'.$coffeeHost) {
+            $store = Store::query()->find((string) config('souq.coffee_store_id', 'store-coffee'));
+            if ($store) {
+                $domainType = 'primary';
+            }
+        }
+
+        if (! $store && $domainRecord) {
             $store = Store::query()->find($domainRecord->store_id);
             $domainType = $domainRecord->is_primary ? 'primary' : 'custom';
         }
@@ -190,27 +200,32 @@ class DomainController extends Controller
         }
 
         $cleanDomain = $this->normalizeDomain($data['domain_name']);
+        $targetStore = Store::query()->findOrFail($targetStoreId);
+        if (! Plans::hasFeature($targetStore, 'custom_domain') && HostingerCloud::domainPolicy($targetStoreId)['domain_source'] !== 'included_free') {
+            return response()->json([
+                'message' => 'Custom domain is included on Pro and Premium.',
+                'plan' => $targetStore->plan,
+            ], 403);
+        }
+        $policy = HostingerCloud::domainPolicy($targetStoreId);
 
         $domain = Domain::query()->create([
             'id' => 'dom-' . Str::lower(Str::random(10)),
             'store_id' => $targetStoreId,
             'domain_name' => $cleanDomain,
             'is_primary' => (bool) ($data['is_primary'] ?? false),
-            'ssl_status' => 'issuing',
+            'ssl_status' => 'pending',
             'dns_configured' => false,
             'dns_verified' => false,
-            'hosting_tier' => $data['hosting_tier'] ?? 'Hostinger Shared Business',
-            'monthly_fee' => 49.00,
-            'payment_received' => true,
+            'hosting_tier' => $data['hosting_tier'] ?? $policy['hosting_tier'],
+            'monthly_fee' => $policy['monthly_fee'],
+            'payment_received' => false,
             'status' => 'dns_propagation',
-            'nameservers' => ['ns1.dns-parking.com', 'ns2.dns-parking.com'],
+            'nameservers' => [],
             'registered_date' => now()->toDateString(),
-            'server_ip' => '185.199.108.153',
-            'dns_records' => [
-                ['type' => 'A', 'host' => '@', 'value' => '185.199.108.153', 'ttl' => 3600, 'status' => 'pending'],
-                ['type' => 'CNAME', 'host' => 'www', 'value' => $cleanDomain, 'ttl' => 3600, 'status' => 'pending'],
-                ['type' => 'TXT', 'host' => '_unityteck-verify', 'value' => "unityteck-domain-verification={$targetStoreId}", 'ttl' => 3600, 'status' => 'pending'],
-            ],
+            'hostinger_plan' => $policy['hostinger_plan'],
+            'server_ip' => null,
+            'dns_records' => [],
         ]);
 
         // Sync to stores table if primary
@@ -230,36 +245,35 @@ class DomainController extends Controller
     public function verify(Request $request, string $id): JsonResponse
     {
         $domain = Domain::query()->findOrFail($id);
+        $host = (string) $domain->domain_name;
+        $found = function_exists('dns_get_record')
+            ? @dns_get_record($host, DNS_A + DNS_CNAME)
+            : false;
 
-        // Simulate real DNS propagation check & mark verified
-        $domain->dns_configured = true;
-        $domain->dns_verified = true;
-        $domain->ssl_status = 'active';
-        $domain->status = 'active';
-        $domain->deployment_status = 'live';
-
-        // Update dns records array status to verified
-        $records = $domain->dns_records ?? [];
-        if (is_array($records)) {
-            foreach ($records as &$rec) {
-                $rec['status'] = 'verified';
-            }
-            $domain->dns_records = $records;
+        if (! is_array($found) || $found === []) {
+            return response()->json([
+                'success' => false,
+                'message' => "DNS is not published for {$host} yet.",
+                'data' => $domain,
+            ], 422);
         }
 
+        $domain->dns_configured = true;
+        $domain->dns_verified = true;
+        $domain->status = 'dns_propagation';
+        $domain->dns_records = $found;
         $domain->save();
 
-        // Update matching store domain verification status
         Store::query()->where('id', $domain->store_id)->update([
             'dns_status' => 'verified',
-            'ssl_status' => 'active',
-            'deployment_status' => 'live',
+            'hostinger_status' => 'provisioning',
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => "DNS records verified successfully for {$domain->domain_name}.",
+            'message' => "DNS records found for {$domain->domain_name}.",
             'data' => $domain->fresh(),
+            'hosting' => HostingerCloud::domainPolicy($domain->store_id),
         ]);
     }
 
@@ -338,17 +352,16 @@ class DomainController extends Controller
             return $setting->active_theme_id;
         }
 
-        // Map by store id or category
-        if ($store->id === 'store-coffee' || str_contains(strtolower($store->category ?? ''), 'coffee')) {
+        if ($store->id === 'store-coffee') {
             return 'coffee-roasters';
         }
-        if ($store->id === 'store-bleco' || str_contains(strtolower($store->category ?? ''), 'car') || str_contains(strtolower($store->category ?? ''), 'transport')) {
+        if ($store->id === 'store-bleco') {
             return 'saudia-transport';
         }
-        if ($store->id === 'store-1' || str_contains(strtolower($store->category ?? ''), 'flower') || str_contains(strtolower($store->category ?? ''), 'gift')) {
+        if ($store->id === 'store-1') {
             return 'theme-flora-luxe';
         }
 
-        return 'theme-flora-luxe';
+        return 'theme-commerce-starter';
     }
 }

@@ -433,6 +433,30 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               <Underline className="w-3.5 h-3.5" />
             </button>
 
+            <label
+              className="relative inline-flex items-center justify-center p-1.5 rounded-lg cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800"
+              title={isAr ? 'لون الخط' : 'Font Color'}
+            >
+              <span className="text-[11px] font-black leading-none" aria-hidden>
+                A
+              </span>
+              <span
+                className="absolute bottom-1 start-1.5 end-1.5 h-0.5 rounded-full bg-rose-500"
+                aria-hidden
+              />
+              <input
+                type="color"
+                disabled={isSourceMode}
+                defaultValue="#0f172a"
+                onChange={(e) => {
+                  execCmd('foreColor', e.target.value);
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                aria-label={isAr ? 'لون الخط' : 'Font Color'}
+              />
+            </label>
+
             <div className="w-[1px] h-4 bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
 
             <button

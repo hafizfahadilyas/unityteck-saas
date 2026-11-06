@@ -266,6 +266,7 @@ export interface PageSpeedAuditResult {
   accessibilityScore: number;
   bestPracticesScore: number;
   seoScore: number;
+  /** Honest only when measured; otherwise "—" (never invent 1/4 or 4/4). */
   agenticBrowsingScore?: string;
   fcp: string;
   lcp: string;
@@ -279,6 +280,9 @@ export interface PageSpeedAuditResult {
   auditedAt: string;
   strategy: 'mobile' | 'desktop';
   issues: PageSpeedAuditIssue[];
+  /** True only when Google PSI returned a live lighthouse payload. */
+  isLive?: boolean;
+  source?: string;
 }
 
 /**
@@ -303,6 +307,69 @@ function generateCalculatedPageSpeedMetrics(strategy: 'mobile' | 'desktop', targ
     auditedAt: new Date().toLocaleTimeString(),
     strategy,
     issues: [],
+    isLive: false,
+    source: undefined,
+  };
+}
+
+function classifyIssueCategory(id: string): PageSpeedAuditIssue['category'] {
+  const key = (id || '').toLowerCase();
+  if (/aria|color-contrast|heading|tap-targets|document-title|html-has-lang|link-name|button-name|image-alt|video-caption|meta-viewport/.test(key)) {
+    return 'accessibility';
+  }
+  if (/seo|meta-description|hreflang|canonical|crawlable|robots-txt|http-status|link-text/.test(key)) {
+    return 'seo';
+  }
+  return 'performance';
+}
+
+/** Map Laravel / Google PSI snapshot → UI model (zero invent). */
+export function mapPageSpeedAuditSnapshot(
+  audit: Record<string, any> | null | undefined,
+  strategy: 'mobile' | 'desktop',
+  fallbackUrl = '',
+): PageSpeedAuditResult | null {
+  if (!audit || typeof audit !== 'object') return null;
+
+  const rawIssues = Array.isArray(audit.issues) ? audit.issues : [];
+  const issues: PageSpeedAuditIssue[] = rawIssues.map((a: any, idx: number) => ({
+    id: String(a.id || `audit-${idx}`),
+    category: (a.category as PageSpeedAuditIssue['category']) || classifyIssueCategory(String(a.id || '')),
+    title: String(a.title || ''),
+    description: String(a.description || a.whyItMatters || ''),
+    whyItMatters: String(a.whyItMatters || a.description || ''),
+    recommendedFix: String(a.recommendedFix || ''),
+    aiFixCode: '',
+    canAutoFix: false,
+    status: a.status === 'fixed' ? 'fixed' : 'pending',
+    displayValue: a.displayValue || undefined,
+    score: typeof a.score === 'number' ? a.score : null,
+  }));
+
+  const auditedUrl = String(audit.testedUrl || audit.auditedUrl || fallbackUrl || '');
+
+  return {
+    performanceScore: Number(audit.performanceScore) || 0,
+    seoScore: Number(audit.seoScore) || 0,
+    accessibilityScore: Number(audit.accessibilityScore) || 0,
+    bestPracticesScore: Number(audit.bestPracticesScore) || 0,
+    agenticBrowsingScore: '—',
+    fcp: String(audit.fcp || '—'),
+    lcp: String(audit.lcp || '—'),
+    cls: String(audit.cls || '—'),
+    fid: String(audit.fid || '—'),
+    inp: String(audit.inp || '—'),
+    speedIndex: String(audit.speedIndex || '—'),
+    tbt: String(audit.tbt || '—'),
+    passedAuditsCount: Number(audit.passedAuditsCount) || 0,
+    auditedUrl,
+    auditedAt: audit.auditedAt
+      ? new Date(audit.auditedAt).toLocaleString()
+      : new Date().toLocaleString(),
+    strategy: (audit.strategy === 'desktop' ? 'desktop' : strategy),
+    issues,
+    isLive: true,
+    source: String(audit.source || 'google_pagespeed'),
   };
 }
 
@@ -361,36 +428,34 @@ export async function fetchGooglePageSpeedInsights(
 
         const extractedIssues: PageSpeedAuditIssue[] = Object.values(audits)
           .filter((a: any) => a.score !== null && a.score < 0.9 && a.title && a.description)
-          .slice(0, 10)
+          .slice(0, 12)
           .map((a: any, idx: number) => ({
             id: a.id || `audit-${idx}`,
-            category: (a.id?.includes('aria') || a.id?.includes('color') || a.id?.includes('contrast') || a.id?.includes('heading') || a.id?.includes('target') || a.id?.includes('video'))
-              ? 'accessibility' 
-              : a.id?.includes('seo') 
-              ? 'seo' 
-              : 'performance',
+            category: classifyIssueCategory(String(a.id || '')),
             title: a.title,
             description: a.description,
-            whyItMatters: 'Crucial for passing Google Core Web Vitals and boosting SEO rankings in Saudi Arabia.',
-            recommendedFix: 'Refactor markup according to Google Lighthouse guidelines.',
-            aiFixCode: '// Automated AI Code Patch Available',
-            canAutoFix: true,
-            status: 'pending',
+            whyItMatters: a.description || '',
+            recommendedFix: 'Follow Google Lighthouse guidance for this audit.',
+            aiFixCode: '',
+            canAutoFix: false,
+            status: 'pending' as const,
             displayValue: a.displayValue || undefined,
             score: a.score,
           }));
 
-        const rawResult = {
+        const rawResult: PageSpeedAuditResult = {
           performanceScore: perfScore,
           seoScore: seoScore,
           accessibilityScore: accScore,
           bestPracticesScore: bpScore,
-          agenticBrowsingScore: '1/4',
+          agenticBrowsingScore: '—',
           fcp: audits['first-contentful-paint']?.displayValue || '—',
           lcp: audits['largest-contentful-paint']?.displayValue || '—',
           cls: audits['cumulative-layout-shift']?.displayValue || '—',
           fid: audits['max-potential-fid']?.displayValue || '—',
-          inp: audits['interactive']?.displayValue || '—',
+          inp: audits['interaction-to-next-paint']?.displayValue
+            || audits['interactive']?.displayValue
+            || '—',
           speedIndex: audits['speed-index']?.displayValue || '—',
           tbt: audits['total-blocking-time']?.displayValue || '—',
           passedAuditsCount: Object.values(audits).filter((a: any) => a.score === 1).length,
@@ -398,19 +463,20 @@ export async function fetchGooglePageSpeedInsights(
           auditedAt: new Date().toLocaleTimeString(),
           strategy,
           issues: extractedIssues,
+          isLive: true,
+          source: 'google_pagespeed_client',
         };
 
         pagespeedCache[cacheKey] = { data: rawResult, timestamp: Date.now() };
-        return applySavedFixesToResult(rawResult, storeId);
+        return rawResult;
       }
     }
   } catch (err) {
-    console.warn('PageSpeed API live query attempt, returning accurate real metrics:', err);
+    console.warn('PageSpeed API live query attempt failed:', err);
   }
 
   // Live PSI unavailable — genuine empty (zero-mock), not invented scores
-  const defaultResult = generateCalculatedPageSpeedMetrics(strategy, cleanUrl, storeId);
-  return applySavedFixesToResult(defaultResult, storeId);
+  return generateCalculatedPageSpeedMetrics(strategy, cleanUrl, storeId);
 }
 
 const PAGESPEED_FIXES_STORAGE_KEY = 'unityteck_pagespeed_fixed_';
@@ -436,32 +502,17 @@ export function clearPageSpeedFixes(storeId?: string): void {
   } catch {}
 }
 
+/** Mark acknowledged issues only — never invent / boost Lighthouse scores. */
 function applySavedFixesToResult(result: PageSpeedAuditResult, storeId?: string): PageSpeedAuditResult {
   const savedFixes = getSavedPageSpeedFixes(storeId);
   if (!savedFixes || savedFixes.length === 0) return result;
 
   const fixSet = new Set(savedFixes);
-  const updatedIssues = result.issues.map((i) => ({
-    ...i,
-    status: fixSet.has(i.id) ? ('fixed' as const) : i.status,
-  }));
-
-  const allFixed = updatedIssues.every((i) => i.status === 'fixed');
-  const fixedCount = updatedIssues.filter((i) => i.status === 'fixed').length;
-
-  if (allFixed || (updatedIssues.length > 0 && fixedCount >= updatedIssues.length)) {
-    return {
-      ...result,
-      issues: updatedIssues,
-    };
-  }
-
-  // Partially fixed
-  const boost = Math.round((fixedCount / Math.max(1, updatedIssues.length)) * 30);
   return {
     ...result,
-    performanceScore: Math.min(99, result.performanceScore + boost),
-    accessibilityScore: Math.min(100, result.accessibilityScore + Math.round(boost * 0.8)),
-    issues: updatedIssues,
+    issues: result.issues.map((i) => ({
+      ...i,
+      status: fixSet.has(i.id) ? ('fixed' as const) : i.status,
+    })),
   };
 }

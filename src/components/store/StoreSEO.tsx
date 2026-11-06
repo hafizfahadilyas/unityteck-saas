@@ -41,19 +41,16 @@ import { GoogleConnectModal } from './GoogleConnectModal';
 import { UtmCampaignBuilder } from './UtmCampaignBuilder';
 import {
   initiateRealGoogleOAuth,
-  fetchGooglePageSpeedInsights,
   getStoredGoogleClientId,
   setStoredGoogleClientId,
   getStoreGoogleState,
   saveStoreGoogleState,
   clearStoreGoogleState,
-  getSavedPageSpeedFixes,
-  savePageSpeedFixes,
   clearPageSpeedFixes,
-  GoogleConnectedState,
+  mapPageSpeedAuditSnapshot,
   PageSpeedAuditResult,
-  PageSpeedAuditIssue,
 } from '../../utils/googleRealAuth';
+import { fetchGooglePageSpeedData } from '../../api/tenantApi';
 import {
   getMasterGlobalTracking,
   getStoreSeoDeepAudit,
@@ -117,13 +114,25 @@ export const StoreSEO: React.FC = () => {
     );
   }, [currentSEOConfig, activeStore.id, activeStore.name, activeStore.slug, activeStore.ownerEmail, currentProducts.length]);
 
-  // Core Web Vitals & PageSpeed Live State
+  // Core Web Vitals & PageSpeed Live State (Laravel → Google PSI, zero-mock)
   const [pageSpeedStrategy, setPageSpeedStrategy] = useState<'mobile' | 'desktop'>('mobile');
   const [isLoadingPageSpeed, setIsLoadingPageSpeed] = useState(false);
   const [pageSpeedData, setPageSpeedData] = useState<PageSpeedAuditResult | null>(null);
-  const [fixingIssueId, setFixingIssueId] = useState<string | null>(null);
-  const [isFixingAll, setIsFixingAll] = useState(false);
+  const [pageSpeedError, setPageSpeedError] = useState<string | null>(null);
   const [activeIssueCategory, setActiveIssueCategory] = useState<'all' | 'performance' | 'accessibility' | 'seo'>('all');
+
+  const psiScoreTone = (score: number) => {
+    if (score >= 90) return 'bg-emerald-50 text-emerald-700 border-emerald-500';
+    if (score >= 50) return 'bg-amber-50 text-amber-700 border-amber-500';
+    if (score > 0) return 'bg-rose-50 text-rose-700 border-rose-500';
+    return 'bg-slate-50 text-slate-500 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600';
+  };
+  const psiScoreLabel = (score: number) => {
+    if (score >= 90) return isAr ? 'جيد (٩٠–١٠٠)' : 'Good (90-100)';
+    if (score >= 50) return isAr ? 'يحتاج تحسين' : 'Needs Work';
+    if (score > 0) return isAr ? 'ضعيف' : 'Poor';
+    return isAr ? 'بانتظار البيانات' : 'Waiting for Data';
+  };
 
   const [urlToSubmit, setUrlToSubmit] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -223,47 +232,6 @@ export const StoreSEO: React.FC = () => {
     }
   }, [candidateUrls.length, currentSEOConfig.googleConnected, handleAutoPilotSyncAll]);
 
-  // ⚡ Auto-Pilot Effect 2: PageSpeed auto-audit & AI auto-healing
-  useEffect(() => {
-    if (pageSpeedData && pageSpeedData.issues.some((i) => i.status === 'pending')) {
-      const timer = setTimeout(() => {
-        const allFixed = pageSpeedData.issues.map((i) => ({ ...i, status: 'fixed' as const }));
-        savePageSpeedFixes(allFixed.map((i) => i.id), activeStore.id);
-        setPageSpeedData((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            performanceScore: prev.strategy === 'mobile' ? 96 : 99,
-            accessibilityScore: 98,
-            bestPracticesScore: 100,
-            seoScore: 100,
-            agenticBrowsingScore: '4/4',
-            lcp: prev.strategy === 'mobile' ? '1.2 s' : '0.7 s',
-            fcp: prev.strategy === 'mobile' ? '0.8 s' : '0.4 s',
-            cls: '0.002',
-            tbt: '20 ms',
-            speedIndex: prev.strategy === 'mobile' ? '1.1 s' : '0.6 s',
-            issues: allFixed,
-          };
-        });
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [pageSpeedData, activeStore.id]);
-
-  // ⚡ Auto-Pilot Effect 3: Deep SEO Audit & Broken Links Auto-Healing
-  useEffect(() => {
-    const hasPending = deepAuditItems.some((item) => item.status === 'error' || item.status === 'warning');
-    if (hasPending) {
-      const timer = setTimeout(() => {
-        const healed = deepAuditItems.map((item) => ({ ...item, status: 'fixed' as const }));
-        setDeepAuditItems(healed);
-        saveStoreSeoDeepAudit(activeStore.id, healed);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [deepAuditItems, activeStore.id]);
-
   // Editable Meta Form State
   const [metaTitle, setMetaTitle] = useState(currentSEOConfig.metaTitle);
   const [metaDescription, setMetaDescription] = useState(currentSEOConfig.metaDescription);
@@ -275,118 +243,62 @@ export const StoreSEO: React.FC = () => {
   const ogFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const [pageSpeedUrlInput, setPageSpeedUrlInput] = useState(
-    activeStore.custom_domain 
-      ? `https://${activeStore.custom_domain}` 
+    activeStore.custom_domain
+      ? `https://${activeStore.custom_domain}`
       : `https://${activeStore.slug || 'demo'}.saasdomain.com`
   );
 
-  // Load live PageSpeed metrics for store URL
-  const loadPageSpeed = async (strategy: 'mobile' | 'desktop' = pageSpeedStrategy, customUrl?: string) => {
+  // Keep PageSpeed URL aligned with active store (tenant isolation)
+  useEffect(() => {
+    const nextUrl = activeStore.custom_domain
+      ? `https://${activeStore.custom_domain}`
+      : `https://${activeStore.slug || 'demo'}.saasdomain.com`;
+    setPageSpeedUrlInput(nextUrl);
+    setPageSpeedData(null);
+    setPageSpeedError(null);
+  }, [activeStore.id, activeStore.custom_domain, activeStore.slug]);
+
+  // Load live PageSpeed via Laravel API (Hostinger) → Google PSI — never invent scores
+  const loadPageSpeed = async (
+    strategy: 'mobile' | 'desktop' = pageSpeedStrategy,
+    customUrl?: string,
+    refresh = true,
+  ) => {
     setIsLoadingPageSpeed(true);
-    const targetUrl = customUrl || pageSpeedUrlInput || (activeStore.custom_domain 
-      ? `https://${activeStore.custom_domain}` 
-      : `https://${activeStore.slug || 'demo'}.saasdomain.com`);
-    const res = await fetchGooglePageSpeedInsights(targetUrl, strategy, activeStore.id);
-    if (res) {
-      setPageSpeedData(res);
+    setPageSpeedError(null);
+    const targetUrl = (customUrl || pageSpeedUrlInput || storeBaseUrl || '').trim();
+    try {
+      const res = await fetchGooglePageSpeedData(activeStore.id, strategy, refresh, targetUrl || undefined);
+      const mapped = mapPageSpeedAuditSnapshot(res?.audit as Record<string, any> | null, strategy, targetUrl);
+      if (mapped?.isLive) {
+        setPageSpeedData(mapped);
+        setPageSpeedError(null);
+      } else {
+        setPageSpeedData(null);
+        setPageSpeedError(
+          res?.message ||
+            (isAr
+              ? 'تعذّر تشغيل فحص سرعة الصفحات. تحقق من رابط المتجر أو مفتاح واجهة برمجة تطبيقات سرعة الصفحات.'
+              : 'PageSpeed audit unavailable. Check the storefront URL or PageSpeed API key.'),
+        );
+      }
+    } catch (err: any) {
+      setPageSpeedData(null);
+      setPageSpeedError(
+        err?.message ||
+          (isAr ? 'فشل الاتصال بخدمة سرعة الصفحات' : 'Failed to reach PageSpeed service'),
+      );
+    } finally {
+      setIsLoadingPageSpeed(false);
     }
-    setIsLoadingPageSpeed(false);
   };
 
   useEffect(() => {
-    if (activeSubTab === 'pagespeed' && !pageSpeedData) {
-      void loadPageSpeed();
+    if (activeSubTab === 'pagespeed' && !pageSpeedData && !isLoadingPageSpeed && !pageSpeedError) {
+      void loadPageSpeed(pageSpeedStrategy, pageSpeedUrlInput, false);
     }
-  }, [activeSubTab]);
-
-  // AI Auto Fix for a Single Issue
-  const handleFixSingleIssue = (issueId: string) => {
-    if (!pageSpeedData) return;
-    setFixingIssueId(issueId);
-
-    setTimeout(() => {
-      setPageSpeedData((prev) => {
-        if (!prev) return null;
-        const target = prev.issues.find((i) => i.id === issueId);
-        const updatedIssues = prev.issues.map((issue) =>
-          issue.id === issueId ? { ...issue, status: 'fixed' as const } : issue
-        );
-
-        // Persist fixed IDs to localStorage
-        const fixedIds = updatedIssues.filter((i) => i.status === 'fixed').map((i) => i.id);
-        savePageSpeedFixes(fixedIds, activeStore.id);
-        
-        let newPerf = prev.performanceScore;
-        let newAcc = prev.accessibilityScore;
-        let newSeo = prev.seoScore;
-        let newLcp = prev.lcp;
-        let newCls = prev.cls;
-
-        if (target?.category === 'performance') {
-          newPerf = Math.min(98, prev.performanceScore + 10);
-          newLcp = prev.strategy === 'mobile' ? '1.8 s' : '0.9 s';
-        } else if (target?.category === 'accessibility') {
-          newAcc = Math.min(100, prev.accessibilityScore + 6);
-        } else if (target?.category === 'seo') {
-          newSeo = Math.min(100, prev.seoScore + 4);
-        }
-
-        return {
-          ...prev,
-          performanceScore: newPerf,
-          accessibilityScore: newAcc,
-          seoScore: newSeo,
-          lcp: newLcp,
-          cls: newCls,
-          issues: updatedIssues,
-        };
-      });
-
-      setFixingIssueId(null);
-      toast(
-        isAr ? 'تم تطبيق المعالجة البرمجية بالذكاء الاصطناعي بنجاح' : 'AI optimization patch applied successfully',
-        'success'
-      );
-    }, 800);
-  };
-
-  // AI Auto Fix for All Issues
-  const handleFixAllIssues = () => {
-    if (!pageSpeedData) return;
-    setIsFixingAll(true);
-
-    setTimeout(() => {
-      setPageSpeedData((prev) => {
-        if (!prev) return null;
-        const allFixedIssues = prev.issues.map((i) => ({ ...i, status: 'fixed' as const }));
-        // Persist all fixed issue IDs to localStorage so they never restore to pending
-        savePageSpeedFixes(allFixedIssues.map((i) => i.id), activeStore.id);
-
-        return {
-          ...prev,
-          performanceScore: prev.strategy === 'mobile' ? 96 : 99,
-          accessibilityScore: 98,
-          bestPracticesScore: 100,
-          seoScore: 100,
-          agenticBrowsingScore: '4/4',
-          lcp: prev.strategy === 'mobile' ? '1.2 s' : '0.7 s',
-          fcp: prev.strategy === 'mobile' ? '0.8 s' : '0.4 s',
-          cls: '0.002',
-          tbt: '20 ms',
-          speedIndex: prev.strategy === 'mobile' ? '1.1 s' : '0.6 s',
-          issues: allFixedIssues,
-        };
-      });
-
-      setIsFixingAll(false);
-      toast(
-        isAr 
-          ? 'تم إصلاح كافة مشكلات الأداء وإمكانية الوصول وسرعة التحميل بالذكاء الاصطناعي 100%' 
-          : 'All performance and accessibility bottlenecks auto-fixed by AI',
-        'success'
-      );
-    }, 1500);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSubTab, activeStore.id]);
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -663,7 +575,7 @@ export const StoreSEO: React.FC = () => {
           }`}
         >
           <Gauge className="w-4 h-4" />
-          <span>{isAr ? 'مؤشرات الأداء Core Web Vitals' : 'PageSpeed & Web Vitals'}</span>
+          <span>{isAr ? 'سرعة الصفحات ومؤشرات الويب' : 'PageSpeed & Web Vitals'}</span>
         </button>
         <button
           onClick={() => setActiveSubTab('console')}
@@ -1015,17 +927,16 @@ export const StoreSEO: React.FC = () => {
             <div className="space-y-1">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Gauge className="w-4 h-4 text-emerald-600" />
-                <span>{isAr ? 'مؤشرات Google PageSpeed و Core Web Vitals' : 'Google PageSpeed & Core Web Vitals Insights'}</span>
+                <span>{isAr ? 'مؤشرات سرعة الصفحات وأداء الويب' : 'PageSpeed & Core Web Vitals Insights'}</span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {isAr
-                  ? 'تم الفحص مباشرة عبر Google PageSpeed API'
-                  : 'Audited directly via Google PageSpeed Insights API'}
+                {pageSpeedData?.isLive
+                  ? (isAr ? 'تم الفحص مباشرة عبر واجهة Google الرسمية' : 'Audited directly via Google PageSpeed Insights API')
+                  : (isAr ? 'شغّل الفحص لقياس الأداء الحقيقي من Google' : 'Run an audit to measure real Google Lighthouse scores')}
               </p>
             </div>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-              {/* URL Input */}
               <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono">
                 <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <input
@@ -1038,39 +949,38 @@ export const StoreSEO: React.FC = () => {
                 />
               </div>
 
-              {/* Strategy toggle */}
               <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold shrink-0">
                 <button
                   type="button"
                   onClick={() => {
                     setPageSpeedStrategy('mobile');
-                    void loadPageSpeed('mobile', pageSpeedUrlInput);
+                    void loadPageSpeed('mobile', pageSpeedUrlInput, true);
                   }}
                   className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
                     pageSpeedStrategy === 'mobile' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold' : 'text-slate-500'
                   }`}
                 >
                   <Smartphone className="w-3.5 h-3.5" />
-                  <span>Mobile</span>
+                  <span>{isAr ? 'الجوال' : 'Mobile'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setPageSpeedStrategy('desktop');
-                    void loadPageSpeed('desktop', pageSpeedUrlInput);
+                    void loadPageSpeed('desktop', pageSpeedUrlInput, true);
                   }}
                   className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
                     pageSpeedStrategy === 'desktop' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold' : 'text-slate-500'
                   }`}
                 >
                   <Monitor className="w-3.5 h-3.5" />
-                  <span>Desktop</span>
+                  <span>{isAr ? 'سطح المكتب' : 'Desktop'}</span>
                 </button>
               </div>
 
               <button
                 type="button"
-                onClick={() => void loadPageSpeed(pageSpeedStrategy, pageSpeedUrlInput)}
+                onClick={() => void loadPageSpeed(pageSpeedStrategy, pageSpeedUrlInput, true)}
                 disabled={isLoadingPageSpeed}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-60 whitespace-nowrap shrink-0"
               >
@@ -1080,197 +990,126 @@ export const StoreSEO: React.FC = () => {
             </div>
           </div>
 
-          {/* Lighthouse Score Gauges */}
           {!pageSpeedData && !isLoadingPageSpeed ? (
             <div className="p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 text-center space-y-3">
               <Gauge className="w-10 h-10 text-emerald-600 mx-auto" />
               <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                {isAr ? 'لم يتم تشغيل فحص PageSpeed بعد' : 'No PageSpeed Audit Run Yet'}
+                {pageSpeedError
+                  ? (isAr ? 'تعذّر جلب نتائج سرعة الصفحات' : 'PageSpeed Results Unavailable')
+                  : (isAr ? 'لم يتم تشغيل فحص سرعة الصفحات بعد' : 'No PageSpeed Audit Run Yet')}
               </h4>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
-                {isAr
-                  ? `اضغط على زر الفحص لقياس أداء ومؤشرات Core Web Vitals الحقيقية لموقع ${activeStore.nameAr || activeStore.name} عبر واجهة Google الرسمية.`
-                  : `Click the audit button to measure genuine performance, SEO, accessibility, and Core Web Vitals via official Google PageSpeed API.`}
+                {pageSpeedError ||
+                  (isAr
+                    ? `اضغط على زر الفحص لقياس أداء ومؤشرات الويب الحقيقية لمتجر ${activeStore.nameAr || activeStore.name} عبر واجهة Google الرسمية.`
+                    : `Click Run Audit to measure genuine performance, SEO, accessibility, and Core Web Vitals via the official Google PageSpeed API.`)}
               </p>
               <button
                 type="button"
-                onClick={() => void loadPageSpeed(pageSpeedStrategy, pageSpeedUrlInput)}
+                onClick={() => void loadPageSpeed(pageSpeedStrategy, pageSpeedUrlInput, true)}
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer inline-flex items-center gap-2"
               >
                 <Zap className="w-3.5 h-3.5" />
-                <span>{isAr ? 'تشغيل فحص Google PageSpeed الحي' : 'Run Live Google PageSpeed Audit'}</span>
+                <span>{isAr ? 'تشغيل الفحص الحي' : 'Run Live PageSpeed Audit'}</span>
               </button>
             </div>
           ) : isLoadingPageSpeed ? (
             <div className="p-12 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 text-center space-y-3">
               <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin mx-auto" />
               <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                {isAr ? 'جاري فحص المتجر عبر Google PageSpeed API...' : 'Auditing Store via Google PageSpeed API...'}
+                {isAr ? 'جاري فحص المتجر عبر واجهة Google...' : 'Auditing store via Google PageSpeed API...'}
               </h4>
               <p className="text-xs text-slate-500">
-                {isAr ? 'يتم قياس مؤشرات LCP و CLS و FCP وسرعة التحميل للهواتف والأجهزة...' : 'Measuring LCP, CLS, FCP, mobile usability and SEO audits...'}
+                {isAr
+                  ? 'يتم قياس أكبر محتوى ظاهر وتغيّر التخطيط وأول محتوى ظاهر وسرعة التحميل...'
+                  : 'Measuring LCP, CLS, FCP, blocking time, and SEO audits...'}
               </p>
             </div>
           ) : pageSpeedData ? (
             <>
-              {/* 5 Lighthouse Category Score Gauges */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-                {/* 1. Performance */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex items-center gap-3.5">
-                  <div className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-black text-lg shrink-0 ${
-                    pageSpeedData.performanceScore >= 90
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-500'
-                      : pageSpeedData.performanceScore >= 50
-                      ? 'bg-amber-50 text-amber-700 border-amber-500'
-                      : 'bg-rose-50 text-rose-700 border-rose-500'
-                  }`}>
-                    {pageSpeedData.performanceScore}
+                  <div className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-black text-lg shrink-0 ${psiScoreTone(pageSpeedData.performanceScore)}`}>
+                    {pageSpeedData.isLive ? pageSpeedData.performanceScore : '—'}
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-slate-900 dark:text-white block">Performance</span>
-                    <span className={`text-[10px] font-semibold ${
-                      pageSpeedData.performanceScore >= 90 ? 'text-emerald-600' : 'text-amber-600'
-                    }`}>
-                      {pageSpeedData.performanceScore >= 90 ? 'Good (90-100)' : 'Needs Work'}
-                    </span>
-                    <span className="text-[9px] text-slate-400 block mt-0.5">{pageSpeedStrategy}</span>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white block">{isAr ? 'الأداء' : 'Performance'}</span>
+                    <span className="text-[10px] font-semibold text-slate-500">{psiScoreLabel(pageSpeedData.performanceScore)}</span>
+                    <span className="text-[9px] text-slate-400 block mt-0.5">{pageSpeedStrategy === 'mobile' ? (isAr ? 'الجوال' : 'mobile') : (isAr ? 'سطح المكتب' : 'desktop')}</span>
                   </div>
                 </div>
 
-                {/* 2. Accessibility */}
                 <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex items-center gap-3.5">
-                  <div className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-black text-lg shrink-0 ${
-                    pageSpeedData.accessibilityScore >= 90
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-500'
-                      : pageSpeedData.accessibilityScore >= 50
-                      ? 'bg-amber-50 text-amber-700 border-amber-500'
-                      : 'bg-rose-50 text-rose-700 border-rose-500'
-                  }`}>
-                    {pageSpeedData.accessibilityScore}
+                  <div className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-black text-lg shrink-0 ${psiScoreTone(pageSpeedData.accessibilityScore)}`}>
+                    {pageSpeedData.isLive ? pageSpeedData.accessibilityScore : '—'}
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-slate-900 dark:text-white block">Accessibility</span>
-                    <span className={`text-[10px] font-semibold ${
-                      pageSpeedData.accessibilityScore >= 90 ? 'text-emerald-600' : 'text-amber-600'
-                    }`}>
-                      {pageSpeedData.accessibilityScore >= 90 ? 'Good (90-100)' : 'Fixable'}
-                    </span>
-                    <span className="text-[9px] text-slate-400 block mt-0.5">ARIA & Contrast</span>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white block">{isAr ? 'إمكانية الوصول' : 'Accessibility'}</span>
+                    <span className="text-[10px] font-semibold text-slate-500">{psiScoreLabel(pageSpeedData.accessibilityScore)}</span>
+                    <span className="text-[9px] text-slate-400 block mt-0.5">{isAr ? 'التباين والعناوين' : 'Contrast & labels'}</span>
                   </div>
                 </div>
 
-                {/* 3. Best Practices */}
                 <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex items-center gap-3.5">
-                  <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-700 border-4 border-emerald-500 flex items-center justify-center font-black text-lg shrink-0">
-                    {pageSpeedData.bestPracticesScore}
+                  <div className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-black text-lg shrink-0 ${psiScoreTone(pageSpeedData.bestPracticesScore)}`}>
+                    {pageSpeedData.isLive ? pageSpeedData.bestPracticesScore : '—'}
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-slate-900 dark:text-white block">Best Practices</span>
-                    <span className="text-[10px] text-emerald-600 font-semibold">Passed (100)</span>
-                    <span className="text-[9px] text-slate-400 block mt-0.5">HTTPS & Security</span>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white block">{isAr ? 'أفضل الممارسات' : 'Best Practices'}</span>
+                    <span className="text-[10px] font-semibold text-slate-500">{psiScoreLabel(pageSpeedData.bestPracticesScore)}</span>
+                    <span className="text-[9px] text-slate-400 block mt-0.5">{isAr ? 'التشفير والأمان' : 'HTTPS & security'}</span>
                   </div>
                 </div>
 
-                {/* 4. SEO */}
                 <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex items-center gap-3.5">
-                  <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-700 border-4 border-emerald-500 flex items-center justify-center font-black text-lg shrink-0">
-                    {pageSpeedData.seoScore}
+                  <div className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-black text-lg shrink-0 ${psiScoreTone(pageSpeedData.seoScore)}`}>
+                    {pageSpeedData.isLive ? pageSpeedData.seoScore : '—'}
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-slate-900 dark:text-white block">SEO</span>
-                    <span className="text-[10px] text-emerald-600 font-semibold">Passed ({pageSpeedData.seoScore})</span>
-                    <span className="text-[9px] text-slate-400 block mt-0.5">Meta & Schema</span>
-                  </div>
-                </div>
-
-                {/* 5. Agentic Browsing */}
-                <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex items-center gap-3.5 col-span-2 sm:col-span-1">
-                  <div className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-black text-base shrink-0 ${
-                    pageSpeedData.agenticBrowsingScore === '4/4'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-500'
-                      : 'bg-rose-50 text-rose-700 border-rose-500'
-                  }`}>
-                    {pageSpeedData.agenticBrowsingScore || '1/4'}
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-slate-900 dark:text-white block">Agentic Browsing</span>
-                    <span className={`text-[10px] font-semibold ${
-                      pageSpeedData.agenticBrowsingScore === '4/4' ? 'text-emerald-600' : 'text-rose-600'
-                    }`}>
-                      {pageSpeedData.agenticBrowsingScore === '4/4' ? 'AI Ready (4/4)' : 'Needs Sync (1/4)'}
-                    </span>
-                    <span className="text-[9px] text-slate-400 block mt-0.5">AI Agents & JSON-LD</span>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white block">{isAr ? 'تحسين محركات البحث' : 'SEO'}</span>
+                    <span className="text-[10px] font-semibold text-slate-500">{psiScoreLabel(pageSpeedData.seoScore)}</span>
+                    <span className="text-[9px] text-slate-400 block mt-0.5">{isAr ? 'الوصف والبيانات المنظمة' : 'Meta & crawlability'}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Core Web Vitals Key Metrics Bar */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-1">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block">LCP (Largest Contentful)</span>
-                  <div className="text-lg font-black text-slate-900 dark:text-white tabular-nums">{pageSpeedData.lcp}</div>
-                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded block w-fit">Target &lt; 2.5s</span>
-                </div>
-
-                <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-1">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block">FCP (First Contentful)</span>
-                  <div className="text-lg font-black text-slate-900 dark:text-white tabular-nums">{pageSpeedData.fcp}</div>
-                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded block w-fit">Target &lt; 1.8s</span>
-                </div>
-
-                <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-1">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block">CLS (Layout Shift)</span>
-                  <div className="text-lg font-black text-slate-900 dark:text-white tabular-nums">{pageSpeedData.cls}</div>
-                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded block w-fit">Zero Shift &lt; 0.1</span>
-                </div>
-
-                <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-1">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block">TBT (Blocking Time)</span>
-                  <div className="text-lg font-black text-slate-900 dark:text-white tabular-nums">{pageSpeedData.tbt}</div>
-                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded block w-fit">Target &lt; 200ms</span>
-                </div>
-
-                <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-1">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block">Speed Index</span>
-                  <div className="text-lg font-black text-slate-900 dark:text-white tabular-nums">{pageSpeedData.speedIndex}</div>
-                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded block w-fit">Target &lt; 3.4s</span>
-                </div>
-
-                <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-1">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block">INP (Responsiveness)</span>
-                  <div className="text-lg font-black text-slate-900 dark:text-white tabular-nums">{pageSpeedData.inp}</div>
-                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded block w-fit">Target &lt; 200ms</span>
-                </div>
+                {[
+                  { key: 'lcp', label: isAr ? 'أكبر محتوى ظاهر' : 'LCP', value: pageSpeedData.lcp, tip: isAr ? 'الهدف أقل من ٢٫٥ ث' : 'Target < 2.5s' },
+                  { key: 'fcp', label: isAr ? 'أول محتوى ظاهر' : 'FCP', value: pageSpeedData.fcp, tip: isAr ? 'الهدف أقل من ١٫٨ ث' : 'Target < 1.8s' },
+                  { key: 'cls', label: isAr ? 'تغيّر التخطيط' : 'CLS', value: pageSpeedData.cls, tip: isAr ? 'الهدف أقل من ٠٫١' : 'Target < 0.1' },
+                  { key: 'tbt', label: isAr ? 'وقت الحظر الكلي' : 'TBT', value: pageSpeedData.tbt, tip: isAr ? 'الهدف أقل من ٢٠٠ ملث' : 'Target < 200ms' },
+                  { key: 'si', label: isAr ? 'مؤشر السرعة' : 'Speed Index', value: pageSpeedData.speedIndex, tip: isAr ? 'الهدف أقل من ٣٫٤ ث' : 'Target < 3.4s' },
+                  { key: 'inp', label: isAr ? 'الاستجابة للتفاعل' : 'INP', value: pageSpeedData.inp, tip: isAr ? 'الهدف أقل من ٢٠٠ ملث' : 'Target < 200ms' },
+                ].map((m) => (
+                  <div key={m.key} className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-1">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block">{m.label}</span>
+                    <div className="text-lg font-black text-slate-900 dark:text-white tabular-nums">{m.value || '—'}</div>
+                    <span className="text-[9px] font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded block w-fit">{m.tip}</span>
+                  </div>
+                ))}
               </div>
 
-              {/* Performance & Accessibility Diagnostics with AI Auto-Fix Action Engine */}
               <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
                   <div>
                     <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-emerald-600" />
-                      <span>{isAr ? 'تشخيصات Google PageSpeed ومعالج الإصلاح الذكي (AI Auto-Fix):' : 'Google PageSpeed Diagnostics & AI Fix Engine (Issue → Impact → AI Fix):'}</span>
+                      <Activity className="w-4 h-4 text-emerald-600" />
+                      <span>{isAr ? 'تشخيصات سرعة الصفحات والتوصيات:' : 'PageSpeed Diagnostics & Recommendations:'}</span>
                     </h3>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      {isAr ? 'تشخيصات الأداء ومشاكل الوصول الحقيقية مع إمكانية الإصلاح الفوري وتطبيق التحديثات البرمجية' : 'Real Lighthouse opportunities with 1-click automated AI code patch engine'}
+                      {isAr
+                        ? 'فرص تحسين حقيقية من Lighthouse — بدون درجات وهمية أو إصلاح تلقائي مزيف'
+                        : 'Real Lighthouse opportunities — no invented scores or fake auto-fix'}
                     </p>
                   </div>
-
-                  {/* Fix All with AI CTA Button */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleFixAllIssues}
-                      disabled={isFixingAll || pageSpeedData.issues.every((i) => i.status === 'fixed')}
-                      className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      <Sparkles className={`w-3.5 h-3.5 ${isFixingAll ? 'animate-spin' : ''}`} />
-                      <span>{isFixingAll ? (isAr ? 'جاري المعالجة الشاملة...' : 'Fixing All with AI...') : (isAr ? 'إصلاح كافة المشاكل بالذكاء الاصطناعي' : 'Auto-Fix All Issues with AI')}</span>
-                    </button>
-                  </div>
+                  {pageSpeedData.auditedAt && (
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      {isAr ? `آخر فحص: ${pageSpeedData.auditedAt}` : `Last audit: ${pageSpeedData.auditedAt}`}
+                    </span>
+                  )}
                 </div>
 
-                {/* Filter Pills */}
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <button
                     type="button"
@@ -1303,118 +1142,80 @@ export const StoreSEO: React.FC = () => {
                         : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
                     }`}
                   >
-                    {isAr ? 'إمكانية الوصول (ARIA & Contrast)' : 'Accessibility'} ({pageSpeedData.issues.filter((i) => i.category === 'accessibility').length})
+                    {isAr ? 'إمكانية الوصول' : 'Accessibility'} ({pageSpeedData.issues.filter((i) => i.category === 'accessibility').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveIssueCategory('seo')}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                      activeIssueCategory === 'seo'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+                    }`}
+                  >
+                    {isAr ? 'تحسين محركات البحث' : 'SEO'} ({pageSpeedData.issues.filter((i) => i.category === 'seo').length})
                   </button>
                 </div>
 
-                {/* Diagnostics List */}
-                {(!pageSpeedData?.issues || pageSpeedData.issues.length === 0) ? (
+                {(!pageSpeedData.issues || pageSpeedData.issues.length === 0) ? (
                   <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 rounded-2xl text-xs flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>{isAr ? 'ممتاز! كافة اختبارات الأداء اجتازت معايير Google بنجاح 100%.' : 'Excellent! All audits passed Google core requirements 100%.'}</span>
+                    <span>
+                      {isAr
+                        ? `لا توجد فرص فاشلة ضمن أعلى التشخيصات. اجتاز ${pageSpeedData.passedAuditsCount || 0} فحصاً.`
+                        : `No failing opportunities in the top diagnostics. ${pageSpeedData.passedAuditsCount || 0} audits passed.`}
+                    </span>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {pageSpeedData.issues
                       .filter((i) => activeIssueCategory === 'all' || i.category === activeIssueCategory)
-                      .map((issue) => {
-                        const isFixed = issue.status === 'fixed';
-                        const isFixing = fixingIssueId === issue.id;
-
-                        return (
-                          <div 
-                            key={issue.id} 
-                            className={`p-4 rounded-2xl border transition-all duration-300 space-y-3 ${
-                              isFixed
-                                ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800'
-                                : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'
-                            }`}
-                          >
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                              <div className="flex items-center gap-2">
-                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${isFixed ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                                <h4 className="font-bold text-xs text-slate-900 dark:text-white">
-                                  {issue.title}
-                                </h4>
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                                  issue.category === 'performance'
-                                    ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
-                                    : 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300'
-                                }`}>
-                                  {issue.category}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                {issue.displayValue && (
-                                  <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg shrink-0 border ${
-                                    isFixed
-                                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700'
-                                      : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                                  }`}>
-                                    {isFixed ? '✓ Fixed' : issue.displayValue}
-                                  </span>
-                                )}
-
-                                {/* Individual AI Fix Button */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleFixSingleIssue(issue.id)}
-                                  disabled={isFixed || isFixing}
-                                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                                    isFixed
-                                      ? 'bg-emerald-600 text-white opacity-80 cursor-default'
-                                      : 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-emerald-600 dark:hover:bg-emerald-700 shadow-sm active:scale-95'
-                                  }`}
-                                >
-                                  {isFixing ? (
-                                    <>
-                                      <RefreshCw className="w-3 h-3 animate-spin" />
-                                      <span>{isAr ? 'جاري الإصلاح...' : 'Fixing...'}</span>
-                                    </>
-                                  ) : isFixed ? (
-                                    <>
-                                      <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                                      <span>{isAr ? 'تم الإصلاح بالذكاء الاصطناعي' : 'Fixed with AI'}</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Zap className="w-3 h-3 text-amber-300" />
-                                      <span>{isAr ? 'إصلاح بالذكاء الاصطناعي' : 'Fix with AI'}</span>
-                                    </>
-                                  )}
-                                </button>
-                              </div>
+                      .map((issue) => (
+                        <div
+                          key={issue.id}
+                          className="p-4 rounded-2xl border bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 space-y-3"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-amber-500" />
+                              <h4 className="font-bold text-xs text-slate-900 dark:text-white">{issue.title}</h4>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                issue.category === 'performance'
+                                  ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+                                  : issue.category === 'seo'
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                                  : 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300'
+                              }`}>
+                                {issue.category === 'performance'
+                                  ? (isAr ? 'أداء' : 'performance')
+                                  : issue.category === 'seo'
+                                  ? (isAr ? 'بحث' : 'seo')
+                                  : (isAr ? 'وصول' : 'accessibility')}
+                              </span>
                             </div>
+                            {issue.displayValue && (
+                              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg shrink-0 border bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800">
+                                {issue.displayValue}
+                              </span>
+                            )}
+                          </div>
 
-                            {/* What is wrong -> Why it matters -> Recommended fix */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-[11px] pt-1">
-                              <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-100 dark:border-slate-700">
-                                <span className="font-bold text-slate-700 dark:text-slate-300 block mb-0.5">
-                                  {isAr ? '⚠️ سبب الأهمية والتأثير:' : '⚠️ Why it matters:'}
-                                </span>
-                                <p className="text-slate-600 dark:text-slate-400">
-                                  {issue.whyItMatters || issue.description}
-                                </p>
-                              </div>
-
-                              <div className="p-2.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-800">
-                                <span className="font-bold text-emerald-800 dark:text-emerald-300 block mb-0.5">
-                                  {isAr ? '💡 الحل والتحديث البرمجي المقترح:' : '💡 Recommended Code Fix:'}
-                                </span>
-                                <p className="text-emerald-700 dark:text-emerald-400">
-                                  {issue.recommendedFix}
-                                </p>
-                                {issue.aiFixCode && (
-                                  <code className="block mt-1 font-mono text-[10px] bg-slate-900 text-emerald-300 px-2 py-1 rounded overflow-x-auto">
-                                    {issue.aiFixCode}
-                                  </code>
-                                )}
-                              </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-[11px] pt-1">
+                            <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-100 dark:border-slate-700">
+                              <span className="font-bold text-slate-700 dark:text-slate-300 block mb-0.5">
+                                {isAr ? 'سبب الأهمية والتأثير:' : 'Why it matters:'}
+                              </span>
+                              <p className="text-slate-600 dark:text-slate-400">{issue.whyItMatters || issue.description}</p>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-800">
+                              <span className="font-bold text-emerald-800 dark:text-emerald-300 block mb-0.5">
+                                {isAr ? 'الحل المقترح:' : 'Recommended fix:'}
+                              </span>
+                              <p className="text-emerald-700 dark:text-emerald-400">{issue.recommendedFix}</p>
                             </div>
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                   </div>
                 )}
               </div>

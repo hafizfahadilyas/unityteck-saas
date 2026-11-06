@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { AppStoreBrand, ThemeStoreGrid } from '../common/ThemeStoreGrid';
 import { useToast } from '../common/ToastProvider';
 import { planHasFeature } from '../../auth/plans';
 import { Check, Plus, Star, Lock } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { getDefaultStoreTheme } from '../../auth/defaultTheme';
+import {
+  COFFEE_OFFICIAL_THEME_ID,
+  dedupeThemesById,
+  isCoffeeStoreId,
+  isCoffeeThemeId,
+  sortThemesForStoreMarket,
+} from '../../auth/themeMarketplace';
+import type { ThemeItem } from '../../types';
 
 type StoreTab = 'themes' | 'apps';
 
@@ -17,10 +26,15 @@ const CATEGORY_AR: Record<string, string> = {
   Compliance: 'الامتثال',
 };
 
-export const StoreAppStore: React.FC = () => {
+type StoreAppStoreProps = {
+  onOpenStorefront?: () => void;
+};
+
+export const StoreAppStore: React.FC<StoreAppStoreProps> = ({ onOpenStorefront }) => {
   const {
     activeStore,
     themes,
+    allStoreThemes,
     storeActiveTheme,
     setStoreTheme,
     setStoreHomepageStyle,
@@ -35,6 +49,47 @@ export const StoreAppStore: React.FC = () => {
 
   const installed = storeInstalledPlugins[activeStore.id] || [];
   const canProPlugin = planHasFeature(activeStore, 'themes') || planHasFeature(activeStore, 'ai');
+  const activeThemeId = storeActiveTheme[activeStore.id] || getDefaultStoreTheme(activeStore.id);
+
+  /**
+   * Marketplace catalog: all unique themes (deduped).
+   * Coffee store keeps ONE coffee theme; other stores’ themes show as paid — no free duplicates.
+   */
+  const marketThemes = useMemo(() => {
+    const pooled: ThemeItem[] = [...themes];
+    for (const list of Object.values(allStoreThemes || {})) {
+      pooled.push(...list);
+    }
+    let unique = dedupeThemesById(pooled);
+
+    // Coffee: keep only one coffee theme card (official); drop extra coffee skins if any linger in storage
+    if (isCoffeeStoreId(activeStore.id)) {
+      unique = unique.filter((t) => {
+        if (!isCoffeeThemeId(t.id)) return true;
+        return t.id === COFFEE_OFFICIAL_THEME_ID || t.id === 'theme-coffee';
+      });
+      // Prefer artisan id as the single coffee card
+      const coffeeCards = unique.filter((t) => isCoffeeThemeId(t.id));
+      if (coffeeCards.length > 1) {
+        unique = [
+          ...unique.filter((t) => !isCoffeeThemeId(t.id)),
+          coffeeCards.find((t) => t.id === COFFEE_OFFICIAL_THEME_ID) || coffeeCards[0],
+        ];
+      }
+    }
+
+    return sortThemesForStoreMarket(unique, activeStore.id, activeThemeId);
+  }, [themes, allStoreThemes, activeStore.id, activeThemeId]);
+
+  const otherStoreCount = useMemo(() => {
+    const ids = new Set(
+      marketThemes
+        .filter((t) => t.id !== activeThemeId)
+        .map((t) => t.storeId)
+        .filter(Boolean),
+    );
+    return ids.size;
+  }, [marketThemes, activeThemeId]);
 
   return (
     <div
@@ -45,8 +100,8 @@ export const StoreAppStore: React.FC = () => {
         <AppStoreBrand
           subtitle={
             isAr
-              ? 'ثبّت القوالب والتطبيقات لمتجرك'
-              : 'Install themes & apps for your store'
+              ? `سوق الثيمات · ثيمات ${otherStoreCount || 'باقي'} متاجر · شراء ومعاينة`
+              : `Themes Market · Themes from ${otherStoreCount || 'other'} stores · Buy & View`
           }
         />
         <div
@@ -55,7 +110,7 @@ export const StoreAppStore: React.FC = () => {
         >
           {(
             [
-              ['themes', isAr ? 'متجر القوالب' : 'Theme Store'],
+              ['themes', isAr ? 'سوق الثيمات' : 'Themes Market'],
               ['apps', isAr ? 'التطبيقات والإضافات' : 'Apps & plugins'],
             ] as const
           ).map(([id, label]) => (
@@ -79,13 +134,15 @@ export const StoreAppStore: React.FC = () => {
 
       {tab === 'themes' ? (
         <ThemeStoreGrid
-          themes={themes}
+          themes={marketThemes}
           store={activeStore}
-          activeThemeId={storeActiveTheme[activeStore.id] || 'theme-commerce-starter'}
+          activeThemeId={activeThemeId}
+          mode="market"
           onInstall={(themeId, style) => {
             setStoreTheme(activeStore.id, themeId);
             setStoreHomepageStyle(activeStore.id, style);
           }}
+          onViewInStore={() => onOpenStorefront?.()}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

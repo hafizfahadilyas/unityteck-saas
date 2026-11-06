@@ -3,6 +3,7 @@ import { Save, Check, RotateCcw, BookOpen, Clock, Calendar, ArrowRight, Eye } fr
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { MediaUploadField } from '../../common/MediaUploadField';
 import {
   readAllThemeSettings,
   writeAllThemeSettings,
@@ -316,20 +317,19 @@ export const BlogForm: React.FC = () => {
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-muted block">{isAr ? 'رابط الصورة' : 'Image URL'}</span>
-                  <input
-                    type="text"
-                    value={art.image}
-                    onChange={(e) => {
-                      const updated = [...settings.articles];
-                      updated[idx].image = e.target.value;
-                      setVal('articles', updated);
-                    }}
-                    className="w-full px-2.5 py-1.5 rounded-lg border text-xs outline-none font-mono"
-                    style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-                  />
-                </div>
+                <MediaUploadField
+                  label={isAr ? 'صورة المقال' : 'Article image'}
+                  value={art.image || ''}
+                  onChange={(url) => {
+                    const updated = [...settings.articles];
+                    updated[idx].image = url;
+                    setVal('articles', updated);
+                  }}
+                  altText={art.title || ''}
+                  aspectRatio="banner"
+                  initialFolder="blog"
+                  recommendedSize="1200 × 630 px"
+                />
               </div>
             </div>
           ))}

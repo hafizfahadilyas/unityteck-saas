@@ -5,6 +5,7 @@ import type { Order, OrderStatus } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { AdminPageShell } from '../common/AdminPageHeader';
 import { displayOrderNumber } from '../../utils/orderNumber';
+import { fetchOrder } from '../../api/tenantApi';
 import {
   ShoppingCart,
   CheckCircle,
@@ -175,6 +176,25 @@ export const StoreOrders: React.FC = () => {
   const [invoiceConfig, setInvoiceConfig] = useState<any>(() => invoiceService.getTemplateConfig(activeStore.id));
   const [showEditOrderModal, setShowEditOrderModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+
+  const orderDetailFetched = useRef(new Set<string>());
+  useEffect(() => {
+    const row = [invoiceOrder, editingOrder].find((o) => o && (!o.items || o.items.length === 0));
+    if (!activeStore?.id || !row?.id || orderDetailFetched.current.has(row.id)) return;
+    orderDetailFetched.current.add(row.id);
+    const rowId = row.id;
+    let cancelled = false;
+    fetchOrder(activeStore.id, rowId)
+      .then((full) => {
+        if (cancelled || !full) return;
+        setInvoiceOrder((prev) => (prev?.id === rowId ? full : prev));
+        setEditingOrder((prev) => (prev?.id === rowId ? full : prev));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore?.id, invoiceOrder, editingOrder]);
   const [showReturnsModal, setShowReturnsModal] = useState(false);
   const [returnsOrder, setReturnsOrder] = useState<Order | null>(null);
   const [showCodLedgerModal, setShowCodLedgerModal] = useState(false);
@@ -524,7 +544,13 @@ export const StoreOrders: React.FC = () => {
         o.paymentMethod.toLowerCase().includes(effectivePaymentMethod.toLowerCase());
 
       const effectiveSource = orderFilters.orderSource || selectedSource;
-      const matchesSource = effectiveSource === 'all' || o.source === effectiveSource;
+      const matchesSource = (() => {
+        if (effectiveSource === 'all') return true;
+        const src = (o.source || '').toLowerCase();
+        const target = String(effectiveSource).toLowerCase();
+        if (!src || !target) return false;
+        return src === target || src.includes(target) || target.includes(src);
+      })();
 
       // Payment Status filter
       const matchesPaymentStatus = (() => {
@@ -1942,10 +1968,10 @@ export const StoreOrders: React.FC = () => {
             type="button"
             onClick={() => setShowCodLedgerModal(true)}
             className="py-2.5 px-3.5 rounded-xl text-xs font-bold border border-amber-300 dark:border-amber-700/60 bg-amber-50/80 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 flex items-center gap-2 shadow-2xs cursor-pointer transition-all shrink-0"
-            aria-label="COD Cash Ledger"
+            aria-label={isAr ? 'سجل تحصيل الدفع عند الاستلام' : 'COD Cash Ledger'}
           >
             <Banknote className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-            <span>{isAr ? 'سجل تحصيل COD' : 'COD Cash Ledger'}</span>
+            <span>{isAr ? 'سجل تحصيل الدفع عند الاستلام' : 'COD Cash Ledger'}</span>
           </button>
 
           {/* + New Order Primary CTA Button */}
@@ -1954,7 +1980,7 @@ export const StoreOrders: React.FC = () => {
             onClick={() => setShowNewOrderModal(true)}
             className="py-2.5 px-4 rounded-xl text-xs font-bold text-white flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:opacity-95 shrink-0"
             style={{ background: 'var(--portal-cta, #0284c7)' }}
-            aria-label="Create new order"
+            aria-label={isAr ? 'إنشاء طلب جديد' : 'Create new order'}
           >
             <Plus className="w-4 h-4 shrink-0" />
             <span>{t('newOrder')}</span>
@@ -1964,11 +1990,11 @@ export const StoreOrders: React.FC = () => {
 
       {/* ── 4 KPI CARDS DEDICATED GRID (Mockup 04 - 100% UNIFORM NO 3+1 WRAPPING) ── */}
       {/* ── 4 KPI CARDS DEDICATED GRID (Matching Image 1) ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 min-w-0">
         {/* Card 1: Total Orders */}
-        <div className="bg-emerald-50/70 dark:bg-emerald-950/20 hover:bg-emerald-50/90 dark:hover:bg-emerald-950/30 p-4 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/40 flex items-center gap-3.5 shadow-xs transition-all">
-          <div className="w-11 h-11 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0 shadow-2xs">
-            <ShoppingCart className="w-5 h-5" />
+        <div className="bg-emerald-50/70 dark:bg-emerald-950/20 hover:bg-emerald-50/90 dark:hover:bg-emerald-950/30 p-3 sm:p-4 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/40 flex items-center gap-2.5 sm:gap-3.5 shadow-xs transition-all min-w-0">
+          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0 shadow-2xs">
+            <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div className="min-w-0">
             <span className="text-xs font-bold block leading-tight truncate text-slate-700 dark:text-slate-300">
@@ -1982,9 +2008,9 @@ export const StoreOrders: React.FC = () => {
         </div>
 
         {/* Card 2: Pending Payment */}
-        <div className="bg-amber-50/70 dark:bg-amber-950/20 hover:bg-amber-50/90 dark:hover:bg-amber-950/30 p-4 rounded-2xl border border-amber-200/80 dark:border-amber-900/40 flex items-center gap-3.5 shadow-xs transition-all">
-          <div className="w-11 h-11 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 flex items-center justify-center shrink-0 shadow-2xs">
-            <Clock className="w-5 h-5" />
+        <div className="bg-amber-50/70 dark:bg-amber-950/20 hover:bg-amber-50/90 dark:hover:bg-amber-950/30 p-3 sm:p-4 rounded-2xl border border-amber-200/80 dark:border-amber-900/40 flex items-center gap-2.5 sm:gap-3.5 shadow-xs transition-all min-w-0">
+          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 flex items-center justify-center shrink-0 shadow-2xs">
+            <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div className="min-w-0">
             <span className="text-xs font-bold block leading-tight truncate text-slate-700 dark:text-slate-300">
@@ -2005,9 +2031,9 @@ export const StoreOrders: React.FC = () => {
         </div>
 
         {/* Card 3: In Progress */}
-        <div className="bg-sky-50/70 dark:bg-sky-950/20 hover:bg-sky-50/90 dark:hover:bg-sky-950/30 p-4 rounded-2xl border border-sky-200/80 dark:border-sky-900/40 flex items-center gap-3.5 shadow-xs transition-all">
-          <div className="w-11 h-11 rounded-full bg-sky-100 dark:bg-sky-900/50 text-sky-700 dark:text-sky-300 flex items-center justify-center shrink-0 shadow-2xs">
-            <Truck className="w-5 h-5" />
+        <div className="bg-sky-50/70 dark:bg-sky-950/20 hover:bg-sky-50/90 dark:hover:bg-sky-950/30 p-3 sm:p-4 rounded-2xl border border-sky-200/80 dark:border-sky-900/40 flex items-center gap-2.5 sm:gap-3.5 shadow-xs transition-all min-w-0">
+          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-sky-100 dark:bg-sky-900/50 text-sky-700 dark:text-sky-300 flex items-center justify-center shrink-0 shadow-2xs">
+            <Truck className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div className="min-w-0">
             <span className="text-xs font-bold block leading-tight truncate text-slate-700 dark:text-slate-300">
@@ -2021,9 +2047,9 @@ export const StoreOrders: React.FC = () => {
         </div>
 
         {/* Card 4: Delivered */}
-        <div className="bg-teal-50/70 dark:bg-teal-950/20 hover:bg-teal-50/90 dark:hover:bg-teal-950/30 p-4 rounded-2xl border border-teal-200/80 dark:border-teal-900/40 flex items-center gap-3.5 shadow-xs transition-all">
-          <div className="w-11 h-11 rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0 shadow-2xs">
-            <CheckCircle className="w-5 h-5" />
+        <div className="bg-teal-50/70 dark:bg-teal-950/20 hover:bg-teal-50/90 dark:hover:bg-teal-950/30 p-3 sm:p-4 rounded-2xl border border-teal-200/80 dark:border-teal-900/40 flex items-center gap-2.5 sm:gap-3.5 shadow-xs transition-all min-w-0">
+          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0 shadow-2xs">
+            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div className="min-w-0">
             <span className="text-xs font-bold block leading-tight truncate text-slate-700 dark:text-slate-300">
@@ -2038,11 +2064,11 @@ export const StoreOrders: React.FC = () => {
       </div>
 
       {/* ── SEARCH, ORDER TOOLS & INLINE FILTERS (Matching Image 1 & Image 3) ── */}
-      <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-[#071E26] p-3 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3 sm:space-y-4 min-w-0">
         
         {/* Row 1: Search bar & Order Tools dropdown */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
+          <div className="relative flex-1 min-w-0 w-full">
             <Search
               className="w-4 h-4 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
               style={{ color: 'var(--muted)' }}
@@ -2265,6 +2291,7 @@ export const StoreOrders: React.FC = () => {
                   { value: 'Pending Payment', label: isAr ? 'بانتظار الدفع' : 'Pending Payment' },
                   { value: 'Payment Failed', label: isAr ? 'فشلت عملية الدفع' : 'Payment Failed' },
                   { value: 'Refunded', label: localizePaymentStatus('Refunded', locale) },
+                  { value: 'Partially Refunded', label: isAr ? 'مسترجع جزئياً' : 'Partially Refunded' },
                 ].map((opt) => (
                   <button
                     key={opt.value}
@@ -2368,12 +2395,17 @@ export const StoreOrders: React.FC = () => {
               <div className="absolute start-0 top-full mt-1.5 w-44 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 z-50 text-xs">
                 {[
                   { value: 'all', label: isAr ? 'جميع المصادر' : 'All Sources' },
-                  { value: 'Instagram', label: 'Instagram' },
-                  { value: 'Website', label: 'Website' },
-                  { value: 'TikTok', label: 'TikTok' },
-                  { value: 'Snapchat', label: 'Snapchat' },
-                  { value: 'WhatsApp', label: 'WhatsApp' },
-                  { value: 'Direct', label: 'Direct' },
+                  { value: 'Instagram', label: isAr ? 'إنستغرام' : 'Instagram' },
+                  { value: 'Website', label: isAr ? 'الموقع' : 'Website' },
+                  { value: 'TikTok', label: isAr ? 'تيك توك' : 'TikTok' },
+                  { value: 'Snapchat', label: isAr ? 'سناب شات' : 'Snapchat' },
+                  { value: 'WhatsApp', label: isAr ? 'واتساب' : 'WhatsApp' },
+                  { value: 'Facebook', label: isAr ? 'فيسبوك' : 'Facebook' },
+                  { value: 'X', label: isAr ? 'إكس (تويتر)' : 'X (Twitter)' },
+                  { value: 'Telegram', label: isAr ? 'تيليجرام' : 'Telegram' },
+                  { value: 'YouTube', label: isAr ? 'يوتيوب' : 'YouTube' },
+                  { value: 'Google Ads', label: isAr ? 'إعلانات جوجل' : 'Google Ads' },
+                  { value: 'Direct', label: isAr ? 'مباشر' : 'Direct' },
                 ].map((opt) => (
                   <button
                     key={opt.value}
@@ -2988,8 +3020,8 @@ export const StoreOrders: React.FC = () => {
           storeName={activeStore.name}
           storeId={activeStore.id}
           onClose={() => setShowNewOrderModal(false)}
-          onCreate={(orderData) => {
-            addOrder({ ...orderData, storeId: activeStore.id } as any, activeStore.id);
+          onCreate={async (orderData) => {
+            await addOrder({ ...orderData, storeId: activeStore.id } as any, activeStore.id);
             setShowNewOrderModal(false);
             toast(t('orderCreatedSuccess'), 'success');
           }}

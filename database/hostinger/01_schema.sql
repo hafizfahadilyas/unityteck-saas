@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS `stores` (
   `slug` VARCHAR(255) NOT NULL,
   `domain` VARCHAR(255) NULL DEFAULT NULL,
   `status` ENUM('active','inactive','pending','suspended') NOT NULL DEFAULT 'pending',
-  `plan` ENUM('free','paid','pro','custom') NOT NULL DEFAULT 'free',
+  `plan` ENUM('free','paid','pro','premium','custom') NOT NULL DEFAULT 'free',
   `master_granted_pro` TINYINT(1) NOT NULL DEFAULT 0,
   `currency` VARCHAR(10) NOT NULL DEFAULT 'SAR',
   `locale` VARCHAR(8) NOT NULL DEFAULT 'en',
@@ -183,6 +183,7 @@ CREATE TABLE IF NOT EXISTS `plans` (
   `id` VARCHAR(64) NOT NULL,
   `code` VARCHAR(32) NOT NULL,
   `name` VARCHAR(255) NOT NULL,
+  `price_sar` INT UNSIGNED NULL DEFAULT NULL,
   `product_limit` INT UNSIGNED NULL DEFAULT NULL,
   `storage_mb` INT UNSIGNED NULL DEFAULT NULL,
   `team_seats` INT UNSIGNED NULL DEFAULT NULL,
@@ -666,6 +667,54 @@ CREATE TABLE IF NOT EXISTS `store_themes` (
   CONSTRAINT `store_themes_theme_id_foreign` FOREIGN KEY (`theme_id`) REFERENCES `themes_catalog` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `theme_pages` (
+  `id` VARCHAR(64) NOT NULL,
+  `store_id` VARCHAR(64) NOT NULL,
+  `slug` VARCHAR(191) NOT NULL,
+  `type` VARCHAR(32) NOT NULL,
+  `title_en` VARCHAR(255) NULL DEFAULT NULL,
+  `title_ar` VARCHAR(255) NULL DEFAULT NULL,
+  `draft_layout` JSON NULL,
+  `published_layout` JSON NULL,
+  `seo` JSON NULL,
+  `header_mode` VARCHAR(16) NOT NULL DEFAULT 'global',
+  `footer_mode` VARCHAR(16) NOT NULL DEFAULT 'global',
+  `status` VARCHAR(16) NOT NULL DEFAULT 'draft',
+  `published_at` TIMESTAMP NULL DEFAULT NULL,
+  `updated_by` VARCHAR(64) NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT NULL,
+  `updated_at` TIMESTAMP NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `theme_pages_store_id_slug_unique` (`store_id`, `slug`),
+  KEY `theme_pages_store_id_status_index` (`store_id`, `status`),
+  CONSTRAINT `theme_pages_store_id_foreign` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `theme_revisions` (
+  `id` VARCHAR(64) NOT NULL,
+  `store_id` VARCHAR(64) NOT NULL,
+  `page_id` VARCHAR(64) NULL DEFAULT NULL,
+  `snapshot` JSON NULL,
+  `created_by` VARCHAR(64) NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `theme_revisions_store_id_created_at_index` (`store_id`, `created_at`),
+  CONSTRAINT `theme_revisions_store_id_foreign` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `theme_revisions_page_id_foreign` FOREIGN KEY (`page_id`) REFERENCES `theme_pages` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `theme_global_styles` (
+  `id` VARCHAR(64) NOT NULL,
+  `store_id` VARCHAR(64) NOT NULL,
+  `styles` JSON NULL,
+  `updated_by` VARCHAR(64) NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT NULL,
+  `updated_at` TIMESTAMP NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `theme_global_styles_store_id_unique` (`store_id`),
+  CONSTRAINT `theme_global_styles_store_id_foreign` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `audit_logs` (
   `id` VARCHAR(64) NOT NULL,
   `store_id` VARCHAR(64) NULL DEFAULT NULL,
@@ -711,7 +760,8 @@ DELETE FROM `migrations` WHERE `migration` IN (
   '2026_09_29_220000_create_auth_otps_table',
   '2026_09_29_230000_expand_user_roles',
   '2026_09_29_240000_add_store_locale_timezone',
-  '2026_09_29_250000_extend_subscriptions_lifecycle'
+  '2026_09_29_250000_extend_subscriptions_lifecycle',
+  '2026_11_05_031400_create_theme_pages_revisions_and_global_styles'
 );
 INSERT INTO `migrations` (`migration`, `batch`) VALUES
   ('0001_01_01_000000_create_users_table', 1),
@@ -731,7 +781,8 @@ INSERT INTO `migrations` (`migration`, `batch`) VALUES
   ('2026_09_29_220000_create_auth_otps_table', 1),
   ('2026_09_29_230000_expand_user_roles', 1),
   ('2026_09_29_240000_add_store_locale_timezone', 1),
-  ('2026_09_29_250000_extend_subscriptions_lifecycle', 1);
+  ('2026_09_29_250000_extend_subscriptions_lifecycle', 1),
+  ('2026_11_05_031400_create_theme_pages_revisions_and_global_styles', 1);
 
 SET FOREIGN_KEY_CHECKS = 1;
 

@@ -87,14 +87,25 @@ export const SplIcon: React.FC<IconProps> = ({ className = 'w-5 h-5', title = 'S
   </span>
 );
 
+export const TelegramBrandIcon: React.FC<IconProps> = ({ className = 'w-4 h-4', title = 'Telegram' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden={!title} role="img">
+    {title ? <title>{title}</title> : null}
+    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.788.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.447 4.476-1.456z" />
+  </svg>
+);
+
 export const ORDER_SOURCE_OPTIONS: { value: string; labelEn: string; labelAr: string }[] = [
   { value: 'Direct', labelEn: 'Direct / Walk-in', labelAr: 'مباشر / متجر' },
+  { value: 'Website', labelEn: 'Website', labelAr: 'الموقع' },
   { value: 'TikTok', labelEn: 'TikTok', labelAr: 'تيك توك' },
   { value: 'Snapchat', labelEn: 'Snapchat', labelAr: 'سناب شات' },
   { value: 'Instagram', labelEn: 'Instagram', labelAr: 'إنستغرام' },
   { value: 'WhatsApp', labelEn: 'WhatsApp', labelAr: 'واتساب' },
   { value: 'Facebook', labelEn: 'Facebook', labelAr: 'فيسبوك' },
+  { value: 'X', labelEn: 'X (Twitter)', labelAr: 'إكس (تويتر)' },
+  { value: 'Telegram', labelEn: 'Telegram', labelAr: 'تيليجرام' },
   { value: 'Google Ads', labelEn: 'Google Ads', labelAr: 'إعلانات جوجل' },
+  { value: 'YouTube', labelEn: 'YouTube', labelAr: 'يوتيوب' },
   { value: 'Organic Search', labelEn: 'Organic Search', labelAr: 'بحث عضوي' },
   { value: 'Referral', labelEn: 'Referral', labelAr: 'إحالة' },
 ];
@@ -108,6 +119,7 @@ export function OrderSourceIcon({ source, className = 'w-4 h-4' }: { source: str
   if (s.includes('whatsapp')) return <WhatsAppBrandIcon className={`${className} text-emerald-500`} />;
   if (s.includes('google')) return <GoogleAdsIcon className={className} />;
   if (s === 'x' || s.includes('twitter')) return <XBrandIcon className={`${className} text-slate-900 dark:text-white`} />;
+  if (s.includes('telegram') || s.includes('تيليجرام')) return <TelegramBrandIcon className={`${className} text-sky-500`} />;
   if (s.includes('youtube')) return <YouTubeBrandIcon className={`${className} text-red-600`} />;
   return (
     <svg className={`${className} text-slate-400`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

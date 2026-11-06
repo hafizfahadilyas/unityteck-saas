@@ -33,7 +33,7 @@ const ProductCarouselCard: React.FC<ProductCarouselCardProps> = ({
     activeColor?.image ||
     product.images?.[0] ||
     (product as any).image ||
-    '/src/assets/images/hibrew_h7a_flagship_machine.png';
+    '/images/coffee_hero_flagship_machine_1791218907782.jpg';
 
   const priceDelta = Number(activeColor?.priceDelta) || 0;
   const currentPrice = (Number(product.basePrice) || 0) + priceDelta;
@@ -54,7 +54,7 @@ const ProductCarouselCard: React.FC<ProductCarouselCardProps> = ({
           src={activeImage}
           alt={prodTitle}
           onError={(e) =>
-            handleImageError(e, '/src/assets/images/hibrew_h7a_flagship_machine.png')
+            handleImageError(e, '/images/coffee_hero_flagship_machine_1791218907782.jpg')
           }
           className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-sm"
           loading="lazy" decoding="async"
@@ -185,13 +185,13 @@ export const ShopFeaturedCarouselSection: React.FC<ShopFeaturedCarouselSectionPr
   }
 
   // Filter machines / flagship models or catalog items for the carousel
-  const carouselProducts = masterProducts.slice(0, 10);
+  const carouselProducts = masterProducts;
 
   // Flagship showcase image for the side promotional card
   const flagshipShowcaseImg =
     carouselProducts[0]?.images?.[0] ||
     carouselProducts[0]?.colors?.[0]?.image ||
-    '/src/assets/images/hibrew_h7a_flagship_machine.png';
+    '/images/coffee_hero_flagship_machine_1791218907782.jpg';
 
   return (
     <section className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-3 select-none">
@@ -231,7 +231,7 @@ export const ShopFeaturedCarouselSection: React.FC<ShopFeaturedCarouselSectionPr
               src={flagshipShowcaseImg}
               alt={isAr ? 'الإصدار الرائد' : 'Flagship Showcase'}
               onError={(e) =>
-                handleImageError(e, '/src/assets/images/hibrew_h7a_flagship_machine.png')
+                handleImageError(e, '/images/coffee_hero_flagship_machine_1791218907782.jpg')
               }
               className="max-h-[260px] w-auto max-w-full object-contain group-hover:scale-105 transition-transform duration-500 drop-shadow-[0_15px_25px_rgba(0,0,0,0.5)]"
             />

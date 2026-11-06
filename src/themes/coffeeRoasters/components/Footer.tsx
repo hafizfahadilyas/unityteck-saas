@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import {
@@ -12,6 +12,8 @@ import {
   Instagram,
   Youtube
 } from 'lucide-react';
+import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
+import { bi, coffeeModularSeed } from '../../settings/coffeeModularSettings';
 
 export const Footer: React.FC = () => {
   const { navigateTo, language, toggleLanguage, storeIdentity, currentRoute, selectedProduct } = useCart();
@@ -19,6 +21,33 @@ export const Footer: React.FC = () => {
   const [subChannel, setSubChannel] = useState<'email' | 'whatsapp'>('email');
   const [inputValue, setInputValue] = useState('');
   const [subSuccess, setSubSuccess] = useState(false);
+  const [settingsTick, setSettingsTick] = useState(0);
+
+  useEffect(() => {
+    const sync = () => setSettingsTick((n) => n + 1);
+    window.addEventListener('unityteck-theme-settings', sync);
+    return () => window.removeEventListener('unityteck-theme-settings', sync);
+  }, []);
+
+  const themeSettings = useMemo(() => {
+    try {
+      if (!activeStore?.id) return null;
+      return resolveCoffeeThemeSettings(activeStore.id, activeStore);
+    } catch {
+      return null;
+    }
+  }, [activeStore, settingsTick]);
+
+  const newsletter = themeSettings?.newsletter;
+  /** C-FOOT: use saved footer; if never configured (no columns/about), show HiBrew seed for coffee only. */
+  const footerCfg = useMemo(() => {
+    const raw = themeSettings?.footer;
+    const hasConfigured =
+      Boolean(raw?.aboutEn?.trim() || raw?.aboutAr?.trim() || raw?.copyrightEn?.trim() || raw?.copyrightAr?.trim()) ||
+      (raw?.columns || []).some((c) => (c.links || []).length > 0 || c.titleEn?.trim() || c.titleAr?.trim());
+    if (hasConfigured) return raw;
+    return { ...coffeeModularSeed().footer, ...(raw || {}), columns: coffeeModularSeed().footer.columns };
+  }, [themeSettings?.footer]);
 
   const isAr = language === 'AR';
   const rawStoreName = storeIdentity?.storeName || activeStore?.name || (isAr ? 'هايبرو السعودية' : 'HiBrew KSA');
@@ -27,18 +56,16 @@ export const Footer: React.FC = () => {
     ? rawStoreName
     : rawStoreName.replace(/[\u0600-\u06FF()]/g, '').trim() || 'HiBrew KSA';
 
-  const storeDisplayEmail = storeIdentity?.email || activeStore?.email || 'support@hibrew.sa';
-  const storeDisplayPhone = storeIdentity?.phone || '+966 11 489 2030';
-
-  const rawPhone =
-    storeIdentity?.whatsapp ||
-    (activeStore as any)?.whatsapp ||
-    storeIdentity?.phone ||
-    activeStore?.phone ||
-    '+966549876543';
-  let cleanPhone = rawPhone.replace(/\D/g, '') || '966549876543';
-  if (cleanPhone.startsWith('05')) cleanPhone = '966' + cleanPhone.substring(1);
-  else if (cleanPhone.startsWith('5') && cleanPhone.length === 9) cleanPhone = '966' + cleanPhone;
+  const storeDisplayEmail = footerCfg?.contactEmail?.trim() || storeIdentity?.email || activeStore?.email || 'support@hibrew.sa';
+  const storeDisplayPhone = footerCfg?.contactPhone?.trim() || storeIdentity?.phone || '+966 11 489 2030';
+  const contactAddress = bi(language, footerCfg?.addressEn, footerCfg?.addressAr);
+  const contactHours = bi(
+    language,
+    footerCfg?.hoursEn,
+    footerCfg?.hoursAr,
+    language === 'AR' ? 'الأحد – السبت، 9:00 صباحاً–9:00 مساءً' : 'Sunday – Saturday, 9:00am–9:00pm',
+  );
+  const paymentLabel = bi(language, footerCfg?.paymentsEn, footerCfg?.paymentsAr);
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,12 +77,52 @@ export const Footer: React.FC = () => {
     }, 4000);
   };
 
+  const newsTitle = bi(
+    language,
+    footerCfg?.newsletterTitleEn || newsletter?.titleEn,
+    footerCfg?.newsletterTitleAr || newsletter?.titleAr,
+    language === 'AR'
+      ? 'اشترك للحصول على آخر التحديثات - العروض الحصرية والمزيد.'
+      : 'Subscribe For Updates - Special Offers And More.',
+  );
+  const newsSub = bi(
+    language,
+    newsletter?.subtitleEn,
+    newsletter?.subtitleAr,
+    language === 'AR'
+      ? 'أوافق على استلام أحدث العروض والمعلومات حول منتجات هايبرو عبر البريد الإلكتروني أو الرسائل الفورية (مثل واتساب). أفهم أنه يمكنني إلغاء الاشتراك في أي وقت.'
+      : 'I agree to receive the latest offers and information on HiBrew products through email or IM (e.g. WhatsApp) provided below and advertisement on third-party platforms. I understand that I can unsubscribe anytime.',
+  );
+  const newsPlaceholder =
+    subChannel === 'email'
+      ? bi(language, newsletter?.placeholderEn, newsletter?.placeholderAr, language === 'AR' ? 'أدخل بريدك الإلكتروني' : 'Enter your email address')
+      : language === 'AR'
+        ? 'أدخل رقم هاتفك (+966)'
+        : 'Enter your phone number (+966)';
+  const newsButton = subSuccess
+    ? bi(language, newsletter?.successEn, newsletter?.successAr, language === 'AR' ? 'تم الاشتراك ✓' : 'Subscribed ✓')
+    : bi(language, newsletter?.buttonEn, newsletter?.buttonAr, language === 'AR' ? 'اشتراك' : 'Subscribe');
+  const showNewsletter = footerCfg?.showNewsletter === false ? false : newsletter?.enabled !== false;
+  const showFooterColumns = footerCfg?.enabled !== false;
+  const footerColumns = (footerCfg?.columns || []).filter((col) => (col.links || []).length > 0 || col.titleEn || col.titleAr);
+  const showSocial = footerCfg?.showSocial !== false;
+
+  const goFooterLink = (url: string) => {
+    const href = (url || '').trim();
+    if (!href) return;
+    if (/^https?:\/\//i.test(href) || href.startsWith('mailto:') || href.startsWith('tel:')) {
+      window.open(href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    navigateTo(href.replace(/^\//, '') as Parameters<typeof navigateTo>[0]);
+  };
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
-    <footer className="w-full bg-[#111111] text-neutral-200 text-start text-xs selection:bg-neutral-800 selection:text-white border-t border-neutral-800 relative z-30">
+    <footer data-customize-section="C-FOOT" className="w-full bg-[#111111] text-neutral-200 text-start text-xs selection:bg-neutral-800 selection:text-white border-t border-neutral-800 relative z-30">
       {/* 1. Breadcrumb & Back to Top Strip (Screenshot 5) */}
       <div className="border-b border-neutral-800/80 py-3 px-4 sm:px-8">
         <div className="max-w-[1440px] mx-auto flex items-center justify-between text-neutral-300 text-[11px] font-medium">
@@ -110,28 +177,37 @@ export const Footer: React.FC = () => {
       {/* 2. Main Footer Body (Screenshot 5 Exact Grid) */}
       <div className="max-w-[1440px] mx-auto px-4 sm:px-8 py-12 sm:py-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14">
-          {/* Left Column: Newsletter Subscription & Official Hotline (5 cols) */}
+          {/* Left Column: Newsletter Subscription & Official Hotline (5 cols) — Word C-NEWS */}
           <div className="lg:col-span-5 space-y-6">
-            <div className="space-y-3">
-              <h3 className="text-white font-extrabold text-base tracking-tight">
-                {language === 'AR'
-                  ? 'اشترك للحصول على آخر التحديثات - العروض الحصرية والمزيد.'
-                  : 'Subscribe For Updates - Special Offers And More.'}
+            {showNewsletter ? (
+            <div
+              className="space-y-3"
+              style={
+                newsletter?.bgColor
+                  ? { backgroundColor: newsletter.bgColor, color: newsletter.textColor || '#FFFFFF', borderRadius: 16, padding: 16 }
+                  : undefined
+              }
+            >
+              <h3 className={`font-extrabold text-base tracking-tight ${newsletter?.bgColor ? '' : 'text-white'}`}>
+                {newsTitle}
               </h3>
 
-              <p className="text-[11px] text-neutral-300 leading-relaxed max-w-md">
-                {language === 'AR'
-                  ? 'أوافق على استلام أحدث العروض والمعلومات حول منتجات هايبرو عبر البريد الإلكتروني أو الرسائل الفورية (مثل واتساب). أفهم أنه يمكنني إلغاء الاشتراك في أي وقت.'
-                  : 'I agree to receive the latest offers and information on HiBrew products through email or IM (e.g. WhatsApp) provided below and advertisement on third-party platforms. I understand that I can unsubscribe anytime.'}
+              <p className={`text-[11px] leading-relaxed max-w-md ${newsletter?.bgColor ? 'opacity-90' : 'text-neutral-300'}`}>
+                {newsSub}
               </p>
 
-              {/* Email / WhatsApp Radio Selectors (Screenshot 5) */}
+              {newsletter?.showCoupon && newsletter.couponCode ? (
+                <p className="text-[11px] font-bold opacity-90">
+                  {language === 'AR' ? `رمز الكوبون: ${newsletter.couponCode}` : `Coupon code: ${newsletter.couponCode}`}
+                </p>
+              ) : null}
+
               <div className="flex items-center gap-6 pt-1 text-xs">
                 <button
                   type="button"
                   onClick={() => setSubChannel('email')}
                   className={`flex items-center gap-2 cursor-pointer transition-colors ${
-                    subChannel === 'email' ? 'text-white font-bold' : 'text-neutral-300 hover:text-white'
+                    subChannel === 'email' ? 'font-bold opacity-100' : 'opacity-70 hover:opacity-100'
                   }`}
                 >
                   <Mail className="w-4 h-4" />
@@ -142,7 +218,7 @@ export const Footer: React.FC = () => {
                   type="button"
                   onClick={() => setSubChannel('whatsapp')}
                   className={`flex items-center gap-2 cursor-pointer transition-colors ${
-                    subChannel === 'whatsapp' ? 'text-white font-bold' : 'text-neutral-300 hover:text-white'
+                    subChannel === 'whatsapp' ? 'font-bold opacity-100' : 'opacity-70 hover:opacity-100'
                   }`}
                 >
                   <MessageCircle className="w-4 h-4" />
@@ -150,16 +226,11 @@ export const Footer: React.FC = () => {
                 </button>
               </div>
 
-              {/* Input & Subscribe Button */}
               <form onSubmit={handleSubscribe} className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 max-w-md pt-1">
                 <input
                   type={subChannel === 'email' ? 'email' : 'tel'}
                   required
-                  placeholder={
-                    subChannel === 'email'
-                      ? (language === 'AR' ? 'أدخل بريدك الإلكتروني' : 'Enter your email address')
-                      : (language === 'AR' ? 'أدخل رقم هاتفك (+966)' : 'Enter your phone number (+966)')
-                  }
+                  placeholder={newsPlaceholder}
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   className="flex-1 min-w-0 bg-neutral-900 border border-neutral-700 focus:border-white px-4 py-2.5 xs:py-3 rounded-full text-white placeholder-neutral-400 text-xs outline-none transition-colors"
@@ -168,10 +239,11 @@ export const Footer: React.FC = () => {
                   type="submit"
                   className="px-5 xs:px-6 py-2.5 xs:py-3 bg-white hover:bg-neutral-200 text-black font-bold text-xs rounded-full transition-all shrink-0 cursor-pointer active:scale-95 text-center"
                 >
-                  {subSuccess ? (language === 'AR' ? 'تم الاشتراك ✓' : 'Subscribed ✓') : (language === 'AR' ? 'اشتراك' : 'Subscribe')}
+                  {newsButton}
                 </button>
               </form>
             </div>
+            ) : null}
 
             {/* Consumer Hotline Block (Screenshot 5) */}
             <div className="pt-2 space-y-1.5 text-xs">
@@ -180,11 +252,12 @@ export const Footer: React.FC = () => {
                 <span>{language === 'AR' ? 'خدمة العملاء والرقم المجاني' : 'Consumer hotline'}</span>
               </div>
               <div className="text-white font-mono font-bold text-sm">
-                {storeDisplayPhone} <span className="text-neutral-300 text-xs font-sans font-normal ml-1">Sunday – Saturday, 9:00am–9:00pm</span>
+                {storeDisplayPhone} <span className="text-neutral-300 text-xs font-sans font-normal ms-1">{contactHours}</span>
               </div>
               <div className="text-neutral-300 font-mono text-xs">
                 {storeDisplayEmail}
               </div>
+              {contactAddress ? <div className="text-neutral-300 text-xs">{contactAddress}</div> : null}
             </div>
 
             {/* Official KSA VAT & Commercial Registration Numbers (Screenshot 5) */}
@@ -197,7 +270,8 @@ export const Footer: React.FC = () => {
               </div>
             </div>
 
-            {/* Social Icons Row (Screenshot 5) */}
+            {/* Social Icons Row — C-FOOT showSocial */}
+            {showSocial ? (
             <div className="flex items-center gap-3 pt-2">
               <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="w-8 h-8 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white flex items-center justify-center transition-colors">
                 <Facebook className="w-4 h-4" />
@@ -215,87 +289,52 @@ export const Footer: React.FC = () => {
                 <span className="font-bold text-xs">♪</span>
               </a>
             </div>
+            ) : null}
+            {footerCfg?.showPaymentIcons && paymentLabel ? (
+              <p className="text-[11px] text-neutral-300 pt-1">{paymentLabel}</p>
+            ) : null}
           </div>
 
-          {/* Right Columns: Multi-Column Category & Support Grid (7 cols) */}
-          <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-8 text-[11px] text-neutral-300">
-            {/* Col 1: About */}
-            <div className="space-y-3">
-              <h4 className="text-white font-bold text-xs tracking-wide uppercase">
-                {language === 'AR' ? `عن ${storeDisplayName}` : `About ${storeDisplayName}`}
-              </h4>
-              <ul className="space-y-2.5">
-                <li><button onClick={() => navigateTo('about')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'قصة العلامة التجارية' : 'Brand Story'}</button></li>
-                <li><button onClick={() => navigateTo('reviews')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'مدونة القهوة' : 'Blog'}</button></li>
-                <li><button onClick={() => navigateTo('home')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'الأخبار والفعاليات' : 'News'}</button></li>
-                <li><button onClick={() => navigateTo('about')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'الاستدامة والبيئة' : 'HiBrew ESG'}</button></li>
-                <li><button onClick={() => navigateTo('locator')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'الفروع ومعارض البيع' : 'Retail Stores'}</button></li>
-              </ul>
-            </div>
-
-            {/* Col 2: Products */}
-            <div className="space-y-3">
-              <h4 className="text-white font-bold text-xs tracking-wide uppercase">
-                {language === 'AR' ? 'المنتجات' : 'Products'}
-              </h4>
-              <ul className="space-y-2.5">
-                <li><button onClick={() => navigateTo('product-buy', 'hb-h10a-dualboiler')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'ماكينة بارستا برو H7A' : 'Barista Pro H7A'}</button></li>
-                <li><button onClick={() => navigateTo('product-buy', 'hb-mill-g5-pro')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'مطحنة G5 تيتانيوم' : 'Titanium Mill G5'}</button></li>
-                <li><button onClick={() => navigateTo('product-buy', 'hb-h4a-portable-travel')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'ماكينة السفر المحمولة' : 'Portable Espresso'}</button></li>
-                <li><button onClick={() => navigateTo('product-buy', 'hb-luxury-corner-station')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'دواليب وأركان القهوة' : 'Coffee Cabinets'}</button></li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const msg = isAr
-                        ? 'السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم'
-                        : 'Hello, I would like to inquire about placing a custom coffee corner order.';
-                      window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-                    }}
-                    className="hover:text-amber-400 font-semibold transition-colors cursor-pointer text-amber-300 inline-flex items-center gap-1.5 text-start whitespace-nowrap"
-                    title={isAr ? 'تواصل عبر واتساب لطلب تفصيل ركن قهوة' : 'Inquire via WhatsApp for Custom Coffee Corner'}
-                  >
-                    <MessageCircle className="w-3.5 h-3.5 fill-[#25D366] text-[#25D366] shrink-0" />
-                    <span>{isAr ? 'تفصيل ركن قهوة' : 'Custom Coffee Corner'}</span>
-                  </button>
-                </li>
-                <li><button onClick={() => navigateTo('products')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'مستلزمات باريستا' : 'Pro Accessories'}</button></li>
-                <li><button onClick={() => navigateTo('products')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'عرض كافة المنتجات' : 'More Products'}</button></li>
-              </ul>
-            </div>
-
-            {/* Col 3: Shop */}
-            <div className="space-y-3">
-              <h4 className="text-white font-bold text-xs tracking-wide uppercase">
-                {language === 'AR' ? 'المتجر' : 'Shop'}
-              </h4>
-              <ul className="space-y-2.5">
-                <li><button onClick={() => navigateTo('products')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'العروض الخاصة' : 'Offers'}</button></li>
-                <li><button onClick={() => navigateTo('contact')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'طلبات الشركات والجملة' : 'Commercial Orders'}</button></li>
-                <li><button onClick={() => navigateTo('product-detail', 'hb-h10a-dualboiler')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'دليل الشراء واختيار الماكينة' : 'Buying Guide'}</button></li>
-                <li><button onClick={() => navigateTo('faq')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'الأسئلة الشائعة' : 'FAQ'}</button></li>
-                <li><button onClick={() => navigateTo('return')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'سياسة الاستبدال والاسترجاع' : 'Return Policy'}</button></li>
-                <li><button onClick={() => navigateTo('shipping')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'سياسة الشحن والتوصيل' : 'Shipping Policy'}</button></li>
-                <li><button onClick={() => navigateTo('terms')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'شروط وأحكام الشراء' : 'Terms of Purchase'}</button></li>
-                <li><button onClick={() => navigateTo('track-order')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'تتبع الشحنات والطلبات' : 'Track Orders'}</button></li>
-              </ul>
-            </div>
-
-            {/* Col 4: Support */}
-            <div className="space-y-3">
-              <h4 className="text-white font-bold text-xs tracking-wide uppercase">
-                {language === 'AR' ? 'الدعم والخدمات' : 'Support'}
-              </h4>
-              <ul className="space-y-2.5">
-                <li><button onClick={() => navigateTo('locator')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'مراكز الصيانة المعتمدة' : 'Service Centers'}</button></li>
-                <li><button onClick={() => navigateTo('warranty')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'سياسة الضمان سنتين' : 'Warranty Policy'}</button></li>
-                <li><button onClick={() => navigateTo('warranty')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'التحقق من سريان الضمان' : 'Warranty Query'}</button></li>
-                <li><button onClick={() => navigateTo('contact')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'طلب قطع غيار أصلية' : 'Spare Parts Query'}</button></li>
-                <li><button onClick={() => navigateTo('contact')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'صيانة واستلام من الباب' : 'Doorstep Repair'}</button></li>
-                <li><button onClick={() => navigateTo('contact')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'رعاية هاي برو كير+' : 'HiBrew Care+'}</button></li>
-              </ul>
-            </div>
+          {/* Right Columns — Word C-FOOT from theme settings */}
+          {showFooterColumns ? (
+          <div className={`lg:col-span-7 grid gap-8 text-[11px] text-neutral-300 ${
+            footerColumns.length <= 2 ? 'grid-cols-2' : footerColumns.length === 3 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'
+          }`}>
+            {footerColumns.length > 0 ? (
+              footerColumns.map((col) => (
+                <div key={col.id} className="space-y-3">
+                  <h4 className="text-white font-bold text-xs tracking-wide uppercase">
+                    {bi(language, col.titleEn, col.titleAr)}
+                  </h4>
+                  {footerCfg?.aboutEn || footerCfg?.aboutAr ? (
+                    col.id === footerColumns[0]?.id ? (
+                      <p className="text-neutral-400 text-[11px] leading-relaxed">
+                        {bi(language, footerCfg.aboutEn, footerCfg.aboutAr)}
+                      </p>
+                    ) : null
+                  ) : null}
+                  <ul className="space-y-2.5">
+                    {(col.links || []).map((link) => (
+                      <li key={link.id}>
+                        <button
+                          type="button"
+                          onClick={() => goFooterLink(link.url)}
+                          className="hover:text-white transition-colors cursor-pointer text-start"
+                        >
+                          {bi(language, link.labelEn, link.labelAr)}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full text-neutral-500 text-xs">
+                {isAr ? 'لا أعمدة تذييل بعد — أضفها من تخصيص الثيم' : 'No footer columns yet — add them in Customize Themes'}
+              </div>
+            )}
           </div>
+          ) : null}
         </div>
 
         {/* 3. Bottom Legal & Country Selector Strip (Screenshot 5) */}
@@ -307,7 +346,7 @@ export const Footer: React.FC = () => {
             <button onClick={() => navigateTo('privacy')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'سياسة الخصوصية' : 'Privacy Statement'}</button>
             <span className="text-neutral-600">|</span>
             <a href="/sitemap.xml" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors cursor-pointer">
-              {language === 'AR' ? 'خريطة الموقع (Sitemap)' : 'Sitemap'}
+              {language === 'AR' ? 'خريطة الموقع' : 'Sitemap'}
             </a>
             <span className="text-neutral-600">|</span>
             <button onClick={() => navigateTo('privacy')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'ملفات تعريف الارتباط' : 'Cookie Policy'}</button>
@@ -324,7 +363,12 @@ export const Footer: React.FC = () => {
             </button>
 
             <span className="text-neutral-300">
-              Copyright © {storeDisplayName} 2017-{new Date().getFullYear()}. All rights reserved.
+              {bi(
+                language,
+                footerCfg?.copyrightEn,
+                footerCfg?.copyrightAr,
+                `Copyright © ${storeDisplayName} 2017-${new Date().getFullYear()}. All rights reserved.`,
+              )}
             </span>
           </div>
         </div>

@@ -249,13 +249,25 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
     } catch {}
     return currentThemeId;
   });
+  const [builderInitialPage, setBuilderInitialPage] = useState<string | undefined>(() => {
+    try {
+      if (typeof window === 'undefined') return undefined;
+      return (
+        new URLSearchParams(window.location.search).get('builderPage') ||
+        sessionStorage.getItem('unityteck_visual_builder_page') ||
+        undefined
+      );
+    } catch {
+      return undefined;
+    }
+  });
 
   // Keep builder theme dynamic when active store changes
   useEffect(() => {
     setBuilderThemeId(currentThemeId);
   }, [currentThemeId, activeStore.id]);
 
-  const openVisualBuilder = (targetThemeId?: string) => {
+  const openVisualBuilder = (targetThemeId?: string, builderPage?: string) => {
     preloadVisualThemeBuilder();
     const cleanTarget =
       typeof targetThemeId === 'string' &&
@@ -267,6 +279,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
         : undefined;
 
     const tid = cleanTarget || currentThemeId;
+    if (builderPage) setBuilderInitialPage(builderPage);
     if (onCustomizeTheme) {
       onCustomizeTheme(tid);
       return;
@@ -280,14 +293,32 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
         sessionStorage.setItem(`unityteck_visual_builder_theme_${activeStore.id}`, tid);
         sessionStorage.setItem('unityteck_visual_builder_theme', tid);
       }
+      if (builderPage) sessionStorage.setItem('unityteck_visual_builder_page', builderPage);
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
         url.searchParams.set('builder', '1');
         if (tid) url.searchParams.set('themeId', tid);
+        if (builderPage) url.searchParams.set('builderPage', builderPage);
         window.history.replaceState({}, '', url.toString());
       }
     } catch {}
   };
+
+  useEffect(() => {
+    const openFromSidebar = (e: Event) => {
+      const detail = (e as CustomEvent<{ page?: string }>).detail;
+      const page = detail?.page;
+      setActiveTab('theme-settings');
+      openVisualBuilder(undefined, page);
+    };
+    const goThemeSettings = () => setActiveTab('theme-settings');
+    window.addEventListener('unityteck-open-visual-builder', openFromSidebar as EventListener);
+    window.addEventListener('unityteck-open-theme-settings', goThemeSettings);
+    return () => {
+      window.removeEventListener('unityteck-open-visual-builder', openFromSidebar as EventListener);
+      window.removeEventListener('unityteck-open-theme-settings', goThemeSettings);
+    };
+  }, [currentThemeId, onCustomizeTheme, activeStore.id]);
 
   const closeVisualBuilder = () => {
     setIsVisualBuilderOpen(false);
@@ -364,7 +395,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
     // Determine target theme (coffee, makkah royal for seasonal, default for basic)
     const targetThemeId =
       template.category === 'Coffee'
-        ? 'theme-coffee'
+        ? 'theme-coffee-artisan'
         : template.category === 'Default'
         ? DEFAULT_COMMERCE_THEME_ID
         : 'theme-makkah-royal';
@@ -593,6 +624,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
         <ThemeSettingsMaster
           onOpenStorefront={onOpenStorefront}
           onOpenThemeCustomizer={onOpenThemeCustomizer}
+          onOpenPageBuilder={() => openVisualBuilder()}
         />
       )}
 
@@ -1193,6 +1225,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
           <VisualThemeBuilder
             isOpen={isVisualBuilderOpen}
             themeId={builderThemeId}
+            initialPage={builderInitialPage as any}
             onClose={closeVisualBuilder}
             onPublishSuccess={() => {
               closeVisualBuilder();

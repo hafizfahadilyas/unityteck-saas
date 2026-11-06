@@ -1,12 +1,25 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useMemo, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
-import { readAllThemeSettings } from '../../settings/themeSettingsStore';
+import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
+import { bi, coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
+import {
+  customLinkButton,
+  customLinkCategory,
+  customLinkSubtitle,
+  customLinkTitle,
+} from '../../settings/themeSettingsStore';
 import { PRODUCTS, CATEGORIES, HONOR_EVENTS } from '../data/products';
 import { HeroSlider3D } from './HeroSlider3D';
-import { FlagshipThreeJsSection, HonorAiSparkle } from './FlagshipThreeJsSection';
 import { InteractiveBannerCard } from './InteractiveBannerCard';
-import { ChevronRight, ChevronLeft, Sparkles, Truck, RotateCcw, ShieldCheck, Headphones, Palette, MessageCircle } from 'lucide-react';
+import { CoffeeHomeModules } from './CoffeeHomeModules';
+import { CoffeeFeatureIconsBar, featureItemsForDevice } from './CoffeeFeatureIconsBar';
+import { ExclusivePerksBar } from './ExclusivePerksBar';
+import { ChevronRight, ChevronLeft, Sparkles, Truck, RotateCcw, ShieldCheck, Headphones, MessageCircle } from 'lucide-react';
+
+const FlagshipThreeJsSection = lazy(() =>
+  import('./FlagshipThreeJsSection').then((m) => ({ default: m.FlagshipThreeJsSection })),
+);
 
 // Authentic, high-resolution original coffee category images
 import flagshipFullMachine from '../assets/images/hibrew_flagship_full_machine.jpg';
@@ -134,21 +147,106 @@ export const HomePage: React.FC = () => {
 
   const themeSettings = useMemo(() => {
     try {
-      return readAllThemeSettings(activeStore?.id, activeStore);
+      if (!activeStore?.id) return null;
+      return resolveCoffeeThemeSettings(activeStore.id, activeStore);
     } catch {
       return null;
     }
   }, [activeStore, settingsVersion]);
 
+  /** C-FCP categories drive the home rail when present; else C-FP tabs; else catalog CATEGORIES. */
+  const homeCategoryTabs = useMemo(() => {
+    const fcp = themeSettings?.featuredCategoriesProducts;
+    const fcpSection = fcp?.enabled !== false
+      ? (fcp?.sections || []).find((s) => s.enabled !== false)
+      : undefined;
+    const fcpCats = (fcpSection?.categories || []).filter((c) => c.enabled !== false);
+    if (fcpCats.length > 0) {
+      return [
+        { id: 'all', name: 'All Products', nameAr: 'جميع المنتجات' },
+        ...fcpCats.map((c) => ({
+          id: c.categoryId || c.id,
+          name: c.labelEn,
+          nameAr: c.labelAr,
+        })),
+      ];
+    }
+    const fp = themeSettings?.featuredProducts;
+    const fpTabs = fp?.enabled !== false
+      ? (fp?.tabs || []).filter((t) => t.enabled !== false)
+      : [];
+    if (fpTabs.length > 0) {
+      return fpTabs.map((t) => ({
+        id: t.categoryId || t.id,
+        name: t.labelEn,
+        nameAr: t.labelAr,
+      }));
+    }
+    return CATEGORIES.map((c) => ({ id: c.id, name: c.name, nameAr: c.nameAr || c.name }));
+  }, [themeSettings]);
+
+  const homeRailTitle = useMemo(() => {
+    const fcp = themeSettings?.featuredCategoriesProducts;
+    const fcpSection = fcp?.enabled !== false
+      ? (fcp?.sections || []).find((s) => s.enabled !== false)
+      : undefined;
+    if (fcpSection && (fcpSection.titleEn || fcpSection.titleAr)) {
+      return bi(language, fcpSection.titleEn, fcpSection.titleAr);
+    }
+    const fp = themeSettings?.featuredProducts;
+    if (fp?.enabled !== false && (fp?.titleEn || fp?.titleAr)) {
+      return bi(language, fp.titleEn, fp.titleAr);
+    }
+    return language === 'AR' ? 'جميع المنتجات' : 'All Products';
+  }, [themeSettings, language]);
+
+  /** C-FCP / C-FP display flags — hide rail when both Word sections are off. */
+  const homeRailFlags = useMemo(() => {
+    const fcp = themeSettings?.featuredCategoriesProducts;
+    const fp = themeSettings?.featuredProducts;
+    const fcpOn = fcp?.enabled !== false;
+    const fpOn = fp?.enabled !== false;
+    const fcpSection = fcpOn ? (fcp?.sections || []).find((s) => s.enabled !== false) : undefined;
+    const fcpHasCats = (fcpSection?.categories || []).some((c) => c.enabled !== false);
+    const sectionEnabled = fcpHasCats ? fcpOn : fpOn || fcpOn;
+    return {
+      sectionEnabled,
+      showPrice: fcpHasCats
+        ? fcpSection?.showPrice !== false
+        : fp?.showPrice !== false,
+      showRating: fcpHasCats
+        ? fcpSection?.showRating !== false
+        : fp?.showRating !== false,
+      highlightFirst: fp?.highlightFirst !== false,
+      description: fcpHasCats
+        ? bi(language, fcpSection?.descriptionEn, fcpSection?.descriptionAr)
+        : bi(language, fp?.descriptionEn, fp?.descriptionAr),
+    };
+  }, [themeSettings, language]);
+
+  useEffect(() => {
+    if (!homeCategoryTabs.some((t) => t.id === activeCategoryTab) && homeCategoryTabs[0]) {
+      setActiveCategoryTab(homeCategoryTabs[0].id);
+    }
+  }, [homeCategoryTabs, activeCategoryTab]);
+
   // Dynamic products for selected category
   const filteredCategoryProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
-    if (activeCategoryTab === 'all') return products;
-    return products.filter((p) => {
-      const cat = (p.category || '').toLowerCase();
-      const tab = activeCategoryTab.toLowerCase();
-      return cat === tab || cat.includes(tab) || ((p as any).tags && (p as any).tags.some((t: string) => t.toLowerCase().includes(tab)));
-    });
+    const list =
+      activeCategoryTab === 'all'
+        ? products
+        : products.filter((p) => {
+            const cat = (p.category || '').toLowerCase();
+            const tab = activeCategoryTab.toLowerCase();
+            return (
+              cat === tab ||
+              cat.includes(tab) ||
+              tab.includes(cat) ||
+              ((p as any).tags && (p as any).tags.some((t: string) => t.toLowerCase().includes(tab)))
+            );
+          });
+    return list;
   }, [products, activeCategoryTab]);
 
   const defaultShowcase = CATEGORY_SHOWCASE_MAP[activeCategoryTab] || CATEGORY_SHOWCASE_MAP.all;
@@ -167,7 +265,7 @@ export const HomePage: React.FC = () => {
           price: first.basePrice,
           originalPrice: first.originalPrice,
         },
-        companionIds: filteredCategoryProducts.slice(1, 5).map(p => p.id),
+        companionIds: filteredCategoryProducts.slice(1).map(p => p.id),
       };
     }
     return defaultShowcase;
@@ -175,10 +273,10 @@ export const HomePage: React.FC = () => {
 
   const companionProducts = useMemo(() => {
     if (filteredCategoryProducts.length > 1) {
-      return filteredCategoryProducts.slice(1, 5);
+      return filteredCategoryProducts.slice(1);
     }
     return currentShowcase.companionIds
-      .map(id => (products && products.length > 0 ? products : PRODUCTS).find(p => p.id === id))
+      .map(id => (products && products.length > 0 ? products.find(p => p.id === id) : undefined))
       .filter(Boolean) as typeof PRODUCTS;
   }, [filteredCategoryProducts, currentShowcase, products]);
 
@@ -263,26 +361,36 @@ export const HomePage: React.FC = () => {
       {/* 1. Fast & Smooth Hero Slider (Honor KV Carousel Style) */}
       <HeroSlider3D variant="home" />
 
-      {/* 2. Key Products Showcase: 3 Large Banners with Equal-Size Images and Scroll Motion (Honor Magic 8 Pro Style) */}
-      <FlagshipThreeJsSection />
+      {/* 2. Key Products Showcase — lazy so customizer/home first paint stays light */}
+      <Suspense fallback={<div className="w-full min-h-[240px] bg-[#F9F9F9]" aria-hidden />}>
+        <div data-customize-section="C-FSB">
+          <FlagshipThreeJsSection />
+        </div>
+      </Suspense>
 
-      {/* 3. Honor-Style "All Products" Equipment Showcase with Responsive Filter Tabs */}
-      <section id="all-equipment-section" className="w-full bg-[#F9F9F9] py-12 sm:py-16 lg:py-20 overflow-hidden">
+      {/* 3. Honor-Style equipment rail — C-FCP / C-FP from theme settings */}
+      {homeRailFlags.sectionEnabled ? (
+      <section id="all-equipment-section" data-customize-section="C-FP C-FCP" className="w-full bg-[#F9F9F9] py-12 sm:py-16 lg:py-20 overflow-hidden">
         <div className="w-full max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8">
           <div className="text-center max-w-[1360px] mx-auto mb-8 sm:mb-10">
             <h2 className={`text-3xl sm:text-4xl lg:text-[40px] font-bold text-black text-center ${
               language === 'AR' ? 'leading-[1.38] tracking-normal' : 'leading-tight tracking-[-0.01em]'
             }`}>
-              {language === 'AR' ? 'جميع المنتجات' : 'All Products'}
+              {homeRailTitle}
             </h2>
+            {homeRailFlags.description ? (
+              <p className="text-xs sm:text-sm text-neutral-500 mt-2 max-w-2xl mx-auto">
+                {homeRailFlags.description}
+              </p>
+            ) : null}
 
-            {/* Single Row Category Switcher Bar (Exact Honor Reference - Never Multi-Line Wrapping) */}
+            {/* Single Row Category Switcher Bar — C-FCP / C-FP tabs from theme settings */}
             <div className="relative w-full max-w-[1280px] mx-auto mt-6 sm:mt-7 flex items-center justify-center gap-3 sm:gap-5 lg:gap-6 px-2 sm:px-4">
               {/* Optional Scroll Left Button */}
               <button
                 type="button"
                 onClick={() => scrollTabs(language === 'AR' ? 'right' : 'left')}
-                aria-label="Scroll Left"
+                aria-label={language === 'AR' ? 'تمرير لليسار' : 'Scroll Left'}
                 className="hidden sm:flex items-center justify-center w-9 h-9 rounded-full bg-white hover:bg-neutral-50 text-neutral-600 hover:text-black border border-neutral-200/70 shadow-sm shrink-0 cursor-pointer transition-all active:scale-95 z-10"
               >
                 <ChevronLeft className={`w-4 h-4 ${language === 'AR' ? 'rotate-180' : ''}`} />
@@ -292,7 +400,7 @@ export const HomePage: React.FC = () => {
                 ref={tabsContainerRef}
                 className="flex items-center justify-start gap-2 sm:gap-3 lg:gap-4 overflow-x-auto no-scrollbar scroll-smooth py-2 px-3 sm:px-4 whitespace-nowrap max-w-full min-w-0"
               >
-                {CATEGORIES.map(cat => (
+                {homeCategoryTabs.map(cat => (
                   <button
                     key={cat.id}
                     onClick={() => setActiveCategoryTab(cat.id)}
@@ -311,7 +419,7 @@ export const HomePage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => scrollTabs(language === 'AR' ? 'left' : 'right')}
-                aria-label="Scroll Right"
+                aria-label={language === 'AR' ? 'تمرير لليمين' : 'Scroll Right'}
                 className="hidden sm:flex items-center justify-center w-9 h-9 rounded-full bg-white hover:bg-neutral-50 text-neutral-600 hover:text-black border border-neutral-200/70 shadow-sm shrink-0 cursor-pointer transition-all active:scale-95 z-10"
               >
                 <ChevronRight className={`w-4 h-4 ${language === 'AR' ? 'rotate-180' : ''}`} />
@@ -320,9 +428,9 @@ export const HomePage: React.FC = () => {
           </div>
 
           {/* Desktop Layout: Unified Honor Architecture 1+4 Layout */}
-          <div className="hidden lg:grid lg:grid-cols-12 gap-5 sm:gap-6 items-stretch w-full max-w-full">
+          <div className="hidden lg:grid lg:grid-cols-12 gap-5 sm:gap-6 items-start w-full max-w-full">
             {/* Left Large Featured Card (Full width & height image with bottom gradient shade, Honor-style) */}
-            <div className="lg:col-span-6 bg-white rounded-[28px] sm:rounded-[32px] relative overflow-hidden flex flex-col justify-end transition-all duration-300 text-center w-full min-h-[500px] sm:min-h-[560px] lg:min-h-full border-0 shadow-none hover:shadow-none group">
+            <div className="lg:col-span-6 lg:sticky lg:top-24 bg-white rounded-[28px] sm:rounded-[32px] relative overflow-hidden flex flex-col justify-end transition-all duration-300 text-center w-full min-h-[500px] sm:min-h-[560px] lg:h-[640px] border-0 shadow-none hover:shadow-none group">
               {/* Full Width & Height Background Image */}
               <div
                 onClick={() => navigateTo('product-detail', currentShowcase.featured.productId)}
@@ -356,7 +464,8 @@ export const HomePage: React.FC = () => {
                   </span>
                 </p>
 
-                {/* Price: Clean Sans-Serif (Matching Honor SAR 1,899.00) */}
+                {/* Price — C-FCP / C-FP showPrice */}
+                {homeRailFlags.showPrice ? (
                 <div className="flex items-baseline justify-center gap-2 pt-2 pb-1 font-sans">
                   <span className="text-[15px] sm:text-base font-bold text-neutral-900">
                     {language === 'AR' ? `${currentShowcase.featured.price.toLocaleString()}.00 ر.س` : `SAR ${currentShowcase.featured.price.toLocaleString()}.00`}
@@ -367,6 +476,7 @@ export const HomePage: React.FC = () => {
                     </span>
                   )}
                 </div>
+                ) : null}
 
                 {/* Buttons (Honor style: solid black pill Buy + Learn More text link) */}
                 <div className="flex items-center justify-center gap-6 pt-3">
@@ -424,12 +534,13 @@ export const HomePage: React.FC = () => {
                       {language === 'AR' && prod.taglineAr ? prod.taglineAr : prod.tagline}
                     </p>
 
-                    {/* Price: Exactly Honor Reference - SAR X,XXX.00 in font-bold sans-serif */}
+                    {homeRailFlags.showPrice ? (
                     <div className="pt-2 font-sans text-center flex items-baseline justify-center gap-1">
                       <span className="text-[14px] sm:text-[15px] font-bold text-neutral-900">
                         {language === 'AR' ? `${prod.basePrice.toLocaleString()}.00 ر.س` : `SAR ${prod.basePrice.toLocaleString()}.00`}
                       </span>
                     </div>
+                    ) : null}
                   </div>
 
                   {/* Clean Links: Exactly Honor Reference - Buy >    Learn More > */}
@@ -468,7 +579,7 @@ export const HomePage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => (language === 'AR' ? nextMobileSlide() : prevMobileSlide())}
-                  aria-label="Previous product"
+                  aria-label={language === 'AR' ? 'المنتج السابق' : 'Previous product'}
                   className="w-8 h-8 rounded-full bg-white text-neutral-800 hover:text-black border border-neutral-200/80 shadow-2xs flex items-center justify-center transition-transform active:scale-90 cursor-pointer"
                 >
                   <ChevronLeft className={`w-4 h-4 ${language === 'AR' ? 'rotate-180' : ''}`} />
@@ -476,7 +587,7 @@ export const HomePage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => (language === 'AR' ? prevMobileSlide() : nextMobileSlide())}
-                  aria-label="Next product"
+                  aria-label={language === 'AR' ? 'المنتج التالي' : 'Next product'}
                   className="w-8 h-8 rounded-full bg-white text-neutral-800 hover:text-black border border-neutral-200/80 shadow-2xs flex items-center justify-center transition-transform active:scale-90 cursor-pointer"
                 >
                   <ChevronRight className={`w-4 h-4 ${language === 'AR' ? 'rotate-180' : ''}`} />
@@ -535,6 +646,7 @@ export const HomePage: React.FC = () => {
                     {language === 'AR' ? currentShowcase.featured.taglineAr : currentShowcase.featured.taglineEn}
                   </p>
 
+                  {homeRailFlags.showPrice ? (
                   <div className="flex items-baseline justify-center gap-2 pt-2 pb-1 font-sans">
                     <span className="text-base font-bold text-neutral-900">
                       {language === 'AR' ? `${currentShowcase.featured.price.toLocaleString()}.00 ر.س` : `SAR ${currentShowcase.featured.price.toLocaleString()}.00`}
@@ -545,6 +657,7 @@ export const HomePage: React.FC = () => {
                       </span>
                     )}
                   </div>
+                  ) : null}
 
                   <div className="flex items-center justify-center gap-5 pt-3 pointer-events-auto">
                     <button
@@ -614,12 +727,13 @@ export const HomePage: React.FC = () => {
                       {language === 'AR' && prod.taglineAr ? prod.taglineAr : prod.tagline}
                     </p>
 
-                    {/* Price */}
+                    {homeRailFlags.showPrice ? (
                     <div className="pt-2 font-sans text-center flex items-baseline justify-center gap-1">
                       <span className="text-base font-bold text-neutral-900">
                         {language === 'AR' ? `${prod.basePrice.toLocaleString()}.00 ر.س` : `SAR ${prod.basePrice.toLocaleString()}.00`}
                       </span>
                     </div>
+                    ) : null}
                   </div>
 
                   {/* Clean Links */}
@@ -694,9 +808,16 @@ export const HomePage: React.FC = () => {
           </div>
         </div>
       </section>
+      ) : null}
+
+      {/* Theme Settings modules (C-IMG / C-PC / C-BAN / C-PCB) — same look, editable via Customize Themes */}
+      <CoffeeHomeModules settings={themeSettings} />
+
+      {/* Exclusive benefits (C-BEN) */}
+      {themeSettings?.exclusiveBenefits?.enabled !== false && <ExclusivePerksBar />}
 
       {/* 5. Honor-Style Events & Masterclasses Section */}
-      <section className="w-full max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-8 sm:py-16 space-y-6 sm:space-y-8 select-none overflow-hidden">
+      <section data-customize-section="C-NEWS" className="w-full max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-8 sm:py-16 space-y-6 sm:space-y-8 select-none overflow-hidden">
         <div className="text-center max-w-3xl mx-auto py-2 sm:py-4 space-y-3">
           <span className="inline-block text-xs font-bold text-neutral-600 uppercase tracking-widest bg-neutral-100 px-4 py-1.5 rounded-full">
             {language === 'AR' ? 'ورش العمل والمجتمع' : 'Masterclasses & Community'}
@@ -731,36 +852,60 @@ export const HomePage: React.FC = () => {
             <div className="space-y-4 sm:space-y-6 w-full max-w-full">
               {/* Main Full-Width Featured Event Banner */}
               <InteractiveBannerCard
-                title={link0?.title || (language === 'AR' && HONOR_EVENTS[0].titleAr ? HONOR_EVENTS[0].titleAr : HONOR_EVENTS[0].title)}
-                subtitle={link0?.subtitle || (language === 'AR' && HONOR_EVENTS[0].subtitleAr ? HONOR_EVENTS[0].subtitleAr : HONOR_EVENTS[0].subtitle)}
+                title={customLinkTitle(
+                  link0,
+                  language,
+                  language === 'AR' ? HONOR_EVENTS[0].titleAr || HONOR_EVENTS[0].title : HONOR_EVENTS[0].title,
+                )}
+                subtitle={customLinkSubtitle(
+                  link0,
+                  language,
+                  language === 'AR' ? HONOR_EVENTS[0].subtitleAr || HONOR_EVENTS[0].subtitle : HONOR_EVENTS[0].subtitle,
+                )}
                 image={resolveLinkImage(link0?.image, HONOR_EVENTS[0].image)}
                 videoUrl="https://assets.mixkit.co/videos/preview/mixkit-coffee-being-poured-into-a-cup-from-a-coffee-machine-42861-large.mp4"
                 size="large"
-                badge={link0?.category || (language === 'AR' ? 'ورشة الرياض ٢٠٢٦' : 'Riyadh Masterclass 2026')}
+                badge={customLinkCategory(link0, language, language === 'AR' ? 'ورشة الرياض ٢٠٢٦' : 'Riyadh Masterclass 2026')}
                 onClick={() => navigateTo('products')}
-                ctaText={link0?.buttonText || (language === 'AR' ? 'حجز المقعد واستكشاف الورشة' : 'Reserve & Learn More')}
+                ctaText={customLinkButton(link0, language, language === 'AR' ? 'حجز المقعد واستكشاف الورشة' : 'Reserve & Learn More')}
               />
 
               {/* 2 Companion Half-Width Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 w-full">
                 <InteractiveBannerCard
-                  title={link1?.title || (language === 'AR' && HONOR_EVENTS[1].titleAr ? HONOR_EVENTS[1].titleAr : HONOR_EVENTS[1].title)}
-                  subtitle={link1?.subtitle || (language === 'AR' && HONOR_EVENTS[1].subtitleAr ? HONOR_EVENTS[1].subtitleAr : HONOR_EVENTS[1].subtitle)}
+                  title={customLinkTitle(
+                    link1,
+                    language,
+                    language === 'AR' ? HONOR_EVENTS[1].titleAr || HONOR_EVENTS[1].title : HONOR_EVENTS[1].title,
+                  )}
+                  subtitle={customLinkSubtitle(
+                    link1,
+                    language,
+                    language === 'AR' ? HONOR_EVENTS[1].subtitleAr || HONOR_EVENTS[1].subtitle : HONOR_EVENTS[1].subtitle,
+                  )}
                   image={resolveLinkImage(link1?.image, HONOR_EVENTS[1].image)}
                   size="half"
-                  badge={link1?.category || (language === 'AR' ? 'استعراض الاستخلاص' : 'Extraction Demo')}
+                  badge={customLinkCategory(link1, language, language === 'AR' ? 'استعراض الاستخلاص' : 'Extraction Demo')}
                   onClick={() => navigateTo('products')}
-                  ctaText={link1?.buttonText || (language === 'AR' ? 'تفاصيل الورشة' : 'Learn More')}
+                  ctaText={customLinkButton(link1, language, language === 'AR' ? 'تفاصيل الورشة' : 'Learn More')}
                 />
 
                 <InteractiveBannerCard
-                  title={link2?.title || (language === 'AR' && HONOR_EVENTS[2].titleAr ? HONOR_EVENTS[2].titleAr : HONOR_EVENTS[2].title)}
-                  subtitle={link2?.subtitle || (language === 'AR' && HONOR_EVENTS[2].subtitleAr ? HONOR_EVENTS[2].subtitleAr : HONOR_EVENTS[2].subtitle)}
+                  title={customLinkTitle(
+                    link2,
+                    language,
+                    language === 'AR' ? HONOR_EVENTS[2].titleAr || HONOR_EVENTS[2].title : HONOR_EVENTS[2].title,
+                  )}
+                  subtitle={customLinkSubtitle(
+                    link2,
+                    language,
+                    language === 'AR' ? HONOR_EVENTS[2].subtitleAr || HONOR_EVENTS[2].subtitle : HONOR_EVENTS[2].subtitle,
+                  )}
                   image={resolveLinkImage(link2?.image, HONOR_EVENTS[2].image)}
                   size="half"
-                  badge={link2?.category || (language === 'AR' ? 'شراكات المحامص' : 'Roastery Partners')}
+                  badge={customLinkCategory(link2, language, language === 'AR' ? 'شراكات المحامص' : 'Roastery Partners')}
                   onClick={() => navigateTo('products')}
-                  ctaText={link2?.buttonText || (language === 'AR' ? 'تفاصيل المعرض' : 'Explore Event')}
+                  ctaText={customLinkButton(link2, language, language === 'AR' ? 'تفاصيل المعرض' : 'Explore Event')}
                 />
               </div>
             </div>
@@ -768,7 +913,21 @@ export const HomePage: React.FC = () => {
         })()}
       </section>
 
-      {/* 6. Honor Official Store Trust Bar (Clean Light Theme) */}
+      {/* 6. Feature icons (C-ICON) — Theme Settings driven; fallback keeps storefront look */}
+      {featureItemsForDevice(themeSettings?.enhancedFeatures, 'responsive').length > 0 ? (
+        <CoffeeFeatureIconsBar
+          settings={themeSettings?.enhancedFeatures}
+          lang={language === 'AR' ? 'ar' : 'en'}
+          device="responsive"
+          phone={
+            storeIdentity?.whatsapp ||
+            (activeStore as any)?.whatsapp ||
+            storeIdentity?.phone ||
+            activeStore?.phone ||
+            ''
+          }
+        />
+      ) : (
       <section className="w-full max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-8 sm:py-10 overflow-hidden">
         <div className="rounded-3xl bg-[#F8F9FA] p-5 sm:p-8 lg:p-12 w-full">
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6 lg:gap-8 text-start">
@@ -830,15 +989,14 @@ export const HomePage: React.FC = () => {
 
             <div
               onClick={() => {
-                const rawPhone =
+                const cleanPhone = coffeeWhatsAppDigits(
                   storeIdentity?.whatsapp ||
-                  (activeStore as any)?.whatsapp ||
-                  storeIdentity?.phone ||
-                  activeStore?.phone ||
-                  '+966549876543';
-                let cleanPhone = rawPhone.replace(/\D/g, '') || '966549876543';
-                if (cleanPhone.startsWith('05')) cleanPhone = '966' + cleanPhone.substring(1);
-                else if (cleanPhone.startsWith('5') && cleanPhone.length === 9) cleanPhone = '966' + cleanPhone;
+                    (activeStore as any)?.whatsapp ||
+                    storeIdentity?.phone ||
+                    activeStore?.phone ||
+                    '',
+                );
+                if (!cleanPhone) return;
                 const msg = language === 'AR'
                   ? 'السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم'
                   : 'Hello, I would like to inquire about placing a custom coffee corner order.';
@@ -865,6 +1023,7 @@ export const HomePage: React.FC = () => {
           </div>
         </div>
       </section>
+      )}
     </div>
   );
 };

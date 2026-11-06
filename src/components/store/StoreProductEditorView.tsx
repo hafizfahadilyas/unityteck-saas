@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import type { Product, ProductVariation, ProductColorOption } from '../../types';
+import { EditorModal } from './EditorModal';
+import { ProductOptionModal, type OptionKind, type OptionValueDraft } from './ProductOptionModal';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useTenant } from '../../context/TenantContext';
 import { useToast } from '../common/ToastProvider';
@@ -8,10 +10,31 @@ import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallb
 import { optimizeImageFile } from '../../utils/mediaOptimizer';
 import { RichTextEditor, looksLikeHtml, PRODUCT_DESCRIPTION_PROSE_CLASS } from '../common/RichTextEditor';
 import { getProductDisplayCategory } from '../../utils/storeLocalization';
+import {
+  CUSTOM_FIELD_TYPES,
+  CONDITIONAL_OPERATORS,
+  customFieldIsFillable,
+  customFieldNeedsOptions,
+  getCustomFieldTypeLabel,
+  normalizeCustomFieldType,
+} from '../../utils/customFieldTypes';
+import { listAvailableProductChannels, normalizeProductSalesChannels } from '../../config/productChannels';
+import { GOOGLE_PRODUCT_TAXONOMY, isKnownGoogleTaxonomy } from '../../config/googleProductTaxonomy';
+import {
+  findDuplicateBarcodes,
+  findDuplicateOptionCombos,
+  findDuplicateSkus,
+  sumVariantStock,
+  buildGeneratedVariants,
+  optionValuesList,
+  variantPriceParts,
+} from '../../utils/productVariants';
+import { seedExistingCommerce } from '../../utils/existingProductCommerce';
 import * as tenantApi from '../../api/tenantApi';
 import { isApiEnabled } from '../../api/client';
 import {
   Eye,
+  EyeOff,
   Copy,
   ExternalLink,
   Save,
@@ -38,10 +61,8 @@ import {
   Pencil,
   SlidersHorizontal,
   Info,
-  Sliders,
   ImageIcon,
   UploadCloud,
-  RotateCw,
   Package,
 } from 'lucide-react';
 
@@ -64,9 +85,18 @@ export interface StoreProductEditorViewProps {
 export interface CustomFieldItem {
   id: string;
   name: string;
-  type?: 'Text' | 'File Upload' | 'Date' | 'Dropdown' | 'Number' | 'Time' | 'Multiple Choice' | string;
+  nameAr?: string;
+  description?: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  contentEn?: string;
+  contentAr?: string;
+  hidden?: boolean;
+  type?: string;
   required?: boolean;
   conditionalRule?: string;
+  conditions?: Array<{ fieldId: string; operator: string; value?: string }>;
+  conditionJoin?: 'AND' | 'OR';
   extraPrice?: number;
   options?: string[];
   value?: string;
@@ -75,15 +105,83 @@ export interface CustomFieldItem {
 export interface ProductOptionValueItem {
   id: string;
   label: string;
+  labelAr?: string;
   colorHex?: string;
+  imageUrl?: string;
+  videoUrl?: string;
   selected: boolean;
+  price?: number | null;
+  salePrice?: number | null;
+  stock?: number | null;
+  sku?: string;
+  weight?: number | null;
+  weightUnit?: 'kg' | 'g' | string | null;
 }
 
 export interface ProductOptionItem {
   id: string;
   name: string;
-  type: 'color' | 'select' | 'text' | string;
+  nameAr?: string;
+  type: 'color' | 'select' | 'text' | 'image' | string;
+  visible?: boolean;
   values: ProductOptionValueItem[];
+}
+
+function normalizeOptionType(
+  raw: string | undefined,
+  name: string,
+): OptionKind {
+  const t = String(raw || '').toLowerCase();
+  if (t === 'color' || t === 'image' || t === 'text' || t === 'select' || t === 'video') return t;
+  const n = name.toLowerCase();
+  if (n.includes('color') || name.includes('لون')) return 'color';
+  if (n.includes('video') || name.includes('فيديو')) return 'video';
+  if (n.includes('image') || name.includes('صور')) return 'image';
+  if (n.includes('size') || name.includes('مقاس') || name.includes('حجم')) return 'select';
+  return 'text';
+}
+
+function toDraftValue(v: ProductOptionValueItem): OptionValueDraft {
+  return {
+    id: v.id,
+    label: v.label,
+    labelAr: v.labelAr || '',
+    colorHex: v.colorHex,
+    imageUrl: v.imageUrl,
+    videoUrl: v.videoUrl,
+    selected: v.selected !== false,
+    price: v.price == null ? '' : String(v.price),
+    salePrice: v.salePrice == null ? '' : String(v.salePrice),
+    stock: v.stock == null ? '' : String(v.stock),
+    sku: v.sku || '',
+    weight: v.weight == null ? '' : String(v.weight),
+    weightUnit: v.weightUnit === 'g' ? 'g' : 'kg',
+  };
+}
+
+function fromDraftValue(v: OptionValueDraft): ProductOptionValueItem {
+  const num = (raw: string) => {
+    if (!raw.trim()) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  };
+  const ar = (v.labelAr || '').trim();
+  const en = v.label.trim();
+  return {
+    id: v.id,
+    label: en || ar,
+    labelAr: ar || undefined,
+    colorHex: v.colorHex,
+    imageUrl: v.imageUrl,
+    videoUrl: v.videoUrl,
+    selected: v.selected !== false,
+    price: num(v.price),
+    salePrice: num(v.salePrice),
+    stock: num(v.stock),
+    sku: v.sku,
+    weight: num(v.weight),
+    weightUnit: v.weightUnit,
+  };
 }
 
 export interface ConditionalRuleItem {
@@ -94,25 +192,6 @@ export interface ConditionalRuleItem {
   action: 'show' | 'hide';
   targetFieldNames: string[];
 }
-
-interface SectionConfig {
-  id: string;
-  titleKey: string;
-  titleEn: string;
-  titleAr: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
-
-const SECTIONS: SectionConfig[] = [
-  { id: 'images', titleKey: 'productImages', titleEn: 'Product Images', titleAr: 'صور المنتج', icon: ImageIcon },
-  { id: 'basic', titleKey: 'basicInformation', titleEn: 'Basic Information', titleAr: 'المعلومات الأساسية', icon: FileText },
-  { id: 'pricing', titleKey: 'pricing', titleEn: 'Pricing', titleAr: 'التسعير', icon: Tag },
-  { id: 'inventory', titleKey: 'inventoryShipping', titleEn: 'Inventory & Shipping', titleAr: 'المخزون والشحن', icon: Box },
-  { id: 'options', titleKey: 'productOptionsVariants', titleEn: 'Product Options & Variants', titleAr: 'خيارات وتنوعات المنتج', icon: Package },
-  { id: 'custom_fields', titleKey: 'customFields', titleEn: 'Custom Fields', titleAr: 'الحقول المخصصة', icon: Package },
-  { id: 'category_tags', titleKey: 'categoryAndTags', titleEn: 'Category & Tags', titleAr: 'التصنيف والوسوم', icon: Folder },
-  { id: 'seo', titleKey: 'seoSettings', titleEn: 'SEO Settings', titleAr: 'إعدادات تحسين محركات البحث (SEO)', icon: Search },
-];
 
 export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   product,
@@ -140,6 +219,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const [brand, setBrand] = useState(product.brand || availableBrands[0] || storeName);
   const [productType, setProductType] = useState(product.productType || 'Physical Product');
   const [subtitle, setSubtitle] = useState(product.subtitle || '');
+  const [googleTaxonomy, setGoogleTaxonomy] = useState(product.googleTaxonomy || '');
   const [description, setDescription] = useState(product.description || '');
   const [isFeatured, setIsFeatured] = useState(
     Boolean(
@@ -148,6 +228,18 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         (Array.isArray(product.tags) && product.tags.includes('featured')),
     ),
   );
+  const [discountStartAt, setDiscountStartAt] = useState(product.discountStartAt || '');
+  const [discountEndAt, setDiscountEndAt] = useState(product.discountEndAt || '');
+  const [badgeText, setBadgeText] = useState(product.badgeText || '');
+  const [badgeIcon, setBadgeIcon] = useState(product.badgeIcon || 'tag');
+  const [salesChannels, setSalesChannels] = useState<string[]>(() =>
+    normalizeProductSalesChannels(product.salesChannels),
+  );
+  const [optionsEnabled, setOptionsEnabled] = useState(
+    () => seedExistingCommerce(product, storeId).options.length > 0,
+  );
+  const [variantSearch, setVariantSearch] = useState('');
+  const [expandedVariantIds, setExpandedVariantIds] = useState<string[]>([]);
 
   // ── Pricing State (regular + optional sale; synced with API original_price) ──
   const [price, setPrice] = useState<number>(() => {
@@ -177,7 +269,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     return 'in_stock';
   });
   const [weightKg, setWeightKg] = useState<number>(product.weightKg ?? 0.8);
-  const [shippingClass, setShippingClass] = useState<string>(product.shippingClass || 'Standard');
 
   // Dimensions (L, W, H)
   const initialDims = useMemo(() => {
@@ -213,7 +304,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const { updateProduct } = useTenant();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
-  const [mediaPickerTarget, setMediaPickerTarget] = useState<'main' | 'gallery' | 'variant' | 'thumbnail'>('gallery');
+  const [mediaPickerTarget, setMediaPickerTarget] = useState<'main' | 'gallery' | 'variant' | 'thumbnail' | 'optionValue'>('gallery');
+  const [optionValueMediaId, setOptionValueMediaId] = useState<string | null>(null);
   const [targetThumbIndex, setTargetThumbIndex] = useState<number | null>(null);
   const [variantMediaTargetIndex, setVariantMediaTargetIndex] = useState<number | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -222,58 +314,72 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const mainFileInputRef = useRef<HTMLInputElement>(null);
   const thumbFileInputRef = useRef<HTMLInputElement>(null);
   const addFilesInputRef = useRef<HTMLInputElement>(null);
+  const variantImageInputRef = useRef<HTMLInputElement>(null);
+  const optionValueImageInputRef = useRef<HTMLInputElement>(null);
+  const [pendingVariantImageId, setPendingVariantImageId] = useState<string | null>(null);
+  const [pendingOptionImage, setPendingOptionImage] = useState<{ optionId: string; valueId: string } | null>(null);
 
   // ── Product Options State ──
   const [options, setOptions] = useState<ProductOptionItem[]>(() => {
-    if (product.productOptions && Array.isArray(product.productOptions) && product.productOptions.length > 0) {
-      return product.productOptions.map((opt) => ({
-        id: opt.id || opt.name.toLowerCase().replace(/\s+/g, '_'),
+    const seeded = seedExistingCommerce(product, storeId).options;
+    if (seeded.length > 0) {
+      return seeded.map((opt) => ({
+        id: opt.id,
         name: opt.name,
-        type: (opt.name.toLowerCase().includes('color') ? 'color' : 'select') as 'color' | 'select' | 'text',
-        values: opt.values.map((v) => {
-          const valLabel = typeof v === 'string' ? v : v.label;
-          const valId = typeof v === 'string' ? v.toLowerCase().replace(/\s+/g, '_') : v.id;
-          const valHex = typeof v === 'object' && v.colorHex ? v.colorHex : (opt.name.toLowerCase().includes('color') ? getColorHex(valLabel) : undefined);
-          return {
-            id: valId,
-            label: valLabel,
-            colorHex: valHex,
-            selected: true,
-          };
-        }),
+        nameAr: opt.nameAr,
+        type: normalizeOptionType(opt.type, opt.name),
+        visible: opt.visible !== false,
+        values: optionValuesList(opt.values).map((v) => ({
+          id: v.id,
+          label: v.label,
+          labelAr: v.labelAr,
+          colorHex: v.colorHex,
+          imageUrl: v.imageUrl,
+          videoUrl: v.videoUrl,
+          selected: v.selected !== false,
+          price: v.price ?? null,
+          salePrice: v.salePrice ?? null,
+          stock: v.stock ?? null,
+          sku: v.sku,
+          weight: v.weight ?? null,
+          weightUnit: v.weightUnit === 'g' ? 'g' : 'kg',
+        })),
       }));
     }
 
-    // Real options populated strictly from genuine product data (NO DUMMY / MOCK OPTIONS)
     const initialOpts: ProductOptionItem[] = [];
-
     if (product.colors && Array.isArray(product.colors) && product.colors.length > 0) {
       initialOpts.push({
         id: 'color',
-        name: isAr ? 'اللون' : 'Color',
+        name: 'Color',
+        nameAr: 'اللون',
         type: 'color',
         values: product.colors.map((c) => ({
           id: c.id || c.nameEn.toLowerCase().replace(/\s+/g, '_'),
-          label: isAr ? c.nameAr || c.nameEn : c.nameEn || c.nameAr,
-          colorHex: c.hex || getColorHex(c.nameEn),
+          label: c.nameEn || c.nameAr,
+          labelAr: c.nameAr,
+          colorHex: c.hex,
+          imageUrl: c.image,
           selected: true,
         })),
       });
     }
-
     if (product.storageOptions && Array.isArray(product.storageOptions) && product.storageOptions.length > 0) {
       initialOpts.push({
-        id: 'edition_kit',
-        name: isAr ? 'الباقة / الطراز' : 'Edition / Kit',
+        id: 'edition',
+        name: 'Edition',
+        nameAr: 'الإصدار',
         type: 'select',
         values: product.storageOptions.map((s, idx) => ({
-          id: `kit_${idx}`,
+          id: s.capacity ? s.capacity.toLowerCase().replace(/\s+/g, '_') : `kit_${idx}`,
           label: s.capacity,
+          labelAr: s.capacityAr,
           selected: true,
+          price: s.priceDelta ? Number(s.priceDelta) : null,
+          salePrice: s.priceDelta ? Number(s.priceDelta) : null,
         })),
       });
     }
-
     return initialOpts;
   });
 
@@ -297,8 +403,31 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
       return product.variations;
     }
-    return [];
+    const seeded = seedExistingCommerce(product, storeId).options;
+    if (seeded.length === 0) return [];
+    const regular = Number(product.price) || 0;
+    const sale = Number(product.discountedPrice) || 0;
+    const selling = sale > 0 && sale < regular ? sale : regular;
+    return buildGeneratedVariants({
+      options: seeded,
+      previous: [],
+      storeId,
+      productId: product.id,
+      baseSku: product.sku || 'SKU',
+      basePrice: selling,
+      baseCompareAt: regular > selling ? regular : null,
+      baseWeight: product.weightKg ?? null,
+      sharedStock: Number(product.stock) || 0,
+    });
   });
+  const variantQuantityTotal = useMemo(() => {
+    if (!variations.length) return 0;
+    const shared =
+      variations.every(
+        (row) => row.isActive === false || row.unlimitedStock || Number(row.stock) === Number(stock),
+      );
+    return shared ? Number(stock) || 0 : sumVariantStock(variations);
+  }, [variations, stock]);
   const [loadingVariations, setLoadingVariations] = useState(false);
   const [selectedVariationIds, setSelectedVariationIds] = useState<string[]>([]);
   const [editingVariant, setEditingVariant] = useState<ProductVariation | null>(null);
@@ -315,19 +444,13 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           setVariations(list);
         } else if (product.variations && product.variations.length > 0) {
           setVariations(product.variations);
-        } else {
-          setVariations([]);
         }
       } else if (product.variations && product.variations.length > 0) {
         setVariations(product.variations);
-      } else {
-        setVariations([]);
       }
     } catch {
       if (product.variations && product.variations.length > 0) {
         setVariations(product.variations);
-      } else {
-        setVariations([]);
       }
     } finally {
       setLoadingVariations(false);
@@ -340,6 +463,9 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
   // ── Categories & Tags State ──
   const [productCategories, setProductCategories] = useState<string[]>(() => {
+    if (Array.isArray(product.categories) && product.categories.length > 0) {
+      return product.categories;
+    }
     return product.category ? [product.category] : categories.slice(0, 1);
   });
   const [tags, setTags] = useState<string[]>(() => {
@@ -348,7 +474,10 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     }
     return [];
   });
-  const [badge, setBadge] = useState<string>(() => product.badge || '');
+  const [badge, setBadge] = useState<string>(() => {
+    if (!product.badge && !product.badgeText) return '';
+    return 'promo';
+  });
   const [newTagInput, setNewTagInput] = useState('');
 
   const QUICK_OCCASION_TAGS = [
@@ -373,27 +502,42 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
   // ── Custom Fields State (Strictly Real Product Specs / Fields - ZERO DUMMY FIELDS) ──
   const [customFields, setCustomFields] = useState<CustomFieldItem[]>(() => {
+    const mapField = (f: any, i: number): CustomFieldItem => ({
+      id: f.id || `field_${i}`,
+      name: f.name || '',
+      nameAr: f.nameAr || '',
+      description: f.description || '',
+      type: normalizeCustomFieldType(f.type),
+      required: f.required ?? false,
+      conditionalRule: f.conditionalRule || '—',
+      conditions: Array.isArray(f.conditions) ? f.conditions : [],
+      conditionJoin: f.conditionJoin === 'OR' ? 'OR' : 'AND',
+      extraPrice: f.extraPrice ?? 0,
+      options: Array.isArray(f.options) ? f.options : [],
+      imageUrl: f.imageUrl || '',
+      videoUrl: f.videoUrl || '',
+      contentEn: f.contentEn || '',
+      contentAr: f.contentAr || '',
+      hidden: !!f.hidden,
+      value: f.value || '',
+    });
     if (product.customFields && Array.isArray(product.customFields) && product.customFields.length > 0) {
-      return (product.customFields as any[]).map((f, i) => ({
-        id: f.id || `field_${i}`,
-        name: f.name || '',
-        type: f.type || 'Text',
-        required: f.required ?? false,
-        conditionalRule: f.conditionalRule || '—',
-        extraPrice: f.extraPrice ?? 0,
-        options: f.options || [],
-        value: f.value || '',
-      }));
+      return product.customFields.map(mapField);
     }
+    const seeded = seedExistingCommerce(product, storeId).fields;
+    if (seeded.length > 0) return seeded.map(mapField);
     if (product.specs && Array.isArray(product.specs) && product.specs.length > 0) {
       return product.specs.map((s, i) => ({
-        id: `spec_${i}`,
-        name: isAr ? (s.labelAr || s.label) : (s.label || s.labelAr),
-        type: 'Text',
+        id: `catalog-spec-${i}`,
+        name: s.label || s.labelAr || '',
+        nameAr: s.labelAr || '',
+        type: 'Content',
         required: false,
         conditionalRule: '—',
         extraPrice: 0,
-        value: isAr ? (s.valueAr || s.value) : (s.value || s.valueAr),
+        options: [],
+        contentEn: s.value || '',
+        contentAr: s.valueAr || s.value || '',
       }));
     }
     return [];
@@ -421,19 +565,28 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const [optionModalMode, setOptionModalMode] = useState<'add' | 'edit'>('add');
   const [editingOption, setEditingOption] = useState<ProductOptionItem | null>(null);
   const [optNameInput, setOptNameInput] = useState('');
-  const [optTypeInput, setOptTypeInput] = useState<'color' | 'select'>('select');
-  const [optValuesDraft, setOptValuesDraft] = useState<Array<{ id: string; label: string; colorHex?: string }>>([]);
-  const [optNewValueInput, setOptNewValueInput] = useState('');
-  const [optNewColorHex, setOptNewColorHex] = useState('#ef4444');
+  const [optTypeInput, setOptTypeInput] = useState<OptionKind>('text');
+  const [optValuesDraft, setOptValuesDraft] = useState<OptionValueDraft[]>([]);
 
   const [isFieldModalOpen, setIsFieldModalOpen] = useState(false);
   const [fieldModalMode, setFieldModalMode] = useState<'add' | 'edit'>('add');
   const [editingField, setEditingField] = useState<CustomFieldItem | null>(null);
   const [fldNameInput, setFldNameInput] = useState('');
-  const [fldTypeInput, setFldTypeInput] = useState<string>('Text');
+  const [fldDescriptionInput, setFldDescriptionInput] = useState('');
+  const [fldTypeInput, setFldTypeInput] = useState<string>('Short Text');
   const [fldRequiredInput, setFldRequiredInput] = useState(false);
   const [fldExtraPriceInput, setFldExtraPriceInput] = useState<number>(0);
   const [fldConditionalRuleInput, setFldConditionalRuleInput] = useState('');
+  const [fldConditionJoin, setFldConditionJoin] = useState<'AND' | 'OR'>('AND');
+  const [fldConditions, setFldConditions] = useState<
+    Array<{ fieldId: string; operator: string; value?: string }>
+  >([]);
+  const [fldOptionsInput, setFldOptionsInput] = useState<string[]>([]);
+  const [fldOptionDraft, setFldOptionDraft] = useState('');
+  const [fldImageUrl, setFldImageUrl] = useState('');
+  const [fldVideoUrl, setFldVideoUrl] = useState('');
+  const [fldContentEn, setFldContentEn] = useState('');
+  const [fldContentAr, setFldContentAr] = useState('');
 
   const [isRuleModalOpen, setIsRuleModalOpen] = useState(false);
   const [ruleOptionName, setRuleOptionName] = useState(conditionalRule?.optionName || (options[0]?.name ?? ''));
@@ -599,6 +752,12 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         setVariations(copy);
       }
       setVariantMediaTargetIndex(null);
+    } else if (mediaPickerTarget === 'optionValue' && optionValueMediaId) {
+      const url = newUrls[0];
+      setOptValuesDraft((prev) =>
+        prev.map((row) => (row.id === optionValueMediaId ? { ...row, imageUrl: url } : row)),
+      );
+      setOptionValueMediaId(null);
     }
     setIsMediaPickerOpen(false);
   };
@@ -684,10 +843,19 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     setFieldModalMode('add');
     setEditingField(null);
     setFldNameInput('');
-    setFldTypeInput('Text');
+    setFldDescriptionInput('');
+    setFldTypeInput('Short Text');
     setFldRequiredInput(false);
     setFldExtraPriceInput(0);
     setFldConditionalRuleInput('');
+    setFldConditionJoin('AND');
+    setFldConditions([]);
+    setFldOptionsInput([]);
+    setFldOptionDraft('');
+    setFldImageUrl('');
+    setFldVideoUrl('');
+    setFldContentEn('');
+    setFldContentAr('');
     setIsFieldModalOpen(true);
   };
 
@@ -695,11 +863,31 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     setFieldModalMode('edit');
     setEditingField(field);
     setFldNameInput(field.name);
-    setFldTypeInput(field.type || 'Text');
+    setFldDescriptionInput(field.description || '');
+    setFldTypeInput(normalizeCustomFieldType(field.type));
     setFldRequiredInput(field.required ?? false);
     setFldExtraPriceInput(field.extraPrice || 0);
     setFldConditionalRuleInput(field.conditionalRule && field.conditionalRule !== '—' ? field.conditionalRule : '');
+    setFldConditionJoin(field.conditionJoin || 'AND');
+    setFldConditions(Array.isArray(field.conditions) ? [...field.conditions] : []);
+    setFldOptionsInput(Array.isArray(field.options) ? [...field.options] : []);
+    setFldOptionDraft('');
+    setFldImageUrl(field.imageUrl || '');
+    setFldVideoUrl(field.videoUrl || '');
+    setFldContentEn(field.contentEn || '');
+    setFldContentAr(field.contentAr || '');
     setIsFieldModalOpen(true);
+  };
+
+  const handleAddFldOption = () => {
+    const val = fldOptionDraft.trim();
+    if (!val) return;
+    if (fldOptionsInput.includes(val)) {
+      toast(isAr ? 'هذه القيمة موجودة مسبقاً' : 'This option already exists', 'error');
+      return;
+    }
+    setFldOptionsInput([...fldOptionsInput, val]);
+    setFldOptionDraft('');
   };
 
   const handleSaveField = () => {
@@ -707,15 +895,36 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       toast(isAr ? 'يرجى إدخال اسم الحقل' : 'Please enter field name', 'error');
       return;
     }
+    const normalizedType = normalizeCustomFieldType(fldTypeInput);
+    if (customFieldNeedsOptions(normalizedType) && fldOptionsInput.length === 0) {
+      toast(
+        isAr ? 'أضف خياراً واحداً على الأقل لهذا النوع من الحقول' : 'Add at least one option for this field type',
+        'error'
+      );
+      return;
+    }
+    const fillable = customFieldIsFillable(normalizedType);
     const cleanRule = fldConditionalRuleInput.trim() || '—';
+    const options = customFieldNeedsOptions(normalizedType) ? fldOptionsInput : [];
+    const payload = {
+      name: fldNameInput.trim(),
+      description: fldDescriptionInput.trim(),
+      type: normalizedType,
+      required: fillable ? fldRequiredInput : false,
+      conditionalRule: cleanRule,
+      conditions: fldConditions.filter((c) => c.fieldId && c.operator),
+      conditionJoin: fldConditionJoin,
+      extraPrice: fillable ? Number(fldExtraPriceInput) || 0 : 0,
+      options,
+      imageUrl: fldImageUrl.trim(),
+      videoUrl: fldVideoUrl.trim(),
+      contentEn: fldContentEn.trim(),
+      contentAr: fldContentAr.trim(),
+    };
     if (fieldModalMode === 'add') {
       const newFld: CustomFieldItem = {
         id: `field_${Date.now()}`,
-        name: fldNameInput.trim(),
-        type: fldTypeInput,
-        required: fldRequiredInput,
-        conditionalRule: cleanRule,
-        extraPrice: Number(fldExtraPriceInput) || 0,
+        ...payload,
       };
       setCustomFields([...customFields, newFld]);
       toast(isAr ? 'تمت إضافة الحقل بنجاح' : 'Custom field added', 'success');
@@ -725,11 +934,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           f.id === editingField.id
             ? {
                 ...f,
-                name: fldNameInput.trim(),
-                type: fldTypeInput,
-                required: fldRequiredInput,
-                conditionalRule: cleanRule,
-                extraPrice: Number(fldExtraPriceInput) || 0,
+                ...payload,
               }
             : f
         )
@@ -737,6 +942,46 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       toast(isAr ? 'تم تحديث الحقل بنجاح' : 'Custom field updated', 'success');
     }
     setIsFieldModalOpen(false);
+  };
+
+  const applyVariantMatrix = (
+    nextOptions: ProductOptionItem[],
+    prevRows: ProductVariation[] = variations,
+    enabled = optionsEnabled,
+  ) => {
+    setOptions(nextOptions);
+    if (!enabled) return;
+    const selectedValues = nextOptions.reduce(
+      (n, opt) => n + opt.values.filter((v) => v.selected && v.label.trim()).length,
+      0,
+    );
+    if (selectedValues === 0) {
+      setVariations([]);
+      return;
+    }
+    const next = buildGeneratedVariants({
+      options: nextOptions,
+      previous: prevRows,
+      storeId,
+      productId: product.id,
+      baseSku: sku.trim() || 'SKU',
+      basePrice: Number(discountedPrice > 0 ? discountedPrice : price) || 0,
+      baseCompareAt: Number(price) > Number(discountedPrice > 0 ? discountedPrice : price) ? Number(price) : null,
+      baseWeight: Number(weightKg) || null,
+      lowStockAlert: Number(lowStockAlert) || null,
+      sharedStock: Number(stock) || 0,
+    });
+    if (next.length > 100) {
+      toast(
+        isAr
+          ? 'الحد ١٠٠ تنويع. قلّل القيم ثم أعد المحاولة.'
+          : 'Limit is 100 variants. Reduce values, then try again.',
+        'error',
+      );
+      return;
+    }
+    setVariations(next);
+    setStock(sumVariantStock(next));
   };
 
   // Option handlers
@@ -747,47 +992,38 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   };
 
   const handleRemoveOption = (optId: string) => {
-    setOptions(options.filter((o) => o.id !== optId));
+    applyVariantMatrix(options.filter((o) => o.id !== optId));
     toast(isAr ? 'تم حذف الخيار' : 'Option removed', 'info');
   };
 
-  const handleRemoveOptionValue = (optId: string, valId: string) => {
+  const handleCopyOption = (opt: ProductOptionItem) => {
+    const stamp = Date.now().toString().slice(-4);
+    const copy: ProductOptionItem = {
+      ...opt,
+      id: `opt_${Date.now()}`,
+      name: isAr ? `${opt.name} نسخة` : `${opt.name} copy`,
+      values: opt.values.map((v) => ({ ...v, id: `${v.id}_${stamp}` })),
+    };
+    applyVariantMatrix([...options, copy]);
+    toast(isAr ? 'تم نسخ الخيار' : 'Option copied', 'success');
+  };
+
+  const handleToggleOptionVisible = (optId: string) => {
     setOptions(
       options.map((opt) =>
-        opt.id === optId
-          ? { ...opt, values: opt.values.filter((v) => v.id !== valId) }
-          : opt
-      )
+        opt.id === optId ? { ...opt, visible: opt.visible === false } : opt,
+      ),
     );
   };
 
-  const handlePromptAddValue = (optId: string) => {
-    const opt = options.find((o) => o.id === optId);
-    if (!opt) return;
-    const label = prompt(isAr ? `إضافة قيمة لـ ${opt.name}:` : `Add value to ${opt.name}:`);
-    if (!label || !label.trim()) return;
-    const cleanLabel = label.trim();
-    const isColor = opt.type === 'color' || opt.name.toLowerCase().includes('color') || opt.name.toLowerCase().includes('لون');
-    const colorHex = isColor ? getColorHex(cleanLabel) : undefined;
-    setOptions(
-      options.map((o) =>
-        o.id === optId
-          ? {
-              ...o,
-              values: [
-                ...o.values,
-                {
-                  id: cleanLabel.toLowerCase().replace(/\s+/g, '_'),
-                  label: cleanLabel,
-                  colorHex,
-                  selected: true,
-                },
-              ],
-            }
-          : o
-      )
+  const handleRemoveOptionValue = (optId: string, valId: string) => {
+    applyVariantMatrix(
+      options.map((opt) =>
+        opt.id === optId
+          ? { ...opt, values: opt.values.filter((v) => v.id !== valId) }
+          : opt,
+      ),
     );
-    toast(isAr ? 'تمت إضافة القيمة بنجاح' : 'Option value added', 'success');
   };
 
   const handleOpenAddOption = () => {
@@ -796,7 +1032,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     setOptNameInput('');
     setOptTypeInput('select');
     setOptValuesDraft([]);
-    setOptNewValueInput('');
     setIsOptionModalOpen(true);
   };
 
@@ -804,66 +1039,40 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     setOptionModalMode('edit');
     setEditingOption(opt);
     setOptNameInput(opt.name);
-    setOptTypeInput(opt.type === 'color' ? 'color' : 'select');
-    setOptValuesDraft(opt.values.map((v) => ({ id: v.id, label: v.label, colorHex: v.colorHex })));
-    setOptNewValueInput('');
+    setOptTypeInput(normalizeOptionType(opt.type, opt.name));
+    setOptValuesDraft(opt.values.map(toDraftValue));
     setIsOptionModalOpen(true);
   };
 
-  const handleAddDraftOptionValue = () => {
-    if (!optNewValueInput.trim()) return;
-    const label = optNewValueInput.trim();
-    const isColor = optTypeInput === 'color' || optNameInput.toLowerCase().includes('color') || optNameInput.toLowerCase().includes('لون');
-    const colorHex = isColor ? optNewColorHex || getColorHex(label) : undefined;
-    setOptValuesDraft([
-      ...optValuesDraft,
-      {
-        id: label.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now().toString().slice(-4),
-        label,
-        colorHex,
-      },
-    ]);
-    setOptNewValueInput('');
-  };
-
-  const handleSaveOptionModal = () => {
-    if (!optNameInput.trim()) {
+  const handleSaveOptionModal = (result: { name: string; nameAr?: string; type: OptionKind; values: OptionValueDraft[] }) => {
+    if (!result.name) {
       toast(isAr ? 'يرجى إدخال اسم الخيار' : 'Please enter option name', 'error');
       return;
     }
-    const finalValues = optValuesDraft.map((v) => ({
-      ...v,
-      selected: true,
-    }));
-    if (finalValues.length === 0) {
-      finalValues.push({
-        id: 'val_default',
-        label: isAr ? 'افتراضي' : 'Default',
-        selected: true,
-      });
+    if (result.values.length === 0) {
+      toast(isAr ? 'أضف قيمة واحدة على الأقل' : 'Add at least one value', 'error');
+      return;
     }
+    const finalValues = result.values.map(fromDraftValue);
 
     if (optionModalMode === 'add') {
       const newOpt: ProductOptionItem = {
         id: `opt_${Date.now()}`,
-        name: optNameInput.trim(),
-        type: optTypeInput,
+        name: result.name,
+        nameAr: result.nameAr,
+        type: result.type,
+        visible: true,
         values: finalValues,
       };
-      setOptions([...options, newOpt]);
+      applyVariantMatrix([...options, newOpt]);
       toast(isAr ? 'تمت إضافة الخيار بنجاح' : 'Option added successfully', 'success');
     } else if (editingOption) {
-      setOptions(
+      applyVariantMatrix(
         options.map((o) =>
           o.id === editingOption.id
-            ? {
-                ...o,
-                name: optNameInput.trim(),
-                type: optTypeInput,
-                values: finalValues,
-              }
-            : o
-        )
+            ? { ...o, name: result.name, nameAr: result.nameAr, type: result.type, values: finalValues }
+            : o,
+        ),
       );
       toast(isAr ? 'تم تحديث الخيار بنجاح' : 'Option updated successfully', 'success');
     }
@@ -908,14 +1117,14 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
   // Toggle option value selection
   const handleToggleOptionValue = (optionId: string, valueId: string) => {
-    setOptions(
+    applyVariantMatrix(
       options.map((opt) => {
         if (opt.id !== optionId) return opt;
         return {
           ...opt,
           values: opt.values.map((v) => (v.id === valueId ? { ...v, selected: !v.selected } : v)),
         };
-      })
+      }),
     );
   };
 
@@ -925,7 +1134,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     // Add active options
     options.forEach((opt) => {
       if (opt.values.some((v) => v.selected)) {
-        keysMap.set(opt.name, opt.name);
+        keysMap.set(opt.name, isAr && opt.nameAr ? opt.nameAr : opt.name);
       }
     });
     // Add any options found in existing variations
@@ -936,173 +1145,127 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             const foundOpt = options.find(
               (o) => o.id.toLowerCase() === k.toLowerCase() || o.name.toLowerCase() === k.toLowerCase()
             );
-            keysMap.set(k, foundOpt ? foundOpt.name : k.charAt(0).toUpperCase() + k.slice(1).replace('_', ' '));
+            keysMap.set(
+              k,
+              foundOpt
+                ? isAr && foundOpt.nameAr
+                  ? foundOpt.nameAr
+                  : foundOpt.name
+                : k.charAt(0).toUpperCase() + k.slice(1).replace('_', ' '),
+            );
           }
         });
       }
     });
     return Array.from(keysMap.entries()).map(([key, label]) => ({ key, label }));
-  }, [options, variations]);
+  }, [options, variations, isAr]);
 
-  // Helper for option value abbreviation in SKU
-  const getOptionAbbreviation = (label: string): string => {
-    const l = (label || '').trim().toLowerCase();
-    if (l === 'red' || l === 'أحمر') return 'RED';
-    if (l === 'white' || l === 'أبيض') return 'WHT';
-    if (l === 'pink' || l === 'وردي' || l === 'زهري') return 'PNK';
-    if (l === 'black' || l === 'أسود') return 'BLK';
-    if (l === 'blue' || l === 'أزرق') return 'BLU';
-    if (l === 'green' || l === 'أخضر') return 'GRN';
-    if (l === 'yellow' || l === 'أصفر') return 'YLW';
-    if (l === 'standard' || l === 'قياسي') return 'STD';
-    if (l === 'premium' || l === 'فاخر') return 'PRE';
-    if (l === 'gift box' || l === 'صندوق هدايا') return 'GBX';
-    if (l === 's' || l === 'صغير') return 'S';
-    if (l === 'm' || l === 'متوسط') return 'M';
-    if (l === 'l' || l === 'كبير') return 'L';
-    if (l === 'xl' || l === 'كبير جدا') return 'XL';
-    const clean = label.replace(/[^a-zA-Z0-9]/g, '');
-    return clean.slice(0, 3).toUpperCase() || 'OPT';
+  const handleUpdateVariation = (id: string, patch: Partial<ProductVariation>) => {
+    const next = variations.map((v) => (v.id === id ? { ...v, ...patch } : v));
+    setVariations(next);
+    if (patch.stock !== undefined || patch.unlimitedStock !== undefined) {
+      setStock(sumVariantStock(next));
+    }
+    if (editingVariant?.id === id) setEditingVariant({ ...editingVariant, ...patch });
   };
 
-  // Helper for images based on color
-  // Helper for images based on color from real product data
-  const getImageForColor = (colorName: string): string => {
-    const l = (colorName || '').toLowerCase().trim();
-    if (product.colors && Array.isArray(product.colors)) {
-      const matched = product.colors.find(
-        (c) =>
-          c.nameEn?.toLowerCase() === l ||
-          c.nameAr?.toLowerCase() === l ||
-          c.nameEn?.toLowerCase().includes(l) ||
-          c.nameAr?.toLowerCase().includes(l)
-      );
-      if (matched?.image) return matched.image;
-    }
-    return gallery[0] || product.image || FALLBACK_PRODUCT_IMAGE;
-  };
-
-  // Generate Variations from selected options (Cartesian Product)
-  const handleGenerateVariations = async () => {
-    const activeOptions = options
-      .map((opt) => ({
-        key: opt.name,
-        id: opt.id,
-        name: opt.name,
-        type: opt.type,
-        values: opt.values.filter((v) => v.selected),
-      }))
-      .filter((opt) => opt.values.length > 0);
-
-    if (activeOptions.length === 0) {
-      toast(isAr ? 'يرجى تحديد خيار واحد على الأقل' : 'Please select at least one option value', 'error');
-      return;
-    }
-
-    // Cartesian product
-    let combos: Array<Record<string, string>> = [{}];
-    for (const opt of activeOptions) {
-      const next: Array<Record<string, string>> = [];
-      for (const c of combos) {
-        for (const v of opt.values) {
-          next.push({
-            ...c,
-            [opt.name]: v.label,
-          });
-        }
-      }
-      combos = next;
-    }
-
-    const basePrice = Number(discountedPrice > 0 ? discountedPrice : price) || 0;
-    const baseSkuPrefix = sku && sku.trim() ? sku.trim() : 'SKU';
-
-    const generated: ProductVariation[] = combos.map((combo, idx) => {
-      const abbrs = activeOptions.map((opt) => getOptionAbbreviation(combo[opt.name] || ''));
-      const variantSku = `${baseSkuPrefix}-${abbrs.join('-')}`;
-
-      // Adjust price from real storage/edition options if applicable
-      let varPrice = basePrice;
-      if (product.storageOptions && Array.isArray(product.storageOptions)) {
-        const matchingStorage = product.storageOptions.find(
-          (s) => Object.values(combo).some((v) => v === s.capacity)
-        );
-        if (matchingStorage?.priceDelta) {
-          varPrice = basePrice + Number(matchingStorage.priceDelta);
-        }
-      }
-
-      // Stock from real product stock split or minimum 1
-      const totalStock = Number(stock) > 0 ? Number(stock) : 10;
-      const varStock = Math.max(1, Math.floor(totalStock / Math.max(1, combos.length)));
-
-      // Image
-      const colorVal = Object.entries(combo).find(
-        ([k]) => k.toLowerCase().includes('color') || k.toLowerCase().includes('لون')
-      )?.[1] || '';
-      const varImg = colorVal ? getImageForColor(colorVal) : (gallery[0] || product.image || FALLBACK_PRODUCT_IMAGE);
-
-      return {
-        id: `var_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
-        storeId,
-        productId: product.id,
-        sku: variantSku,
-        options: combo,
-        price: varPrice,
-        stock: varStock,
-        imageUrl: varImg,
-        isActive: true,
-      };
-    });
-
-    setVariations(generated);
-    setSelectedVariationIds([]);
-    toast(
-      isAr
-        ? `تم إعادة توليد ${generated.length} تنويع بناءً على الخيارات المحددة`
-        : `Successfully regenerated ${generated.length} variants from selected options`,
-      'success'
+  const handleOptionValueColor = (optionId: string, valueId: string, hex: string) => {
+    setOptions((prev) =>
+      prev.map((opt) =>
+        opt.id === optionId
+          ? { ...opt, values: opt.values.map((v) => (v.id === valueId ? { ...v, colorHex: hex } : v)) }
+          : opt,
+      ),
     );
   };
 
-  // Add a single variation manually
-  const handleAddVariation = () => {
-    const defaultOpts: Record<string, string> = {};
-    options.forEach((opt) => {
-      const sel = opt.values.find((v) => v.selected) || opt.values[0];
-      if (sel) defaultOpts[opt.name] = sel.label;
-    });
-
-    const abbrs = Object.values(defaultOpts).map(getOptionAbbreviation);
-    const varSku = `${sku || 'SKU'}-${abbrs.join('-') || `VAR-${variations.length + 1}`}`;
-
-    const newVar: ProductVariation = {
-      id: `var_${Date.now()}`,
-      storeId,
-      productId: product.id,
-      sku: varSku,
-      options: defaultOpts,
-      price: discountedPrice > 0 ? discountedPrice : price,
-      stock: 10,
-      imageUrl: gallery[0] || product.image || FALLBACK_PRODUCT_IMAGE,
-      isActive: true,
-    };
-    setVariations([...variations, newVar]);
-    toast(isAr ? 'تمت إضافة تنويع جديد' : 'New variant added', 'success');
+  const colorHexForLabel = (optionName: string, label: string): string => {
+    const opt = options.find((o) => o.name === optionName || o.id === optionName);
+    const val = opt?.values.find((v) => v.label === label);
+    return val?.colorHex || getColorHex(label);
   };
 
-  const handleUpdateVariation = (id: string, patch: Partial<ProductVariation>) => {
-    setVariations(variations.map((v) => (v.id === id ? { ...v, ...patch } : v)));
+  const optionKind = (optionName: string): string => {
+    const opt = options.find((o) => o.name === optionName || o.id === optionName);
+    return String(opt?.type || '');
+  };
+
+  const readImageFile = async (file: File): Promise<string> => {
+    try {
+      const opt = await optimizeImageFile(file, 1200, 200 * 1024);
+      return opt.webpUrl || URL.createObjectURL(opt.file);
+    } catch {
+      return URL.createObjectURL(file);
+    }
+  };
+
+  const handleVariantImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const id = pendingVariantImageId;
+    e.target.value = '';
+    if (!file || !id) return;
+    const url = await readImageFile(file);
+    handleUpdateVariation(id, { imageUrl: url });
+    setPendingVariantImageId(null);
+  };
+
+  const handleOptionValueImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const target = pendingOptionImage;
+    e.target.value = '';
+    if (!file || !target) return;
+    const url = await readImageFile(file);
+    setOptions((prev) =>
+      prev.map((opt) =>
+        opt.id === target.optionId
+          ? {
+              ...opt,
+              values: opt.values.map((v) => (v.id === target.valueId ? { ...v, imageUrl: url } : v)),
+            }
+          : opt,
+      ),
+    );
+    setOptValuesDraft((prev) => prev.map((v) => (v.id === target.valueId ? { ...v, imageUrl: url } : v)));
+    setPendingOptionImage(null);
   };
 
   const handleSaveEditedVariant = () => {
     if (!editingVariant) return;
-    setVariations(variations.map((v) => (v.id === editingVariant.id ? editingVariant : v)));
+    if (!editingVariant.sku.trim()) {
+      toast(isAr ? 'SKU مطلوب' : 'SKU is required', 'error');
+      return;
+    }
+    if (editingVariant.price != null && Number(editingVariant.price) < 0) {
+      toast(isAr ? 'السعر غير صالح' : 'Invalid price', 'error');
+      return;
+    }
+    if (!editingVariant.unlimitedStock && Number(editingVariant.stock) < 0) {
+      toast(isAr ? 'الكمية غير صالحة' : 'Invalid quantity', 'error');
+      return;
+    }
+    const next = variations.map((v) => (v.id === editingVariant.id ? editingVariant : v));
+    const dupSku = findDuplicateSkus(next);
+    const dupBar = findDuplicateBarcodes(next);
+    if (dupSku.length || dupBar.length) {
+      toast(
+        isAr ? 'SKU أو باركود مكرر داخل التنويعات' : 'Duplicate SKU or barcode among variants',
+        'error',
+      );
+      return;
+    }
+    setVariations(next);
+    setStock(sumVariantStock(next));
     if (isApiEnabled() && storeId && product.id) {
       void tenantApi.updateVariation(storeId, product.id, editingVariant.id, {
         sku: editingVariant.sku,
+        barcode: editingVariant.barcode ?? null,
         price: editingVariant.price,
+        compare_at_price: editingVariant.compareAtPrice ?? null,
         stock: editingVariant.stock,
+        weight: editingVariant.weight ?? null,
+        weight_unit: editingVariant.weightUnit ?? 'kg',
+        low_stock_alert: editingVariant.lowStockAlert ?? null,
+        unlimited_stock: !!editingVariant.unlimitedStock,
         image_url: editingVariant.imageUrl,
         options: editingVariant.options,
         is_active: editingVariant.isActive,
@@ -1181,53 +1344,103 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     const sale = Number(discountedPrice) || 0;
     const onSale = sale > 0 && sale < regular;
 
+    if (optionsEnabled) {
+      const dupSku = findDuplicateSkus(variations);
+      const dupBar = findDuplicateBarcodes(variations);
+      const dupCombo = findDuplicateOptionCombos(variations);
+      if (dupSku.length || dupBar.length || dupCombo.length) {
+        toast(
+          isAr
+            ? 'تنويعات مكررة (SKU / باركود / خيارات) — أصلحها قبل الحفظ'
+            : 'Duplicate variants (SKU / barcode / options) — fix before saving',
+          'error',
+        );
+        return;
+      }
+    }
+
+    const primaryCategory = productCategories[0] || category;
+    const tracksVariantStock =
+      optionsEnabled && variations.some((row) => row.isActive !== false && !row.unlimitedStock);
+    const mirroredStock =
+      variations.length > 0 &&
+      variations.every((row) => row.isActive === false || row.unlimitedStock || Number(row.stock) === Number(stock));
+    const computedStock = tracksVariantStock && !mirroredStock ? sumVariantStock(variations) : Number(stock);
     const payload: Partial<Product> = {
       name,
       sku,
-      category,
+      category: primaryCategory,
+      categories: productCategories,
       brand,
       productType,
       subtitle: subtitle.trim() || null,
+      googleTaxonomy: googleTaxonomy.trim() || null,
       description,
       isFeatured,
       price: regular,
       discountedPrice: onSale ? sale : 0,
       originalPrice: onSale ? regular : null,
+      discountStartAt: onSale && discountStartAt ? discountStartAt : null,
+      discountEndAt: onSale && discountEndAt ? discountEndAt : null,
       taxRate: Number(taxRate),
-      stock: Number(stock),
+      stock: computedStock,
       lowStockAlert: Number(lowStockAlert),
       stockStatus,
       weightKg: Number(weightKg),
-      shippingClass,
       dimensions,
       image: gallery[selectedImageIndex] || gallery[0] || product.image,
       galleryUrls: gallery,
       additionalImages: gallery.slice(1),
-      badge: badge || undefined,
+      badge: badge === 'promo' ? 'promo' : undefined,
+      badgeText: badge === 'promo' ? badgeText.trim() || null : null,
+      badgeIcon: badge === 'promo' ? badgeIcon || 'tag' : null,
+      salesChannels: normalizeProductSalesChannels(salesChannels),
       tags,
       customFields: customFields.map((f, i) => ({
         id: f.id || `cf_${i}`,
         name: f.name,
-        type: f.type,
-        required: f.required,
+        nameAr: f.nameAr || '',
+        description: f.description || '',
+        type: normalizeCustomFieldType(f.type),
+        required: customFieldIsFillable(f.type) ? !!f.required : false,
         conditionalRule: f.conditionalRule,
-        extraPrice: f.extraPrice,
-        options: f.options,
+        conditions: f.conditions || [],
+        conditionJoin: f.conditionJoin || 'AND',
+        extraPrice: customFieldIsFillable(f.type) ? (f.extraPrice ?? 0) : 0,
+        options: customFieldNeedsOptions(f.type) ? f.options || [] : [],
+        imageUrl: f.imageUrl || '',
+        videoUrl: f.videoUrl || '',
+        contentEn: f.contentEn || '',
+        contentAr: f.contentAr || '',
+        hidden: !!f.hidden,
         value: f.value ?? '',
       })),
-      productOptions: options.map((opt) => ({
-        id: opt.id,
-        name: opt.name,
-        type: opt.type,
-        values: opt.values.map((v) => ({
-          id: v.id,
-          label: v.label,
-          colorHex: v.colorHex,
-          selected: v.selected,
-        })),
-      })),
+      productOptions: optionsEnabled
+        ? options.map((opt) => ({
+            id: opt.id,
+            name: opt.name,
+            nameAr: opt.nameAr,
+            type: opt.type,
+            visible: opt.visible !== false,
+            values: opt.values.map((v) => ({
+              id: v.id,
+              label: v.label,
+              labelAr: v.labelAr,
+              colorHex: v.colorHex,
+              imageUrl: v.imageUrl,
+              videoUrl: v.videoUrl,
+              selected: v.selected,
+              price: v.price ?? null,
+              salePrice: v.salePrice ?? null,
+              stock: v.stock ?? null,
+              sku: v.sku || '',
+              weight: v.weight ?? null,
+              weightUnit: v.weightUnit || 'kg',
+            })),
+          }))
+        : [],
       conditionalRules: conditionalRule ? [conditionalRule] : [],
-      variations,
+      variations: optionsEnabled ? variations : [],
       seoTitle,
       seoDescription,
       customUrl: urlSlug,
@@ -1358,11 +1571,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
       {/* ── MAIN GRID (100% Mockup 07 Layout) ── */}
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* ROW 1: Product Images + Basic Information + Product Edit Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* ROW 1: Product Images + Basic Information */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           {/* CARD 1: PRODUCT IMAGES */}
           {sectionVisibility.images && (
-            <div className="lg:col-span-5 bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="lg:col-span-5 h-full flex flex-col bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               {/* Card Header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -1404,6 +1617,20 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 accept="image/*"
                 className="hidden"
                 onChange={handleThumbFileChange}
+              />
+              <input
+                ref={variantImageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleVariantImageFile}
+              />
+              <input
+                ref={optionValueImageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleOptionValueImageFile}
               />
               <input
                 ref={addFilesInputRef}
@@ -1593,7 +1820,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
           {/* CARD 2: BASIC INFORMATION */}
           {sectionVisibility.basic && (
-            <div className="lg:col-span-4 bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="lg:col-span-7 h-full flex flex-col bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               {/* Card Header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -1711,105 +1938,108 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </div>
               </div>
 
-              {/* Subtitle (plain) + full rich description */}
-              <div>
-                <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                  {isAr ? 'العنوان الفرعي' : 'Subtitle'}
-                </label>
-                <input
-                  type="text"
-                  value={subtitle}
-                  onChange={(e) => setSubtitle(e.target.value)}
-                  maxLength={200}
-                  placeholder={
-                    isAr
-                      ? 'سطر قصير يظهر تحت اسم المنتج في صفحة المنتج والبطاقات...'
-                      : 'Short line under the product name on PDP and cards...'
-                  }
-                  className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium focus:outline-none focus:ring-1 focus:ring-teal-500"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                />
-                <p className="text-[10px] mt-0.5 font-mono" style={{ color: 'var(--muted)' }}>
-                  {subtitle.length}/200
-                </p>
+              {/* Subtitle + Google Taxonomy */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'العنوان الفرعي' : 'Subtitle'}
+                  </label>
+                  <input
+                    type="text"
+                    value={subtitle}
+                    onChange={(e) => setSubtitle(e.target.value)}
+                    maxLength={200}
+                    placeholder={
+                      isAr
+                        ? 'سطر قصير يظهر تحت اسم المنتج...'
+                        : 'Short line under the product name...'
+                    }
+                    className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  />
+                  <p className="text-[10px] mt-0.5 font-mono" style={{ color: 'var(--muted)' }}>
+                    {subtitle.length}/200
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'تصنيف جوجل' : 'Google Taxonomy'}
+                  </label>
+                  <select
+                    value={googleTaxonomy}
+                    onChange={(e) => setGoogleTaxonomy(e.target.value)}
+                    className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  >
+                    <option value="">
+                      {isAr ? 'اختر تصنيف جوجل' : 'Select a Google category'}
+                    </option>
+                    {googleTaxonomy.trim() && !isKnownGoogleTaxonomy(googleTaxonomy) && (
+                      <option value={googleTaxonomy}>{googleTaxonomy}</option>
+                    )}
+                    {GOOGLE_PRODUCT_TAXONOMY.map((row) => (
+                      <option key={row.id} value={row.path}>
+                        {row.path}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                    {isAr ? 'قائمة جوجل الرسمية' : 'Official Google list'}
+                  </p>
+                </div>
               </div>
 
+              {/* Sales channels — from central registry */}
               <div>
-                <RichTextEditor
-                  label={isAr ? 'الوصف الكامل (عناوين SEO، صور، فيديو)' : 'Full Description (SEO headings, images, video)'}
-                  value={description}
-                  onChange={setDescription}
-                  placeholder={
-                    isAr
-                      ? 'اكتب وصف المنتج مع عناوين H1–H6 وصور وفيديو...'
-                      : 'Write product details with H1–H6 headings, images, and video...'
-                  }
-                  isAr={isAr}
-                  enableHeadings
-                  enableMedia
-                  minHeight={180}
-                />
+                <label className="text-xs font-bold block mb-1.5" style={{ color: 'var(--text)' }}>
+                  {isAr ? 'قنوات البيع' : 'Sales Channels'}
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {listAvailableProductChannels().map((ch) => {
+                    const on = salesChannels.includes(ch.value);
+                    return (
+                      <button
+                        key={ch.id}
+                        type="button"
+                        onClick={() => {
+                          setSalesChannels((prev) =>
+                            on ? prev.filter((v) => v !== ch.value) : [...prev, ch.value],
+                          );
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-all ${
+                          on
+                            ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-teal-700 dark:text-teal-300'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        {isAr ? ch.labelAr : ch.labelEn}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
-
-          {/* CARD 3: PRODUCT EDIT SECTIONS MANAGER (Right Column) */}
-          <div className="lg:col-span-3 bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-            {/* Header */}
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
-                <Sliders className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-                  {isAr ? 'أقسام تعديل المنتج' : 'Product Edit Sections'}
-                </h3>
-                <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'إظهار أو إخفاء أقسام هذه الصفحة.' : 'Show or hide sections on this page.'}
-                </p>
-              </div>
-            </div>
-
-            {/* List of 9 Draggable / Toggleable Section Items */}
-            <div className="space-y-1 pt-1">
-              {SECTIONS.map((sec) => {
-                const Icon = sec.icon;
-                const isVisible = sectionVisibility[sec.id] !== false;
-                return (
-                  <div
-                    key={sec.id}
-                    className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <GripVertical className="w-4 h-4 text-slate-300 dark:text-slate-600 cursor-grab" />
-                      <div className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center">
-                        <Icon className="w-3.5 h-3.5" />
-                      </div>
-                      <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>
-                        {isAr ? sec.titleAr : sec.titleEn}
-                      </span>
-                    </div>
-
-                    {/* Teal Toggle */}
-                    <button
-                      type="button"
-                      onClick={() => toggleSection(sec.id)}
-                      className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer p-0.5 ${
-                        isVisible ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                      }`}
-                    >
-                      <span
-                        className={`w-4 h-4 rounded-full bg-white shadow-md block transition-transform transform ${
-                          isVisible ? 'translate-x-4 rtl:-translate-x-4' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
+
+        {sectionVisibility.basic && (
+          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+            <RichTextEditor
+              label={isAr ? 'الوصف الكامل (عناوين SEO، صور، فيديو)' : 'Full Description (SEO headings, images, video)'}
+              value={description}
+              onChange={setDescription}
+              placeholder={
+                isAr
+                  ? 'اكتب وصف المنتج مع عناوين H1–H6 وصور وفيديو...'
+                  : 'Write product details with H1–H6 headings, images, and video...'
+              }
+              isAr={isAr}
+              enableHeadings
+              enableMedia
+              minHeight={220}
+            />
+          </div>
+        )}
 
         {/* ROW 2: Pricing (left) + Inventory & Shipping (center/right) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
@@ -1856,7 +2086,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
                 <div>
                   <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'سعر الخصم (SAR)' : 'Sale Price (SAR)'}
+                    {isAr ? 'سعر الخصم (ر.س)' : 'Discount Price (SAR)'}
                   </label>
                   <input
                     type="number"
@@ -1883,6 +2113,36 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     <option value={5}>5% (Reduced Tax)</option>
                     <option value={0}>0% (Tax Exempt)</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Discount Schedule */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'بداية الخصم' : 'Discount Start'}
+                  </label>
+                  <input
+                    type="date"
+                    value={discountStartAt ? String(discountStartAt).slice(0, 10) : ''}
+                    onChange={(e) => setDiscountStartAt(e.target.value)}
+                    disabled={!discountedPrice || discountedPrice <= 0}
+                    className="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none disabled:opacity-50"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'نهاية الخصم' : 'Discount End'}
+                  </label>
+                  <input
+                    type="date"
+                    value={discountEndAt ? String(discountEndAt).slice(0, 10) : ''}
+                    onChange={(e) => setDiscountEndAt(e.target.value)}
+                    disabled={!discountedPrice || discountedPrice <= 0}
+                    className="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none disabled:opacity-50"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  />
                 </div>
               </div>
             </div>
@@ -1970,11 +2230,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </div>
               </div>
 
-              {/* Row 2: Weight (kg), Shipping Class, Dimensions (cm) */}
+              {/* Row 2: Weight (kg), Dimensions (cm) — Shipping Category removed per product spec */}
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                <div className="sm:col-span-3">
+                <div className="sm:col-span-4">
                   <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'الوزن (kg)' : 'Weight (kg)'}
+                    {isAr ? 'الوزن (كجم)' : 'Weight (kg)'}
                   </label>
                   <input
                     type="number"
@@ -1987,28 +2247,9 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   />
                 </div>
 
-                <div className="sm:col-span-4">
+                <div className="sm:col-span-8">
                   <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'فئة الشحن' : 'Shipping Class'}
-                  </label>
-                  <select
-                    value={shippingClass}
-                    onChange={(e) => setShippingClass(e.target.value)}
-                    className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium cursor-pointer focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  >
-                    <option value="Standard">{isAr ? 'شحن عادي' : 'Standard'}</option>
-                    <option value="Express">{isAr ? 'شحن سريع' : 'Express'}</option>
-                    <option value="Shoes">{isAr ? 'أحذية' : 'Shoes'}</option>
-                    <option value="Coffee Machines">{isAr ? 'مكائن قهوة' : 'Coffee Machines'}</option>
-                    <option value="Heavy">{isAr ? 'ثقيل' : 'Heavy'}</option>
-                    <option value="Fragile">{isAr ? 'قابل للكسر' : 'Fragile'}</option>
-                  </select>
-                </div>
-
-                <div className="sm:col-span-5">
-                  <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'الأبعاد (cm)' : 'Dimensions (cm)'}
+                    {isAr ? 'الأبعاد (سم)' : 'Dimensions (cm)'}
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     <input
@@ -2056,30 +2297,70 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-slate-900 dark:text-slate-100 leading-tight">
-                    {isAr ? 'خيارات المنتج والتنويعات' : 'Product Options & Variants'}
+                    {isAr ? 'خيارات المنتج' : 'Product Options'}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {isAr
-                      ? 'إضافة خيارات المنتج مثل اللون والمقاس والنوع. سيتم إنشاء المتغيرات تلقائيًا.'
-                      : 'Add product options like color, size, and type. Variants will be generated automatically.'}
+                      ? 'تفعيل الخيارات ثم إضافة القيم — تُنشأ التنويعات تلقائياً.'
+                      : 'Enable options, add values — variants generate automatically.'}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+              <div className="flex items-center gap-3 self-start sm:self-center shrink-0">
                 <button
                   type="button"
-                  onClick={handleOpenAddOption}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-blue-500/50 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900/60 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-bold text-xs transition-colors shadow-2xs cursor-pointer"
+                  role="switch"
+                  aria-checked={optionsEnabled}
+                  onClick={() => {
+                    const next = !optionsEnabled;
+                    setOptionsEnabled(next);
+                    if (next && variations.length === 0) applyVariantMatrix(options, variations, true);
+                  }}
+                  className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                    optionsEnabled ? 'bg-teal-600' : 'bg-slate-300 dark:bg-slate-600'
+                  }`}
+                  title={isAr ? 'تفعيل خيارات المنتج' : 'Enable product options'}
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{isAr ? 'إضافة خيار' : '+ Add Option'}</span>
+                  <span
+                    className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                      optionsEnabled ? 'start-5' : 'start-0.5'
+                    }`}
+                  />
                 </button>
+                {optionsEnabled && (
+                  <button
+                    type="button"
+                    onClick={handleOpenAddOption}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-blue-500/50 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900/60 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-bold text-xs transition-colors shadow-2xs cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{isAr ? 'إضافة خيار' : '+ Add Option'}</span>
+                  </button>
+                )}
               </div>
             </div>
 
+            {!optionsEnabled && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 py-2">
+                {isAr
+                  ? 'خيارات المنتج متوقفة. فعّل المفتاح لإضافة خيارات وتنويعات.'
+                  : 'Product options are off. Enable the toggle to add options and variants.'}
+              </p>
+            )}
+
+            {optionsEnabled && (
+            <>
+
             {/* Options List (Grip, Name, Value Pills with Colors, Expand, Edit, Delete) */}
             <div className="space-y-3">
+              {options.length === 0 && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {isAr
+                    ? 'أضف خياراً: لون، مقاس، أو صورة. كل قيمة تنشئ تنويعاً بسعره وصورته ومخزونه.'
+                    : 'Add an option: color, size, or image. Each value becomes a variant with its own price, image, and stock.'}
+                </p>
+              )}
               {options.map((opt) => {
                 const isExpanded = expandedOptionIds.includes(opt.id);
                 return (
@@ -2094,8 +2375,22 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                           <GripVertical className="w-4 h-4" />
                         </span>
                         <span className="font-bold text-sm text-slate-900 dark:text-slate-100 min-w-[70px]">
-                          {opt.name}
+                          {isAr && opt.nameAr ? opt.nameAr : opt.name}
                         </span>
+                        <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                          {opt.type === 'color'
+                            ? isAr ? 'لون' : 'Color'
+                            : opt.type === 'image'
+                            ? isAr ? 'صورة' : 'Image'
+                            : opt.type === 'select'
+                            ? isAr ? 'أزرار' : 'Buttons'
+                            : isAr ? 'نص' : 'Text'}
+                        </span>
+                        {opt.visible === false && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+                            {isAr ? 'مخفي' : 'Hidden'}
+                          </span>
+                        )}
                         {/* Option Value Pills with Color Circles or Text Badges */}
                         <div className="flex flex-wrap items-center gap-1.5">
                           {opt.values.map((val) => (
@@ -2109,7 +2404,10 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                                   style={{ backgroundColor: val.colorHex }}
                                 />
                               )}
-                              <span>{val.label}</span>
+                              {val.imageUrl && (
+                                <img src={val.imageUrl} alt="" className="w-4 h-4 rounded object-cover" />
+                              )}
+                              <span>{isAr && val.labelAr ? val.labelAr : val.label}</span>
                             </span>
                           ))}
                         </div>
@@ -2124,6 +2422,22 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                           title={isExpanded ? (isAr ? 'طي' : 'Collapse') : (isAr ? 'توسيع' : 'Expand')}
                         >
                           {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleOptionVisible(opt.id)}
+                          className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                          title={opt.visible === false ? (isAr ? 'إظهار في المتجر' : 'Show on store') : (isAr ? 'إخفاء من المتجر' : 'Hide on store')}
+                        >
+                          {opt.visible === false ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyOption(opt)}
+                          className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+                          title={isAr ? 'نسخ الخيار' : 'Copy option'}
+                        >
+                          <Copy className="w-4 h-4" />
                         </button>
                         <button
                           type="button"
@@ -2149,16 +2463,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                       <div className="border-t border-slate-200/70 dark:border-slate-800/80 p-3.5 bg-white dark:bg-slate-900/60 space-y-2.5 animate-in fade-in duration-150">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                            {isAr ? 'القيم المحددة لتوليد التنويعات:' : 'Active values for variants generation:'}
+                            {isAr ? 'القيم التي تصنع التنويعات' : 'Values that build the variants'}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => handlePromptAddValue(opt.id)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 text-xs font-bold hover:bg-blue-50 transition-colors cursor-pointer"
-                          >
-                            <Plus className="w-3 h-3" />
-                            <span>{isAr ? 'إضافة قيمة سريعة' : '+ Add Value'}</span>
-                          </button>
                         </div>
 
                         <div className="flex flex-wrap gap-2">
@@ -2174,13 +2480,38 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                                   onChange={() => handleToggleOptionValue(opt.id, val.id)}
                                   className="w-3.5 h-3.5 rounded text-blue-600 accent-blue-600 cursor-pointer"
                                 />
-                                {val.colorHex && (
+                                {opt.type === 'color' ? (
+                                  <input
+                                    type="color"
+                                    value={val.colorHex || '#64748b'}
+                                    onChange={(e) => handleOptionValueColor(opt.id, val.id, e.target.value)}
+                                    className="w-6 h-6 p-0 border-0 bg-transparent cursor-pointer"
+                                    title={isAr ? 'اختيار اللون' : 'Pick color'}
+                                  />
+                                ) : val.colorHex ? (
                                   <span
                                     className="w-3.5 h-3.5 rounded-full border border-black/20 shrink-0"
                                     style={{ backgroundColor: val.colorHex }}
                                   />
+                                ) : null}
+                                {opt.type === 'image' && (
+                                  <button
+                                    type="button"
+                                    className="text-blue-600 cursor-pointer"
+                                    title={isAr ? 'رفع صورة القيمة' : 'Upload value image'}
+                                    onClick={() => {
+                                      setPendingOptionImage({ optionId: opt.id, valueId: val.id });
+                                      optionValueImageInputRef.current?.click();
+                                    }}
+                                  >
+                                    {val.imageUrl ? (
+                                      <img src={val.imageUrl} alt="" className="w-6 h-6 rounded object-cover" />
+                                    ) : (
+                                      <ImageIcon className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
                                 )}
-                                <span className="font-semibold text-slate-800 dark:text-slate-200">{val.label}</span>
+                                <span className="font-semibold text-slate-800 dark:text-slate-200">{isAr && val.labelAr ? val.labelAr : val.label}</span>
                               </label>
                               <button
                                 type="button"
@@ -2209,29 +2540,22 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {isAr
-                      ? 'إدارة تفاصيل الأسعار والمخزون والصور لكل تنويع.'
-                      : 'Manage price, stock, SKU, and image for each generated variant.'}
+                      ? `إجمالي الكمية: ${variantQuantityTotal} · عدد التنويعات: ${variations.length}`
+                      : `Total quantity: ${variantQuantityTotal} · Variants: ${variations.length}`}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
-                  <button
-                    type="button"
-                    onClick={handleGenerateVariations}
-                    className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-blue-500/40 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900/60 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-semibold text-xs transition-colors shadow-2xs cursor-pointer"
-                  >
-                    <RotateCw className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    <span>{isAr ? 'إعادة توليد التنويعات' : 'Regenerate Variants'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAddVariation}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold text-xs transition-colors shadow-2xs cursor-pointer"
-                    title={isAr ? 'إضافة تنويع يدوياً' : 'Add custom variant'}
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{isAr ? 'إضافة تنويع' : 'Add Variant'}</span>
-                  </button>
+                <div className="flex items-center gap-2 self-start sm:self-center shrink-0 flex-wrap">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 absolute start-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={variantSearch}
+                      onChange={(e) => setVariantSearch(e.target.value)}
+                      placeholder={isAr ? 'بحث تنويع / رمز...' : 'Search variant / SKU...'}
+                      className="ps-8 pe-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs w-44 focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -2318,18 +2642,34 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                       <tr>
                         <td colSpan={variantOptionKeys.length + 6} className="py-8 text-center text-slate-400">
                           {isAr
-                            ? 'لا توجد تنويعات بعد. حدد الخيارات ثم انقر على "إعادة توليد التنويعات".'
-                            : 'No variations yet. Select options and click "Regenerate Variants".'}
+                            ? 'لا توجد تنويعات بعد. أضف خياراً مثل اللون أو المقاس أو الصورة مع قيمه، فتُنشأ التنويعات تلقائياً.'
+                            : 'No variants yet. Add an option such as color, size, or image with values and the variants are created automatically.'}
                         </td>
                       </tr>
                     ) : (
-                      variations.map((v, vIdx) => {
+                      variations
+                        .filter((v) => {
+                          const q = variantSearch.trim().toLowerCase();
+                          if (!q) return true;
+                          const opts = Object.values(v.options || {}).join(' ').toLowerCase();
+                          return (
+                            v.sku.toLowerCase().includes(q) ||
+                            opts.includes(q) ||
+                            String(v.barcode || '')
+                              .toLowerCase()
+                              .includes(q)
+                          );
+                        })
+                        .map((v, vIdx) => {
                         const isChecked = selectedVariationIds.includes(v.id);
+                        const isExpanded = expandedVariantIds.includes(v.id);
 
                         return (
+                          <React.Fragment key={v.id}>
                           <tr
-                            key={v.id}
                             className={`border-b border-slate-100 dark:border-slate-800/80 transition-colors ${
+                              !v.isActive ? 'opacity-50' : ''
+                            } ${
                               isChecked
                                 ? 'bg-blue-50/50 dark:bg-blue-950/20'
                                 : 'hover:bg-slate-50/60 dark:hover:bg-slate-900/30'
@@ -2352,26 +2692,42 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
                             {/* Dynamic Option Columns */}
                             {variantOptionKeys.map((opt) => {
-                              const val = v.options[opt.key] || v.options[opt.label] || '—';
+                              const raw = v.options[opt.key] || v.options[opt.label] || '—';
+                              const matchedForLabel = options
+                                .find((o) => o.name === opt.key || o.name === opt.label)
+                                ?.values.find((item) => item.label === raw);
+                              const val = isAr && matchedForLabel?.labelAr ? matchedForLabel.labelAr : raw;
+                              const kind = optionKind(opt.key) || optionKind(opt.label);
                               const isColor =
+                                kind === 'color' ||
                                 opt.key.toLowerCase().includes('color') ||
                                 opt.label.toLowerCase().includes('color') ||
                                 opt.key.toLowerCase().includes('لون') ||
                                 opt.label.toLowerCase().includes('اللون');
 
                               if (isColor) {
-                                const hex = getColorHex(val);
+                                const matchedOpt = options.find((o) => o.name === opt.key || o.name === opt.label);
+                                const matchedVal = matchedOpt?.values.find((item) => item.label === raw);
+                                const hex = colorHexForLabel(opt.key, raw);
                                 return (
                                   <td key={opt.key} className="py-3 px-3.5">
-                                    <div className="flex items-center gap-2">
-                                      <span
-                                        className="w-3.5 h-3.5 rounded-full shrink-0 border border-black/15 shadow-2xs"
-                                        style={{ backgroundColor: hex }}
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <input
+                                        type="color"
+                                        value={hex}
+                                        disabled={!matchedVal || !matchedOpt}
+                                        onChange={(e) => {
+                                          if (matchedOpt && matchedVal) {
+                                            handleOptionValueColor(matchedOpt.id, matchedVal.id, e.target.value);
+                                          }
+                                        }}
+                                        className="w-7 h-7 p-0 border-0 bg-transparent cursor-pointer"
+                                        title={isAr ? 'نموذج اللون' : 'Color picker'}
                                       />
                                       <span className="font-medium text-slate-800 dark:text-slate-100 text-xs">
                                         {val}
                                       </span>
-                                    </div>
+                                    </label>
                                   </td>
                                 );
                               }
@@ -2394,28 +2750,82 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
                             {/* Price */}
                             <td className="py-3 px-3.5">
-                              <span className="font-bold text-slate-800 dark:text-slate-100 text-xs tabular-nums">
-                                {isAr ? `${v.price ?? price} ر.س` : `SAR ${v.price ?? price}`}
-                              </span>
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  value={v.price ?? ''}
+                                  onChange={(e) =>
+                                    handleUpdateVariation(v.id, {
+                                      price: e.target.value === '' ? null : Number(e.target.value),
+                                    })
+                                  }
+                                  className="w-20 px-1.5 py-1 rounded-lg border text-xs font-mono tabular-nums"
+                                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                                  aria-label={isAr ? 'سعر التنويع' : 'Variant price'}
+                                />
+                                <span className="text-[10px] font-bold text-slate-500">{isAr ? 'ر.س' : 'SAR'}</span>
+                              </label>
                             </td>
 
-                            {/* Stock */}
+                            {/* Stock inline +/- */}
                             <td className="py-3 px-3.5">
-                              <span className="font-semibold text-slate-700 dark:text-slate-300 text-xs tabular-nums">
-                                {v.stock}
-                              </span>
+                              {v.unlimitedStock ? (
+                                <span className="text-[11px] font-bold text-emerald-600">
+                                  {isAr ? 'غير محدود' : 'Unlimited'}
+                                </span>
+                              ) : (
+                                <div className="inline-flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    className="w-6 h-6 rounded-lg border text-xs font-bold cursor-pointer"
+                                    onClick={() =>
+                                      handleUpdateVariation(v.id, {
+                                        stock: Math.max(0, (Number(v.stock) || 0) - 1),
+                                      })
+                                    }
+                                  >
+                                    −
+                                  </button>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={v.stock}
+                                    onChange={(e) =>
+                                      handleUpdateVariation(v.id, {
+                                        stock: Math.max(0, parseInt(e.target.value, 10) || 0),
+                                      })
+                                    }
+                                    className="w-14 px-1 py-0.5 rounded-lg border text-xs font-mono text-center"
+                                  />
+                                  <button
+                                    type="button"
+                                    className="w-6 h-6 rounded-lg border text-xs font-bold cursor-pointer"
+                                    onClick={() =>
+                                      handleUpdateVariation(v.id, {
+                                        stock: (Number(v.stock) || 0) + 1,
+                                      })
+                                    }
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              )}
                             </td>
 
                             {/* Image Thumbnail with Click-to-Change */}
                             <td className="py-2.5 px-3.5 text-center">
+                              <div className="flex flex-col items-center gap-1">
                               <div
                                 onClick={() => {
-                                  setVariantMediaTargetIndex(vIdx);
+                                  const realIdx = variations.findIndex((x) => x.id === v.id);
+                                  setVariantMediaTargetIndex(realIdx >= 0 ? realIdx : vIdx);
                                   setMediaPickerTarget('variant');
                                   setIsMediaPickerOpen(true);
                                 }}
                                 className="w-10 h-10 mx-auto rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-900 cursor-pointer hover:border-blue-500 hover:ring-2 hover:ring-blue-500/20 transition-all flex items-center justify-center p-0.5 relative group shadow-2xs"
-                                title={isAr ? 'انقر لتغيير الصورة' : 'Click to change image'}
+                                title={isAr ? 'مكتبة الصور' : 'Media library'}
                               >
                                 <img
                                   src={v.imageUrl || gallery[0] || product.image || FALLBACK_PRODUCT_IMAGE}
@@ -2424,11 +2834,44 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                                   className="w-full h-full object-cover rounded-md"
                                 />
                               </div>
+                              <button
+                                type="button"
+                                className="text-[10px] font-bold text-blue-600 cursor-pointer"
+                                onClick={() => {
+                                  setPendingVariantImageId(v.id);
+                                  variantImageInputRef.current?.click();
+                                }}
+                              >
+                                {isAr ? 'رفع' : 'Upload'}
+                              </button>
+                              </div>
                             </td>
 
-                            {/* Actions (Pencil & Trash) */}
+                            {/* Actions (expand, pencil, trash) */}
                             <td className="py-3 px-3.5 text-center">
                               <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedVariantIds((prev) =>
+                                      prev.includes(v.id)
+                                        ? prev.filter((id) => id !== v.id)
+                                        : [...prev, v.id],
+                                    )
+                                  }
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                                  title={isExpanded ? (isAr ? 'طي' : 'Collapse') : (isAr ? 'توسيع' : 'Expand')}
+                                >
+                                  {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateVariation(v.id, { isActive: !v.isActive })}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                                  title={v.isActive ? (isAr ? 'إخفاء التنويع' : 'Hide variant') : (isAr ? 'إظهار التنويع' : 'Show variant')}
+                                >
+                                  {v.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => setEditingVariant({ ...v })}
@@ -2448,6 +2891,144 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                               </div>
                             </td>
                           </tr>
+                          {isExpanded && (
+                            <tr className="bg-slate-50/80 dark:bg-slate-900/40">
+                              <td colSpan={variantOptionKeys.length + 6} className="px-4 py-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                                  {(() => {
+                                    const parts = variantPriceParts(v);
+                                    return (
+                                      <>
+                                        <div>
+                                          <span className="font-bold block mb-1">{isAr ? 'رمز المنتج' : 'SKU'}</span>
+                                          <input
+                                            type="text"
+                                            value={v.sku}
+                                            onChange={(e) => handleUpdateVariation(v.id, { sku: e.target.value })}
+                                            className="w-full px-2 py-1.5 rounded-lg border font-mono"
+                                          />
+                                        </div>
+                                        <div>
+                                          <span className="font-bold block mb-1">{isAr ? 'سعر التجزئة' : 'MRP'}</span>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            step="0.01"
+                                            value={v.compareAtPrice ?? ''}
+                                            onChange={(e) =>
+                                              handleUpdateVariation(v.id, {
+                                                compareAtPrice: e.target.value === '' ? null : Number(e.target.value),
+                                              })
+                                            }
+                                            className="w-full px-2 py-1.5 rounded-lg border font-mono"
+                                          />
+                                        </div>
+                                        <div>
+                                          <span className="font-bold block mb-1">{isAr ? 'سعر البيع' : 'Selling price'}</span>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            step="0.01"
+                                            value={v.price ?? ''}
+                                            onChange={(e) =>
+                                              handleUpdateVariation(v.id, {
+                                                price: e.target.value === '' ? null : Number(e.target.value),
+                                              })
+                                            }
+                                            className="w-full px-2 py-1.5 rounded-lg border font-mono"
+                                          />
+                                        </div>
+                                        <div>
+                                          <span className="font-bold block mb-1">{isAr ? 'الخصم' : 'Discount'}</span>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            step="0.01"
+                                            value={parts.discount || ''}
+                                            onChange={(e) => {
+                                              const cut = Math.max(0, Number(e.target.value) || 0);
+                                              const mrp = Number(v.compareAtPrice) || Number(v.price) || 0;
+                                              handleUpdateVariation(v.id, {
+                                                compareAtPrice: mrp,
+                                                price: Math.max(0, Math.round((mrp - cut) * 100) / 100),
+                                              });
+                                            }}
+                                            className="w-full px-2 py-1.5 rounded-lg border font-mono"
+                                          />
+                                          {parts.percent > 0 && (
+                                            <span className="text-[10px] font-bold text-rose-600">
+                                              {isAr ? `خصم ${parts.percent}٪` : `${parts.percent}% off`}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
+                                  <div>
+                                    <span className="font-bold block mb-1">{isAr ? 'الباركود' : 'Barcode'}</span>
+                                    <input
+                                      type="text"
+                                      value={v.barcode || ''}
+                                      onChange={(e) => handleUpdateVariation(v.id, { barcode: e.target.value })}
+                                      className="w-full px-2 py-1.5 rounded-lg border font-mono"
+                                    />
+                                  </div>
+                                  <div>
+                                    <span className="font-bold block mb-1">{isAr ? 'الوزن' : 'Weight'}</span>
+                                    <div className="flex gap-1">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        step="0.001"
+                                        value={v.weight ?? ''}
+                                        onChange={(e) =>
+                                          handleUpdateVariation(v.id, {
+                                            weight: e.target.value === '' ? null : Number(e.target.value),
+                                          })
+                                        }
+                                        className="flex-1 px-2 py-1.5 rounded-lg border font-mono"
+                                      />
+                                      <select
+                                        value={v.weightUnit || 'kg'}
+                                        onChange={(e) => handleUpdateVariation(v.id, { weightUnit: e.target.value })}
+                                        className="px-2 py-1.5 rounded-lg border"
+                                      >
+                                        <option value="kg">{isAr ? 'كجم' : 'kg'}</option>
+                                        <option value="g">{isAr ? 'جم' : 'g'}</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="font-bold block mb-1">{isAr ? 'تنبيه المخزون' : 'Low stock alert'}</span>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      value={v.lowStockAlert ?? 5}
+                                      onChange={(e) =>
+                                        handleUpdateVariation(v.id, {
+                                          lowStockAlert: parseInt(e.target.value, 10) || 0,
+                                        })
+                                      }
+                                      className="w-full px-2 py-1.5 rounded-lg border font-mono"
+                                    />
+                                  </div>
+                                  <div className="flex items-end pb-1">
+                                    <label className="inline-flex items-center gap-2 cursor-pointer font-bold">
+                                      <input
+                                        type="checkbox"
+                                        checked={!!v.unlimitedStock}
+                                        onChange={(e) =>
+                                          handleUpdateVariation(v.id, { unlimitedStock: e.target.checked })
+                                        }
+                                      />
+                                      {isAr ? 'كمية غير محدودة' : 'Unlimited quantity'}
+                                    </label>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          </React.Fragment>
                         );
                       })
                     )}
@@ -2455,6 +3036,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </table>
               </div>
             </div>
+            </>
+            )}
           </div>
         )}
 
@@ -2473,8 +3056,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {isAr
-                      ? 'إضافة حقول مخصصة للعملاء لتعبئتها عند شراء هذا المنتج.'
-                      : 'Add custom fields for customers to fill when purchasing this product.'}
+                      ? 'حقول الشراء ومحتوى صفحة التفاصيل خاص بهذا المنتج: صورة ونص وفيديو.'
+                      : 'Purchase fields and the details page content for this product: image, text, and video.'}
                   </p>
                 </div>
               </div>
@@ -2522,14 +3105,14 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                         {/* Field Name */}
                         <td className="py-3 px-4">
                           <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
-                            {field.name}
+                            {isAr && field.nameAr ? field.nameAr : field.name}
                           </span>
                         </td>
 
                         {/* Field Type Badge */}
                         <td className="py-3 px-4">
                           <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700">
-                            {field.type || 'Text'}
+                            {getCustomFieldTypeLabel(field.type, isAr)}
                           </span>
                         </td>
 
@@ -2572,6 +3155,46 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                         {/* Actions: Edit, Delete */}
                         <td className="py-3 px-4 text-end">
                           <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const i = customFields.findIndex((f) => f.id === field.id);
+                                if (i < 1) return;
+                                const next = customFields.slice();
+                                const [item] = next.splice(i, 1);
+                                next.splice(i - 1, 0, item);
+                                setCustomFields(next);
+                              }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                              title={isAr ? 'تحريك' : 'Move'}
+                            >
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCustomFields(
+                                  customFields.map((f) => (f.id === field.id ? { ...f, hidden: !f.hidden } : f)),
+                                )
+                              }
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 cursor-pointer"
+                              title={field.hidden ? (isAr ? 'إظهار' : 'Show') : isAr ? 'إخفاء' : 'Hide'}
+                            >
+                              {field.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCustomFields([
+                                  ...customFields,
+                                  { ...field, id: `field_${Date.now()}`, name: `${field.name} ${isAr ? 'نسخة' : 'copy'}` },
+                                ])
+                              }
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 cursor-pointer"
+                              title={isAr ? 'نسخ' : 'Copy'}
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleOpenEditField(field)}
@@ -2678,12 +3301,12 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </button>
               </div>
 
-              {/* Categories multi-select / pill */}
+              {/* Multi-category assignment */}
               <div>
                 <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                  {isAr ? 'التصنيفات' : 'Categories'}
+                  {isAr ? 'التصنيفات (متعدد)' : 'Categories (multiple)'}
                 </label>
-                <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl border min-h-[42px]" style={{ borderColor: 'var(--border)' }}>
+                <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl border min-h-[42px] mb-2" style={{ borderColor: 'var(--border)' }}>
                   {productCategories.map((cat) => (
                     <span
                       key={cat}
@@ -2702,6 +3325,28 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     </span>
                   ))}
                 </div>
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    if (!next) return;
+                    if (!productCategories.includes(next)) {
+                      setProductCategories([...productCategories, next]);
+                      setCategory(productCategories[0] || next);
+                    }
+                  }}
+                  className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium cursor-pointer focus:outline-none"
+                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                >
+                  <option value="">{isAr ? 'إضافة تصنيف...' : 'Add category...'}</option>
+                  {categories
+                    .filter((c) => !productCategories.includes(c))
+                    .map((c) => (
+                      <option key={c} value={c}>
+                        {getProductDisplayCategory(c, locale)}
+                      </option>
+                    ))}
+                </select>
               </div>
 
               {/* Feature / highlight product */}
@@ -2720,12 +3365,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   type="button"
                   role="switch"
                   aria-checked={isFeatured}
-                  onClick={() => {
-                    const next = !isFeatured;
-                    setIsFeatured(next);
-                    if (next && !badge) setBadge('featured');
-                    if (!next && badge === 'featured') setBadge('');
-                  }}
+                  onClick={() => setIsFeatured(!isFeatured)}
                   className={`relative w-11 h-6 rounded-full transition-colors shrink-0 cursor-pointer ${
                     isFeatured ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'
                   }`}
@@ -2738,30 +3378,22 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </button>
               </div>
 
-              {/* Product Badge / Highlight Ribbon */}
+              {/* Product Badge: No Badge | Promotional Text */}
               <div>
                 <label className="text-xs font-bold block mb-1.5" style={{ color: 'var(--text)' }}>
-                  {isAr ? 'شارة تميز المنتج (Homepage Ribbon)' : 'Product Highlight Badge'}
+                  {isAr ? 'شارة المنتج' : 'Product Badge'}
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                <div className="grid grid-cols-2 gap-2 mb-3">
                   {[
-                    { id: '', labelAr: 'بدون شارة', labelEn: 'None' },
-                    { id: 'trending', labelAr: 'الأكثر رواجاً 🔥', labelEn: 'Top Trending' },
-                    { id: 'best_sellers', labelAr: 'الأكثر مبيعاً ⭐', labelEn: 'Best Seller' },
-                    { id: 'best_products', labelAr: 'أفضل المنتجات 👑', labelEn: 'Top Product' },
-                    { id: 'featured', labelAr: 'منتج مميز ✨', labelEn: 'Featured' },
-                    { id: 'new', labelAr: 'وصل حديثاً 🆕', labelEn: 'New Arrival' },
-                    { id: 'discount', labelAr: 'عرض خاص 🏷️', labelEn: 'Special Offer' },
+                    { id: '', labelAr: 'بدون شارة', labelEn: 'No Badge' },
+                    { id: 'promo', labelAr: 'نص ترويجي', labelEn: 'Promotional Text' },
                   ].map((bItem) => {
                     const isSelected = badge === bItem.id;
                     return (
                       <button
-                        key={bItem.id}
+                        key={bItem.id || 'none'}
                         type="button"
-                        onClick={() => {
-                          setBadge(bItem.id);
-                          if (bItem.id === 'featured') setIsFeatured(true);
-                        }}
+                        onClick={() => setBadge(bItem.id)}
                         className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all text-start flex items-center justify-between cursor-pointer ${
                           isSelected
                             ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-700 dark:text-emerald-400 shadow-xs'
@@ -2774,6 +3406,41 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     );
                   })}
                 </div>
+                {badge === 'promo' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl border border-emerald-200/80 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20">
+                    <div>
+                      <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                        {isAr ? 'النص الترويجي' : 'Promotional Text'}
+                      </label>
+                      <input
+                        type="text"
+                        value={badgeText}
+                        onChange={(e) => setBadgeText(e.target.value)}
+                        maxLength={40}
+                        placeholder={isAr ? 'مثال: عرض خاص' : 'e.g. Special Offer'}
+                        className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium focus:outline-none"
+                        style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                        {isAr ? 'الأيقونة' : 'Icon'}
+                      </label>
+                      <select
+                        value={badgeIcon}
+                        onChange={(e) => setBadgeIcon(e.target.value)}
+                        className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium cursor-pointer focus:outline-none"
+                        style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                      >
+                        <option value="tag">{isAr ? 'وسم' : 'Tag'}</option>
+                        <option value="percent">{isAr ? 'نسبة خصم' : 'Percent'}</option>
+                        <option value="star">{isAr ? 'نجمة' : 'Star'}</option>
+                        <option value="flame">{isAr ? 'لهب' : 'Flame'}</option>
+                        <option value="gift">{isAr ? 'هدية' : 'Gift'}</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Quick Occasions & Dynamic Collections */}
@@ -2938,6 +3605,10 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             ? isAr
               ? 'اختيار صورة التنويع'
               : 'Choose Variation Image'
+            : mediaPickerTarget === 'optionValue'
+            ? isAr
+              ? 'اختيار صورة القيمة'
+              : 'Choose Value Image'
             : isAr
             ? 'إضافة صور إلى معرض المنتج'
             : 'Add Images to Product Gallery'
@@ -2946,7 +3617,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
       {/* ── LIGHTBOX / PREVIEW MODAL ── */}
       {isLightboxOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <EditorModal onClose={() => setIsLightboxOpen(false)}>
           <div className="relative max-w-4xl w-full bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-2xl p-6">
             <button
               type="button"
@@ -3023,12 +3694,12 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </EditorModal>
       )}
 
       {/* ── EDIT VARIANT MODAL ── */}
       {editingVariant && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <EditorModal onClose={() => setEditingVariant(null)}>
           <div className="bg-white dark:bg-[#071E26] border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -3066,10 +3737,40 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 />
               </div>
 
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {isAr ? 'الباركود' : 'Barcode'}
+                </label>
+                <input
+                  type="text"
+                  value={editingVariant.barcode || ''}
+                  onChange={(e) => setEditingVariant({ ...editingVariant, barcode: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs font-bold text-slate-800 dark:text-slate-100"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    {isAr ? 'السعر (SAR)' : 'Price (SAR)'}
+                    {isAr ? 'سعر التجزئة' : 'MRP'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editingVariant.compareAtPrice ?? ''}
+                    onChange={(e) =>
+                      setEditingVariant({
+                        ...editingVariant,
+                        compareAtPrice: e.target.value === '' ? null : parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs font-bold text-slate-800 dark:text-slate-100"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {isAr ? 'سعر البيع' : 'Selling price'}
                   </label>
                   <input
                     type="number"
@@ -3084,19 +3785,100 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {isAr ? 'الخصم' : 'Discount'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={variantPriceParts(editingVariant).discount || ''}
+                    onChange={(e) => {
+                      const cut = Math.max(0, parseFloat(e.target.value) || 0);
+                      const mrp = Number(editingVariant.compareAtPrice) || Number(editingVariant.price) || 0;
+                      setEditingVariant({
+                        ...editingVariant,
+                        compareAtPrice: mrp,
+                        price: Math.max(0, Math.round((mrp - cut) * 100) / 100),
+                      });
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs font-bold text-slate-800 dark:text-slate-100"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                     {isAr ? 'المخزون' : 'Stock'}
                   </label>
                   <input
                     type="number"
                     min="0"
+                    disabled={!!editingVariant.unlimitedStock}
                     value={editingVariant.stock}
                     onChange={(e) =>
                       setEditingVariant({ ...editingVariant, stock: parseInt(e.target.value, 10) || 0 })
                     }
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs font-bold text-slate-800 dark:text-slate-100"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs font-bold text-slate-800 dark:text-slate-100 disabled:opacity-50"
                   />
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {isAr ? 'الوزن' : 'Weight'}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.001"
+                      value={editingVariant.weight ?? ''}
+                      onChange={(e) =>
+                        setEditingVariant({
+                          ...editingVariant,
+                          weight: e.target.value === '' ? null : Number(e.target.value),
+                        })
+                      }
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs"
+                    />
+                    <select
+                      value={editingVariant.weightUnit || 'kg'}
+                      onChange={(e) => setEditingVariant({ ...editingVariant, weightUnit: e.target.value })}
+                      className="px-2 py-2 rounded-xl border text-xs"
+                    >
+                      <option value="kg">{isAr ? 'كجم' : 'kg'}</option>
+                      <option value="g">{isAr ? 'جم' : 'g'}</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {isAr ? 'تنبيه انخفاض المخزون' : 'Low stock alert'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editingVariant.lowStockAlert ?? 5}
+                    onChange={(e) =>
+                      setEditingVariant({
+                        ...editingVariant,
+                        lowStockAlert: parseInt(e.target.value, 10) || 0,
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              <label className="inline-flex items-center gap-2 text-xs font-bold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!editingVariant.unlimitedStock}
+                  onChange={(e) =>
+                    setEditingVariant({ ...editingVariant, unlimitedStock: e.target.checked })
+                  }
+                />
+                {isAr ? 'كمية غير محدودة' : 'Unlimited quantity'}
+              </label>
 
               {/* Dynamic Option Values */}
               <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 space-y-2.5">
@@ -3104,24 +3886,41 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   {isAr ? 'قيم الخيارات' : 'Option Values'}
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {Object.entries(editingVariant.options).map(([k, val]) => (
+                  {Object.entries(editingVariant.options).map(([k, val]) => {
+                    const kind = optionKind(k);
+                    const matchedOpt = options.find((o) => o.name === k || o.id === k);
+                    const matchedVal = matchedOpt?.values.find((item) => item.label === val);
+                    const isColor = kind === 'color' || k.toLowerCase().includes('color') || k.includes('لون');
+                    return (
                     <div key={k}>
-                      <label className="block text-[11px] font-semibold text-slate-500 capitalize mb-1">
-                        {k.replace('_', ' ')}
+                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                        {k}
                       </label>
-                      <input
-                        type="text"
-                        value={val}
-                        onChange={(e) =>
-                          setEditingVariant({
-                            ...editingVariant,
-                            options: { ...editingVariant.options, [k]: e.target.value },
-                          })
-                        }
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200"
-                      />
+                      <div className="flex items-center gap-2">
+                        {isColor && matchedOpt && matchedVal && (
+                          <input
+                            type="color"
+                            value={matchedVal.colorHex || '#64748b'}
+                            onChange={(e) => handleOptionValueColor(matchedOpt.id, matchedVal.id, e.target.value)}
+                            className="w-9 h-9 p-0.5 rounded-lg border cursor-pointer"
+                            title={isAr ? 'نموذج اللون' : 'Color picker'}
+                          />
+                        )}
+                        <input
+                          type="text"
+                          value={val}
+                          onChange={(e) =>
+                            setEditingVariant({
+                              ...editingVariant,
+                              options: { ...editingVariant.options, [k]: e.target.value },
+                            })
+                          }
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -3142,25 +3941,37 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   <div className="flex-1 space-y-1.5">
                     <input
                       type="text"
-                      placeholder="Image URL"
+                      placeholder={isAr ? 'رابط الصورة' : 'Image URL'}
                       value={editingVariant.imageUrl || ''}
                       onChange={(e) => setEditingVariant({ ...editingVariant, imageUrl: e.target.value })}
                       className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
                     />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const vIdx = variations.findIndex((x) => x.id === editingVariant.id);
-                        if (vIdx !== -1) {
-                          setVariantMediaTargetIndex(vIdx);
-                          setMediaPickerTarget('variant');
-                          setIsMediaPickerOpen(true);
-                        }
-                      }}
-                      className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-semibold cursor-pointer block"
-                    >
-                      {isAr ? 'اختيار من مكتبة الوسائط' : 'Choose from Media Library'}
-                    </button>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingVariantImageId(editingVariant.id);
+                          variantImageInputRef.current?.click();
+                        }}
+                        className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-semibold cursor-pointer"
+                      >
+                        {isAr ? 'رفع صورة' : 'Upload image'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const vIdx = variations.findIndex((x) => x.id === editingVariant.id);
+                          if (vIdx !== -1) {
+                            setVariantMediaTargetIndex(vIdx);
+                            setMediaPickerTarget('variant');
+                            setIsMediaPickerOpen(true);
+                          }
+                        }}
+                        className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-semibold cursor-pointer"
+                      >
+                        {isAr ? 'مكتبة الوسائط' : 'Media library'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3197,157 +4008,27 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </EditorModal>
       )}
 
-      {/* ── OPTION MODAL (Add / Edit Option) ── */}
       {isOptionModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <Settings className="w-4 h-4 text-blue-600" />
-                <span>
-                  {optionModalMode === 'add'
-                    ? isAr
-                      ? 'إضافة خيار منتج جديد'
-                      : 'Add Product Option'
-                    : isAr
-                    ? 'تعديل خيار المنتج'
-                    : 'Edit Product Option'}
-                </span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsOptionModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  {isAr ? 'اسم الخيار (مثال: اللون، الحجم، التغليف)' : 'Option Name (e.g. Color, Size, Gift Wrap)'}
-                </label>
-                <input
-                  type="text"
-                  value={optNameInput}
-                  onChange={(e) => setOptNameInput(e.target.value)}
-                  placeholder={isAr ? 'أدخل اسم الخيار...' : 'e.g. Color, Size, Gift Wrap'}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  {isAr ? 'نوع الخيار' : 'Option Type'}
-                </label>
-                <select
-                  value={optTypeInput}
-                  onChange={(e) => setOptTypeInput(e.target.value as 'select' | 'color')}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
-                >
-                  <option value="select">{isAr ? 'قائمة منسدلة / أزرار (Dropdown / Buttons)' : 'Select / Buttons'}</option>
-                  <option value="color">{isAr ? 'ألوان مع عينات لونية (Color Swatches)' : 'Color Swatches'}</option>
-                </select>
-              </div>
-
-              {/* Values Management */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  {isAr ? 'قيم الخيار' : 'Option Values'}
-                </label>
-
-                <div className="flex items-center gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={optNewValueInput}
-                    onChange={(e) => setOptNewValueInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddDraftOptionValue();
-                      }
-                    }}
-                    placeholder={isAr ? 'أدخل قيمة (مثال: أحمر، كبير)...' : 'Enter value (e.g. Red, Large)...'}
-                    className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
-                  />
-                  {optTypeInput === 'color' && (
-                    <input
-                      type="color"
-                      value={optNewColorHex}
-                      onChange={(e) => setOptNewColorHex(e.target.value)}
-                      className="w-9 h-9 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer"
-                      title={isAr ? 'اختر اللون' : 'Pick color'}
-                    />
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleAddDraftOptionValue}
-                    className="px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors cursor-pointer"
-                  >
-                    {isAr ? 'إضافة' : 'Add'}
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 min-h-[44px]">
-                  {optValuesDraft.length === 0 ? (
-                    <span className="text-[11px] text-slate-400 p-1">
-                      {isAr ? 'لم تتم إضافة قيم بعد' : 'No values added yet'}
-                    </span>
-                  ) : (
-                    optValuesDraft.map((v) => (
-                      <span
-                        key={v.id}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs"
-                      >
-                        {v.colorHex && (
-                          <span
-                            className="w-3.5 h-3.5 rounded-full border border-black/20 shrink-0"
-                            style={{ backgroundColor: v.colorHex }}
-                          />
-                        )}
-                        <span>{v.label}</span>
-                        <button
-                          type="button"
-                          onClick={() => setOptValuesDraft(optValuesDraft.filter((x) => x.id !== v.id))}
-                          className="text-slate-400 hover:text-rose-500 cursor-pointer"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setIsOptionModalOpen(false)}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              >
-                {isAr ? 'إلغاء' : 'Cancel'}
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveOptionModal}
-                className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors shadow-2xs cursor-pointer"
-              >
-                {isAr ? 'حفظ الخيار' : 'Save Option'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ProductOptionModal
+          isAr={isAr}
+          mode={optionModalMode}
+          initialName={optNameInput}
+          initialNameAr={editingOption?.nameAr || ''}
+          initialType={optTypeInput}
+          initialValues={optValuesDraft}
+          onClose={() => setIsOptionModalOpen(false)}
+          onSave={handleSaveOptionModal}
+        />
       )}
+
 
       {/* ── CUSTOM FIELD MODAL (Add / Edit Custom Field) ── */}
       {isFieldModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <EditorModal onClose={() => setIsFieldModalOpen(false)}>
+          <div className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <FileSpreadsheet className="w-4 h-4 text-blue-600" />
@@ -3386,65 +4067,328 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  {isAr ? 'نوع الحقل' : 'Field Type'}
+                  {isAr ? 'الوصف / التعليمات' : 'Description / Instructions'}
                 </label>
-                <select
-                  value={fldTypeInput}
-                  onChange={(e) => setFldTypeInput(e.target.value)}
+                <textarea
+                  value={fldDescriptionInput}
+                  onChange={(e) => setFldDescriptionInput(e.target.value)}
+                  rows={2}
+                  placeholder={
+                    isAr
+                      ? 'تعليمات اختيارية تظهر للعميل...'
+                      : 'Optional instructions shown to the customer...'
+                  }
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
-                >
-                  <option value="Text">Text (نص قصير)</option>
-                  <option value="Textarea">Textarea (نص متعدد الأسطر)</option>
-                  <option value="File Upload">File Upload (رفع ملف/صورة)</option>
-                  <option value="Date">Date (تاريخ)</option>
-                  <option value="Dropdown">Dropdown (قائمة منسدلة)</option>
-                  <option value="Checkbox">Checkbox (مربع اختيار)</option>
-                </select>
+                />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'سعر إضافي (SAR)' : 'Extra Price (SAR)'}
-                  </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {isAr ? 'صورة صفحة التفاصيل' : 'Details page image'}
+                  </span>
                   <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={fldExtraPriceInput}
-                    onChange={(e) => setFldExtraPriceInput(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500"
+                    type="file"
+                    accept="image/*"
+                    className="mt-1 block w-full text-[11px]"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      void optimizeImageFile(file, 1200, 200 * 1024)
+                        .then((opt) => setFldImageUrl(opt.webpUrl || URL.createObjectURL(opt.file)))
+                        .catch(() => setFldImageUrl(URL.createObjectURL(file)));
+                    }}
                   />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'إلزامية الحقل' : 'Requirement'}
-                  </label>
-                  <label className="flex items-center gap-2 mt-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={fldRequiredInput}
-                      onChange={(e) => setFldRequiredInput(e.target.checked)}
-                      className="w-4 h-4 rounded text-blue-600 accent-blue-600 cursor-pointer"
-                    />
-                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                      {isAr ? 'حقل إلزامي' : 'Required field'}
-                    </span>
-                  </label>
-                </div>
+                  {fldImageUrl ? (
+                    <img src={fldImageUrl} alt="" className="mt-2 h-16 w-16 rounded-lg object-cover" />
+                  ) : null}
+                </label>
+                <label className="block">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {isAr ? 'رابط الفيديو' : 'Video URL'}
+                  </span>
+                  <input
+                    type="text"
+                    value={fldVideoUrl}
+                    onChange={(e) => setFldVideoUrl(e.target.value)}
+                    className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                    placeholder="https://"
+                  />
+                </label>
+                <textarea
+                  value={fldContentEn}
+                  onChange={(e) => setFldContentEn(e.target.value)}
+                  rows={2}
+                  dir="ltr"
+                  placeholder={isAr ? 'النص الإنجليزي' : 'English text'}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                />
+                <textarea
+                  value={fldContentAr}
+                  onChange={(e) => setFldContentAr(e.target.value)}
+                  rows={2}
+                  dir="rtl"
+                  placeholder={isAr ? 'النص العربي' : 'Arabic text'}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                />
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  {isAr ? 'القاعدة الشرطية (اختياري)' : 'Conditional Rule (Optional)'}
+                  {isAr ? 'نوع الحقل' : 'Field Type'}
                 </label>
+                <select
+                  value={normalizeCustomFieldType(fldTypeInput)}
+                  onChange={(e) => {
+                    const next = normalizeCustomFieldType(e.target.value);
+                    setFldTypeInput(next);
+                    if (!customFieldNeedsOptions(next)) {
+                      setFldOptionsInput([]);
+                      setFldOptionDraft('');
+                    }
+                    if (!customFieldIsFillable(next)) {
+                      setFldRequiredInput(false);
+                      setFldExtraPriceInput(0);
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
+                >
+                  {CUSTOM_FIELD_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {getCustomFieldTypeLabel(type, isAr)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {customFieldNeedsOptions(fldTypeInput) && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {normalizeCustomFieldType(fldTypeInput) === 'Color Selector'
+                      ? isAr
+                        ? 'ألوان الاختيار'
+                        : 'Color Options'
+                      : isAr
+                      ? 'خيارات الحقل'
+                      : 'Field Options'}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type={normalizeCustomFieldType(fldTypeInput) === 'Color Selector' ? 'color' : 'text'}
+                      value={
+                        normalizeCustomFieldType(fldTypeInput) === 'Color Selector' && !fldOptionDraft
+                          ? '#ef4444'
+                          : fldOptionDraft
+                      }
+                      onChange={(e) => setFldOptionDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddFldOption();
+                        }
+                      }}
+                      placeholder={
+                        normalizeCustomFieldType(fldTypeInput) === 'Color Selector'
+                          ? isAr
+                            ? 'أو اكتب اسم لون / رمز HEX'
+                            : 'Or type a color name / HEX'
+                          : isAr
+                          ? 'أضف خياراً ثم اضغط إضافة'
+                          : 'Add an option then press Add'
+                      }
+                      className={`px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 ${
+                        normalizeCustomFieldType(fldTypeInput) === 'Color Selector' ? 'w-14 h-10 p-1' : 'flex-1'
+                      }`}
+                    />
+                    {normalizeCustomFieldType(fldTypeInput) === 'Color Selector' && (
+                      <input
+                        type="text"
+                        value={fldOptionDraft}
+                        onChange={(e) => setFldOptionDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddFldOption();
+                          }
+                        }}
+                        placeholder={isAr ? 'مثال: أحمر أو #ef4444' : 'e.g. Red or #ef4444'}
+                        className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleAddFldOption}
+                      className="px-3 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold hover:opacity-90 cursor-pointer shrink-0"
+                    >
+                      {isAr ? 'إضافة' : 'Add'}
+                    </button>
+                  </div>
+                  {fldOptionsInput.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {fldOptionsInput.map((opt) => (
+                        <span
+                          key={opt}
+                          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
+                        >
+                          {normalizeCustomFieldType(fldTypeInput) === 'Color Selector' &&
+                            /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(opt) && (
+                              <span
+                                className="w-3 h-3 rounded-full border border-slate-300 dark:border-slate-600 shrink-0"
+                                style={{ backgroundColor: opt }}
+                              />
+                            )}
+                          {opt}
+                          <button
+                            type="button"
+                            onClick={() => setFldOptionsInput(fldOptionsInput.filter((o) => o !== opt))}
+                            className="text-slate-400 hover:text-rose-500 cursor-pointer"
+                            title={isAr ? 'حذف' : 'Remove'}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-1.5 text-[11px] text-slate-400">
+                      {isAr ? 'لا توجد خيارات بعد.' : 'No options yet.'}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {customFieldIsFillable(fldTypeInput) && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      {isAr ? 'سعر إضافي (ر.س)' : 'Extra Price (SAR)'}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={fldExtraPriceInput}
+                      onChange={(e) => setFldExtraPriceInput(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      {isAr ? 'إلزامية الحقل' : 'Requirement'}
+                    </label>
+                    <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={fldRequiredInput}
+                        onChange={(e) => setFldRequiredInput(e.target.checked)}
+                        className="w-4 h-4 rounded text-blue-600 accent-blue-600 cursor-pointer"
+                      />
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        {isAr ? 'حقل إلزامي' : 'Required field'}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {normalizeCustomFieldType(fldTypeInput) === 'Divider' && (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 px-3 py-2">
+                  {isAr
+                    ? 'الفاصل عنصر عرض فقط على صفحة المنتج — لا يطلب إدخال من العميل.'
+                    : 'Divider is display-only on the product page — customers do not fill it in.'}
+                </p>
+              )}
+
+              <div className="space-y-2 rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {isAr ? 'الظهور الشرطي' : 'Conditional Visibility'}
+                  </label>
+                  <select
+                    value={fldConditionJoin}
+                    onChange={(e) => setFldConditionJoin(e.target.value as 'AND' | 'OR')}
+                    className="px-2 py-1 rounded-lg border text-[11px] font-bold cursor-pointer"
+                  >
+                    <option value="AND">{isAr ? 'و (AND)' : 'AND'}</option>
+                    <option value="OR">{isAr ? 'أو (OR)' : 'OR'}</option>
+                  </select>
+                </div>
+                {fldConditions.map((c, idx) => (
+                  <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
+                    <select
+                      value={c.fieldId}
+                      onChange={(e) => {
+                        const next = [...fldConditions];
+                        next[idx] = { ...next[idx], fieldId: e.target.value };
+                        setFldConditions(next);
+                      }}
+                      className="col-span-4 px-1.5 py-1.5 rounded-lg border text-[11px]"
+                    >
+                      <option value="">{isAr ? 'حقل...' : 'Field...'}</option>
+                      {customFields
+                        .filter((f) => f.id !== editingField?.id)
+                        .map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.name}
+                          </option>
+                        ))}
+                    </select>
+                    <select
+                      value={c.operator}
+                      onChange={(e) => {
+                        const next = [...fldConditions];
+                        next[idx] = { ...next[idx], operator: e.target.value };
+                        setFldConditions(next);
+                      }}
+                      className="col-span-4 px-1.5 py-1.5 rounded-lg border text-[11px]"
+                    >
+                      {CONDITIONAL_OPERATORS.map((op) => (
+                        <option key={op.id} value={op.id}>
+                          {isAr ? op.labelAr : op.labelEn}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={c.value || ''}
+                      onChange={(e) => {
+                        const next = [...fldConditions];
+                        next[idx] = { ...next[idx], value: e.target.value };
+                        setFldConditions(next);
+                      }}
+                      placeholder={isAr ? 'قيمة' : 'Value'}
+                      className="col-span-3 px-1.5 py-1.5 rounded-lg border text-[11px]"
+                    />
+                    <button
+                      type="button"
+                      className="col-span-1 text-rose-500 cursor-pointer"
+                      onClick={() => setFldConditions(fldConditions.filter((_, i) => i !== idx))}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFldConditions([
+                      ...fldConditions,
+                      { fieldId: '', operator: 'equals', value: '' },
+                    ])
+                  }
+                  className="text-[11px] font-bold text-blue-600 cursor-pointer"
+                >
+                  {isAr ? '+ إضافة شرط' : '+ Add condition'}
+                </button>
                 <input
                   type="text"
                   value={fldConditionalRuleInput}
                   onChange={(e) => setFldConditionalRuleInput(e.target.value)}
-                  placeholder={isAr ? 'مثال: If Gift Wrap = Premium' : 'e.g. If Gift Wrap = Premium'}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
+                  placeholder={
+                    isAr ? 'ملاحظة نصية اختيارية للقاعدة' : 'Optional text note for the rule'
+                  }
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none"
                 />
               </div>
             </div>
@@ -3466,12 +4410,12 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </EditorModal>
       )}
 
       {/* ── CONDITIONAL RULE MODAL (Configure Rule) ── */}
       {isRuleModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <EditorModal onClose={() => setIsRuleModalOpen(false)}>
           <div className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -3577,7 +4521,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </EditorModal>
       )}
     </div>
   );

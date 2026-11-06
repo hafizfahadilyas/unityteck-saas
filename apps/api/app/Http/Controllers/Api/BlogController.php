@@ -20,8 +20,7 @@ class BlogController extends Controller
     {
         $sId = strtolower($storeId);
 
-        // 1. Specialty Coffee Store (HiBrew KSA / Roastery)
-        if ($sId === 'store-coffee' || str_contains($sId, 'coffee')) {
+        if ($sId === 'store-coffee') {
             return [
                 [
                     'id' => 'art-coffee-1',
@@ -79,7 +78,7 @@ class BlogController extends Controller
         }
 
         // 2. Flowers & Luxury Gifts Store (Gift Shop Makkah / giftshop-sa.com)
-        if ($sId === 'store-1' || str_contains($sId, 'gift') || str_contains($sId, 'flower') || str_contains($sId, 'makkah')) {
+        if ($sId === 'store-1') {
             return [
                 [
                     'id' => 'art-flowers-1',
@@ -137,7 +136,7 @@ class BlogController extends Controller
         }
 
         // 3. Car Services & Accessories Store (Al-Saeedi Car Upholstery / tanjeedmakkah.com)
-        if ($sId === 'store-bleco' || $sId === 'store-car' || str_contains($sId, 'car') || str_contains($sId, 'alsaeedi')) {
+        if ($sId === 'store-bleco') {
             return [
                 [
                     'id' => 'art-car-1',
@@ -194,35 +193,7 @@ class BlogController extends Controller
             ];
         }
 
-        // 4. Default / Generic Store (Single clean welcome guide)
-        return [
-            [
-                'id' => 'art-welcome-1',
-                'store_id' => $storeId,
-                'title' => 'Welcome to Our Official Store Blog & Updates',
-                'slug' => 'welcome-to-our-official-store-blog-and-updates',
-                'excerpt' => 'Stay tuned for product highlights, expert styling recommendations, and curated announcements.',
-                'content' => "Welcome to our store journal. Here we share carefully curated product spotlights, behind-the-scenes craft stories, and practical buying guides to help you make informed decisions.",
-                'category' => 'Announcements',
-                'author' => [
-                    'name' => 'Store Team',
-                    'avatar' => 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80',
-                    'role' => 'Editorial Staff',
-                ],
-                'status' => 'published',
-                'views' => 45,
-                'comments' => 0,
-                'published_at' => '2026-09-01 12:00:00',
-                'updated_at' => '2026-09-01 12:00:00',
-                'thumbnail' => 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&auto=format&fit=crop&q=80',
-                'featured' => true,
-                'seo' => [
-                    'meta_title' => 'Welcome to Our Official Store Blog',
-                    'meta_description' => 'Stay tuned for our latest product releases, tips, and updates.',
-                    'focus_keyword' => 'store updates',
-                ],
-            ],
-        ];
+        return [];
     }
 
     /**
@@ -254,34 +225,40 @@ class BlogController extends Controller
 
         if (! isset($currentSettings['blog_seo_settings'])) {
             $sId = strtolower($storeId);
-            if ($sId === 'store-coffee' || str_contains($sId, 'coffee')) {
+            if ($sId === 'store-coffee') {
                 $currentSettings['blog_seo_settings'] = [
                     'enabled' => true,
                     'meta_title' => 'Blog | Specialty Coffee Brewing & Beans Guide',
                     'meta_description' => 'Explore pour-over V60 brewing guides, espresso techniques, and single-origin coffee bean profiles.',
                     'focus_keyword' => 'specialty coffee brewing',
                 ];
-            } elseif ($sId === 'store-bleco' || $sId === 'store-car' || str_contains($sId, 'car') || str_contains($sId, 'alsaeedi')) {
+            } elseif ($sId === 'store-bleco') {
                 $currentSettings['blog_seo_settings'] = [
                     'enabled' => true,
                     'meta_title' => 'Blog | Car Upholstery & Accessories Guide',
                     'meta_description' => 'Discover custom precision car seat covers, 7D floor mats, and interior protection tips.',
                     'focus_keyword' => 'car upholstery accessories',
                 ];
-            } else {
+            } elseif ($sId === 'store-1') {
                 $currentSettings['blog_seo_settings'] = [
                     'enabled' => true,
                     'meta_title' => 'Blog | Luxury Flowers & Curated Gifts Guide',
                     'meta_description' => 'Discover luxury flower care, floral arrangements and curated gift styling ideas.',
                     'focus_keyword' => 'luxury flowers gifts',
                 ];
+            } else {
+                $currentSettings['blog_seo_settings'] = [
+                    'enabled' => false,
+                    'meta_title' => '',
+                    'meta_description' => '',
+                    'focus_keyword' => '',
+                ];
             }
             $needSave = true;
         }
 
         if (! isset($currentSettings['featured_article_id'])) {
-            $firstArt = $currentSettings['blog_articles'][0]['id'] ?? 'art-1';
-            $currentSettings['featured_article_id'] = $firstArt;
+            $currentSettings['featured_article_id'] = $currentSettings['blog_articles'][0]['id'] ?? null;
             $needSave = true;
         }
 
@@ -719,9 +696,8 @@ class BlogController extends Controller
     protected function defaultCommerceToolsConfig(string $articleId, string $storeId = ''): array
     {
         $sId = strtolower($storeId);
-        $isCoffee = $sId === 'store-coffee' || str_contains($sId, 'coffee');
-        $isCar = $sId === 'store-bleco' || $sId === 'store-car' || str_contains($sId, 'car') || str_contains($sId, 'alsaeedi');
-        $isFlower = $sId === 'store-1' || str_contains($sId, 'gift') || str_contains($sId, 'flower') || str_contains($sId, 'makkah');
+        $isCoffee = $sId === 'store-coffee';
+        $isCar = $sId === 'store-bleco';
 
         if ($isCoffee) {
             return [
@@ -928,7 +904,16 @@ class BlogController extends Controller
             ];
         }
 
-        // Generic / Fallback config with clean luxury imagery (no broken forklifts)
+        return [
+            'article_id' => $articleId,
+            'product_cards' => ['enabled' => false, 'product_name' => '', 'product_image' => '', 'price' => 0, 'rating' => 0, 'rating_count' => 0, 'show_price' => false, 'show_rating' => false, 'show_add_to_cart' => false, 'show_wishlist_icon' => false, 'card_style' => 'Classic'],
+            'product_quiz' => ['enabled' => false, 'quiz_title' => '', 'options' => [], 'result_products' => ''],
+            'comparison_table' => ['enabled' => false, 'products' => [], 'show_buy_button' => false],
+            'product_bundles' => ['enabled' => false, 'bundle_title' => '', 'products' => []],
+            'performance_analytics' => ['enabled' => false, 'metrics_to_display' => [], 'time_range' => '', 'views' => 0, 'product_clicks' => 0, 'add_to_cart' => 0, 'orders' => 0],
+            'exit_intent' => ['enabled' => false, 'offer_title' => '', 'description' => '', 'email_placeholder' => '', 'display_delay_seconds' => 0, 'show_on_mobile' => false, 'coupon_code' => ''],
+        ];
+        /* legacy placeholder removed
         return [
             'article_id' => $articleId,
             'product_cards' => [
@@ -1131,5 +1116,6 @@ class BlogController extends Controller
                 'coupon_code' => 'SAVE10',
             ],
         ];
+        */
     }
 }

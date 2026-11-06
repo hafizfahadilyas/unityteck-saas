@@ -20,6 +20,7 @@ class Store extends Model
         'status',
         'plan',
         'master_granted_pro',
+        'canva_templates_per_category',
         'currency',
         'locale',
         'text_direction',
@@ -54,6 +55,7 @@ class Store extends Model
     {
         return [
             'master_granted_pro' => 'boolean',
+            'canva_templates_per_category' => 'integer',
             'products_count' => 'integer',
             'orders_count' => 'integer',
             'revenue' => 'decimal:2',

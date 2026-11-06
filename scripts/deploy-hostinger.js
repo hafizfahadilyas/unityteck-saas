@@ -1,7 +1,11 @@
 /**
- * Hostinger FTP Deployment Script for UnityTeck Multi-Store E-Commerce SaaS
+ * One production build, two Hostinger accounts.
+ * central = coffee + car + every new store (one docroot).
+ * flowers = store-1 only, separate Hostinger.
  *
- * Cleans old remote assets/build, uploads fresh optimized build, and verifies live deployment.
+ * npm run deploy:all
+ * npm run deploy:central
+ * npm run deploy:flowers
  */
 
 import * as ftp from 'basic-ftp';
@@ -10,7 +14,6 @@ import * as fs from 'fs';
 import { fileURLToPath } from 'url';
 import http from 'http';
 import https from 'https';
-
 import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,190 +21,171 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const distDir = path.resolve(rootDir, 'dist');
 
-// Load environment variables strictly from .env
 dotenv.config({ path: path.resolve(rootDir, '.env') });
 
-// Read command line arguments
 const args = process.argv.slice(2);
 const getArg = (key, fallback) => {
   const found = args.find((a) => a.startsWith(`--${key}=`));
-  if (found) return found.split('=')[1];
+  if (found) return found.split('=').slice(1).join('=');
   return fallback;
 };
 
-const FTP_HOST = getArg('host', process.env.FTP_HOST);
-const FTP_USER = getArg('user', process.env.FTP_USER);
-const FTP_PASSWORD = getArg('password', process.env.FTP_PASSWORD);
-const REMOTE_DIR = getArg('dir', process.env.FTP_REMOTE_DIR || process.env.REMOTE_DIR || '/');
-const TARGET_URL = process.env.FTP_TARGET_URL || 'http://giftshop-sa.com/';
+const requested = String(getArg('target', 'all')).toLowerCase();
 
-// Validate credentials to prevent execution with missing secrets
-if (!FTP_HOST || !FTP_USER || !FTP_PASSWORD) {
-  console.error('\n❌ Deployment configuration error:');
-  console.error('Missing required FTP credentials. Please define FTP_HOST, FTP_USER, and FTP_PASSWORD in your .env file or pass them as CLI arguments (e.g. --host=... --user=... --password=...).');
+function account(name, source) {
+  const host = String(source.host || '').trim();
+  const user = String(source.user || '').trim();
+  const password = String(source.password || '').trim();
+  if (!host || !user || !password) return null;
+  return {
+    name,
+    label: source.label,
+    host,
+    user,
+    password,
+    dir: source.dir || '/',
+    url: source.url,
+  };
+}
+
+const central = account('central', {
+  label: 'Central Hostinger (coffee, car, new stores)',
+  host: process.env.FTP_CENTRAL_HOST,
+  user: process.env.FTP_CENTRAL_USER,
+  password: process.env.FTP_CENTRAL_PASSWORD,
+  dir: process.env.FTP_CENTRAL_DIR || '/',
+  url: process.env.FTP_CENTRAL_URL || 'https://mieraf-ksa.com/',
+});
+
+const flowers = account('flowers', {
+  label: 'Flowers Hostinger (store-1)',
+  host: process.env.FTP_FLOWERS_HOST || process.env.FTP_HOST,
+  user: process.env.FTP_FLOWERS_USER || process.env.FTP_USER,
+  password: process.env.FTP_FLOWERS_PASSWORD || process.env.FTP_PASSWORD,
+  dir: process.env.FTP_FLOWERS_DIR || process.env.FTP_REMOTE_DIR || '/public_html',
+  url: process.env.FTP_FLOWERS_URL || process.env.FTP_TARGET_URL || 'https://giftshop-sa.com/',
+});
+
+const catalog = { central, flowers };
+const selected = requested === 'all' ? ['central', 'flowers'] : [requested];
+
+if (!catalog[requested] && requested !== 'all') {
+  console.error('Use --target=central, --target=flowers, or --target=all');
   process.exit(1);
 }
 
-// Recursive file scanner for local dist directory
-function getAllFiles(dirPath, arrayOfFiles = []) {
-  const files = fs.readdirSync(dirPath);
-
-  files.forEach((file) => {
-    const fullPath = path.join(dirPath, file);
-    if (fs.statSync(fullPath).isDirectory()) {
-      arrayOfFiles = getAllFiles(fullPath, arrayOfFiles);
-    } else {
-      arrayOfFiles.push(fullPath);
-    }
-  });
-
-  return arrayOfFiles;
-}
-
-async function verifyLiveSite(url) {
+function verifyLiveSite(url) {
   return new Promise((resolve) => {
-    console.log(`\n🔎 Verifying live response from ${url} ...`);
+    if (!url) {
+      resolve(false);
+      return;
+    }
+    console.log(`\nChecking ${url}`);
     const getter = url.startsWith('https') ? https : http;
     const req = getter.get(url, { timeout: 10000 }, (res) => {
-      let body = '';
-      res.on('data', (chunk) => { body += chunk; });
-      res.on('end', () => {
-        console.log(`✅ HTTP Status: ${res.statusCode} ${res.statusMessage}`);
-        console.log(`📋 Content-Type: ${res.headers['content-type']}`);
-        console.log(`📦 Cache-Control: ${res.headers['cache-control'] || 'default'}`);
-        if (body.includes('<title>') || body.includes('UnityTeck') || body.includes('root') || body.includes('index-')) {
-          console.log(`✨ Live HTML verification passed: Found active SPA mount.`);
-        }
-        resolve(true);
-      });
+      res.resume();
+      console.log(`HTTP ${res.statusCode}`);
+      resolve(res.statusCode >= 200 && res.statusCode < 400);
     });
-
     req.on('error', (err) => {
-      console.warn(`⚠️ HTTP verification notice: ${err.message}`);
+      console.warn(`Site check skipped: ${err.message}`);
       resolve(false);
     });
-
     req.on('timeout', () => {
       req.destroy();
-      console.warn(`⚠️ HTTP verification timed out.`);
+      console.warn('Site check timed out.');
       resolve(false);
     });
   });
 }
 
-async function deploy() {
-  console.log('====================================================');
-  console.log('🌸 UNITYTECK HOSTINGER FRESH PRODUCTION DEPLOYMENT');
-  console.log(`🌐 Target Domain : ${TARGET_URL}`);
-  console.log(`🖥️  FTP Host      : ${FTP_HOST}`);
-  console.log(`👤 FTP User      : ${FTP_USER}`);
-  console.log(`📂 Remote Path   : ${REMOTE_DIR}`);
-  console.log('====================================================\n');
-
-  if (!fs.existsSync(distDir)) {
-    console.error('❌ dist/ directory not found! Run "npm run build" first.');
-    process.exit(1);
-  }
-
-  // Ensure .htaccess exists in dist
-  const htaccessSource = path.join(rootDir, 'public', '.htaccess');
-  const htaccessDist = path.join(distDir, '.htaccess');
-  if (fs.existsSync(htaccessSource)) {
-    fs.copyFileSync(htaccessSource, htaccessDist);
-    console.log('📄 Added .htaccess to dist/ with SPA routing & optimized cache headers.');
-  }
-
-  async function connectClient(ftpClient) {
-    console.log(`📡 Connecting to FTP ${FTP_HOST}:21 ...`);
-    try {
-      await ftpClient.access({
-        host: FTP_HOST,
-        user: FTP_USER,
-        password: FTP_PASSWORD,
-        secure: false,
-      });
-    } catch (plainErr) {
-      console.log(`⚠️ Plain FTP returned (${plainErr.message}), trying FTPS (explicit TLS)...`);
-      await ftpClient.access({
-        host: FTP_HOST,
-        user: FTP_USER,
-        password: FTP_PASSWORD,
-        secure: true,
-        secureOptions: { rejectUnauthorized: false },
-      });
-    }
-    console.log('✅ Connected & Authenticated successfully!\n');
-  }
-
-  let client = new ftp.Client(120000);
-  client.ftp.verbose = false;
-
+async function connectClient(client, target) {
+  console.log(`Connecting ${target.label} (${target.host}) ...`);
   try {
-    await connectClient(client);
+    await client.access({
+      host: target.host,
+      user: target.user,
+      password: target.password,
+      secure: false,
+    });
+  } catch (plainErr) {
+    console.log(`Plain FTP failed (${plainErr.message}). Trying FTPS.`);
+    await client.access({
+      host: target.host,
+      user: target.user,
+      password: target.password,
+      secure: true,
+      secureOptions: { rejectUnauthorized: false },
+    });
+  }
+}
 
-    const TARGET_DIRS = ['/', '/public_html'];
-
-    for (const targetDir of TARGET_DIRS) {
-      console.log(`\n====================================================`);
-      console.log(`📂 Deploying to target directory: ${targetDir} ...`);
-      console.log(`====================================================`);
-      await client.cd(targetDir);
-      const remoteList = await client.list();
-      console.log(`📂 Found in ${targetDir}: ${remoteList.map((i) => i.name).join(', ') || '(empty)'}`);
-
-      // Clean old assets folder if it exists to purge outdated js/css bundles
-      const hasAssetsDir = remoteList.some((item) => item.name === 'assets' && item.isDirectory);
-      if (hasAssetsDir) {
-        console.log(`🧹 Purging outdated ${targetDir}/assets directory...`);
-        try {
-          await client.removeDir('assets');
-          console.log(`✅ ${targetDir}/assets purged cleanly.`);
-        } catch (rmErr) {
-          console.warn(`⚠️ Could not remove remote assets dir (${rmErr.message}), will overwrite files.`);
-        }
-      }
-
-      console.log(`🚀 Uploading fresh dist/ bundle to ${targetDir} ...`);
-      let uploaded = false;
-      let attempts = 0;
-      while (!uploaded && attempts < 3) {
-        try {
-          attempts++;
-          await client.uploadFromDir(distDir);
-          uploaded = true;
-          console.log(`✅ Files uploaded to ${targetDir} successfully!`);
-        } catch (uploadErr) {
-          console.warn(`⚠️ Upload attempt ${attempts} to ${targetDir} interrupted: ${uploadErr.message}`);
-          if (attempts >= 3) throw uploadErr;
-          console.log('🔄 Reconnecting FTP client and resuming upload...');
-          client.close();
-          client = new ftp.Client(120000);
-          await connectClient(client);
-          await client.cd(targetDir);
-        }
+async function uploadTarget(target) {
+  const client = new ftp.Client(120000);
+  client.ftp.verbose = false;
+  try {
+    await connectClient(client, target);
+    const remoteDir = target.dir.startsWith('/') ? target.dir : `/${target.dir}`;
+    await client.ensureDir(remoteDir);
+    console.log(`Uploading dist/ to ${remoteDir}`);
+    let uploaded = false;
+    let attempts = 0;
+    while (!uploaded && attempts < 3) {
+      try {
+        attempts += 1;
+        await client.uploadFromDir(distDir, remoteDir);
+        uploaded = true;
+      } catch (uploadErr) {
+        console.warn(`Upload attempt ${attempts} failed: ${uploadErr.message}`);
+        if (attempts >= 3) throw uploadErr;
+        client.close();
+        await connectClient(client, target);
       }
     }
-
-    console.log('\n====================================================');
-    console.log(`🎉 ALL FILES DEPLOYED TO HOSTINGER SUCCESSFULLY!`);
-    console.log(`🌐 ROOT STORE (FLOWERS/HADAYA) : https://giftshop-sa.com/`);
-    console.log(`🌐 COFFEE STORE (PUBLIC_HTML)  : https://giftshop-sa.com/public_html/`);
-    console.log(`👑 ADMIN DASHBOARD             : https://giftshop-sa.com/admin`);
-    console.log(`☕ COFFEE ADMIN                : https://giftshop-sa.com/admin?store=coffee`);
-    console.log('====================================================');
-
-    // Run live verification checks
-    await verifyLiveSite('https://giftshop-sa.com/');
-    await verifyLiveSite('https://giftshop-sa.com/public_html/');
-    await verifyLiveSite('https://giftshop-sa.com/admin');
-
-  } catch (err) {
-    console.error('\n❌ Deployment failed:');
-    console.error(err.message || err);
-    process.exit(1);
+    console.log(`Uploaded ${target.label}`);
+    await verifyLiveSite(target.url);
   } finally {
     client.close();
   }
 }
 
-deploy();
+async function deploy() {
+  if (!fs.existsSync(distDir)) {
+    console.error('dist/ is missing. Run npm run build first.');
+    process.exit(1);
+  }
+
+  const htaccessSource = path.join(rootDir, 'public', '.htaccess');
+  const htaccessDist = path.join(distDir, '.htaccess');
+  if (fs.existsSync(htaccessSource)) {
+    fs.copyFileSync(htaccessSource, htaccessDist);
+  }
+
+  const ready = selected.map((name) => catalog[name]).filter(Boolean);
+  const missing = selected.filter((name) => !catalog[name]);
+
+  if (ready.length === 0) {
+    console.error('No FTP account is configured.');
+    console.error('Central: FTP_CENTRAL_HOST, FTP_CENTRAL_USER, FTP_CENTRAL_PASSWORD');
+    console.error('Flowers: FTP_FLOWERS_HOST, FTP_FLOWERS_USER, FTP_FLOWERS_PASSWORD');
+    process.exit(1);
+  }
+
+  for (const name of missing) {
+    console.warn(`Skipping ${name}: FTP login is not in .env yet.`);
+  }
+
+  for (const target of ready) {
+    console.log(`\n==== ${target.label} ====`);
+    await uploadTarget(target);
+  }
+
+  console.log('\nDeploy finished. Store data stays isolated by store id.');
+  console.log('Central upload covers coffee, car, and new stores on that account.');
+  console.log('Flowers upload covers only the flowers Hostinger.');
+}
+
+deploy().catch((err) => {
+  console.error(err.message || err);
+  process.exit(1);
+});

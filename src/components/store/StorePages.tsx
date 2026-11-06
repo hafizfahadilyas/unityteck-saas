@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import {
   StoreCustomPage,
-  getStorePages,
+  hydrateStorePages,
   saveStorePage,
   createStorePage,
   deleteStorePage,
@@ -69,8 +69,7 @@ export const StorePages: React.FC = () => {
   });
 
   const loadPages = () => {
-    const list = getStorePages(activeStore.id, activeStore);
-    setPages(list);
+    void hydrateStorePages(activeStore.id).then((list) => setPages(list));
   };
 
   useEffect(() => {

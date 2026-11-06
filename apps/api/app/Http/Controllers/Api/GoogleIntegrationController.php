@@ -11,7 +11,6 @@ use App\Models\StoreGoogleIntegration;
 use App\Services\GoogleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class GoogleIntegrationController extends Controller
 {
@@ -635,7 +634,8 @@ class GoogleIntegrationController extends Controller
     }
 
     /**
-     * Get Real PageSpeed & Core Web Vitals
+     * Get Real PageSpeed & Core Web Vitals (Google PSI API — zero mock).
+     * Optional query: strategy=mobile|desktop, refresh=1, url=https://…
      */
     public function getPageSpeed(Request $request): JsonResponse
     {
@@ -644,22 +644,56 @@ class GoogleIntegrationController extends Controller
             return $storeId;
         }
 
-        $strategy = $request->query('strategy', 'mobile');
+        $strategy = strtolower((string) $request->query('strategy', 'mobile')) === 'desktop'
+            ? 'desktop'
+            : 'mobile';
+        $refresh = $request->boolean('refresh');
+        $customUrl = trim((string) $request->query('url', ''));
+
+        $store = Store::find($storeId);
+        $defaultUrl = $this->googleService->resolveStorePublicBaseUrl($store);
+        $targetUrl = $customUrl !== '' ? $customUrl : $defaultUrl;
+
+        if ($targetUrl !== '' && !preg_match('#^https?://#i', $targetUrl)) {
+            $targetUrl = 'https://' . ltrim($targetUrl, '/');
+        }
+
         $integration = StoreGoogleIntegration::query()->forStore($storeId)->first();
-
         $snapshot = $strategy === 'desktop'
-            ? ($integration ? $integration->pagespeed_desktop_snapshot : null)
-            : ($integration ? $integration->pagespeed_mobile_snapshot : null);
+            ? ($integration?->pagespeed_desktop_snapshot)
+            : ($integration?->pagespeed_mobile_snapshot);
 
-        // If not tested yet or refresh requested, run audit
-        if (!$snapshot || $request->boolean('refresh')) {
-            $store = Store::find($storeId);
-            $targetUrl = $store && $store->custom_domain
-                ? "https://{$store->custom_domain}"
-                : "https://" . ($store ? $store->slug : 'demo') . ".saasdomain.com";
+        // Custom URL that differs from last audited URL → force fresh audit
+        if ($snapshot && $customUrl !== '') {
+            $prevUrl = (string) ($snapshot['testedUrl'] ?? $snapshot['auditedUrl'] ?? '');
+            if ($prevUrl !== '' && rtrim($prevUrl, '/') !== rtrim($targetUrl, '/')) {
+                $refresh = true;
+            }
+        }
 
+        if ($targetUrl === '') {
+            return response()->json([
+                'strategy' => $strategy,
+                'audit' => null,
+                'tested_url' => null,
+                'message' => 'No public storefront URL configured for this store.',
+            ]);
+        }
+
+        if (!$snapshot || $refresh) {
             $newAudit = $this->googleService->runPageSpeedAudit($targetUrl, $strategy);
-            if ($newAudit && $integration) {
+            if ($newAudit) {
+                if (!$integration) {
+                    $integration = StoreGoogleIntegration::withoutGlobalScope('store')
+                        ->firstOrNew(['store_id' => $storeId]);
+                    if (!$integration->exists) {
+                        $integration->id = $this->newId('g_int');
+                        $integration->store_id = $storeId;
+                        $integration->is_connected = false;
+                        $integration->sync_status = 'not_connected';
+                    }
+                    $integration->save();
+                }
                 if ($strategy === 'desktop') {
                     $integration->update(['pagespeed_desktop_snapshot' => $newAudit]);
                 } else {
@@ -672,6 +706,9 @@ class GoogleIntegrationController extends Controller
         return response()->json([
             'strategy' => $strategy,
             'audit' => $snapshot,
+            'tested_url' => $snapshot['testedUrl'] ?? $targetUrl,
+            'source' => $snapshot ? 'google_pagespeed' : null,
+            'message' => $snapshot ? null : 'PageSpeed audit unavailable. Check GOOGLE_PAGESPEED_API_KEY / URL reachability.',
         ]);
     }
 

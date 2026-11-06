@@ -3,6 +3,9 @@
  * Custom: Top 15 color palettes · Top 15 Google Fonts (EN 7 + AR 6 + UR 2) · Font weights.
  * Runtime via CSS vars (Prefs → BrandingPanel / Settings).
  */
+import { runChromePainter } from './chromePainter';
+
+export { setChromePainter } from './chromePainter';
 
 export type BrandPaletteId =
   | 'holst'
@@ -662,4 +665,5 @@ export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): vo
   root.setAttribute('data-font', resolvedFontId);
   root.setAttribute('data-icon', brand.iconStyle);
   root.setAttribute('data-weight', brand.fontWeight ?? 'regular');
+  runChromePainter(root);
 }

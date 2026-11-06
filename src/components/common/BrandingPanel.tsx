@@ -20,8 +20,16 @@ import { useToast } from './ToastProvider';
  * Shared Master + Store branding:
  * Top 15 Color Palettes · Professional Google Fonts (EN 7 + AR 6) · Font Weights · Icon Shapes.
  */
-export const BrandingPanel: React.FC<{ title?: string }> = ({
+export const BrandingPanel: React.FC<{
+  title?: string;
+  activePalette?: BrandPaletteId | null;
+  onPaletteSelect?: (id: BrandPaletteId) => void;
+  storeScoped?: boolean;
+}> = ({
   title = 'Branding · Color · Font · Icons',
+  activePalette,
+  onPaletteSelect,
+  storeScoped = false,
 }) => {
   const { brand, setPalette, setFont, setIconStyle, setFontWeight, locale } = usePrefs();
   const { toast } = useToast();
@@ -109,7 +117,7 @@ export const BrandingPanel: React.FC<{ title?: string }> = ({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
           {TOP_15_PALETTES.map((id: BrandPaletteId) => {
             const p = BRAND_PALETTES[id];
-            const active = brand.palette === id;
+            const active = activePalette === null ? false : (activePalette ?? brand.palette) === id;
             const label = isAr ? p.labelAr : p.label;
 
             return (
@@ -117,6 +125,10 @@ export const BrandingPanel: React.FC<{ title?: string }> = ({
                 key={id}
                 type="button"
                 onClick={() => {
+                  if (onPaletteSelect) {
+                    onPaletteSelect(id);
+                    return;
+                  }
                   setPalette(id);
                   toast(
                     isAr ? 'تم تحديث اللون' : 'Color palette updated',
@@ -299,8 +311,12 @@ export const BrandingPanel: React.FC<{ title?: string }> = ({
         <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
         <span>
           {isAr
-            ? 'جميع تغييرات الألوان والخطوط والأوزان تطبق فورياً بدون إعادة تحميل الصفحة في جميع الشاشات واللوحات والمتاجر.'
-            : 'All color, font, and weight customizations apply instantly without page reload across Store, Master, and Storefront.'}
+            ? storeScoped
+              ? 'الألوان والتدرج والصورة تُحفظ لهذا المتجر فقط. الخط يطبق على لوحة هذا المتجر فوراً.'
+              : 'جميع تغييرات الألوان والخطوط والأوزان تطبق فورياً بدون إعادة تحميل الصفحة في جميع الشاشات واللوحات والمتاجر.'
+            : storeScoped
+              ? 'Colors, gradient, and image are saved for this store only and apply immediately.'
+              : 'All color, font, and weight customizations apply instantly without page reload across Store, Master, and Storefront.'}
         </span>
       </p>
     </div>

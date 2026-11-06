@@ -323,19 +323,81 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   },
 ];
 
+/** Flower-only block types — never offer these on coffee page builder. */
+const COFFEE_HIDDEN_WIDGET_TYPES = new Set([
+  'discounted_bouquets_3d',
+  'product_section_natural',
+  'product_section_coffee', // flower hospitality sweets — not HiBrew machines
+  'promo_banners_pair',
+  'circle_categories',
+  'trending_this_week',
+  'occasion_why_us',
+  'custom_gift_banner',
+  'magazine_section',
+  '8_categories_grid',
+  'categories_grid_8',
+  'category_grid', // flower 8-cats showcase
+  'best_sellers', // flower best-sellers layout
+  'shop_by_category', // flower category cards
+  'featured_collections', // flower stats/collections
+  'featured_posts', // blog/posts not coffee home
+]);
+
+const COFFEE_WIDGET_OVERRIDES: Partial<
+  Record<string, { titleEn: string; titleAr: string; type?: string; defaultSettings?: Record<string, any> }>
+> = {
+  w_product_tabs: {
+    titleEn: 'Featured Coffee Products',
+    titleAr: 'منتجات القهوة المميزة',
+    defaultSettings: { mainTitleAr: 'المنتجات المميزة', mainTitleEn: 'Featured Products' },
+  },
+  w_product_grid: {
+    titleEn: 'Coffee Product Grid',
+    titleAr: 'شبكة منتجات القهوة',
+    type: 'featured_products',
+  },
+  w_hero_slider: {
+    titleEn: 'Hero Banners',
+    titleAr: 'بانرات الواجهة',
+    type: 'hero_banners',
+  },
+  w_features: {
+    titleEn: 'Feature Icons',
+    titleAr: 'أيقونات المميزات',
+  },
+  w_testimonials: {
+    titleEn: 'Customer Reviews',
+    titleAr: 'تقييمات العملاء',
+  },
+};
+
 interface BuilderWidgetLibraryProps {
   isAr: boolean;
   onAddWidget: (widget: WidgetDefinition) => void;
+  /** When true, hide flower widgets and relabel for HiBrew coffee. */
+  isCoffee?: boolean;
 }
 
 export const BuilderWidgetLibrary: React.FC<BuilderWidgetLibraryProps> = ({
   isAr,
   onAddWidget,
+  isCoffee = false,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<'all' | 'general' | 'ecommerce' | 'sections'>('all');
 
-  const filtered = BUILDER_WIDGETS.filter((w) => {
+  const catalog = BUILDER_WIDGETS.map((w) => {
+    if (!isCoffee) return w;
+    const override = COFFEE_WIDGET_OVERRIDES[w.id];
+    if (!override) return w;
+    return {
+      ...w,
+      ...override,
+      defaultSettings: { ...w.defaultSettings, ...(override.defaultSettings || {}) },
+    };
+  }).filter((w) => !isCoffee || !COFFEE_HIDDEN_WIDGET_TYPES.has(w.type));
+
+  const filtered = catalog.filter((w) => {
     const matchesCat = activeCategory === 'all' || w.category === activeCategory;
     const q = searchQuery.toLowerCase();
     const matchesSearch =

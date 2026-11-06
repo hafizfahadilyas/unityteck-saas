@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTenant } from '../../context/TenantContext';
+import { fetchProductsPage } from '../../api/tenantApi';
 import type { Product } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { AdminPageShell } from '../common/AdminPageHeader';
@@ -45,7 +47,6 @@ import {
   Sparkles,
   Wand2,
   GripVertical,
-  ArrowUpDown,
   Sliders,
   LayoutGrid,
 } from 'lucide-react';
@@ -110,12 +111,20 @@ export const StoreProducts: React.FC = () => {
     updateProduct,
     deleteProduct,
     togglePublishProduct,
+    revalidateResource,
+    dataSource,
+    apiError,
   } = useTenant();
   const { t, money, locale, dir } = usePrefs();
   const { toast, confirm } = useToast();
   const isAr = locale === 'ar';
 
-  const planGate = canAddProduct(activeStore, currentProducts.length);
+  const [apiRows, setApiRows] = useState<Product[]>([]);
+  const [apiTotal, setApiTotal] = useState(0);
+  const [apiLastPage, setApiLastPage] = useState(1);
+  const [catalogNonce, setCatalogNonce] = useState(0);
+  const [apiCounts, setApiCounts] = useState<{ total: number; active: number; out_of_stock: number; draft: number } | null>(null);
+  const planGate = canAddProduct(activeStore, dataSource === 'api' ? apiTotal : currentProducts.length);
   const planInfo = planInfoForStore(activeStore);
   const sub = resolveSubscription(activeStore.id);
 
@@ -134,15 +143,24 @@ export const StoreProducts: React.FC = () => {
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(12);
+  const [pageSize, setPageSize] = useState(20);
+  /** Rows on screen. Starts at 20+ and grows when the list is scrolled. */
+  const [visibleCount, setVisibleCount] = useState(20);
+  const listScrollRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   // Makdah Flowers Catalog Table & Inline Edit State (Spec Section 6 & 9)
   const [isInlineEdit, setIsInlineEdit] = useState(false);
   const [showColumnsPopover, setShowColumnsPopover] = useState(false);
   const [showFieldsFilterPopover, setShowFieldsFilterPopover] = useState(false);
   const [columnSearch, setColumnSearch] = useState('');
-  const [sortBy, setSortBy] = useState<string>('date-desc');
   const [bulkAction, setBulkAction] = useState<string>('');
+  const [columnsPopoverPos, setColumnsPopoverPos] = useState<{ top: number; left: number } | null>(null);
+  const [fieldsPopoverPos, setFieldsPopoverPos] = useState<{ top: number; left: number } | null>(null);
+  const columnsBtnRef = useRef<HTMLButtonElement>(null);
+  const fieldsBtnRef = useRef<HTMLButtonElement>(null);
+  const columnsPopoverRef = useRef<HTMLDivElement>(null);
+  const fieldsPopoverRef = useRef<HTMLDivElement>(null);
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
     image: true,
     name: true,
@@ -154,8 +172,6 @@ export const StoreProducts: React.FC = () => {
     status: true,
     weight: true,
     shippingClass: true,
-    date: true,
-    salesCount: false,
     actions: true,
   });
 
@@ -173,6 +189,114 @@ export const StoreProducts: React.FC = () => {
     setVisibleEditSections(loadEditFieldVisibility(activeStore.id));
   }, [activeStore.id]);
 
+  /** Place floating menus in a body portal so AdminPageShell overflow-x-hidden cannot clip them. */
+  const placePopoverBelow = (
+    btn: HTMLElement | null,
+    width: number,
+    alignEnd: boolean,
+  ): { top: number; left: number } | null => {
+    if (!btn) return null;
+    const rect = btn.getBoundingClientRect();
+    const left = alignEnd
+      ? Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))
+      : Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    return { top: rect.bottom + 8, left };
+  };
+
+  const openColumnsPopover = () => {
+    setShowFieldsFilterPopover(false);
+    setFieldsPopoverPos(null);
+    if (showColumnsPopover) {
+      setShowColumnsPopover(false);
+      setColumnsPopoverPos(null);
+      return;
+    }
+    setColumnsPopoverPos(placePopoverBelow(columnsBtnRef.current, 256, true));
+    setShowColumnsPopover(true);
+  };
+
+  const openFieldsFilterPopover = () => {
+    setShowColumnsPopover(false);
+    setColumnsPopoverPos(null);
+    if (showFieldsFilterPopover) {
+      setShowFieldsFilterPopover(false);
+      setFieldsPopoverPos(null);
+      return;
+    }
+    setFieldsPopoverPos(placePopoverBelow(fieldsBtnRef.current, 288, false));
+    setShowFieldsFilterPopover(true);
+  };
+
+  const closeFloatingPopovers = () => {
+    setShowColumnsPopover(false);
+    setShowFieldsFilterPopover(false);
+    setColumnsPopoverPos(null);
+    setFieldsPopoverPos(null);
+  };
+
+  useEffect(() => {
+    if (!showColumnsPopover && !showFieldsFilterPopover) return;
+    const onPointerDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (columnsBtnRef.current?.contains(t) || columnsPopoverRef.current?.contains(t)) return;
+      if (fieldsBtnRef.current?.contains(t) || fieldsPopoverRef.current?.contains(t)) return;
+      closeFloatingPopovers();
+    };
+    const onReposition = () => {
+      if (showColumnsPopover) {
+        setColumnsPopoverPos(placePopoverBelow(columnsBtnRef.current, 256, true));
+      }
+      if (showFieldsFilterPopover) {
+        setFieldsPopoverPos(placePopoverBelow(fieldsBtnRef.current, 288, false));
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('resize', onReposition);
+    window.addEventListener('scroll', onReposition, true);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('resize', onReposition);
+      window.removeEventListener('scroll', onReposition, true);
+    };
+  }, [showColumnsPopover, showFieldsFilterPopover]);
+
+  const [catalogBusy, setCatalogBusy] = useState(false);
+
+  const rowCacheRef = useRef<Record<string, Product[]>>({});
+
+  useEffect(() => {
+    const cached = activeStore?.id ? rowCacheRef.current[activeStore.id] : undefined;
+    setApiRows(cached ?? []);
+    if (!cached?.length) {
+      setApiTotal(0);
+      setApiCounts(null);
+    }
+  }, [activeStore?.id]);
+
+  const reloadCatalog = () => {
+    if (!activeStore?.id) return;
+    setPage(1);
+    setCatalogNonce((n) => n + 1);
+  };
+
+  const emptyCatalogMessage = catalogBusy
+    ? isAr
+      ? 'جاري تحميل المنتجات…'
+      : 'Loading products…'
+    : currentProducts.length === 0
+      ? apiError
+        ? apiError
+        : dataSource !== 'api'
+          ? isAr
+            ? 'الكتالوج غير متصل بواجهة البرمجة حالياً — سجّل الدخول من جديد لتحميل المنتجات الحقيقية.'
+            : 'Catalog is not connected to the live API — sign in again to load real products.'
+          : isAr
+            ? 'لا توجد منتجات مسجلة في هذا المتجر حالياً.'
+            : 'No records found for this store.'
+      : isAr
+        ? 'لا توجد منتجات مطابقة لخيارات البحث.'
+        : 'No products found matching your criteria.';
+
   // Advanced Filters & Deleted Products (Mockup / Screenshot 4 & Filters Panel)
   const [filterCriteria, setFilterCriteria] = useState<ProductFilterCriteria>({
     channel: 'All',
@@ -182,6 +306,76 @@ export const StoreProducts: React.FC = () => {
     category: 'All',
     status: 'All',
   });
+
+  useEffect(() => {
+    if (dataSource !== 'api' || !activeStore?.id) return;
+    let cancelled = false;
+    setCatalogBusy(true);
+    const status =
+      filterCriteria.status === 'Draft'
+        ? 'draft'
+        : filterCriteria.status === 'Archived'
+          ? 'archived'
+          : filterCriteria.status === 'Active'
+            ? 'published'
+            : undefined;
+    const q = (filterCriteria.search.trim() || search.trim()) || undefined;
+    const category =
+      filterCriteria.category !== 'All'
+        ? filterCriteria.category
+        : selectedCategory !== 'all'
+          ? selectedCategory
+          : undefined;
+    const timer = window.setTimeout(() => {
+      void fetchProductsPage(activeStore.id, {
+        page,
+        per_page: pageSize,
+        q,
+        status,
+        category,
+        stock:
+          filterCriteria.status === 'Out of Stock'
+            ? 'out'
+            : filterCriteria.status === 'Low Stock'
+              ? 'low'
+              : undefined,
+        sort: 'updated_at',
+        dir: 'desc',
+      })
+        .then((res) => {
+          if (cancelled) return;
+          if (activeStore.id) rowCacheRef.current[activeStore.id] = res.data;
+          setApiRows(res.data);
+          setApiTotal(res.meta.total);
+          setApiLastPage(res.meta.last_page);
+          if (res.meta.counts) setApiCounts(res.meta.counts);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          const cached = activeStore.id ? rowCacheRef.current[activeStore.id] : undefined;
+          if (cached?.length) setApiRows(cached);
+        })
+        .finally(() => {
+          if (!cancelled) setCatalogBusy(false);
+        });
+    }, q ? 250 : 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    dataSource,
+    activeStore?.id,
+    page,
+    pageSize,
+    search,
+    selectedCategory,
+    filterCriteria.status,
+    filterCriteria.category,
+    filterCriteria.search,
+    catalogNonce,
+  ]);
+
   const [filterBrand, setFilterBrand] = useState('All');
   const [filterChannel, setFilterChannel] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
@@ -219,12 +413,34 @@ export const StoreProducts: React.FC = () => {
   const editingProduct = useMemo(() => {
     if (creatingProduct) return creatingProduct;
     if (!editingProductId) return null;
-    return currentProducts.find((p) => p.id === editingProductId) || null;
-  }, [creatingProduct, currentProducts, editingProductId]);
+    return (
+      apiRows.find((p) => p.id === editingProductId) ||
+      currentProducts.find((p) => p.id === editingProductId) ||
+      null
+    );
+  }, [creatingProduct, currentProducts, editingProductId, apiRows]);
   const isCreatingProduct = Boolean(creatingProduct);
+  const editPanelOpen = isSideDrawerOpen && !!editingProduct && !creatingProduct;
+
+  useEffect(() => {
+    if (editPanelOpen) return;
+    setShowFieldsFilterPopover(false);
+    setFieldsPopoverPos(null);
+  }, [editPanelOpen]);
 
   // ── 4 KPI Summary Cards matching Mockup 06 (Store Scoped) ──
   const kpi = useMemo(() => {
+    if (dataSource === 'api' && apiCounts) {
+      return {
+        total: apiCounts.total,
+        active: apiCounts.active,
+        outOfStock: apiCounts.out_of_stock,
+        draft: apiCounts.draft,
+        totalGrowth: { pct: 0, current: 0, previous: 0, hasData: false },
+        activeGrowth: { pct: 0, current: 0, previous: 0, hasData: false },
+        outOfStockGrowth: { pct: 0, current: 0, previous: 0, hasData: false },
+      };
+    }
     const total = currentProducts.length;
     const active = currentProducts.filter(
       (p) => (p.status === 'published' || (p as any).status === 'active') && p.stock > 0
@@ -244,7 +460,7 @@ export const StoreProducts: React.FC = () => {
     const outOfStockGrowth = periodCountGrowth(currentProducts, productDate, (p) => p.stock === 0);
 
     return { total, active, outOfStock, draft, totalGrowth, activeGrowth, outOfStockGrowth };
-  }, [currentProducts]);
+  }, [currentProducts, dataSource, apiCounts]);
 
   // Unique categories for filtering
   const categories = useMemo(() => {
@@ -330,35 +546,75 @@ export const StoreProducts: React.FC = () => {
     });
   }, [currentProducts, selectedCategory, filterCriteria, search, locale]);
 
-  // Sorting according to selected criteria (Spec Section 10)
   const sortedProducts = useMemo(() => {
     const list = [...filteredProducts];
-    if (sortBy === 'name-asc') {
-      list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    } else if (sortBy === 'name-desc') {
-      list.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
-    } else if (sortBy === 'price-asc') {
-      list.sort((a, b) => a.price - b.price);
-    } else if (sortBy === 'price-desc') {
-      list.sort((a, b) => b.price - a.price);
-    } else if (sortBy === 'stock-asc') {
-      list.sort((a, b) => a.stock - b.stock);
-    } else if (sortBy === 'stock-desc') {
-      list.sort((a, b) => b.stock - a.stock);
-    } else if (sortBy === 'date-desc') {
-      list.sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
-    }
+    list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     return list;
-  }, [filteredProducts, sortBy]);
+  }, [filteredProducts]);
 
-  // Pagination
-  const totalCount = sortedProducts.length;
-  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
-  const safePage = Math.min(page, pageCount);
+  // First screen is at least 20. Scrolling appends the next page-size batch.
+  const totalCount = dataSource === 'api' ? apiTotal : sortedProducts.length;
+  const pageCount = dataSource === 'api' ? Math.max(1, apiLastPage) : Math.max(1, Math.ceil(totalCount / pageSize));
+  const revealedCount = dataSource === 'api'
+    ? apiRows.length
+    : Math.min(totalCount, Math.max(pageSize, visibleCount, page * pageSize));
+  const safePage = dataSource === 'api'
+    ? Math.min(pageCount, Math.max(1, page))
+    : Math.min(
+        pageCount,
+        Math.max(1, Math.ceil((totalCount === 0 ? 1 : Math.max(revealedCount, 1)) / pageSize)),
+      );
   const pagedProducts = useMemo(() => {
-    const start = (safePage - 1) * pageSize;
-    return sortedProducts.slice(start, start + pageSize);
-  }, [sortedProducts, safePage, pageSize]);
+    if (dataSource === 'api') {
+      if (apiRows.length > 0) return apiRows;
+      if (page <= 1 && currentProducts.length > 0 && !search.trim() && filterCriteria.search.trim() === '') {
+        return currentProducts.slice(0, pageSize);
+      }
+      return apiRows;
+    }
+    return sortedProducts.slice(0, revealedCount);
+  }, [
+    dataSource,
+    apiRows,
+    sortedProducts,
+    revealedCount,
+    page,
+    pageSize,
+    currentProducts,
+    search,
+    filterCriteria.search,
+  ]);
+
+  useEffect(() => {
+    setVisibleCount(pageSize);
+    setPage(1);
+  }, [
+    pageSize,
+    search,
+    selectedCategory,
+    activeStore.id,
+    filterCriteria.channel,
+    filterCriteria.brand,
+    filterCriteria.search,
+    filterCriteria.productType,
+    filterCriteria.category,
+    filterCriteria.status,
+  ]);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    const root = listScrollRef.current;
+    if (!node || !root || dataSource === 'api' || visibleCount >= totalCount) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        setVisibleCount((n) => (n >= totalCount ? n : Math.min(totalCount, n + pageSize)));
+      },
+      { root, rootMargin: '180px' },
+    );
+    obs.observe(node);
+    return () => obs.disconnect();
+  }, [visibleCount, totalCount, pageSize, viewMode, dataSource]);
 
   // Bulk Actions Execution (Spec Section 11)
   const handleApplyBulkAction = async () => {
@@ -758,61 +1014,15 @@ export const StoreProducts: React.FC = () => {
 
     return (
       <AdminPageShell className="pb-16 max-w-[1600px] mx-auto space-y-6">
-        {/* ── Subnav Tabs Bar ── */}
-        <div
-          className="flex items-center gap-1.5 p-1.5 rounded-2xl border shadow-xs overflow-x-auto no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-        >
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setCurrentView('list')}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all"
-            style={{
-              background: (currentView as string) === 'list' ? 'var(--active-bg)' : 'transparent',
-              color: (currentView as string) === 'list' ? 'var(--active-fg)' : 'var(--text)',
-            }}
+            className="px-3.5 py-2 text-xs font-bold rounded-xl border flex items-center gap-2 cursor-pointer"
+            style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
           >
-            <Package className="w-3.5 h-3.5" />
-            <span>{isAr ? 'جميع المنتجات' : 'All Products'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setCurrentView('brands')}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all"
-            style={{
-              background: (currentView as string) === 'brands' ? 'var(--active-bg)' : 'transparent',
-              color: (currentView as string) === 'brands' ? 'var(--active-fg)' : 'var(--text)',
-            }}
-          >
-            <Tag className="w-3.5 h-3.5" />
-            <span>{isAr ? 'العلامات التجارية والحقول المخصصة' : 'Brands & Custom Fields'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setCurrentView('type-picker')}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all"
-            style={{
-              background: (currentView as string) === 'type-picker' ? 'var(--active-bg)' : 'transparent',
-              color: (currentView as string) === 'type-picker' ? 'var(--active-fg)' : 'var(--text)',
-            }}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>{isAr ? 'اختيار نوع المنتج' : 'Choose Product Type (8 Types)'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setCurrentView('filters')}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all"
-            style={{
-              background: currentView === 'filters' ? 'var(--active-bg)' : 'transparent',
-              color: currentView === 'filters' ? 'var(--active-fg)' : 'var(--text)',
-            }}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>{isAr ? 'الفلاتر والمنتجات المحذوفة' : 'Filters & Deleted Products'}</span>
+            <ChevronLeft className="w-3.5 h-3.5" />
+            <span>{isAr ? 'المنتجات فقط' : 'Products Only'}</span>
           </button>
         </div>
 
@@ -1015,75 +1225,8 @@ export const StoreProducts: React.FC = () => {
   //  VIEW 1: PRODUCTS LIST DIRECTORY (Mockup 06 Exact)
   // ────────────────────────────────────────────────
   return (
-    <AdminPageShell className="pb-16 max-w-[1600px] mx-auto space-y-5">
-      {/* ── SUBNAV TABS: All Products · Add Product (Types) · Brands & Custom Fields ── */}
-      <div
-        className="flex items-center gap-1.5 p-1.5 rounded-2xl border shadow-xs overflow-x-auto no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-      >
-        <button
-          type="button"
-          onClick={() => setCurrentView('list')}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all"
-          style={{
-            background: currentView === 'list' ? 'var(--active-bg)' : 'transparent',
-            color: currentView === 'list' ? 'var(--active-fg)' : 'var(--text)',
-          }}
-        >
-          <Package className="w-3.5 h-3.5" />
-          <span>{isAr ? 'جميع المنتجات' : 'All Products'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setCurrentView('brands')}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all"
-          style={{
-            background: currentView === 'brands' ? 'var(--active-bg)' : 'transparent',
-            color: currentView === 'brands' ? 'var(--active-fg)' : 'var(--text)',
-          }}
-        >
-          <Tag className="w-3.5 h-3.5" />
-          <span>{isAr ? 'العلامات التجارية والحقول المخصصة' : 'Brands & Custom Fields'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setCurrentView('type-picker')}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all"
-          style={{
-            background: (currentView as string) === 'type-picker' ? 'var(--active-bg)' : 'transparent',
-            color: (currentView as string) === 'type-picker' ? 'var(--active-fg)' : 'var(--text)',
-          }}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>{isAr ? 'اختيار نوع المنتج' : 'Choose Product Type (8 Types)'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setCurrentView('filters')}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all"
-          style={{
-            background: (currentView as string) === 'filters' ? 'var(--active-bg)' : 'transparent',
-            color: (currentView as string) === 'filters' ? 'var(--active-fg)' : 'var(--text)',
-          }}
-        >
-          <Filter className="w-3.5 h-3.5" />
-          <span>{isAr ? 'الفلاتر والمنتجات المحذوفة' : 'Filters & Deleted Products'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowBulkModal(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
-        >
-          <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          <span>{isAr ? 'رفع بالجملة (Google Sheets / CSV)' : 'Bulk Upload (Google Sheet/CSV)'}</span>
-        </button>
-      </div>
-
-      {/* ── Connected Local Project Workspace Banner ── */}
+    <AdminPageShell className="max-w-[1600px] mx-auto flex flex-col -mb-16 pb-4">
+      {/* All-Products subnav toolbar removed — navigation via sidebar + header actions */}
       <ConnectedWorkspaceBanner page="products" />
 
       {/* ── TOP HEADER — Title & Subtitle + Search + Bulk Upload + Add Product Button ── */}
@@ -1100,12 +1243,19 @@ export const StoreProducts: React.FC = () => {
         {/* Action Controls on the Right */}
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* Plan Limit Info Pill */}
-          <div className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+          <div
+            className="px-3 py-1.5 rounded-xl border text-[11px] font-bold"
+            style={{
+              background: 'var(--surface)',
+              borderColor: 'var(--border)',
+              color: 'var(--muted)',
+            }}
+          >
             {planInfo.name}: {currentProducts.length} / {planInfo.productLimit === Infinity ? '∞' : planInfo.productLimit}
           </div>
 
           {/* Search Input matching mockup 06 */}
-          <div className="relative min-w-[220px] sm:min-w-[280px]">
+          <div className="relative w-full sm:w-auto min-w-0 sm:min-w-[220px] md:min-w-[280px] grow sm:grow-0">
             <Search
               className="w-4 h-4 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
               style={{ color: 'var(--muted)' }}
@@ -1136,14 +1286,29 @@ export const StoreProducts: React.FC = () => {
             )}
           </div>
 
-          {/* Bulk Upload Google Sheet / CSV Button */}
+          <button
+            type="button"
+            onClick={() => setCurrentView('filters')}
+            className="px-3.5 py-2 text-xs font-bold rounded-xl border flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:opacity-90 shrink-0"
+            style={{
+              background: 'var(--surface)',
+              borderColor: 'var(--border)',
+              color: 'var(--text)',
+            }}
+          >
+            <Filter className="w-4 h-4 shrink-0" />
+            <span>{isAr ? 'الفلاتر' : 'Filters'}</span>
+          </button>
+
+          {/* Multiple Upload Google Sheet / CSV */}
           <button
             type="button"
             onClick={() => setShowBulkModal(true)}
-            className="px-3.5 py-2 text-xs font-bold rounded-xl border flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 shrink-0 bg-white dark:bg-slate-900"
+            className="px-3.5 py-2 text-xs font-bold rounded-xl border flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 shrink-0"
+            style={{ background: 'var(--surface)' }}
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span>{isAr ? 'رفع بالجملة (50+)' : 'Bulk Upload (50+)'}</span>
+            <span>{isAr ? 'استيراد منتجات' : 'Import Products'}</span>
           </button>
 
           {/* + Add Product Primary CTA Button */}
@@ -1160,9 +1325,9 @@ export const StoreProducts: React.FC = () => {
       </div>
 
       {/* ── 4 KPI CARDS DEDICATED GRID (Mockup 06 - Soft Pastel Tints & High Contrast) ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 min-w-0">
         {/* Card 1: Total Products (Soft Blue) */}
-        <div className="bg-blue-50/70 hover:bg-blue-50/90 dark:bg-blue-950/30 p-5 rounded-2xl border border-blue-200/80 dark:border-blue-900/40 shadow-2xs flex flex-col justify-between transition-all">
+        <div className="bg-blue-50/70 hover:bg-blue-50/90 dark:bg-blue-950/30 p-3 sm:p-5 rounded-2xl border border-blue-200/80 dark:border-blue-900/40 shadow-2xs flex flex-col justify-between transition-all min-w-0">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-700 dark:text-blue-200">
               {t('totalProductsCard')}
@@ -1189,7 +1354,7 @@ export const StoreProducts: React.FC = () => {
         </div>
 
         {/* Card 2: Active (Soft Emerald) */}
-        <div className="bg-emerald-50/70 hover:bg-emerald-50/90 dark:bg-emerald-950/30 p-5 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/40 shadow-2xs flex flex-col justify-between transition-all">
+        <div className="bg-emerald-50/70 hover:bg-emerald-50/90 dark:bg-emerald-950/30 p-3 sm:p-5 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/40 shadow-2xs flex flex-col justify-between transition-all min-w-0">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-700 dark:text-emerald-200">
               {t('activeProducts')}
@@ -1216,7 +1381,7 @@ export const StoreProducts: React.FC = () => {
         </div>
 
         {/* Card 3: Out of Stock (Soft Rose) */}
-        <div className="bg-rose-50/70 hover:bg-rose-50/90 dark:bg-rose-950/30 p-5 rounded-2xl border border-rose-200/80 dark:border-rose-900/40 shadow-2xs flex flex-col justify-between transition-all">
+        <div className="bg-rose-50/70 hover:bg-rose-50/90 dark:bg-rose-950/30 p-3 sm:p-5 rounded-2xl border border-rose-200/80 dark:border-rose-900/40 shadow-2xs flex flex-col justify-between transition-all min-w-0">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-700 dark:text-rose-200">
               {t('outOfStock')}
@@ -1243,7 +1408,7 @@ export const StoreProducts: React.FC = () => {
         </div>
 
         {/* Card 4: Draft (Soft Purple) */}
-        <div className="bg-purple-50/70 hover:bg-purple-50/90 dark:bg-purple-950/30 p-5 rounded-2xl border border-purple-200/80 dark:border-purple-900/40 shadow-2xs flex flex-col justify-between transition-all">
+        <div className="bg-purple-50/70 hover:bg-purple-50/90 dark:bg-purple-950/30 p-3 sm:p-5 rounded-2xl border border-purple-200/80 dark:border-purple-900/40 shadow-2xs flex flex-col justify-between transition-all min-w-0">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-700 dark:text-purple-200">
               {t('draftProducts')}
@@ -1264,15 +1429,21 @@ export const StoreProducts: React.FC = () => {
       </div>
 
       {/* ── CATALOG CONTAINER (TABLE OR GRID) + SIDE DRAWER (Screenshot 2 Exact) ── */}
-      <div className={isSideDrawerOpen && editingProduct ? 'grid grid-cols-1 lg:grid-cols-12 gap-5 items-start' : 'w-full'}>
+      <div className={isSideDrawerOpen && editingProduct ? 'flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch min-h-0' : 'flex-1 flex flex-col w-full min-h-0'}>
         {/* Main Catalog View (Left Column if Drawer Open) */}
-        <div className={isSideDrawerOpen && editingProduct ? 'lg:col-span-7 xl:col-span-8 min-w-0' : 'w-full'}>
+        <div className={isSideDrawerOpen && editingProduct ? 'lg:col-span-7 xl:col-span-8 min-w-0 flex flex-col min-h-0' : 'w-full flex flex-col flex-1 min-h-0'}>
           {/* ── PRODUCTS TABLE / GRID CARD CONTAINER (Makdah Flowers Spec & Mockup 06 Exact) ── */}
-          <div className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+          <div
+            className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-visible flex flex-col flex-1"
+            style={{ minHeight: 'calc(100dvh - 18rem)' }}
+          >
             {/* ── TABLE TOOLBAR (Spec Section 6 & 9) ── */}
-            <div className="p-3 border-b border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/40">
+            <div
+              className="p-3 border-b border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 relative z-20 overflow-visible"
+              style={{ background: 'var(--surface)' }}
+            >
               {/* Left: Bulk Selection & Actions & Grid/List View Toggles */}
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
                 <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -1285,18 +1456,28 @@ export const StoreProducts: React.FC = () => {
                 <select
                   value={bulkAction}
                   onChange={(e) => setBulkAction(e.target.value)}
-                  className="px-2.5 py-1.5 text-xs font-medium rounded-xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none"
+                  className="px-2.5 py-1.5 text-xs font-medium rounded-xl border focus:outline-none"
+                  style={{
+                    background: 'var(--surface)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--text)',
+                  }}
                 >
-                  <option value="">{isAr ? 'إجراءات جماعية' : 'Bulk actions'}</option>
-                  <option value="publish">{isAr ? 'نشر المنتجات' : 'Publish'}</option>
-                  <option value="draft">{isAr ? 'تحويل لمسودة' : 'Move to Draft'}</option>
+                  <option value="">{isAr ? 'عمليات تحديد' : 'Selection Operations'}</option>
+                  <option value="publish">{isAr ? 'نشر المنتج' : 'Publish Product'}</option>
+                  <option value="draft">{isAr ? 'تحويل إلى مسودة' : 'Convert to Draft'}</option>
                   <option value="delete">{isAr ? 'حذف المحدد' : 'Delete Selected'}</option>
                 </select>
                 <button
                   type="button"
                   onClick={handleApplyBulkAction}
                   disabled={selectedProductIds.length === 0}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 disabled:opacity-40 transition-colors cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold disabled:opacity-40 transition-colors cursor-pointer border"
+                  style={{
+                    background: 'var(--surface)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--text)',
+                  }}
                 >
                   {isAr ? 'تطبيق' : 'Apply'}
                 </button>
@@ -1329,14 +1510,13 @@ export const StoreProducts: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Edit Fields Filter — toggle off hides that section in the edit drawer */}
-                <div className="relative">
+                {/* Edit Fields Filter — only while a product edit drawer is open */}
+                {editPanelOpen && (
+                <div className="relative shrink-0">
                   <button
+                    ref={fieldsBtnRef}
                     type="button"
-                    onClick={() => {
-                      setShowFieldsFilterPopover(!showFieldsFilterPopover);
-                      setShowColumnsPopover(false);
-                    }}
+                    onClick={openFieldsFilterPopover}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors ${
                       showFieldsFilterPopover
                         ? 'bg-teal-50 border-teal-300 text-teal-700 dark:bg-teal-950/40 dark:border-teal-800 dark:text-teal-300'
@@ -1347,82 +1527,8 @@ export const StoreProducts: React.FC = () => {
                     <SlidersHorizontal className="w-3.5 h-3.5" />
                     <span>{isAr ? 'تصفية الحقول' : 'Filter'}</span>
                   </button>
-
-                  {showFieldsFilterPopover && (
-                    <div className="absolute start-0 top-full mt-2 w-72 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-3 z-50 animate-in fade-in duration-100 space-y-2.5">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-                        <div>
-                          <span className="font-bold text-xs text-slate-900 dark:text-white block">
-                            {isAr ? 'تصفية حقول التعديل' : 'Filter Edit Fields'}
-                          </span>
-                          <span className="text-[10px] text-slate-500">
-                            {isAr
-                              ? 'إيقاف أي قسم يخفيه من لوحة التعديل فوراً'
-                              : 'Turn off a section to hide it from the edit panel'}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowFieldsFilterPopover(false)}
-                          className="text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      <div className="max-h-64 overflow-y-auto space-y-1 custom-scroll pe-1">
-                        {PRODUCT_EDIT_SECTION_OPTIONS.map((opt) => {
-                          const isOn = visibleEditSections[opt.id] !== false;
-                          return (
-                            <label
-                              key={opt.id}
-                              className="flex items-center justify-between gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs"
-                            >
-                              <span className="text-slate-700 dark:text-slate-300 font-medium">
-                                {isAr ? opt.labelAr : opt.labelEn}
-                              </span>
-                              <button
-                                type="button"
-                                role="switch"
-                                aria-checked={isOn}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  applyEditSectionVisibility({
-                                    ...visibleEditSections,
-                                    [opt.id]: !isOn,
-                                  });
-                                }}
-                                className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer p-0.5 shrink-0 ${
-                                  isOn
-                                    ? 'bg-teal-600'
-                                    : 'bg-slate-200 dark:bg-slate-700'
-                                }`}
-                              >
-                                <span
-                                  className={`w-3.5 h-3.5 rounded-full bg-white shadow block transition-transform transform ${
-                                    isOn
-                                      ? 'translate-x-3.5 rtl:-translate-x-3.5'
-                                      : 'translate-x-0'
-                                  }`}
-                                />
-                              </button>
-                            </label>
-                          );
-                        })}
-                      </div>
-
-                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end">
-                        <button
-                          type="button"
-                          onClick={() => applyEditSectionVisibility({ ...DEFAULT_PRODUCT_EDIT_SECTIONS })}
-                          className="text-[11px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:underline cursor-pointer"
-                        >
-                          {isAr ? 'إظهار الكل' : 'Show All'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
+                )}
 
                 {selectedProductIds.length > 0 && (
                   <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
@@ -1431,11 +1537,14 @@ export const StoreProducts: React.FC = () => {
                 )}
               </div>
 
-              {/* Right: Inline Edit Switch (only in list view), Columns Popover, Sort & Page Size */}
-              <div className="flex items-center gap-2 flex-wrap">
+              {/* Right: Inline Edit Switch (only in list view), Columns Popover */}
+              <div className="flex items-center gap-2 flex-wrap justify-end relative z-30 min-w-0">
                 {/* Inline Edit Switch (Spec Section 6 & 8) - only in table list view */}
                 {viewMode === 'list' && (
-                  <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+                  <label
+                    className="flex items-center gap-2 cursor-pointer px-2.5 py-1.5 rounded-xl border shadow-2xs"
+                    style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+                  >
                     <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
                       {isAr ? 'تعديل مباشر' : 'Inline Edit'}
                     </span>
@@ -1454,161 +1563,84 @@ export const StoreProducts: React.FC = () => {
                   </label>
                 )}
 
-                {/* Columns Customization Button & Popover (Spec Section 9) */}
-                <div className="relative">
+                {/* Columns Customization Button — menu portaled to body (no clip/overlap) */}
+                <div className="relative shrink-0">
                   <button
+                    ref={columnsBtnRef}
                     type="button"
-                    onClick={() => {
-                      setShowColumnsPopover(!showColumnsPopover);
-                      setShowFieldsFilterPopover(false);
-                    }}
+                    onClick={openColumnsPopover}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors ${
                       showColumnsPopover
-                        ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300'
-                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+                        ? 'bg-teal-50 border-teal-400 text-teal-800 dark:bg-teal-950/40 dark:border-teal-700 dark:text-teal-200'
+                        : ''
                     }`}
+                    style={
+                      showColumnsPopover
+                        ? undefined
+                        : {
+                            background: 'var(--surface)',
+                            borderColor: 'var(--border)',
+                            color: 'var(--text)',
+                          }
+                    }
                   >
                     <Sliders className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'الأعمدة' : 'Columns'}</span>
+                    <span>{isAr ? 'تخصيص الأعمدة' : 'Customize Columns'}</span>
                   </button>
-
-                  {showColumnsPopover && (
-                    <div className="absolute end-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-3 z-50 animate-in fade-in duration-100 space-y-2.5">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-                        <span className="font-bold text-xs text-slate-900 dark:text-white">
-                          {isAr ? 'تخصيص الأعمدة' : 'Customize Columns'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setShowColumnsPopover(false)}
-                          className="text-slate-400 hover:text-slate-600 cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      {/* Column Search */}
-                      <div className="relative">
-                        <Search className="w-3.5 h-3.5 absolute start-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder={isAr ? 'بحث في الأعمدة...' : 'Search columns...'}
-                          value={columnSearch}
-                          onChange={(e) => setColumnSearch(e.target.value)}
-                          className="w-full ps-8 pe-2.5 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none"
-                        />
-                      </div>
-
-                      {/* Checkbox list */}
-                      <div className="max-h-52 overflow-y-auto space-y-1.5 custom-scroll pe-1">
-                        {[
-                          { id: 'image', label: isAr ? 'الصورة' : 'Image' },
-                          { id: 'name', label: isAr ? 'اسم المنتج' : 'Product Name' },
-                          { id: 'sku', label: isAr ? 'رمز المنتج (SKU)' : 'SKU' },
-                          { id: 'price', label: isAr ? 'السعر (ر.س)' : 'Price (SAR)' },
-                          { id: 'salePrice', label: isAr ? 'سعر التخفيض' : 'Sale Price (SAR)' },
-                          { id: 'stock', label: isAr ? 'المخزون' : 'Stock' },
-                          { id: 'category', label: isAr ? 'التصنيف' : 'Category' },
-                          { id: 'status', label: isAr ? 'الحالة' : 'Status' },
-                          { id: 'weight', label: isAr ? 'الوزن (كجم)' : 'Weight (kg)' },
-                          { id: 'shippingClass', label: isAr ? 'فئة الشحن' : 'Shipping Class' },
-                          { id: 'date', label: isAr ? 'التاريخ' : 'Date' },
-                          { id: 'salesCount', label: isAr ? 'المبيعات' : 'Sales Count' },
-                          { id: 'actions', label: isAr ? 'إجراءات' : 'Actions' },
-                        ]
-                          .filter((c) => c.label.toLowerCase().includes(columnSearch.toLowerCase()))
-                          .map((col) => (
-                            <label
-                              key={col.id}
-                              className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs"
-                            >
-                              <span className="text-slate-700 dark:text-slate-300 font-medium">{col.label}</span>
-                              <input
-                                type="checkbox"
-                                checked={visibleColumns[col.id] !== false}
-                                onChange={(e) =>
-                                  setVisibleColumns((prev) => ({
-                                    ...prev,
-                                    [col.id]: e.target.checked,
-                                  }))
-                                }
-                                className="rounded cursor-pointer"
-                              />
-                            </label>
-                          ))}
-                      </div>
-
-                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setVisibleColumns({
-                              image: true,
-                              name: true,
-                              sku: true,
-                              price: true,
-                              salePrice: true,
-                              stock: true,
-                              category: true,
-                              status: true,
-                              weight: true,
-                              shippingClass: true,
-                              date: true,
-                              salesCount: false,
-                              actions: true,
-                            });
-                            setColumnSearch('');
-                          }}
-                          className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                        >
-                          {isAr ? 'إعادة ضبط للافتراضي' : 'Reset to Default'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
-                {/* Sort Selector (Spec Section 10) */}
-                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
-                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="text-xs font-semibold bg-transparent border-0 text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
-                  >
-                    <option value="date-desc">{isAr ? 'التاريخ: الأحدث' : 'Date: Newest'}</option>
-                    <option value="name-asc">{isAr ? 'الاسم: أ-ي' : 'Name: A-Z'}</option>
-                    <option value="name-desc">{isAr ? 'الاسم: ي-أ' : 'Name: Z-A'}</option>
-                    <option value="price-asc">{isAr ? 'السعر: الأقل' : 'Price: Low-High'}</option>
-                    <option value="price-desc">{isAr ? 'السعر: الأعلى' : 'Price: High-Low'}</option>
-                    <option value="stock-asc">{isAr ? 'المخزون: الأقل' : 'Stock: Low-High'}</option>
-                  </select>
-                </div>
-
-                {/* Page Size Selector (Spec Section 14) */}
-                <select
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setPage(1);
-                  }}
-                  className="px-2.5 py-1.5 text-xs font-semibold rounded-xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer shadow-2xs"
-                >
-                  <option value={12}>12 {isAr ? 'لكل صفحة' : 'per page'}</option>
-                  <option value={20}>20 {isAr ? 'لكل صفحة' : 'per page'}</option>
-                  <option value={50}>50 {isAr ? 'لكل صفحة' : 'per page'}</option>
-                  <option value={100}>100 {isAr ? 'لكل صفحة' : 'per page'}</option>
-                </select>
               </div>
             </div>
 
             {/* ── CONDITIONAL VIEW: GRID OR TABLE ── */}
+            <div
+              ref={listScrollRef}
+              className="rounded-b-2xl relative z-0 flex-1 min-h-0 overflow-auto"
+              style={{ maxHeight: 'calc(100dvh - 17rem)' }}
+            >
             {viewMode === 'grid' ? (
               /* ── 1. GRID VIEW (Mockup 06 & Screenshot 2 Exact) ── */
-              <div className="p-4 sm:p-5">
+              <div className="p-4 sm:p-5 flex-1">
                 {pagedProducts.length === 0 ? (
-                  <div className="py-16 text-center text-xs" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'لا توجد منتجات مطابقة لخيارات البحث.' : 'No products found matching your criteria.'}
+                  <div className="py-16 text-center text-xs space-y-3" style={{ color: 'var(--muted)' }}>
+                    <p>{emptyCatalogMessage}</p>
+                    {(search.trim() ||
+                      selectedCategory !== 'all' ||
+                      filterCriteria.channel !== 'All' ||
+                      filterCriteria.brand !== 'All' ||
+                      filterCriteria.status !== 'All' ||
+                      filterCriteria.productType !== 'All' ||
+                      filterCriteria.category !== 'All' ||
+                      filterCriteria.search.trim()) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearch('');
+                          setSelectedCategory('all');
+                          setFilterCriteria({
+                            channel: 'All',
+                            brand: 'All',
+                            search: '',
+                            productType: 'All',
+                            category: 'All',
+                            status: 'All',
+                          });
+                          setPage(1);
+                        }}
+                        className="text-[11px] font-bold text-teal-700 dark:text-teal-300 hover:underline cursor-pointer"
+                      >
+                        {isAr ? 'مسح عوامل التصفية' : 'Clear filters'}
+                      </button>
+                    )}
+                    {currentProducts.length === 0 && (
+                      <button
+                        type="button"
+                        onClick={reloadCatalog}
+                        className="text-[11px] font-bold text-teal-700 dark:text-teal-300 hover:underline cursor-pointer block mx-auto"
+                      >
+                        {isAr ? 'إعادة تحميل المنتجات' : 'Reload products'}
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div
@@ -1702,18 +1734,33 @@ export const StoreProducts: React.FC = () => {
                                       <Eye className="w-3.5 h-3.5 text-blue-500" />
                                       <span>{t('viewProduct')}</span>
                                     </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        togglePublishProduct(prod.id);
-                                        setActiveActionMenuId(null);
-                                        toast(isAr ? 'تم تغيير حالة نشر المنتج' : 'Product status updated', 'success');
-                                      }}
-                                      className="w-full text-start px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-                                    >
-                                      <Check className="w-3.5 h-3.5 text-emerald-500" />
-                                      <span>{isAr ? 'تبديل النشر' : 'Toggle Status'}</span>
-                                    </button>
+                                    {!isPublished ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          updateProduct(prod.id, { status: 'published', isActive: true }, activeStore.id);
+                                          setActiveActionMenuId(null);
+                                          toast(isAr ? 'تم نشر المنتج' : 'Product published', 'success');
+                                        }}
+                                        className="w-full text-start px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                      >
+                                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                        <span>{isAr ? 'نشر المنتج' : 'Publish Product'}</span>
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          updateProduct(prod.id, { status: 'draft', isActive: false }, activeStore.id);
+                                          setActiveActionMenuId(null);
+                                          toast(isAr ? 'تم تحويل المنتج إلى مسودة' : 'Converted to draft', 'success');
+                                        }}
+                                        className="w-full text-start px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                      >
+                                        <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+                                        <span>{isAr ? 'تحويل إلى مسودة' : 'Convert to Draft'}</span>
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -1791,10 +1838,10 @@ export const StoreProducts: React.FC = () => {
               </div>
             ) : (
               /* ── 2. TABLE VIEW (Spec Section 7 & 8 - Responsive 2-Line Title & Crisp Gaps) ── */
-              <div className="overflow-x-auto no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="min-w-0">
                 <table className="w-full text-start text-xs border-separate border-spacing-0">
-                  <thead>
-                    <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
+                  <thead className="sticky top-0 z-10" style={{ background: 'var(--surface)' }}>
+                    <tr className="border-b" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
                       {/* Selection Checkbox */}
                       <th className="py-3 px-2 w-8 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
                         <input
@@ -1840,10 +1887,10 @@ export const StoreProducts: React.FC = () => {
                         </th>
                       )}
 
-                      {/* Sale Price */}
+                      {/* Discount Price */}
                       {visibleColumns.salePrice && (
                         <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden md:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                          {isAr ? 'سعر التخفيض' : 'Sale Price (SAR)'}
+                          {isAr ? 'سعر الخصم' : 'Discount Price (SAR)'}
                         </th>
                       )}
 
@@ -1882,20 +1929,6 @@ export const StoreProducts: React.FC = () => {
                         </th>
                       )}
 
-                      {/* Date */}
-                      {visibleColumns.date && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden 2xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                          {isAr ? 'التاريخ' : 'Date'}
-                        </th>
-                      )}
-
-                      {/* Sales Count */}
-                      {visibleColumns.salesCount && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden 2xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                          {t('salesCount')}
-                        </th>
-                      )}
-
                       {/* Actions */}
                       {visibleColumns.actions && (
                         <th className="py-3 px-2 text-center font-bold text-[11px] w-36 min-w-[136px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
@@ -1908,17 +1941,53 @@ export const StoreProducts: React.FC = () => {
                     {pagedProducts.length === 0 ? (
                       <tr>
                         <td colSpan={14} className="py-12 text-center text-xs" style={{ color: 'var(--muted)' }}>
-                          {isAr ? 'لا توجد منتجات مطابقة لخيارات البحث.' : 'No products found matching your criteria.'}
+                          <div className="space-y-3">
+                            <p>{emptyCatalogMessage}</p>
+                            {(search.trim() ||
+                              selectedCategory !== 'all' ||
+                              filterCriteria.channel !== 'All' ||
+                              filterCriteria.brand !== 'All' ||
+                              filterCriteria.status !== 'All' ||
+                              filterCriteria.productType !== 'All' ||
+                              filterCriteria.category !== 'All' ||
+                              filterCriteria.search.trim()) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSearch('');
+                                  setSelectedCategory('all');
+                                  setFilterCriteria({
+                                    channel: 'All',
+                                    brand: 'All',
+                                    search: '',
+                                    productType: 'All',
+                                    category: 'All',
+                                    status: 'All',
+                                  });
+                                  setPage(1);
+                                }}
+                                className="text-[11px] font-bold text-teal-700 dark:text-teal-300 hover:underline cursor-pointer"
+                              >
+                                {isAr ? 'مسح عوامل التصفية' : 'Clear filters'}
+                              </button>
+                            )}
+                            {currentProducts.length === 0 && (
+                              <button
+                                type="button"
+                                onClick={reloadCatalog}
+                                className="text-[11px] font-bold text-teal-700 dark:text-teal-300 hover:underline cursor-pointer"
+                              >
+                                {isAr ? 'إعادة تحميل المنتجات' : 'Reload products'}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ) : (
                       pagedProducts.map((prod) => {
                         const isChecked = selectedProductIds.includes(prod.id);
-                        const formattedDate = (prod.publishedAt
-                          ? new Date(prod.publishedAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
-                          : 'Oct 12, 2026'
-                        );
-                        const shippingClassVal = (prod as any).shippingClass || (prod.category === 'Shoes' ? 'Shoes' : prod.price > 1000 ? 'Electronics' : 'Small Items');
+                        const isPublished = prod.status === 'published' || (prod as any).status === 'active';
+                        const shippingClassVal = (prod as any).shippingClass || '';
 
                         return (
                           <tr
@@ -2179,20 +2248,6 @@ export const StoreProducts: React.FC = () => {
                               </td>
                             )}
 
-                            {/* Date */}
-                            {visibleColumns.date && (
-                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap font-mono text-[11px] text-slate-500 hidden 2xl:table-cell" style={{ borderBottom: '1px solid var(--border)' }}>
-                                {formattedDate}
-                              </td>
-                            )}
-
-                            {/* Sales Count */}
-                            {visibleColumns.salesCount && (
-                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap font-medium font-mono text-xs hidden 2xl:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
-                                {(prod.salesCount ?? (prod.price > 100 ? 1200 : 450)).toLocaleString()}
-                              </td>
-                            )}
-
                             {/* Actions */}
                             {visibleColumns.actions && (
                               <td className="py-2.5 px-2 text-center whitespace-nowrap relative w-36 min-w-[136px]" style={{ borderBottom: '1px solid var(--border)' }}>
@@ -2254,18 +2309,33 @@ export const StoreProducts: React.FC = () => {
                                           <Eye className="w-3.5 h-3.5 text-blue-500" />
                                           <span>{t('viewProduct')}</span>
                                         </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            togglePublishProduct(prod.id);
-                                            setActiveActionMenuId(null);
-                                            toast(isAr ? 'تم تغيير حالة نشر المنتج' : 'Product status updated', 'success');
-                                          }}
-                                          className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-                                        >
-                                          <Check className="w-3.5 h-3.5 text-emerald-500" />
-                                          <span>{isAr ? 'تبديل النشر' : 'Toggle Status'}</span>
-                                        </button>
+                                        {!isPublished ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              updateProduct(prod.id, { status: 'published', isActive: true }, activeStore.id);
+                                              setActiveActionMenuId(null);
+                                              toast(isAr ? 'تم نشر المنتج' : 'Product published', 'success');
+                                            }}
+                                            className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                          >
+                                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                            <span>{isAr ? 'نشر المنتج' : 'Publish Product'}</span>
+                                          </button>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              updateProduct(prod.id, { status: 'draft', isActive: false }, activeStore.id);
+                                              setActiveActionMenuId(null);
+                                              toast(isAr ? 'تم تحويل المنتج إلى مسودة' : 'Converted to draft', 'success');
+                                            }}
+                                            className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                          >
+                                            <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+                                            <span>{isAr ? 'تحويل إلى مسودة' : 'Convert to Draft'}</span>
+                                          </button>
+                                        )}
                                         <div className="h-[1px] my-1" style={{ background: 'var(--border)' }} />
                                         <button
                                           type="button"
@@ -2292,19 +2362,28 @@ export const StoreProducts: React.FC = () => {
                 </table>
               </div>
             )}
+            {dataSource !== 'api' && revealedCount < totalCount ? <div ref={loadMoreRef} className="h-8" aria-hidden /> : null}
+            </div>
 
             {/* ── PAGINATION CONTROLS MATCHING MOCKUP 06 ── */}
+            <div className="mt-auto">
             <WindowedPagination
               currentPage={safePage}
               totalPages={pageCount}
               totalCount={totalCount}
               pageSize={pageSize}
-              onPageChange={setPage}
+              shownCount={revealedCount}
+              onPageChange={(next) => {
+                setPage(next);
+                setVisibleCount(next * pageSize);
+                listScrollRef.current?.scrollTo({ top: 0 });
+              }}
               onPageSizeChange={setPageSize}
               isAr={isAr}
               itemLabel={isAr ? 'منتج' : 'products'}
-              pageSizeOptions={[12, 20, 50, 100]}
+              pageSizeOptions={[20, 50, 100]}
             />
+            </div>
           </div>
         </div>
 
@@ -2344,6 +2423,198 @@ export const StoreProducts: React.FC = () => {
         )}
       </div>
 
+      {/* Fixed portals — never clipped by AdminPageShell overflow-x-hidden / card stacking */}
+      {showFieldsFilterPopover &&
+        fieldsPopoverPos &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={fieldsPopoverRef}
+            className="fixed z-[9999] w-72 max-w-[calc(100vw-1rem)] rounded-2xl border shadow-xl p-3 animate-in fade-in duration-100 space-y-2.5"
+            style={{
+              top: fieldsPopoverPos.top,
+              left: fieldsPopoverPos.left,
+              background: 'var(--surface)',
+              borderColor: 'var(--border)',
+            }}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                  {isAr ? 'تصفية حقول التعديل' : 'Filter Edit Fields'}
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  {isAr
+                    ? 'إيقاف أي قسم يخفيه من لوحة التعديل فوراً'
+                    : 'Turn off a section to hide it from the edit panel'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={closeFloatingPopovers}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="max-h-64 overflow-y-auto space-y-1 custom-scroll pe-1">
+              {PRODUCT_EDIT_SECTION_OPTIONS.map((opt) => {
+                const isOn = visibleEditSections[opt.id] !== false;
+                return (
+                  <label
+                    key={opt.id}
+                    className="flex items-center justify-between gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs"
+                  >
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">
+                      {isAr ? opt.labelAr : opt.labelEn}
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isOn}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        applyEditSectionVisibility({
+                          ...visibleEditSections,
+                          [opt.id]: !isOn,
+                        });
+                      }}
+                      className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer p-0.5 shrink-0 ${
+                        isOn ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
+                      }`}
+                    >
+                      <span
+                        className={`w-3.5 h-3.5 rounded-full bg-white shadow block transition-transform transform ${
+                          isOn ? 'translate-x-3.5 rtl:-translate-x-3.5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => applyEditSectionVisibility({ ...DEFAULT_PRODUCT_EDIT_SECTIONS })}
+                className="text-[11px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:underline cursor-pointer"
+              >
+                {isAr ? 'إظهار الكل' : 'Show All'}
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {showColumnsPopover &&
+        columnsPopoverPos &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={columnsPopoverRef}
+            className="fixed z-[9999] w-64 max-w-[calc(100vw-1rem)] rounded-2xl border shadow-xl p-3 animate-in fade-in duration-100 space-y-2.5"
+            style={{
+              top: columnsPopoverPos.top,
+              left: columnsPopoverPos.left,
+              background: 'var(--surface)',
+              borderColor: 'var(--border)',
+            }}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <span className="font-bold text-xs text-slate-900 dark:text-white">
+                {isAr ? 'تخصيص الأعمدة' : 'Customize Columns'}
+              </span>
+              <button
+                type="button"
+                onClick={closeFloatingPopovers}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute start-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder={isAr ? 'بحث في الأعمدة...' : 'Search columns...'}
+                value={columnSearch}
+                onChange={(e) => setColumnSearch(e.target.value)}
+                className="w-full ps-8 pe-2.5 py-1 text-xs rounded-lg border focus:outline-none"
+                style={{
+                  background: 'var(--surface)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text)',
+                }}
+              />
+            </div>
+
+            <div className="max-h-52 overflow-y-auto space-y-1.5 custom-scroll pe-1">
+              {[
+                { id: 'image', label: isAr ? 'الصورة' : 'Image' },
+                { id: 'name', label: isAr ? 'اسم المنتج' : 'Product Name' },
+                { id: 'sku', label: isAr ? 'رمز المنتج' : 'SKU' },
+                { id: 'price', label: isAr ? 'السعر (ر.س)' : 'Price (SAR)' },
+                { id: 'salePrice', label: isAr ? 'سعر الخصم' : 'Discount Price (SAR)' },
+                { id: 'stock', label: isAr ? 'المخزون' : 'Stock' },
+                { id: 'category', label: isAr ? 'التصنيف' : 'Category' },
+                { id: 'status', label: isAr ? 'الحالة' : 'Status' },
+                { id: 'weight', label: isAr ? 'الوزن (كجم)' : 'Weight (kg)' },
+                { id: 'shippingClass', label: isAr ? 'فئة الشحن' : 'Shipping Class' },
+                { id: 'actions', label: isAr ? 'إجراءات' : 'Actions' },
+              ]
+                .filter((c) => c.label.toLowerCase().includes(columnSearch.toLowerCase()))
+                .map((col) => (
+                  <label
+                    key={col.id}
+                    className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs"
+                  >
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">{col.label}</span>
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns[col.id] !== false}
+                      onChange={(e) =>
+                        setVisibleColumns((prev) => ({
+                          ...prev,
+                          [col.id]: e.target.checked,
+                        }))
+                      }
+                      className="rounded cursor-pointer"
+                    />
+                  </label>
+                ))}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setVisibleColumns({
+                    image: true,
+                    name: true,
+                    sku: true,
+                    price: true,
+                    salePrice: true,
+                    stock: true,
+                    category: true,
+                    status: true,
+                    weight: true,
+                    shippingClass: true,
+                    actions: true,
+                  });
+                  setColumnSearch('');
+                }}
+                className="text-[11px] font-bold text-teal-700 dark:text-teal-300 hover:underline cursor-pointer"
+              >
+                {isAr ? 'إعادة ضبط للافتراضي' : 'Reset to Default'}
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
+
       {/* ── BULK PRODUCT UPLOAD & EXPORT MODAL ── */}
       <BulkProductUploadModal
         isOpen={showBulkModal}
@@ -2351,6 +2622,7 @@ export const StoreProducts: React.FC = () => {
         onImportProducts={handleBulkImport}
         currentProducts={currentProducts}
         storeName={activeStore.name}
+        storeId={activeStore.id}
       />
     </AdminPageShell>
   );

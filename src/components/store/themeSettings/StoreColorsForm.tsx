@@ -7,14 +7,18 @@ import { WhatsAppBrandIcon } from '../../common/BrandIcons';
 import {
   readAllThemeSettings,
   writeAllThemeSettings,
+  resolveStoreActiveThemeId,
   type StoreColorsSettings,
 } from '../../../themes/settings/themeSettingsStore';
+import { isCoffeeStore } from '../../../themes/settings/coffeeThemeDefaults';
+import { MediaUploadField } from '../../common/MediaUploadField';
 
 export const StoreColorsForm: React.FC = () => {
   const { activeStore } = useTenant();
   const { locale } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
+  const coffeeStore = isCoffeeStore(activeStore);
 
   const [settings, setSettings] = useState<StoreColorsSettings>(() => {
     const full = readAllThemeSettings(activeStore.id, activeStore);
@@ -31,19 +35,54 @@ export const StoreColorsForm: React.FC = () => {
     setSettings((prev) => ({ ...prev, [key]: val }));
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const full = readAllThemeSettings(activeStore.id, activeStore);
-    full.colors = settings;
-    writeAllThemeSettings(activeStore.id, full);
+    try {
+      const full = readAllThemeSettings(activeStore.id, activeStore);
+      full.colors = settings;
+      await writeAllThemeSettings(activeStore.id, full);
 
-    setTimeout(() => {
-      setSaving(false);
+      if (coffeeStore) {
+        try {
+          const { isApiEnabled } = await import('../../../api/client');
+          if (isApiEnabled()) {
+            const { updateThemeSettingsApi } = await import('../../../api/tenantApi');
+            const themeId = resolveStoreActiveThemeId(activeStore.id) || 'theme-coffee-artisan';
+            await updateThemeSettingsApi(activeStore.id, {
+              theme_id: themeId,
+              settings: { colors: settings },
+            });
+          }
+        } catch {
+          toast(
+            isAr
+              ? 'حُفظ محلياً، لكن مزامنة الخادم فشلت. أعد المحاولة.'
+              : 'Saved locally, but server sync failed. Try again.',
+            'error',
+          );
+          setSaving(false);
+          return;
+        }
+      }
+
       setSavedFlash(true);
-      toast(isAr ? 'تم حفظ ألوان وإعدادات الثيم بنجاح' : 'Store colors and settings saved', 'success');
-      setTimeout(() => setSavedFlash(false), 2500);
-    }, 300);
+      toast(
+        coffeeStore
+          ? isAr
+            ? 'تم حفظ الألوان في الخادم. الواجهة تتحدّث بعد هذا الحفظ.'
+            : 'Colors saved to the server. The storefront updates after this save.'
+          : isAr
+            ? 'تم حفظ ألوان وإعدادات الثيم بنجاح'
+            : 'Store colors and settings saved',
+        'success',
+      );
+      window.setTimeout(() => setSavedFlash(false), 2500);
+    } catch {
+      toast(isAr ? 'فشل حفظ الألوان' : 'Failed to save colors', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const colorInput = (
@@ -224,25 +263,15 @@ export const StoreColorsForm: React.FC = () => {
             {/* Customization Options */}
             {(settings.enableLoadingScreen || settings.enableDashboardLoader) && (
               <div className="space-y-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-                {/* Logo Image URL Option */}
-                <div>
-                  <label className="text-[11px] font-bold uppercase text-muted block mb-1">
-                    {isAr ? 'صورة / شعار شاشة التحميل (Logo Image URL)' : 'Preloader Logo Image URL'}
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={settings.loadingLogoUrl || ''}
-                      onChange={(e) => setVal('loadingLogoUrl', e.target.value)}
-                      placeholder={activeStore.logo || 'https://.../logo.png'}
-                      className="flex-1 px-2.5 py-1.5 text-xs rounded-lg border outline-none font-mono"
-                      style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
-                    />
-                  </div>
-                  <span className="text-[10px] text-muted block mt-1">
-                    {isAr ? 'اكتب رابط الصورة مباشرة أو اتركه فارغاً لاستخدام شعار المتجر الافتراضي' : 'Leave empty to use default store logo'}
-                  </span>
-                </div>
+                <MediaUploadField
+                  label={isAr ? 'شعار شاشة التحميل' : 'Loading screen logo'}
+                  value={settings.loadingLogoUrl || ''}
+                  onChange={(url) => setVal('loadingLogoUrl', url)}
+                  altText={settings.loadingTitle || activeStore.name || ''}
+                  aspectRatio="square"
+                  initialFolder="logo"
+                  recommendedSize="512 × 512 px"
+                />
 
                 {/* Preloader Title Text Option */}
                 <div>

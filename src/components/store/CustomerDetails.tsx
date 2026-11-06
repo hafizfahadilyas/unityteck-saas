@@ -1,7 +1,26 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
-import { Customer, Order } from '../../types';
+import { Customer, CustomerWalletTransaction, Order } from '../../types';
+import { isApiEnabled } from '../../api/client';
+import {
+  fetchCustomerWalletApi,
+  fetchCustomerWalletTransactionsApi,
+} from '../../api/tenantApi';
+import { usePermissions } from '../../hooks/usePermissions';
+import {
+  loadCustomerGroups,
+  getCustomerGroupNames,
+  setCustomerGroupNames,
+  type CustomerGroupDef,
+} from '../../utils/customerGroupsStorage';
+import {
+  getLocalCustomerWallet,
+  setLocalWalletFromApi,
+  type WalletTransactionRecord,
+} from '../../utils/customerWalletStorage';
+import { CustomerWalletAdjustModal } from './CustomerWalletAdjustModal';
+import { useToast } from '../common/ToastProvider';
 import {
   ArrowLeft,
   ArrowRight,
@@ -34,8 +53,10 @@ import {
   Camera,
   Upload,
   Image as ImageIcon,
-  Megaphone,
   Smartphone,
+  Users,
+  Heart,
+  MessageSquare,
 } from 'lucide-react';
 import { CustomerAvatarUploadModal } from './CustomerAvatarUploadModal';
 import { getArabCustomerAvatar, getCustomerSeoAlt } from '../../utils/customerAvatars';
@@ -50,13 +71,51 @@ interface CustomerDetailsProps {
 
 type TabType = 'orders' | 'loyalty' | 'coupons' | 'offers' | 'wallet' | 'activity';
 
+function formatLastLoginDisplay(value: string | undefined, isAr: boolean): string {
+  if (!value?.trim()) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) {
+    return value.trim() || '—';
+  }
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const time = d.toLocaleTimeString(isAr ? 'ar-SA' : 'en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  return `${day}/${month}/${year} | ${time}`;
+}
+
+function mapLocalTx(row: WalletTransactionRecord): CustomerWalletTransaction {
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    customerId: row.customer_id,
+    type: row.type,
+    amount: row.amount,
+    balanceBefore: row.balance_before,
+    balanceAfter: row.balance_after,
+    reason: row.reason,
+    employeeId: row.employee_id,
+    employeeName: row.employee_name,
+    notifyChannel: row.notify_channel,
+    resetLoyalty: row.reset_loyalty,
+    createdAt: row.created_at,
+  };
+}
+
 export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   customer: initialCustomer,
   onBack,
 }) => {
   const { activeStore, currentOrders, currentCoupons, updateCustomer } = useTenant();
-  const { money, locale, t } = usePrefs();
+  const { money, locale } = usePrefs();
+  const { canWrite } = usePermissions();
+  const { toast } = useToast();
   const isAr = locale === 'ar';
+  const canAdjustWallet = canWrite('customers');
 
   const [customer, setCustomer] = useState<Customer>(() => ({
     ...initialCustomer,
@@ -93,11 +152,20 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [isSavingInfo, setIsSavingInfo] = useState(false);
   const [infoSaveSuccess, setInfoSaveSuccess] = useState(false);
 
-  // Marketing & Communication State
-  const [isEditingMarketing, setIsEditingMarketing] = useState(false);
-  const [marketingEmails, setMarketingEmails] = useState(customer.marketingEmails ?? true);
-  const [whatsappMessages, setWhatsappMessages] = useState(customer.whatsappMessages ?? true);
-  const [smsNotifications, setSmsNotifications] = useState(customer.smsNotifications ?? false);
+  const [walletBalance, setWalletBalance] = useState<number>(
+    customer.walletBalance ?? customer.cashbackBalance ?? 0,
+  );
+  const [walletLoyaltyPoints, setWalletLoyaltyPoints] = useState<number>(
+    customer.loyaltyPoints ?? 0,
+  );
+  const [walletTransactions, setWalletTransactions] = useState<CustomerWalletTransaction[]>([]);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [showWalletAdjust, setShowWalletAdjust] = useState(false);
+
+  const [customGroups, setCustomGroups] = useState<CustomerGroupDef[]>([]);
+  const [memberGroupNames, setMemberGroupNames] = useState<string[]>([]);
+  const [showGroupsModal, setShowGroupsModal] = useState(false);
+  const [groupsDraft, setGroupsDraft] = useState<string[]>([]);
 
   // Tags State — only real tags from customer record (no English dummy defaults)
   const [tags, setTags] = useState<string[]>(Array.isArray(customer.tags) ? customer.tags : []);
@@ -139,6 +207,91 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     return (currentCoupons || []).filter((c) => c.storeId === activeStore.id);
   }, [currentCoupons, activeStore.id]);
 
+  const cancelledOrdersCount = useMemo(
+    () =>
+      customerOrders.filter((o) => String(o.status).toLowerCase() === 'cancelled').length,
+    [customerOrders],
+  );
+
+  const purchasingMetrics = useMemo(() => {
+    const fromOrdersCount = customerOrders.length;
+    const totalOrders =
+      fromOrdersCount > 0 ? fromOrdersCount : customer.totalOrders ?? 0;
+    const totalOrderValue =
+      fromOrdersCount > 0
+        ? customerOrders.reduce((sum, o) => sum + (o.total || 0), 0)
+        : customer.totalSpending ?? 0;
+    const avgOrderValue =
+      fromOrdersCount > 0
+        ? totalOrderValue / fromOrdersCount
+        : customer.avgOrderValue ?? 0;
+
+    let lastOrderLabel = '—';
+    if (fromOrdersCount > 0) {
+      const sorted = [...customerOrders].sort((a, b) => {
+        const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return tb - ta;
+      });
+      const latest = sorted[0];
+      if (latest?.createdAt) {
+        lastOrderLabel = formatLastLoginDisplay(String(latest.createdAt), isAr);
+      }
+    } else if (customer.lastOrderDate && customer.lastOrderDate !== '—') {
+      lastOrderLabel = customer.lastOrderDate;
+    }
+
+    const abandonedForCustomer = currentOrders.filter((o) => {
+      if (o.storeId !== activeStore.id) return false;
+      if (String(o.status).toLowerCase() !== 'pending') return false;
+      const matchEmail =
+        o.customerEmail &&
+        customer.email &&
+        o.customerEmail.toLowerCase() === customer.email.toLowerCase();
+      const matchPhone =
+        o.customerPhone &&
+        customer.phone &&
+        (o.customerPhone.includes(customer.phone) || customer.phone.includes(o.customerPhone));
+      const matchName =
+        o.customerName &&
+        customer.name &&
+        o.customerName.toLowerCase().trim() === customer.name.toLowerCase().trim();
+      return matchEmail || matchPhone || matchName;
+    });
+
+    let abandonedCartsLabel = '0';
+    if (abandonedForCustomer.length === 1) {
+      const items = abandonedForCustomer[0].items?.length ?? abandonedForCustomer[0].itemsCount;
+      if (items && items > 0) {
+        abandonedCartsLabel = isAr ? `${items} منتج` : `${items} Product${items === 1 ? '' : 's'}`;
+      } else {
+        abandonedCartsLabel = isAr ? '1 سلة' : '1 Cart';
+      }
+    } else if (abandonedForCustomer.length > 1) {
+      abandonedCartsLabel = String(abandonedForCustomer.length);
+    }
+
+    return {
+      totalOrders,
+      totalOrderValue,
+      avgOrderValue,
+      cancelledOrdersCount,
+      lastOrderLabel,
+      abandonedCartsLabel,
+    };
+  }, [
+    customerOrders,
+    customer,
+    currentOrders,
+    activeStore.id,
+    cancelledOrdersCount,
+    isAr,
+  ]);
+
+  const customerRewards = customer.rewards ?? [];
+  const wishlistItems = customer.wishlistItems ?? [];
+  const lastLoginDisplay = formatLastLoginDisplay(customer.lastLogin, isAr);
+
   const handleCopy = (text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(fieldName);
@@ -172,20 +325,94 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     setTimeout(() => setInfoSaveSuccess(false), 2500);
   };
 
-  const handleToggleMarketing = (key: 'emails' | 'whatsapp' | 'sms', value: boolean) => {
-    let updates: Partial<Customer> = {};
-    if (key === 'emails') {
-      setMarketingEmails(value);
-      updates = { marketingEmails: value };
-    } else if (key === 'whatsapp') {
-      setWhatsappMessages(value);
-      updates = { whatsappMessages: value };
-    } else if (key === 'sms') {
-      setSmsNotifications(value);
-      updates = { smsNotifications: value };
+  const refreshWallet = useCallback(async () => {
+    const storeId = activeStore.id;
+    const customerId = customer.id;
+    setWalletLoading(true);
+    try {
+      if (isApiEnabled()) {
+        const [snap, txs] = await Promise.all([
+          fetchCustomerWalletApi(storeId, customerId),
+          fetchCustomerWalletTransactionsApi(storeId, customerId),
+        ]);
+        setWalletBalance(snap.balance);
+        setWalletLoyaltyPoints(snap.loyaltyPoints);
+        setWalletTransactions(txs);
+        setLocalWalletFromApi(
+          storeId,
+          customerId,
+          snap.balance,
+          snap.loyaltyPoints,
+          txs.map((t) => ({
+            id: String(t.id),
+            store_id: t.storeId,
+            customer_id: t.customerId,
+            type: t.type,
+            amount: t.amount,
+            balance_before: t.balanceBefore,
+            balance_after: t.balanceAfter,
+            reason: t.reason,
+            employee_id: t.employeeId,
+            employee_name: t.employeeName,
+            notify_channel: t.notifyChannel,
+            reset_loyalty: t.resetLoyalty,
+            created_at: t.createdAt,
+          })),
+        );
+      } else {
+        const local = getLocalCustomerWallet(storeId, customerId);
+        setWalletBalance(local.balance);
+        setWalletLoyaltyPoints(local.loyalty_points);
+        setWalletTransactions(local.transactions.map(mapLocalTx));
+      }
+    } catch {
+      const local = getLocalCustomerWallet(storeId, customerId);
+      setWalletBalance(local.balance);
+      setWalletLoyaltyPoints(local.loyalty_points);
+      setWalletTransactions(local.transactions.map(mapLocalTx));
+    } finally {
+      setWalletLoading(false);
     }
-    updateCustomer(customer.id, updates);
-    setCustomer((prev) => ({ ...prev, ...updates }));
+  }, [activeStore.id, customer.id]);
+
+  useEffect(() => {
+    refreshWallet();
+  }, [refreshWallet]);
+
+  useEffect(() => {
+    setCustomGroups(loadCustomerGroups(activeStore.id));
+    const names = getCustomerGroupNames(activeStore.id, customer.id);
+    if (names.length > 0) {
+      setMemberGroupNames(names);
+    } else if (customer.group?.trim()) {
+      setMemberGroupNames([customer.group.trim()]);
+    } else {
+      setMemberGroupNames([]);
+    }
+  }, [activeStore.id, customer.id, customer.group]);
+
+  const handleOpenGroupsModal = () => {
+    setGroupsDraft(memberGroupNames.length ? [...memberGroupNames] : []);
+    setShowGroupsModal(true);
+  };
+
+  const toggleGroupDraft = (name: string) => {
+    setGroupsDraft((prev) =>
+      prev.includes(name) ? prev.filter((g) => g !== name) : [...prev, name],
+    );
+  };
+
+  const handleSaveGroups = () => {
+    const unique = Array.from(new Set(groupsDraft.map((g) => g.trim()).filter(Boolean)));
+    setCustomerGroupNames(activeStore.id, customer.id, unique);
+    setMemberGroupNames(unique);
+    const primary = unique[0];
+    if (primary) {
+      updateCustomer(customer.id, { group: primary as Customer['group'] });
+      setCustomer((prev) => ({ ...prev, group: primary as Customer['group'] }));
+    }
+    setShowGroupsModal(false);
+    toast(isAr ? 'تم تحديث مجموعات العميل' : 'Customer groups updated', 'success');
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
@@ -232,10 +459,12 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const hasPhone = cleanPhoneForWa.length >= 9;
   const hasEmail = Boolean(customer.email && customer.email.trim());
 
-  const loyaltyPointsCount = customer.loyaltyPoints ?? 0;
-  const cashbackAmount = customer.cashbackBalance ?? 0;
-  const availableCouponsCount = customer.availableCoupons ?? storeCoupons.length;
+  const loyaltyPointsCount = walletLoyaltyPoints ?? customer.loyaltyPoints ?? 0;
+  const cashbackAmount = walletBalance;
+  const availableCouponsCount =
+    customer.availableCoupons != null ? customer.availableCoupons : 0;
   const expiringSoonCount = customer.expiringSoonCount ?? 0;
+  const offersCount = customerRewards.length;
 
   const localizePlace = (value?: string) => {
     if (!value || !value.trim()) return isAr ? 'غير محدد' : 'Not set';
@@ -354,6 +583,15 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             </a>
           )}
 
+          <button
+            type="button"
+            onClick={handleOpenGroupsModal}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-sm transition-all cursor-pointer"
+          >
+            <Users className="w-4 h-4 text-teal-600" />
+            <span>{isAr ? 'إضافة إلى المجموعات' : 'Add to Groups'}</span>
+          </button>
+
           {/* Chat with AI */}
           <button
             onClick={() => setShowAiModal(true)}
@@ -455,6 +693,27 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                           ? `عضو منذ ${customer.registeredDate}`
                           : `Member since ${customer.registeredDate}`}
                       </span>
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    <span>
+                      {isAr ? 'آخر تسجيل دخول: ' : 'Last Login: '}
+                      <span dir="ltr">{lastLoginDisplay}</span>
+                    </span>
+                  </div>
+
+                  {memberGroupNames.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {memberGroupNames.map((g) => (
+                        <span
+                          key={g}
+                          className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                        >
+                          {g}
+                        </span>
+                      ))}
                     </div>
                   ) : null}
 
@@ -562,13 +821,6 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white mt-0.5">{loyaltyPointsCount}</p>
               </div>
-              <button
-                onClick={() => setActiveTab('loyalty')}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
-              >
-                <span>{isAr ? 'عرض السجل' : 'View History'}</span>
-                <span className={`text-xs ${isAr ? 'rotate-180' : ''}`}>&rarr;</span>
-              </button>
             </div>
 
             {/* Cashback Balance */}
@@ -584,13 +836,6 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white mt-0.5">{money(cashbackAmount)}</p>
               </div>
-              <button
-                onClick={() => setActiveTab('wallet')}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
-              >
-                <span>{isAr ? 'عرض السجل' : 'View History'}</span>
-                <span className={`text-xs ${isAr ? 'rotate-180' : ''}`}>&rarr;</span>
-              </button>
             </div>
 
             {/* Available Coupons */}
@@ -606,13 +851,6 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white mt-0.5">{availableCouponsCount}</p>
               </div>
-              <button
-                onClick={() => setActiveTab('coupons')}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
-              >
-                <span>{isAr ? 'عرض الكوبونات' : 'View Coupons'}</span>
-                <span className={`text-xs ${isAr ? 'rotate-180' : ''}`}>&rarr;</span>
-              </button>
             </div>
 
             {/* Expiring Soon */}
@@ -628,13 +866,6 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white mt-0.5">{expiringSoonCount}</p>
               </div>
-              <button
-                onClick={() => setActiveTab('coupons')}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
-              >
-                <span>{isAr ? 'عرض التفاصيل' : 'View Details'}</span>
-                <span className={`text-xs ${isAr ? 'rotate-180' : ''}`}>&rarr;</span>
-              </button>
             </div>
           </div>
 
@@ -664,7 +895,11 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 }`}
               >
                 <Crown className="w-4 h-4" />
-                <span>{isAr ? 'نقاط الولاء (2)' : 'Loyalty Points (2)'}</span>
+                <span>
+                  {isAr
+                    ? `نقاط الولاء (${loyaltyPointsCount})`
+                    : `Loyalty Points (${loyaltyPointsCount})`}
+                </span>
               </button>
 
               <button
@@ -688,7 +923,9 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 }`}
               >
                 <Gift className="w-4 h-4" />
-                <span>{isAr ? 'العروض (1)' : 'Offers (1)'}</span>
+                <span>
+                  {isAr ? `العروض (${offersCount})` : `Offers (${offersCount})`}
+                </span>
               </button>
 
               <button
@@ -784,11 +1021,11 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                           </td>
                           <td className="py-3.5 px-3">
                             <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              {isAr ? 'مكتمل' : (ord.status || 'Completed')}
+                              {ord.status || (isAr ? 'غير محدد' : 'Not Specified')}
                             </span>
                           </td>
                           <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">
-                            {ord.paymentMethod || (isAr ? 'مدى / أبل باي' : 'Mada / Apple Pay')}
+                            {ord.paymentMethod || (isAr ? 'غير محدد' : 'Not Specified')}
                           </td>
                           <td className="py-3.5 px-3 text-end">
                             <button className="text-teal-600 hover:text-teal-700 font-semibold text-xs cursor-pointer">
@@ -813,7 +1050,15 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     {isAr ? 'لم يقم هذا العميل بإجراء أي طلبات حتى الآن.' : "This customer hasn't placed any orders yet."}
                   </p>
                   <button
-                    onClick={() => alert(isAr ? `بدء إنشاء طلب جديد للعميل ${customer.name} في متجر ${activeStore.name}` : `Starting new order creation for ${customer.name} in ${activeStore.name}`)}
+                    type="button"
+                    onClick={() =>
+                      toast(
+                        isAr
+                          ? `سيتم إنشاء طلب جديد للعميل ${customer.name} في متجر ${activeStore.name}`
+                          : `New order flow for ${customer.name} in ${activeStore.name}`,
+                        'info',
+                      )
+                    }
                     className="inline-flex items-center gap-1.5 mt-5 px-4 py-2 rounded-xl text-xs font-semibold bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800 hover:bg-teal-100 transition-colors shadow-sm cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
@@ -841,43 +1086,17 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-start text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
-                      <th className="py-2.5 px-3 text-start">{isAr ? 'التاريخ' : 'Date'}</th>
-                      <th className="py-2.5 px-3 text-start">{isAr ? 'النوع' : 'Type'}</th>
-                      <th className="py-2.5 px-3 text-start">{isAr ? 'النقاط' : 'Points'}</th>
-                      <th className="py-2.5 px-3 text-start">{isAr ? 'المرجع / السبب' : 'Reference / Reason'}</th>
-                      <th className="py-2.5 px-3 text-end">{isAr ? 'الرصيد' : 'Balance'}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                    <tr>
-                      <td className="py-3 px-3 text-slate-600 dark:text-slate-400">2026/08/15</td>
-                      <td className="py-3 px-3 font-semibold text-emerald-600">
-                        {isAr ? 'مكتسبة (هدية ترحيبية)' : 'Earned (Welcome)'}
-                      </td>
-                      <td className="py-3 px-3 font-bold text-emerald-600">+100</td>
-                      <td className="py-3 px-3 text-slate-600 dark:text-slate-400">
-                        {isAr ? 'مكافأة التسجيل بالمتجر' : 'Store Registration Gift'}
-                      </td>
-                      <td className="py-3 px-3 text-end font-mono font-medium">100</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 px-3 text-slate-600 dark:text-slate-400">2026/09/01</td>
-                      <td className="py-3 px-3 font-semibold text-emerald-600">
-                        {isAr ? 'مكتسبة (حملة ترويجية)' : 'Earned (Campaign)'}
-                      </td>
-                      <td className="py-3 px-3 font-bold text-emerald-600">+140</td>
-                      <td className="py-3 px-3 text-slate-600 dark:text-slate-400">
-                        {isAr ? 'مكافأة اليوم الوطني' : 'National Day Bonus'}
-                      </td>
-                      <td className="py-3 px-3 text-end font-mono font-medium">240</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              {loyaltyPointsCount <= 0 ? (
+                <div className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+                  {isAr ? 'لا توجد نقاط ولاء متاحة' : 'No Loyalty Points Available'}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {isAr
+                    ? 'لا يوجد سجل تفصيلي للنقاط في قاعدة البيانات بعد.'
+                    : 'No detailed loyalty ledger entries in the database yet.'}
+                </p>
+              )}
             </div>
           )}
 
@@ -895,58 +1114,33 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="border border-teal-200 dark:border-teal-800 bg-teal-50/40 dark:bg-teal-950/20 rounded-xl p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-sm text-teal-700 dark:text-teal-300 bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-teal-200">
-                      WELCOME15
-                    </span>
-                    <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                      {isAr ? 'نشط' : 'Active'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300">
-                    {isAr ? 'خصم 15% على أول طلب بقيمة تزيد عن 150 ر.س' : '15% off first order over SAR 150'}
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    {isAr ? 'صالح حتى: 30 نوفمبر 2026' : 'Valid until: Nov 30, 2026'}
-                  </p>
+              {availableCouponsCount <= 0 && storeCoupons.length === 0 ? (
+                <div className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+                  {isAr ? 'لا توجد كوبونات مرتبطة بهذا العميل' : 'No coupons linked to this customer'}
                 </div>
-
-                <div className="border border-purple-200 dark:border-purple-800 bg-purple-50/40 dark:bg-purple-950/20 rounded-xl p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-sm text-purple-700 dark:text-purple-300 bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-purple-200">
-                      FREESHIP
-                    </span>
-                    <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                      {isAr ? 'نشط' : 'Active'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300">
-                    {isAr ? 'توصيل مجاني لجميع مناطق المملكة' : 'Free delivery across the region'}
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    {isAr ? 'صالح حتى: 31 ديسمبر 2026' : 'Valid until: Dec 31, 2026'}
-                  </p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {storeCoupons.slice(0, availableCouponsCount || storeCoupons.length).map((cp) => (
+                    <div
+                      key={cp.id}
+                      className="border border-teal-200 dark:border-teal-800 bg-teal-50/40 dark:bg-teal-950/20 rounded-xl p-4 space-y-2"
+                    >
+                      <span className="font-mono font-bold text-sm text-teal-700 dark:text-teal-300 bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-teal-200">
+                        {cp.code}
+                      </span>
+                      <p className="text-xs text-slate-600 dark:text-slate-300">
+                        {cp.discountType === 'fixed'
+                          ? isAr
+                            ? `خصم ${cp.discountValue} ر.س`
+                            : `${money(cp.discountValue)} off`
+                          : isAr
+                            ? `خصم ${cp.discountValue}%`
+                            : `${cp.discountValue}% off`}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-
-                <div className="border border-rose-200 dark:border-rose-800 bg-rose-50/40 dark:bg-rose-950/20 rounded-xl p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-sm text-rose-700 dark:text-rose-300 bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-rose-200">
-                      VIPGIFT20
-                    </span>
-                    <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
-                      {isAr ? 'ينتهي قريباً (3 أيام)' : 'Expiring Soon (3 days)'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300">
-                    {isAr ? 'استرداد نقدي 20 ر.س على باقات الهدايا' : 'SAR 20 cashback on special gift packages'}
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    {isAr ? 'صالح حتى: 21 أكتوبر 2026' : 'Valid until: Oct 21, 2026'}
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -956,23 +1150,33 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 {isAr ? 'العروض المخصصة للعميل' : 'Personalized Offers'}
               </h3>
-              <div className="border border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20 rounded-xl p-4 space-y-1.5">
-                <span className="text-xs font-bold text-amber-800 dark:text-amber-200">
-                  {isAr ? 'عرض عطلة نهاية الأسبوع الخاص' : 'Weekend Special Package'}
-                </span>
-                <p className="text-xs text-slate-600 dark:text-slate-300">
+              {customerRewards.length === 0 ? (
+                <div className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
                   {isAr
-                    ? 'احصل على خصم 50% على الإضافات الفاخرة وبطاقات الإهداء عند طلبك القادم.'
-                    : 'Get 50% discount on luxury gift additions and greeting cards on your next order.'}
-                </p>
-              </div>
+                    ? 'لا توجد مكافآت متاحة لهذا العميل'
+                    : 'No Rewards Available for This Customer'}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {customerRewards.map((r) => (
+                    <div
+                      key={r.id}
+                      className="border border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20 rounded-xl p-4"
+                    >
+                      <span className="text-xs font-bold text-amber-800 dark:text-amber-200">
+                        {isAr ? r.titleAr || r.title : r.title || r.titleAr}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* Tab 5: Wallet & Cashback */}
           {activeTab === 'wallet' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
                     {isAr ? 'سجل المحفظة والكاش باك' : 'Wallet & Cashback Ledger'}
@@ -981,15 +1185,69 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     {isAr ? 'الرصيد المتاح من رصيد المتجر والكاش باك.' : 'Available store credit and cashback balance.'}
                   </p>
                 </div>
-                <span className="text-base font-bold text-emerald-600">
-                  {isAr ? `الرصيد: ${money(cashbackAmount)}` : `Balance: ${money(cashbackAmount)}`}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-bold text-emerald-600">
+                    {isAr ? `الرصيد: ${money(cashbackAmount)}` : `Balance: ${money(cashbackAmount)}`}
+                  </span>
+                  {canAdjustWallet ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowWalletAdjust(true)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-teal-600 text-white hover:bg-teal-700 cursor-pointer"
+                    >
+                      {isAr ? 'تعديل الرصيد' : 'Adjust Balance'}
+                    </button>
+                  ) : null}
+                </div>
               </div>
-              <p className="text-xs text-slate-500">
-                {isAr
-                  ? 'المعاملات: تم إيداع رصيد كاش باك ترحيبي بعد التحقق من الحساب (+18.00 ر.س).'
-                  : 'Transactions: Initial cashback credited upon account verification (+SAR 18.00).'}
-              </p>
+
+              {walletLoading ? (
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>{isAr ? 'جاري التحميل...' : 'Loading...'}</span>
+                </div>
+              ) : walletTransactions.length === 0 ? (
+                <div className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+                  {isAr ? 'لا توجد معاملات مسجّلة' : 'No Transactions Recorded'}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-start text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+                        <th className="py-2.5 px-3 text-start">{isAr ? 'التاريخ' : 'Date'}</th>
+                        <th className="py-2.5 px-3 text-start">{isAr ? 'النوع' : 'Type'}</th>
+                        <th className="py-2.5 px-3 text-start">{isAr ? 'المبلغ' : 'Amount'}</th>
+                        <th className="py-2.5 px-3 text-start">{isAr ? 'السبب' : 'Reason'}</th>
+                        <th className="py-2.5 px-3 text-end">{isAr ? 'الرصيد بعد' : 'Balance After'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                      {walletTransactions.map((tx) => (
+                        <tr key={String(tx.id)}>
+                          <td className="py-3 px-3 text-slate-600 dark:text-slate-400">
+                            {formatLastLoginDisplay(tx.createdAt, isAr)}
+                          </td>
+                          <td className="py-3 px-3 font-semibold">
+                            {tx.type === 'add'
+                              ? isAr
+                                ? 'إضافة'
+                                : 'Add'
+                              : isAr
+                                ? 'خصم'
+                                : 'Deduct'}
+                          </td>
+                          <td className="py-3 px-3 font-bold">{money(tx.amount)}</td>
+                          <td className="py-3 px-3 text-slate-600 dark:text-slate-400">
+                            {tx.reason?.trim() || (isAr ? 'غير محدد' : 'Not Specified')}
+                          </td>
+                          <td className="py-3 px-3 text-end font-mono">{money(tx.balanceAfter)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
@@ -999,26 +1257,9 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 {isAr ? 'سجل النشاط' : 'Activity Logs'}
               </h3>
-              <ul className="space-y-3 text-xs">
-                <li className="flex items-start gap-3">
-                  <span className="w-2 h-2 rounded-full bg-teal-500 mt-1.5" />
-                  <div>
-                    <p className="font-semibold text-slate-800 dark:text-slate-200">
-                      {isAr ? 'تم الاطلاع على ملف العميل بواسطة مدير المتجر' : 'Profile accessed by Store Manager'}
-                    </p>
-                    <p className="text-[11px] text-slate-400">{isAr ? 'اليوم، الآن' : 'Today, just now'}</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700 mt-1.5" />
-                  <div>
-                    <p className="font-semibold text-slate-800 dark:text-slate-200">
-                      {isAr ? 'تسجيل العميل عبر واتساب' : 'Customer registered via WhatsApp'}
-                    </p>
-                    <p className="text-[11px] text-slate-400">{customer.registeredDate || '2026/07/23'}</p>
-                  </div>
-                </li>
-              </ul>
+              <div className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+                {isAr ? 'لا يوجد سجل نشاط متاح' : 'No activity logs available'}
+              </div>
             </div>
           )}
         </div>
@@ -1279,106 +1520,179 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             </form>
           </div>
 
-          {/* 2. Marketing & Communication Card */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center">
-                  <Megaphone className="w-4 h-4" />
+          {/* Purchasing Behavior Indicators */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-3">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              {isAr ? 'مؤشرات سلوك الشراء' : 'Purchasing Behavior Indicators'}
+            </h3>
+            <dl className="grid grid-cols-1 gap-2.5 text-xs">
+              {[
+                {
+                  label: isAr ? 'إجمالي الطلبات' : 'Total Orders',
+                  value: String(purchasingMetrics.totalOrders),
+                },
+                {
+                  label: isAr ? 'إجمالي قيمة الطلبات' : 'Total Order Value',
+                  value: money(purchasingMetrics.totalOrderValue),
+                },
+                {
+                  label: isAr ? 'متوسط قيمة الطلب' : 'Average Order Value',
+                  value:
+                    purchasingMetrics.totalOrders > 0
+                      ? money(purchasingMetrics.avgOrderValue)
+                      : money(0),
+                },
+                {
+                  label: isAr ? 'الطلبات الملغاة' : 'Cancelled Orders',
+                  value: String(purchasingMetrics.cancelledOrdersCount),
+                },
+                {
+                  label: isAr ? 'آخر طلب' : 'Last Order',
+                  value: purchasingMetrics.lastOrderLabel,
+                },
+                {
+                  label: isAr ? 'السلات المتروكة' : 'Abandoned Carts',
+                  value: purchasingMetrics.abandonedCartsLabel,
+                },
+              ].map((row) => (
+                <div
+                  key={row.label}
+                  className="flex items-center justify-between gap-3 py-1.5 border-b border-slate-100 dark:border-slate-800/60 last:border-0"
+                >
+                  <dt className="text-slate-500 dark:text-slate-400">{row.label}</dt>
+                  <dd className="font-semibold text-slate-800 dark:text-slate-200 text-end" dir="ltr">
+                    {row.value}
+                  </dd>
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {isAr ? 'التسويق والتواصل' : 'Marketing & Communication'}
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsEditingMarketing(!isEditingMarketing)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-teal-500 transition-colors cursor-pointer"
-              >
-                <Edit2 className="w-3 h-3 text-teal-600" />
-                <span>
-                  {isEditingMarketing
-                    ? isAr ? 'تم' : 'Done'
-                    : isAr ? 'تعديل' : 'Edit'}
-                </span>
-              </button>
+              ))}
+            </dl>
+          </div>
+
+          {/* Rewards */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-2">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              {isAr ? 'المكافآت' : 'Rewards'}
+            </h3>
+            {customerRewards.length === 0 ? (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {isAr
+                  ? 'لا توجد مكافآت متاحة لهذا العميل'
+                  : 'No Rewards Available for This Customer'}
+              </p>
+            ) : (
+              <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
+                {customerRewards.map((r) => (
+                  <li key={r.id}>{isAr ? r.titleAr || r.title : r.title || r.titleAr}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Customer Wallet */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                {isAr ? 'محفظة العميل' : 'Customer Wallet'}
+              </h3>
+              {canAdjustWallet ? (
+                <button
+                  type="button"
+                  onClick={() => setShowWalletAdjust(true)}
+                  className="text-[11px] font-semibold text-teal-600 hover:text-teal-700 cursor-pointer"
+                >
+                  {isAr ? 'تعديل' : 'Adjust'}
+                </button>
+              ) : null}
             </div>
+            <p className="text-lg font-bold text-emerald-600">{money(walletBalance)}</p>
+            {walletTransactions.length === 0 ? (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {isAr ? 'لا توجد معاملات مسجّلة' : 'No Transactions Recorded'}
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {isAr
+                  ? `${walletTransactions.length} معاملة في السجل`
+                  : `${walletTransactions.length} transaction(s) on record`}
+              </p>
+            )}
+          </div>
 
-            <div className="space-y-3.5 text-xs">
-              {/* Marketing Emails */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <Coins className="w-4 h-4 text-teal-500" />
-                  <span className="font-medium text-slate-700 dark:text-slate-300">
-                    {isAr ? 'استلام رسائل البريد التسويقية' : 'Receive marketing emails'}
-                  </span>
+          {/* Loyalty Points */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-2">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              {isAr ? 'نقاط الولاء' : 'Loyalty Points'}
+            </h3>
+            {loyaltyPointsCount <= 0 ? (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {isAr ? 'لا توجد نقاط ولاء متاحة' : 'No Loyalty Points Available'}
+              </p>
+            ) : (
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{loyaltyPointsCount}</p>
+            )}
+          </div>
+
+          {/* Wishlist */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-2">
+            <div className="flex items-center gap-2">
+              <Heart className="w-4 h-4 text-rose-500" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                {isAr ? 'قائمة الأمنيات' : 'Wishlist'}
+              </h3>
+            </div>
+            {wishlistItems.length === 0 ? (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {isAr ? 'لا توجد عناصر في قائمة الأمنيات' : 'No Wishlist Items Available'}
+              </p>
+            ) : (
+              <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-300">
+                {wishlistItems.map((w) => (
+                  <li key={w.id}>{isAr ? w.nameAr || w.name : w.name || w.nameAr}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Messaging Details — Email, SMS, WhatsApp consistent order */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-3">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-teal-600" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                {isAr ? 'تفاصيل المراسلة' : 'Messaging Details'}
+              </h3>
+            </div>
+            <div className="space-y-2.5 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                  <Mail className="w-4 h-4 text-slate-400" />
+                  <span>{isAr ? 'البريد الإلكتروني' : 'Email'}</span>
                 </div>
-                <button
-                  type="button"
-                  disabled={!isEditingMarketing}
-                  onClick={() => handleToggleMarketing('emails', !marketingEmails)}
-                  className={`w-10 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer ${
-                    marketingEmails ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                  } disabled:opacity-90`}
-                >
-                  <span
-                    className={`block w-5 h-5 rounded-full bg-white shadow-sm transform transition-transform ${
-                      marketingEmails ? (isAr ? '-translate-x-4' : 'translate-x-4') : 'translate-x-0'
-                    }`}
-                  />
-                </button>
+                <span className="font-medium truncate max-w-[160px]" dir="ltr">
+                  {hasEmail ? customer.email : isAr ? 'غير متوفر' : 'Not available'}
+                </span>
               </div>
-
-              {/* WhatsApp Messages */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
-                  <span className="font-medium text-slate-700 dark:text-slate-300">
-                    {isAr ? 'استلام رسائل واتساب' : 'Receive WhatsApp messages'}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  disabled={!isEditingMarketing}
-                  onClick={() => handleToggleMarketing('whatsapp', !whatsappMessages)}
-                  className={`w-10 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer ${
-                    whatsappMessages ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                  } disabled:opacity-90`}
-                >
-                  <span
-                    className={`block w-5 h-5 rounded-full bg-white shadow-sm transform transition-transform ${
-                      whatsappMessages ? (isAr ? '-translate-x-4' : 'translate-x-4') : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* SMS Notifications */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                   <Smartphone className="w-4 h-4 text-slate-400" />
-                  <span className="font-medium text-slate-700 dark:text-slate-300">
-                    {isAr ? 'استلام إشعارات SMS' : 'Receive SMS notifications'}
-                  </span>
+                  <span>{isAr ? 'رسالة نصية' : 'SMS'}</span>
                 </div>
-                <button
-                  type="button"
-                  disabled={!isEditingMarketing}
-                  onClick={() => handleToggleMarketing('sms', !smsNotifications)}
-                  className={`w-10 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer ${
-                    smsNotifications ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                  } disabled:opacity-90`}
-                >
-                  <span
-                    className={`block w-5 h-5 rounded-full bg-white shadow-sm transform transition-transform ${
-                      smsNotifications ? (isAr ? '-translate-x-4' : 'translate-x-4') : 'translate-x-0'
-                    }`}
-                  />
-                </button>
+                <span className="font-medium" dir="ltr">
+                  {hasPhone ? customer.phone : isAr ? 'غير متوفر' : 'Not available'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                  <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
+                  <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
+                </div>
+                <span className="font-medium" dir="ltr">
+                  {hasPhone ? customer.phone : isAr ? 'غير متوفر' : 'Not available'}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* 3. Customer Tags Card */}
+          {/* Customer Tags Card */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1550,6 +1864,91 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </div>
         </div>
       )}
+
+      {showGroupsModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                {isAr ? 'تعيين المجموعات' : 'Assign Groups'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowGroupsModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {customGroups.length === 0 ? (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {isAr
+                  ? 'لا توجد مجموعات بعد. أنشئ مجموعة من صفحة العملاء أولاً.'
+                  : 'No groups yet. Create a group from the Customers page first.'}
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {customGroups.map((g) => (
+                  <label
+                    key={g.id}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-teal-400"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={groupsDraft.includes(g.name)}
+                      onChange={() => toggleGroupDraft(g.name)}
+                      className="rounded border-slate-300 text-teal-600"
+                    />
+                    <span className="text-xs font-medium text-slate-800 dark:text-slate-200">{g.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleSaveGroups}
+                className="flex-1 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 cursor-pointer"
+              >
+                {isAr ? 'حفظ' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowGroupsModal(false)}
+                className="py-2 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold cursor-pointer"
+              >
+                {isAr ? 'إلغاء' : 'Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <CustomerWalletAdjustModal
+        isOpen={showWalletAdjust}
+        onClose={() => setShowWalletAdjust(false)}
+        storeId={activeStore.id}
+        customerId={customer.id}
+        customerName={customer.name}
+        currentBalance={walletBalance}
+        isAr={isAr}
+        onApplied={(result) => {
+          setWalletBalance(result.balance);
+          setWalletLoyaltyPoints(result.loyaltyPoints);
+          updateCustomer(customer.id, {
+            cashbackBalance: result.balance,
+            loyaltyPoints: result.loyaltyPoints,
+            walletBalance: result.balance,
+          });
+          setCustomer((prev) => ({
+            ...prev,
+            cashbackBalance: result.balance,
+            loyaltyPoints: result.loyaltyPoints,
+            walletBalance: result.balance,
+          }));
+          refreshWallet();
+        }}
+      />
 
       {/* Customer Avatar Media Upload Modal */}
       <CustomerAvatarUploadModal

@@ -20,6 +20,11 @@ trait ResolvesStoreId
             ], 400);
         }
 
+        return $this->canonicalStoreId($raw);
+    }
+
+    protected function canonicalStoreId(string $raw): string
+    {
         $s = strtolower(trim($raw));
         if ($s === 'flowers' || $s === 'hadaya' || $s === 'makkah' || $s === 'giftshop') {
             return 'store-1';
@@ -32,6 +37,7 @@ trait ResolvesStoreId
         }
 
         $matchedId = \App\Models\Store::query()->where('id', $raw)->orWhere('slug', $raw)->orWhere('slug', $s)->value('id');
+
         return $matchedId ?: trim($raw);
     }
 

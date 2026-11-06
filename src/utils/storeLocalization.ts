@@ -557,6 +557,89 @@ export function getLocalizedItemName(
   return raw || 'Product Item';
 }
 
+export function getLocalizedWhatsAppMessage(rawContent?: string | null, locale: string = 'ar'): string {
+  if (!rawContent) return '';
+  const text = rawContent.trim();
+  const isAr = locale === 'ar';
+
+  if (isAr) {
+    if (/[\u0600-\u06FF]/.test(text) && !/[a-zA-Z]/.test(text.replace(/https?:\/\/\S+/g, ''))) {
+      return text;
+    }
+
+    if (/wrapped and is on its way to Fairmont Hotel/i.test(text)) {
+      return 'تم تجهيز وتغليف باقتك الفاخرة بعناية وهي الآن في طريقها إلى فندق فيرمونت، مكة المكرمة.';
+    }
+    if (/FIRST15/i.test(text)) {
+      return 'استمتع بخصم 15% على أول طلب لك باستخدام كود القسيمة: FIRST15 عند إتمام الطلب!';
+    }
+    if (/address in Medina.*verify reception/i.test(text)) {
+      return 'تحديث الشحن: طلبك في طريقه إلى عنوانك بالمدينة المنورة. يُرجى التحقق من الاستلام مع مندوب التوصيل.';
+    }
+    if (/llection is now live.*Explore exclusively/i.test(text)) {
+      return 'التشكيلة الملكية الفاخرة الجديدة متاحة الآن! تصفحها واكتشف أرقى المنتجات الحصرية عبر موقعنا.';
+    }
+    if (/approved.*Courier will visit you between 4-6 PM/i.test(text)) {
+      return 'تمت الموافقة على طلب الإرجاع. سيقوم مندوب شركة الشحن بزيارتكم للاستلام بين 4-6 مساءً.';
+    }
+    if (/free greeting card calligraphy/i.test(text)) {
+      return 'مرحباً! لاحظنا وجود منتجات فاخرة في سلتك. أكمل طلبك اليوم لتحصل على كتابة كرت إهداء مجاني بخط يدوي فاخر!';
+    }
+    if (/awaiting bank transfer verification/i.test(text) || /pay\/10279/i.test(text)) {
+      return 'تحديث الدفع: تذكير لطيف بشأن الطلب #10279 بانتظار تأكيد التحويل البنكي. رابط السداد: https://giftshop-sa.com/pay/10279';
+    }
+    if (/Natural Flower Bouquet with Patchi Chocolate is confirmed/i.test(text) || /Patchi Chocolate/i.test(text)) {
+      return 'تم تأكيد طلبك #10278: باقة الزهور الطبيعية مع شوكولاتة باتشي الفاخرة ومجدولة للتسليم في الموعد.';
+    }
+    if (/VIP20/i.test(text)) {
+      return 'خصم حصري 20% على جميع أطقم شوكولاتة بستاني الفاخرة! استخدم كود الخصم VIP20 اليوم عند الطلب.';
+    }
+    if (/Royal Dutch Velvet Rose collection/i.test(text)) {
+      return 'اكتشف مجموعتنا الملكية الجديدة من الجوري المخملي مع توصيل فاخر مجاني في جميع أنحاء مكة هذا الأسبوع!';
+    }
+    if (/heading to Jabal Omar/i.test(text)) {
+      return 'تحديث التوصيل: استلم مندوبنا الطلب #10280 وهو في طريقه الآن إلى منطقة جبل عمر، مكة المكرمة.';
+    }
+    if (/Your bouquet is being prepared with love/i.test(text)) {
+      return 'تأكيد الطلب #10283. شكراً لاختياركم متجرنا! باقتكم الفاخرة قيد التجهيز والتنسيق بكل حب وإتقان.';
+    }
+    if (/Message undeliverable/i.test(text)) {
+      return 'تعذر تسليم الرسالة: رقم الهاتف غير متاح حالياً أو غير مفعل على تطبيق واتساب.';
+    }
+    return text;
+  } else {
+    // English mode
+    if (/تم تجهيز وتغليف باقتك الفاخرة|فيرمونت/i.test(text)) {
+      return 'Your luxury bouquet has been freshly wrapped and is on its way to Fairmont Hotel, Makkah.';
+    }
+    if (/FIRST15/i.test(text)) {
+      return 'Enjoy a 15% discount on your first order with voucher FIRST15 upon checkout!';
+    }
+    if (/المدينة المنورة.*مندوب/i.test(text)) {
+      return 'Delivery update: Your order is on its way to your address in Medina. Please verify reception with driver.';
+    }
+    if (/التشكيلة الملكية|متاحة الآن/i.test(text)) {
+      return 'New luxury collection is now live! Explore exclusively on our website.';
+    }
+    if (/طلب الإرجاع|مندوب شركة الشحن/i.test(text)) {
+      return 'Your return request has been approved. Courier will visit you between 4-6 PM.';
+    }
+    if (/كرت إهداء مجاني/i.test(text)) {
+      return 'Hi! Complete your order today and get free handwritten luxury greeting card calligraphy!';
+    }
+    if (/تأكيد التحويل البنكي|رابط السداد/i.test(text)) {
+      return 'Payment update: Friendly reminder for order #10279 awaiting bank transfer verification. Link: https://giftshop-sa.com/pay/10279';
+    }
+    if (/باتشي/i.test(text)) {
+      return 'Order confirmation #10278: Natural flower bouquet with luxury Patchi chocolate is confirmed and scheduled.';
+    }
+    if (/VIP20/i.test(text)) {
+      return 'Exclusive 20% discount on luxury gift sets! Use code VIP20 today.';
+    }
+    return text;
+  }
+}
+
 export function getLocalizedAddress(address?: string | null, locale: string = 'ar'): string {
   if (!address) return '';
   const isAr = locale === 'ar';

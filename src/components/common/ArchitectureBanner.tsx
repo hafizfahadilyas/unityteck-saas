@@ -127,7 +127,21 @@ export const ArchitectureBanner: React.FC = () => {
               <div className="mt-2 text-[11px] font-medium text-blue-700 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-300 px-2 py-1 rounded inline-block">
                 {isAr ? 'الباقة الحالية: ' : 'Current Plan: '}
                 <span className="uppercase font-bold">
-                  {isAr ? (activeStore.plan === 'pro' ? 'احترافية' : activeStore.plan === 'free' ? 'مجانية' : activeStore.plan) : activeStore.plan}
+                  {isAr
+                    ? activeStore.plan === 'premium'
+                      ? 'مميزة'
+                      : activeStore.plan === 'pro' || activeStore.plan === 'paid'
+                        ? 'احترافية'
+                        : activeStore.plan === 'custom'
+                          ? 'مخصصة'
+                          : 'مجانية'
+                    : activeStore.plan === 'premium'
+                      ? 'Premium'
+                      : activeStore.plan === 'pro' || activeStore.plan === 'paid'
+                        ? 'Pro'
+                        : activeStore.plan === 'custom'
+                          ? 'Custom'
+                          : 'Free'}
                 </span>{' '}
                 {activeStore.masterGrantedPro && (isAr ? '(بمنحة من المشرف العام)' : '(Master Granted)')}
               </div>

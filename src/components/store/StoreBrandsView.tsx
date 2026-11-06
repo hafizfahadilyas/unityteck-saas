@@ -3,31 +3,22 @@ import {
   Search,
   Plus,
   Edit,
-  MoreHorizontal,
   ChevronLeft,
   ChevronRight,
-  Check,
-  FileText,
-  Paperclip,
-  Hash,
-  Calendar,
-  ListFilter,
   ToggleLeft,
   ToggleRight,
   X,
   Tag,
-  Boxes,
   Upload,
   Trash2,
   HelpCircle,
-  Image as ImageIcon,
-  Sparkles,
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { AdminPageShell } from '../common/AdminPageHeader';
 import { useToast } from '../common/ToastProvider';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
 import { bumpStore } from '../../api/cacheTags';
+import type { CustomFieldType } from '../../utils/customFieldTypes';
 
 export interface BrandItem {
   id: string;
@@ -48,12 +39,13 @@ export interface CustomFieldItem {
   name: string;
   nameAr?: string;
   nameEn?: string;
-  type: 'Text' | 'File' | 'Number' | 'Date' | 'Single Select';
+  type: CustomFieldType | string;
   appliedTo: string;
   appliedToAr?: string;
   appliedToEn?: string;
   showToCustomer: boolean;
   status: 'active' | 'inactive';
+  options?: string[];
 }
 
 import { useTenant } from '../../context/TenantContext';
@@ -596,15 +588,9 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
     getStoreBrands(activeStore.id, activeStore.slug, activeStore.category)
   );
 
-  // Store-isolated Custom Fields State with lifetime persistence
-  const [customFields, setCustomFields] = useState<CustomFieldItem[]>(() =>
-    getStoreCustomFields(activeStore.id, activeStore.slug, activeStore.category)
-  );
-
   // Sync state whenever activeStore changes
   React.useEffect(() => {
     setBrands(getStoreBrands(activeStore.id, activeStore.slug, activeStore.category));
-    setCustomFields(getStoreCustomFields(activeStore.id, activeStore.slug, activeStore.category));
   }, [activeStore.id, activeStore.slug, activeStore.category]);
 
   // Filters for Brands
@@ -616,10 +602,6 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
   const [isAddBrandOpen, setIsAddBrandOpen] = useState(false);
   const [isEditBrandOpen, setIsEditBrandOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<BrandItem | null>(null);
-
-  const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
-  const [isEditFieldOpen, setIsEditFieldOpen] = useState(false);
-  const [editingField, setEditingField] = useState<CustomFieldItem | null>(null);
 
   // New Brand Form State
   const [newBrandName, setNewBrandName] = useState('');
@@ -633,18 +615,6 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
   const [editBrandStatus, setEditBrandStatus] = useState<'active' | 'inactive'>('active');
   const [editBrandChannels, setEditBrandChannels] = useState(true);
 
-  // New Custom Field Form State
-  const [newFieldName, setNewFieldName] = useState('');
-  const [newFieldType, setNewFieldType] = useState<CustomFieldItem['type']>('Text');
-  const [newFieldAppliedTo, setNewFieldAppliedTo] = useState('All Products');
-
-  // Edit Custom Field Form State
-  const [editFieldName, setEditFieldName] = useState('');
-  const [editFieldType, setEditFieldType] = useState<CustomFieldItem['type']>('Text');
-  const [editFieldAppliedTo, setEditFieldAppliedTo] = useState('All Products');
-  const [editFieldShowToCust, setEditFieldShowToCust] = useState(true);
-  const [editFieldStatus, setEditFieldStatus] = useState<'active' | 'inactive'>('active');
-
   // File input refs for logo upload
   const addLogoInputRef = useRef<HTMLInputElement>(null);
   const editLogoInputRef = useRef<HTMLInputElement>(null);
@@ -657,14 +627,6 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
     } catch {}
     bumpStore(activeStore.id, 'settings');
     bumpStore(activeStore.id, 'theme');
-  };
-
-  const saveCustomFields = (next: CustomFieldItem[]) => {
-    setCustomFields(next);
-    try {
-      localStorage.setItem(`unityteck_store_custom_fields_${activeStore.id}`, JSON.stringify(next));
-      window.dispatchEvent(new CustomEvent('unityteck-custom-fields-updated', { detail: { storeId: activeStore.id, fields: next } }));
-    } catch {}
   };
 
   // Helper for reading uploaded image file into Base64 Data URL
@@ -697,35 +659,12 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
     toast(isAr ? 'تم تغيير حالة العلامة التجارية' : 'Brand status updated', 'success');
   };
 
-  const handleToggleFieldCustomer = (id: string) => {
-    const next = customFields.map((f) => (f.id === id ? { ...f, showToCustomer: !f.showToCustomer } : f));
-    saveCustomFields(next);
-    toast(isAr ? 'تم تحديث الظهور للعملاء' : 'Customer visibility updated', 'success');
-  };
-
-  const handleToggleFieldStatus = (id: string) => {
-    const next = customFields.map((f) =>
-      f.id === id ? { ...f, status: f.status === 'active' ? ('inactive' as const) : ('active' as const) } : f
-    );
-    saveCustomFields(next);
-    toast(isAr ? 'تم تغيير حالة الحقل المخصص' : 'Custom field status updated', 'success');
-  };
-
   // Delete Brand
   const handleDeleteBrand = (id: string, name: string) => {
     if (window.confirm(isAr ? `هل أنت متأكد من حذف العلامة التجارية "${name}"؟` : `Are you sure you want to delete brand "${name}"?`)) {
       const next = brands.filter((b) => b.id !== id);
       saveBrands(next);
       toast(isAr ? 'تم حذف العلامة التجارية' : 'Brand deleted successfully', 'success');
-    }
-  };
-
-  // Delete Custom Field
-  const handleDeleteField = (id: string, name: string) => {
-    if (window.confirm(isAr ? `هل أنت متأكد من حذف الحقل المخصص "${name}"؟` : `Are you sure you want to delete custom field "${name}"?`)) {
-      const next = customFields.filter((f) => f.id !== id);
-      saveCustomFields(next);
-      toast(isAr ? 'تم حذف الحقل المخصص' : 'Custom field deleted successfully', 'success');
     }
   };
 
@@ -738,17 +677,6 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
     setEditBrandStatus(brand.status);
     setEditBrandChannels(brand.showInChannels);
     setIsEditBrandOpen(true);
-  };
-
-  // Open Edit Field Modal
-  const openEditFieldModal = (field: CustomFieldItem) => {
-    setEditingField(field);
-    setEditFieldName(field.name);
-    setEditFieldType(field.type);
-    setEditFieldAppliedTo(field.appliedTo);
-    setEditFieldShowToCust(field.showToCustomer);
-    setEditFieldStatus(field.status);
-    setIsEditFieldOpen(true);
   };
 
   // Submit Add Brand
@@ -794,46 +722,6 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
     toast(isAr ? 'تم تعديل العلامة التجارية بنجاح!' : 'Brand updated successfully!', 'success');
   };
 
-  // Submit Add Field
-  const handleAddFieldSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFieldName.trim()) return;
-    const newField: CustomFieldItem = {
-      id: `cf-${Date.now()}`,
-      name: newFieldName.trim(),
-      type: newFieldType,
-      appliedTo: newFieldAppliedTo,
-      showToCustomer: true,
-      status: 'active',
-    };
-    saveCustomFields([newField, ...customFields]);
-    setIsAddFieldOpen(false);
-    setNewFieldName('');
-    toast(isAr ? 'تمت إضافة الحقل المخصص بنجاح' : 'Custom field added successfully', 'success');
-  };
-
-  // Submit Edit Field
-  const handleEditFieldSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingField || !editFieldName.trim()) return;
-    const updated = customFields.map((f) =>
-      f.id === editingField.id
-        ? {
-            ...f,
-            name: editFieldName.trim(),
-            type: editFieldType,
-            appliedTo: editFieldAppliedTo,
-            showToCustomer: editFieldShowToCust,
-            status: editFieldStatus,
-          }
-        : f
-    );
-    saveCustomFields(updated);
-    setIsEditFieldOpen(false);
-    setEditingField(null);
-    toast(isAr ? 'تم تعديل الحقل المخصص بنجاح!' : 'Custom field updated successfully!', 'success');
-  };
-
   // Filtered Brands
   const filteredBrands = useMemo(() => {
     let list = brands.filter((b) => {
@@ -859,23 +747,6 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
     return list;
   }, [brands, statusFilter, searchBrand, sortBy, isAr]);
 
-  const renderFieldTypeIcon = (type: CustomFieldItem['type']) => {
-    switch (type) {
-      case 'Text':
-        return <FileText className="w-3.5 h-3.5 text-blue-500" />;
-      case 'File':
-        return <Paperclip className="w-3.5 h-3.5 text-indigo-500" />;
-      case 'Number':
-        return <Hash className="w-3.5 h-3.5 text-emerald-500" />;
-      case 'Date':
-        return <Calendar className="w-3.5 h-3.5 text-amber-500" />;
-      case 'Single Select':
-        return <ListFilter className="w-3.5 h-3.5 text-purple-500" />;
-      default:
-        return <FileText className="w-3.5 h-3.5" />;
-    }
-  };
-
   return (
     <AdminPageShell className="pb-16 max-w-[1600px] mx-auto space-y-8">
       {/* ── BREADCRUMBS & TOP ACTIONS ── */}
@@ -892,7 +763,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
           </button>
           <span>/</span>
           <span className="font-bold" style={{ color: 'var(--text)' }}>
-            {isAr ? 'العلامات التجارية والحقول' : 'Brands & Custom Fields'}
+            {isAr ? 'العلامات التجارية' : 'Brands'}
           </span>
         </div>
 
@@ -1158,169 +1029,6 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                 <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
               </button>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════════════════════════════════════ */}
-      {/* ── SECTION 2: CUSTOM FIELDS ── */}
-      {/* ══════════════════════════════════════════════════════════════════ */}
-      <div className="space-y-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
-                {isAr ? 'الحقول المخصصة' : 'Custom Fields'}
-              </h2>
-              <span
-                className="text-xs px-2.5 py-1 rounded-full font-bold border flex items-center gap-1.5"
-                style={{
-                  background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
-                  borderColor: 'var(--accent)',
-                  color: 'var(--accent)',
-                }}
-              >
-                <Boxes className="w-3 h-3" />
-                <span>{activeStore.name}</span>
-                <span className="opacity-75 text-[10px]">({customFields.length} {isAr ? 'حقول' : 'fields'})</span>
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--muted)' }}>
-              {isAr
-                ? `الحقول المخصصة ومواصفات المنتجات لمتجر "${activeStore.name}". معزولة ومستقلة لكل متجر وثيم.`
-                : `Custom product fields and specifications for "${activeStore.name}". Isolated per store & theme.`}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsAddFieldOpen(true)}
-            className="px-4 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer hover:opacity-90 shrink-0"
-            style={{ background: 'var(--portal-cta)' }}
-          >
-            <Plus className="w-4 h-4" />
-            <span>{isAr ? '+ إضافة حقل مخصص' : '+ Add Custom Field'}</span>
-          </button>
-        </div>
-
-        {/* Custom Fields Table */}
-        <div
-          className="rounded-2xl border shadow-xs overflow-hidden"
-          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-start">
-              <thead>
-                <tr className="border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-                  <th className="py-3 px-3 w-8">
-                    <input type="checkbox" className="rounded" />
-                  </th>
-                  <th className="py-3 px-3 text-start font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'اسم الحقل' : 'Field Name'}
-                  </th>
-                  <th className="py-3 px-3 text-start font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'نوع الحقل' : 'Field Type'}
-                  </th>
-                  <th className="py-3 px-3 text-start font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'يطبق على' : 'Applied To'}
-                  </th>
-                  <th className="py-3 px-3 text-center font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'الظهور للعميل' : 'Show to Customer'}
-                  </th>
-                  <th className="py-3 px-3 text-center font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'الحالة' : 'Status'}
-                  </th>
-                  <th className="py-3 px-3 text-end font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'الإجراءات' : 'Actions'}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
-                {customFields.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center">
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <Boxes className="w-8 h-8 text-slate-400 opacity-50" />
-                        <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
-                          {isAr ? 'لا توجد حقول مخصصة مسجلة لهذا المتجر' : 'No custom fields registered for this store'}
-                        </p>
-                        <p className="text-xs" style={{ color: 'var(--muted)' }}>
-                          {isAr ? 'أضف حقول مخصصة جديدة بالنقر على "إضافة حقل جديد" أعلاه' : 'Add new custom fields using the "Add New Field" button above'}
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  customFields.map((f) => (
-                    <tr key={f.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-3">
-                        <input type="checkbox" className="rounded" />
-                      </td>
-                      <td className="py-3 px-3 font-bold" style={{ color: 'var(--text)' }}>
-                        {(isAr ? f.nameAr : f.nameEn) || f.name}
-                      </td>
-                      <td className="py-3 px-3">
-                        <span className="inline-flex items-center gap-1.5 font-medium px-2 py-0.5 rounded-lg border text-[11px]" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-                          {renderFieldTypeIcon(f.type)}
-                          <span>{isAr ? (f.type === 'Text' ? 'نص' : f.type === 'File' ? 'ملف' : f.type === 'Number' ? 'رقم' : f.type === 'Date' ? 'تاريخ' : 'اختيار فردي') : f.type}</span>
-                        </span>
-                      </td>
-                      <td className="py-3 px-3" style={{ color: 'var(--muted)' }}>
-                        {(isAr ? f.appliedToAr : f.appliedToEn) || f.appliedTo}
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleFieldCustomer(f.id)}
-                          className="cursor-pointer inline-flex items-center"
-                        >
-                          {f.showToCustomer ? (
-                            <ToggleRight className="w-7 h-7 text-blue-500" />
-                          ) : (
-                            <ToggleLeft className="w-7 h-7 text-slate-400" />
-                          )}
-                        </button>
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleFieldStatus(f.id)}
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
-                            f.status === 'active'
-                              ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                          }`}
-                        >
-                          ● {f.status === 'active' ? (isAr ? 'نشط' : 'Active') : isAr ? 'غير نشط' : 'Inactive'}
-                        </button>
-                      </td>
-                      <td className="py-3 px-3 text-end">
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openEditFieldModal(f)}
-                            className="p-1.5 rounded-lg border hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-600 transition-colors cursor-pointer"
-                            style={{ borderColor: 'var(--border)' }}
-                            title={isAr ? 'تعديل الحقل' : 'Edit Field'}
-                          >
-                            <Edit className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteField(f.id, f.name)}
-                            className="p-1.5 rounded-lg border hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:text-rose-600 transition-colors cursor-pointer"
-                            style={{ borderColor: 'var(--border)' }}
-                            title={isAr ? 'حذف الحقل' : 'Delete Field'}
-                          >
-                            <Trash2 className="w-3.5 h-3.5 text-slate-500 hover:text-rose-600" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
           </div>
         </div>
       </div>
@@ -1619,212 +1327,6 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl text-white font-bold cursor-pointer"
-                  style={{ background: 'var(--portal-cta)' }}
-                >
-                  {isAr ? 'حفظ التعديلات' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── MODAL: Add Custom Field ── */}
-      {isAddFieldOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div
-            className="w-full max-w-md p-6 rounded-3xl border shadow-2xl space-y-4"
-            style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-          >
-            <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
-              <h3 className="font-extrabold text-base">{isAr ? 'إضافة حقل مخصص جديد' : 'Add Custom Field'}</h3>
-              <button
-                type="button"
-                onClick={() => setIsAddFieldOpen(false)}
-                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddFieldSubmit} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'اسم الحقل *' : 'Field Name *'}
-                </label>
-                <input
-                  type="text"
-                  value={newFieldName}
-                  onChange={(e) => setNewFieldName(e.target.value)}
-                  placeholder={isAr ? 'مثال: الخامة، بلد المنشأ، درجة الطحن...' : 'e.g. Material, Origin, Grind Size...'}
-                  required
-                  className="w-full px-3 py-2 rounded-xl border focus:outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'نوع الحقل' : 'Field Type'}
-                </label>
-                <select
-                  value={newFieldType}
-                  onChange={(e) => setNewFieldType(e.target.value as any)}
-                  className="w-full px-3 py-2 rounded-xl border focus:outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                >
-                  <option value="Text">{isAr ? 'نص' : 'Text'}</option>
-                  <option value="File">{isAr ? 'ملف / صورة' : 'File'}</option>
-                  <option value="Number">{isAr ? 'رقم' : 'Number'}</option>
-                  <option value="Date">{isAr ? 'تاريخ' : 'Date'}</option>
-                  <option value="Single Select">{isAr ? 'اختيار فردي' : 'Single Select'}</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'يطبق على' : 'Applied To'}
-                </label>
-                <input
-                  type="text"
-                  value={newFieldAppliedTo}
-                  onChange={(e) => setNewFieldAppliedTo(e.target.value)}
-                  placeholder={isAr ? 'مثال: جميع المنتجات، مستلزمات الباريستا...' : 'e.g. All Products, Barista Gear...'}
-                  className="w-full px-3 py-2 rounded-xl border focus:outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddFieldOpen(false)}
-                  className="px-4 py-2 rounded-xl border font-bold"
-                  style={{ borderColor: 'var(--border)' }}
-                >
-                  {isAr ? 'إلغاء' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl text-white font-bold"
-                  style={{ background: 'var(--portal-cta)' }}
-                >
-                  {isAr ? 'حفظ الحقل' : 'Save Field'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── MODAL: Edit Custom Field ── */}
-      {isEditFieldOpen && editingField && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div
-            className="w-full max-w-md p-6 rounded-3xl border shadow-2xl space-y-4"
-            style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-          >
-            <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
-              <h3 className="font-extrabold text-base">{isAr ? 'تعديل الحقل المخصص' : 'Edit Custom Field'}</h3>
-              <button
-                type="button"
-                onClick={() => setIsEditFieldOpen(false)}
-                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleEditFieldSubmit} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'اسم الحقل *' : 'Field Name *'}
-                </label>
-                <input
-                  type="text"
-                  value={editFieldName}
-                  onChange={(e) => setEditFieldName(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 rounded-xl border focus:outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'نوع الحقل' : 'Field Type'}
-                </label>
-                <select
-                  value={editFieldType}
-                  onChange={(e) => setEditFieldType(e.target.value as any)}
-                  className="w-full px-3 py-2 rounded-xl border focus:outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                >
-                  <option value="Text">{isAr ? 'نص' : 'Text'}</option>
-                  <option value="File">{isAr ? 'ملف / صورة' : 'File'}</option>
-                  <option value="Number">{isAr ? 'رقم' : 'Number'}</option>
-                  <option value="Date">{isAr ? 'تاريخ' : 'Date'}</option>
-                  <option value="Single Select">{isAr ? 'اختيار فردي' : 'Single Select'}</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'يطبق على' : 'Applied To'}
-                </label>
-                <input
-                  type="text"
-                  value={editFieldAppliedTo}
-                  onChange={(e) => setEditFieldAppliedTo(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border focus:outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'الظهور للعميل' : 'Show to Customer'}
-                  </label>
-                  <select
-                    value={editFieldShowToCust ? 'yes' : 'no'}
-                    onChange={(e) => setEditFieldShowToCust(e.target.value === 'yes')}
-                    className="w-full px-3 py-2 rounded-xl border focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  >
-                    <option value="yes">{isAr ? 'نعم' : 'Yes'}</option>
-                    <option value="no">{isAr ? 'لا' : 'No'}</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold mb-1" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'الحالة' : 'Status'}
-                  </label>
-                  <select
-                    value={editFieldStatus}
-                    onChange={(e) => setEditFieldStatus(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-xl border focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  >
-                    <option value="active">{isAr ? 'نشط' : 'Active'}</option>
-                    <option value="inactive">{isAr ? 'غير نشط' : 'Inactive'}</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditFieldOpen(false)}
-                  className="px-4 py-2 rounded-xl border font-bold"
-                  style={{ borderColor: 'var(--border)' }}
-                >
-                  {isAr ? 'إلغاء' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl text-white font-bold"
                   style={{ background: 'var(--portal-cta)' }}
                 >
                   {isAr ? 'حفظ التعديلات' : 'Save Changes'}

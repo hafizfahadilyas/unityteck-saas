@@ -254,7 +254,15 @@ export const StatusPage: React.FC<StatusPageProps> = ({
                 className="text-xs font-mono font-medium flex items-center gap-1.5 text-rose-500 hover:text-rose-600 transition-colors cursor-pointer"
               >
                 <AlertCircle className="w-3.5 h-3.5" />
-                <span>{showDetails ? 'Hide technical error details' : 'Show technical error details'}</span>
+                <span>
+                  {showDetails
+                    ? locale === 'ar'
+                      ? 'إخفاء التفاصيل التقنية'
+                      : 'Hide technical error details'
+                    : locale === 'ar'
+                      ? 'عرض التفاصيل التقنية'
+                      : 'Show technical error details'}
+                </span>
                 {showDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
 
@@ -276,10 +284,22 @@ export const StatusPage: React.FC<StatusPageProps> = ({
                 }}
                 className="text-[11px] font-mono px-2 py-0.5 rounded border flex items-center gap-1 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 style={{ borderColor: 'var(--border)' }}
-                title="Copy full crash details to clipboard"
+                title={
+                  locale === 'ar'
+                    ? 'نسخ تفاصيل الخطأ إلى الحافظة'
+                    : 'Copy full crash details to clipboard'
+                }
               >
                 {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-                <span>{copied ? 'Copied' : 'Copy Error'}</span>
+                <span>
+                  {copied
+                    ? locale === 'ar'
+                      ? 'تم النسخ'
+                      : 'Copied'
+                    : locale === 'ar'
+                      ? 'نسخ الخطأ'
+                      : 'Copy Error'}
+                </span>
               </button>
             </div>
 

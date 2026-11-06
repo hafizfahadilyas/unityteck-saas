@@ -44,9 +44,11 @@ import {
 import {
   getStorePageBySlug,
   getStorePages,
+  hydrateStorePages,
   StoreCustomPage,
 } from '../../../services/storePagesService';
 import { useTenant } from '../../../context/TenantContext';
+import { coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
 
 interface CoffeeStaticPageProps {
   pageRoute?: string;
@@ -58,15 +60,13 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
   const { activeStore, currentOrders } = useTenant();
   const isAr = language === 'AR';
 
-  const rawPhone =
+  const cleanPhone = coffeeWhatsAppDigits(
     storeIdentity?.whatsapp ||
-    (activeStore as any)?.whatsapp ||
-    storeIdentity?.phone ||
-    activeStore?.phone ||
-    '+966549876543';
-  let cleanPhone = rawPhone.replace(/\D/g, '') || '966549876543';
-  if (cleanPhone.startsWith('05')) cleanPhone = '966' + cleanPhone.substring(1);
-  else if (cleanPhone.startsWith('5') && cleanPhone.length === 9) cleanPhone = '966' + cleanPhone;
+      (activeStore as any)?.whatsapp ||
+      storeIdentity?.phone ||
+      activeStore?.phone ||
+      '',
+  );
 
   // Determine effective slug
   const effectiveSlug =
@@ -121,10 +121,17 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
   const [contactSent, setContactSent] = useState(false);
 
   const reloadData = () => {
-    const list = getStorePages(activeStore?.id || 'store-coffee', activeStore);
-    setAllPages(list);
-    const found = getStorePageBySlug(activeStore?.id || 'store-coffee', effectiveSlug, activeStore);
-    setPageData(found);
+    const storeId = activeStore?.id || '';
+    if (!storeId) {
+      setAllPages([]);
+      setPageData(undefined);
+      return;
+    }
+    void hydrateStorePages(storeId).then(() => {
+      const list = getStorePages(storeId, activeStore);
+      setAllPages(list);
+      setPageData(getStorePageBySlug(storeId, effectiveSlug, activeStore));
+    });
   };
 
   useEffect(() => {
@@ -760,6 +767,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
               <button
                 type="button"
                 onClick={() => {
+                  if (!cleanPhone) return;
                   const msg = isAr
                     ? 'السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم'
                     : 'Hello, I would like to inquire about placing a custom coffee corner order.';
@@ -794,6 +802,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
                   : 'Need help choosing the right espresso machine for your routine? Chat with our baristas.'}
               </p>
 
+              {cleanPhone ? (
               <a
                 href={`https://wa.me/${cleanPhone}`}
                 target="_blank"
@@ -801,8 +810,13 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
                 className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
                 <MessageCircle className="w-4 h-4" />
-                <span>{isAr ? 'محادثة فورية (WhatsApp)' : 'Instant Chat (WhatsApp)'}</span>
+                <span>{isAr ? 'محادثة فورية عبر واتساب' : 'Instant Chat (WhatsApp)'}</span>
               </a>
+              ) : (
+                <div className="w-full py-2.5 rounded-xl border border-dashed border-neutral-200 text-neutral-400 text-xs text-center">
+                  {isAr ? 'رقم واتساب غير مُعدّ بعد' : 'WhatsApp number not configured yet'}
+                </div>
+              )}
             </div>
 
             {/* Hotline & Official Details */}

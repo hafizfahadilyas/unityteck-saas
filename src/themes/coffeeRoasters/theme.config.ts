@@ -15,7 +15,7 @@ export const coffeeRoastersThemeConfig: ThemeManifest = {
   descriptionAr: 'قالب رسمي مخصص للمقاهي ومحامص القهوة المتخصصة وأجهزة الإسبريسو مع عروض تفاعلية للمنتجات.',
   author: 'Unityteck Storefront Engine',
   category: 'cafe',
-  previewImage: '/src/assets/images/hero_hibrew_espresso_1791217182679.jpg',
+  previewImage: '/images/hero_hibrew_espresso_1791217182679.jpg',
   tags: ['coffee', 'espresso', 'roasters', 'machines', 'barista', 'luxury'],
   defaultColors: {
     primary: '#1c1917',

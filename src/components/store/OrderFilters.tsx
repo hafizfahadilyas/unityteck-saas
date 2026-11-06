@@ -303,13 +303,15 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
               >
                 <option value="all">{t('allChannels')}</option>
                 <option value="Instagram">{localizeSalesChannel('Instagram', locale)}</option>
+                <option value="Website">{isAr ? 'الموقع' : 'Website'}</option>
                 <option value="Google Ads">{localizeSalesChannel('Google Ads', locale)}</option>
                 <option value="Direct Visits">{localizeSalesChannel('Direct Visits', locale)}</option>
                 <option value="TikTok">{localizeSalesChannel('TikTok', locale)}</option>
                 <option value="Snapchat">{isAr ? 'سناب شات' : 'Snapchat'}</option>
                 <option value="WhatsApp">{localizeSalesChannel('WhatsApp', locale)}</option>
                 <option value="Facebook">{localizeSalesChannel('Facebook', locale)}</option>
-                <option value="X">{isAr ? 'إكس (تويتر سابقاً)' : 'X (formerly Twitter)'}</option>
+                <option value="X">{isAr ? 'إكس (تويتر)' : 'X (Twitter)'}</option>
+                <option value="Telegram">{isAr ? 'تيليجرام' : 'Telegram'}</option>
                 <option value="YouTube">{isAr ? 'يوتيوب' : 'YouTube'}</option>
                 <option value="Email Marketing">{isAr ? 'البريد الإلكتروني' : 'Email Marketing'}</option>
               </select>

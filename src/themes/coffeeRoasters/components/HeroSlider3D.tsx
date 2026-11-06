@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { PRODUCTS } from '../data/products';
-import { readAllThemeSettings } from '../../settings/themeSettingsStore';
+import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 import {
   ChevronLeft,
   ChevronRight,
@@ -37,6 +37,8 @@ interface HeroBannerSlide {
   priceAr: string;
   image: string;
   fallbackImage: string;
+  altEn?: string;
+  altAr?: string;
   taglineEn?: string;
   taglineAr?: string;
   badgeEn?: string;
@@ -46,6 +48,16 @@ interface HeroBannerSlide {
   buttonLink?: string;
   buttonBgColor?: string;
   buttonTextColor?: string;
+  /** Word C-HERO CTA flags from heroBanners */
+  buyNowEnabled?: boolean;
+  addToCartEnabled?: boolean;
+  addToCartEn?: string;
+  addToCartAr?: string;
+  learnMoreEnabled?: boolean;
+  customOrderEnabled?: boolean;
+  customOrderEn?: string;
+  customOrderAr?: string;
+  customOrderUrl?: string;
 }
 
 // 1. ORIGINAL COFFEE HOME SLIDES (4 Grand Full-Bleed Banners)
@@ -243,16 +255,70 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
 
   const themeSettings = useMemo(() => {
     try {
-      return readAllThemeSettings(activeStore?.id, activeStore);
+      if (!activeStore?.id) return null;
+      return resolveCoffeeThemeSettings(activeStore.id, activeStore);
     } catch {
       return null;
     }
   }, [activeStore, settingsVersion]);
 
-  // Dynamic slides for Home: ALWAYS safely resolves images with fallback to original banners
+  // Home slides: Word C-HERO `heroBanners` first, then legacy `slider.slides`. Never flowers/MKS.
   const homeSlides: HeroBannerSlide[] = useMemo(() => {
+    const hero = themeSettings?.heroBanners;
+    const heroBanners = (hero?.enabled !== false ? hero?.banners : []) || [];
+    const activeHero = heroBanners.filter(
+      (b) =>
+        b.enabled !== false &&
+        !/floral|bouquet|باقات|زهور|holland|makkah|MKS/i.test(
+          `${b.titleEn || ''} ${b.titleAr || ''} ${b.descriptionEn || ''} ${b.image || ''}`,
+        ),
+    );
+    if (activeHero.length > 0) {
+      return activeHero.map((b, idx) => {
+        const fallback = ORIGINAL_HOME_SLIDES[idx % ORIGINAL_HOME_SLIDES.length];
+        const currency = b.currency || 'SAR';
+        const price = (b.price || '').trim();
+        return {
+          id: b.id || fallback.id,
+          productId: b.productId || fallback.productId,
+          titleEn: b.titleEn || fallback.titleEn,
+          titleAr: b.titleAr || fallback.titleAr,
+          priceEn: b.showPrice !== false && price ? `${currency} ${price}` : fallback.priceEn,
+          priceAr: b.showPrice !== false && price ? `${price} ر.س` : fallback.priceAr,
+          image: resolveBannerImage(b.image || b.mobileImage, idx),
+          fallbackImage: fallback.image,
+          altEn: b.altEn || b.titleEn || fallback.titleEn,
+          altAr: b.altAr || b.titleAr || fallback.titleAr,
+          taglineEn: b.descriptionEn || fallback.taglineEn,
+          taglineAr: b.descriptionAr || fallback.taglineAr,
+          badgeEn: b.promoEn || fallback.badgeEn,
+          badgeAr: b.promoAr || fallback.badgeAr,
+          buttonTextEn: b.buyNowEn || b.learnMoreEn || fallback.buttonTextEn,
+          buttonTextAr: b.buyNowAr || b.learnMoreAr || fallback.buttonTextAr,
+          buttonLink: b.learnMoreUrl || undefined,
+          buttonBgColor: undefined,
+          buttonTextColor: b.textColor || undefined,
+          addToCartEnabled: b.addToCartEnabled !== false,
+          addToCartEn: b.addToCartEn,
+          addToCartAr: b.addToCartAr,
+          customOrderEnabled: b.customOrderEnabled === true,
+          customOrderEn: b.customOrderEn,
+          customOrderAr: b.customOrderAr,
+          customOrderUrl: b.customOrderUrl,
+          learnMoreEnabled: b.learnMoreEnabled !== false,
+          buyNowEnabled: b.buyNowEnabled !== false,
+        } as HeroBannerSlide;
+      });
+    }
+
     const configuredSlides = themeSettings?.slider?.slides;
-    if (configuredSlides && configuredSlides.length > 0) {
+    const flowerLeak =
+      configuredSlides?.some((cs: any) =>
+        /floral|bouquet|باقات|زهور|holland|makkah|MKS/i.test(
+          `${cs?.title || ''} ${cs?.titleEn || ''} ${cs?.subtitle || ''} ${cs?.subtitleEn || ''} ${cs?.image || ''}`,
+        ),
+      ) ?? false;
+    if (configuredSlides && configuredSlides.length > 0 && !flowerLeak) {
       return configuredSlides.map((cs, idx) => {
         const fallback = ORIGINAL_HOME_SLIDES[idx % ORIGINAL_HOME_SLIDES.length];
         const safeImage = resolveBannerImage(cs.image, idx);
@@ -428,17 +494,22 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
   const slides = homeSlides;
   const activeSlide = slides[currentIndex % slides.length];
 
-  // Preload slide images
+  const isCustomizerPreview =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('preview') === '1';
+
+  // Preload slide images (only first + next in customizer preview to stay light)
   useEffect(() => {
-    slides.forEach((slide) => {
+    const subset = isCustomizerPreview ? slides.slice(0, 2) : slides;
+    subset.forEach((slide) => {
       const img = new Image();
       img.src = slide.image;
     });
-  }, [slides]);
+  }, [slides, isCustomizerPreview]);
 
-  // Auto-play timer
+  // Auto-play timer (paused inside theme customizer iframe)
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused || isCustomizerPreview) return;
 
     const timer = setInterval(() => {
       setDirection(1);
@@ -447,7 +518,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
     }, SLIDE_DURATION);
 
     return () => clearInterval(timer);
-  }, [isPaused, currentIndex, slides.length, SLIDE_DURATION]);
+  }, [isPaused, isCustomizerPreview, currentIndex, slides.length, SLIDE_DURATION]);
 
   const goToSlide = (targetIndex: number) => {
     if (targetIndex === currentIndex) return;
@@ -468,8 +539,22 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
     setKeyCounter((k) => k + 1);
   };
 
-  // Keyboard navigation support
   useEffect(() => {
+    const onSlide = (event: Event) => {
+      const index = (event as CustomEvent<{ index?: number }>).detail?.index;
+      if (typeof index !== 'number' || !slides.length) return;
+      const next = ((index % slides.length) + slides.length) % slides.length;
+      setDirection(next >= currentIndex ? 1 : -1);
+      setCurrentIndex(next);
+      setKeyCounter((k) => k + 1);
+    };
+    window.addEventListener('unityteck-hero-slide', onSlide);
+    return () => window.removeEventListener('unityteck-hero-slide', onSlide);
+  }, [slides.length, currentIndex]);
+
+  // Keyboard navigation support (skipped in the customizer iframe so the editor stays responsive)
+  useEffect(() => {
+    if (isCustomizerPreview) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') {
         language === 'AR' ? prevSlide() : nextSlide();
@@ -479,7 +564,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [language, slides.length]);
+  }, [language, slides.length, isCustomizerPreview]);
 
   // Touch Swipe Handlers for Mobile
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -513,9 +598,9 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
       opacity: 1,
       scale: 1,
       transition: {
-        x: { duration: 0.75, ease: [0.22, 1, 0.36, 1] },
-        scale: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
-        opacity: { duration: 0.45, ease: [0.25, 0.1, 0.25, 1] },
+        x: { duration: isCustomizerPreview ? 0.18 : 0.75, ease: [0.22, 1, 0.36, 1] },
+        scale: { duration: isCustomizerPreview ? 0.18 : 0.8, ease: [0.22, 1, 0.36, 1] },
+        opacity: { duration: isCustomizerPreview ? 0.12 : 0.45, ease: [0.25, 0.1, 0.25, 1] },
       },
     },
     exit: (dir: number) => ({
@@ -523,9 +608,9 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
       opacity: 0,
       scale: 0.98,
       transition: {
-        x: { duration: 0.75, ease: [0.22, 1, 0.36, 1] },
-        scale: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
-        opacity: { duration: 0.4, ease: [0.42, 0, 1, 1] },
+        x: { duration: isCustomizerPreview ? 0.12 : 0.75, ease: [0.22, 1, 0.36, 1] },
+        scale: { duration: isCustomizerPreview ? 0.12 : 0.8, ease: [0.22, 1, 0.36, 1] },
+        opacity: { duration: isCustomizerPreview ? 0.1 : 0.4, ease: [0.42, 0, 1, 1] },
       },
     }),
   };
@@ -547,6 +632,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       aria-label="Coffee Collection Slider"
+      data-customize-section="C-HERO"
       className="relative w-full overflow-hidden select-none bg-white text-neutral-900 border-none"
     >
       {/* Responsive Aspect Ratio Stage */}
@@ -562,9 +648,10 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
             initial="enter"
             animate="center"
             exit="exit"
-            drag="x"
+            drag={isCustomizerPreview ? false : 'x'}
             dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.16}
+            dragElastic={isCustomizerPreview ? 0 : 0.16}
+            style={isCustomizerPreview ? { pointerEvents: 'auto' } : undefined}
             onDragStart={() => {
               isDraggingRef.current = true;
               setIsPaused(true);
@@ -586,7 +673,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
                 language === 'AR' ? nextSlide() : prevSlide();
               }
             }}
-            className="absolute inset-0 w-full h-full bg-white touch-pan-y cursor-grab active:cursor-grabbing will-change-transform"
+            className={`absolute inset-0 w-full h-full bg-white touch-pan-y ${isCustomizerPreview ? '' : 'cursor-grab active:cursor-grabbing will-change-transform'}`}
           >
             {/* Banner Background Image & Direct Buy Navigation */}
             <div
@@ -598,7 +685,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
             >
               <img
                 src={activeSlide.image}
-                alt={language === 'AR' ? activeSlide.titleAr : activeSlide.titleEn}
+                alt={language === 'AR' ? (activeSlide.altAr || activeSlide.titleAr) : (activeSlide.altEn || activeSlide.titleEn)}
                 fetchPriority="high"
                 decoding="async"
                 loading="eager"
@@ -613,10 +700,10 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
               />
 
               {/* Text, Price and Action Buttons Overlay */}
-              <div className="order-1 relative pt-5 pb-3 sm:pt-0 sm:pb-0 sm:absolute sm:inset-0 z-20 flex items-center pointer-events-none sm:-translate-y-7 md:-translate-y-9 lg:-translate-y-11">
+              <div className="order-1 relative pt-8 pb-5 sm:pt-10 sm:pb-8 md:pt-12 md:pb-10 lg:pt-14 sm:absolute sm:inset-0 z-20 flex items-center pointer-events-none">
                 <div
                   dir="ltr"
-                  className="w-full max-w-[1360px] mx-auto px-4 xs:px-5 sm:px-10 md:px-14 lg:px-16 flex justify-start"
+                  className="w-full max-w-[1360px] mx-auto px-5 xs:px-6 sm:px-12 md:px-16 lg:px-20 py-3 sm:py-5 flex justify-start"
                 >
                   <motion.div
                     dir={language === 'AR' ? 'rtl' : 'ltr'}
@@ -773,7 +860,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
             e.stopPropagation();
             language === 'AR' ? nextSlide() : prevSlide();
           }}
-          aria-label="Previous Slide"
+          aria-label={language === 'AR' ? 'الشريحة السابقة' : 'Previous Slide'}
           className="hidden sm:flex absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-white text-neutral-900 shadow-md items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-sm"
         >
           <ChevronLeft className="w-5 h-5 rtl:rotate-180 transition-transform" />
@@ -785,7 +872,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
             e.stopPropagation();
             language === 'AR' ? prevSlide() : nextSlide();
           }}
-          aria-label="Next Slide"
+          aria-label={language === 'AR' ? 'الشريحة التالية' : 'Next Slide'}
           className="hidden sm:flex absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-white text-neutral-900 shadow-md items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-sm"
         >
           <ChevronRight className="w-5 h-5 rtl:rotate-180 transition-transform" />
@@ -801,7 +888,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
             window.open(`https://wa.me/${cleanPhone}`, '_blank');
           }}
           className="absolute bottom-4 right-4 rtl:right-auto rtl:left-4 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white border border-neutral-200 shadow-sm flex items-center justify-center text-neutral-800 hover:text-black cursor-pointer active:scale-95 transition-transform"
-          aria-label="Support"
+          aria-label={language === 'AR' ? 'الدعم' : 'Support'}
           title={language === 'AR' ? 'تواصل مع الدعم الفني' : 'Contact Support'}
         >
           <Headphones className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[2]" />
@@ -810,25 +897,29 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
         {/* ========================================================================= */}
         {/* 3. BOTTOM PILL INDICATORS WITH SMOOTH TIMER PROGRESS                      */}
         {/* ========================================================================= */}
-        <div className="absolute bottom-3 sm:bottom-4.5 inset-x-0 z-30 flex items-center justify-center gap-2 pointer-events-auto">
+        <div className="absolute bottom-2 sm:bottom-3 inset-x-0 z-40 flex items-center justify-center gap-1 pointer-events-auto">
           {slides.map((slide, idx) => {
             const isActive = idx === currentIndex;
             return (
               <button
-                key={slide.id || idx}
+                key={`${slide.id || 'slide'}-${idx}`}
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  e.preventDefault();
                   goToSlide(idx);
                 }}
-                aria-label={`Go to slide ${idx + 1}`}
-                className="group relative flex items-center h-2 sm:h-2.5 rounded-full overflow-hidden transition-all duration-300 cursor-pointer"
-                style={{
-                  width: isActive ? '48px' : '14px',
-                  backgroundColor: isActive ? '#D4D4D8' : 'rgba(160, 160, 160, 0.5)',
-                }}
+                aria-label={language === 'AR' ? `الانتقال إلى الشريحة ${idx + 1}` : `Go to slide ${idx + 1}`}
+                className="group relative flex items-center justify-center min-w-9 min-h-9 cursor-pointer"
               >
-                {isActive && (
+                <span
+                  className="block h-2 sm:h-2.5 rounded-full overflow-hidden transition-all duration-300 pointer-events-none"
+                  style={{
+                    width: isActive ? '48px' : '14px',
+                    backgroundColor: isActive ? '#D4D4D8' : 'rgba(160, 160, 160, 0.5)',
+                  }}
+                >
+                {isActive && !isCustomizerPreview ? (
                   <motion.div
                     key={`bar-${keyCounter}`}
                     initial={{ width: '0%' }}
@@ -839,7 +930,9 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home' }) 
                     }}
                     className="h-full rounded-full bg-black"
                   />
-                )}
+                ) : null}
+                {isActive && isCustomizerPreview ? <span className="block h-full w-full rounded-full bg-black" /> : null}
+                </span>
               </button>
             );
           })}

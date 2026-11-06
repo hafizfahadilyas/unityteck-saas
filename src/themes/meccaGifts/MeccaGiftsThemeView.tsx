@@ -27,17 +27,6 @@ import { InvoiceAlertModal } from './components/InvoiceAlertModal';
 import { AuthModal } from './components/AuthModal';
 import { CartInterceptModal } from './components/CartInterceptModal';
 
-import {
-  DISCOUNTED_BOUQUETS,
-  NATURAL_BOUQUETS,
-  CHOCOLATE_ROSES,
-  CAKE_ROSES,
-  COFFEE_SWEETS_ROSES,
-  FLOWER_VASES,
-  MAWAJEEB_PRODUCTS,
-  LUXURY_SETS,
-} from './data/mockData';
-
 import { CatalogPage } from './pages/CatalogPage';
 import { ProductDetailPage } from './pages/ProductDetailPage';
 import { CartPage } from './pages/CartPage';
@@ -106,36 +95,35 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
 
   // Dynamic products per section derived from store catalog with rich fallbacks
   const sectionProducts = useMemo(() => {
-    const list = products && products.length > 0 ? products : [];
-    const isDefaultThemeStore = activeStore.id === 'store-1' || (activeStore as any)?.themeId === 'theme-flora-luxe' || (activeStore as any)?.themeId === 'theme-mecca-gifts';
+    const raw = products && products.length > 0 ? products : [];
+    const flowersOnly = activeStore.id === 'store-1';
+    const list = flowersOnly
+      ? raw.filter((p) => {
+          const text = `${p.name} ${p.nameEn || ''} ${p.category} ${p.categoryEn || ''} ${(p.tags || []).join(' ')}`.toLowerCase();
+          return !/coffee machine|مطحنة|espresso|seat cover|فرش سيارة|سيارة|bleco|نقل/.test(text);
+        })
+      : raw;
 
-    const filterByKeywords = (keywords: string[], fallback: Product[], maxLimit: number = 6) => {
-      const matched = list.filter((p) => {
-        const text = `${p.name} ${p.nameEn || ''} ${p.category} ${p.categoryEn || ''} ${(p.tags || []).join(' ')}`.toLowerCase();
-        return keywords.some((k) => text.includes(k.toLowerCase()));
-      });
-      if (matched.length >= maxLimit) return matched.slice(0, maxLimit);
-      const existingIds = new Set(matched.map((m) => m.id));
-      const catalogRemaining = list.filter((p) => !existingIds.has(p.id));
-      const pool = [...matched, ...catalogRemaining];
-      if (pool.length >= maxLimit || !isDefaultThemeStore) {
-        return pool.slice(0, maxLimit);
-      }
-      const rest = fallback.filter((f) => !existingIds.has(f.id));
-      return [...pool, ...rest].slice(0, maxLimit);
+    const filterByKeywords = (keywords: string[], maxLimit: number = 6) => {
+      return list
+        .filter((p) => {
+          const text = `${p.name} ${p.nameEn || ''} ${p.category} ${p.categoryEn || ''} ${(p.tags || []).join(' ')}`.toLowerCase();
+          return keywords.some((k) => text.includes(k.toLowerCase()));
+        })
+        .slice(0, maxLimit);
     };
 
     return {
-      discounted: filterByKeywords(['مخفض', 'عرض', 'خصم', 'promo', 'discount'], DISCOUNTED_BOUQUETS, 6),
-      natural: filterByKeywords(['طبيعي', 'باقة', 'rose', 'bouquet', 'peony', 'valent'], NATURAL_BOUQUETS, 6),
-      luxury: filterByKeywords(['ملكي', 'سلة', 'طقم', 'vip', 'hamper', 'luxury', 'men', 'نساء'], LUXURY_SETS, 6),
-      chocolate: filterByKeywords(['شوكول', 'باتشي', 'بستاني', 'choc'], CHOCOLATE_ROSES, 6),
-      cake: filterByKeywords(['كيك', 'حلا', 'cake', 'ريد فيلفت', 'ميلاد'], CAKE_ROSES, 6),
-      coffee: filterByKeywords(['قهوة', 'ضيافة', 'coffee'], COFFEE_SWEETS_ROSES, 6),
-      vases: filterByKeywords(['فاز', 'كريستال', 'lily', 'orchid', 'vase'], FLOWER_VASES, 6),
-      mawajeeb: filterByKeywords(['مواجيب', 'تراث', 'خشب', 'بخور'], MAWAJEEB_PRODUCTS, 4),
+      discounted: filterByKeywords(['مخفض', 'عرض', 'خصم', 'promo', 'discount'], 6),
+      natural: filterByKeywords(['طبيعي', 'باقة', 'rose', 'bouquet', 'peony', 'ورد', 'زهور'], 6),
+      luxury: filterByKeywords(['ملكي', 'سلة', 'طقم', 'vip', 'hamper', 'luxury', 'نسائ'], 6),
+      chocolate: filterByKeywords(['شوكول', 'باتشي', 'بستاني', 'choc'], 6),
+      cake: filterByKeywords(['كيك', 'حلا', 'cake', 'ريد فيلفت', 'ميلاد'], 6),
+      coffee: [] as Product[],
+      vases: filterByKeywords(['فاز', 'كريستال', 'lily', 'orchid', 'vase'], 6),
+      mawajeeb: filterByKeywords(['مواجيب', 'تراث', 'خشب', 'بخور'], 4),
     };
-  }, [products, activeStore.id, (activeStore as any)?.themeId]);
+  }, [products, activeStore.id]);
 
   // Sync locale with prefs
   useEffect(() => {

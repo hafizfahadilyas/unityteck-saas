@@ -9,6 +9,15 @@
 
 import { Store } from '../types';
 import { bumpStore } from '../api/cacheTags';
+import { isApiEnabled } from '../api/client';
+import {
+  createThemePageApi,
+  deleteThemePageApi,
+  fetchThemePagesApi,
+  publishThemePageApi,
+  updateThemePageApi,
+  type ThemePageRecord,
+} from '../api/tenantApi';
 
 export interface StoreCustomPage {
   id: string;
@@ -432,52 +441,152 @@ export function replacePlaceholders(text: string, store?: Partial<Store>): strin
 }
 
 /**
- * Retrieve all pages for a store (customized + master defaults)
+ * Pages for this store only. Empty API and empty local edits stay empty.
+ * Untouched master legal seed is not live content and is not copied onto a store.
  */
-export function getStorePages(storeId: string, store?: Partial<Store>): StoreCustomPage[] {
-  if (typeof window === 'undefined') {
-    return MASTER_DEFAULT_PAGES.map((p) => ({
-      ...p,
-      contentEn: replacePlaceholders(p.contentEn, store),
-      contentAr: replacePlaceholders(p.contentAr, store),
-    }));
-  }
+const pageMemory = new Map<string, StoreCustomPage[]>();
 
-  try {
-    const raw = localStorage.getItem(getStorageKey(storeId));
-    if (raw) {
-      const parsed: StoreCustomPage[] = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((p) => ({
-          ...p,
-          contentEn: replacePlaceholders(p.contentEn, store),
-          contentAr: replacePlaceholders(p.contentAr, store),
-        }));
-      }
-    }
-  } catch (err) {
-    console.error('Failed to read store pages from storage:', err);
-  }
-
-  // Initialize with master defaults
-  const initial = MASTER_DEFAULT_PAGES.map((p) => ({
-    ...p,
-    contentEn: replacePlaceholders(p.contentEn, store),
-    contentAr: replacePlaceholders(p.contentAr, store),
-  }));
-
-  try {
-    localStorage.setItem(getStorageKey(storeId), JSON.stringify(initial));
-  } catch (e) {
-    /* ignore storage quota */
-  }
-
-  return initial;
+function isUntouchedMasterSeed(pages: StoreCustomPage[]): boolean {
+  if (pages.length !== MASTER_DEFAULT_PAGES.length) return false;
+  return pages.every((page, index) => {
+    const master = MASTER_DEFAULT_PAGES[index];
+    return page.id === master.id && page.slug === master.slug && page.updatedAt === master.updatedAt;
+  });
 }
 
-/**
- * Find page by slug or ID
- */
+function readStoredRows(storeId: string): StoreCustomPage[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(getStorageKey(storeId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoreCustomPage[] | { source?: string; pages?: StoreCustomPage[] };
+    if (parsed && !Array.isArray(parsed) && parsed.source === 'api' && Array.isArray(parsed.pages)) {
+      return parsed.pages;
+    }
+    if (Array.isArray(parsed) && !isUntouchedMasterSeed(parsed)) return parsed;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function rememberPages(storeId: string, pages: StoreCustomPage[]): StoreCustomPage[] {
+  pageMemory.set(storeId, pages);
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(getStorageKey(storeId), JSON.stringify({ source: 'api', pages }));
+    } catch {
+      /* ignore quota */
+    }
+  }
+  return pages;
+}
+
+function pageTypeForSlug(slug: string): string {
+  const key = slug.toLowerCase();
+  if (key === 'faq' || key.includes('faq')) return 'faq';
+  if (key === 'about') return 'about';
+  if (key === 'contact') return 'contact';
+  if (key === 'home') return 'home';
+  return 'custom';
+}
+
+function fromThemePage(row: ThemePageRecord): StoreCustomPage {
+  const layout = (row.published_layout || row.draft_layout || {}) as {
+    contentEn?: string;
+    contentAr?: string;
+    category?: StoreCustomPage['category'];
+    isSystemDefault?: boolean;
+  };
+  const seo = (row.seo || {}) as { seo_description_en?: string; seo_description_ar?: string };
+  return {
+    id: row.id,
+    slug: row.slug,
+    titleEn: row.title_en || '',
+    titleAr: row.title_ar || '',
+    contentEn: layout.contentEn || '',
+    contentAr: layout.contentAr || '',
+    category: layout.category || 'custom',
+    isSystemDefault: Boolean(layout.isSystemDefault),
+    isPublished: row.status === 'published',
+    metaDescriptionEn: seo.seo_description_en,
+    metaDescriptionAr: seo.seo_description_ar,
+    updatedAt: new Date().toISOString().split('T')[0],
+  };
+}
+
+function toThemePayload(page: StoreCustomPage) {
+  return {
+    slug: page.slug,
+    type: pageTypeForSlug(page.slug),
+    title_en: page.titleEn,
+    title_ar: page.titleAr,
+    draft_layout: {
+      contentEn: page.contentEn,
+      contentAr: page.contentAr,
+      category: page.category,
+      isSystemDefault: page.isSystemDefault,
+    },
+    published_layout: page.isPublished
+      ? {
+          contentEn: page.contentEn,
+          contentAr: page.contentAr,
+          category: page.category,
+          isSystemDefault: page.isSystemDefault,
+        }
+      : null,
+    seo: {
+      seo_description_en: page.metaDescriptionEn || '',
+      seo_description_ar: page.metaDescriptionAr || '',
+    },
+    status: page.isPublished ? 'published' : 'draft',
+  };
+}
+
+function notifyPages(storeId: string): void {
+  bumpStore(storeId, 'settings');
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('unityteck-pages-changed', { detail: { storeId } }));
+  window.dispatchEvent(new CustomEvent('unityteck-data', { detail: { tag: `store:${storeId}:pages`, version: Date.now() } }));
+}
+
+export function getStorePages(storeId: string, store?: Partial<Store>): StoreCustomPage[] {
+  if (!storeId) return [];
+  const cached = pageMemory.get(storeId) ?? readStoredRows(storeId) ?? [];
+  return cached.map((page) => ({
+    ...page,
+    contentEn: replacePlaceholders(page.contentEn, store),
+    contentAr: replacePlaceholders(page.contentAr, store),
+  }));
+}
+
+export async function hydrateStorePages(storeId: string): Promise<StoreCustomPage[]> {
+  if (!storeId) return [];
+  if (!isApiEnabled()) {
+    const local = readStoredRows(storeId) ?? [];
+    pageMemory.set(storeId, local);
+    return local;
+  }
+
+  const remote = await fetchThemePagesApi(storeId);
+  if (remote.length === 0) {
+    const local = readStoredRows(storeId) ?? [];
+    const importable = isUntouchedMasterSeed(local) ? [] : local;
+    if (importable.length > 0) {
+      for (const page of importable) {
+        const created = await createThemePageApi(storeId, toThemePayload(page));
+        if (page.isPublished) await publishThemePageApi(storeId, created.id);
+      }
+      const imported = (await fetchThemePagesApi(storeId)).map(fromThemePage);
+      notifyPages(storeId);
+      return rememberPages(storeId, imported);
+    }
+    return rememberPages(storeId, []);
+  }
+
+  return rememberPages(storeId, remote.map(fromThemePage));
+}
+
 export function getStorePageBySlug(
   storeId: string,
   slugOrId: string,
@@ -493,38 +602,31 @@ export function getStorePageBySlug(
   );
 }
 
-/**
- * Save / Update a page
- */
 export function saveStorePage(storeId: string, page: StoreCustomPage): void {
-  try {
-    const current = getStorePages(storeId);
-    const existingIndex = current.findIndex((p) => p.id === page.id || p.slug === page.slug);
-    const updated = [...current];
-
-    const toSave: StoreCustomPage = {
-      ...page,
-      updatedAt: new Date().toISOString().split('T')[0],
-    };
-
-    if (existingIndex >= 0) {
-      updated[existingIndex] = toSave;
-    } else {
-      updated.push(toSave);
-    }
-
-    localStorage.setItem(getStorageKey(storeId), JSON.stringify(updated));
-    bumpStore(storeId, 'settings');
-    window.dispatchEvent(new CustomEvent('unityteck-pages-changed', { detail: { storeId } }));
-    window.dispatchEvent(new CustomEvent('unityteck-data', { detail: { tag: `store:${storeId}:pages`, version: Date.now() } }));
-  } catch (err) {
-    console.error('Failed to save store page:', err);
-  }
+  const current = getStorePages(storeId).map((item) => ({ ...item }));
+  const toSave: StoreCustomPage = {
+    ...page,
+    updatedAt: new Date().toISOString().split('T')[0],
+  };
+  const index = current.findIndex((item) => item.id === page.id || item.slug === page.slug);
+  if (index >= 0) current[index] = toSave;
+  else current.push(toSave);
+  rememberPages(storeId, current);
+  notifyPages(storeId);
+  if (!isApiEnabled()) return;
+  const payload = toThemePayload(toSave);
+  const persist = toSave.id.startsWith('tpage-')
+    ? updateThemePageApi(storeId, toSave.id, payload)
+    : createThemePageApi(storeId, payload).then(async (created) => {
+        if (toSave.isPublished) await publishThemePageApi(storeId, created.id);
+        const next = (pageMemory.get(storeId) || []).map((item) =>
+          item.id === toSave.id ? { ...toSave, id: created.id } : item,
+        );
+        rememberPages(storeId, next);
+      });
+  void persist.catch(() => undefined);
 }
 
-/**
- * Create a new custom page
- */
 export function createStorePage(
   storeId: string,
   data: Omit<StoreCustomPage, 'id' | 'updatedAt'>
@@ -535,47 +637,27 @@ export function createStorePage(
     slug: data.slug.toLowerCase().trim().replace(/[^a-z0-9-_]/g, '-'),
     updatedAt: new Date().toISOString().split('T')[0],
   };
-
   saveStorePage(storeId, newPage);
   return newPage;
 }
 
-/**
- * Delete a custom page (system default pages cannot be deleted, only unpublished)
- */
 export function deleteStorePage(storeId: string, pageId: string): boolean {
-  try {
-    const current = getStorePages(storeId);
-    const target = current.find((p) => p.id === pageId);
-    if (!target) return false;
-    if (target.isSystemDefault) {
-      // System defaults can only be unpublished
-      saveStorePage(storeId, { ...target, isPublished: false });
-      return true;
-    }
-
-    const filtered = current.filter((p) => p.id !== pageId);
-    localStorage.setItem(getStorageKey(storeId), JSON.stringify(filtered));
-    bumpStore(storeId, 'settings');
-    window.dispatchEvent(new CustomEvent('unityteck-pages-changed', { detail: { storeId } }));
-    window.dispatchEvent(new CustomEvent('unityteck-data', { detail: { tag: `store:${storeId}:pages`, version: Date.now() } }));
-    return true;
-  } catch (err) {
-    console.error('Failed to delete store page:', err);
-    return false;
+  const current = getStorePages(storeId);
+  const target = current.find((page) => page.id === pageId);
+  if (!target) return false;
+  const next = target.isSystemDefault
+    ? current.map((page) => (page.id === pageId ? { ...page, isPublished: false } : page))
+    : current.filter((page) => page.id !== pageId);
+  rememberPages(storeId, next);
+  notifyPages(storeId);
+  if (isApiEnabled() && pageId.startsWith('tpage-')) {
+    if (target.isSystemDefault) saveStorePage(storeId, { ...target, isPublished: false });
+    else void deleteThemePageApi(storeId, pageId).catch(() => undefined);
   }
+  return true;
 }
 
-/**
- * Reset all pages of a store back to master defaults
- */
 export function resetStorePagesToDefault(storeId: string): void {
-  try {
-    localStorage.setItem(getStorageKey(storeId), JSON.stringify(MASTER_DEFAULT_PAGES));
-    bumpStore(storeId, 'settings');
-    window.dispatchEvent(new CustomEvent('unityteck-pages-changed', { detail: { storeId } }));
-    window.dispatchEvent(new CustomEvent('unityteck-data', { detail: { tag: `store:${storeId}:pages`, version: Date.now() } }));
-  } catch (err) {
-    console.error('Failed to reset store pages:', err);
-  }
+  rememberPages(storeId, []);
+  notifyPages(storeId);
 }

@@ -7,6 +7,8 @@ import { bumpStore } from '../../api/cacheTags';
 
 export type StoreIdentitySettings = {
   storeName: string;
+  storeNameEn?: string;
+  storeNameAr?: string;
   taglineEn: string;
   taglineAr: string;
   logoUrl: string;
@@ -49,9 +51,10 @@ export function defaultStoreIdentity(store: {
       logoUrl: (store.logo && store.logo.startsWith('http'))
         ? store.logo
         : '/src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg',
-      phone: '+966 11 489 2030',
-      whatsapp: '+966 54 987 6543',
-      email: store.ownerEmail || 'info@specialtycoffee.sa',
+      // No invented contact numbers — merchant / API fills these
+      phone: (store as { phone?: string }).phone || '',
+      whatsapp: (store as { whatsapp?: string }).whatsapp || '',
+      email: store.ownerEmail || '',
       addressEn: 'Riyadh Showroom, King Fahd Road, Saudi Arabia',
       addressAr: 'معرض الرياض الرئيسي، طريق الملك فهد، المملكة العربية السعودية',
       city: 'Riyadh',
@@ -103,20 +106,48 @@ export function defaultStoreIdentity(store: {
 
 const storageKey = (storeId: string) => `unityteck_theme_identity_${storeId}`;
 
+function stripInventedCoffeeContacts(storeId: string, data: StoreIdentitySettings): StoreIdentitySettings {
+  if (storeId !== 'store-coffee') return data;
+  const digits = (v: string) => String(v || '').replace(/\D/g, '');
+  // Retired seed placeholders — never treat as live merchant numbers
+  const fakeWa = new Set(['966549876543', '549876543']);
+  const fakePhone = new Set(['966114892030', '114892030']);
+  const next = { ...data };
+  if (fakeWa.has(digits(next.whatsapp))) next.whatsapp = '';
+  if (fakePhone.has(digits(next.phone))) next.phone = '';
+  return next;
+}
+
+/** Show the legacy single name in one language box. Never copy it into the other language. */
+export function splitStoreName(identity: Pick<StoreIdentitySettings, 'storeName' | 'storeNameEn' | 'storeNameAr'>): {
+  storeNameEn: string;
+  storeNameAr: string;
+} {
+  const en = identity.storeNameEn ?? '';
+  const ar = identity.storeNameAr ?? '';
+  if (en || ar) return { storeNameEn: en, storeNameAr: ar };
+  const legacy = identity.storeName || '';
+  if (/[\u0600-\u06FF]/.test(legacy)) return { storeNameEn: '', storeNameAr: legacy };
+  return { storeNameEn: legacy, storeNameAr: '' };
+}
+
 export function readStoreIdentity(
   storeId: string,
-  fallback: { id?: string; name: string; ownerEmail?: string; logo?: string },
+  fallback: { id?: string; name: string; ownerEmail?: string; logo?: string; phone?: string; whatsapp?: string },
 ): StoreIdentitySettings {
   const fallbackWithId = { ...fallback, id: fallback.id || storeId };
   try {
     const raw = localStorage.getItem(storageKey(storeId));
     if (raw) {
-      return { ...defaultStoreIdentity(fallbackWithId), ...JSON.parse(raw) };
+      return stripInventedCoffeeContacts(storeId, {
+        ...defaultStoreIdentity(fallbackWithId),
+        ...JSON.parse(raw),
+      });
     }
   } catch {
     /* ignore */
   }
-  return defaultStoreIdentity(fallbackWithId);
+  return stripInventedCoffeeContacts(storeId, defaultStoreIdentity(fallbackWithId));
 }
 
 export function writeStoreIdentity(storeId: string, data: StoreIdentitySettings): void {

@@ -33,8 +33,16 @@ import {
   Copy,
 } from 'lucide-react';
 import { StoreOfferPromo } from './StoreOfferPromo';
+import { OfferDisplaySettingsPanel } from './OfferDisplaySettingsPanel';
 import * as tenantApi from '../../api/tenantApi';
 import type { StoreCategory } from '../../types';
+import { computeCouponAnalytics } from '../../utils/couponAnalytics';
+import { downloadXlsx } from '../../utils/exportSpreadsheet';
+import {
+  readOfferConfig,
+  writeOfferConfig,
+  type StoreOfferConfig,
+} from '../../themes/flowersPremium/offerConfig';
 
 interface StoreCouponsProps {
   onViewStorefront?: () => void;
@@ -46,9 +54,11 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
     activeStore,
     currentCoupons,
     addCoupon,
+    updateCoupon,
     toggleCouponStatus,
     deleteCoupon,
     currentProducts,
+    currentOrders,
   } = useTenant();
   const { money, locale } = usePrefs();
   const isAr = locale === 'ar';
@@ -73,8 +83,12 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
   // Image & Design
   const [couponColor, setCouponColor] = useState('#0EA5A4');
   const [customColor, setCustomColor] = useState('#0EA5A4');
-  const [backgroundStyle, setBackgroundStyle] = useState<'solid' | 'gradient' | 'image' | 'transparent'>('solid');
+  const [designType, setDesignType] = useState<'solid_color' | 'image_based' | 'image_only'>('solid_color');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [offerConfig, setOfferConfig] = useState<StoreOfferConfig>(() =>
+    readOfferConfig(activeStore.id),
+  );
+  const [offerEditing, setOfferEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Validity Period
@@ -130,6 +144,28 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
     setPage(1);
   }, [search, statusFilter, pageSize, activeStore.id]);
 
+  useEffect(() => {
+    setOfferConfig(readOfferConfig(activeStore.id));
+    setOfferEditing(false);
+  }, [activeStore.id]);
+
+  const editingCoupon = useMemo(
+    () => (editingCouponId ? currentCoupons.find((c) => c.id === editingCouponId) : null),
+    [currentCoupons, editingCouponId],
+  );
+
+  const editAnalytics = useMemo(() => {
+    if (!editingCoupon) {
+      return {
+        customerCount: 0,
+        totalSales: null as number | null,
+        usageCount: 0,
+        usageFrequencyPct: 0,
+      };
+    }
+    return computeCouponAnalytics(editingCoupon, currentOrders);
+  }, [editingCoupon, currentOrders]);
+
   // Filtered coupons list
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -163,7 +199,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
     setDescription(isAr ? 'احصل على خصم 50% على جميع الباقات والهدايا.' : 'Get 50% off on all bouquets and gifts.');
     setCouponColor('#0EA5A4');
     setCustomColor('#0EA5A4');
-    setBackgroundStyle('solid');
+    setDesignType('solid_color');
     setUploadedImage(null);
     setStartDate('2026-10-18');
     setEndDate('2026-11-18');
@@ -193,7 +229,14 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
     setDescription(coupon.description || '');
     setCouponColor(coupon.couponColor || '#0EA5A4');
     setCustomColor(coupon.couponColor || '#0EA5A4');
-    setBackgroundStyle(coupon.backgroundStyle || 'solid');
+    setDesignType(
+      coupon.designType ||
+        (coupon.backgroundStyle === 'image'
+          ? 'image_only'
+          : coupon.imageUrl
+            ? 'image_based'
+            : 'solid_color'),
+    );
     setUploadedImage(coupon.imageUrl || null);
     setStartDate(coupon.startDate || '2026-10-18');
     setEndDate(coupon.validUntil || '2026-12-31');
@@ -249,7 +292,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
     const numMaxUsage = parseInt(usageLimit, 10) || 100;
     const numPerCustomer = parseInt(usageLimitPerCustomer, 10) || 1;
 
-    addCoupon({
+    const payload = {
       code: cleanCode,
       name: couponName,
       description,
@@ -259,12 +302,13 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
       maxUsage: numMaxUsage,
       usageLimitPerCustomer: numPerCustomer,
       status,
+      isActive: status === 'active',
       startDate,
       validUntil: noExpiryDate ? '2099-12-31' : endDate,
       expiryTime,
       noExpiry: noExpiryDate,
       couponColor,
-      backgroundStyle,
+      designType,
       imageUrl: uploadedImage || undefined,
       applicableTo,
       selectedCategoryIds: selectedCategories,
@@ -274,7 +318,13 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
       showInSpecialOffers,
       highlightAsFeatured,
       sendNotification,
-    });
+    };
+
+    if (viewMode === 'edit' && editingCouponId) {
+      updateCoupon(editingCouponId, payload);
+    } else {
+      addCoupon(payload);
+    }
 
     toast(
       isAr
@@ -286,24 +336,30 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
   };
 
   // Export CSV
+  const exportRows = () => {
+    const header = ['Code', 'Name', 'Type', 'Value', 'Min Order', 'Usage', 'Max Usage', 'Active', 'Valid Until'];
+    return [
+      header,
+      ...filtered.map((c) => [
+        c.code,
+        c.name || '',
+        c.discountType,
+        String(c.discountValue),
+        String(c.minOrderValue),
+        String(c.usageCount ?? 0),
+        String(c.maxUsage),
+        (c.isActive ?? c.status === 'active') ? 'yes' : 'no',
+        c.validUntil,
+      ]),
+    ];
+  };
+
   const exportCsv = () => {
     if (filtered.length === 0) {
       toast(isAr ? 'لا توجد كوبونات للتصدير' : 'No coupons to export', 'info');
       return;
     }
-    const header = ['Code', 'Name', 'Type', 'Value', 'Min Order', 'Usage', 'Max Usage', 'Status', 'Valid Until'];
-    const rows = filtered.map((c) => [
-      c.code,
-      c.name || '',
-      c.discountType,
-      c.discountValue,
-      c.minOrderValue,
-      c.usageCount ?? 0,
-      c.maxUsage,
-      c.status,
-      c.validUntil,
-    ]);
-    const csv = [header, ...rows]
+    const csv = exportRows()
       .map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
       .join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -314,6 +370,15 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
     a.click();
     URL.revokeObjectURL(url);
     toast(isAr ? `تم تصدير ${filtered.length} كوبون` : `Exported ${filtered.length} coupons`, 'success');
+  };
+
+  const exportXlsx = () => {
+    if (filtered.length === 0) {
+      toast(isAr ? 'لا توجد كوبونات للتصدير' : 'No coupons to export', 'info');
+      return;
+    }
+    downloadXlsx(`coupons-${activeStore.id}.xlsx`, 'Coupons', exportRows());
+    toast(isAr ? `تم تصدير ${filtered.length} كوبون (Excel)` : `Exported ${filtered.length} coupons (Excel)`, 'success');
   };
 
   // Color Swatches
@@ -689,21 +754,20 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                      {isAr ? 'نمط الخلفية' : 'Background Style'}
+                      {isAr ? 'نوع التصميم' : 'Design type'}
                     </label>
-                    <div className="grid grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-1 gap-1.5">
                       {[
-                        { id: 'solid', labelAr: 'لون مصمت', labelEn: 'Solid Color' },
-                        { id: 'gradient', labelAr: 'تدرج لوني', labelEn: 'Gradient' },
-                        { id: 'image', labelAr: 'صورة خلفية', labelEn: 'Image' },
-                        { id: 'transparent', labelAr: 'شفاف (PNG)', labelEn: 'Transparent (PNG)' },
+                        { id: 'solid_color' as const, labelAr: 'لون مصمت', labelEn: 'Solid color' },
+                        { id: 'image_based' as const, labelAr: 'لون + صورة', labelEn: 'Image based' },
+                        { id: 'image_only' as const, labelAr: 'صورة فقط', labelEn: 'Image only' },
                       ].map((style) => (
                         <button
                           key={style.id}
                           type="button"
-                          onClick={() => setBackgroundStyle(style.id as any)}
-                          className={`py-1.5 px-2.5 rounded-lg text-[11px] font-semibold border transition-all ${
-                            backgroundStyle === style.id
+                          onClick={() => setDesignType(style.id)}
+                          className={`py-1.5 px-2.5 rounded-lg text-[11px] font-semibold border transition-all text-start ${
+                            designType === style.id
                               ? 'bg-teal-50 dark:bg-teal-950/60 border-teal-500 text-teal-700 dark:text-teal-300 shadow-2xs'
                               : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
                           }`}
@@ -978,11 +1042,14 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                 <div
                   className="w-full relative rounded-2xl overflow-hidden shadow-lg p-5 text-white flex flex-col justify-between min-h-[190px] border border-white/20"
                   style={{
-                    backgroundColor: couponColor,
+                    backgroundColor:
+                      designType === 'image_only' && uploadedImage ? 'transparent' : couponColor,
                     backgroundImage:
-                      backgroundStyle === 'gradient'
-                        ? `linear-gradient(135deg, ${couponColor} 0%, #064E3B 100%)`
+                      designType !== 'image_only' && uploadedImage
+                        ? `url(${uploadedImage})`
                         : undefined,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
                   }}
                 >
                   {/* Decorative Ticket Perforated Cutouts */}
@@ -990,11 +1057,17 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                   <div className="absolute -end-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-50 dark:bg-slate-950" />
 
                   {/* Watermark/Image Background */}
-                  {uploadedImage ? (
+                  {uploadedImage && designType === 'image_based' ? (
                     <img
                       src={uploadedImage}
                       alt="Coupon visual"
                       className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-40 pointer-events-none"
+                    />
+                  ) : uploadedImage && designType === 'image_only' ? (
+                    <img
+                      src={uploadedImage}
+                      alt="Coupon visual"
+                      className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                     />
                   ) : (
                     <div className="absolute end-2 top-2 opacity-15 pointer-events-none">
@@ -1187,6 +1260,65 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
               </div>
             </div>
 
+            {viewMode === 'edit' ? (
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden p-4 space-y-3">
+                <h3 className="font-bold text-xs text-slate-900 dark:text-white">
+                  {isAr ? 'تحليلات الكوبون' : 'Coupon analytics'}
+                </h3>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80">
+                    <div className="text-slate-500">{isAr ? 'عدد العملاء' : 'Customer Count'}</div>
+                    <div className="font-black text-lg tabular-nums">
+                      {editAnalytics.customerCount}{' '}
+                      {isAr ? 'عميل' : editAnalytics.customerCount === 1 ? 'Customer' : 'Customers'}
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80">
+                    <div className="text-slate-500">{isAr ? 'إجمالي المبيعات' : 'Total Sales'}</div>
+                    <div className="font-black text-lg tabular-nums">
+                      {editAnalytics.totalSales === null ? '—' : money(editAnalytics.totalSales)}
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80">
+                    <div className="text-slate-500">{isAr ? 'عدد الاستخدامات' : 'Usage Count'}</div>
+                    <div className="font-black text-lg tabular-nums">{editAnalytics.usageCount}</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80">
+                    <div className="text-slate-500">
+                      {isAr ? 'تكرار الاستخدام لكل عميل' : 'Usage Frequency per Customer'}
+                    </div>
+                    <div className="font-black text-lg tabular-nums">{editAnalytics.usageFrequencyPct}%</div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <div
+              className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden p-4"
+              style={{ color: 'var(--text)' }}
+            >
+              <h3 className="font-bold text-xs text-slate-900 dark:text-white mb-3">
+                {isAr ? 'نافذة العرض الخاص (منبثقة)' : 'Special offer display window'}
+              </h3>
+              <OfferDisplaySettingsPanel
+                config={offerConfig}
+                setConfig={setOfferConfig}
+                isAr={isAr}
+                editing={offerEditing}
+                onToggleEditing={() => setOfferEditing((v) => !v)}
+                onSave={(e) => {
+                  e.preventDefault();
+                  writeOfferConfig(activeStore.id, offerConfig);
+                  setOfferEditing(false);
+                  toast(isAr ? 'تم حفظ نافذة العرض' : 'Display window saved', 'success');
+                }}
+                onCancelEdit={() => {
+                  setOfferConfig(readOfferConfig(activeStore.id));
+                  setOfferEditing(false);
+                }}
+              />
+            </div>
+
             {/* Card 3: Additional Settings */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
@@ -1279,6 +1411,14 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
           </button>
           <button
             type="button"
+            onClick={exportXlsx}
+            className="px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>{isAr ? 'تصدير Excel' : 'Export Excel'}</span>
+          </button>
+          <button
+            type="button"
             onClick={handleOpenCreate}
             className="px-4 py-2 bg-[#0EA5A4] hover:bg-[#0c8f8e] text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
           >
@@ -1298,7 +1438,8 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
             </div>
           </div>
           <div className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
-            {currentCoupons.filter((c) => c.status === 'active').length} {isAr ? 'نشط' : 'Active'}
+            {currentCoupons.filter((c) => c.isActive ?? c.status === 'active').length}{' '}
+            {isAr ? 'نشط' : 'Active'}
           </div>
           <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
             {isAr ? 'أكواد تُطبَّق تلقائيًا وأكواد السلة' : 'Auto-applied & cart promo codes'}
@@ -1307,58 +1448,52 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
 
         <div className="p-5 bg-emerald-50/70 hover:bg-emerald-50/90 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/40 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/40 shadow-2xs space-y-1.5 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-700 dark:text-emerald-200 font-bold">{isAr ? 'متوسط الخصم' : 'Average Discount'}</span>
+            <span className="text-xs text-slate-700 dark:text-emerald-200 font-bold">{isAr ? 'عدد العملاء' : 'Customer Count'}</span>
             <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center shrink-0">
               <Percent className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
-            {currentCoupons.length > 0
-              ? (
-                  currentCoupons.reduce(
-                    (sum, c) => sum + (c.discountType === 'percentage' ? c.discountValue : 15),
-                    0
-                  ) / currentCoupons.length
-                ).toFixed(1) + '%'
-              : '0%'}
+            0 {isAr ? 'عميل' : 'Customers'}
           </div>
           <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
-            {isAr ? 'عرض العملاء الفعلي' : 'Current active promotions'}
+            {isAr ? 'من طلبات مرتبطة بأكواد الخصم' : 'From orders linked to coupon codes'}
           </span>
         </div>
 
         <div className="p-5 bg-purple-50/70 hover:bg-purple-50/90 dark:bg-purple-950/30 dark:hover:bg-purple-950/40 rounded-2xl border border-purple-200/80 dark:border-purple-900/40 shadow-2xs space-y-1.5 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-700 dark:text-purple-200 font-bold">{isAr ? 'إجمالي الاستخدامات' : 'Total Redemptions'}</span>
+            <span className="text-xs text-slate-700 dark:text-purple-200 font-bold">{isAr ? 'عدد الاستخدامات' : 'Usage Count'}</span>
             <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-300 flex items-center justify-center shrink-0">
               <Sparkles className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
-            {currentCoupons.reduce((sum, c) => sum + (c.usageCount || 0), 0)} {isAr ? 'طلب' : 'Orders'}
+            {currentCoupons.reduce((sum, c) => sum + (c.usageCount || 0), 0)}
           </div>
           <span className="text-[11px] text-purple-800 dark:text-purple-300 font-bold">
-            {isAr ? 'طلبات تم استخدام الكوبون فيها' : 'Completed promo orders'}
+            {isAr ? 'استخدامات مسجلة على الكوبونات' : 'Recorded coupon redemptions'}
           </span>
         </div>
 
         <div className="p-5 bg-amber-50/70 hover:bg-amber-50/90 dark:bg-amber-950/30 dark:hover:bg-amber-950/40 rounded-2xl border border-amber-200/80 dark:border-amber-900/40 shadow-2xs space-y-1.5 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-700 dark:text-amber-200 font-bold">{isAr ? 'المبيعات المتأثرة' : 'Influenced GMV'}</span>
+            <span className="text-xs text-slate-700 dark:text-amber-200 font-bold">{isAr ? 'إجمالي المبيعات' : 'Total Sales'}</span>
             <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 flex items-center justify-center shrink-0">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
-            {money(
-              currentCoupons.reduce(
-                (sum, c) => sum + (c.usageCount || 0) * (c.minOrderValue || 150),
-                0
-              )
-            )}
+            {(() => {
+              const sales = currentCoupons.reduce((sum, c) => {
+                const a = computeCouponAnalytics(c, currentOrders);
+                return sum + (a.totalSales ?? 0);
+              }, 0);
+              return sales > 0 ? money(sales) : '—';
+            })()}
           </div>
           <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
-            {isAr ? 'إيرادات مباشرة من الطلبات بالكوبونات' : 'Direct coupon checkout revenue'}
+            {isAr ? 'تكرار الاستخدام لكل عميل: 0%' : 'Usage frequency per customer: 0%'}
           </span>
         </div>
       </div>
@@ -1460,12 +1595,14 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                     <td className="py-3 px-3 text-center">
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          c.status === 'active'
+                          c.isActive ?? c.status === 'active'
                             ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
                             : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
                         }`}
                       >
-                        {c.status === 'active' ? (isAr ? 'نشط' : 'Active') : (isAr ? 'منتهي' : 'Expired')}
+                        {c.isActive ?? c.status === 'active'
+                          ? (isAr ? 'نشط' : 'Active')
+                          : (isAr ? 'غير نشط' : 'Inactive')}
                       </span>
                     </td>
                     <td className="py-3 px-3 text-end tabular-nums text-slate-500 text-[11px]">
@@ -1494,7 +1631,9 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                           }}
                           className="px-2 py-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/40 rounded-lg transition-colors"
                         >
-                          {c.status === 'active' ? (isAr ? 'إنهاء' : 'Expire') : (isAr ? 'تفعيل' : 'Activate')}
+                          {c.isActive ?? c.status === 'active'
+                            ? (isAr ? 'إيقاف' : 'Deactivate')
+                            : (isAr ? 'تفعيل' : 'Activate')}
                         </button>
                         <button
                           type="button"

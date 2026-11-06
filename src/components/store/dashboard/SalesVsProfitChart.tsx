@@ -67,7 +67,7 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
   }, [hoveredIndex, points, chartWidth, chartHeight, maxVal, barWidth, barGap]);
 
   return (
-    <div className="p-4 sm:p-5 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+    <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 shadow-xs flex flex-col justify-between h-full min-h-[280px]">
       {/* ── Card Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2.5">

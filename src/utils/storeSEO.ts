@@ -83,6 +83,10 @@ export function generateStoreSEO(options: {
       title = isArabic ? 'سلة المشتريات | هايبرو السعودية' : 'Shopping Cart | HiBrew KSA Official Store';
     } else if (page === 'checkout') {
       title = isArabic ? 'إتمام الطلب والدفع الآمن | هايبرو السعودية' : 'Secure Checkout | HiBrew KSA Official Store';
+    } else if (page === 'products' || page === 'catalog' || page === 'shop') {
+      title = isArabic ? 'المنتجات | هايبرو السعودية' : 'Products | HiBrew KSA Official Store';
+    } else if (page === 'product' || page === 'product-detail' || page === 'product-buy') {
+      title = isArabic ? 'تفاصيل المنتج | هايبرو السعودية' : 'Product | HiBrew KSA Official Store';
     } else {
       title = isArabic
         ? 'هايبرو السعودية | المتجر الرسمي لمكائن ومستلزمات القهوة المختصة'
@@ -102,6 +106,10 @@ export function generateStoreSEO(options: {
       title = isArabic ? 'سلة الشراء | السعيدي لخدمات السيارات' : 'Shopping Cart | Al-Saeedi Car Services';
     } else if (page === 'checkout') {
       title = isArabic ? 'إتمام طلب تنجيد السيارة | السعيدي مكة' : 'Secure Vehicle Checkout | Al-Saeedi Car Services';
+    } else if (page === 'products' || page === 'catalog' || page === 'shop') {
+      title = isArabic ? 'المنتجات | السعيدي لخدمات السيارات' : 'Products | Al-Saeedi Car Services';
+    } else if (page === 'product' || page === 'product-detail') {
+      title = isArabic ? 'تفاصيل المنتج | السعيدي لخدمات السيارات' : 'Product | Al-Saeedi Car Services';
     } else {
       title = isArabic
         ? 'متجر السعيدي لخدمات السيارات — تنجيد مكة | تلابيس مقاعد وأرضيات ليزر ودايموند'
@@ -121,6 +129,10 @@ export function generateStoreSEO(options: {
       title = isArabic ? `سلة الهدايا | ${store.name}` : `Gift Cart | ${store.name}`;
     } else if (page === 'checkout') {
       title = isArabic ? `إتمام الطلب والتوصيل | ${store.name}` : `Secure Delivery Checkout | ${store.name}`;
+    } else if (page === 'products' || page === 'catalog' || page === 'shop') {
+      title = isArabic ? `المنتجات | ${store.name}` : `Products | ${store.name}`;
+    } else if (page === 'product' || page === 'product-detail') {
+      title = isArabic ? `تفاصيل المنتج | ${store.name}` : `Product | ${store.name}`;
     } else {
       title = isArabic
         ? `${store.name} | زهور طبيعية وتوصيل هدايا فنادق الحرم المكي`
@@ -139,6 +151,10 @@ export function generateStoreSEO(options: {
       title = isArabic ? `سلة المشتريات | ${storeName}` : `Shopping Cart | ${storeName}`;
     } else if (page === 'checkout') {
       title = isArabic ? `إتمام الطلب والدفع الآمن | ${storeName}` : `Secure Checkout | ${storeName}`;
+    } else if (page === 'products' || page === 'catalog' || page === 'shop') {
+      title = isArabic ? `المنتجات | ${storeName}` : `Products | ${storeName}`;
+    } else if (page === 'product' || page === 'product-detail' || page === 'product-buy') {
+      title = isArabic ? `تفاصيل المنتج | ${storeName}` : `Product | ${storeName}`;
     } else {
       title = `${storeName} | ${storeCategory}`;
     }
@@ -187,6 +203,14 @@ export function generateStoreSEO(options: {
         ? (seoConfig?.metaDescription || `متجر ${storeName} - ${storeCategory}. تسوق أحدث المنتجات والعروض مع توصيل سريع لجميع مناطق المملكة.`)
         : (seoConfig?.metaDescription || `${storeName} - ${storeCategory}. Shop authentic products and exclusive offers with fast shipping across Saudi Arabia.`);
     }
+  }
+
+  // Catalog pages need their own description so they are not a copy of the homepage.
+  if (!activeProduct && (page === 'products' || page === 'catalog' || page === 'shop')) {
+    const storeName = isArabic ? (store.nameAr || store.name) : (store.nameEn || store.name);
+    description = isArabic
+      ? `تصفح منتجات ${storeName} وصنّفها حسب الفئة. الأسعار بالريال مع التوصيل داخل المملكة.`
+      : `Browse ${storeName} products and filter by category. Prices in SAR with delivery across Saudi Arabia.`;
   }
 
   // 3. Relevant, Non-Spam Natural Keyword Targets
@@ -263,7 +287,7 @@ export function generateStoreSEO(options: {
       },
       {
         '@type': 'ItemList',
-        name: `${store.name} Catalog`,
+        name: isArabic ? `منتجات ${store.nameAr || store.name}` : `${store.nameEn || store.name} products`,
         numberOfItems: products.length,
         itemListElement: products.slice(0, 24).map((prod, idx) => ({
           '@type': 'ListItem',
@@ -278,7 +302,7 @@ export function generateStoreSEO(options: {
             description: isArabic ? (prod.descriptionAr || prod.description || prod.name) : (prod.descriptionEn || prod.description || prod.name),
             brand: {
               '@type': 'Brand',
-              name: prod.brand || (isCoffeeStore ? 'HiBrew' : isCarStore ? 'Al-Saeedi' : 'Hadaya Mecca'),
+              name: prod.brand || store.name,
             },
             offers: {
               '@type': 'Offer',

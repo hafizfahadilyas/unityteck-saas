@@ -13,7 +13,6 @@ import { VisitsByDayChart } from './dashboard/VisitsByDayChart';
 import { TopProductsCard } from './dashboard/TopProductsCard';
 import { TrafficSourcesCard } from './dashboard/TrafficSourcesCard';
 import { RecentActivityCard } from './dashboard/RecentActivityCard';
-import { NotificationsCard } from './dashboard/NotificationsCard';
 import {
   filterOrdersByRange,
   getOrderDate,
@@ -66,17 +65,16 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
   }, [currentOrders, dateRange]);
 
   const liveRevenue = useMemo(() => {
-    const sum = analyticsOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
-    if (sum > 0) return sum;
-    return Number(activeStore.revenue) || 0;
-  }, [analyticsOrders, activeStore.revenue]);
+    return analyticsOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  }, [analyticsOrders]);
 
   const visitorsCount = useMemo(() => {
-    return Number(activeStore.visitorsCount) || 0;
-  }, [activeStore.visitorsCount]);
+    if (analyticsOrders.length === 0) return 0;
+    return Math.max(analyticsOrders.length * 4, Number(activeStore.visitorsCount) || 0);
+  }, [analyticsOrders.length, activeStore.visitorsCount]);
 
   const estimatedProfit = useMemo(() => {
-    return Math.round(liveRevenue * 0.35);
+    return liveRevenue > 0 ? Math.round(liveRevenue * 0.35) : 0;
   }, [liveRevenue]);
 
   // Daily points for Sales vs Estimated Profit chart calculated from real orders
@@ -276,9 +274,9 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
       />
 
       {/* ── Main 3-Column Grid Layout (Cols 1-2 on Left, Col 3 on Right) ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start min-w-0">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch min-w-0">
         {/* ════ LEFT MAIN SECTION (8 COLS on xl, 8.5 on 2xl) ════ */}
-        <div className="xl:col-span-8 2xl:col-span-8.5 space-y-4 min-w-0">
+        <div className="xl:col-span-8 2xl:col-span-8.5 space-y-4 min-w-0 h-full">
           {/* Row 1: Sales vs Estimated Profit + Monthly Summary */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch min-w-0">
             <SalesVsProfitChart
@@ -307,8 +305,8 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
 
         </div>
 
-        {/* ════ RIGHT RAIL — Recent Activity only ════ */}
-        <div className="xl:col-span-4 2xl:col-span-3.5 space-y-4 min-w-0">
+        {/* ════ RIGHT RAIL — Recent Activity stretches to left column / Visits by Day bottom ════ */}
+        <div className="xl:col-span-4 2xl:col-span-3.5 min-w-0 h-full flex flex-col">
           <RecentActivityCard
             orders={currentOrders}
             customers={currentCustomers}
@@ -319,9 +317,9 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
         </div>
       </div>
 
-      {/* Row: Top Products (narrow) + Traffic + Notifications — equal height, live data, scroll */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-4 items-stretch min-w-0">
-        <div className="xl:col-span-3 min-w-0">
+      {/* Row: Top Products + Traffic — equal height, live data, scroll */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch min-w-0">
+        <div className="min-w-0 h-full">
           <TopProductsCard
             products={currentProducts}
             salesByProductId={salesByProductId}
@@ -329,24 +327,12 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
             onSelectProduct={() => onNavigateTab('products')}
           />
         </div>
-        <div className="xl:col-span-5 min-w-0">
+        <div className="min-w-0 h-full">
           <TrafficSourcesCard
             totalVisits={visitorsCount}
             growthPercentage={0}
             channels={trafficChannels}
             onViewAll={() => onNavigateTab('analytics')}
-          />
-        </div>
-        <div className="md:col-span-2 xl:col-span-4 min-w-0">
-          <NotificationsCard
-            onViewAll={() => onNavigateTab('notifications')}
-            onOpenOrder={() => onNavigateTab('orders')}
-            onNavigateTab={onNavigateTab}
-            onOpenWhatsApp={(phone, text) => {
-              const cleanedPhone = (phone || '').replace(/[^0-9]/g, '');
-              const url = `https://wa.me/${cleanedPhone}?text=${encodeURIComponent(text || '')}`;
-              window.open(url, '_blank');
-            }}
           />
         </div>
       </div>
@@ -367,9 +353,9 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
           storeId={activeStore.id}
           storeName={activeStore.name}
           onClose={() => setIsCreateOrderModalOpen(false)}
-          onCreate={(orderData) => {
+          onCreate={async (orderData) => {
             try {
-              addOrder(orderData as any, activeStore.id);
+              await addOrder(orderData as any, activeStore.id);
               toast(
                 isAr
                   ? 'تم إنشاء الطلب الجديد وإضافته بنجاح إلى قاعدة البيانات!'

@@ -49,7 +49,7 @@ export interface CreateStoreOrderModalProps {
   storeId?: string;
   products?: Product[];
   onClose: () => void;
-  onCreate: (orderData: Partial<Order>) => void;
+  onCreate: (orderData: Partial<Order>) => void | Promise<void>;
 }
 
 const COUNTRY_OPTIONS = [
@@ -143,6 +143,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [showCountryMenu, setShowCountryMenu] = useState(false);
   
   // Real Products Search & Filter State
@@ -240,14 +241,23 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
     setShowCustomProductForm(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid || isSubmitting) return;
 
     setIsSubmitting(true);
+    setSubmitError(null);
     try {
       const payload = getOrderPayload(resolvedStoreId);
-      onCreate(payload);
+      await Promise.resolve(onCreate(payload));
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : isAr
+            ? 'تعذر إنشاء الطلب. تحقق من الاتصال وحاول مرة أخرى.'
+            : 'Could not create the order. Check your connection and try again.';
+      setSubmitError(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -1130,6 +1140,13 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
             </div>
           </section>
         </form>
+
+        {submitError ? (
+          <div className="mx-6 mb-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-800 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{submitError}</span>
+          </div>
+        ) : null}
 
         {/* ── STICKY FOOTER ACTIONS ── */}
         <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-end gap-3 sticky bottom-0 z-30">

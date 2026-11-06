@@ -48,8 +48,11 @@ class OrderController extends Controller
 
         $query = Order::query()
             ->withoutGlobalScope('store')
-            ->forStore($storeId)
-            ->with(['items', 'customer', 'returns']);
+            ->forStore($storeId);
+        // Dashboard lists use order columns + items_summary. Line items load on the detail row.
+        if (! $request->boolean('lean')) {
+            $query->with(['items', 'customer', 'returns']);
+        }
 
         if ($status = $request->query('status')) {
             $query->where('status', $status);
@@ -170,6 +173,92 @@ class OrderController extends Controller
             return response()->json(['message' => 'Store ID required.'], 400);
         }
 
+        $storeId = $this->resolveStorefrontStoreId($raw);
+        if (!$storeId) {
+            return response()->json(['message' => 'Store not found.'], 404);
+        }
+
+        return $this->processCreateOrder($request, $storeId);
+    }
+
+    public function storefrontTrack(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'order_number' => ['required', 'string', 'max:64'],
+            'phone' => ['required', 'string', 'max:32'],
+            'store_id' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        $raw = (string) ($request->header('X-Store-Id') ?? $validated['store_id'] ?? '');
+        if (trim($raw) === '') {
+            return response()->json(['message' => 'Store ID required.'], 400);
+        }
+
+        $storeId = $this->resolveStorefrontStoreId($raw);
+        if (!$storeId) {
+            return response()->json(['message' => 'Store not found.'], 404);
+        }
+
+        $orderRef = strtoupper(trim($validated['order_number']));
+        $orderRefDigits = ltrim($orderRef, '#');
+
+        $order = Order::query()
+            ->withoutGlobalScope('store')
+            ->forStore($storeId)
+            ->where(function ($q) use ($orderRef, $orderRefDigits) {
+                $q->whereRaw('UPPER(TRIM(order_number)) = ?', [$orderRef])
+                    ->orWhereRaw('UPPER(TRIM(order_number)) = ?', ['#' . $orderRefDigits])
+                    ->orWhereRaw('UPPER(TRIM(order_number)) = ?', [$orderRefDigits])
+                    ->orWhere('order_number', 'like', '%' . $orderRefDigits . '%');
+            })
+            ->first();
+
+        if (!$order) {
+            return response()->json(['message' => 'Order not found.'], 404);
+        }
+
+        $orderPhone = preg_replace('/\D/', '', (string) $order->customer_phone);
+        $inputPhone = preg_replace('/\D/', '', (string) $validated['phone']);
+        $phoneMatch = $orderPhone !== '' && $inputPhone !== '' && (
+            $orderPhone === $inputPhone
+            || (strlen($inputPhone) >= 4 && str_ends_with($orderPhone, substr($inputPhone, -4)))
+            || (strlen($orderPhone) >= 4 && str_ends_with($inputPhone, substr($orderPhone, -4)))
+        );
+
+        if (!$phoneMatch) {
+            return response()->json(['message' => 'Order not found.'], 404);
+        }
+
+        $status = (string) $order->status;
+        $estimated = null;
+        if (in_array($status, ['shipped', 'out_for_delivery'], true)) {
+            $estimated = now()->addDay()->toDateString();
+        } elseif (in_array($status, ['pending', 'processing', 'preparing'], true)) {
+            $estimated = now()->addDays(2)->toDateString();
+        }
+
+        return response()->json([
+            'data' => [
+                'order_number' => $order->order_number,
+                'status' => $status,
+                'shipping_status' => $order->shipping_status,
+                'tracking_number' => $order->tracking_number,
+                'courier_code' => $order->courier_code,
+                'items_summary' => $order->items_summary,
+                'items_count' => (int) ($order->items_count ?? 0),
+                'delivery_location' => $order->delivery_location,
+                'order_date' => $order->order_date
+                    ? (method_exists($order->order_date, 'format')
+                        ? $order->order_date->format('Y-m-d')
+                        : substr((string) $order->order_date, 0, 10))
+                    : null,
+                'estimated_delivery' => $estimated,
+            ],
+        ]);
+    }
+
+    protected function resolveStorefrontStoreId(string $raw): ?string
+    {
         $s = strtolower(trim($raw));
         if ($s === 'flowers' || $s === 'hadaya' || $s === 'makkah' || $s === 'giftshop') {
             $storeId = 'store-1';
@@ -182,12 +271,7 @@ class OrderController extends Controller
             $storeId = $matched ?: trim($raw);
         }
 
-        $store = Store::query()->where('id', $storeId)->first();
-        if (!$store) {
-            return response()->json(['message' => 'Store not found.'], 404);
-        }
-
-        return $this->processCreateOrder($request, $storeId);
+        return Store::query()->where('id', $storeId)->exists() ? $storeId : null;
     }
 
     protected function processCreateOrder(Request $request, string $storeId): JsonResponse

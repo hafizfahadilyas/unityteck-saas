@@ -90,7 +90,7 @@ export const MachineStoryCinematic: React.FC = () => {
         {/* Main Cutaway Architecture Visual */}
         <div className="relative w-full h-[240px] sm:h-[380px] lg:h-[480px] bg-neutral-100 overflow-hidden">
           <img
-            src="./src/assets/images/coffee_machine_parts_reveal_1791221110232.jpg"
+            src="./images/coffee_machine_parts_reveal_1791221110232.jpg"
             alt="HiBrew Commercial Engineering Cutaway"
             className="w-full h-full object-cover object-center group-hover:scale-103 transition-transform duration-700 ease-out"
             referrerPolicy="no-referrer"

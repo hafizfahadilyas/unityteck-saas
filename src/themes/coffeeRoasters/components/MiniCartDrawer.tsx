@@ -1,5 +1,6 @@
 import React from 'react';
 import { useCart } from '../context/CartContext';
+import { cartChoiceLine } from '../cartLine';
 import { X, Trash2, ShoppingBag, ArrowRight, ShieldCheck, Coffee } from 'lucide-react';
 
 export const MiniCartDrawer: React.FC = () => {
@@ -103,10 +104,11 @@ export const MiniCartDrawer: React.FC = () => {
                       </button>
                     </div>
 
-                    <div className="text-[11px] text-neutral-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                      <span>{language === 'AR' && item.selectedColor.nameAr ? item.selectedColor.nameAr : item.selectedColor.name}</span>
-                      <span>·</span>
-                      <span>{item.selectedStorage.capacity}</span>
+                    <div className="text-[11px] text-neutral-500 mt-0.5">
+                      <span>{cartChoiceLine(item, language === 'AR')}</span>
+                      {item.purchaseNotes && item.purchaseNotes.length > 0 && (
+                        <span className="block">{item.purchaseNotes.join(' · ')}</span>
+                      )}
                     </div>
 
                     {item.selectedWarranty && (

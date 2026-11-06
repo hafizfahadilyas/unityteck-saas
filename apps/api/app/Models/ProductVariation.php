@@ -19,9 +19,15 @@ class ProductVariation extends Model
         'store_id',
         'product_id',
         'sku',
+        'barcode',
         'options',
         'price',
+        'compare_at_price',
         'stock',
+        'weight',
+        'weight_unit',
+        'low_stock_alert',
+        'unlimited_stock',
         'image_url',
         'is_active',
     ];
@@ -31,7 +37,11 @@ class ProductVariation extends Model
         return [
             'options' => 'array',
             'price' => 'decimal:2',
+            'compare_at_price' => 'decimal:2',
             'stock' => 'integer',
+            'weight' => 'decimal:3',
+            'low_stock_alert' => 'integer',
+            'unlimited_stock' => 'boolean',
             'is_active' => 'boolean',
         ];
     }

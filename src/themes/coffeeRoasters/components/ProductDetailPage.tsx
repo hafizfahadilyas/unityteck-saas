@@ -111,9 +111,6 @@ export const ProductDetailPage: React.FC = () => {
   const { selectedProduct, navigateTo, goBack, language } = useCart();
   const product = selectedProduct;
 
-  const categoryObj = CATEGORIES.find(c => c.id === product.category);
-  const categoryLabel = language === 'AR' ? (categoryObj?.nameAr || 'مكائن القهوة') : (categoryObj?.name || 'Coffee Machines');
-
   type TabType = 'overview' | 'features' | 'video' | 'specs' | 'warranty';
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
@@ -167,12 +164,23 @@ export const ProductDetailPage: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  if (!product) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center bg-white text-neutral-600 text-sm">
+        {language === 'AR' ? 'جاري تحميل المنتج' : 'Loading product'}
+      </div>
+    );
+  }
+
+  const categoryObj = CATEGORIES.find((c) => c.id === product.category);
+  const categoryLabel = language === 'AR' ? (categoryObj?.nameAr || 'مكائن القهوة') : (categoryObj?.name || 'Coffee Machines');
+  const specs = product.specs || [];
+  const colors = product.colors || [];
+  const images = product.images || [];
+  const price = Number(product.basePrice) || 0;
+
   // Video demo controls
-  const productVideoUrl = product.category === 'machines'
-    ? 'https://assets.mixkit.co/videos/preview/mixkit-coffee-being-poured-into-a-cup-from-a-coffee-machine-42861-large.mp4'
-    : product.category === 'mills'
-    ? 'https://assets.mixkit.co/videos/preview/mixkit-making-coffee-with-an-espresso-machine-42862-large.mp4'
-    : 'https://assets.mixkit.co/videos/preview/mixkit-pouring-milk-into-a-cup-of-coffee-to-make-latte-42865-large.mp4';
+  const productVideoUrl = product.videoUrl || '';
 
   const toggleVideoPlay = () => {
     if (!videoRef.current) return;
@@ -192,88 +200,9 @@ export const ProductDetailPage: React.FC = () => {
   };
 
   // Default fallback parts in case a product has incomplete showcase data
-  const defaultParts: ProductPartShowcase[] = [
-    {
-      id: 'part-core-engineering',
-      tagEn: 'PRECISION CORE ARCHITECTURE',
-      tagAr: 'الهندسة الداخلية المتطورة',
-      titleEn: 'Dual PID Independent Thermoblocks & 20-Bar Pump',
-      titleAr: 'نظام دبل بويلر المستقل ومضخة 20 بار إيطالية',
-      descriptionEn: 'Engineered with dual independent thermoblocks for simultaneous 93°C extraction and continuous dry microfoam steaming with zero recovery lag.',
-      descriptionAr: 'وحدتا تسخين إلكترونيتان مستقلتان تعملان بتقنية PID الذكية؛ وحدة للاستخلاص عند حرارة 92°-94° مئوية، ووحدة مستقلة للتبخير الفوري عند 130° مئوية في آن واحد دون انخفاض في الضغط.',
-      image: './src/assets/images/hibrew_barista_pro_exploded_parts_1791364960592.jpg',
-      stats: [
-        { labelEn: 'Pump System', labelAr: 'قوة المضخة', value: '20-Bar ULKA' },
-        { labelEn: 'Heating Architecture', labelAr: 'وحدات التسخين', value: 'Dual PID' },
-        { labelEn: 'Thermal Variance', labelAr: 'ثبات الحرارة', value: '±0.5°C' }
-      ]
-    },
-    {
-      id: 'part-extraction-group',
-      tagEn: '58MM COMMERCIAL STANDARD',
-      tagAr: 'مقبس تجاري 58 ملم',
-      titleEn: 'Commercial 58.4mm Stainless Grouphead & Velvet Crema Flow',
-      titleAr: 'مقبس تجاري 58 ملم وتدفق كريمة ذهبية مخملية',
-      descriptionEn: 'Industry-standard 58.4mm commercial grouphead compatible with pro barista portafilters. Features programmable 1-10s low-pressure pre-infusion to prevent water channeling.',
-      descriptionAr: 'رأس استخلاص تجاري حقيقي من الستانلس ستيل والنحاس مقاس 58 ملم مطابق لمكائن المقاهي المختصة، مع نظام ترطيب مسبق قابل للبرمجة لمنع القنوات المائية.',
-      image: './src/assets/images/coffee_making_crema_flow_1791221127339.jpg',
-      stats: [
-        { labelEn: 'Portafilter Size', labelAr: 'مقاس البورتافلتر', value: '58.4mm' },
-        { labelEn: 'Pre-Infusion', labelAr: 'الترطيب المسبق', value: '1-10s' },
-        { labelEn: 'Filter Basket', labelAr: 'الباسكت الدقيق', value: '18g Precision' }
-      ]
-    },
-    {
-      id: 'part-pressure-meter',
-      tagEn: 'ANALOG BARISTA GAUGE',
-      tagAr: 'مقياس ضغط الباريستا',
-      titleEn: 'Real-Time Visual Barista Pressure Extraction Gauge',
-      titleAr: 'مقياس ضغط استخلاص حقيقي لمراقبة تدفق القهوة',
-      descriptionEn: 'Analog pressure meter monitoring real extraction resistance between 9 and 15 bar in real-time, helping dial in grind size with laboratory precision.',
-      descriptionAr: 'مؤشر عقارب كلاسيكي أنيق يعرض ضغط الاستخلاص الفعلي لحظة بلحظة؛ يمنحك رؤية فورية لمنطقة الاستخلاص الذهبي بين 9 و 12 بار.',
-      image: './src/assets/images/hibrew_barista_pro_details_showcase_1791364980884.jpg',
-      stats: [
-        { labelEn: 'Optimal Zone', labelAr: 'المنطقة الذهبية', value: '9 – 12 Bar' },
-        { labelEn: 'Max Pressure', labelAr: 'الضغط الأقصى', value: '20 Bar' },
-        { labelEn: 'Dial Body', labelAr: 'خامة المؤشر', value: 'Solid Brass' }
-      ]
-    },
-    {
-      id: 'part-steam-wand',
-      tagEn: 'COMMERCIAL STEAM WAND',
-      tagAr: 'عصا التبخير التجارية',
-      titleEn: '3-Hole Commercial Cool-Touch Microfoam Steam Wand',
-      titleAr: 'عصا تبخير تجارية 3 فتحات لرسم اللاتيه آرت',
-      descriptionEn: 'Stainless steel 3-hole commercial nozzle delivering dry 135°C steam for silky microfoam velvet texture, perfect for pouring intricate latte art rosettas.',
-      descriptionAr: 'عصا تبخير ستانلس ستيل عازلة للحرارة Cool-Touch مزودة بـ 3 فتحات دقيقة لتوليد بخار جاف قوي لرغوة ميكروفوم حريرية.',
-      image: './src/assets/images/barista_milk_steaming_1791363367164.jpg',
-      stats: [
-        { labelEn: 'Steam Nozzle', labelAr: 'فتحات التبخير', value: '3-Hole Precision' },
-        { labelEn: 'Steam Temp', labelAr: 'حرارة البخار', value: '135°C Dry' },
-        { labelEn: 'Grip Sleeve', labelAr: 'مقبض الأمان', value: 'Cool-Touch Silicon' }
-      ]
-    },
-    {
-      id: 'part-chassis-warranty',
-      tagEn: '2-YEAR KSA AGENCY WARRANTY',
-      tagAr: 'ضمان الوكيل سنتين',
-      titleEn: 'Hand-Polished Stainless Steel Chassis & Official Warranty',
-      titleAr: 'هيكل ستانلس ستيل فاخر وضمان شامل سنتين بالمملكة',
-      descriptionEn: 'Constructed from heavy gauge 304 food-grade stainless steel with luxury walnut hardwood accents, backed by 2-year authorized agency warranty in KSA.',
-      descriptionAr: 'هيكل معدني متين من الفولاذ المقاوم للصدأ 304 مع لمسات خشب الجوز الطبيعي، مدعوم بضمان الوكيل المعتمد في المملكة لمدة سنتين.',
-      image: './src/assets/images/coffee_machine_story_craft_1791221163767.jpg',
-      stats: [
-        { labelEn: 'Agency Warranty', labelAr: 'ضمان الوكيل', value: '2 Years Full' },
-        { labelEn: 'Water Tank', labelAr: 'سعة الخزان', value: '2.5L BPA-Free' },
-        { labelEn: 'Chassis Material', labelAr: 'خامة الهيكل', value: '304 Solid Steel' }
-      ]
-    }
-  ];
-
-  // Exact 5 to 6 Full-Width Showcases
-  const showcaseParts: ProductPartShowcase[] = product.partsShowcase && product.partsShowcase.length >= 5
-    ? product.partsShowcase.slice(0, 5)
-    : defaultParts.slice(0, 5);
+  const showcaseParts: ProductPartShowcase[] = product.partsShowcase?.length
+    ? product.partsShowcase
+    : [];
 
   const heroBanner = product.heroBanner || {
     headlineEn: product.name,
@@ -283,9 +212,9 @@ export const ProductDetailPage: React.FC = () => {
     badgeEn: product.badge || 'OFFICIAL KSA EDITION',
     badgeAr: product.badge || 'الإصدار الرسمي بالمملكة',
     bgGradient: 'from-[#061838] via-[#092558] to-[#030d22]',
-    heroImage: (product as any).image || product.colors?.[0]?.image || product.images?.[0] || '/src/assets/images/hibrew_h7a_flagship_machine.png',
-    featuresEn: product.specs.slice(0, 4).map(s => `${s.label}: ${s.value}`),
-    featuresAr: product.specs.slice(0, 4).map(s => `${s.labelAr || s.label}: ${s.valueAr || s.value}`)
+    heroImage: (product as any).image || colors[0]?.image || images[0] || '/images/hibrew_h7a_flagship_machine.png',
+    featuresEn: specs.slice(0, 4).map(s => `${s.label}: ${s.value}`),
+    featuresAr: specs.slice(0, 4).map(s => `${s.labelAr || s.label}: ${s.valueAr || s.value}`)
   };
 
   // Honor style heading: First word(s) BOLD, next words LIGHT
@@ -391,7 +320,7 @@ export const ProductDetailPage: React.FC = () => {
             {/* Right/End: Price & Buy Now CTA */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <span className="text-xs sm:text-sm font-black text-white font-sans hidden sm:inline">
-                {language === 'AR' ? `${product.basePrice.toLocaleString()}.00 ر.س` : `SAR ${product.basePrice.toLocaleString()}.00`}
+                {language === 'AR' ? `${price.toLocaleString()}.00 ر.س` : `SAR ${price.toLocaleString()}.00`}
               </span>
               <button
                 onClick={() => navigateTo('product-buy', product.id)}
@@ -522,21 +451,17 @@ export const ProductDetailPage: React.FC = () => {
         {/* SECTION HEADER */}
         {/* SECTION HEADER */}
         <section id="parts-showcase-section" className="space-y-16 sm:space-y-24 scroll-mt-28">
+          {showcaseParts.length > 0 && (
+          <>
           <div className="text-center max-w-3xl mx-auto space-y-3">
             <span className="inline-block text-xs font-bold uppercase tracking-widest bg-white/10 text-neutral-300 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
-              {language === 'AR' ? 'المواصفات والاستخدام' : 'FEATURES & HARDWARE BREAKDOWN'}
+              {language === 'AR' ? 'تفاصيل المنتج' : 'Product details'}
             </span>
             <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight text-center">
-              {language === 'AR' ? 'استكشف تقنيات وأجزاء الماكينة وطريقة الاستخدام' : 'Precision Hardware, Extraction & Usage'}
+              {language === 'AR' ? (product.nameAr || product.name) : product.name}
             </h2>
-            <p className="text-xs sm:text-sm text-neutral-400 max-w-2xl mx-auto leading-relaxed">
-              {language === 'AR'
-                ? 'استكشف أدق تفاصيل الهندسة الداخلية للماكينة وطريقة استخدامها لتحضير ألذ كوب قهوة متطابق مع المواصفات السعودية.'
-                : 'Explore authentic high-resolution component breakdowns, machine operation, and commercial café extraction.'}
-            </p>
           </div>
 
-          {/* 5 Full-Width Showcase Banners (Text Above, Image Clean Below) */}
           <div className="space-y-20 sm:space-y-28">
             {showcaseParts.map((part, index) => (
               <PartShowcaseBanner
@@ -547,41 +472,25 @@ export const ProductDetailPage: React.FC = () => {
               />
             ))}
           </div>
+          </>
+          )}
 
           {/* 6th BANNER: CINEMATIC 4K VIDEO DEMONSTRATION (CLEAN PLAYER, NO OVERLAYS) */}
+          {productVideoUrl ? (
           <article id="video-demo-section" className="space-y-6 sm:space-y-8 pt-6 scroll-mt-28">
             {/* Text story above video player */}
             <div className="space-y-3 max-w-4xl text-start">
               <span className="inline-block text-xs font-bold uppercase tracking-widest bg-white/10 text-neutral-300 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
-                {language === 'AR'
-                  ? 'الميزة 06 · استعراض الأداء المباشر'
-                  : 'FEATURE 06 · LIVE EXTRACTION PERFORMANCE'}
+                {language === 'AR' ? 'فيديو المنتج' : 'Product video'}
               </span>
 
               <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
-                {language === 'AR'
-                  ? 'عالم الاستخلاص المثالي والكريمة الذهبية 4K'
-                  : 'Pure Extraction & Golden Crema Precision 4K'}
+                {language === 'AR' ? (product.nameAr || product.name) : product.name}
               </h2>
 
               <p className="text-sm sm:text-base lg:text-lg text-neutral-300 max-w-3xl leading-relaxed">
-                {language === 'AR'
-                  ? 'شاهد تدفق الإسبريسو الناعم مع ثبات الضغط ونعومة الطحن المتوازنة لمنع احتراق النكهات الطبيعية للبن وتحقيق أعلى معايير الباريستا.'
-                  : 'Experience silky espresso flow under calibrated pressure and active thermal equilibrium, preserving origin tasting notes.'}
+                {language === 'AR' ? (product.overviewAr || product.overview || '') : (product.overview || '')}
               </p>
-
-              <div className="flex flex-wrap items-center gap-2.5 pt-2">
-                <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 text-xs font-semibold text-white/90">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span className="text-neutral-300 font-medium">{language === 'AR' ? 'الجودة' : 'Resolution'}:</span>
-                  <span className="text-white font-bold font-mono">4K Cinema HDR</span>
-                </div>
-                <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 text-xs font-semibold text-white/90">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span className="text-neutral-300 font-medium">{language === 'AR' ? 'معدل الإطارات' : 'Frame Rate'}:</span>
-                  <span className="text-white font-bold font-mono">60 FPS Smooth</span>
-                </div>
-              </div>
             </div>
 
             {/* Clean 4K Video Banner Container */}
@@ -599,7 +508,7 @@ export const ProductDetailPage: React.FC = () => {
               {/* Video control buttons placed in clean top-corner bar */}
               <div className="absolute top-4 sm:top-6 inset-x-4 sm:inset-x-6 flex items-center justify-between z-10 pointer-events-auto">
                 <span className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white/90 text-[11px] font-mono border border-white/10">
-                  LIVE 4K DEMO
+                  {language === 'AR' ? 'فيديو المنتج' : 'Product video'}
                 </span>
                 <div className="flex items-center gap-2">
                   <button
@@ -620,6 +529,7 @@ export const ProductDetailPage: React.FC = () => {
               </div>
             </div>
           </article>
+          ) : null}
         </section>
 
         {/* ========================================================================= */}
@@ -635,14 +545,14 @@ export const ProductDetailPage: React.FC = () => {
             </h2>
             <p className="text-xs sm:text-sm text-neutral-400 max-w-2xl mx-auto">
               {language === 'AR'
-                ? 'المعايير الهندسية المصنعية المعتمدة لماكينة هاي برو معتمدة من الوكيل الرسمي.'
-                : 'Certified industrial engineering specifications for optimal espresso performance.'}
+                ? 'المواصفات المحفوظة لهذا المنتج.'
+                : 'Specifications saved for this product.'}
             </p>
           </div>
 
           <div className="rounded-3xl overflow-hidden bg-white/5 border-0">
             <div className="divide-y divide-white/10">
-              {product.specs.map((spec, sIdx) => (
+              {specs.map((spec, sIdx) => (
                 <div key={sIdx} className="grid grid-cols-1 sm:grid-cols-12 p-4 sm:p-5 hover:bg-white/5 transition-colors">
                   <div className="sm:col-span-4 font-bold text-xs sm:text-sm text-neutral-200">
                     {language === 'AR' && spec.labelAr ? spec.labelAr : spec.label}
@@ -704,7 +614,7 @@ export const ProductDetailPage: React.FC = () => {
           </button>
 
           <img
-            src={product.colors[0]?.image || product.images[0]}
+            src={colors[0]?.image || images[0]}
             alt={product.name}
             className="w-14 h-14 object-contain rounded-xl bg-white/5 p-1 shrink-0"
           />
@@ -714,7 +624,7 @@ export const ProductDetailPage: React.FC = () => {
               {language === 'AR' && product.nameAr ? product.nameAr : product.name}
             </h3>
             <p className="text-[11px] text-neutral-400 font-sans font-bold mt-0.5">
-              {language === 'AR' ? `${product.basePrice.toLocaleString()}.00 ر.س` : `SAR ${product.basePrice.toLocaleString()}.00`}
+              {language === 'AR' ? `${price.toLocaleString()}.00 ر.س` : `SAR ${price.toLocaleString()}.00`}
             </p>
             <div className="mt-2">
               <button
@@ -738,7 +648,7 @@ export const ProductDetailPage: React.FC = () => {
               {language === 'AR' && product.nameAr ? product.nameAr : product.name}
             </div>
             <div className="text-[11px] text-neutral-400 font-sans font-bold">
-              {language === 'AR' ? `${product.basePrice.toLocaleString()}.00 ر.س` : `SAR ${product.basePrice.toLocaleString()}.00`}
+              {language === 'AR' ? `${price.toLocaleString()}.00 ر.س` : `SAR ${price.toLocaleString()}.00`}
             </div>
           </div>
 

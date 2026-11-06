@@ -5,9 +5,89 @@ import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import type { CouponItem } from '../../../types';
 import { sellingPrice } from '../../../utils/productPricing';
+import { seedExistingCommerce } from '../../../utils/existingProductCommerce';
+import { buildGeneratedVariants } from '../../../utils/productVariants';
 
 import { FlyingCartOverlay, FlyingCartItem } from '../components/FlyingCartOverlay';
 import { readStoreIdentity, type StoreIdentitySettings } from '../../settings/storeIdentity';
+
+function optionRows(opt: any): any[] {
+  if (!opt || !Array.isArray(opt.values)) return [];
+  return opt.values.filter((v: any) => (typeof v === 'string' ? v : v?.selected !== false && v?.label));
+}
+
+function learnMoreBits(dp: any, image: string) {
+  const fields = (Array.isArray(dp.customFields) ? dp.customFields : []).filter((f: any) => !f?.hidden);
+  const parts = fields
+    .filter((f: any) => f.imageUrl || f.contentEn || f.contentAr || f.value || f.description)
+    .map((f: any, i: number) => ({
+      id: String(f.id || `cf-${i}`),
+      tagEn: String(f.name || 'Details'),
+      tagAr: String(f.name || 'التفاصيل'),
+      titleEn: String(f.name || ''),
+      titleAr: String(f.name || ''),
+      descriptionEn: String(f.contentEn || f.description || f.value || ''),
+      descriptionAr: String(f.contentAr || f.description || f.value || ''),
+      image: String(f.imageUrl || image),
+    }));
+  const video = String(fields.find((f: any) => f.videoUrl)?.videoUrl || dp.videoUrl || '');
+  const opts = (Array.isArray(dp.productOptions) ? dp.productOptions : []).filter((o: any) => o?.visible !== false);
+  const colorOpt = opts.find((o: any) => String(o.type || '').toLowerCase() === 'color');
+  const editionOpt = opts.find((o: any) => o !== colorOpt && String(o.type || '').toLowerCase() !== 'image');
+  const saleOf = (v: any): number | null => {
+    if (!v || typeof v !== 'object') return null;
+    if (v.salePrice != null && v.salePrice !== '') return Number(v.salePrice);
+    if (v.price != null && v.price !== '') return Number(v.price);
+    return null;
+  };
+  const colorRows = colorOpt ? optionRows(colorOpt) : [];
+  const editionRows = editionOpt ? optionRows(editionOpt) : [];
+  const colors = colorOpt
+    ? colorRows.map((v: any) => {
+        const label = typeof v === 'string' ? v : v.label;
+        const sale = saleOf(v);
+        const labelAr = typeof v === 'object' && v.labelAr ? String(v.labelAr) : label;
+        return {
+          name: label,
+          nameAr: labelAr,
+          hex: (typeof v === 'object' && v.colorHex) || '#1c1917',
+          image: (typeof v === 'object' && v.imageUrl) || image,
+          priceDelta: sale != null ? sale : 0,
+        };
+      })
+    : null;
+  const storage = editionOpt
+    ? editionRows.map((v: any) => {
+        const label = typeof v === 'string' ? v : v.label;
+        const sale = saleOf(v);
+        const labelAr = typeof v === 'object' && v.labelAr ? String(v.labelAr) : label;
+        return {
+          capacity: label,
+          capacityAr: labelAr,
+          ram: '',
+          ramAr: '',
+          priceDelta: sale != null ? sale : 0,
+        };
+      })
+    : null;
+  return { fields, parts, video, colors, storage };
+}
+
+function routeFromPreviewQuery(): RouteType {
+  if (typeof window === 'undefined') return 'home';
+  const p = (new URLSearchParams(window.location.search).get('page') || '').toLowerCase().trim();
+  if (p === 'catalog' || p === 'products' || p === 'shop') return 'products';
+  if (p === 'product-buy' || p === 'buy' || p === 'buynow') return 'product-buy';
+  if (p === 'product' || p === 'product-detail' || p === 'learn-more' || p === 'detail') return 'product-detail';
+  if (p === 'custom-order' || p === 'customorder' || p === 'builder') return 'custom-order';
+  if (p === 'profile' || p === 'login' || p === 'account' || p === 'crm') return 'profile';
+  const known: RouteType[] = [
+    'home', 'products', 'product-detail', 'product-buy', 'custom-order', 'cart', 'checkout',
+    'profile', 'reviews', 'thankyou', 'privacy', 'return', 'terms', 'shipping', 'warranty',
+    'locator', 'track-order', 'about', 'contact', 'faq', 'page',
+  ];
+  return known.includes(p as RouteType) ? (p as RouteType) : 'home';
+}
 
 export type RouteType =
   | 'home'
@@ -96,7 +176,13 @@ interface CartContextType {
     storage?: StorageOption,
     warranty?: WarrantyOption,
     bundles?: BundleOption[],
-    openMiniCart?: boolean
+    openMiniCart?: boolean,
+    extra?: {
+      unitPrice?: number;
+      image?: string;
+      optionSummary?: string;
+      purchaseNotes?: string[];
+    }
   ) => void;
   addCustomCornerToCart: (
     specs: CustomCornerOrderSpecs,
@@ -130,7 +216,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [isMiniCartOpen, setIsMiniCartOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [currentRoute, setCurrentRoute] = useState<RouteType>('home');
+  const [currentRoute, setCurrentRoute] = useState<RouteType>(routeFromPreviewQuery);
   const [previousRoute, setPreviousRoute] = useState<RouteType>('home');
   const [routeHistory, setRouteHistory] = useState<RouteType[]>(['home']);
   const [selectedProductId, setSelectedProductId] = useState<string>('hb-h10a-dualboiler');
@@ -171,6 +257,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const next = language === 'EN' ? 'AR' : 'EN';
     setLanguage(next);
   }, [language, setLanguage]);
+
+  // Instant lang from Theme Customizer parent (no iframe reload)
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      const lang = e.data?.lang;
+      if (e.data?.type !== 'UNITYTECK_PREVIEW_LANG') return;
+      if (lang !== 'EN' && lang !== 'AR') return;
+      setLanguage(lang);
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [setLanguage]);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -234,12 +332,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {}
   }, [user]);
 
-  // Reset to Home page at top on every page load/refresh
+  // Scroll to top on load. Keep ?page= so the customizer preview opens the selected page.
   useEffect(() => {
     if ('scrollRestoration' in window.history) {
       window.history.scrollRestoration = 'manual';
     }
-    setCurrentRoute('home');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
 
     // Clean hash so browser doesn't anchor-scroll (preserve search params)
@@ -336,15 +433,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     storage?: StorageOption,
     warranty?: WarrantyOption,
     bundles?: BundleOption[],
-    openMiniCart: boolean = true
+    openMiniCart: boolean = true,
+    extra?: {
+      unitPrice?: number;
+      image?: string;
+      optionSummary?: string;
+      purchaseNotes?: string[];
+    }
   ) => {
-    const selectedColor = color || product.colors[0];
-    const selectedStorage = storage || product.storageOptions[0];
+    const selectedColor = color || product.colors?.[0] || {
+      name: '',
+      hex: '#1c1917',
+      image: extra?.image || product.images?.[0] || '',
+    };
+    const selectedStorage = storage || product.storageOptions?.[0] || {
+      capacity: '',
+      ram: '',
+      priceDelta: 0,
+    };
     const extraPrice = (selectedColor?.priceDelta || 0) +
-      (selectedStorage.priceDelta || 0) +
+      (selectedStorage?.priceDelta || 0) +
       (warranty ? warranty.price : 0) +
       (bundles ? bundles.reduce((s, b) => s + b.price, 0) : 0);
-    const unitPrice = product.basePrice + extraPrice;
+    const unitPrice = extra?.unitPrice != null ? extra.unitPrice : product.basePrice + extraPrice;
 
     const newItem: CartItem = {
       id: `cart_${Date.now()}_${Math.random()}`,
@@ -352,11 +463,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       productName: product.name,
       unitPrice,
       quantity: 1,
-      image: selectedColor.image,
+      image: extra?.image || selectedColor?.image || product.images?.[0] || '',
       selectedColor,
       selectedStorage,
       selectedWarranty: warranty,
-      selectedBundles: bundles
+      selectedBundles: bundles,
+      optionSummary: extra?.optionSummary,
+      purchaseNotes: extra?.purchaseNotes,
     };
 
     setCart(prev => [newItem, ...prev]);
@@ -374,7 +487,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     totalPrice: number,
     openMiniCart: boolean = true
   ) => {
-    const defaultColorImage = specs.structureColor.image || './src/assets/images/hero_coffee_corner_cabinet_1791217199146.jpg';
+    const defaultColorImage = specs.structureColor.image || '/images/hero_coffee_corner_cabinet_1791217199146.jpg';
     const cornerNameEn = 'HiBrew Bespoke Tailor-Made Coffee Corner';
     const cornerNameAr = 'ركن قهوة فاخر تفصيل حسب الطلب (هايبرو)';
 
@@ -534,7 +647,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Merge database/API products reactively with theme catalog
   const mergedProducts = useMemo(() => {
-    const activeStoreId = tenant?.activeStore?.id || 'store-coffee';
+    const activeStoreId = tenant?.activeStore?.id || '';
+    if (!activeStoreId) return [];
     let dbProducts: any[] = [];
     if (tenant?.allProducts && tenant.allProducts[activeStoreId] && tenant.allProducts[activeStoreId].length > 0) {
       dbProducts = tenant.allProducts[activeStoreId];
@@ -553,15 +667,43 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (!dbProducts.length) {
-      // Flagship store initial seed or empty
-      return activeStoreId === 'store-coffee' || activeStoreId.includes('coffee') ? PRODUCTS : [];
+      return [];
     }
 
     // Dynamic resolution based strictly on current database/TenantContext products
     const resolvedList: Product[] = [];
 
+    const coffeeCatalog = activeStoreId === 'store-coffee';
+    const liveCommerce = (dp: any) => {
+      const hasSaved = Array.isArray(dp.productOptions) && dp.productOptions.length > 0;
+      const seeded = hasSaved ? null : seedExistingCommerce(dp, activeStoreId);
+      const options = hasSaved ? dp.productOptions : seeded?.options;
+      const hasRows = Array.isArray(dp.variations) && dp.variations.length > 0;
+      if (hasRows || !options?.length) {
+        return { options, variations: dp.variations };
+      }
+      const regular = Number(dp.price) || 0;
+      const sale = Number(dp.discountedPrice) || 0;
+      const selling = sale > 0 && sale < regular ? sale : regular;
+      return {
+        options,
+        variations: buildGeneratedVariants({
+          options,
+          previous: [],
+          storeId: activeStoreId,
+          productId: String(dp.id || ''),
+          baseSku: String(dp.sku || 'SKU'),
+          basePrice: selling,
+          baseCompareAt: regular > selling ? regular : null,
+          sharedStock: Number(dp.stock) || 0,
+        }),
+      };
+    };
     dbProducts.forEach((dp: any) => {
-      const match = PRODUCTS.find(
+      if (dp?.storeId && dp.storeId !== activeStoreId) return;
+      const match = !coffeeCatalog
+        ? undefined
+        : PRODUCTS.find(
         (p) =>
           p.id === dp.id ||
           p.id === dp.sku ||
@@ -573,9 +715,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const primaryImg =
         dp.image ||
         (dp.galleryUrls && dp.galleryUrls[0]) ||
-        match?.colors?.[0]?.image ||
-        match?.images?.[0] ||
-        '/src/assets/images/hibrew_h7a_flagship_machine.png';
+        (coffeeCatalog
+          ? match?.colors?.[0]?.image || match?.images?.[0] || '/images/coffee_hero_flagship_machine_1791218907782.jpg'
+          : '');
 
       if (match) {
         const updatedColors = primaryImg
@@ -595,6 +737,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ? Number(dp.price)
               : match.originalPrice;
 
+        const story = learnMoreBits(dp, primaryImg);
+        const commerce = liveCommerce(dp);
         resolvedList.push({
           ...match,
           id: dp.id,
@@ -603,11 +747,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           basePrice: sell || (dp.basePrice ?? match.basePrice),
           originalPrice: compareAt,
           category: dp.category || match.category,
+          categoryAr: dp.categoryAr || (match as { categoryAr?: string }).categoryAr,
           specComparisonImage: dp.specComparisonImage || match.specComparisonImage,
           specComparisonImageAr: dp.specComparisonImageAr || match.specComparisonImageAr,
           image: primaryImg,
           images: updatedImages,
-          colors: updatedColors,
+          colors: story.colors || updatedColors,
+          storageOptions: story.storage || match.storageOptions,
+          partsShowcase: story.parts.length ? story.parts : match.partsShowcase,
+          customFields: story.fields,
+          productOptions: commerce.options?.length ? commerce.options : match.productOptions,
+          variations: commerce.variations?.length ? commerce.variations : match.variations,
+          conditionalRules: Array.isArray(dp.conditionalRules) ? dp.conditionalRules : match.conditionalRules,
+          videoUrl: story.video || undefined,
           tagline: dp.subtitle || dp.description || match.tagline,
           taglineAr: dp.subtitleAr || dp.descriptionAr || match.taglineAr,
         });
@@ -620,25 +772,34 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ? Number(dp.price)
               : undefined;
 
+        const storyNew = learnMoreBits(dp, primaryImg);
+        const commerceNew = liveCommerce(dp);
         resolvedList.push({
           id: dp.id,
           name: dp.name,
           nameAr: dp.nameAr || dp.name,
-          tagline: dp.subtitle || dp.description || 'Specialty Coffee Gear',
-          taglineAr: dp.subtitleAr || dp.descriptionAr || 'معدات القهوة المختصة والتحضير الاحترافي',
-          category: (dp.category as any) || 'machines',
+          tagline: dp.subtitle || dp.description || '',
+          taglineAr: dp.subtitleAr || dp.descriptionAr || '',
+          category: (dp.category as any) || '',
+          categoryAr: dp.categoryAr,
           basePrice: sellNew || (dp.basePrice ?? 0),
           originalPrice: compareNew,
           badge: dp.tags?.[0] || undefined,
           badgeAr: dp.tags?.[0] || undefined,
-          reviewCount: dp.reviewsCount || 12,
-          rating: dp.rating || 4.9,
-          colors: [{ name: 'Default', hex: '#1c1917', image: primaryImg }],
-          storageOptions: [{ capacity: 'Standard', ram: 'Default', priceDelta: 0 }],
+          reviewCount: dp.reviewsCount || 0,
+          rating: dp.rating || 0,
+          colors: storyNew.colors || [{ name: 'Default', hex: '#1c1917', image: primaryImg }],
+          storageOptions: storyNew.storage || [],
           specs: dp.specs || [],
           images: [primaryImg, ...(dp.galleryUrls || []).filter((u: string) => u !== primaryImg)],
           overview: dp.description || '',
           overviewAr: dp.descriptionAr || '',
+          partsShowcase: storyNew.parts.length ? storyNew.parts : undefined,
+          customFields: storyNew.fields,
+          productOptions: commerceNew.options?.length ? commerceNew.options : undefined,
+          variations: commerceNew.variations?.length ? commerceNew.variations : undefined,
+          conditionalRules: Array.isArray(dp.conditionalRules) ? dp.conditionalRules : undefined,
+          videoUrl: storyNew.video || undefined,
         });
       }
     });
@@ -649,10 +810,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const selectedProduct = mergedProducts.find(p => p.id === selectedProductId) || mergedProducts[0];
 
   const storeIdentity = useMemo(() => {
-    return readStoreIdentity(
-      tenant?.activeStore?.id || 'store-coffee',
-      tenant?.activeStore || { name: 'HiBrew KSA' }
-    );
+      if (!tenant?.activeStore?.id) return readStoreIdentity('', { name: '' });
+      return readStoreIdentity(tenant.activeStore.id, tenant.activeStore);
   }, [tenant?.activeStore?.id, tenant?.activeStore?.name, tenant?.activeStore?.logo, syncTick]);
 
   return (
@@ -706,10 +865,53 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
+/** Safe stub for admin page-builder / Vite HMR dual-module cases (never crash chrome). */
+const CART_STUB: CartContextType = {
+  cart: [],
+  cartCount: 0,
+  cartBump: false,
+  triggerFlyToCart: () => undefined,
+  cartTotal: 0,
+  cartVat: 0,
+  isMiniCartOpen: false,
+  setIsMiniCartOpen: () => undefined,
+  isSearchOpen: false,
+  setIsSearchOpen: () => undefined,
+  currentRoute: 'home',
+  previousRoute: 'home',
+  goBack: () => undefined,
+  selectedProductId: PRODUCTS[0]?.id || '',
+  selectedProduct: PRODUCTS[0] as Product,
+  products: PRODUCTS,
+  storeIdentity: undefined,
+  selectedPageSlug: 'privacy-policy',
+  countryNoticeVisible: false,
+  dismissCountryNotice: () => undefined,
+  language: 'AR',
+  setLanguage: () => undefined,
+  toggleLanguage: () => undefined,
+  user: { isLoggedIn: false, name: '', email: '', points: 0, orders: [] },
+  loginUser: () => undefined,
+  logoutUser: () => undefined,
+  lastOrder: null,
+  setLastOrder: () => undefined,
+  addToCart: () => undefined,
+  addCustomCornerToCart: () => undefined,
+  removeFromCart: () => undefined,
+  updateQuantity: () => undefined,
+  clearCart: () => undefined,
+  navigateTo: () => undefined,
+  showToast: () => undefined,
+  toastMessage: null,
+  appliedCoupon: null,
+  couponDiscount: 0,
+  applyCoupon: () => ({ success: false, message: '' }),
+  removeCoupon: () => undefined,
+};
+
 export const useCart = () => {
   const context = useContext(CartContext);
-  if (!context) {
-    throw new Error('useCart must be used within a CartProvider');
-  }
+  // Missing provider: builder canvas / HMR context split — return stub instead of white-screen.
+  if (!context) return CART_STUB;
   return context;
 };

@@ -561,8 +561,8 @@ export const MasterSEO: React.FC = () => {
           </h4>
           <p className="text-xs text-slate-600 leading-relaxed">
             {isAr
-              ? 'كل متجر يُنشأ على منصة Unityteck مزوّد مسبقًا بمخططات بيانات منظمة مخصصة للسوق السعودي:'
-              : 'Every store generated on the Unityteck platform is baked with Saudi-specific structured data schemas:'}
+              ? 'كل متجر يُنشأ على منصة سوق مزوّد مسبقًا بمخططات بيانات منظمة مخصصة للسوق السعودي:'
+              : 'Every store generated on Souq Platform includes Saudi-specific structured data schemas:'}
           </p>
           <ul className="text-xs text-slate-600 space-y-2">
             <li className="flex items-center gap-2">

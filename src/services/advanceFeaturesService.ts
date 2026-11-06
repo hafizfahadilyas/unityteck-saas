@@ -58,26 +58,26 @@ export const DEFAULT_ADVANCE_FEATURES: AdvanceFeatureConfig[] = [
   },
   {
     id: 'canva_editing',
-    nameEn: 'Canva AI Graphic Studio & Editor',
-    nameAr: 'محرر كانفا واستوديو التصميم الذكي',
-    descriptionEn: 'Integrated Canva image editor, AI background remover, and banner designer inside Media and Products.',
-    descriptionAr: 'محرر صور كانفا المتكامل، ميزة إزالة الخلفيات بالذكاء الاصطناعي، وتصميم البنرات داخل الوسائط والمنتجات.',
+    nameEn: 'Canva Graphic Studio & KSA Templates',
+    nameAr: 'استوديو التصميم وقوالب السعودية',
+    descriptionEn: 'Editable KSA templates for products, categories, banners, and social ads. Save to Media Library. Free: 5 per category; Pro unlocks the rest.',
+    descriptionAr: 'قوالب سعودية قابلة للتعديل للمنتجات والتصنيفات والبنرات وإعلانات التواصل. الحفظ في مكتبة الوسائط. المجاني: ٥ لكل نوع؛ الباقي في برو.',
     category: 'media',
     iconName: 'Palette',
-    mode: 'coming_soon',
+    mode: 'active',
     comingSoonTagEn: 'Coming Soon',
     comingSoonTagAr: 'قريباً',
     badgeVariant: 'emerald',
   },
   {
     id: 'social_auto_posting',
-    nameEn: 'Social Media Automatic Posting',
-    nameAr: 'النشر التلقائي على منصات التواصل',
-    descriptionEn: 'Automated daily AI-scheduled posts to Instagram, TikTok, Snapchat, X, and Telegram channels.',
-    descriptionAr: 'جدولة ونشر تلقائي بالذكاء الاصطناعي للمنتجات والعروض على إنستغرام، تيك توك، سناب شات، إكس، وتيليجرام.',
+    nameEn: 'Social Media Publishing & Schedule',
+    nameAr: 'النشر والجدولة على منصات التواصل',
+    descriptionEn: 'Real Meta Graph connect for Instagram and Facebook per store. Schedule from Design Studio. Cron publishes due posts. No fake connected accounts.',
+    descriptionAr: 'ربط حقيقي عبر ميتا لإنستغرام وفيسبوك لكل متجر. جدولة من استوديو التصميم. الكرون ينشر المواعيد. بدون حسابات وهمية.',
     category: 'social',
     iconName: 'Share2',
-    mode: 'coming_soon',
+    mode: 'active',
     comingSoonTagEn: 'Coming Soon',
     comingSoonTagAr: 'قريباً',
     badgeVariant: 'amber',
@@ -133,6 +133,28 @@ export function getAdvanceFeatures(): AdvanceFeatureConfig[] {
     for (const def of DEFAULT_ADVANCE_FEATURES) {
       if (!ids.has(def.id)) {
         merged.push(def);
+      }
+    }
+    // Step 1–2 unlock: migrate stale Coming Soon Canva / Social → active (unless Master hid)
+    let migrated = false;
+    for (const id of ['canva_editing', 'social_auto_posting'] as const) {
+      const idx = merged.findIndex((f) => f.id === id);
+      if (idx >= 0 && merged[idx].mode === 'coming_soon') {
+        const def = DEFAULT_ADVANCE_FEATURES.find((d) => d.id === id);
+        merged[idx] = {
+          ...merged[idx],
+          ...(def || {}),
+          mode: 'active',
+          updatedAt: new Date().toISOString(),
+        };
+        migrated = true;
+      }
+    }
+    if (migrated) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      } catch {
+        /* ignore */
       }
     }
     cachedRegistry = merged;

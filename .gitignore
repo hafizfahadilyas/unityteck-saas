@@ -54,3 +54,7 @@ ehthumbs.db
 .tmp/
 tmp/
 server.js
+_chrome_profile*/
+_vite_*.log
+_vite_pid.txt
+_diag_*.mjs

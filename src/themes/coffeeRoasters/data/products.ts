@@ -27,7 +27,7 @@ export const PRODUCTS: Product[] = [
     basePrice: 1899,
     originalPrice: 2299,
     badge: 'Flagship Barista Pro',
-    specComparisonImage: '/src/assets/images/hibrew_specs_comparison_infographic.png',
+    specComparisonImage: '/images/hibrew_specs_comparison_infographic.png',
     reviewCount: 384,
     rating: 4.96,
     heroBanner: {
@@ -38,7 +38,7 @@ export const PRODUCTS: Product[] = [
       badgeEn: 'OFFICIAL KSA FLAGSHIP',
       badgeAr: 'الإصدار الرائد الرسمي بالمملكة',
       bgGradient: 'from-[#061838] via-[#092558] to-[#030d22]',
-      heroImage: './src/assets/images/hibrew_h7a_flagship_machine.png',
+      heroImage: '/images/hibrew_h7a_flagship_machine.png',
       featuresEn: [
         '20-Bar Italian ULKA Dual Pump',
         'Dual PID Independent Thermoblocks',
@@ -57,35 +57,35 @@ export const PRODUCTS: Product[] = [
         name: 'Brushed Steel',
         nameAr: 'ستانلس ستيل مصقول',
         hex: '#D1D5DB',
-        image: './src/assets/images/hibrew_h7a_flagship_machine.png',
+        image: '/images/hibrew_h7a_flagship_machine.png',
         priceDelta: 0
       },
       {
         name: 'Matte Obsidian',
         nameAr: 'أسود مطفي ملوكي',
         hex: '#18181B',
-        image: './src/assets/images/product_machine_compact_black.png',
+        image: '/images/product_machine_compact_black.png',
         priceDelta: 100
       },
       {
         name: 'Silver Chrome Pro',
         nameAr: 'فضي كروم احترافي',
         hex: '#9CA3AF',
-        image: './src/assets/images/flagship_coffee_machine_5th.png',
+        image: '/images/flagship_coffee_machine_5th.png',
         priceDelta: 200
       },
       {
         name: 'Classic Vintage',
         nameAr: 'كلاسيك فينتج فضي',
         hex: '#4B5563',
-        image: './src/assets/images/product_machine_silver_pro.png',
+        image: '/images/product_machine_silver_pro.png',
         priceDelta: 50
       },
       {
         name: 'Royal Heritage Bronze',
         nameAr: 'إصدار التراث الفاخر',
         hex: '#8C6239',
-        image: './src/assets/images/product_machine_delonghi_black.png',
+        image: '/images/product_machine_delonghi_black.png',
         priceDelta: 250
       }
     ],
@@ -116,7 +116,7 @@ export const PRODUCTS: Product[] = [
         nameAr: 'مطحنة بن هاي برو G5 بتروس مخروطية',
         price: 389,
         originalPrice: 599,
-        image: './src/assets/images/coffee_grinder_mill_banner_1791218928342.jpg'
+        image: '/images/coffee_grinder_mill_banner_1791218928342.jpg'
       },
       {
         id: 'bundle-boltfilter',
@@ -124,7 +124,7 @@ export const PRODUCTS: Product[] = [
         nameAr: 'بورتافلتر مكشوف 58مم خشب الجوز',
         price: 119,
         originalPrice: 189,
-        image: './src/assets/images/coffee_portafilter_boltfilter_1791218943846.jpg'
+        image: '/images/coffee_portafilter_boltfilter_1791218943846.jpg'
       }
     ],
     specs: [
@@ -136,10 +136,10 @@ export const PRODUCTS: Product[] = [
       { label: 'Pre-Infusion', value: 'Adjustable Low-Pressure Pre-Infusion (1-10s)', labelAr: 'الترطيب المسبق', valueAr: 'نظام ترطيب مسبق قابل للضبط لمنع قنوات التدفق' }
     ],
     images: [
-      './src/assets/images/hibrew_h7a_flagship_machine.png',
-      './src/assets/images/flagship_coffee_machine_5th.png',
-      './src/assets/images/product_machine_silver_pro.png',
-      './src/assets/images/product_machine_compact_black.png'
+      '/images/hibrew_h7a_flagship_machine.png',
+      '/images/flagship_coffee_machine_5th.png',
+      '/images/product_machine_silver_pro.png',
+      '/images/product_machine_compact_black.png'
     ],
     overview: 'Engineered for dedicated coffee connoisseurs: the HiBrew Barista Pro H7A delivers commercial café performance directly to your home. Features dual independent PID thermoblocks that extract thick golden espresso at calibrated 92-94°C while generating continuous dry microfoam steam simultaneously with authentic 20-bar Italian pressure.',
     overviewAr: 'ماكينة القهوة الأكثر طلباً في السعودية بارستا برو H7A من هاي برو. تجمع بين قوة الاستخلاص التجاري بنظام دبل بويلر مستقل يتيح تحضير الإسبريسو بالحرارة المضبوطة وتبخير الحليب المخملي في نفس اللحظة بضغط 20 بار إيطالي حقيقي ومقياس ضغط عقارب وبورتافلتر مقاس 58 ملم مطابق لمكائن المقاهي المختصة.',
@@ -152,7 +152,7 @@ export const PRODUCTS: Product[] = [
         titleAr: 'هندسة الدبل بويلر المستقل واستخلاص متزامن 20 بار',
         descriptionEn: 'Two independent electronic thermoblocks controlled by smart PID chips. Extract rich golden espresso and steam silky milk microfoam at the same time without temperature drops or wait time.',
         descriptionAr: 'وحدتا تسخين إلكترونيتان مستقلتان تعملان بتقنية PID الذكية؛ وحدة للاستخلاص عند حرارة 92°-94° مئوية، ووحدة مستقلة للتبخير الفوري عند 130° مئوية في آن واحد دون انخفاض في الضغط.',
-        image: './src/assets/images/hibrew_barista_pro_exploded_parts_1791364960592.jpg',
+        image: '/images/hibrew_barista_pro_exploded_parts_1791364960592.jpg',
         stats: [
           { labelEn: 'Pump Pressure', labelAr: 'قوة الضغط', value: '20-Bar ULKA' },
           { labelEn: 'Heating Units', labelAr: 'وحدات التسخين', value: 'Dual PID' },
@@ -167,7 +167,7 @@ export const PRODUCTS: Product[] = [
         titleAr: 'استخلاص حقيقي بمقبس تجاري 58 ملم وتدفق الكريمة المخملية',
         descriptionEn: 'Watch the thick golden espresso flow steadily at the 9-bar sweet spot. Low-pressure pre-infusion saturates the coffee puck uniformly, delivering zero channeling and café-grade body.',
         descriptionAr: 'شاهد تدفق الإسبريسو الذهبي الثخين عند ضغط 9-12 بار المثالي. يقوم نظام الترطيب المسبق بتشبيع البن تدريجياً لضمان استخلاص متجانس بدون أي قنوات مائية.',
-        image: './src/assets/images/coffee_making_crema_flow_1791221127339.jpg',
+        image: '/images/coffee_making_crema_flow_1791221127339.jpg',
         stats: [
           { labelEn: 'Portafilter Size', labelAr: 'مقاس البورتافلتر', value: '58.4mm' },
           { labelEn: 'Pre-Infusion', labelAr: 'الترطيب المسبق', value: '1-10s' },
@@ -182,7 +182,7 @@ export const PRODUCTS: Product[] = [
         titleAr: 'مقياس ضغط استخلاص حقيقي لمراقبة تدفق القهوة لحظياً',
         descriptionEn: 'Vintage analog pressure meter monitoring real extraction resistance between 9 and 15 bar in real-time, helping you dial in your grind size with laboratory precision.',
         descriptionAr: 'مؤشر عقارب كلاسيكي أنيق يعرض ضغط الاستخلاص الفعلي لحظة بلحظة؛ يمنحك رؤية فورية لمنطقة الاستخلاص الذهبي بين 9 و 12 بار للتأكد من تناسق طحنة البن وثبات النكهة في كل فنجان.',
-        image: './src/assets/images/hibrew_barista_pro_details_showcase_1791364980884.jpg',
+        image: '/images/hibrew_barista_pro_details_showcase_1791364980884.jpg',
         stats: [
           { labelEn: 'Optimal Zone', labelAr: 'المنطقة الذهبية', value: '9 – 12 Bar' },
           { labelEn: 'Max Pressure', labelAr: 'الضغط الأقصى', value: '20 Bar' },
@@ -197,7 +197,7 @@ export const PRODUCTS: Product[] = [
         titleAr: 'عصا تبخير تجارية 3 فتحات لتبخير حليب ميكروفوم ورسم اللاتيه آرت',
         descriptionEn: 'Dry 135°C steam injected through 3 laser-calibrated holes creates dense, silky microfoam in under 20 seconds. Perfect vortex swirl enables effortless latte art rosettas and swans.',
         descriptionAr: 'بخار جاف قوي عند 135° مئوية عبر 3 فتحات ليزرية دقيقة يحول الحليب إلى رغوة ميكروفوم حريرية لامعة خلال أقل من 20 ثانية، مما يمكنك من رسم أبدع تصاميم اللاتيه آرت بسهولة.',
-        image: './src/assets/images/barista_milk_steaming_1791363367164.jpg',
+        image: '/images/barista_milk_steaming_1791363367164.jpg',
         stats: [
           { labelEn: 'Steam Nozzle', labelAr: 'فتحات التبخير', value: '3-Hole Precision' },
           { labelEn: 'Steam Temp', labelAr: 'حرارة البخار', value: '135°C Dry' },
@@ -212,7 +212,7 @@ export const PRODUCTS: Product[] = [
         titleAr: 'هيكل ستانلس ستيل 304 فاخر وضمان شامل سنتين بالمملكة',
         descriptionEn: 'Constructed from heavy gauge 304 food-grade stainless steel with luxury walnut hardwood accents, backed by 2-year authorized agency warranty and immediate spare parts in KSA.',
         descriptionAr: 'هيكل معدني متين من الفولاذ المقاوم للصدأ 304 مع لمسات خشب الجوز الطبيعي وخزان مياه 2.5 لتر كبير، مدعوم بضمان الوكيل المعتمد في المملكة لمدة سنتين مع توفر كامل قطع الغيار والصيانة.',
-        image: './src/assets/images/coffee_machine_story_craft_1791221163767.jpg',
+        image: '/images/coffee_machine_story_craft_1791221163767.jpg',
         stats: [
           { labelEn: 'Agency Warranty', labelAr: 'ضمان الوكيل', value: '2 Years Full' },
           { labelEn: 'Water Tank', labelAr: 'سعة الخزان', value: '2.5L BPA-Free' },
@@ -233,7 +233,7 @@ export const PRODUCTS: Product[] = [
     basePrice: 1499,
     originalPrice: 1899,
     badge: 'Bestseller Pro',
-    specComparisonImage: '/src/assets/images/hibrew_specs_comparison_infographic.png',
+    specComparisonImage: '/images/hibrew_specs_comparison_infographic.png',
     reviewCount: 248,
     rating: 4.95,
     colors: [
@@ -241,7 +241,7 @@ export const PRODUCTS: Product[] = [
         name: 'Brushed Silver',
         nameAr: 'ستانلس ستيل مصقول',
         hex: '#E5E7EB',
-        image: './src/assets/images/product_machine_silver_pro.png'
+        image: '/images/product_machine_silver_pro.png'
       }
     ],
     storageOptions: [
@@ -256,7 +256,7 @@ export const PRODUCTS: Product[] = [
       { label: 'Grouphead', value: '58mm Commercial Stainless', labelAr: 'البورتافلتر', valueAr: 'مقبس تجاري 58 ملم' },
       { label: 'Heating', value: 'Rapid Thermoblock PID', labelAr: 'نظام التسخين', valueAr: 'ثيرموبلوك سريع مع تحكم PID' }
     ],
-    images: ['./src/assets/images/product_machine_silver_pro.png'],
+    images: ['/images/product_machine_silver_pro.png'],
     overview: 'HiBrew Barista Classic Pro brings cafe quality to your home with 20-bar Italian pump pressure and commercial 58mm grouphead.',
     overviewAr: 'ماكينة هايبرو بارستا كلاسيك برو تجمع بين فخامة الستانلس ستيل وضغط 20 بار فائق الدقة مع مقبض تجاري 58 ملم.'
   },
@@ -272,7 +272,7 @@ export const PRODUCTS: Product[] = [
     basePrice: 399,
     originalPrice: 549,
     badge: 'Compact Smart',
-    specComparisonImage: '/src/assets/images/hibrew_specs_comparison_infographic.png',
+    specComparisonImage: '/images/hibrew_specs_comparison_infographic.png',
     reviewCount: 312,
     rating: 4.91,
     colors: [
@@ -280,7 +280,7 @@ export const PRODUCTS: Product[] = [
         name: 'Matte Obsidian',
         nameAr: 'أسود مطفي ملوكي',
         hex: '#18181B',
-        image: './src/assets/images/product_machine_compact_black.png'
+        image: '/images/product_machine_compact_black.png'
       }
     ],
     storageOptions: [
@@ -294,7 +294,7 @@ export const PRODUCTS: Product[] = [
       { label: 'Warmup', value: 'Instant 25-Second Rapid Thermoblock', labelAr: 'سرعة التسخين', valueAr: 'جاهزة للتحضير خلال 25 ثانية' },
       { label: 'Reservoir', value: '0.8L Removable Transparent Tank', labelAr: 'سعة الخزان', valueAr: 'خزان شفاف سعة 800 مل' }
     ],
-    images: ['./src/assets/images/product_machine_compact_black.png'],
+    images: ['/images/product_machine_compact_black.png'],
     overview: 'Compact, versatile and fast. The HiBrew Compact Smart machine handles multiple capsule formats as well as fresh ground espresso.',
     overviewAr: 'تصميم أنيق ومدمج يناسب أي مساحة، يدعم كبسولات نسبريسو ودولتشي غوستو والبن المطحون بضغطة زر واحدة.'
   },
@@ -317,7 +317,7 @@ export const PRODUCTS: Product[] = [
         name: 'Piano Gloss Black',
         nameAr: 'أسود بيانو فاخر',
         hex: '#111827',
-        image: './src/assets/images/product_machine_drip_carafe.png'
+        image: '/images/product_machine_drip_carafe.png'
       }
     ],
     storageOptions: [
@@ -331,7 +331,7 @@ export const PRODUCTS: Product[] = [
       { label: 'Controls', value: 'Digital Touch LED Interface', labelAr: 'التحكم', valueAr: 'شاشة رقمية تعمل باللمس' },
       { label: 'Keep Warm', value: '2-Hour Auto Warming Plate', labelAr: 'حفظ الحرارة', valueAr: 'قاعدة تسخين تلقائية لمدة ساعتين' }
     ],
-    images: ['./src/assets/images/product_machine_drip_carafe.png'],
+    images: ['/images/product_machine_drip_carafe.png'],
     overview: 'Brew rich, aromatic drip coffee effortlessly for family and gatherings with precision temperature control and intuitive digital touch timer.',
     overviewAr: 'ماكينة التقطير الرقمية الذكية من هايبرو، تحضر القهوة المقطرة بأعلى معايير التوازن الحراري وتحافظ عليها دافئة وطازجة.'
   },
@@ -354,7 +354,7 @@ export const PRODUCTS: Product[] = [
         name: 'Charcoal Black',
         nameAr: 'أسود كربوني مع ستيل',
         hex: '#27272A',
-        image: './src/assets/images/product_machine_delonghi_black.png'
+        image: '/images/product_machine_delonghi_black.png'
       }
     ],
     storageOptions: [
@@ -374,7 +374,7 @@ export const PRODUCTS: Product[] = [
       { label: 'Dual Spout', value: 'Simultaneous 2-Cup Portafilter Spout', labelAr: 'مخرج مزدوج', valueAr: 'مخرج مزدوج لصب كوبين معاً' },
       { label: 'Steam Wand', value: 'Swivel Frothing Wand for Cappuccino', labelAr: 'التبخير', valueAr: 'عصا متحركة لتبخير الكابتشينو واللاتيه' }
     ],
-    images: ['./src/assets/images/product_machine_delonghi_black.png'],
+    images: ['/images/product_machine_delonghi_black.png'],
     overview: 'Classic retro espresso machine built for everyday reliability with dual cup extraction, stainless steel cup warmer, and high-performance steam wand.',
     overviewAr: 'الماكينة الكلاسيكية المحبوبة لتحضير الإسبريسو الإيطالي الأصيل مع مخرجين للصب وتبخير ممتاز للحليب ورغوة الكابتشينو.'
   },
@@ -442,7 +442,7 @@ export const HERO_SLIDES: HeroSlide[] = [
     titleAr: 'هاي برو دبل بويلر 20 بار الاحترافية',
     subtitle: 'Dual PID Thermoblock · 58mm Commercial Group · Golden Crema',
     subtitleAr: 'دبل بويلر واستخلاص إيطالي فاخر وبورتافلتر 58مم',
-    image: './src/assets/images/hibrew_h7a_flagship_machine.png',
+    image: '/images/hibrew_h7a_flagship_machine.png',
     videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-coffee-being-poured-into-a-cup-from-a-coffee-machine-42861-large.mp4',
     productId: 'hb-h10a-dualboiler'
   },
@@ -452,7 +452,7 @@ export const HERO_SLIDES: HeroSlide[] = [
     titleAr: 'ماكينة هايبرو بارستا كلاسيك 20 بار',
     subtitle: 'Dual Thermoblock · 58mm Portafilter · Italian ULKA Dual Pump',
     subtitleAr: 'استخلاص احترافي بضغط 20 بار وبورتافلتر 58مم مع مقياس ضغط عقارب',
-    image: './src/assets/images/product_machine_silver_pro.png',
+    image: '/images/product_machine_silver_pro.png',
     productId: 'hb-barista-silver-pro'
   },
   {
@@ -461,7 +461,7 @@ export const HERO_SLIDES: HeroSlide[] = [
     titleAr: 'ماكينة هايبرو سمارت المدمجة للكبسولات والإسبريسو',
     subtitle: '19-Bar Pressure · Rapid 25s Heating · Multi-Capsule Adapter',
     subtitleAr: 'ضغط 19 بار وتسخين سريع في 25 ثانية مع محولات متعددة لكافة الكبسولات',
-    image: './src/assets/images/product_machine_compact_black.png',
+    image: '/images/product_machine_compact_black.png',
     productId: 'hb-smart-capsule-compact'
   }
 ];

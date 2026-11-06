@@ -808,6 +808,80 @@ function formatBanner(array $row): array {
     ];
 }
 
+function resolveLiveStoreId(PDO $pdo, string $key): ?string {
+    $key = strtolower(trim($key));
+    if ($key === '') {
+        return null;
+    }
+    $stmt = $pdo->query('SELECT id, slug, domain, data FROM stores');
+    $alias = [
+        'flowers' => 'store-1',
+        'hadaya' => 'store-1',
+        'makkah' => 'store-1',
+        'giftshop' => 'store-1',
+        'giftshop-sa.com' => 'store-1',
+        'www.giftshop-sa.com' => 'store-1',
+        'coffee' => 'store-coffee',
+        'hibrew' => 'store-coffee',
+        'roasters' => 'store-coffee',
+        'car' => 'store-bleco',
+        'cars' => 'store-bleco',
+        'bleco' => 'store-bleco',
+    ];
+    $found = null;
+    while ($row = $stmt->fetch()) {
+        $id = strtolower((string)$row['id']);
+        $slug = strtolower((string)($row['slug'] ?? ''));
+        $domain = strtolower((string)($row['domain'] ?? ''));
+        if ($key === $id || ($slug !== '' && $key === $slug) || ($domain !== '' && $key === $domain)) {
+            return (string)$row['id'];
+        }
+        $data = json_decode((string)($row['data'] ?? ''), true);
+        if (is_array($data)) {
+            foreach (['domain', 'custom_domain', 'demo_domain', 'slug'] as $field) {
+                if (!empty($data[$field]) && strtolower((string)$data[$field]) === $key) {
+                    return (string)$row['id'];
+                }
+            }
+        }
+        if (isset($alias[$key]) && $alias[$key] === (string)$row['id']) {
+            $found = (string)$row['id'];
+        }
+    }
+    return $found;
+}
+
+function catalogPayload(PDO $pdo, string $storeId): array {
+    $stmt = $pdo->prepare("SELECT * FROM products WHERE store_id = :sid AND (status IS NULL OR status != 'archived') ORDER BY updated_at DESC, id ASC");
+    $stmt->execute([':sid' => $storeId]);
+    $products = [];
+    $categories = [];
+    while ($row = $stmt->fetch()) {
+        $products[] = formatProduct($row);
+        $label = trim((string)($row['category'] ?? ''));
+        $labelAr = trim((string)($row['category_ar'] ?? $label));
+        if ($label === '' && $labelAr === '') {
+            continue;
+        }
+        $cid = strtolower($label !== '' ? $label : $labelAr);
+        if (!isset($categories[$cid])) {
+            $categories[$cid] = [
+                'id' => $cid,
+                'name' => $label !== '' ? $label : $labelAr,
+                'name_ar' => $labelAr !== '' ? $labelAr : $label,
+                'count' => 0,
+            ];
+        }
+        $categories[$cid]['count']++;
+    }
+    return [
+        'data' => $products,
+        'categories' => array_values($categories),
+        'store_id' => $storeId,
+        'meta' => ['total' => count($products)],
+    ];
+}
+
 // ── ROUTER ──
 
 // 1. Health check
@@ -994,27 +1068,6 @@ if (preg_match('#^/categories/([^/]+)$#', $uri, $matches) && $method === 'DELETE
 // 5. Products Endpoints (CRUD)
 if ($uri === '/products' && $method === 'GET') {
     $effectiveStore = $storeId;
-    $count = (int)$pdo->query("SELECT COUNT(*) FROM products WHERE store_id = " . $pdo->quote($effectiveStore))->fetchColumn();
-    if ($count === 0 && $effectiveStore !== 'store-1') {
-        $baseStmt = $pdo->prepare("SELECT * FROM products WHERE store_id = 'store-1'");
-        $baseStmt->execute();
-        $ins = $pdo->prepare("
-            INSERT OR REPLACE INTO products (
-                id, store_id, name, name_ar, sku, price, original_price, stock, 
-                category, category_ar, image_url, gallery_urls, status, is_active, data, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-        ");
-        while ($baseRow = $baseStmt->fetch()) {
-            $newId = preg_replace('/^women-gift-|^prod-/', '', $baseRow['id']) . '-' . substr(md5($effectiveStore), 0, 4);
-            $ins->execute([
-                $newId, $effectiveStore, $baseRow['name'], $baseRow['name_ar'], $baseRow['sku'],
-                $baseRow['price'], $baseRow['original_price'], $baseRow['stock'],
-                $baseRow['category'], $baseRow['category_ar'], $baseRow['image_url'],
-                $baseRow['gallery_urls'], $baseRow['status'], $baseRow['is_active'],
-                $baseRow['data']
-            ]);
-        }
-    }
 
     $q = "SELECT * FROM products WHERE store_id = :storeId ORDER BY updated_at DESC, id ASC";
     $stmt = $pdo->prepare($q);
@@ -1690,6 +1743,92 @@ if ($uri === '/upload' && $method === 'POST') {
 
     http_response_code(400);
     echo json_encode(['error' => 'No file provided or invalid payload']);
+    exit;
+}
+
+// Public catalog. One store only. Never copies another store's products.
+if ($uri === '/storefront/catalog' && $method === 'GET') {
+    $key = trim((string)($_GET['store_id'] ?? $_GET['storeId'] ?? ''));
+    if ($key === '') {
+        http_response_code(422);
+        echo json_encode(['message' => 'store_id is required.']);
+        exit;
+    }
+    $resolved = resolveLiveStoreId($pdo, $key);
+    if ($resolved === null) {
+        http_response_code(404);
+        echo json_encode(['message' => 'Store not found.']);
+        exit;
+    }
+    echo json_encode(catalogPayload($pdo, $resolved));
+    exit;
+}
+
+if ($uri === '/storefront/resolve-domain' && $method === 'GET') {
+    $domain = strtolower(trim((string)($_GET['domain'] ?? '')));
+    $domain = preg_replace('#^https?://#', '', $domain);
+    $domain = explode('/', $domain)[0];
+    if (str_starts_with($domain, 'www.')) {
+        $domain = substr($domain, 4);
+    }
+    $resolved = $domain !== '' ? resolveLiveStoreId($pdo, $domain) : null;
+    if ($resolved === null) {
+        http_response_code(404);
+        echo json_encode([
+            'resolved' => false,
+            'domain' => $domain,
+            'message' => 'Domain is not bound to any active store.',
+        ]);
+        exit;
+    }
+    $st = $pdo->prepare('SELECT id, name, slug, domain, data FROM stores WHERE id = ?');
+    $st->execute([$resolved]);
+    $row = $st->fetch();
+    $data = json_decode((string)($row['data'] ?? ''), true);
+    if (!is_array($data)) {
+        $data = [];
+    }
+    echo json_encode([
+        'resolved' => true,
+        'store_id' => $resolved,
+        'store_slug' => (string)($row['slug'] ?? ''),
+        'store_name' => (string)($row['name'] ?? ''),
+        'domain' => $domain,
+        'domain_type' => 'custom',
+        'active_theme_id' => (string)($data['active_theme_id'] ?? $data['themeId'] ?? ''),
+        'store' => array_merge($data, [
+            'id' => $resolved,
+            'name' => (string)($row['name'] ?? ''),
+            'slug' => (string)($row['slug'] ?? ''),
+            'domain' => (string)($row['domain'] ?? $domain),
+        ]),
+    ]);
+    exit;
+}
+
+if ($uri === '/settings' && $method === 'GET') {
+    $key = trim((string)($_GET['store_id'] ?? $_GET['storeId'] ?? $storeId));
+    $resolved = resolveLiveStoreId($pdo, $key);
+    if ($resolved === null) {
+        http_response_code(404);
+        echo json_encode(['message' => 'Store not found.']);
+        exit;
+    }
+    $st = $pdo->prepare('SELECT data FROM stores WHERE id = ?');
+    $st->execute([$resolved]);
+    $data = json_decode((string)$st->fetchColumn(), true);
+    if (!is_array($data)) {
+        $data = [];
+    }
+    $section = (string)($_GET['id'] ?? 'branding');
+    $section = explode(':', $section)[0];
+    $payload = isset($data[$section]) && is_array($data[$section]) ? $data[$section] : $data;
+    echo json_encode([
+        'success' => true,
+        'store_id' => $resolved,
+        'id' => (string)($_GET['id'] ?? $section),
+        'data' => $payload,
+    ]);
     exit;
 }
 
