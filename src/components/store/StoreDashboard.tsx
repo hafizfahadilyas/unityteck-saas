@@ -68,27 +68,40 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
     return analyticsOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
   }, [analyticsOrders]);
 
+  // Real storefront visits only — never invent orders×N (zero-mock).
   const visitorsCount = useMemo(() => {
-    if (analyticsOrders.length === 0) return 0;
-    return Math.max(analyticsOrders.length * 4, Number(activeStore.visitorsCount) || 0);
-  }, [analyticsOrders.length, activeStore.visitorsCount]);
+    return Math.max(0, Number(activeStore.visitorsCount) || 0);
+  }, [activeStore.visitorsCount]);
 
+  // Profit stays 0 until real cost data exists — never invent a margin %.
   const estimatedProfit = useMemo(() => {
-    return liveRevenue > 0 ? Math.round(liveRevenue * 0.35) : 0;
-  }, [liveRevenue]);
+    const withCost = analyticsOrders.filter((o) => typeof (o as { cost?: number }).cost === 'number');
+    if (!withCost.length) return 0;
+    return Math.round(
+      withCost.reduce((s, o) => s + ((Number(o.total) || 0) - (Number((o as { cost?: number }).cost) || 0)), 0),
+    );
+  }, [analyticsOrders]);
 
   // Daily points for Sales vs Estimated Profit chart calculated from real orders
   const salesProfitPoints = useMemo<DailySalesProfitPoint[]>(() => {
     if (analyticsOrders.length > 0) {
-      const map = new Map<string, number>();
+      const map = new Map<string, { sales: number; profit: number; hasCost: boolean }>();
       analyticsOrders.forEach((o) => {
         const d = o.date ? o.date.slice(0, 10) : 'Recent';
-        map.set(d, (map.get(d) || 0) + (Number(o.total) || 0));
+        const prev = map.get(d) || { sales: 0, profit: 0, hasCost: false };
+        const total = Number(o.total) || 0;
+        const cost = (o as { cost?: number }).cost;
+        prev.sales += total;
+        if (typeof cost === 'number') {
+          prev.profit += total - cost;
+          prev.hasCost = true;
+        }
+        map.set(d, prev);
       });
-      const pts = Array.from(map.entries()).map(([date, total]) => ({
+      const pts = Array.from(map.entries()).map(([date, row]) => ({
         date: date.length > 5 ? date.slice(5) : date,
-        sales: total,
-        profit: Math.round(total * 0.35),
+        sales: row.sales,
+        profit: row.hasCost ? Math.round(row.profit) : 0,
         isLabelPoint: true,
       }));
       return pts.slice(0, 14);
@@ -118,54 +131,16 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
     return currentMonthDateRangeStr;
   }, [dateRange, isAr, currentMonthDateRangeStr]);
 
-  // Real day-of-week distribution computed from store orders
+  // Visits-by-day needs real storefront day buckets — do not fake from order counts.
   const visitsByDayPoints = useMemo(() => {
-    if (!currentOrders || currentOrders.length === 0) return [];
-    const dayCounts = [0, 0, 0, 0, 0, 0, 0]; // Sun(0) to Sat(6)
-    currentOrders.forEach((o) => {
-      const dateStr = o.createdAt || o.date;
-      if (dateStr) {
-        try {
-          const d = new Date(dateStr.includes(' ') ? dateStr.replace(' ', 'T') : dateStr);
-          if (!isNaN(d.getTime())) {
-            dayCounts[d.getDay()]++;
-          }
-        } catch {}
-      }
-    });
-    const total = dayCounts.reduce((a, b) => a + b, 0);
-    if (total === 0) return [];
+    return [] as Array<{ dayEn: string; dayAr: string; percentage: number; highlighted: boolean }>;
+  }, []);
 
-    const daysConfig = [
-      { dayEn: 'Saturday', dayAr: 'السبت', index: 6 },
-      { dayEn: 'Sunday', dayAr: 'الأحد', index: 0 },
-      { dayEn: 'Monday', dayAr: 'الاثنين', index: 1 },
-      { dayEn: 'Tuesday', dayAr: 'الثلاثاء', index: 2 },
-      { dayEn: 'Wednesday', dayAr: 'الأربعاء', index: 3 },
-      { dayEn: 'Thursday', dayAr: 'الخميس', index: 4 },
-      { dayEn: 'Friday', dayAr: 'الجمعة', index: 5 },
-    ];
-
-    let maxDayIdx = 6;
-    let maxVal = -1;
-    daysConfig.forEach((cfg) => {
-      if (dayCounts[cfg.index] > maxVal) {
-        maxVal = dayCounts[cfg.index];
-        maxDayIdx = cfg.index;
-      }
-    });
-
-    return daysConfig.map((cfg) => ({
-      dayEn: cfg.dayEn,
-      dayAr: cfg.dayAr,
-      percentage: Math.round((dayCounts[cfg.index] / total) * 100),
-      highlighted: cfg.index === maxDayIdx && maxVal > 0,
-    }));
-  }, [currentOrders]);
-
-  // Real traffic channels computed from store orders acquisition source
+  // Traffic channels need real visit counts — never invent visits from order×N.
+  // When storefront visits exist, order `source` mix is used only as channel share.
   const trafficChannels = useMemo(() => {
-    if (!currentOrders || currentOrders.length === 0) return [];
+    const realVisits = Math.max(0, Number(activeStore.visitorsCount) || 0);
+    if (realVisits <= 0 || !currentOrders || currentOrders.length === 0) return [];
     const sourceCounts: Record<string, number> = {};
     currentOrders.forEach((o) => {
       const src = o.source || 'Direct';
@@ -202,7 +177,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
         iconType: cfg.iconType,
       };
     });
-  }, [currentOrders]);
+  }, [currentOrders, activeStore.visitorsCount]);
 
   // Live product sales qty from real order line items (no hardcoded mock ranks)
   const salesByProductId = useMemo(() => {

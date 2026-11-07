@@ -2,6 +2,7 @@ import { isApiEnabled } from '../api/client';
 import { hasLiveApiAuth } from '../auth/session';
 import * as tenantApi from '../api/tenantApi';
 import type { Order } from '../types';
+import { trackStorefrontEvent } from './storefrontAnalytics';
 
 export type StorefrontOrderInput = {
   customerName: string;
@@ -14,6 +15,10 @@ export type StorefrontOrderInput = {
   paymentStatus?: string;
   source?: string;
   sourceDetails?: string;
+  medium?: string;
+  campaign?: string;
+  utmTerm?: string;
+  utmContent?: string;
   items?: Array<{ id: string; name: string; quantity: number; price: number }>;
 };
 
@@ -29,6 +34,10 @@ export function toStorefrontOrderPayload(data: StorefrontOrderInput): Record<str
     payment_status: 'pending',
     source: data.source,
     source_details: data.sourceDetails || data.source,
+    medium: data.medium || undefined,
+    campaign: data.campaign || undefined,
+    utm_term: data.utmTerm || undefined,
+    utm_content: data.utmContent || undefined,
     items: (data.items || []).map((i) => ({
       product_id: i.id,
       name: i.name,
@@ -52,18 +61,31 @@ export async function submitPublicStorefrontOrder(
   },
 ): Promise<Order> {
   if (isApiEnabled() && !hasLiveApiAuth()) {
-    if (typeof fetch !== 'undefined') {
-      void fetch('/api/storefront/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Store-Id': storeId },
-        body: JSON.stringify({
-          event: 'begin_checkout',
-          path: typeof location !== 'undefined' ? location.pathname : '',
-          source: data.source || 'Direct',
-        }),
-      }).catch(() => undefined);
-    }
+    const firstItem = data.items?.[0];
+    trackStorefrontEvent(storeId, 'begin_checkout', {
+      path: typeof location !== 'undefined' ? location.pathname : '',
+      meta: {
+        product_id: firstItem?.id,
+        product_name: firstItem?.name,
+        product_ids: (data.items || []).map((i) => i.id).filter(Boolean),
+        cart_total: data.total,
+      },
+    });
     const { order } = await tenantApi.createStorefrontOrder(storeId, toStorefrontOrderPayload(data));
+    const paid =
+      String(data.paymentStatus || '').toLowerCase() === 'paid' ||
+      String((order as { paymentStatus?: string }).paymentStatus || '').toLowerCase() === 'paid';
+    trackStorefrontEvent(storeId, 'purchase', {
+      path: typeof location !== 'undefined' ? location.pathname : '',
+      meta: {
+        order_id: order.id,
+        product_id: firstItem?.id,
+        product_name: firstItem?.name,
+        product_ids: (data.items || []).map((i) => i.id).filter(Boolean),
+        paid,
+        payment_method: data.paymentMethod,
+      },
+    });
     opts.syncOrderFromApi(order, storeId);
     return order;
   }

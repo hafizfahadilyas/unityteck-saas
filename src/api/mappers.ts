@@ -322,6 +322,49 @@ export function mapProduct(row: ApiProductRow): Product {
     customFields: mapCustomFields(row.custom_fields ?? row.customFields),
     conditionalRules: mapConditionalRules(row.conditional_rules ?? row.conditionalRules),
     variations: mapVariationRows(row.variations),
+    weightKg:
+      row.weight_kg === null || row.weight_kg === undefined || row.weight_kg === ''
+        ? null
+        : num(row.weight_kg),
+    shippingMode: (() => {
+      const mode = str(row.shipping_mode, '');
+      if (mode === 'own_delivery' || mode === 'shipping_company' || mode === 'store_default') {
+        return mode;
+      }
+      return null;
+    })(),
+    shippingMethodId:
+      row.shipping_method_id == null || row.shipping_method_id === ''
+        ? null
+        : str(row.shipping_method_id),
+    deliveryFee:
+      row.delivery_fee === null || row.delivery_fee === undefined || row.delivery_fee === ''
+        ? null
+        : num(row.delivery_fee),
+    estimatedDeliveryText:
+      row.estimated_delivery_text == null || row.estimated_delivery_text === ''
+        ? null
+        : str(row.estimated_delivery_text),
+    requiresOwnDriver: Boolean(row.requires_own_driver),
+    allowOwnDelivery: row.allow_own_delivery === undefined ? true : Boolean(row.allow_own_delivery),
+    allowShippingCompany:
+      row.allow_shipping_company === undefined ? true : Boolean(row.allow_shipping_company),
+    shippingRateMode: (() => {
+      const mode = str(row.shipping_rate_mode, '');
+      if (mode === 'fixed' || mode === 'per_kg' || mode === 'per_km' || mode === 'zone') return mode;
+      return null;
+    })(),
+    shippingPerKgRate:
+      row.shipping_per_kg_rate === null || row.shipping_per_kg_rate === undefined || row.shipping_per_kg_rate === ''
+        ? null
+        : num(row.shipping_per_kg_rate),
+    shippingPerKmRate:
+      row.shipping_per_km_rate === null || row.shipping_per_km_rate === undefined || row.shipping_per_km_rate === ''
+        ? null
+        : num(row.shipping_per_km_rate),
+    shippingPaymentOptions: Array.isArray(row.shipping_payment_options)
+      ? row.shipping_payment_options
+      : null,
   };
 }
 
@@ -369,6 +412,9 @@ function mapPaymentMethod(v: unknown): Order['paymentMethod'] {
   if (lower.includes('visa') || lower.includes('master') || lower === 'visa/mc') return 'Visa/MC';
   if (lower.includes('tabby')) return 'Tabby';
   if (lower.includes('tamara')) return 'Tamara';
+  if (lower.includes('bank') || lower.includes('transfer') || lower === 'bank_transfer') {
+    return 'Bank Transfer';
+  }
   if (lower.includes('cash') || lower.includes('cod')) return 'COD';
   return (
     PAYMENT_METHODS.find((x) => x.toLowerCase() === lower) ?? 'COD'
@@ -460,6 +506,16 @@ export function mapOrder(row: ApiOrderRow): Order {
     campaign: row.campaign != null ? str(row.campaign) : undefined,
     utmTerm: (row.utm_term ?? row.utmTerm) != null ? str(row.utm_term ?? row.utmTerm) : undefined,
     utmContent: (row.utm_content ?? row.utmContent) != null ? str(row.utm_content ?? row.utmContent) : undefined,
+    deliveryMode: rowAny.delivery_mode != null ? String(rowAny.delivery_mode) : undefined,
+    driverId: rowAny.driver_id != null ? String(rowAny.driver_id) : undefined,
+    bankAccountId: rowAny.bank_account_id != null ? String(rowAny.bank_account_id) : undefined,
+    paymentPlan: rowAny.payment_plan != null ? String(rowAny.payment_plan) : undefined,
+    amountPaid: rowAny.amount_paid != null ? num(rowAny.amount_paid) : undefined,
+    remainingBalance: rowAny.remaining_balance != null ? num(rowAny.remaining_balance) : undefined,
+    subtotal: rowAny.subtotal != null ? num(rowAny.subtotal) : undefined,
+    discountAmount: rowAny.discount_amount != null ? num(rowAny.discount_amount) : undefined,
+    shippingFee: rowAny.shipping_cost != null ? num(rowAny.shipping_cost) : (rowAny.shipping_fee != null ? num(rowAny.shipping_fee) : undefined),
+    tax: rowAny.tax != null ? num(rowAny.tax) : (rowAny.vat != null ? num(rowAny.vat) : undefined),
   };
 }
 
@@ -488,6 +544,17 @@ export function orderPatchToApi(patch: Record<string, unknown>): Record<string, 
   assign('refundAmount', 'refund_amount');
   assign('returnReason', 'return_reason');
   assign('returnNotes', 'return_notes');
+  // Delete / cancel reason from UI → persist on order before hard delete
+  if (src.cancelReason !== undefined) out.return_reason = src.cancelReason;
+  else if (src.cancel_reason !== undefined) out.return_reason = src.cancel_reason;
+  if (src.adminNotes !== undefined) out.return_notes = src.adminNotes;
+  else if (src.admin_notes !== undefined) out.return_notes = src.admin_notes;
+  assign('deliveryMode', 'delivery_mode');
+  assign('driverId', 'driver_id');
+  assign('bankAccountId', 'bank_account_id');
+  assign('paymentPlan', 'payment_plan');
+  assign('amountPaid', 'amount_paid');
+  assign('remainingBalance', 'remaining_balance');
   if (src.restock !== undefined) out.restock = src.restock;
 
   return out;

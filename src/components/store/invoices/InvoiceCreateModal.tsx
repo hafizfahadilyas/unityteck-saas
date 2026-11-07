@@ -10,6 +10,7 @@ import { getCustomerDisplayName, getLocalizedAddress } from '../../../utils/stor
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 import { generateZatcaTlvBase64 } from '../../../utils/zatca';
 import {
   X,
@@ -345,7 +346,11 @@ export const InvoiceCreateModal: React.FC<InvoiceCreateModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <GlobalModal
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'إنشاء وتوليد مستند جديد' : 'Generate New Document'}
+    >
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] text-slate-900 dark:text-white">
         {/* Modal Header */}
         <div className="h-16 px-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white dark:bg-slate-900/90">
@@ -545,7 +550,7 @@ export const InvoiceCreateModal: React.FC<InvoiceCreateModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-sky-700 dark:text-sky-300 mb-1">{isAr ? 'رقم التتبع (Tracking #)' : 'Tracking AWB'}</label>
+                <label className="block text-sky-700 dark:text-sky-300 mb-1">{isAr ? 'رقم التتبع / بوليصة الشحن' : 'Tracking AWB'}</label>
                 <input
                   type="text"
                   value={trackingNumber}
@@ -688,6 +693,6 @@ export const InvoiceCreateModal: React.FC<InvoiceCreateModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

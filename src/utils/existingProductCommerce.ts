@@ -2,9 +2,11 @@
  * Load the options, values, and spec fields a product already has.
  * Saved rows win. Empty rows are filled from real variation maps, then from
  * the coffee catalog that the storefront already sells. Nothing is invented.
+ * Missing Arabic labels are enriched from catalog / known bilingual map (locale rule).
  */
-import type { Product, ProductCustomField, ProductOptionDefinition, ProductVariation } from '../types';
+import type { Product, ProductCustomField, ProductOptionDefinition, ProductOptionValueItem, ProductVariation } from '../types';
 import { PRODUCTS } from '../themes/coffeeRoasters/data/products';
+import { resolveOptionNameAr, resolveOptionValueAr } from './localeLabel';
 
 function slug(raw: string): string {
   const s = String(raw || '')
@@ -38,6 +40,47 @@ const OPTION_NAME_AR: Record<string, string> = {
   edition: 'الإصدار',
 };
 
+function enrichValueAr(
+  value: ProductOptionValueItem,
+  catalogByLabel: Map<string, string>,
+): ProductOptionValueItem {
+  const label = String(value.label || '').trim();
+  const fromCatalog = catalogByLabel.get(label.toLowerCase());
+  const labelAr = resolveOptionValueAr(label, value.labelAr || fromCatalog);
+  return { ...value, labelAr: labelAr || value.labelAr };
+}
+
+function catalogLabelArMap(catalog: ProductOptionDefinition[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const opt of catalog) {
+    const vals = Array.isArray(opt.values) ? opt.values : [];
+    for (const raw of vals) {
+      if (typeof raw === 'string') continue;
+      const label = String(raw.label || '').trim().toLowerCase();
+      const ar = String(raw.labelAr || '').trim();
+      if (label && ar) map.set(label, ar);
+    }
+  }
+  return map;
+}
+
+function enrichOptionsAr(
+  options: ProductOptionDefinition[],
+  catalog: ProductOptionDefinition[],
+): ProductOptionDefinition[] {
+  const byLabel = catalogLabelArMap(catalog);
+  return options.map((opt) => {
+    const nameAr = resolveOptionNameAr(opt.name, opt.nameAr) || OPTION_NAME_AR[String(opt.name || '').toLowerCase()];
+    const values = (Array.isArray(opt.values) ? opt.values : []).map((raw) => {
+      if (typeof raw === 'string') {
+        return enrichValueAr({ id: slug(raw), label: raw, selected: true }, byLabel);
+      }
+      return enrichValueAr(raw, byLabel);
+    });
+    return { ...opt, nameAr: opt.nameAr || nameAr, values };
+  });
+}
+
 function optionsFromVariations(variations: ProductVariation[]): ProductOptionDefinition[] {
   const grouped = new Map<string, string[]>();
   for (const row of variations) {
@@ -55,12 +98,13 @@ function optionsFromVariations(variations: ProductVariation[]): ProductOptionDef
     options.push({
       id: slug(key),
       name: key,
-      nameAr: OPTION_NAME_AR[lower],
+      nameAr: OPTION_NAME_AR[lower] || resolveOptionNameAr(key),
       type: lower.includes('color') || key.includes('لون') ? 'color' : 'select',
       visible: true,
       values: labels.map((label) => ({
         id: slug(label),
         label,
+        labelAr: resolveOptionValueAr(label),
         selected: true,
       })),
     });
@@ -154,11 +198,18 @@ function savedOptions(product: Product): ProductOptionDefinition[] {
     if (!name || used.has(name.toLowerCase())) continue;
     const values = dedupeByLabel(
       (Array.isArray(opt.values) ? opt.values : []).map((value, index) => {
-        if (typeof value === 'string') return { id: slug(value), label: value, selected: true };
+        if (typeof value === 'string') {
+          return {
+            id: slug(value),
+            label: value,
+            labelAr: resolveOptionValueAr(value),
+            selected: true,
+          };
+        }
         return {
           id: value.id || slug(value.label) || `v_${index}`,
           label: value.label,
-          labelAr: value.labelAr,
+          labelAr: resolveOptionValueAr(value.label, value.labelAr),
           colorHex: value.colorHex,
           imageUrl: value.imageUrl,
           videoUrl: value.videoUrl,
@@ -177,7 +228,7 @@ function savedOptions(product: Product): ProductOptionDefinition[] {
     options.push({
       id: opt.id || slug(name),
       name,
-      nameAr: opt.nameAr,
+      nameAr: resolveOptionNameAr(name, opt.nameAr),
       type: opt.type,
       visible: opt.visible !== false,
       values,
@@ -191,10 +242,11 @@ export function seedExistingCommerce(product: Product, storeId: string): {
   fields: ProductCustomField[];
   variations: ProductVariation[];
 } {
-  const saved = savedOptions(product);
   const catalog = optionsFromCatalog(product, storeId);
+  const saved = savedOptions(product);
   const fromRows = optionsFromVariations(product.variations || []);
-  const options = saved.length > 0 ? saved : fromRows.length > 0 ? fromRows : catalog.options;
+  const base = saved.length > 0 ? saved : fromRows.length > 0 ? fromRows : catalog.options;
+  const options = enrichOptionsAr(base, catalog.options);
   const fields =
     Array.isArray(product.customFields) && product.customFields.length > 0
       ? product.customFields

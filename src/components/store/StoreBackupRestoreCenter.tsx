@@ -59,7 +59,7 @@ export const StoreBackupRestoreCenter: React.FC = () => {
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<'backup' | 'restore_migration' | 'snapshots' | 'guides'>('backup');
 
-  // Mode: In-place restore vs Migrate to 2nd Hostinger
+  // Mode: In-place restore vs Migrate to 2nd Host
   const [migrationMode, setMigrationMode] = useState<'local' | 'migrate_2nd'>('migrate_2nd');
 
   // Snapshots list
@@ -76,7 +76,7 @@ export const StoreBackupRestoreCenter: React.FC = () => {
       recordsCount: 2450,
       tablesCount: 28,
       status: 'healthy',
-      fileName: `hostinger_daily_${storeSlug}_20261008.sql`,
+      fileName: `hosting_daily_${storeSlug}_20261008.sql`,
     },
     {
       id: 'snap-2',
@@ -87,7 +87,7 @@ export const StoreBackupRestoreCenter: React.FC = () => {
       recordsCount: 2210,
       tablesCount: 28,
       status: 'verified',
-      fileName: `hostinger_weekly_${storeSlug}_20261001.sql`,
+      fileName: `hosting_weekly_${storeSlug}_20261001.sql`,
     },
     {
       id: 'snap-3',
@@ -98,12 +98,12 @@ export const StoreBackupRestoreCenter: React.FC = () => {
       recordsCount: 1890,
       tablesCount: 28,
       status: 'verified',
-      fileName: `hostinger_monthly_${storeSlug}_20260901.sql`,
+      fileName: `hosting_monthly_${storeSlug}_20260901.sql`,
     },
   ]);
 
   // Migration / Restore Form State
-  const [destHostingerDomain, setDestHostingerDomain] = useState(() => storeDomain);
+  const [destHostingDomain, setDestHostingDomain] = useState(() => storeDomain);
   const [destDbHost, setDestDbHost] = useState('srv1422.hstgr.io');
   const [destDbName, setDestDbName] = useState('u920689430_giftshop');
   const [destDbUser, setDestDbUser] = useState('u920689430_giftshop');
@@ -133,7 +133,7 @@ export const StoreBackupRestoreCenter: React.FC = () => {
 
     const manifest = {
       platform: 'UnityTeck Multi-Store SaaS',
-      version: '2.5.0-hostinger',
+      version: '2.5.0',
       store: {
         id: activeStore?.id,
         name: activeStore?.name,
@@ -144,7 +144,7 @@ export const StoreBackupRestoreCenter: React.FC = () => {
       },
       backup_timestamp: new Date().toISOString(),
       database: {
-        engine: 'Hostinger Cloud MySQL 8.0.35',
+        engine: 'Cloud MySQL 8.0.35',
         host: 'srv1422.hstgr.io',
         database: 'u920689430_giftshop',
         tables: ['stores', 'users', 'products', 'orders', 'customers', 'categories', 'coupons', 'settings', 'shipping_zones', 'themes_catalog'],
@@ -160,7 +160,7 @@ export const StoreBackupRestoreCenter: React.FC = () => {
       ],
     };
 
-    const sqlContent = `-- Hostinger Cloud MySQL Dump
+    const sqlContent = `-- Cloud MySQL Dump
 -- Multi-Tenant UnityTeck SaaS Store: ${activeStore.name} (${activeStore.id})
 -- Generated: ${new Date().toISOString()}
 -- Host: srv1422.hstgr.io
@@ -192,7 +192,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `unityteck_full_hostinger_backup_${storeSlug}_${Date.now()}.zip`;
+    a.download = `unityteck_full_hosting_backup_${storeSlug}_${Date.now()}.zip`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -201,7 +201,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
     toast(
       isAr
         ? 'تم تنزيل الحزمة الشاملة ZIP للاستضافة بنجاح!'
-        : 'Full Hostinger store ZIP bundle downloaded successfully!',
+        : 'Full store ZIP bundle downloaded successfully!',
       'success',
     );
   };
@@ -217,7 +217,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
       recordsCount: (allProducts[activeStore?.id]?.length || 10) + (allOrders[activeStore?.id]?.length || 15) + 80,
       tablesCount: 24,
       status: 'healthy',
-      fileName: `hostinger_manual_${storeSlug}_${Date.now()}.sql`,
+      fileName: `hosting_manual_${storeSlug}_${Date.now()}.sql`,
     };
     setSnapshots([newSnap, ...snapshots]);
     toast(
@@ -235,7 +235,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
     setProgressPercent(15);
     setMigrationComplete(false);
     setMigrationLogs([
-      `[${new Date().toLocaleTimeString()}] Initializing Hostinger all-in-one migration runner...`,
+      `[${new Date().toLocaleTimeString()}] Initializing Hosting all-in-one migration runner...`,
       `[${new Date().toLocaleTimeString()}] Target host: ${destDbHost} (${destDbName})`,
     ]);
 
@@ -245,7 +245,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
       setMigrationLogs((prev) => [
         ...prev,
         `[${new Date().toLocaleTimeString()}] Package unpacked. SHA-256 Checksum verified.`,
-        `[${new Date().toLocaleTimeString()}] Transferring assets to public_html on destination Hostinger server...`,
+        `[${new Date().toLocaleTimeString()}] Transferring assets to public_html on destination Hosting server...`,
       ]);
     }, 1100);
 
@@ -266,7 +266,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
       setMigrationLogs((prev) => [
         ...prev,
         `[${new Date().toLocaleTimeString()}] Re-pointing DNS zone records to destination IP (195.35.40.22)...`,
-        `[${new Date().toLocaleTimeString()}] Hostinger auto-issuing Let's Encrypt Wildcard SSL certificate...`,
+        `[${new Date().toLocaleTimeString()}] Hosting auto-issuing Let's Encrypt Wildcard SSL certificate...`,
       ]);
     }, 3400);
 
@@ -278,12 +278,12 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
       setMigrationLogs((prev) => [
         ...prev,
         `[${new Date().toLocaleTimeString()}] Cache pre-warmed. Health check: 200 OK.`,
-        `[${new Date().toLocaleTimeString()}] SUCCESS: Full store migrated and active on 2nd Hostinger!`,
+        `[${new Date().toLocaleTimeString()}] SUCCESS: Full store migrated and active on 2nd Host!`,
       ]);
       toast(
         isAr
-          ? 'اكتملت عملية النقل بنجاح! المتجر يعمل الآن بكفاءة على استضافة Hostinger الجديدة.'
-          : 'Migration complete! Store is now 100% active on the 2nd Hostinger hosting server.',
+          ? 'اكتملت عملية النقل بنجاح! المتجر يعمل الآن بكفاءة على استضافة Hosting الجديدة.'
+          : 'Migration complete! Store is now 100% active on the 2nd Host hosting server.',
         'success',
       );
     }, 4500);
@@ -312,19 +312,19 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                   color: '#10b981',
                 }}
               >
-                {isAr ? 'سحابة واستضافة Hostinger مع MySQL 8' : 'Hostinger MySQL 8 & Shared Cloud'}
+                {isAr ? 'سحابة يونيتيك مع قواعد بيانات آمنة' : 'Unityteck Cloud & Secure Database'}
               </span>
               <span className="text-[10px] opacity-50 font-mono">
                 ({isAr ? (activeStore?.nameAr || activeStore?.name || 'المتجر') : (activeStore?.nameEn || activeStore?.name || 'Store')})
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight mt-0.5">
-              {isAr ? 'مركز النسخ الاحتياطي والاستعادة ونقل المتاجر' : 'Hostinger Backup, Restore & Migration Center'}
+              {isAr ? 'مركز النسخ الاحتياطي والاستعادة ونقل المتاجر' : 'Backup, Restore & Migration Center'}
             </h1>
             <p className="text-xs opacity-70 mt-0.5">
               {isAr
-                ? 'تصدير حزم المتجر الكاملة بصيغة ZIP، إدارة النسخ الاحتياطية المجدولة، ونقل المتجر بين استضافات Hostinger بنقرة واحدة.'
-                : '1-click full store ZIP bundle, automated daily/weekly/monthly snapshots, and all-in-one migration to 2nd Hostinger.'}
+                ? 'تصدير حزم المتجر الكاملة بصيغة ZIP، إدارة النسخ الاحتياطية المجدولة، ونقل المتجر بين بيئات الاستضافة بنقرة واحدة.'
+                : '1-click full store ZIP bundle, automated daily/weekly/monthly snapshots, and all-in-one migration to a second hosting environment.'}
             </p>
           </div>
         </div>
@@ -382,7 +382,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
           style={activeTab === 'restore_migration' ? { background: 'var(--portal-cta)' } : {}}
         >
           <Rocket className="w-4 h-4" />
-          <span>{isAr ? 'الاستعادة والنقل إلى استضافة ثانية' : 'Restore & 2nd Hostinger Migration'}</span>
+          <span>{isAr ? 'الاستعادة والنقل إلى استضافة ثانية' : 'Restore & 2nd Host Migration'}</span>
         </button>
 
         <button
@@ -410,7 +410,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
           style={activeTab === 'guides' ? { background: 'var(--portal-cta)' } : {}}
         >
           <FileText className="w-4 h-4" />
-          <span>{isAr ? 'أدلة الربط خطوة بخطوة' : 'Hostinger Setup Guides'}</span>
+          <span>{isAr ? 'أدلة الربط خطوة بخطوة' : 'Setup Guides'}</span>
         </button>
       </div>
 
@@ -431,7 +431,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                   {isAr ? 'حزمة النسخ الاحتياطي الكاملة جاهزة' : 'All-In-One Backup Bundle Ready'}
                 </span>
                 <h3 className="text-lg font-black text-slate-900 dark:text-white mt-1">
-                  {isAr ? 'تنزيل نسخة احتياطية شاملة لمتجرك' : 'Download Complete Hostinger Store Archive (.zip)'}
+                  {isAr ? 'تنزيل نسخة احتياطية شاملة لمتجرك' : 'Download Complete Store Archive (.zip)'}
                 </h3>
                 <p className="text-xs opacity-70 mt-1 max-w-2xl leading-relaxed">
                   {isAr
@@ -508,8 +508,8 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                 </div>
                 <p className="text-[11px] opacity-70">
                   {isAr
-                    ? 'توجيهات DNS للنطاق المخصص ومفاتيح النشر السحابي Hostinger.'
-                    : 'Custom domain DNS routing and Hostinger shared public_html keys.'}
+                    ? 'توجيهات DNS للنطاق المخصص ومفاتيح النشر السحابي Hosting.'
+                    : 'Custom domain DNS routing and Hosting shared public_html keys.'}
                 </p>
               </div>
             </div>
@@ -518,11 +518,11 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
       )}
 
       {/* ═══════════════════════════════════════════════════════════════ */}
-      {/* ── TAB 2: RESTORE & 2ND HOSTINGER MIGRATION ── */}
+      {/* ── TAB 2: RESTORE & 2ND HOST MIGRATION ── */}
       {/* ═══════════════════════════════════════════════════════════════ */}
       {activeTab === 'restore_migration' && (
         <div className="space-y-6">
-          {/* Mode Switcher Toggle: In-place vs Migrate to 2nd Hostinger */}
+          {/* Mode Switcher Toggle: In-place vs Migrate to 2nd Host */}
           <div
             className="p-5 rounded-3xl border shadow-xs space-y-4"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
@@ -534,8 +534,8 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                 </h3>
                 <p className="text-xs opacity-70 mt-0.5">
                   {isAr
-                    ? 'الاستعادة في الخادم الحالي أو النقل الشامل إلى استضافة Hostinger ثانية (من خادم قديم إلى جديد).'
-                    : 'Rollback current store in-place or migrate all store assets & database to a second Hostinger account.'}
+                    ? 'الاستعادة في الخادم الحالي أو النقل الشامل إلى استضافة Hosting ثانية (من خادم قديم إلى جديد).'
+                    : 'Rollback current store in-place or migrate all store assets & database to a second Hosting account.'}
                 </p>
               </div>
 
@@ -561,7 +561,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                       : 'opacity-70 hover:opacity-100'
                   }`}
                 >
-                  {isAr ? 'النقل إلى Hostinger ثانٍ (Old ➔ New)' : 'Migrate to 2nd Hostinger (Old ➔ New)'}
+                  {isAr ? 'النقل إلى Hosting ثانٍ (Old ➔ New)' : 'Migrate to 2nd Host (Old ➔ New)'}
                 </button>
               </div>
             </div>
@@ -573,8 +573,8 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                   <ArrowLeftRight className="w-4 h-4" />
                   <span>
                     {isAr
-                      ? 'بيانات استضافة Hostinger المستهدفة (الخادم الثاني):'
-                      : 'Target Destination Hostinger Server Credentials:'}
+                      ? 'بيانات استضافة Hosting المستهدفة (الخادم الثاني):'
+                      : 'Target Destination Hosting Server Credentials:'}
                   </span>
                 </div>
 
@@ -585,8 +585,8 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                     </label>
                     <input
                       type="text"
-                      value={destHostingerDomain}
-                      onChange={(e) => setDestHostingerDomain(e.target.value)}
+                      value={destHostingDomain}
+                      onChange={(e) => setDestHostingDomain(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border focus:outline-none font-mono"
                       style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
                       placeholder="e.g. mystore2.com"
@@ -710,8 +710,8 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                       : 'Executing All-in-One Migration...'
                     : migrationMode === 'migrate_2nd'
                       ? isAr
-                        ? 'بدء النقل الشامل إلى Hostinger الثاني'
-                        : 'Start All-In-One Migration to 2nd Hostinger'
+                        ? 'بدء النقل الشامل إلى Hosting الثاني'
+                        : 'Start All-In-One Migration to 2nd Host'
                       : isAr
                         ? 'استعادة المتجر الآن'
                         : 'Restore Store Database Now'}
@@ -789,7 +789,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
               {/* Live Terminal Console Logs */}
               <div className="p-4 rounded-2xl bg-slate-950 text-slate-100 font-mono text-xs space-y-1 max-h-48 overflow-y-auto">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-[10px] opacity-60">
-                  <span>{isAr ? 'سجلات وحدة التحكم المباشرة // مشغل نقل HOSTINGER' : 'TERMINAL LOGS // HOSTINGER_MIGRATION_RUNNER'}</span>
+                  <span>{isAr ? 'سجلات وحدة التحكم المباشرة // مشغل النقل' : 'TERMINAL LOGS // MIGRATION_RUNNER'}</span>
                   <span>SSL TLSv1.3</span>
                 </div>
                 {migrationLogs.map((log, i) => (
@@ -819,8 +819,8 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                 </h3>
                 <p className="text-xs opacity-70 mt-0.5">
                   {isAr
-                    ? 'يتم أخذ نسخة احتياطية يومية وأسبوعية وشهرية تلقائياً من خادم Hostinger MySQL 8.0.'
-                    : 'Scheduled automated snapshots created via Hostinger cron jobs for daily, weekly, and monthly rollbacks.'}
+                    ? 'يتم أخذ نسخة احتياطية يومية وأسبوعية وشهرية تلقائياً من خادم Hosting MySQL 8.0.'
+                    : 'Scheduled automated snapshots created via Hosting cron jobs for daily, weekly, and monthly rollbacks.'}
                 </p>
               </div>
 
@@ -944,19 +944,19 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
       )}
 
       {/* ═══════════════════════════════════════════════════════════════ */}
-      {/* ── TAB 4: STEP-BY-STEP HOSTINGER SETUP GUIDES ── */}
+      {/* ── TAB 4: STEP-BY-STEP HOSTING SETUP GUIDES ── */}
       {/* ═══════════════════════════════════════════════════════════════ */}
       {activeTab === 'guides' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Guide 1: Hostinger hPanel MySQL Setup */}
+            {/* Guide 1: hosting panel MySQL Setup */}
             <div
               className="p-5 rounded-3xl border shadow-xs space-y-3"
               style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
             >
               <div className="flex items-center gap-2 text-xs font-bold text-blue-500">
                 <Database className="w-4 h-4" />
-                <span>{isAr ? '١. خطوات إعداد قاعدة بيانات Hostinger' : '1. Hostinger MySQL Database Setup'}</span>
+                <span>{isAr ? '١. خطوات إعداد قاعدة بيانات Hosting' : '1. Hosting MySQL Database Setup'}</span>
               </div>
               <h4 className="font-black text-sm text-slate-900 dark:text-white">
                 {isAr ? 'إنشاء قاعدة بيانات MySQL في hPanel' : 'Create MySQL Database in hPanel'}
@@ -964,7 +964,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
               <ol className="text-xs space-y-2 opacity-80 list-decimal list-inside leading-relaxed">
                 {isAr ? (
                   <>
-                    <li>سجّل الدخول إلى حسابك في <strong>لوحة تحكم Hostinger hPanel</strong>.</li>
+                    <li>سجّل الدخول إلى حسابك في <strong>لوحة تحكم hosting panel</strong>.</li>
                     <li>انتقل إلى قسم <strong>قواعد البيانات ➔ قواعد بيانات MySQL</strong>.</li>
                     <li>أدخل اسم قاعدة البيانات واسم المستخدم (مثل <code>u123456789_unityteck</code>).</li>
                     <li>عيّن كلمة مرور قوية واضغط على <strong>إنشاء</strong>.</li>
@@ -972,7 +972,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                   </>
                 ) : (
                   <>
-                    <li>Log in to your <strong>Hostinger hPanel</strong> account.</li>
+                    <li>Log in to your <strong>hosting panel</strong> account.</li>
                     <li>Navigate to <strong>Databases ➔ MySQL Databases</strong>.</li>
                     <li>Enter MySQL Database Name (e.g. <code>u123456789_unityteck</code>) and Username.</li>
                     <li>Set a secure password and click <strong>Create</strong>.</li>
@@ -997,24 +997,24 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                 <span>{isAr ? '٢. خطوات ربط النطاق المخصص DNS' : '2. Custom Domain & DNS Connection'}</span>
               </div>
               <h4 className="font-black text-sm text-slate-900 dark:text-white">
-                {isAr ? 'توجيه سجلات النطاق A و CNAME' : 'Point DNS Records to Hostinger'}
+                {isAr ? 'توجيه سجلات النطاق A و CNAME' : 'Point DNS Records to Hosting'}
               </h4>
               <ol className="text-xs space-y-2 opacity-80 list-decimal list-inside leading-relaxed">
                 {isAr ? (
                   <>
-                    <li>افتح لوحة تحكم مزود النطاق الخاص بك (Hostinger، المركز السعودي، GoDaddy).</li>
+                    <li>افتح لوحة تحكم مزود النطاق الخاص بك (Hosting، المركز السعودي، GoDaddy).</li>
                     <li>أضف سجل <strong>A Record</strong> يوجه <code>@</code> إلى عنوان الخادم <code>195.35.40.22</code>.</li>
                     <li>أضف سجل <strong>CNAME Record</strong> يوجه <code>www</code> إلى نطاق متجرك.</li>
                     <li>احفظ تغييرات منطقة DNS. تستغرق المزامنة من ٥ إلى ٣٠ دقيقة.</li>
-                    <li>تقوم Hostinger بإصدار شهادة أمان SSL Let's Encrypt مجاناً وتلقائياً.</li>
+                    <li>تقوم Hosting بإصدار شهادة أمان SSL Let's Encrypt مجاناً وتلقائياً.</li>
                   </>
                 ) : (
                   <>
-                    <li>Open your DNS registrar (Hostinger, SaudiNIC, GoDaddy).</li>
+                    <li>Open your DNS registrar (Hosting, SaudiNIC, GoDaddy).</li>
                     <li>Add an <strong>A Record</strong> pointing <code>@</code> to <code>195.35.40.22</code>.</li>
                     <li>Add a <strong>CNAME Record</strong> pointing <code>www</code> to your store domain.</li>
                     <li>Save DNS zone changes. Propagation takes 5-30 minutes.</li>
-                    <li>Hostinger automatically provisions free wildcard Let's Encrypt SSL.</li>
+                    <li>Hosting automatically provisions free wildcard Let's Encrypt SSL.</li>
                   </>
                 )}
               </ol>
@@ -1026,14 +1026,14 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
               </div>
             </div>
 
-            {/* Guide 3: 2nd Hostinger Migration Walkthrough */}
+            {/* Guide 3: 2nd Host Migration Walkthrough */}
             <div
               className="p-5 rounded-3xl border shadow-xs space-y-3"
               style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
             >
               <div className="flex items-center gap-2 text-xs font-bold text-purple-500">
                 <Rocket className="w-4 h-4" />
-                <span>{isAr ? '٣. دليل النقل الشامل إلى استضافة ثانية' : '3. 2nd Hostinger Migration Walkthrough'}</span>
+                <span>{isAr ? '٣. دليل النقل الشامل إلى استضافة ثانية' : '3. 2nd Host Migration Walkthrough'}</span>
               </div>
               <h4 className="font-black text-sm text-slate-900 dark:text-white">
                 {isAr ? 'نقل المتجر بالكامل دون توقف' : 'Zero-Downtime Storefront Migration'}
@@ -1042,7 +1042,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                 {isAr ? (
                   <>
                     <li>قم بتحميل حزمة النسخة الاحتياطية الكاملة ZIP من التبويب الأول.</li>
-                    <li>في حساب استضافة Hostinger الثاني، أنشئ موقعاً وقاعدة بيانات جديدة.</li>
+                    <li>في حساب استضافة Hosting الثاني، أنشئ موقعاً وقاعدة بيانات جديدة.</li>
                     <li>انتقل إلى التبويب الثاني (الاستعادة والنقل) واختر <strong>النقل إلى استضافة ثانية</strong>.</li>
                     <li>أدخل اسم قاعدة البيانات واسم المستخدم وكلمة المرور للخادم الجديد.</li>
                     <li>اضغط على <strong>بدء النقل الشامل</strong> وتابع شريط التقدم المباشر.</li>
@@ -1050,8 +1050,8 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                 ) : (
                   <>
                     <li>Download the full store ZIP archive from Tab 1.</li>
-                    <li>On the 2nd Hostinger account, create a new website & database.</li>
-                    <li>Switch to Tab 2 (Restore & Migration) and select <strong>Migrate to 2nd Hostinger</strong>.</li>
+                    <li>On the 2nd Host account, create a new website & database.</li>
+                    <li>Switch to Tab 2 (Restore & Migration) and select <strong>Migrate to 2nd Host</strong>.</li>
                     <li>Input the 2nd server's database name, user, and password.</li>
                     <li>Click <strong>Start All-In-One Migration</strong> and watch the live progress bar.</li>
                   </>

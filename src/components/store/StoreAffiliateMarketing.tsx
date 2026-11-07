@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import {
   Users,
   ShoppingCart,
@@ -1220,7 +1221,12 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
 
       {/* Create New Opportunity Modal */}
       {showCreateOpportunityModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowCreateOpportunityModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إنشاء فرصة تسويقية جديدة' : 'Create New Opportunity'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 w-full max-w-lg p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-slate-800">
               <h3 className="text-base font-bold text-gray-900 dark:text-white">
@@ -1259,7 +1265,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
                     onChange={(e) => setNewOppType(e.target.value as 'fixed' | 'percentage')}
                     className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:border-teal-500"
                   >
-                    <option value="fixed">{isAr ? 'مبلغ ثابت (SAR)' : 'Fixed Amount (SAR)'}</option>
+                    <option value="fixed">{isAr ? 'مبلغ ثابت (ر.س)' : 'Fixed Amount (SAR)'}</option>
                     <option value="percentage">{isAr ? 'نسبة مئوية (%)' : 'Percentage (%)'}</option>
                   </select>
                 </div>
@@ -1267,7 +1273,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
                 <div>
                   <label className="block font-semibold text-gray-700 dark:text-gray-300 mb-1">
                     {newOppType === 'fixed'
-                      ? isAr ? 'المبلغ (SAR)' : 'Amount (SAR)'
+                      ? isAr ? 'المبلغ (ر.س)' : 'Amount (SAR)'
                       : isAr ? 'النسبة المئوية (%)' : 'Percentage (%)'}
                   </label>
                   <input
@@ -1341,12 +1347,17 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Add Partner Modal */}
       {showAddPartnerModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowAddPartnerModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إضافة مسوق شريك' : 'Add Affiliate Partner'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 w-full max-w-md p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-slate-800">
               <h3 className="text-base font-bold text-gray-900 dark:text-white">
@@ -1405,12 +1416,17 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Record Payment Modal */}
       {showRecordPaymentModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowRecordPaymentModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'تسجيل دفعة عمولة' : 'Record Payout'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 w-full max-w-md p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-slate-800">
               <h3 className="text-base font-bold text-gray-900 dark:text-white">
@@ -1427,7 +1443,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
             <form onSubmit={handleRecordPayment} className="space-y-4 text-xs">
               <div>
                 <label className="block font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  {isAr ? 'المبلغ المستحق (SAR) *' : 'Amount (SAR) *'}
+                  {isAr ? 'المبلغ المستحق (ر.س) *' : 'Amount (SAR) *'}
                 </label>
                 <input
                   type="number"
@@ -1448,8 +1464,8 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
                   onChange={(e) => setNewPayStatus(e.target.value as 'Paid' | 'Under Review')}
                   className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:border-teal-500"
                 >
-                  <option value="Paid">{isAr ? 'تم الدفع (Paid)' : 'Paid'}</option>
-                  <option value="Under Review">{isAr ? 'قيد المراجعة (Under Review)' : 'Under Review'}</option>
+                  <option value="Paid">{isAr ? 'تم الدفع' : 'Paid'}</option>
+                  <option value="Under Review">{isAr ? 'قيد المراجعة' : 'Under Review'}</option>
                 </select>
               </div>
 
@@ -1470,7 +1486,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

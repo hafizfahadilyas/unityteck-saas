@@ -1,5 +1,7 @@
 /** Status / system page route helpers (public, Holst chrome). */
 
+import { isPublicStoreSlugPath } from '../utils/storefrontLinks';
+
 export type StatusKind =
   | 'hub'
   | '404'
@@ -51,6 +53,7 @@ export function isStatusPath(path: string): boolean {
 export function isKnownAppPath(path: string): boolean {
   const clean = path.replace(/\/$/, '') || '/';
   if (clean === '/') return true;
+  if (isPublicStoreSlugPath(clean)) return true;
   if (
     clean === '/admin' ||
     clean === '/admin/login' ||

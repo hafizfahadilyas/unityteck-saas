@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 import type { WhatsAppSettingsData, WhatsAppMessageItem } from '../../../types/whatsapp';
 import {
   fetchWhatsAppSettings,
@@ -934,7 +935,12 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
 
       {/* Meta API Credentials Modal */}
       {showCredsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowCredsModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'ربط حساب واتساب للأعمال عبر ميتا' : 'Connect Meta WhatsApp Business API'}
+        >
           <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800">
@@ -944,11 +950,11 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'ربط حساب Meta WhatsApp Business API' : 'Connect Meta WhatsApp Business API'}
+                    {isAr ? 'ربط حساب واتساب للأعمال عبر ميتا' : 'Connect Meta WhatsApp Business API'}
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     {isAr
-                      ? 'أدخل بياناتك من Meta for Developers لبدء الإرسال الفعلي'
+                      ? 'أدخل بياناتك من بوابة مطوري ميتا لبدء الإرسال الفعلي'
                       : 'Enter credentials from Meta for Developers to enable live sending'}
                   </p>
                 </div>
@@ -968,11 +974,11 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
               <div className="p-3 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 text-sky-900 dark:text-sky-200 space-y-1">
                 <div className="flex items-center gap-1.5 font-bold text-xs">
                   <ExternalLink className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                  <span>{isAr ? 'مجاني 100% من Meta' : '100% Free with Meta Developers'}</span>
+                  <span>{isAr ? 'مجاني بالكامل من ميتا' : '100% Free with Meta Developers'}</span>
                 </div>
                 <p className="text-[11px] text-sky-800 dark:text-sky-300 leading-relaxed">
                   {isAr
-                    ? 'توفر Meta باقة مجانية تتضمن 1000 محادثة شهرياً مجاناً ورقم اختبار تجريبي. يمكنك استخراج هذه المفاتيح في دقيقتين عبر '
+                    ? 'توفر ميتا باقة مجانية تتضمن ألف محادثة شهرياً مجاناً ورقم اختبار تجريبي. يمكنك استخراج هذه المفاتيح في دقيقتين عبر '
                     : 'Meta offers 1,000 free conversations per month and a free sandbox test phone. Get these keys from '}
                   <a
                     href="https://developers.facebook.com/apps"
@@ -988,7 +994,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
               {/* Phone Number ID */}
               <div className="space-y-1.5">
                 <label className="font-semibold text-slate-800 dark:text-slate-200 block">
-                  {isAr ? 'معرف رقم الهاتف (Phone Number ID) *' : 'Phone Number ID *'}
+                  {isAr ? 'معرف رقم الهاتف *' : 'Phone Number ID *'}
                 </label>
                 <input
                   type="text"
@@ -1002,7 +1008,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
               {/* WABA ID */}
               <div className="space-y-1.5">
                 <label className="font-semibold text-slate-800 dark:text-slate-200 block">
-                  {isAr ? 'معرف حساب واتساب للأعمال (WABA ID)' : 'WhatsApp Business Account ID (WABA ID)'}
+                  {isAr ? 'معرف حساب واتساب للأعمال' : 'WhatsApp Business Account ID (WABA ID)'}
                 </label>
                 <input
                   type="text"
@@ -1016,7 +1022,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
               {/* Access Token */}
               <div className="space-y-1.5">
                 <label className="font-semibold text-slate-800 dark:text-slate-200 block">
-                  {isAr ? 'رمز الوصول (Permanent / Temporary Access Token) *' : 'Access Token (System User / Temporary) *'}
+                  {isAr ? 'رمز الوصول الدائم أو المؤقت *' : 'Access Token (System User / Temporary) *'}
                 </label>
                 <textarea
                   rows={3}
@@ -1062,7 +1068,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

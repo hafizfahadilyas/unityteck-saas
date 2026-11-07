@@ -28,6 +28,7 @@ lerna-debug.log*
 *.pem
 *.key
 client_secret*.json
+public/seo-db.local.php
 
 # Backups & Database dumps
 backups/

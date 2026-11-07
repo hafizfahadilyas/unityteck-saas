@@ -1410,8 +1410,8 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
                 {isAr
-                  ? 'تشمل فتح السرعة الكاملة لاستوديو Canva AI، وجدولة السوشيال ميديا السريعة، ومحفظة إعلانات السعودية.'
-                  : 'Includes unlocked Canva AI Studio quota, fast Social Media auto-scheduling, and KSA Ad Manager wallet.'}
+                  ? 'تشمل فتح السرعة الكاملة لاستوديو التصميم بالذكاء الاصطناعي، وجدولة السوشيال ميديا السريعة، ومحفظة إعلانات السعودية.'
+                  : 'Includes unlocked Design Studio AI quota, fast Social Media auto-scheduling, and KSA Ad Manager wallet.'}
               </p>
             </div>
 

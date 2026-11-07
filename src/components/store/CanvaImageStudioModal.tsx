@@ -52,6 +52,8 @@ import {
   AlignRight,
   Bold,
   Italic,
+  Underline,
+  Strikethrough,
   LockKeyhole,
   Unlock,
   Package,
@@ -63,6 +65,7 @@ import {
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import type { MediaAsset } from '../../types/media';
 import {
   getStudioQuota,
@@ -78,6 +81,7 @@ import {
 } from '../../data/ksaCanvaTemplates';
 import { CanvaTemplatesPanel } from './CanvaTemplatesPanel';
 import { CanvaSocialPostModal } from './CanvaSocialPostModal';
+import '../../styles/canva-studio-light.css';
 
 export interface CanvaImageStudioModalProps {
   isOpen: boolean;
@@ -117,6 +121,10 @@ export interface CanvasElement {
   borderRadius?: number;
   isBold?: boolean;
   isItalic?: boolean;
+  /** light → black; preferred over isBold when set */
+  fontWeight?: 'light' | 'regular' | 'medium' | 'bold' | 'black';
+  underline?: boolean;
+  strikethrough?: boolean;
   textAlign?: 'left' | 'center' | 'right';
   badgeStyle?: 'pill' | 'solid' | 'gold_glow' | 'emerald_glow' | 'outline';
   icon?: string;
@@ -128,6 +136,14 @@ export interface CanvasElement {
   opacity?: number;
   imageUrl?: string;
   locked?: boolean;
+  /** Text / image drop shadow (on design, not UI chrome) */
+  shadowEnabled?: boolean;
+  shadowColor?: string;
+  shadowBlur?: number;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  flipH?: boolean;
+  flipV?: boolean;
 }
 
 // History snapshot for Undo / Redo
@@ -151,7 +167,7 @@ const STUDIO_BACKDROPS = [
   { id: 'transparent', labelEn: 'Transparent (PNG)', labelAr: 'شفاف بدون خلفية', css: 'checker', hex1: '', hex2: '' },
   { id: 'pure-white', labelEn: 'Pure Clean White', labelAr: 'أبيض ناصع', css: '#ffffff', hex1: '#ffffff', hex2: '#f8fafc' },
   { id: 'soft-ivory', labelEn: 'Soft Ivory Studio', labelAr: 'عاجي ناعم', css: 'linear-gradient(145deg, #faf8f5, #ebe4da)', hex1: '#faf8f5', hex2: '#ebe4da' },
-  { id: 'coffee-cream', labelEn: 'Coffee Cream Luxury', labelAr: 'كريمي قهوة فاخر', css: 'linear-gradient(160deg, #f7f1e8, #e8d5b7)', hex1: '#f7f1e8', hex2: '#e8d5b7' },
+  { id: 'coffee-cream', labelEn: 'Warm Cream', labelAr: 'كريمي دافئ', css: 'linear-gradient(160deg, #f7f1e8, #e8d5b7)', hex1: '#f7f1e8', hex2: '#e8d5b7' },
   { id: 'espresso-lux', labelEn: 'Espresso Soft Luxury', labelAr: 'إسبريسو فاخر ناعم', css: 'linear-gradient(160deg, #2a170e, #8b5a2b)', hex1: '#2a170e', hex2: '#8b5a2b' },
   { id: 'floral-blush', labelEn: 'Floral Blush', labelAr: 'وردي زهري', css: 'linear-gradient(160deg, #fff5f7, #f9a8d4)', hex1: '#fff5f7', hex2: '#f9a8d4' },
   { id: 'petal-ivory', labelEn: 'Petal Ivory', labelAr: 'بتلة عاجية', css: 'linear-gradient(160deg, #fffaf8, #fce7f3)', hex1: '#fffaf8', hex2: '#fce7f3' },
@@ -177,14 +193,14 @@ const PRESET_BADGES = [
 const QUICK_ICONS = [
   { id: 'phone', labelEn: 'Phone Call', labelAr: 'هاتف وتواصل', glyph: '📞' },
   { id: 'star', labelEn: '5-Star Rating', labelAr: 'نجمة تقييم', glyph: '⭐' },
-  { id: 'coffee', labelEn: 'Coffee Cup', labelAr: 'كوب قهوة', glyph: '☕' },
-  { id: 'shopping-bag', labelEn: 'Shopping Bag', labelAr: 'حقيبة تسوق', glyph: '🛍️' },
-  { id: 'heart', labelEn: 'Favorite Heart', labelAr: 'قلب إعجاب', glyph: '❤️' },
-  { id: 'flame', labelEn: 'Hot Trend', labelAr: 'عرض ناري', glyph: '🔥' },
-  { id: 'shield-check', labelEn: 'Guarantee', labelAr: 'ضمان معتمد', glyph: '🛡️' },
-  { id: 'truck', labelEn: 'Fast Truck', labelAr: 'شحن سريع', glyph: '🚚' },
-  { id: 'tag', labelEn: 'Discount Tag', labelAr: 'وسم تخفيض', glyph: '🏷️' },
-  { id: 'sparkles', labelEn: 'Magic Sparkles', labelAr: 'بريق الذكاء', glyph: '✨' },
+  { id: 'coffee', labelEn: 'Cup', labelAr: 'كوب', glyph: '☕' },
+  { id: 'shopping-bag', labelEn: 'Bag', labelAr: 'حقيبة', glyph: '🛍️' },
+  { id: 'heart', labelEn: 'Heart', labelAr: 'قلب', glyph: '❤️' },
+  { id: 'flame', labelEn: 'Fire', labelAr: 'نار', glyph: '🔥' },
+  { id: 'shield-check', labelEn: 'Shield', labelAr: 'درع', glyph: '🛡️' },
+  { id: 'truck', labelEn: 'Truck', labelAr: 'شاحنة', glyph: '🚚' },
+  { id: 'tag', labelEn: 'Tag', labelAr: 'وسم', glyph: '🏷️' },
+  { id: 'sparkles', labelEn: 'Sparkles', labelAr: 'بريق', glyph: '✨' },
   { id: 'check', labelEn: 'Verified Check', labelAr: 'علامة توثيق', glyph: '✅' },
   { id: 'zap', labelEn: 'Fast Flash', labelAr: 'برق فوري', glyph: '⚡' },
   { id: 'whatsapp', labelEn: 'WhatsApp', labelAr: 'واتساب', glyph: '💬' },
@@ -230,7 +246,15 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
   // Active Tool Tab
   const [activeTab, setActiveTab] = useState<
-    'templates' | 'elements' | 'text' | 'store_assets' | 'colors' | 'media' | 'filters' | 'bg_remove'
+    | 'templates'
+    | 'elements'
+    | 'text'
+    | 'layers'
+    | 'store_assets'
+    | 'colors'
+    | 'media'
+    | 'filters'
+    | 'bg_remove'
   >('templates');
 
   // Quota & Timer State
@@ -291,12 +315,12 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   // Undo / Redo History Stack
   const [history, setHistory] = useState<StudioHistorySnapshot[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const isHistoryActionRef = useRef(false);
+  const historyIndexRef = useRef(0);
 
-  // Helper: Get candidate URL
+  // Helper: Get candidate URL — store assets only, never another niche sample
   const resolveCandidateUrl = useCallback((asset?: MediaAsset | null): string => {
     if (!asset) {
-      return currentProducts[0]?.image || activeStore.logo || '/coffee-theme-refs/image15.png';
+      return currentProducts[0]?.image || activeStore.logo || '';
     }
     return (
       asset.originalUrl ||
@@ -305,11 +329,11 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       asset.optimizedUrl ||
       currentProducts[0]?.image ||
       activeStore.logo ||
-      '/coffee-theme-refs/image15.png'
+      ''
     );
   }, [currentProducts, activeStore.logo]);
 
-  // Load Image with Fallbacks
+  // Load Image — empty stays empty (no cross-tenant / coffee sample fallback)
   const loadStudioImage = useCallback((candidateUrl: string) => {
     if (!candidateUrl) {
       setLoadedImg(null);
@@ -327,17 +351,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       setImageLoading(false);
     };
     img.onerror = () => {
-      // Graceful fallback
-      const fallback = new Image();
-      fallback.crossOrigin = 'anonymous';
-      fallback.onload = () => {
-        setLoadedImg(fallback);
-        setImageLoading(false);
-      };
-      fallback.onerror = () => {
-        setImageLoading(false);
-      };
-      fallback.src = '/coffee-theme-refs/image15.png';
+      setLoadedImg(null);
+      setImageLoading(false);
     };
     img.src = candidateUrl;
   }, []);
@@ -438,90 +453,106 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
       },
     ]);
+    historyIndexRef.current = 0;
     setHistoryIndex(0);
   }, [isOpen, initialAsset, resolveCandidateUrl, loadStudioImage, isAr, activeStore]);
 
   // Snapshot State for Undo / Redo
-  const pushHistorySnapshot = useCallback(() => {
-    if (isHistoryActionRef.current) {
-      isHistoryActionRef.current = false;
-      return;
-    }
-    const snap: StudioHistorySnapshot = {
-      elements: JSON.parse(JSON.stringify(elements)),
-      productPos: { x: productPosX, y: productPosY, scale: productScale },
+  const pushHistorySnapshot = useCallback(
+    (overrideElements?: CanvasElement[]) => {
+      const snap: StudioHistorySnapshot = {
+        elements: JSON.parse(JSON.stringify(overrideElements ?? elements)),
+        productPos: { x: productPosX, y: productPosY, scale: productScale },
+        selectedBackdrop,
+        customSolidColor,
+        bgRemoved,
+        bgTolerance,
+        filters: { brightness, contrast, saturation, blur: blurAmount },
+      };
+      setHistory((prev) => {
+        const idx = historyIndexRef.current;
+        const next = [...prev.slice(0, idx + 1), snap].slice(-40);
+        historyIndexRef.current = next.length - 1;
+        setHistoryIndex(next.length - 1);
+        return next;
+      });
+    },
+    [
+      elements,
+      productPosX,
+      productPosY,
+      productScale,
       selectedBackdrop,
       customSolidColor,
       bgRemoved,
       bgTolerance,
-      filters: { brightness, contrast, saturation, blur: blurAmount },
-    };
-    setHistory((prev) => {
-      const next = [...prev.slice(0, historyIndex + 1), snap];
-      return next.slice(-30);
-    });
-    setHistoryIndex((prev) => Math.min(prev + 1, 29));
-  }, [
-    elements,
-    productPosX,
-    productPosY,
-    productScale,
-    selectedBackdrop,
-    customSolidColor,
-    bgRemoved,
-    bgTolerance,
-    brightness,
-    contrast,
-    saturation,
-    blurAmount,
-    historyIndex,
-  ]);
+      brightness,
+      contrast,
+      saturation,
+      blurAmount,
+    ],
+  );
+
+  const applyHistorySnap = useCallback((snap: StudioHistorySnapshot) => {
+    setElements(JSON.parse(JSON.stringify(snap.elements)));
+    setProductPosX(snap.productPos.x);
+    setProductPosY(snap.productPos.y);
+    setProductScale(snap.productPos.scale);
+    setSelectedBackdrop(snap.selectedBackdrop);
+    setCustomSolidColor(snap.customSolidColor);
+    setBgRemoved(snap.bgRemoved);
+    setBgTolerance(snap.bgTolerance);
+    setBrightness(snap.filters.brightness);
+    setContrast(snap.filters.contrast);
+    setSaturation(snap.filters.saturation);
+    setBlurAmount(snap.filters.blur);
+  }, []);
 
   // Undo Handler
-  const handleUndo = () => {
-    if (historyIndex <= 0) return;
-    isHistoryActionRef.current = true;
-    const nextIdx = historyIndex - 1;
+  const handleUndo = useCallback(() => {
+    const idx = historyIndexRef.current;
+    if (idx <= 0) return;
+    const nextIdx = idx - 1;
     const snap = history[nextIdx];
-    if (snap) {
-      setElements(JSON.parse(JSON.stringify(snap.elements)));
-      setProductPosX(snap.productPos.x);
-      setProductPosY(snap.productPos.y);
-      setProductScale(snap.productPos.scale);
-      setSelectedBackdrop(snap.selectedBackdrop);
-      setCustomSolidColor(snap.customSolidColor);
-      setBgRemoved(snap.bgRemoved);
-      setBgTolerance(snap.bgTolerance);
-      setBrightness(snap.filters.brightness);
-      setContrast(snap.filters.contrast);
-      setSaturation(snap.filters.saturation);
-      setBlurAmount(snap.filters.blur);
-      setHistoryIndex(nextIdx);
-    }
-  };
+    if (!snap) return;
+    applyHistorySnap(snap);
+    historyIndexRef.current = nextIdx;
+    setHistoryIndex(nextIdx);
+  }, [history, applyHistorySnap]);
 
   // Redo Handler
-  const handleRedo = () => {
-    if (historyIndex >= history.length - 1) return;
-    isHistoryActionRef.current = true;
-    const nextIdx = historyIndex + 1;
+  const handleRedo = useCallback(() => {
+    const idx = historyIndexRef.current;
+    if (idx >= history.length - 1) return;
+    const nextIdx = idx + 1;
     const snap = history[nextIdx];
-    if (snap) {
-      setElements(JSON.parse(JSON.stringify(snap.elements)));
-      setProductPosX(snap.productPos.x);
-      setProductPosY(snap.productPos.y);
-      setProductScale(snap.productPos.scale);
-      setSelectedBackdrop(snap.selectedBackdrop);
-      setCustomSolidColor(snap.customSolidColor);
-      setBgRemoved(snap.bgRemoved);
-      setBgTolerance(snap.bgTolerance);
-      setBrightness(snap.filters.brightness);
-      setContrast(snap.filters.contrast);
-      setSaturation(snap.filters.saturation);
-      setBlurAmount(snap.filters.blur);
-      setHistoryIndex(nextIdx);
-    }
-  };
+    if (!snap) return;
+    applyHistorySnap(snap);
+    historyIndexRef.current = nextIdx;
+    setHistoryIndex(nextIdx);
+  }, [history, applyHistorySnap]);
+
+  // Keyboard Undo / Redo
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      const key = e.key.toLowerCase();
+      if (key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if (key === 'y' || (key === 'z' && e.shiftKey)) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, handleUndo, handleRedo]);
 
   // Main Canvas Rendering Engine
   const renderCanvas = useCallback(() => {
@@ -640,10 +671,11 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     elements.forEach((el) => {
       ctx.save();
 
-      // Transform & Opacity
-      if (el.rotation) {
+      // Transform & Opacity (rotate / flip)
+      if (el.rotation || el.flipH || el.flipV) {
         ctx.translate(el.x, el.y);
-        ctx.rotate((el.rotation * Math.PI) / 180);
+        if (el.rotation) ctx.rotate((el.rotation * Math.PI) / 180);
+        ctx.scale(el.flipH ? -1 : 1, el.flipV ? -1 : 1);
         ctx.translate(-el.x, -el.y);
       }
       if (el.opacity !== undefined) {
@@ -778,7 +810,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
       // --- ICON ELEMENT ---
       if (el.type === 'icon') {
-        ctx.fillStyle = el.fontColor || '#ffffff';
+        ctx.fillStyle = el.fontColor || '#0f172a';
         ctx.font = `${el.fontSize || 32}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -795,12 +827,26 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         const h = el.height || 180;
         const cached = imageCacheRef.current[el.imageUrl];
         if (cached && cached.complete && cached.naturalWidth > 0) {
+          if (el.shadowEnabled) {
+            ctx.shadowColor = el.shadowColor || 'rgba(0,0,0,0.35)';
+            ctx.shadowBlur = el.shadowBlur ?? 12;
+            ctx.shadowOffsetX = el.shadowOffsetX ?? 0;
+            ctx.shadowOffsetY = el.shadowOffsetY ?? 4;
+          }
           if (el.borderRadius && el.borderRadius > 0) {
             ctx.beginPath();
             ctx.roundRect(el.x - w / 2, el.y - h / 2, w, h, el.borderRadius);
             ctx.clip();
           }
           ctx.drawImage(cached, el.x - w / 2, el.y - h / 2, w, h);
+          ctx.shadowColor = 'transparent';
+          if (el.strokeColor && (el.strokeWidth || 0) > 0) {
+            ctx.strokeStyle = el.strokeColor;
+            ctx.lineWidth = el.strokeWidth || 2;
+            ctx.beginPath();
+            ctx.roundRect(el.x - w / 2, el.y - h / 2, w, h, el.borderRadius || 0);
+            ctx.stroke();
+          }
         } else if (!imageCacheRef.current[el.imageUrl]) {
           const img = new Image();
           img.crossOrigin = 'anonymous';
@@ -822,7 +868,19 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       }
 
       const family = el.fontFamily || (isAr ? 'Tajawal' : 'Outfit');
-      ctx.font = `${el.isItalic ? 'italic ' : ''}${el.isBold ? '800' : '600'} ${el.fontSize}px "${family}", sans-serif`;
+      const weightMap: Record<NonNullable<CanvasElement['fontWeight']>, number> = {
+        light: 300,
+        regular: 400,
+        medium: 500,
+        bold: 700,
+        black: 900,
+      };
+      const numericWeight = el.fontWeight
+        ? weightMap[el.fontWeight]
+        : el.isBold
+          ? 800
+          : 500;
+      ctx.font = `${el.isItalic ? 'italic ' : ''}${numericWeight} ${el.fontSize}px "${family}", sans-serif`;
       ctx.textAlign = el.textAlign || 'center';
       ctx.textBaseline = 'middle';
 
@@ -852,10 +910,17 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
       // Draw Element Background Box
       if (el.bgColor && el.bgColor !== 'transparent') {
+        if (el.shadowEnabled) {
+          ctx.shadowColor = el.shadowColor || 'rgba(0,0,0,0.35)';
+          ctx.shadowBlur = el.shadowBlur ?? 10;
+          ctx.shadowOffsetX = el.shadowOffsetX ?? 0;
+          ctx.shadowOffsetY = el.shadowOffsetY ?? 3;
+        }
         ctx.fillStyle = el.bgColor;
         ctx.beginPath();
         ctx.roundRect(boxX, boxY, boxW, boxH, rad);
         ctx.fill();
+        ctx.shadowColor = 'transparent';
 
         if (el.badgeStyle === 'gold_glow') {
           ctx.strokeStyle = 'rgba(251, 191, 36, 0.7)';
@@ -868,12 +933,66 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         }
       }
 
-      // Draw Each Line of Text
-      ctx.fillStyle = el.fontColor || '#ffffff';
+      // Text border (stroke) + optional text shadow
+      if (el.shadowEnabled && (!el.bgColor || el.bgColor === 'transparent')) {
+        ctx.shadowColor = el.shadowColor || 'rgba(0,0,0,0.4)';
+        ctx.shadowBlur = el.shadowBlur ?? 8;
+        ctx.shadowOffsetX = el.shadowOffsetX ?? 1;
+        ctx.shadowOffsetY = el.shadowOffsetY ?? 2;
+      }
+
       const startY = el.y - totalH / 2 + lineH / 2;
       lines.forEach((line, idx) => {
-        ctx.fillText(line, el.x, startY + idx * lineH);
+        const ly = startY + idx * lineH;
+        if (el.strokeColor && (el.strokeWidth || 0) > 0) {
+          ctx.strokeStyle = el.strokeColor;
+          ctx.lineWidth = el.strokeWidth || 2;
+          ctx.lineJoin = 'round';
+          ctx.strokeText(line, el.x, ly);
+        }
+        ctx.fillStyle = el.fontColor || '#0f172a';
+        ctx.fillText(line, el.x, ly);
+
+        const metrics = ctx.measureText(line);
+        let lineLeft = el.x;
+        if (el.textAlign === 'center') lineLeft = el.x - metrics.width / 2;
+        else if (el.textAlign === 'right') lineLeft = el.x - metrics.width;
+        const lineRight = lineLeft + metrics.width;
+
+        if (el.underline) {
+          ctx.beginPath();
+          ctx.strokeStyle = el.fontColor || '#0f172a';
+          ctx.lineWidth = Math.max(1, el.fontSize * 0.06);
+          const uy = ly + el.fontSize * 0.45;
+          ctx.moveTo(lineLeft, uy);
+          ctx.lineTo(lineRight, uy);
+          ctx.stroke();
+        }
+        if (el.strikethrough) {
+          ctx.beginPath();
+          ctx.strokeStyle = el.fontColor || '#0f172a';
+          ctx.lineWidth = Math.max(1, el.fontSize * 0.06);
+          ctx.moveTo(lineLeft, ly);
+          ctx.lineTo(lineRight, ly);
+          ctx.stroke();
+        }
       });
+      ctx.shadowColor = 'transparent';
+
+      // Box border around text block when stroke set without fill badge
+      if (
+        el.strokeColor &&
+        (el.strokeWidth || 0) > 0 &&
+        el.bgColor &&
+        el.bgColor !== 'transparent' &&
+        !el.badgeStyle
+      ) {
+        ctx.strokeStyle = el.strokeColor;
+        ctx.lineWidth = el.strokeWidth || 2;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, rad);
+        ctx.stroke();
+      }
 
       ctx.restore();
     });
@@ -908,6 +1027,26 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       renderCanvas();
     }
   }, [isOpen, renderCanvas]);
+
+  // Keep drag / resize working when pointer leaves the design frame
+  useEffect(() => {
+    if (!isDraggingElement && !isDraggingProduct && !isResizingElement) return;
+    const onMove = (ev: MouseEvent | TouchEvent) => {
+      handlePointerMove(ev as unknown as React.MouseEvent);
+    };
+    const onUp = () => handlePointerUp();
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handlers close over latest state
+  }, [isDraggingElement, isDraggingProduct, isResizingElement]);
 
   // 1-Click AI Background Removal
   const handleAiRemoveBg = () => {
@@ -961,7 +1100,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       width: layer.widthPct ? Math.round(layer.widthPct * template.width) : 120,
       height: layer.heightPct ? Math.round(layer.heightPct * template.height) : 120,
       fontSize: layer.fontSize || 24,
-      fontColor: layer.fontColor || '#ffffff',
+      fontColor: layer.fontColor || '#0f172a',
       bgColor: layer.bgColor || 'transparent',
       bgPadding: layer.bgPadding ?? 14,
       borderRadius: layer.borderRadius ?? 16,
@@ -980,7 +1119,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
     setElements(mapped);
     setSelectedElementId(mapped[0]?.id || null);
-    setDocTitle(template.nameEn);
+    setDocTitle(isAr ? template.nameAr || template.nameEn : template.nameEn);
     pushHistorySnapshot();
     toast(
       isAr ? `تم تطبيق القالب: ${template.nameAr}` : `Template applied: ${template.nameEn}`,
@@ -1033,8 +1172,9 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     toast(isAr ? 'تمت إضافة الأيقونة بنجاح!' : 'Icon added to canvas!', 'info');
   };
 
-  // Quick Add Text Element
+  // Quick Add Text Element — black text on light canvas (Canva default)
   const handleAddTextElement = (type: CanvasElement['type'], defaultText: string) => {
+    const isFilled = type === 'price' || type === 'badge';
     const newEl: CanvasElement = {
       id: `el-${Date.now()}`,
       type,
@@ -1042,7 +1182,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       x: Math.round(canvasW / 2),
       y: Math.round(canvasH / 2) + (elements.length % 5) * 35,
       fontSize: type === 'headline' ? 38 : type === 'price' ? 30 : 20,
-      fontColor: '#ffffff',
+      fontColor: isFilled ? '#ffffff' : '#0f172a',
       bgColor: type === 'price' ? '#059669' : type === 'badge' ? '#e11d48' : 'transparent',
       bgPadding: 16,
       borderRadius: 20,
@@ -1053,7 +1193,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     setElements((prev) => [...prev, newEl]);
     setSelectedElementId(newEl.id);
     pushHistorySnapshot();
-    toast(isAr ? 'تمت إضافة النص إلى الكانفاس!' : 'Text added to canvas!', 'info');
+    toast(isAr ? 'تمت إضافة النص إلى التصميم!' : 'Text added to design!', 'info');
   };
 
   // Quick Add Badge Element
@@ -1104,12 +1244,18 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     pushHistorySnapshot();
   };
 
-  // Update selected element property
-  const updateSelectedElement = (updates: Partial<CanvasElement>) => {
+  // Update selected element — commit=true pushes undo snapshot
+  const updateSelectedElement = (updates: Partial<CanvasElement>, commit = true) => {
     if (!selectedElementId) return;
-    setElements((prev) =>
-      prev.map((el) => (el.id === selectedElementId ? { ...el, ...updates } : el)),
-    );
+    setElements((prev) => {
+      const next = prev.map((el) =>
+        el.id === selectedElementId ? { ...el, ...updates } : el,
+      );
+      if (commit) {
+        queueMicrotask(() => pushHistorySnapshot(next));
+      }
+      return next;
+    });
   };
 
   // Layer Ordering
@@ -1154,7 +1300,45 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     };
   };
 
+  const startElementResize = (
+    corner: 'nw' | 'ne' | 'sw' | 'se',
+    e: React.MouseEvent | React.TouchEvent,
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!selectedElementId) return;
+    const el = elements.find((x) => x.id === selectedElementId);
+    if (!el || el.locked) return;
+    const { x, y } = getCanvasCoords(e);
+    setIsResizingElement(true);
+    setResizeCorner(corner);
+    setIsDraggingElement(false);
+    setInitialResizeState({
+      startX: x,
+      startY: y,
+      elW: el.width || 120,
+      elH: el.height || 120,
+      fontSize: el.fontSize || 24,
+    });
+  };
+
+  const nudgeSelected = (dx: number, dy: number) => {
+    if (!selectedElementId) return;
+    setElements((prev) =>
+      prev.map((el) =>
+        el.id === selectedElementId
+          ? {
+              ...el,
+              x: Math.max(15, Math.min(canvasW - 15, el.x + dx)),
+              y: Math.max(15, Math.min(canvasH - 15, el.y + dy)),
+            }
+          : el,
+      ),
+    );
+  };
+
   const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
+    if (isResizingElement) return;
     const { x, y } = getCanvasCoords(e);
 
     // Hit test elements in reverse order
@@ -1204,8 +1388,36 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   };
 
   const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDraggingElement && !isDraggingProduct) return;
+    if (!isDraggingElement && !isDraggingProduct && !isResizingElement) return;
     const { x, y } = getCanvasCoords(e);
+
+    if (isResizingElement && selectedElementId && resizeCorner) {
+      const dx = x - initialResizeState.startX;
+      const dy = y - initialResizeState.startY;
+      const signX = resizeCorner.includes('e') ? 1 : -1;
+      const signY = resizeCorner.includes('s') ? 1 : -1;
+      const delta = Math.max(dx * signX, dy * signY);
+
+      setElements((prev) =>
+        prev.map((el) => {
+          if (el.id !== selectedElementId) return el;
+          if (el.type === 'image' || el.type === 'shape') {
+            return {
+              ...el,
+              width: Math.max(40, Math.round(initialResizeState.elW + delta)),
+              height: Math.max(40, Math.round(initialResizeState.elH + delta)),
+            };
+          }
+          return {
+            ...el,
+            fontSize: Math.max(12, Math.min(160, Math.round(initialResizeState.fontSize + delta * 0.35))),
+            width: Math.max(40, Math.round(initialResizeState.elW + delta)),
+            height: Math.max(24, Math.round(initialResizeState.elH + delta * 0.5)),
+          };
+        }),
+      );
+      return;
+    }
 
     if (isDraggingElement && selectedElementId) {
       const nextX = Math.max(15, Math.min(canvasW - 15, x - dragOffset.x));
@@ -1222,25 +1434,58 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   };
 
   const handlePointerUp = () => {
-    if (isDraggingElement || isDraggingProduct) {
+    if (isDraggingElement || isDraggingProduct || isResizingElement) {
       setIsDraggingElement(false);
       setIsDraggingProduct(false);
+      setIsResizingElement(false);
+      setResizeCorner(null);
       pushHistorySnapshot();
     }
   };
 
-  // Upload Local File
+  // Upload PNG/JPG/WebP as a selectable image layer (Canva-style)
   const handleUploadLocalFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
-      loadStudioImage(dataUrl);
-      setBgRemoved(false);
-      toast(isAr ? 'تم رفع صورتك بنجاح على الكانفاس!' : 'Image uploaded to canvas!', 'success');
+      const probe = new Image();
+      probe.onload = () => {
+        const maxSide = Math.min(canvasW, canvasH) * 0.45;
+        const ratio = Math.min(maxSide / probe.naturalWidth, maxSide / probe.naturalHeight, 1);
+        const w = Math.max(80, Math.round(probe.naturalWidth * ratio));
+        const h = Math.max(80, Math.round(probe.naturalHeight * ratio));
+        imageCacheRef.current[dataUrl] = probe;
+        const layer: CanvasElement = {
+          id: `img-${Date.now()}`,
+          type: 'image',
+          text: file.name.replace(/\.[^.]+$/, '') || (isAr ? 'صورة' : 'Image'),
+          imageUrl: dataUrl,
+          x: Math.round(canvasW / 2),
+          y: Math.round(canvasH / 2),
+          width: w,
+          height: h,
+          fontSize: 16,
+          fontColor: '#0f172a',
+          borderRadius: 0,
+          opacity: 1,
+        };
+        setElements((prev) => [...prev, layer]);
+        setSelectedElementId(layer.id);
+        pushHistorySnapshot();
+        toast(
+          isAr ? 'تمت إضافة الصورة كطبقة قابلة للتعديل!' : 'Image added as an editable layer!',
+          'success',
+        );
+      };
+      probe.onerror = () => {
+        toast(isAr ? 'تعذر قراءة الصورة.' : 'Could not read that image.', 'error');
+      };
+      probe.src = dataUrl;
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   // Export Canvas as High-Res Data URL
@@ -1257,7 +1502,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     if (!dataUrl) return;
     const a = document.createElement('a');
     a.href = dataUrl;
-    a.download = `${(docTitle || 'canva-design').toLowerCase().replace(/\s+/g, '-')}.${format}`;
+    a.download = `${(docTitle || 'studio-design').toLowerCase().replace(/\s+/g, '-')}.${format}`;
     a.click();
     toast(isAr ? 'تم تنزيل التصميم بجودة عالية!' : 'Design downloaded in high quality!', 'success');
   };
@@ -1282,39 +1527,43 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   const isPage = variant === 'page';
 
   const studioTabs = [
-    { id: 'templates' as const, label: isAr ? 'القوالب' : 'Templates', icon: Layers },
+    { id: 'templates' as const, label: isAr ? 'القوالب' : 'Templates', icon: FolderKanban },
     { id: 'elements' as const, label: isAr ? 'العناصر' : 'Elements', icon: Compass },
     { id: 'text' as const, label: isAr ? 'النص' : 'Text', icon: Type },
-    { id: 'store_assets' as const, label: isAr ? 'المتجر' : 'Store Assets', icon: Package },
-    { id: 'colors' as const, label: isAr ? 'الألوان' : 'Brand & Gradients', icon: Palette },
+    { id: 'layers' as const, label: isAr ? 'الطبقات' : 'Layers', icon: Layers },
+    { id: 'store_assets' as const, label: isAr ? 'المتجر' : 'Store', icon: Package },
+    { id: 'colors' as const, label: isAr ? 'الألوان' : 'Brand', icon: Palette },
     { id: 'media' as const, label: isAr ? 'الرفع' : 'Uploads', icon: Upload },
     { id: 'filters' as const, label: isAr ? 'الضبط' : 'Adjust', icon: Sliders },
   ];
 
+  const layerLabel = (el: CanvasElement) => {
+    if (el.type === 'image') return el.text || (isAr ? 'صورة' : 'Image');
+    if (el.type === 'shape') return isAr ? `شكل · ${el.shapeType || ''}` : `Shape · ${el.shapeType || ''}`;
+    if (el.type === 'icon') return isAr ? 'أيقونة' : 'Icon';
+    return (el.text || el.type).split('\n')[0].slice(0, 28) || el.type;
+  };
+
   if (!isOpen) return null;
 
-  return (
-    <div
-      className={
-        isPage
-          ? 'relative flex w-full h-[calc(100dvh-4.5rem)] min-h-[560px] font-sans'
-          : 'fixed inset-0 z-50 flex items-center justify-center p-0 font-sans bg-slate-950/80 backdrop-blur-md'
-      }
-    >
+  const studioPanel = (
       <div
-        className={`w-full overflow-hidden flex flex-col select-none ${
+        className={`canva-studio-light w-full overflow-hidden flex flex-col select-none ${
           isPage
             ? 'h-full min-h-0 rounded-none border-0'
-            : 'max-w-7xl h-[95vh] rounded-3xl border border-slate-700/60 shadow-2xl bg-slate-950 text-white'
+            : 'max-w-7xl h-[95vh] rounded-xl border border-slate-200 bg-white text-slate-900'
         }`}
-        style={{ background: '#090d16', color: '#f8fafc' }}
+        style={{ background: '#ffffff', color: '#111827' }}
       >
         {/* ── TOP CANVA NAVBAR ── */}
-        <div className="px-4 py-2.5 border-b border-slate-800 flex items-center justify-between gap-3 bg-slate-900/90 shrink-0">
-          {/* Left: Canva / Studio Brand & Editable Title */}
+        <div className="cs-header px-4 py-2.5 border-b border-slate-200 flex items-center justify-between gap-3 bg-white shrink-0">
+          {/* Left: Studio Brand & Editable Title */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 via-pink-600 to-indigo-600 text-white flex items-center justify-center shadow-md font-black text-sm">
-              C
+            <div
+              className="w-9 h-9 rounded-lg text-white flex items-center justify-center font-black text-sm cs-btn-primary"
+              style={{ background: 'var(--accent, #1d8b94)' }}
+            >
+              S
             </div>
 
             {/* Resize Button & Menu */}
@@ -1322,16 +1571,16 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowResizeMenu(!showResizeMenu)}
-                className="px-2.5 py-1.5 rounded-xl border border-slate-700 hover:border-slate-500 text-xs font-bold flex items-center gap-1.5 cursor-pointer bg-slate-800/80 text-slate-200"
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-slate-400 text-xs font-bold flex items-center gap-1.5 cursor-pointer bg-white text-slate-800"
               >
                 <span>{canvasW}×{canvasH}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
               </button>
 
               {showResizeMenu && (
-                <div className="absolute start-0 top-full mt-1.5 w-64 rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl p-2 z-50 space-y-1">
-                  <div className="text-[10px] font-black uppercase text-slate-400 px-2 py-1">
-                    {isAr ? 'تغيير أبعاد التصميم (كانفا)' : 'Canvas Resize Presets'}
+                <div className="absolute start-0 top-full mt-1.5 w-64 rounded-lg border border-slate-200 bg-white p-2 z-50 space-y-1">
+                  <div className="text-[10px] font-black uppercase text-slate-500 px-2 py-1">
+                    {isAr ? 'تغيير أبعاد التصميم' : 'Design size'}
                   </div>
                   {[
                     { label: 'Instagram Square (1:1)', w: 1080, h: 1080 },
@@ -1351,10 +1600,10 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                         setShowResizeMenu(false);
                         toast(isAr ? `تم تغيير المقاس إلى ${preset.w}×${preset.h}` : `Resized to ${preset.w}×${preset.h}`, 'info');
                       }}
-                      className="w-full px-2.5 py-1.5 rounded-xl text-start text-xs font-bold hover:bg-slate-800 flex items-center justify-between cursor-pointer"
+                      className="w-full px-2.5 py-1.5 rounded-lg text-start text-xs font-bold hover:bg-slate-100 flex items-center justify-between cursor-pointer text-slate-800"
                     >
                       <span className="truncate">{preset.label}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">{preset.w}×{preset.h}</span>
+                      <span className="text-[10px] text-slate-500 font-mono">{preset.w}×{preset.h}</span>
                     </button>
                   ))}
                 </div>
@@ -1370,33 +1619,34 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                 onBlur={() => setIsEditingTitle(false)}
                 onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)}
                 onChange={(e) => setDocTitle(e.target.value)}
-                className="px-2 py-1 rounded-lg border border-purple-500 bg-slate-950 text-xs font-bold text-white max-w-[220px]"
+                className="px-2 py-1 rounded-lg border bg-white text-xs font-bold text-slate-900 max-w-[220px] cs-accent-border"
+                style={{ borderColor: 'var(--accent, #1d8b94)' }}
               />
             ) : (
               <span
                 onClick={() => setIsEditingTitle(true)}
                 title={isAr ? 'انقر لتعديل اسم التصميم' : 'Click to edit title'}
-                className="text-xs font-bold text-slate-300 hover:text-white cursor-pointer px-1.5 py-1 rounded-md hover:bg-slate-800 transition-colors truncate max-w-[240px]"
+                className="text-xs font-bold text-slate-800 hover:text-slate-950 cursor-pointer px-1.5 py-1 rounded-md hover:bg-slate-100 transition-colors truncate max-w-[240px]"
               >
                 {docTitle} ✎
               </span>
             )}
 
             {/* Cloud Status */}
-            <span className="hidden sm:flex items-center gap-1 text-[11px] text-emerald-400">
+            <span className="hidden sm:flex items-center gap-1 text-[11px] cs-accent-text" style={{ color: 'var(--accent, #1d8b94)' }}>
               <Check className="w-3.5 h-3.5" />
               <span>{isAr ? 'محفوظ بالسحابة' : 'Saved to cloud'}</span>
             </span>
           </div>
 
           {/* Center: Undo & Redo */}
-          <div className="flex items-center gap-1 p-0.5 rounded-xl border border-slate-800 bg-slate-800/50">
+          <div className="flex items-center gap-1 p-0.5 rounded-lg border border-slate-200 bg-white">
             <button
               type="button"
               onClick={handleUndo}
               disabled={historyIndex <= 0}
-              className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 disabled:opacity-30 cursor-pointer"
-              title="Undo (Ctrl+Z)"
+              className="p-1.5 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 cursor-pointer"
+              title={isAr ? 'تراجع (Ctrl+Z)' : 'Undo (Ctrl+Z)'}
             >
               <Undo2 className="w-4 h-4" />
             </button>
@@ -1404,8 +1654,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               type="button"
               onClick={handleRedo}
               disabled={historyIndex >= history.length - 1}
-              className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 disabled:opacity-30 cursor-pointer"
-              title="Redo (Ctrl+Y)"
+              className="p-1.5 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 cursor-pointer"
+              title={isAr ? 'إعادة (Ctrl+Y)' : 'Redo (Ctrl+Y)'}
             >
               <Redo2 className="w-4 h-4" />
             </button>
@@ -1418,7 +1668,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleDownload('png')}
-                className="px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer text-slate-200"
+                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold flex items-center gap-1.5 cursor-pointer text-slate-800"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span className="hidden md:inline">{isAr ? 'تنزيل' : 'Export'}</span>
@@ -1426,19 +1676,23 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               <button
                 type="button"
                 onClick={handleSaveToMedia}
-                className="px-3 py-1.5 rounded-xl border border-emerald-500/50 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 cursor-pointer cs-active-soft"
+                style={{
+                  borderColor: 'var(--accent, #1d8b94)',
+                  color: 'var(--accent, #1d8b94)',
+                  background: 'color-mix(in srgb, var(--accent, #1d8b94) 12%, white)',
+                }}
               >
                 <Save className="w-3.5 h-3.5" />
                 <span className="hidden md:inline">{isAr ? 'حفظ بالمتجر' : 'Save to Media'}</span>
               </button>
             </div>
 
-            {/* REAL SOCIAL MEDIA PUBLISH BUTTON (CANVA SHARE STYLE) */}
             <button
               type="button"
               onClick={handleOpenSocialModal}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-black text-white shadow-lg flex items-center gap-1.5 cursor-pointer transition-all hover:scale-102 hover:brightness-110"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #ec4899)' }}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-black text-white flex items-center gap-1.5 cursor-pointer cs-btn-primary"
+              style={{ background: 'var(--accent, #1d8b94)' }}
             >
               <Share2 className="w-4 h-4" />
               <span>{isAr ? 'نشر في وسائل التواصل' : 'Post to Social Media'}</span>
@@ -1448,7 +1702,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1.5 rounded-xl border border-slate-700 text-slate-400 hover:text-white cursor-pointer"
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-900 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1458,8 +1712,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
         {/* ── MAIN WORKSPACE (LEFT DOCK + LEFT FLYOUT PANEL + CANVAS) ── */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Left Vertical Icon Dock (Canva Image 2 Style) */}
-          <div className="w-16 bg-slate-900 border-e border-slate-800 flex flex-col items-center py-2 gap-1 shrink-0 z-30">
+          {/* Left Vertical Icon Dock */}
+          <div className="cs-dock w-16 border-e flex flex-col items-center py-2 gap-1 shrink-0 z-30">
             {studioTabs.map((tab) => {
               const active = activeTab === tab.id;
               const Icon = tab.icon;
@@ -1468,10 +1722,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-14 py-2.5 px-1 rounded-2xl flex flex-col items-center justify-center gap-1 cursor-pointer transition-all text-center ${
-                    active
-                      ? 'bg-purple-600/20 text-purple-400 border border-purple-500/40 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  className={`w-14 py-2.5 px-1 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer transition-all text-center ${
+                    active ? 'cs-dock-active' : ''
                   }`}
                 >
                   <Icon className="w-5 h-5 shrink-0" />
@@ -1483,28 +1735,30 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
             })}
           </div>
 
-          {/* Left Flyout Subpanel */}
-          <div className="w-80 bg-slate-900/60 border-e border-slate-800/80 flex flex-col shrink-0 overflow-y-auto p-4 space-y-4">
+          {/* Left Flyout Subpanel — white / black like Canva */}
+          <div className="cs-flyout w-80 border-e border-slate-200 flex flex-col shrink-0 overflow-y-auto p-4 space-y-4 bg-white text-slate-900">
             {/* 1. TEMPLATES TAB */}
             {activeTab === 'templates' && (
-              <CanvaTemplatesPanel
-                store={activeStore}
-                isAr={isAr}
-                selectedTemplateId={selectedTemplateId}
-                activeImageUrl={activeImageUrl}
-                onApply={applyCanvaTemplate}
-                onRequestPro={() => {
-                  toast(
-                    isAr ? 'القوالب الإضافية متاحة مع باقة برو.' : 'Extra templates unlock with Pro.',
-                    'info',
-                  );
-                }}
-                onSelectFormatPreset={(w, h, label) => {
-                  setCanvasW(w);
-                  setCanvasH(h);
-                  toast(isAr ? `المقاس: ${label}` : `Canvas set to ${label}`, 'info');
-                }}
-              />
+              <div className="cs-templates-panel">
+                <CanvaTemplatesPanel
+                  store={activeStore}
+                  isAr={isAr}
+                  selectedTemplateId={selectedTemplateId}
+                  activeImageUrl={activeImageUrl}
+                  onApply={applyCanvaTemplate}
+                  onRequestPro={() => {
+                    toast(
+                      isAr ? 'القوالب الإضافية متاحة مع باقة برو.' : 'Extra templates unlock with Pro.',
+                      'info',
+                    );
+                  }}
+                  onSelectFormatPreset={(w, h, label) => {
+                    setCanvasW(w);
+                    setCanvasH(h);
+                    toast(isAr ? `المقاس: ${label}` : `Design size: ${label}`, 'info');
+                  }}
+                />
+              </div>
             )}
 
             {/* 2. ELEMENTS TAB (Shapes, Icons, Badges) */}
@@ -1558,7 +1812,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                       className="p-2.5 rounded-xl border border-blue-500/40 bg-blue-950/30 hover:bg-blue-900/40 text-blue-300 flex items-center justify-center gap-2 cursor-pointer font-bold text-xs"
                     >
                       <Compass className="w-4 h-4 text-blue-400" />
-                      <span>{isAr ? 'منحنى كانفا أزرق' : 'Canva Wave'}</span>
+                      <span>{isAr ? 'منحنى أزرق' : 'Wave curve'}</span>
                     </button>
                     <button
                       type="button"
@@ -1624,48 +1878,50 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
             {activeTab === 'text' && (
               <div className="space-y-4">
                 <span className="text-xs font-black uppercase text-slate-400">
-                  {isAr ? 'إضافة نصوص جديدة' : 'Add Text to Canvas'}
+                  {isAr ? 'إضافة نصوص جديدة' : 'Add text to design'}
                 </span>
                 <div className="space-y-2">
                   <button
                     type="button"
                     onClick={() => handleAddTextElement('headline', isAr ? 'عنوان عريض وجذاب' : 'Add a heading')}
-                    className="w-full py-3 px-4 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-base font-black text-white text-start flex items-center justify-between cursor-pointer"
+                    className="w-full py-3 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-base font-black text-slate-900 text-start flex items-center justify-between cursor-pointer"
                   >
                     <span>{isAr ? 'إضافة عنوان رئيسي' : 'Add a heading'}</span>
-                    <Plus className="w-4 h-4 text-purple-400" />
+                    <Plus className="w-4 h-4 text-violet-600" />
                   </button>
                   <button
                     type="button"
                     onClick={() => handleAddTextElement('subtitle', isAr ? 'وصف فرعي للمنتج والخدمة' : 'Add a subheading')}
-                    className="w-full py-2.5 px-4 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-sm font-semibold text-slate-200 text-start flex items-center justify-between cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-800 text-start flex items-center justify-between cursor-pointer"
                   >
                     <span>{isAr ? 'إضافة نص فرعي' : 'Add a subheading'}</span>
-                    <Plus className="w-4 h-4 text-purple-400" />
+                    <Plus className="w-4 h-4 text-violet-600" />
                   </button>
                   <button
                     type="button"
                     onClick={() => handleAddTextElement('custom_text', isAr ? 'نص توضيحي ومعلومات إضافية' : 'Add a little bit of body text')}
-                    className="w-full py-2 px-4 rounded-xl border border-slate-700 bg-slate-800/60 hover:bg-slate-700 text-xs text-slate-300 text-start flex items-center justify-between cursor-pointer"
+                    className="w-full py-2 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs text-slate-700 text-start flex items-center justify-between cursor-pointer"
                   >
                     <span>{isAr ? 'إضافة نص توضيحي' : 'Add body text'}</span>
-                    <Plus className="w-4 h-4 text-purple-400" />
+                    <Plus className="w-4 h-4 text-violet-600" />
                   </button>
                   <button
                     type="button"
                     onClick={() => handleAddTextElement('custom_text', isAr ? '• ميزة أولى\n• ميزة ثانية\n• ميزة ثالثة' : '• First feature\n• Second feature\n• Third feature')}
-                    className="w-full py-2 px-4 rounded-xl border border-slate-700 bg-slate-800/60 hover:bg-slate-700 text-xs text-slate-300 text-start flex items-center justify-between cursor-pointer"
+                    className="w-full py-2 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs text-slate-700 text-start flex items-center justify-between cursor-pointer"
                   >
                     <span>{isAr ? '• قائمة نقاط مميزات' : '• Bullet point list'}</span>
-                    <Plus className="w-4 h-4 text-purple-400" />
+                    <Plus className="w-4 h-4 text-violet-600" />
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleAddBadgeElement(isAr ? 'تواصل معنا' : "Let's Talk", '#ffffff', 'pill')}
-                    className="w-full py-2 px-4 rounded-xl border border-slate-700 bg-slate-800/60 hover:bg-slate-700 text-xs text-slate-300 text-start flex items-center justify-between cursor-pointer"
+                    onClick={() =>
+                      handleAddBadgeElement(isAr ? 'تواصل معنا' : "Let's Talk", '#1d8b94', 'pill')
+                    }
+                    className="w-full py-2 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs text-slate-700 text-start flex items-center justify-between cursor-pointer"
                   >
-                    <span>{isAr ? 'زر إجراء Call to Action' : 'CTA Button Pill'}</span>
-                    <Plus className="w-4 h-4 text-purple-400" />
+                    <span>{isAr ? 'زر إجراء' : 'CTA button'}</span>
+                    <Plus className="w-4 h-4 text-violet-600" />
                   </button>
                 </div>
 
@@ -1688,6 +1944,78 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                     ))}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* 3b. LAYERS — select / reorder / lock / delete like Canva */}
+            {activeTab === 'layers' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase text-slate-500">
+                    {isAr ? 'طبقات التصميم' : 'Design layers'}
+                  </span>
+                  <span className="text-[10px] text-slate-500">{elements.length}</span>
+                </div>
+                {elements.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-6 text-center">
+                    {isAr
+                      ? 'لا توجد طبقات بعد. أضف نصاً أو صورة أو عنصراً.'
+                      : 'No layers yet. Add text, an image, or an element.'}
+                  </p>
+                ) : (
+                  <div className="space-y-1.5 max-h-[min(520px,60vh)] overflow-y-auto pe-1">
+                    {[...elements].reverse().map((el) => {
+                      const active = selectedElementId === el.id;
+                      return (
+                        <button
+                          key={el.id}
+                          type="button"
+                          onClick={() => setSelectedElementId(el.id)}
+                          className={`cs-layer-row w-full px-2.5 py-2 rounded-lg text-start flex items-center gap-2 cursor-pointer ${
+                            active ? 'cs-layer-active' : ''
+                          }`}
+                        >
+                          <Layers className="w-3.5 h-3.5 shrink-0 text-violet-600" />
+                          <span className="flex-1 text-[11px] font-bold truncate text-slate-800">
+                            {layerLabel(el)}
+                          </span>
+                          {el.locked ? <LockKeyhole className="w-3 h-3 text-amber-500" /> : null}
+                          <button
+                            type="button"
+                            className="p-1 rounded text-rose-500 hover:bg-rose-50"
+                            title={isAr ? 'حذف' : 'Delete'}
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setElements((prev) => prev.filter((x) => x.id !== el.id));
+                              if (selectedElementId === el.id) setSelectedElementId(null);
+                              pushHistorySnapshot();
+                            }}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {selectedElementId && (
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={bringElementForward}
+                      className="flex-1 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                    >
+                      {isAr ? 'للأمام' : 'Forward'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={sendElementBackward}
+                      className="flex-1 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                    >
+                      {isAr ? 'للخلف' : 'Backward'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1777,7 +2105,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                       className="w-full p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-950/20 text-emerald-300 hover:bg-emerald-900/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <ImageIcon className="w-4 h-4" />
-                      <span>{isAr ? 'إدراج شعار المتجر على الكانفاس' : 'Insert Store Logo'}</span>
+                      <span>{isAr ? 'إدراج شعار المتجر على التصميم' : 'Insert store logo'}</span>
                     </button>
                   </div>
                 )}
@@ -1810,7 +2138,20 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                         background: bd.css === 'checker' ? '#1e293b' : bd.css,
                       }}
                     >
-                      <span className="text-[10px] font-black text-white drop-shadow-sm truncate">
+                      <span
+                        className="text-[10px] font-black truncate"
+                        style={{
+                          color:
+                            bd.id === 'soft-ivory' ||
+                            bd.id === 'coffee-cream' ||
+                            bd.id === 'checker' ||
+                            bd.css.includes('#f') ||
+                            bd.css.includes('#e') ||
+                            bd.css.includes('#fff')
+                              ? '#111827'
+                              : '#ffffff',
+                        }}
+                      >
                         {isAr ? bd.labelAr : bd.labelEn}
                       </span>
                     </button>
@@ -1900,26 +2241,26 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
             {/* 6. MEDIA & UPLOADS */}
             {activeTab === 'media' && (
               <div className="space-y-4">
-                {/* Upload Button */}
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-4 rounded-2xl border-2 border-dashed border-slate-700 hover:border-purple-500 bg-slate-800/40 hover:bg-purple-950/20 flex flex-col items-center justify-center text-center cursor-pointer transition-colors"
+                  className="p-4 rounded-xl border-2 border-dashed border-slate-300 hover:border-violet-500 bg-slate-50 hover:bg-violet-50 flex flex-col items-center justify-center text-center cursor-pointer transition-colors"
                 >
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/png,image/jpeg,image/webp,image/*"
                     className="hidden"
                     onChange={handleUploadLocalFile}
                   />
-                  <Upload className="w-6 h-6 text-purple-400 mb-1.5" />
-                  <span className="text-xs font-bold text-white">
-                    {isAr ? 'رفع صورة من جهازك' : 'Upload from Computer'}
+                  <Upload className="w-6 h-6 text-violet-600 mb-1.5" />
+                  <span className="text-xs font-bold text-slate-900">
+                    {isAr ? 'رفع صورة أو ملف بي إن جي' : 'Upload PNG / JPG / WebP'}
                   </span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">PNG, JPG, WebP</span>
+                  <span className="text-[10px] text-slate-500 mt-0.5">
+                    {isAr ? 'تُضاف كطبقة قابلة للسحب والتعديل' : 'Adds as a draggable editable layer'}
+                  </span>
                 </div>
 
-                {/* Media Search */}
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -1927,28 +2268,74 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                     value={mediaSearchQuery}
                     onChange={(e) => setMediaSearchQuery(e.target.value)}
                     placeholder={isAr ? 'بحث في الوسائط...' : 'Search media assets...'}
-                    className="w-full ps-8 pe-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-xs text-white"
+                    className="w-full ps-8 pe-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-900"
                   />
                 </div>
 
-                {/* Assets Grid */}
                 <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto pe-1">
-                  {currentMedia.map((asset) => {
-                    const imgUrl = asset.thumbnailUrl || asset.webpUrl || asset.originalUrl;
-                    return (
-                      <div
-                        key={asset.id}
-                        onClick={() => {
-                          loadStudioImage(imgUrl);
-                          toast(isAr ? 'تم تحميل الصورة!' : 'Image loaded on canvas!', 'info');
-                        }}
-                        className="aspect-square rounded-xl border border-slate-800 overflow-hidden cursor-pointer hover:border-purple-500 hover:scale-105 transition-all relative group bg-black/40"
-                      >
-                        <img src={imgUrl} alt={asset.fileName} className="w-full h-full object-cover" />
-                      </div>
-                    );
-                  })}
+                  {currentMedia
+                    .filter((asset) => {
+                      if (!mediaSearchQuery.trim()) return true;
+                      const q = mediaSearchQuery.toLowerCase();
+                      return (
+                        (asset.fileName || '').toLowerCase().includes(q) ||
+                        (asset.title || '').toLowerCase().includes(q)
+                      );
+                    })
+                    .map((asset) => {
+                      const imgUrl = asset.thumbnailUrl || asset.webpUrl || asset.originalUrl;
+                      return (
+                        <button
+                          key={asset.id}
+                          type="button"
+                          onClick={() => {
+                            const probe = new Image();
+                            probe.onload = () => {
+                              const maxSide = Math.min(canvasW, canvasH) * 0.4;
+                              const ratio = Math.min(
+                                maxSide / probe.naturalWidth,
+                                maxSide / probe.naturalHeight,
+                                1,
+                              );
+                              const w = Math.max(80, Math.round(probe.naturalWidth * ratio));
+                              const h = Math.max(80, Math.round(probe.naturalHeight * ratio));
+                              imageCacheRef.current[imgUrl] = probe;
+                              const layer: CanvasElement = {
+                                id: `img-${Date.now()}`,
+                                type: 'image',
+                                text: asset.title || asset.fileName || (isAr ? 'صورة' : 'Image'),
+                                imageUrl: imgUrl,
+                                x: Math.round(canvasW / 2),
+                                y: Math.round(canvasH / 2),
+                                width: w,
+                                height: h,
+                                fontSize: 16,
+                                fontColor: '#0f172a',
+                                borderRadius: 0,
+                                opacity: 1,
+                              };
+                              setElements((prev) => [...prev, layer]);
+                              setSelectedElementId(layer.id);
+                              pushHistorySnapshot();
+                              toast(
+                                isAr ? 'تمت إضافة الصورة كطبقة!' : 'Image added as a layer!',
+                                'success',
+                              );
+                            };
+                            probe.src = imgUrl;
+                          }}
+                          className="aspect-square rounded-lg border border-slate-200 overflow-hidden cursor-pointer hover:border-violet-500 relative group bg-slate-50"
+                        >
+                          <img src={imgUrl} alt={asset.fileName} className="w-full h-full object-cover" />
+                        </button>
+                      );
+                    })}
                 </div>
+                {currentMedia.length === 0 && (
+                  <p className="text-xs text-slate-500 text-center py-4">
+                    {isAr ? 'لا توجد وسائط في هذا المتجر بعد.' : 'No media in this store yet.'}
+                  </p>
+                )}
               </div>
             )}
 
@@ -1960,23 +2347,30 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                   type="button"
                   onClick={handleAiRemoveBg}
                   disabled={isProcessingAi}
-                  className="w-full py-2.5 px-4 rounded-xl text-xs font-black text-white shadow-md flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110"
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-black text-white flex items-center justify-center gap-2 cursor-pointer cs-btn-primary"
+                  style={{ background: 'var(--accent, #1d8b94)' }}
                 >
                   <Wand2 className="w-4 h-4" />
                   <span>
                     {isProcessingAi
-                      ? isAr ? 'جارٍ العزل الذكي...' : 'Removing BG...'
+                      ? isAr
+                        ? 'جارٍ إزالة الخلفية...'
+                        : 'Removing background...'
                       : bgRemoved
-                      ? isAr ? '✓ تم العزل الذكي (إعادة)' : '✓ Isolated (Re-run)'
-                      : isAr ? 'عزل الخلفية بالذكاء الاصطناعي' : '1-Click AI BG Removal'}
+                        ? isAr
+                          ? '✓ تمت إزالة الخلفية — إعادة'
+                          : '✓ Background removed — re-run'
+                        : isAr
+                          ? 'إزالة خلفية الصورة'
+                          : 'Remove image background'}
                   </span>
                 </button>
 
                 {/* Sliders */}
-                <div className="space-y-3 p-3 rounded-2xl border border-slate-800 bg-slate-800/40">
+                <div className="space-y-3 p-3 rounded-xl border border-slate-200 bg-slate-50">
                   <div className="space-y-1">
-                    <div className="flex justify-between text-[11px] font-bold text-slate-300">
-                      <span>{isAr ? 'السطوع (Brightness)' : 'Brightness'}</span>
+                    <div className="flex justify-between text-[11px] font-bold text-slate-700">
+                      <span>{isAr ? 'السطوع' : 'Brightness'}</span>
                       <span className="font-mono">{brightness}%</span>
                     </div>
                     <input
@@ -1990,8 +2384,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                   </div>
 
                   <div className="space-y-1">
-                    <div className="flex justify-between text-[11px] font-bold text-slate-300">
-                      <span>{isAr ? 'التباين (Contrast)' : 'Contrast'}</span>
+                    <div className="flex justify-between text-[11px] font-bold text-slate-700">
+                      <span>{isAr ? 'التباين' : 'Contrast'}</span>
                       <span className="font-mono">{contrast}%</span>
                     </div>
                     <input
@@ -2005,8 +2399,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                   </div>
 
                   <div className="space-y-1">
-                    <div className="flex justify-between text-[11px] font-bold text-slate-300">
-                      <span>{isAr ? 'التشبع (Saturation)' : 'Saturation'}</span>
+                    <div className="flex justify-between text-[11px] font-bold text-slate-700">
+                      <span>{isAr ? 'التشبع' : 'Saturation'}</span>
                       <span className="font-mono">{saturation}%</span>
                     </div>
                     <input
@@ -2020,8 +2414,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                   </div>
 
                   <div className="space-y-1">
-                    <div className="flex justify-between text-[11px] font-bold text-slate-300">
-                      <span>{isAr ? 'الضبابية (Blur)' : 'Blur'}</span>
+                    <div className="flex justify-between text-[11px] font-bold text-slate-700">
+                      <span>{isAr ? 'الضبابية' : 'Blur'}</span>
                       <span className="font-mono">{blurAmount}px</span>
                     </div>
                     <input
@@ -2034,21 +2428,20 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                     />
                   </div>
 
-                  {/* Flip Buttons */}
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <button
                       type="button"
                       onClick={() => setFlipH(!flipH)}
-                      className={`py-1.5 px-2 rounded-xl text-xs font-bold border ${flipH ? 'bg-purple-600 text-white' : 'border-slate-700 text-slate-300'}`}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold border ${flipH ? 'bg-violet-600 text-white border-violet-600' : 'border-slate-200 text-slate-700 bg-white'}`}
                     >
-                      Flip Horizontal
+                      {isAr ? 'قلب أفقياً' : 'Flip horizontal'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setFlipV(!flipV)}
-                      className={`py-1.5 px-2 rounded-xl text-xs font-bold border ${flipV ? 'bg-purple-600 text-white' : 'border-slate-700 text-slate-300'}`}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold border ${flipV ? 'bg-violet-600 text-white border-violet-600' : 'border-slate-200 text-slate-700 bg-white'}`}
                     >
-                      Flip Vertical
+                      {isAr ? 'قلب رأسياً' : 'Flip vertical'}
                     </button>
                   </div>
                 </div>
@@ -2057,19 +2450,27 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
           </div>
 
           {/* ── CANVAS WORKSPACE & CONTEXTUAL TOOLBAR ── */}
-          <div className="flex-1 flex flex-col justify-between p-3 sm:p-4 bg-slate-800/90 overflow-hidden min-w-0">
-            {/* FLOATING CONTEXTUAL TOOLBAR ABOVE CANVAS (CANVA IMAGE 2 STYLE) */}
-            <div className="mb-2 px-3 py-1.5 rounded-2xl border border-slate-800 bg-slate-900 shadow-md flex items-center justify-between gap-2 text-xs shrink-0 overflow-x-auto scrollbar-none">
+          <div className="cs-workspace flex-1 flex flex-col justify-between p-3 sm:p-4 overflow-hidden min-w-0">
+            {/* FLOATING CONTEXTUAL TOOLBAR ABOVE DESIGN */}
+            <div className="cs-toolbar mb-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-white flex items-center justify-between gap-2 text-xs shrink-0 overflow-x-auto scrollbar-none">
               {selectedElement ? (
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* Text Controls */}
+                  {/* Text edit */}
                   {selectedElement.type !== 'shape' && selectedElement.type !== 'image' && (
                     <>
-                      {/* Font Family Selector */}
+                      <input
+                        type="text"
+                        value={selectedElement.text}
+                        onChange={(e) => updateSelectedElement({ text: e.target.value }, false)}
+                        onBlur={() => pushHistorySnapshot()}
+                        className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-900 min-w-[120px] max-w-[200px]"
+                        placeholder={isAr ? 'تعديل النص...' : 'Edit text...'}
+                      />
                       <select
                         value={selectedElement.fontFamily || 'Outfit'}
                         onChange={(e) => updateSelectedElement({ fontFamily: e.target.value })}
-                        className="px-2 py-1 rounded-lg border border-slate-700 bg-slate-800 text-xs font-bold text-white"
+                        className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-800"
+                        title={isAr ? 'الخط' : 'Font'}
                       >
                         {CANVA_FONT_FAMILIES.map((f) => (
                           <option key={f.id} value={f.id}>
@@ -2077,31 +2478,34 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                           </option>
                         ))}
                       </select>
-
-                      {/* Font Size Decrement / Value / Increment */}
-                      <div className="flex items-center border border-slate-700 rounded-lg overflow-hidden bg-slate-800">
+                      <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white">
                         <button
                           type="button"
-                          onClick={() => updateSelectedElement({ fontSize: Math.max(12, selectedElement.fontSize - 2) })}
-                          className="px-2 py-1 hover:bg-slate-700 text-slate-300 font-black cursor-pointer"
+                          onClick={() =>
+                            updateSelectedElement({ fontSize: Math.max(12, selectedElement.fontSize - 2) })
+                          }
+                          className="px-2 py-1 hover:bg-slate-100 text-slate-700 font-black cursor-pointer"
                         >
                           -
                         </button>
-                        <span className="px-2 py-1 text-xs font-mono font-bold text-white min-w-[28px] text-center">
+                        <span className="px-2 py-1 text-xs font-mono font-bold text-slate-900 min-w-[28px] text-center">
                           {selectedElement.fontSize}
                         </span>
                         <button
                           type="button"
-                          onClick={() => updateSelectedElement({ fontSize: Math.min(130, selectedElement.fontSize + 2) })}
-                          className="px-2 py-1 hover:bg-slate-700 text-slate-300 font-black cursor-pointer"
+                          onClick={() =>
+                            updateSelectedElement({ fontSize: Math.min(160, selectedElement.fontSize + 2) })
+                          }
+                          className="px-2 py-1 hover:bg-slate-100 text-slate-700 font-black cursor-pointer"
                         >
                           +
                         </button>
                       </div>
-
-                      {/* Font Color */}
-                      <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg border border-slate-700 bg-slate-800" title="Text Color">
-                        <span className="text-[10px] text-slate-400">A</span>
+                      <div
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg border border-slate-200 bg-white"
+                        title={isAr ? 'لون النص' : 'Text color'}
+                      >
+                        <span className="text-[10px] text-slate-500">A</span>
                         <input
                           type="color"
                           value={selectedElement.fontColor}
@@ -2109,45 +2513,195 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                           className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
                         />
                       </div>
-
-                      {/* Bold & Italic */}
+                      <div
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg border border-slate-200 bg-white"
+                        title={isAr ? 'خلفية النص' : 'Text fill'}
+                      >
+                        <span className="text-[10px] text-slate-500">{isAr ? 'خلفية' : 'Fill'}</span>
+                        <input
+                          type="color"
+                          value={
+                            !selectedElement.bgColor || selectedElement.bgColor === 'transparent'
+                              ? '#ffffff'
+                              : selectedElement.bgColor
+                          }
+                          onChange={(e) => updateSelectedElement({ bgColor: e.target.value })}
+                          className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateSelectedElement({ bgColor: 'transparent' })}
+                          className="text-[9px] font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
+                        >
+                          {isAr ? 'إزالة' : 'Clear'}
+                        </button>
+                      </div>
+                      <div
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg border border-slate-200 bg-white"
+                        title={isAr ? 'حدود النص' : 'Text border'}
+                      >
+                        <span className="text-[10px] text-slate-500">{isAr ? 'حد' : 'Border'}</span>
+                        <input
+                          type="color"
+                          value={selectedElement.strokeColor || '#0f172a'}
+                          onChange={(e) =>
+                            updateSelectedElement({
+                              strokeColor: e.target.value,
+                              strokeWidth: Math.max(1, selectedElement.strokeWidth || 2),
+                            })
+                          }
+                          className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                        />
+                        <input
+                          type="range"
+                          min={0}
+                          max={12}
+                          value={selectedElement.strokeWidth || 0}
+                          onChange={(e) =>
+                            updateSelectedElement({ strokeWidth: Number(e.target.value) })
+                          }
+                          className="w-12 accent-violet-600 cursor-pointer"
+                        />
+                      </div>
                       <button
                         type="button"
-                        onClick={() => updateSelectedElement({ isBold: !selectedElement.isBold })}
-                        className={`p-1.5 rounded-lg border cursor-pointer ${selectedElement.isBold ? 'bg-purple-600 border-purple-500 text-white' : 'border-slate-700 text-slate-300 hover:bg-slate-800'}`}
-                        title="Bold"
+                        onClick={() =>
+                          updateSelectedElement({
+                            shadowEnabled: !selectedElement.shadowEnabled,
+                            shadowColor: selectedElement.shadowColor || 'rgba(0,0,0,0.4)',
+                            shadowBlur: selectedElement.shadowBlur ?? 8,
+                            shadowOffsetY: selectedElement.shadowOffsetY ?? 3,
+                          })
+                        }
+                        className={`px-2 py-1 rounded-lg border text-[10px] font-bold cursor-pointer ${
+                          selectedElement.shadowEnabled
+                            ? 'bg-violet-600 border-violet-600 text-white'
+                            : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                        title={isAr ? 'ظل النص' : 'Text shadow'}
+                      >
+                        {isAr ? 'ظل' : 'Shadow'}
+                      </button>
+                      {selectedElement.shadowEnabled && (
+                        <input
+                          type="color"
+                          value={(selectedElement.shadowColor || '#000000').slice(0, 7)}
+                          onChange={(e) => updateSelectedElement({ shadowColor: e.target.value })}
+                          className="w-5 h-5 rounded cursor-pointer border border-slate-200"
+                          title={isAr ? 'لون الظل' : 'Shadow color'}
+                        />
+                      )}
+                      <select
+                        value={
+                          selectedElement.fontWeight ||
+                          (selectedElement.isBold ? 'bold' : 'medium')
+                        }
+                        onChange={(e) => {
+                          const fw = e.target.value as NonNullable<CanvasElement['fontWeight']>;
+                          updateSelectedElement({
+                            fontWeight: fw,
+                            isBold: fw === 'bold' || fw === 'black',
+                          });
+                        }}
+                        className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-[10px] font-bold text-slate-800"
+                        title={isAr ? 'سُمك الخط' : 'Font weight'}
+                      >
+                        <option value="light">{isAr ? 'خفيف' : 'Light'}</option>
+                        <option value="regular">{isAr ? 'عادي' : 'Regular'}</option>
+                        <option value="medium">{isAr ? 'متوسط' : 'Medium'}</option>
+                        <option value="bold">{isAr ? 'عريض' : 'Bold'}</option>
+                        <option value="black">{isAr ? 'ثقيل' : 'Black'}</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextBold = !(
+                            selectedElement.fontWeight === 'bold' ||
+                            selectedElement.fontWeight === 'black' ||
+                            (!selectedElement.fontWeight && selectedElement.isBold)
+                          );
+                          updateSelectedElement({
+                            isBold: nextBold,
+                            fontWeight: nextBold ? 'bold' : 'regular',
+                          });
+                        }}
+                        className={`p-1.5 rounded-lg border cursor-pointer ${
+                          selectedElement.fontWeight === 'bold' ||
+                          selectedElement.fontWeight === 'black' ||
+                          (!selectedElement.fontWeight && selectedElement.isBold)
+                            ? 'bg-violet-600 border-violet-600 text-white'
+                            : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                        title={isAr ? 'عريض' : 'Bold'}
                       >
                         <Bold className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
-                        onClick={() => updateSelectedElement({ isItalic: !selectedElement.isItalic })}
-                        className={`p-1.5 rounded-lg border cursor-pointer ${selectedElement.isItalic ? 'bg-purple-600 border-purple-500 text-white' : 'border-slate-700 text-slate-300 hover:bg-slate-800'}`}
-                        title="Italic"
+                        onClick={() =>
+                          updateSelectedElement({ isItalic: !selectedElement.isItalic })
+                        }
+                        className={`p-1.5 rounded-lg border cursor-pointer ${
+                          selectedElement.isItalic
+                            ? 'bg-violet-600 border-violet-600 text-white'
+                            : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                        title={isAr ? 'مائل' : 'Italic'}
                       >
                         <Italic className="w-3.5 h-3.5" />
                       </button>
-
-                      {/* Alignment */}
-                      <div className="flex items-center border border-slate-700 rounded-lg overflow-hidden bg-slate-800">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateSelectedElement({ underline: !selectedElement.underline })
+                        }
+                        className={`p-1.5 rounded-lg border cursor-pointer ${
+                          selectedElement.underline
+                            ? 'bg-violet-600 border-violet-600 text-white'
+                            : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                        title={isAr ? 'تسطير' : 'Underline'}
+                      >
+                        <Underline className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateSelectedElement({
+                            strikethrough: !selectedElement.strikethrough,
+                          })
+                        }
+                        className={`p-1.5 rounded-lg border cursor-pointer ${
+                          selectedElement.strikethrough
+                            ? 'bg-violet-600 border-violet-600 text-white'
+                            : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                        title={isAr ? 'شطب' : 'Strikethrough'}
+                      >
+                        <Strikethrough className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white">
                         <button
                           type="button"
                           onClick={() => updateSelectedElement({ textAlign: 'left' })}
-                          className={`p-1.5 ${selectedElement.textAlign === 'left' ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
+                          className={`p-1.5 ${selectedElement.textAlign === 'left' ? 'bg-violet-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                          title={isAr ? 'محاذاة لليسار' : 'Align left'}
                         >
                           <AlignLeft className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
                           onClick={() => updateSelectedElement({ textAlign: 'center' })}
-                          className={`p-1.5 ${selectedElement.textAlign === 'center' ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
+                          className={`p-1.5 ${selectedElement.textAlign === 'center' ? 'bg-violet-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                          title={isAr ? 'توسيط' : 'Align center'}
                         >
                           <AlignCenter className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
                           onClick={() => updateSelectedElement({ textAlign: 'right' })}
-                          className={`p-1.5 ${selectedElement.textAlign === 'right' ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
+                          className={`p-1.5 ${selectedElement.textAlign === 'right' ? 'bg-violet-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                          title={isAr ? 'محاذاة لليمين' : 'Align right'}
                         >
                           <AlignRight className="w-3.5 h-3.5" />
                         </button>
@@ -2155,11 +2709,90 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                     </>
                   )}
 
-                  {/* Shape Fill & Border Controls */}
+                  {/* Image resize / transform */}
+                  {selectedElement.type === 'image' && (
+                    <>
+                      <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg border border-slate-200 bg-white">
+                        <span className="text-[10px] text-slate-500">{isAr ? 'عرض' : 'W'}</span>
+                        <input
+                          type="range"
+                          min={40}
+                          max={Math.max(canvasW, 200)}
+                          value={selectedElement.width || 180}
+                          onChange={(e) =>
+                            updateSelectedElement({ width: Number(e.target.value) }, false)
+                          }
+                          onMouseUp={() => pushHistorySnapshot()}
+                          onTouchEnd={() => pushHistorySnapshot()}
+                          className="w-16 accent-violet-600 cursor-pointer"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg border border-slate-200 bg-white">
+                        <span className="text-[10px] text-slate-500">{isAr ? 'ارتفاع' : 'H'}</span>
+                        <input
+                          type="range"
+                          min={40}
+                          max={Math.max(canvasH, 200)}
+                          value={selectedElement.height || 180}
+                          onChange={(e) =>
+                            updateSelectedElement({ height: Number(e.target.value) }, false)
+                          }
+                          onMouseUp={() => pushHistorySnapshot()}
+                          onTouchEnd={() => pushHistorySnapshot()}
+                          className="w-16 accent-violet-600 cursor-pointer"
+                        />
+                      </div>
+                      <div
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg border border-slate-200 bg-white"
+                        title={isAr ? 'حدود الصورة' : 'Image border'}
+                      >
+                        <span className="text-[10px] text-slate-500">{isAr ? 'حد' : 'Border'}</span>
+                        <input
+                          type="color"
+                          value={selectedElement.strokeColor || '#0f172a'}
+                          onChange={(e) =>
+                            updateSelectedElement({
+                              strokeColor: e.target.value,
+                              strokeWidth: Math.max(1, selectedElement.strokeWidth || 2),
+                            })
+                          }
+                          className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                        />
+                        <input
+                          type="range"
+                          min={0}
+                          max={16}
+                          value={selectedElement.strokeWidth || 0}
+                          onChange={(e) =>
+                            updateSelectedElement({ strokeWidth: Number(e.target.value) })
+                          }
+                          className="w-12 accent-violet-600 cursor-pointer"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateSelectedElement({
+                            shadowEnabled: !selectedElement.shadowEnabled,
+                            shadowBlur: selectedElement.shadowBlur ?? 12,
+                          })
+                        }
+                        className={`px-2 py-1 rounded-lg border text-[10px] font-bold cursor-pointer ${
+                          selectedElement.shadowEnabled
+                            ? 'bg-violet-600 border-violet-600 text-white'
+                            : 'border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {isAr ? 'ظل' : 'Shadow'}
+                      </button>
+                    </>
+                  )}
+
+                  {/* Shape fill / border */}
                   {selectedElement.type === 'shape' && (
                     <>
-                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-700 bg-slate-800">
-                        <span className="text-[10px] text-slate-400">Fill</span>
+                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-200 bg-white">
+                        <span className="text-[10px] text-slate-500">{isAr ? 'تعبئة' : 'Fill'}</span>
                         <input
                           type="color"
                           value={selectedElement.bgColor || '#2563eb'}
@@ -2167,86 +2800,203 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                           className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
                         />
                       </div>
-                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-700 bg-slate-800">
-                        <span className="text-[10px] text-slate-400">Border</span>
+                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-200 bg-white">
+                        <span className="text-[10px] text-slate-500">{isAr ? 'حد' : 'Border'}</span>
                         <input
                           type="color"
-                          value={selectedElement.strokeColor || '#ffffff'}
+                          value={selectedElement.strokeColor || '#0f172a'}
                           onChange={(e) => updateSelectedElement({ strokeColor: e.target.value })}
                           className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                        />
+                        <input
+                          type="range"
+                          min={0}
+                          max={12}
+                          value={selectedElement.strokeWidth || 0}
+                          onChange={(e) =>
+                            updateSelectedElement({ strokeWidth: Number(e.target.value) })
+                          }
+                          className="w-12 accent-violet-600 cursor-pointer"
                         />
                       </div>
                     </>
                   )}
 
-                  {/* Opacity Slider */}
-                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-700 bg-slate-800">
-                    <span className="text-[10px] text-slate-400">Opacity</span>
+                  {/* Transform: rotate / flip / nudge (transfer) */}
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg border border-slate-200 bg-white">
+                    <RotateCw className="w-3.5 h-3.5 text-slate-500" />
+                    <input
+                      type="range"
+                      min={-180}
+                      max={180}
+                      value={selectedElement.rotation || 0}
+                      onChange={(e) =>
+                        updateSelectedElement({ rotation: Number(e.target.value) }, false)
+                      }
+                      onMouseUp={() => pushHistorySnapshot()}
+                      onTouchEnd={() => pushHistorySnapshot()}
+                      className="w-16 accent-violet-600 cursor-pointer"
+                      title={isAr ? 'تدوير' : 'Rotate'}
+                    />
+                    <span className="text-[9px] font-mono text-slate-600 w-7">
+                      {selectedElement.rotation || 0}°
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => updateSelectedElement({ flipH: !selectedElement.flipH })}
+                    className={`px-2 py-1 rounded-lg border text-[10px] font-bold cursor-pointer ${
+                      selectedElement.flipH
+                        ? 'bg-violet-600 text-white border-violet-600'
+                        : 'border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {isAr ? 'قلب أفقياً' : 'Flip H'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateSelectedElement({ flipV: !selectedElement.flipV })}
+                    className={`px-2 py-1 rounded-lg border text-[10px] font-bold cursor-pointer ${
+                      selectedElement.flipV
+                        ? 'bg-violet-600 text-white border-violet-600'
+                        : 'border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {isAr ? 'قلب رأسياً' : 'Flip V'}
+                  </button>
+                  <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white">
+                    <button
+                      type="button"
+                      onClick={() => nudgeSelected(-8, 0)}
+                      className="px-1.5 py-1 text-slate-700 hover:bg-slate-100 font-bold"
+                      title={isAr ? 'نقل يساراً' : 'Move left'}
+                    >
+                      ←
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => nudgeSelected(0, -8)}
+                      className="px-1.5 py-1 text-slate-700 hover:bg-slate-100 font-bold"
+                      title={isAr ? 'نقل لأعلى' : 'Move up'}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => nudgeSelected(0, 8)}
+                      className="px-1.5 py-1 text-slate-700 hover:bg-slate-100 font-bold"
+                      title={isAr ? 'نقل لأسفل' : 'Move down'}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => nudgeSelected(8, 0)}
+                      className="px-1.5 py-1 text-slate-700 hover:bg-slate-100 font-bold"
+                      title={isAr ? 'نقل يميناً' : 'Move right'}
+                    >
+                      →
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-200 bg-white">
+                    <span className="text-[10px] text-slate-500">{isAr ? 'شفافية' : 'Opacity'}</span>
                     <input
                       type="range"
                       min="10"
                       max="100"
                       value={Math.round((selectedElement.opacity ?? 1) * 100)}
-                      onChange={(e) => updateSelectedElement({ opacity: Number(e.target.value) / 100 })}
-                      className="w-14 accent-purple-500 cursor-pointer"
+                      onChange={(e) =>
+                        updateSelectedElement({ opacity: Number(e.target.value) / 100 }, false)
+                      }
+                      onMouseUp={() => pushHistorySnapshot()}
+                      onTouchEnd={() => pushHistorySnapshot()}
+                      className="w-14 accent-violet-600 cursor-pointer"
                     />
                   </div>
 
-                  {/* Layer Ordering */}
                   <button
                     type="button"
                     onClick={bringElementForward}
-                    className="px-2 py-1 rounded-lg border border-slate-700 hover:bg-slate-800 text-[10px] font-bold text-slate-300"
-                    title="Bring Forward"
+                    className="px-2 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-[10px] font-bold text-slate-700"
                   >
-                    Forward
+                    {isAr ? 'أمام' : 'Forward'}
                   </button>
                   <button
                     type="button"
                     onClick={sendElementBackward}
-                    className="px-2 py-1 rounded-lg border border-slate-700 hover:bg-slate-800 text-[10px] font-bold text-slate-300"
-                    title="Send Backward"
+                    className="px-2 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-[10px] font-bold text-slate-700"
                   >
-                    Backward
+                    {isAr ? 'خلف' : 'Back'}
                   </button>
-
-                  {/* Duplicate & Delete */}
                   <button
                     type="button"
                     onClick={handleDuplicateSelected}
-                    className="p-1.5 rounded-lg border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-white"
-                    title="Duplicate"
+                    className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700"
+                    title={isAr ? 'تكرار' : 'Duplicate'}
                   >
                     <Copy className="w-3.5 h-3.5" />
                   </button>
                   <button
                     type="button"
                     onClick={handleDeleteSelected}
-                    className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white"
-                    title="Delete"
+                    className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white"
+                    title={isAr ? 'حذف' : 'Delete'}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ) : (
-                /* When nothing selected: Quick Canvas Tools */
-                <div className="flex items-center gap-2 text-slate-400 text-xs">
-                  <span>✨ {isAr ? 'انقر على أي عنصر بالكانفاس للتحكم' : 'Click any element on canvas to edit'}</span>
+                <div className="flex items-center gap-2 text-slate-500 text-xs">
+                  <span>
+                    {isAr
+                      ? 'انقر على أي عنصر في التصميم للتعديل'
+                      : 'Click any element on the design to edit'}
+                  </span>
                 </div>
               )}
 
-              {/* Product Scale / Center Controls */}
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => {
-                    setProductPosX(Math.round(canvasW / 2));
-                    setProductPosY(Math.round(canvasH / 2));
-                    toast(isAr ? 'تم توسيط المنتج' : 'Product centered', 'info');
-                  }}
-                  className="px-2 py-1 rounded-lg border border-slate-700 hover:bg-slate-800 text-[10px] font-bold text-slate-300"
+                  onClick={handleAiRemoveBg}
+                  disabled={isProcessingAi}
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-black text-white flex items-center gap-1 cursor-pointer disabled:opacity-60 cs-btn-primary"
+                  style={{ background: 'var(--accent, #1d8b94)' }}
+                  title={isAr ? 'إزالة خلفية الصورة' : 'Remove image background'}
                 >
-                  {isAr ? 'توسيط المنتج' : 'Center Product'}
+                  <Wand2 className="w-3.5 h-3.5" />
+                  <span>
+                    {isProcessingAi
+                      ? isAr
+                        ? 'جارٍ الإزالة...'
+                        : 'Removing...'
+                      : bgRemoved
+                        ? isAr
+                          ? 'أُزيلت الخلفية'
+                          : 'BG removed'
+                        : isAr
+                          ? 'إزالة الخلفية'
+                          : 'Remove BG'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedElementId) {
+                      updateSelectedElement({
+                        x: Math.round(canvasW / 2),
+                        y: Math.round(canvasH / 2),
+                      });
+                    } else {
+                      setProductPosX(Math.round(canvasW / 2));
+                      setProductPosY(Math.round(canvasH / 2));
+                    }
+                    toast(isAr ? 'تم التوسيط' : 'Centered', 'info');
+                  }}
+                  className="px-2 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-[10px] font-bold text-slate-700"
+                >
+                  {isAr ? 'توسيط' : 'Center'}
                 </button>
               </div>
             </div>
@@ -2257,13 +3007,11 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               className="flex-1 flex items-center justify-center min-h-[350px] overflow-hidden"
             >
               <div
-                className="relative rounded-2xl border border-slate-700 shadow-2xl overflow-hidden flex items-center justify-center cursor-crosshair select-none"
+                className="cs-canvas-frame relative overflow-hidden flex items-center justify-center cursor-crosshair select-none"
                 style={{
                   aspectRatio: `${canvasW} / ${canvasH}`,
                   maxHeight: isPage ? 'min(76vh, 720px)' : 'min(64vh, 580px)',
                   maxWidth: '100%',
-                  background:
-                    'repeating-conic-gradient(#1e293b 0% 25%, #0f172a 0% 50%) 50% / 20px 20px',
                 }}
                 onMouseDown={handlePointerDown}
                 onMouseMove={handlePointerMove}
@@ -2272,23 +3020,20 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                 onTouchMove={handlePointerMove}
                 onTouchEnd={handlePointerUp}
               >
-                {/* HTML5 Canvas */}
                 <canvas ref={canvasRef} className="w-full h-full object-contain pointer-events-none" />
 
-                {/* Loading state */}
                 {imageLoading && (
-                  <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white">
-                    <RefreshCw className="w-7 h-7 text-purple-400 animate-spin" />
+                  <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center gap-2 text-slate-800">
+                    <RefreshCw className="w-7 h-7 text-violet-600 animate-spin" />
                     <span className="text-xs font-bold">
-                      {isAr ? 'جارٍ تحميل الصورة في الاستوديو...' : 'Loading image into Studio...'}
+                      {isAr ? 'جارٍ تحميل الصورة...' : 'Loading image...'}
                     </span>
                   </div>
                 )}
 
-                {/* ACTIVE SELECTION BOUNDING BOX (CANVA IMAGE 2 STYLE) */}
                 {selectedElement && (
                   <div
-                    className="absolute border-2 border-purple-500 rounded-xl pointer-events-auto"
+                    className="cs-selection-box absolute border-2 border-violet-500 pointer-events-auto"
                     style={{
                       left: `${(selectedElement.x / canvasW) * 100}%`,
                       top: `${(selectedElement.y / canvasH) * 100}%`,
@@ -2311,74 +3056,83 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                           100) /
                           canvasH,
                       )}%`,
-                      boxShadow: '0 0 0 1px rgba(168, 85, 247, 0.6), 0 8px 24px rgba(0, 0, 0, 0.7)',
                     }}
                   >
-                    {/* Floating Pill on Element (Canva Image 2 replica: Ask Canva, Lock, Copy, Delete) */}
                     <div
-                      className="absolute -top-10 start-1/2 -translate-x-1/2 flex items-center gap-1 bg-slate-900/95 border border-purple-500/60 shadow-2xl rounded-xl px-2 py-0.5 text-white z-40 whitespace-nowrap text-[11px]"
+                      className="cs-selection-pill absolute -top-10 start-1/2 -translate-x-1/2 flex items-center gap-1 rounded-lg px-2 py-0.5 z-40 whitespace-nowrap text-[11px] text-slate-800"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <button
                         type="button"
-                        onClick={() => {
-                          toast(isAr ? 'تحسين ذكي للعنصر بالذكاء الاصطناعي' : 'Element AI Refined', 'info');
-                        }}
-                        className="flex items-center gap-1 px-1.5 py-0.5 rounded text-purple-300 hover:text-white hover:bg-slate-800 font-bold"
-                      >
-                        <Sparkles className="w-3 h-3 text-purple-400" />
-                        <span>Ask AI</span>
-                      </button>
-                      <span className="w-px h-3 bg-slate-700 mx-0.5" />
-                      <button
-                        type="button"
                         onClick={() => updateSelectedElement({ locked: !selectedElement.locked })}
-                        className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-800"
-                        title={selectedElement.locked ? 'Unlock' : 'Lock'}
+                        className="p-1 rounded text-slate-600 hover:bg-slate-100"
+                        title={selectedElement.locked ? (isAr ? 'فتح القفل' : 'Unlock') : isAr ? 'قفل' : 'Lock'}
                       >
-                        {selectedElement.locked ? <LockKeyhole className="w-3 h-3 text-amber-400" /> : <Unlock className="w-3 h-3" />}
+                        {selectedElement.locked ? (
+                          <LockKeyhole className="w-3 h-3 text-amber-500" />
+                        ) : (
+                          <Unlock className="w-3 h-3" />
+                        )}
                       </button>
                       <button
                         type="button"
                         onClick={handleDuplicateSelected}
-                        className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-800"
-                        title="Duplicate"
+                        className="p-1 rounded text-slate-600 hover:bg-slate-100"
+                        title={isAr ? 'تكرار' : 'Duplicate'}
                       >
                         <Copy className="w-3 h-3" />
                       </button>
                       <button
                         type="button"
                         onClick={handleDeleteSelected}
-                        className="p-1 rounded text-rose-400 hover:text-rose-300 hover:bg-rose-950/60"
-                        title="Delete"
+                        className="p-1 rounded text-rose-600 hover:bg-rose-50"
+                        title={isAr ? 'حذف' : 'Delete'}
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
 
-                    {/* Corner Handles for Canva-like Resizing */}
-                    <div className="absolute -top-1.5 -start-1.5 w-3 h-3 rounded-full bg-purple-400 border-2 border-slate-950 cursor-nwse-resize" />
-                    <div className="absolute -top-1.5 -end-1.5 w-3 h-3 rounded-full bg-purple-400 border-2 border-slate-950 cursor-nesw-resize" />
-                    <div className="absolute -bottom-1.5 -start-1.5 w-3 h-3 rounded-full bg-purple-400 border-2 border-slate-950 cursor-nesw-resize" />
-                    <div className="absolute -bottom-1.5 -end-1.5 w-3 h-3 rounded-full bg-purple-400 border-2 border-slate-950 cursor-nwse-resize" />
+                    <div
+                      className="absolute -top-1.5 -start-1.5 w-3.5 h-3.5 rounded-full bg-white border-2 cursor-nwse-resize z-50"
+                      style={{ borderColor: 'var(--accent, #1d8b94)' }}
+                      onMouseDown={(e) => startElementResize('nw', e)}
+                      onTouchStart={(e) => startElementResize('nw', e)}
+                    />
+                    <div
+                      className="absolute -top-1.5 -end-1.5 w-3.5 h-3.5 rounded-full bg-white border-2 cursor-nesw-resize z-50"
+                      style={{ borderColor: 'var(--accent, #1d8b94)' }}
+                      onMouseDown={(e) => startElementResize('ne', e)}
+                      onTouchStart={(e) => startElementResize('ne', e)}
+                    />
+                    <div
+                      className="absolute -bottom-1.5 -start-1.5 w-3.5 h-3.5 rounded-full bg-white border-2 cursor-nesw-resize z-50"
+                      style={{ borderColor: 'var(--accent, #1d8b94)' }}
+                      onMouseDown={(e) => startElementResize('sw', e)}
+                      onTouchStart={(e) => startElementResize('sw', e)}
+                    />
+                    <div
+                      className="absolute -bottom-1.5 -end-1.5 w-3.5 h-3.5 rounded-full bg-white border-2 cursor-nwse-resize z-50"
+                      style={{ borderColor: 'var(--accent, #1d8b94)' }}
+                      onMouseDown={(e) => startElementResize('se', e)}
+                      onTouchStart={(e) => startElementResize('se', e)}
+                    />
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Bottom Bar: Store Info & Quick Status */}
-            <div className="pt-2.5 mt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+            <div className="cs-footer pt-2.5 mt-2 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <ShieldCheck className="w-4 h-4" style={{ color: 'var(--accent, #1d8b94)' }} />
                 <span>
-                  {activeStore.name} • {canvasW}×{canvasH} px WebP
+                  {isAr ? 'استوديو التصميم' : 'Design Studio'} • {canvasW}×{canvasH} px
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => handleDownload('png')}
-                  className="hover:text-white cursor-pointer font-bold"
+                  className="hover:text-slate-900 cursor-pointer font-bold"
                 >
                   PNG
                 </button>
@@ -2386,7 +3140,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                 <button
                   type="button"
                   onClick={() => handleDownload('jpg')}
-                  className="hover:text-white cursor-pointer font-bold"
+                  className="hover:text-slate-900 cursor-pointer font-bold"
                 >
                   JPG
                 </button>
@@ -2394,17 +3148,18 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                 <button
                   type="button"
                   onClick={() => handleDownload('webp')}
-                  className="hover:text-white cursor-pointer font-bold text-emerald-400"
+                  className="hover:text-slate-900 cursor-pointer font-bold text-emerald-700"
                 >
-                  WebP (Ultra)
+                  WebP
                 </button>
               </div>
             </div>
           </div>
         </div>
       </div>
+  );
 
-      {/* ── REAL SOCIAL MEDIA POST & SCHEDULE MODAL ── */}
+  const socialModal = (
       <CanvaSocialPostModal
         isOpen={socialModalOpen}
         onClose={() => setSocialModalOpen(false)}
@@ -2417,6 +3172,28 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         }
         onOpenSocialHub={onOpenSocialHub}
       />
-    </div>
+  );
+
+  if (isPage) {
+    return (
+      <div className="relative flex w-full h-[calc(100dvh-4.5rem)] min-h-[560px] font-sans">
+        {studioPanel}
+        {socialModal}
+      </div>
+    );
+  }
+
+  return (
+    <GlobalModal
+      isOpen
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'استوديو التصميم' : 'Design Studio'}
+      backdropClassName="!p-0 font-sans"
+      zIndexClassName="z-50"
+    >
+      {studioPanel}
+      {socialModal}
+    </GlobalModal>
   );
 };

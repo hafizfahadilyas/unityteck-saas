@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
 import { toUserFriendlyError } from '../../utils/userFriendlyError';
+import { GlobalModal } from './GlobalModal';
 
 type ToastKind = 'success' | 'error' | 'info' | 'warning';
 
@@ -26,9 +27,17 @@ type ConfirmOpts = {
   danger?: boolean;
 };
 
+type ConfirmReasonOpts = ConfirmOpts & {
+  reasonLabel?: string;
+  reasonPlaceholder?: string;
+  reasonRequired?: boolean;
+};
+
 type ToastApi = {
   toast: (message: string, kind?: ToastKind) => void;
   confirm: (opts: ConfirmOpts) => Promise<boolean>;
+  /** Confirm dialog with required/optional reason textarea. Returns reason or null if cancelled. */
+  confirmWithReason: (opts: ConfirmReasonOpts) => Promise<string | null>;
 };
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -49,6 +58,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
   const [confirmState, setConfirmState] = useState<(ConfirmOpts & {
     resolve: (v: boolean) => void;
+  }) | null>(null);
+  const [reasonState, setReasonState] = useState<(ConfirmReasonOpts & {
+    resolve: (v: string | null) => void;
   }) | null>(null);
 
   const dismiss = useCallback((id: number) => {
@@ -75,6 +87,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const confirmWithReason = useCallback((opts: ConfirmReasonOpts) => {
+    return new Promise<string | null>((resolve) => {
+      setReasonState({ ...opts, reasonRequired: opts.reasonRequired !== false, resolve });
+    });
+  }, []);
+
   const closeConfirm = useCallback(
     (value: boolean) => {
       confirmState?.resolve(value);
@@ -83,7 +101,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     [confirmState],
   );
 
-  const api = useMemo(() => ({ toast, confirm }), [toast, confirm]);
+  const closeReasonConfirm = useCallback(
+    (value: string | null) => {
+      reasonState?.resolve(value);
+      setReasonState(null);
+    },
+    [reasonState],
+  );
+
+  const api = useMemo(() => ({ toast, confirm, confirmWithReason }), [toast, confirm, confirmWithReason]);
 
   return (
     <ToastContext.Provider value={api}>
@@ -147,6 +173,21 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           onCancel={() => closeConfirm(false)}
         />
       )}
+
+      {reasonState && (
+        <ConfirmReasonModal
+          title={reasonState.title}
+          message={reasonState.message}
+          confirmLabel={reasonState.confirmLabel}
+          cancelLabel={reasonState.cancelLabel}
+          danger={reasonState.danger}
+          reasonLabel={reasonState.reasonLabel}
+          reasonPlaceholder={reasonState.reasonPlaceholder}
+          reasonRequired={reasonState.reasonRequired !== false}
+          onConfirm={(reason) => closeReasonConfirm(reason)}
+          onCancel={() => closeReasonConfirm(null)}
+        />
+      )}
     </ToastContext.Provider>
   );
 }
@@ -182,19 +223,16 @@ function ConfirmModal({
   }, [onCancel]);
 
   return (
-    <div
+    <GlobalModal
+      isOpen
+      onClose={onCancel}
       dir={isAr ? 'rtl' : 'ltr'}
-      className="fixed inset-0 z-[110] flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
+      aria-label={title}
+      role="alertdialog"
+      zIndexClassName="z-[110]"
+      backdropClassName="bg-[#04222B]/55 backdrop-blur-[2px]"
+      closeOnEscape={false}
     >
-      <button
-        type="button"
-        className="absolute inset-0 bg-[#04222B]/55 backdrop-blur-[2px] cursor-pointer border-0"
-        aria-label="Close"
-        onClick={onCancel}
-      />
       <div
         className="relative w-full max-w-sm rounded-2xl border p-6 shadow-2xl space-y-4 animate-[fadeIn_150ms_ease]"
         style={{
@@ -251,7 +289,139 @@ function ConfirmModal({
           </button>
         </div>
       </div>
-    </div>
+    </GlobalModal>
+  );
+}
+
+function ConfirmReasonModal({
+  title,
+  message,
+  confirmLabel,
+  cancelLabel,
+  danger,
+  reasonLabel,
+  reasonPlaceholder,
+  reasonRequired,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  danger?: boolean;
+  reasonLabel?: string;
+  reasonPlaceholder?: string;
+  reasonRequired?: boolean;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+}) {
+  const titleId = useId();
+  const isAr = isArabicDocument();
+  const [reason, setReason] = useState('');
+  const effectiveConfirmLabel = confirmLabel || (isAr ? 'حذف' : 'Delete');
+  const effectiveCancelLabel = cancelLabel || (isAr ? 'إلغاء' : 'Cancel');
+  const label = reasonLabel || (isAr ? 'سبب الحذف' : 'Reason for deletion');
+  const placeholder =
+    reasonPlaceholder ||
+    (isAr ? 'اكتب سبب الحذف…' : 'Type the reason for deletion…');
+  const trimmed = reason.trim();
+  const canSubmit = !reasonRequired || trimmed.length > 0;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
+  return (
+    <GlobalModal
+      isOpen
+      onClose={onCancel}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={title}
+      role="alertdialog"
+      zIndexClassName="z-[110]"
+      backdropClassName="bg-[#04222B]/55 backdrop-blur-[2px]"
+      closeOnEscape={false}
+    >
+      <div
+        className="relative w-full max-w-md rounded-2xl border p-6 shadow-2xl space-y-4 animate-[fadeIn_150ms_ease]"
+        style={{
+          background: 'var(--surface, #fff)',
+          borderColor: 'var(--border, #98d8d0)',
+          color: 'var(--text, #04222b)',
+        }}
+      >
+        <div className="flex items-start gap-3">
+          <span
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{
+              background: danger
+                ? 'color-mix(in srgb, #f43f5e 14%, transparent)'
+                : 'color-mix(in srgb, var(--portal-600, #1d8b94) 14%, transparent)',
+            }}
+          >
+            <AlertTriangle
+              className={`w-5 h-5 ${danger ? 'text-rose-500' : 'text-[var(--portal-600,#1d8b94)]'}`}
+            />
+          </span>
+          <div className="min-w-0 pt-0.5 flex-1">
+            <h2 id={titleId} className="text-base font-extrabold leading-tight">
+              {title}
+            </h2>
+            <p className="text-xs mt-1.5 leading-relaxed" style={{ color: 'var(--muted, #0a3d4a)' }}>
+              {message}
+            </p>
+            <label className="block text-xs font-bold mt-3 mb-1.5">
+              {label}
+              {reasonRequired ? <span className="text-rose-500"> *</span> : null}
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              placeholder={placeholder}
+              className="w-full px-3 py-2.5 text-xs rounded-xl border outline-none resize-y min-h-[72px] focus:ring-2 focus:ring-teal-500/20"
+              style={{
+                background: 'var(--input-bg, #fff)',
+                borderColor: 'var(--border, #98d8d0)',
+                color: 'var(--input-fg, #04222b)',
+              }}
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl text-xs font-bold border cursor-pointer hover:opacity-90 transition-opacity duration-150"
+            style={{
+              background: 'var(--bg, #e2f4f0)',
+              borderColor: 'var(--border, #98d8d0)',
+            }}
+          >
+            {effectiveCancelLabel}
+          </button>
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={() => canSubmit && onConfirm(trimmed)}
+            className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer hover:opacity-90 transition-opacity duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              background: danger
+                ? 'linear-gradient(90deg, #e11d48, #f43f5e)'
+                : 'var(--portal-cta, linear-gradient(90deg, #1d8b94, #4fb8b4))',
+            }}
+          >
+            {effectiveConfirmLabel}
+          </button>
+        </div>
+      </div>
+    </GlobalModal>
   );
 }
 
@@ -261,6 +431,7 @@ export function useToast(): ToastApi {
     return {
       toast: () => undefined,
       confirm: async () => false,
+      confirmWithReason: async () => null,
     };
   }
   return ctx;

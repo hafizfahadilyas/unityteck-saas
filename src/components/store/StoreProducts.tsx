@@ -804,7 +804,7 @@ export const StoreProducts: React.FC = () => {
     const dup: Product = {
       ...product,
       id: `prod-${Date.now()}`,
-      name: `${product.name} (Copy)`,
+      name: isAr ? `${product.name} (نسخة)` : `${product.name} (Copy)`,
       sku: `${product.sku}-COPY`,
       salesCount: 0,
       status: 'draft',
@@ -859,6 +859,8 @@ export const StoreProducts: React.FC = () => {
         canMutate={sub.writable}
         categories={categories}
         availableBrands={availableStoreBrands.map((b: any) => (typeof b === 'string' ? b : (b.nameEn || b.nameAr || '')))}
+        visibleSections={visibleEditSections}
+        onVisibleSectionsChange={applyEditSectionVisibility}
         onBack={() => {
           if (isCreatingProduct) {
             setCreatingProduct(null);
@@ -912,7 +914,7 @@ export const StoreProducts: React.FC = () => {
                   ...prod,
                   id: duplicateId,
                   storeId: activeStore.id,
-                  name: `${prod.name} (Copy)`,
+                  name: isAr ? `${prod.name} (نسخة)` : `${prod.name} (Copy)`,
                   sku: `${prod.sku}-COPY`,
                   publishedAt: new Date().toISOString(),
                   isStale: false,
@@ -968,7 +970,7 @@ export const StoreProducts: React.FC = () => {
           isActive: true,
           image: item.image,
           galleryUrls: [item.image],
-          description: `Restored product: ${item.name}`,
+          description: isAr ? `منتج مستعاد: ${item.name}` : `Restored product: ${item.name}`,
         }, activeStore.id);
       }
       setDeletedProducts((prev) => prev.filter((p) => p.id !== item.id));
@@ -995,7 +997,7 @@ export const StoreProducts: React.FC = () => {
               isActive: true,
               image: item.image,
               galleryUrls: [item.image],
-              description: `Restored product: ${item.name}`,
+              description: isAr ? `منتج مستعاد: ${item.name}` : `Restored product: ${item.name}`,
             }, activeStore.id);
           }
         }
@@ -1054,18 +1056,20 @@ export const StoreProducts: React.FC = () => {
 
 
         {/* ── CARD 2: Deleted Products ── */}
-        <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+        <div className="p-5 bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-bold shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 flex items-center justify-center font-bold shrink-0">
                 <Trash2 className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900">
-                  Deleted Products
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                  {isAr ? 'المنتجات المحذوفة' : 'Deleted Products'}
                 </h3>
                 <p className="text-[11px] text-slate-500">
-                  View and restore products that have been deleted from your store.
+                  {isAr
+                    ? 'عرض واستعادة المنتجات المحذوفة من متجرك.'
+                    : 'View and restore products that have been deleted from your store.'}
                 </p>
               </div>
             </div>
@@ -1075,10 +1079,10 @@ export const StoreProducts: React.FC = () => {
                 <Search className="w-3.5 h-3.5 absolute start-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search deleted products..."
+                  placeholder={isAr ? 'بحث في المنتجات المحذوفة...' : 'Search deleted products...'}
                   value={searchDeleted}
                   onChange={(e) => setSearchDeleted(e.target.value)}
-                  className="ps-8 pe-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none"
+                  className="ps-8 pe-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none"
                 />
               </div>
 
@@ -1086,10 +1090,10 @@ export const StoreProducts: React.FC = () => {
                 type="button"
                 onClick={handlePermanentDeleteSelected}
                 disabled={selectedDeletedIds.length === 0}
-                className="px-3 py-1.5 bg-white border border-slate-300 hover:border-rose-300 hover:text-rose-600 disabled:opacity-40 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-rose-300 hover:text-rose-600 disabled:opacity-40 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Permanent Delete</span>
+                <span>{isAr ? 'حذف نهائي' : 'Permanent Delete'}</span>
               </button>
 
               <button
@@ -1099,16 +1103,16 @@ export const StoreProducts: React.FC = () => {
                 className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-bold text-xs rounded-xl transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Restore Selected</span>
+                <span>{isAr ? 'استعادة المحدد' : 'Restore Selected'}</span>
               </button>
             </div>
           </div>
 
           {/* Deleted Products Table */}
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-start text-xs">
               <thead>
-                <tr className="border-b border-slate-100 text-slate-400 font-semibold text-[11px] bg-slate-50/50">
+                <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold text-[11px] bg-slate-50/50 dark:bg-slate-900/50">
                   <th className="py-3 px-4 w-10">
                     <input
                       type="checkbox"
@@ -1117,19 +1121,19 @@ export const StoreProducts: React.FC = () => {
                       className="rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                     />
                   </th>
-                  <th className="py-3 px-3 font-semibold">Product</th>
-                  <th className="py-3 px-3 font-semibold">Type</th>
-                  <th className="py-3 px-3 font-semibold">Price</th>
-                  <th className="py-3 px-3 font-semibold">Category</th>
-                  <th className="py-3 px-3 font-semibold">Deleted At</th>
-                  <th className="py-3 px-4 text-center font-semibold">Actions</th>
+                  <th className="py-3 px-3 font-semibold">{isAr ? 'المنتج' : 'Product'}</th>
+                  <th className="py-3 px-3 font-semibold">{isAr ? 'النوع' : 'Type'}</th>
+                  <th className="py-3 px-3 font-semibold">{isAr ? 'السعر' : 'Price'}</th>
+                  <th className="py-3 px-3 font-semibold">{isAr ? 'التصنيف' : 'Category'}</th>
+                  <th className="py-3 px-3 font-semibold">{isAr ? 'تاريخ الحذف' : 'Deleted At'}</th>
+                  <th className="py-3 px-4 text-center font-semibold">{isAr ? 'إجراءات' : 'Actions'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                 {pagedDeleted.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-10 text-center text-slate-400 text-xs">
-                      No deleted products found in trash.
+                      {isAr ? 'لا توجد منتجات محذوفة' : 'No deleted products found in trash.'}
                     </td>
                   </tr>
                 ) : (
@@ -1164,7 +1168,7 @@ export const StoreProducts: React.FC = () => {
                             )}
                             <div>
                               <div className="font-bold text-slate-900">{item.name}</div>
-                              <div className="text-[10px] text-slate-400 font-mono">SKU: {item.sku}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">{isAr ? 'رمز المنتج' : 'SKU'}: {item.sku}</div>
                             </div>
                           </div>
                         </td>
@@ -1182,14 +1186,21 @@ export const StoreProducts: React.FC = () => {
                               className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
                             >
                               <RotateCcw className="w-3 h-3" />
-                              <span>Restore</span>
+                              <span>{isAr ? 'استعادة' : 'Restore'}</span>
                             </button>
                             <button
                               type="button"
-                              onClick={() => toast(`Options for ${item.name}`, 'info')}
-                              className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                              onClick={() => {
+                                setDeletedProducts((prev) => prev.filter((p) => p.id !== item.id));
+                                toast(
+                                  isAr ? 'تم الحذف النهائي للمنتج' : 'Product permanently deleted',
+                                  'success',
+                                );
+                              }}
+                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                              title={isAr ? 'حذف نهائي' : 'Delete permanently'}
                             >
-                              <MoreHorizontal className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
@@ -1202,12 +1213,16 @@ export const StoreProducts: React.FC = () => {
           </div>
 
           {/* Table Bottom Pagination */}
-          <div className="p-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500">
+          <div className="p-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500">
             <div className="flex items-center gap-2">
-              <span>Show 10 entries</span>
+              <span>{isAr ? 'عرض ١٠ عناصر' : 'Show 10 entries'}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span>Showing 1 – {pagedDeleted.length} of {deletedProducts.length} deleted products</span>
+              <span>
+                {isAr
+                  ? `عرض ١ – ${pagedDeleted.length} من ${deletedProducts.length} منتج محذوف`
+                  : `Showing 1 – ${pagedDeleted.length} of ${deletedProducts.length} deleted products`}
+              </span>
               <button
                 type="button"
                 className="w-6 h-6 rounded bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-2xs"
@@ -1486,7 +1501,10 @@ export const StoreProducts: React.FC = () => {
                 <div className="flex items-center p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs ms-1">
                   <button
                     type="button"
-                    onClick={() => setViewMode('grid')}
+                    onClick={() => {
+                      setViewMode('grid');
+                      if (showColumnsPopover) closeFloatingPopovers();
+                    }}
                     className={`p-1.5 rounded-lg transition-all cursor-pointer ${
                       viewMode === 'grid'
                         ? 'bg-[#0D7482] text-white shadow-xs'
@@ -1563,7 +1581,8 @@ export const StoreProducts: React.FC = () => {
                   </label>
                 )}
 
-                {/* Columns Customization Button — menu portaled to body (no clip/overlap) */}
+                {/* Columns Customization — list/table view only (not grid) */}
+                {viewMode === 'list' && (
                 <div className="relative shrink-0">
                   <button
                     ref={columnsBtnRef}
@@ -1588,6 +1607,7 @@ export const StoreProducts: React.FC = () => {
                     <span>{isAr ? 'تخصيص الأعمدة' : 'Customize Columns'}</span>
                   </button>
                 </div>
+                )}
 
               </div>
             </div>
@@ -1714,7 +1734,7 @@ export const StoreProducts: React.FC = () => {
                                   type="button"
                                   onClick={() => setActiveActionMenuId(activeActionMenuId === prod.id ? null : prod.id)}
                                   className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 cursor-pointer transition-colors"
-                                  title="More"
+                                  title={isAr ? 'المزيد' : 'More'}
                                 >
                                   <MoreHorizontal className="w-3.5 h-3.5" />
                                 </button>
@@ -1780,55 +1800,18 @@ export const StoreProducts: React.FC = () => {
                             />
                           </div>
 
-                          {/* Product Info */}
-                          <div className="flex-1 flex flex-col justify-between">
-                            <div>
-                              <h4
-                                onClick={() => handleOpenEdit(prod)}
-                                title={getProductDisplayName(prod, locale)}
-                                className="font-bold text-sm text-slate-900 dark:text-white line-clamp-2 leading-snug cursor-pointer hover:text-teal-600 dark:hover:text-teal-400 mb-1"
-                              >
-                                {getProductDisplayName(prod, locale)}
-                              </h4>
-                              <p className="text-xs text-slate-400 dark:text-slate-500 font-mono font-medium mb-3">
-                                SKU: {prod.sku}
-                              </p>
-                            </div>
-
-                            {/* Bottom Row: Price, Stock, Status */}
-                            <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 dark:border-slate-800/80 mt-auto gap-2">
-                              <div className="flex flex-col">
-                                <span className="font-extrabold text-sm text-slate-900 dark:text-white">
-                                  {money(prod.price)}
-                                </span>
-                                <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                                  <span
-                                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                      prod.stock === 0
-                                        ? 'bg-rose-500'
-                                        : prod.stock < 10
-                                        ? 'bg-amber-500'
-                                        : 'bg-emerald-500'
-                                    }`}
-                                  />
-                                  <span>
-                                    {prod.stock} {isAr ? 'في المخزون' : 'in stock'}
-                                  </span>
-                                </span>
-                              </div>
-
-                              <div>
-                                {isPublished ? (
-                                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 whitespace-nowrap">
-                                    Published
-                                  </span>
-                                ) : (
-                                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 whitespace-nowrap">
-                                    Draft
-                                  </span>
-                                )}
-                              </div>
-                            </div>
+                          {/* Grid: heading + subheading (SKU) only */}
+                          <div>
+                            <h4
+                              onClick={() => handleOpenEdit(prod)}
+                              title={getProductDisplayName(prod, locale)}
+                              className="font-bold text-sm text-slate-900 dark:text-white line-clamp-2 leading-snug cursor-pointer hover:text-teal-600 dark:hover:text-teal-400 mb-1"
+                            >
+                              {getProductDisplayName(prod, locale)}
+                            </h4>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 font-mono font-medium">
+                              {isAr ? 'رمز المنتج' : 'SKU'}: {prod.sku}
+                            </p>
                           </div>
                         </div>
                       );
@@ -1855,7 +1838,7 @@ export const StoreProducts: React.FC = () => {
                       {/* Drag Handle Column when Inline Edit is Active */}
                       {isInlineEdit && (
                         <th className="py-3 px-1.5 w-6 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
-                          <span className="sr-only">Reorder</span>
+                          <span className="sr-only">{isAr ? 'إعادة ترتيب' : 'Reorder'}</span>
                         </th>
                       )}
 
@@ -2131,10 +2114,16 @@ export const StoreProducts: React.FC = () => {
                                     }`}
                                     title={
                                       prod.stock === 0
-                                        ? 'Out of stock'
+                                        ? isAr
+                                          ? 'نفدت الكمية'
+                                          : 'Out of stock'
                                         : prod.stock < 10
-                                          ? 'Low stock'
-                                          : 'In stock'
+                                          ? isAr
+                                            ? 'مخزون منخفض'
+                                            : 'Low stock'
+                                          : isAr
+                                            ? 'متوفر'
+                                            : 'In stock'
                                     }
                                   />
                                   {isInlineEdit ? (
@@ -2165,16 +2154,9 @@ export const StoreProducts: React.FC = () => {
                                   >
                                     {categories.map((c) => (
                                       <option key={c} value={c}>
-                                        {c}
+                                        {getProductDisplayCategory(c, locale)}
                                       </option>
                                     ))}
-                                    <option value="Shoes">Shoes</option>
-                                    <option value="Flowers">Flowers</option>
-                                    <option value="Home Decor">Home Decor</option>
-                                    <option value="Kitchen">Kitchen</option>
-                                    <option value="Toys">Toys</option>
-                                    <option value="Electronics">Electronics</option>
-                                    <option value="Gifts">Gifts</option>
                                   </select>
                                 ) : (
                                   <div className="line-clamp-2 break-words leading-tight text-xs max-w-[100px] xl:max-w-[130px]" title={getProductDisplayCategory(prod, locale)}>
@@ -2194,8 +2176,8 @@ export const StoreProducts: React.FC = () => {
                                     className="px-2 py-1 text-xs font-bold rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
                                     style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
                                   >
-                                    <option value="published">Published</option>
-                                    <option value="draft">Draft</option>
+                                    <option value="published">{isAr ? 'منشور' : 'Published'}</option>
+                                    <option value="draft">{isAr ? 'مسودة' : 'Draft'}</option>
                                   </select>
                                 ) : (
                                   getStatusChip(prod.status, prod.stock)
@@ -2218,7 +2200,7 @@ export const StoreProducts: React.FC = () => {
                                   />
                                 ) : (
                                   <span className="font-mono text-slate-500">
-                                    {prod.weightKg ?? 0.8} kg
+                                    {prod.weightKg ?? 0.8} {isAr ? 'كجم' : 'kg'}
                                   </span>
                                 )}
                               </td>
@@ -2234,15 +2216,27 @@ export const StoreProducts: React.FC = () => {
                                     className="px-2 py-1 text-xs rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
                                     style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
                                   >
-                                    <option value="Shoes">Shoes</option>
-                                    <option value="Small Items">Small Items</option>
-                                    <option value="Medium Item">Medium Item</option>
-                                    <option value="Electronics">Electronics</option>
-                                    <option value="Flowers">Flowers</option>
+                                    <option value="Shoes">{isAr ? 'أحذية' : 'Shoes'}</option>
+                                    <option value="Small Items">{isAr ? 'قطع صغيرة' : 'Small Items'}</option>
+                                    <option value="Medium Item">{isAr ? 'قطعة متوسطة' : 'Medium Item'}</option>
+                                    <option value="Electronics">{isAr ? 'إلكترونيات' : 'Electronics'}</option>
+                                    <option value="Flowers">{isAr ? 'ورود' : 'Flowers'}</option>
                                   </select>
                                 ) : (
                                   <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 max-w-[85px] truncate block" title={shippingClassVal}>
-                                    {shippingClassVal}
+                                    {isAr
+                                      ? shippingClassVal === 'Shoes'
+                                        ? 'أحذية'
+                                        : shippingClassVal === 'Small Items'
+                                          ? 'قطع صغيرة'
+                                          : shippingClassVal === 'Medium Item'
+                                            ? 'قطعة متوسطة'
+                                            : shippingClassVal === 'Electronics'
+                                              ? 'إلكترونيات'
+                                              : shippingClassVal === 'Flowers'
+                                                ? 'ورود'
+                                                : shippingClassVal
+                                      : shippingClassVal}
                                   </span>
                                 )}
                               </td>
@@ -2287,7 +2281,7 @@ export const StoreProducts: React.FC = () => {
                                       onClick={() => setActiveActionMenuId(activeActionMenuId === prod.id ? null : prod.id)}
                                       className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors"
                                       style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
-                                      title="More Options"
+                                      title={isAr ? 'المزيد' : 'More Options'}
                                     >
                                       <MoreHorizontal className="w-3.5 h-3.5" />
                                     </button>

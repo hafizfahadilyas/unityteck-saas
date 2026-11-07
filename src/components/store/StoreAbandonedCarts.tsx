@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import {
   ShoppingCart,
   Clock,
@@ -1779,7 +1780,12 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
 
       {/* Cart Details Modal (Compact & Centered with Zero Overlap/Cutoff) */}
       {viewingCart && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start justify-center p-4 sm:p-6 overflow-y-auto">
+        <GlobalModal
+          isOpen
+          onClose={() => setViewingCart(null)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'تفاصيل السلة المتروكة' : 'Abandoned Cart Details'}
+        >
           <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
             <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1877,12 +1883,17 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Services Modal */}
       {showServicesModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start justify-center p-4 sm:p-6 overflow-y-auto">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowServicesModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'خدمات استعادة السلات' : 'Abandoned Cart Services'}
+        >
           <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto animate-in fade-in zoom-in-95">
             <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1902,8 +1913,8 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
             <div className="p-5 space-y-3 text-xs">
               <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
                 <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
-                  <span>WhatsApp Business API</span>
+                  <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title={isAr ? 'واتساب' : 'WhatsApp'} />
+                  <span>{isAr ? 'واجهة واتساب للأعمال' : 'WhatsApp Business API'}</span>
                 </div>
                 <p className="text-slate-500 text-[11px]">
                   {isAr
@@ -1914,11 +1925,11 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
               <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
                 <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Smartphone className="w-4 h-4 text-blue-500" />
-                  <span>SMS Gateway Integration</span>
+                  <span>{isAr ? 'بوابة الرسائل النصية' : 'SMS Gateway Integration'}</span>
                 </div>
                 <p className="text-slate-500 text-[11px]">
                   {isAr
-                    ? 'إرسال رسائل نصية قصيرة SMS فورية بأعلى معدلات وصول للمملكة والخليج.'
+                    ? 'إرسال رسائل نصية قصيرة فورية بأعلى معدلات وصول للمملكة والخليج.'
                     : 'Instant SMS gateway integration for high delivery rates across KSA and GCC.'}
                 </p>
               </div>
@@ -1933,12 +1944,17 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* AI Assistant Modal */}
       {showAiModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start justify-center p-4 sm:p-6 overflow-y-auto">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowAiModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إعدادات المساعد الذكي' : 'AI Assistant Settings'}
+        >
           <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-purple-200 dark:border-purple-800 overflow-hidden my-auto animate-in fade-in zoom-in-95">
             <div className="p-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1985,7 +2001,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

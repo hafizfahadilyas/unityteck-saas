@@ -15,6 +15,7 @@ import {
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useTenant } from '../../context/TenantContext';
 import { useToast } from './ToastProvider';
+import { GlobalModal } from './GlobalModal';
 import { MediaPickerModal } from './MediaPickerModal';
 import type { MediaAsset, MediaType } from '../../types/media';
 
@@ -329,7 +330,11 @@ export const MediaUploadField: React.FC<MediaUploadFieldProps> = ({
 
       {/* Quick Image SEO & Optimization Modal */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <GlobalModal
+          onClose={() => setIsEditModalOpen(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'تحسين الصورة لمحركات البحث' : 'Image description and filters'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
@@ -410,7 +415,7 @@ export const MediaUploadField: React.FC<MediaUploadFieldProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

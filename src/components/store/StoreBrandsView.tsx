@@ -16,6 +16,7 @@ import {
 import { usePrefs } from '../../i18n/PrefsContext';
 import { AdminPageShell } from '../common/AdminPageHeader';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
 import { bumpStore } from '../../api/cacheTags';
 import type { CustomFieldType } from '../../utils/customFieldTypes';
@@ -1037,7 +1038,11 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
       {/* ── MODAL: Add Brand (with Full Media Upload) ── */}
       {/* ══════════════════════════════════════════════════════════════════ */}
       {isAddBrandOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <GlobalModal
+          onClose={() => setIsAddBrandOpen(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إضافة علامة تجارية جديدة' : 'Add New Brand'}
+        >
           <div
             className="w-full max-w-lg p-6 rounded-3xl border shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
@@ -1136,7 +1141,9 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                       <span className="font-bold text-slate-800 dark:text-slate-200">
                         {isAr ? 'انقر لرفع صورة الشعار من جهازك' : 'Click to browse image or drag & drop'}
                       </span>
-                      <span className="text-[10px] opacity-60">PNG, SVG, WEBP, JPG up to 5MB</span>
+                      <span className="text-[10px] opacity-60">
+                        {isAr ? 'بي إن جي، إس في جي، ويب، جيه بي جي حتى ٥ ميجابايت' : 'PNG, SVG, WEBP, JPG up to 5MB'}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1176,14 +1183,18 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* ══════════════════════════════════════════════════════════════════ */}
       {/* ── MODAL: Edit Brand (Full Functional Edit + Media Upload) ── */}
       {/* ══════════════════════════════════════════════════════════════════ */}
       {isEditBrandOpen && editingBrand && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <GlobalModal
+          onClose={() => setIsEditBrandOpen(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'تعديل العلامة التجارية' : 'Edit Brand'}
+        >
           <div
             className="w-full max-w-lg p-6 rounded-3xl border shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
@@ -1194,7 +1205,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                   {isAr ? 'تعديل العلامة التجارية' : 'Edit Brand'}
                 </h3>
                 <p className="text-[11px] opacity-70">
-                  {(isAr ? editingBrand.nameAr : editingBrand.nameEn) || editingBrand.name} · ID: {editingBrand.id}
+                  {(isAr ? editingBrand.nameAr : editingBrand.nameEn) || editingBrand.name} · {isAr ? 'المعرّف' : 'ID'}: {editingBrand.id}
                 </p>
               </div>
               <button
@@ -1334,7 +1345,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Docs Guide Modal */}

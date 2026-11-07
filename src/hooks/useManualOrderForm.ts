@@ -1,5 +1,12 @@
 import { useState, useMemo, useCallback } from 'react';
-import type { Order, OrderItemDetail, PaymentMethod, OrderSource } from '../types';
+import type {
+  Order,
+  OrderItemDetail,
+  PaymentMethod,
+  OrderSource,
+  DeliveryMode,
+  PaymentPlan,
+} from '../types';
 
 export interface ManualOrderItem extends OrderItemDetail {
   image?: string;
@@ -38,11 +45,17 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
   // SECTION 3: Payment
   const [paymentMethod, setPaymentMethod] = useState<string>('mada');
   const [paymentStatus, setPaymentStatus] = useState<ManualPaymentStatus>('Paid');
+  const [paymentPlan, setPaymentPlan] = useState<PaymentPlan>('full');
+  const [amountPaid, setAmountPaid] = useState<number>(0);
+  const [bankAccountId, setBankAccountId] = useState<string>('');
 
   // SECTION 4: Delivery
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('delivery');
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('shipping_company');
+  const [driverId, setDriverId] = useState<string>('');
   const [shippingFee, setShippingFee] = useState<number>(initialShippingFee);
-  const [shippingAddress, setShippingAddress] = useState<string>('Riyadh, Saudi Arabia');
+  const [shippingAddress, setShippingAddress] = useState<string>('Makkah, Saudi Arabia');
+  const [shippingCompany, setShippingCompany] = useState<string>('');
 
   // Additional Meta
   const [orderSource, setOrderSource] = useState<OrderSource>('Direct');
@@ -140,6 +153,7 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
     setDeliveryMethod(method);
     if (method === 'pickup') {
       setShippingFee(0);
+      setDriverId('');
     } else if (shippingFee === 0) {
       setShippingFee(initialShippingFee);
     }
@@ -166,6 +180,11 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
     return Number((subtotal + effectiveShippingFee + tax).toFixed(2));
   }, [subtotal, effectiveShippingFee, tax]);
 
+  const remainingBalance = useMemo(() => {
+    if (paymentPlan === 'full') return 0;
+    return Number(Math.max(0, grandTotal - Number(amountPaid || 0)).toFixed(2));
+  }, [paymentPlan, grandTotal, amountPaid]);
+
   // Validation
   const isValid = useMemo(() => {
     return (
@@ -190,8 +209,19 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
         tabby: 'Tabby',
         tamara: 'Tamara',
         cash: 'COD',
+        bank_transfer: 'Bank Transfer',
       };
       const resolvedPayment = paymentMap[paymentMethod] || (paymentMethod as PaymentMethod);
+
+      const resolvedDeliveryMode: DeliveryMode | undefined =
+        deliveryMethod === 'pickup' ? undefined : deliveryMode;
+
+      const paid =
+        paymentPlan === 'full'
+          ? grandTotal
+          : Number(Math.min(Math.max(0, amountPaid || 0), grandTotal).toFixed(2));
+      const remaining =
+        paymentPlan === 'full' ? 0 : Number(Math.max(0, grandTotal - paid).toFixed(2));
 
       return {
         storeId,
@@ -212,6 +242,19 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
         paymentMethod: resolvedPayment,
         paymentStatus: paymentStatus === 'Paid' ? 'Paid' : 'Pending',
         shippingStatus: (deliveryMethod === 'pickup' ? 'Pending' : 'Pending') as any,
+        shippingCompany:
+          deliveryMethod === 'delivery' && deliveryMode === 'shipping_company'
+            ? shippingCompany.trim() || undefined
+            : undefined,
+        deliveryMode: resolvedDeliveryMode,
+        driverId:
+          deliveryMethod === 'delivery' && deliveryMode === 'own_delivery' && driverId
+            ? driverId
+            : undefined,
+        bankAccountId: bankAccountId || undefined,
+        paymentPlan,
+        amountPaid: paid,
+        remainingBalance: remaining,
         date: new Date().toISOString().split('T')[0],
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
@@ -227,9 +270,15 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
       grandTotal,
       orderSource,
       deliveryMethod,
+      deliveryMode,
+      driverId,
       shippingAddress,
+      shippingCompany,
       paymentStatus,
       paymentMethod,
+      paymentPlan,
+      amountPaid,
+      bankAccountId,
     ]
   );
 
@@ -240,9 +289,15 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
     setItems([]);
     setPaymentMethod('mada');
     setPaymentStatus('Paid');
+    setPaymentPlan('full');
+    setAmountPaid(0);
+    setBankAccountId('');
     setDeliveryMethod('delivery');
+    setDeliveryMode('shipping_company');
+    setDriverId('');
     setShippingFee(initialShippingFee);
     setShippingAddress('Riyadh, Saudi Arabia');
+    setShippingCompany('');
   }, [defaultCountryCode, initialShippingFee]);
 
   return {
@@ -259,12 +314,24 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
     setPaymentMethod,
     paymentStatus,
     setPaymentStatus,
+    paymentPlan,
+    setPaymentPlan,
+    amountPaid,
+    setAmountPaid,
+    bankAccountId,
+    setBankAccountId,
     deliveryMethod,
     setDeliveryMethod: handleDeliveryMethodChange,
+    deliveryMode,
+    setDeliveryMode,
+    driverId,
+    setDriverId,
     shippingFee,
     setShippingFee,
     shippingAddress,
     setShippingAddress,
+    shippingCompany,
+    setShippingCompany,
     orderSource,
     setOrderSource,
 
@@ -281,6 +348,7 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
     effectiveShippingFee,
     tax,
     grandTotal,
+    remainingBalance,
     isValid,
   };
 };

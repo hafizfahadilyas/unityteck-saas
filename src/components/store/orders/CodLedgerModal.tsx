@@ -3,6 +3,7 @@ import type { Order, CodStatus } from '../../../types';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 import {
   Banknote,
   Truck,
@@ -39,9 +40,7 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
   const [search, setSearch] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  if (!isOpen) return null;
-
-  // Filter COD orders
+  // Filter COD orders — hooks must run every render (before any early return)
   const codOrders = useMemo(() => {
     return orders.filter((o) => {
       const pm = (o.paymentMethod || '').toLowerCase();
@@ -50,7 +49,6 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
     });
   }, [orders]);
 
-  // Financial aggregates
   const summary = useMemo(() => {
     const totalAmount = codOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
     const totalCount = codOrders.length;
@@ -78,7 +76,6 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
 
   const filteredOrders = useMemo(() => {
     return codOrders.filter((o) => {
-      // Filter by status
       if (activeFilter === 'pending_collection') {
         const isPending = !o.codStatus || o.codStatus === 'not_cod' || o.codStatus === 'pending_collection';
         if (!isPending) return false;
@@ -88,7 +85,6 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
         if (o.codStatus !== 'remitted_to_bank') return false;
       }
 
-      // Filter by search
       if (search.trim()) {
         const q = search.toLowerCase();
         const matchNum = o.orderNumber.toLowerCase().includes(q);
@@ -100,6 +96,8 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
       return true;
     });
   }, [codOrders, activeFilter, search]);
+
+  if (!isOpen) return null;
 
   const handleStatusChange = async (orderId: string, newStatus: CodStatus) => {
     setUpdatingId(orderId);
@@ -129,11 +127,12 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-fadeIn">
-      <div
-        className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh]"
-        dir={isAr ? 'rtl' : 'ltr'}
-      >
+    <GlobalModal
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'سجل تحصيل الدفع عند الاستلام' : 'COD Cash Collection & Bank Ledger'}
+    >
+      <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-900/80">
           <div className="flex items-center gap-3">
@@ -142,7 +141,7 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-black text-slate-900 dark:text-white">
-                {isAr ? 'سجل تحصيل الدفع عند الاستلام (COD Cash Ledger)' : 'COD Cash Collection & Bank Ledger'}
+                {isAr ? 'سجل تحصيل الدفع عند الاستلام' : 'COD Cash Collection & Bank Ledger'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {isAr ? 'متابعة الكاش المحصل مع شركات الشحن والتسويات البنكية' : 'Track courier cash collections and bank remittances'}
@@ -164,11 +163,11 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
           {/* 1. Total COD */}
           <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 shadow-xs">
             <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-              <span>{isAr ? 'إجمالي طلبات COD' : 'Total COD Orders'}</span>
+              <span>{isAr ? 'إجمالي طلبات الدفع عند الاستلام' : 'Total COD Orders'}</span>
               <Receipt className="w-4 h-4 text-slate-400" />
             </div>
             <div className="text-lg font-black text-slate-900 dark:text-white tabular-nums">
-              {summary.totalAmount.toLocaleString()} SAR
+              {summary.totalAmount.toLocaleString()} {isAr ? 'ر.س' : 'SAR'}
             </div>
             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">
               {summary.totalCount} {isAr ? 'طلب' : 'orders'}
@@ -182,7 +181,7 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
               <Clock className="w-4 h-4 text-amber-500" />
             </div>
             <div className="text-lg font-black text-amber-900 dark:text-amber-200 tabular-nums">
-              {summary.pendingAmount.toLocaleString()} SAR
+              {summary.pendingAmount.toLocaleString()} {isAr ? 'ر.س' : 'SAR'}
             </div>
             <div className="text-[11px] font-bold text-amber-700/80 dark:text-amber-400/80 mt-0.5">
               {summary.pendingCount} {isAr ? 'طلب قيد التوصيل' : 'in delivery'}
@@ -196,7 +195,7 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
               <Truck className="w-4 h-4 text-blue-500" />
             </div>
             <div className="text-lg font-black text-blue-900 dark:text-blue-200 tabular-nums">
-              {summary.collectedAmount.toLocaleString()} SAR
+              {summary.collectedAmount.toLocaleString()} {isAr ? 'ر.س' : 'SAR'}
             </div>
             <div className="text-[11px] font-bold text-blue-700/80 dark:text-blue-400/80 mt-0.5">
               {summary.collectedCount} {isAr ? 'محصل بانتظار الإيداع' : 'awaiting remittance'}
@@ -210,7 +209,7 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
               <Building2 className="w-4 h-4 text-emerald-500" />
             </div>
             <div className="text-lg font-black text-emerald-900 dark:text-emerald-200 tabular-nums">
-              {summary.remittedAmount.toLocaleString()} SAR
+              {summary.remittedAmount.toLocaleString()} {isAr ? 'ر.س' : 'SAR'}
             </div>
             <div className="text-[11px] font-bold text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
               {summary.remittedCount} {isAr ? 'طلب مكتمل الإيداع' : 'completed'}
@@ -293,10 +292,10 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
                         <div className="text-[10px] text-slate-500 font-mono">{ord.customerPhone}</div>
                       </td>
                       <td className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300">
-                        {ord.shippingCompany || 'SMSA Express'}
+                        {ord.shippingCompany || (isAr ? 'غير محدد' : 'Unspecified')}
                       </td>
                       <td className="py-3 px-3 font-black tabular-nums text-slate-900 dark:text-white">
-                        {ord.total} SAR
+                        {ord.total} {isAr ? 'ر.س' : 'SAR'}
                       </td>
                       <td className="py-3 px-3">
                         {isRemitted && (
@@ -374,6 +373,6 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

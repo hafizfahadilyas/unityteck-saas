@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\CustomerActivity;
+use App\Models\DeliveryDriver;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderReturn;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\Store;
+use App\Models\StoreBankAccount;
 use App\Services\Notification\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -280,10 +283,21 @@ class OrderController extends Controller
             'currency' => ['nullable', 'string', 'max:10'],
             'source' => ['nullable', 'string', 'max:64'],
             'source_details' => ['nullable', 'string', 'max:255'],
+            'medium' => ['nullable', 'string', 'max:128'],
+            'campaign' => ['nullable', 'string', 'max:191'],
+            'utm_term' => ['nullable', 'string', 'max:128'],
+            'utm_content' => ['nullable', 'string', 'max:128'],
             'delivery_location' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', 'string', 'max:64'],
             'payment_method' => ['nullable', 'string', 'max:64'],
             'payment_status' => ['nullable', 'string', 'max:64'],
+            'delivery_mode' => ['nullable', Rule::in(['own_delivery', 'shipping_company'])],
+            'driver_id' => ['nullable', 'string', 'max:64'],
+            'bank_account_id' => ['nullable', 'string', 'max:64'],
+            'payment_plan' => ['nullable', Rule::in(['full', 'partial', 'installment'])],
+            'amount_paid' => ['nullable', 'numeric', 'min:0'],
+            'remaining_balance' => ['nullable', 'numeric', 'min:0'],
+            'estimated_delivery_at' => ['nullable', 'date'],
             'items' => ['nullable', 'array'],
             'items.*.product_id' => ['nullable', 'string', 'max:64'],
             'items.*.variation_id' => ['nullable', 'string', 'max:64'],
@@ -467,6 +481,35 @@ class OrderController extends Controller
             $orderId = 'ord-' . (string) Str::uuid();
             $orderNum = $this->nextSequentialOrderNumber($storeId);
 
+            $amountPaid = isset($validated['amount_paid']) ? (float) $validated['amount_paid'] : 0.0;
+            $remainingBalance = array_key_exists('remaining_balance', $validated)
+                ? (float) $validated['remaining_balance']
+                : max(0, $totalAmount - $amountPaid);
+
+            $driverId = $validated['driver_id'] ?? null;
+            if ($driverId) {
+                $driverOk = DeliveryDriver::query()
+                    ->withoutGlobalScope('store')
+                    ->forStore($storeId)
+                    ->where('id', $driverId)
+                    ->exists();
+                if (! $driverOk) {
+                    abort(response()->json(['message' => 'Delivery driver not found for this store.'], 422));
+                }
+            }
+
+            $bankAccountId = $validated['bank_account_id'] ?? null;
+            if ($bankAccountId) {
+                $bankOk = StoreBankAccount::query()
+                    ->withoutGlobalScope('store')
+                    ->forStore($storeId)
+                    ->where('id', $bankAccountId)
+                    ->exists();
+                if (! $bankOk) {
+                    abort(response()->json(['message' => 'Bank account not found for this store.'], 422));
+                }
+            }
+
             $order = Order::query()->create([
                 'id' => $orderId,
                 'store_id' => $storeId,
@@ -481,10 +524,21 @@ class OrderController extends Controller
                 'currency' => $validated['currency'] ?? 'SAR',
                 'source' => $source,
                 'source_details' => $sourceDetails,
+                'medium' => isset($validated['medium']) ? trim((string) $validated['medium']) ?: null : null,
+                'campaign' => isset($validated['campaign']) ? trim((string) $validated['campaign']) ?: null : null,
+                'utm_term' => isset($validated['utm_term']) ? trim((string) $validated['utm_term']) ?: null : null,
+                'utm_content' => isset($validated['utm_content']) ? trim((string) $validated['utm_content']) ?: null : null,
                 'delivery_location' => $deliveryLocation,
                 'status' => $orderStatus,
                 'payment_method' => $paymentMethod,
                 'payment_status' => $paymentStatus,
+                'delivery_mode' => $validated['delivery_mode'] ?? null,
+                'driver_id' => $driverId,
+                'bank_account_id' => $bankAccountId,
+                'payment_plan' => $validated['payment_plan'] ?? null,
+                'amount_paid' => $amountPaid,
+                'remaining_balance' => $remainingBalance,
+                'estimated_delivery_at' => $validated['estimated_delivery_at'] ?? null,
                 'order_date' => now(),
             ]);
 
@@ -547,6 +601,26 @@ class OrderController extends Controller
                 $store->save();
             }
 
+            try {
+                CustomerActivity::query()->create([
+                    'id' => $this->newId('cact'),
+                    'store_id' => $storeId,
+                    'customer_id' => $customer->id,
+                    'customer_name' => $customerName,
+                    'activity_type' => 'order_created',
+                    'order_id' => $orderId,
+                    'meta' => [
+                        'source' => $source,
+                        'medium' => $order->medium,
+                        'campaign' => $order->campaign,
+                        'total_amount' => $totalAmount,
+                    ],
+                    'occurred_at' => now(),
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Customer activity log skipped: '.$e->getMessage());
+            }
+
             // Trigger instant WhatsApp / SMS notification for new order (+966 Saudi)
             try {
                 (new NotificationService())->sendOrderNotification('order_placed', $order);
@@ -593,6 +667,13 @@ class OrderController extends Controller
             'courier_code' => ['nullable', 'string', 'max:64'],
             'payment_status' => ['nullable', 'string', 'max:64'],
             'payment_method' => ['nullable', 'string', 'max:64'],
+            'delivery_mode' => ['nullable', Rule::in(['own_delivery', 'shipping_company'])],
+            'driver_id' => ['nullable', 'string', 'max:64'],
+            'bank_account_id' => ['nullable', 'string', 'max:64'],
+            'payment_plan' => ['nullable', Rule::in(['full', 'partial', 'installment'])],
+            'amount_paid' => ['nullable', 'numeric', 'min:0'],
+            'remaining_balance' => ['nullable', 'numeric', 'min:0'],
+            'estimated_delivery_at' => ['nullable', 'date'],
             'cod_status' => ['nullable', Rule::in(['not_cod', 'pending_collection', 'collected_by_courier', 'remitted_to_bank', 'failed_collection'])],
             'cod_notes' => ['nullable', 'string', 'max:255'],
             'refund_status' => ['nullable', Rule::in(['none', 'pending', 'approved', 'refunded', 'rejected'])],
@@ -615,6 +696,50 @@ class OrderController extends Controller
             if (isset($data['courier_code'])) $order->courier_code = $data['courier_code'];
             if (isset($data['payment_status'])) $order->payment_status = $data['payment_status'];
             if (isset($data['payment_method'])) $order->payment_method = $data['payment_method'];
+            if (array_key_exists('delivery_mode', $data)) {
+                $order->delivery_mode = $data['delivery_mode'];
+            }
+            if (array_key_exists('driver_id', $data)) {
+                if ($data['driver_id']) {
+                    $driverOk = DeliveryDriver::query()
+                        ->withoutGlobalScope('store')
+                        ->forStore($storeId)
+                        ->where('id', $data['driver_id'])
+                        ->exists();
+                    if (! $driverOk) {
+                        abort(response()->json(['message' => 'Delivery driver not found for this store.'], 422));
+                    }
+                }
+                $order->driver_id = $data['driver_id'];
+            }
+            if (array_key_exists('bank_account_id', $data)) {
+                if ($data['bank_account_id']) {
+                    $bankOk = StoreBankAccount::query()
+                        ->withoutGlobalScope('store')
+                        ->forStore($storeId)
+                        ->where('id', $data['bank_account_id'])
+                        ->exists();
+                    if (! $bankOk) {
+                        abort(response()->json(['message' => 'Bank account not found for this store.'], 422));
+                    }
+                }
+                $order->bank_account_id = $data['bank_account_id'];
+            }
+            if (array_key_exists('payment_plan', $data)) {
+                $order->payment_plan = $data['payment_plan'];
+            }
+            if (array_key_exists('amount_paid', $data)) {
+                $order->amount_paid = $data['amount_paid'];
+                if (! array_key_exists('remaining_balance', $data)) {
+                    $order->remaining_balance = max(0, (float) $order->total_amount - (float) $data['amount_paid']);
+                }
+            }
+            if (array_key_exists('remaining_balance', $data)) {
+                $order->remaining_balance = $data['remaining_balance'];
+            }
+            if (array_key_exists('estimated_delivery_at', $data)) {
+                $order->estimated_delivery_at = $data['estimated_delivery_at'];
+            }
 
             // COD handling
             if (isset($data['cod_status'])) {
@@ -936,11 +1061,19 @@ class OrderController extends Controller
             return $storeId;
         }
 
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+            'deletion_reason' => ['nullable', 'string', 'max:500'],
+        ]);
+        $reason = trim((string) ($data['reason'] ?? $data['deletion_reason'] ?? ''));
+
         $order = Order::query()->withoutGlobalScope('store')->forStore($storeId)->with('items')->where('id', $id)->firstOrFail();
 
-        DB::transaction(function () use ($order, $storeId) {
+        DB::transaction(function () use ($order, $storeId, $reason) {
+            $prevStatus = (string) $order->status;
+
             // Restore inventory if active order is deleted
-            if (!in_array($order->status, ['cancelled', 'returned'], true)) {
+            if (! in_array($prevStatus, ['cancelled', 'returned'], true)) {
                 foreach ($order->items as $item) {
                     if ($item->product_id) {
                         $product = Product::query()->forStore($storeId)->where('id', $item->product_id)->first();
@@ -954,10 +1087,23 @@ class OrderController extends Controller
                     }
                 }
             }
+
+            // Persist why it was removed (audit) before hard delete.
+            if ($reason !== '') {
+                $order->return_reason = $reason;
+                $order->return_notes = 'Deleted: '.$reason;
+                $order->status = 'cancelled';
+                $order->save();
+            }
+
             $order->delete();
         });
 
-        return response()->json(['data' => null, 'message' => 'Order deleted and inventory restored.']);
+        return response()->json([
+            'data' => null,
+            'message' => 'Order deleted and inventory restored.',
+            'reason' => $reason !== '' ? $reason : null,
+        ]);
     }
 
     /**

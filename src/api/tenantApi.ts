@@ -229,6 +229,18 @@ export type CreateProductPayload = {
   status?: Product['status'];
   is_active?: boolean;
   is_featured?: boolean;
+  weight_kg?: number | null;
+  shipping_mode?: 'store_default' | 'own_delivery' | 'shipping_company' | null;
+  shipping_method_id?: string | null;
+  delivery_fee?: number | null;
+  estimated_delivery_text?: string | null;
+  requires_own_driver?: boolean;
+  allow_own_delivery?: boolean;
+  allow_shipping_company?: boolean;
+  shipping_rate_mode?: 'fixed' | 'per_kg' | 'per_km' | 'zone' | null;
+  shipping_per_kg_rate?: number | null;
+  shipping_per_km_rate?: number | null;
+  shipping_payment_options?: Array<'cod' | 'online' | 'bank_transfer'> | null;
 };
 
 export type UpdateProductPayload = Partial<CreateProductPayload>;
@@ -748,8 +760,17 @@ export async function fetchCodSummary(
   return res.summary;
 }
 
-export async function deleteOrder(storeId: string, id: string): Promise<void> {
-  await apiFetch(`/orders/${id}`, { method: 'DELETE', storeId });
+export async function deleteOrder(
+  storeId: string,
+  id: string,
+  opts?: { reason?: string },
+): Promise<void> {
+  const reason = opts?.reason?.trim();
+  await apiFetch(`/orders/${id}`, {
+    method: 'DELETE',
+    storeId,
+    body: reason ? { reason } : undefined,
+  });
 }
 
 export async function fetchCustomers(storeId: string): Promise<Customer[]> {
@@ -827,6 +848,27 @@ function mapWalletTransaction(row: ApiWalletTransactionRow): import('../types').
     resetLoyalty: Boolean(row.reset_loyalty),
     createdAt: String(row.created_at),
   };
+}
+
+export type CustomerActivityRow = {
+  id: string;
+  activity_type: string;
+  customer_name?: string | null;
+  product_name?: string | null;
+  order_id?: string | null;
+  meta?: Record<string, unknown> | null;
+  occurred_at?: string | null;
+};
+
+export async function fetchCustomerActivitiesApi(
+  storeId: string,
+  customerId: string,
+): Promise<CustomerActivityRow[]> {
+  const res = await apiFetch<{ data: CustomerActivityRow[] }>(
+    `/customers/${customerId}/activities?per_page=50`,
+    { storeId },
+  );
+  return Array.isArray(res?.data) ? res.data : [];
 }
 
 export async function fetchCustomerWalletApi(
@@ -1518,14 +1560,84 @@ export async function fetchMasterGoogleIntegrations(): Promise<{
 
 export async function fetchShippingMethods(storeId: string): Promise<any[]> {
   const res = await apiFetch<ListResponse<any>>('/shipping-methods', { storeId });
-  return res.data ?? [];
+  return (res.data ?? []).map((row) => mapShippingMethodRow(row, storeId));
+}
+
+function shippingMethodToApi(payload: Record<string, unknown>): Record<string, unknown> {
+  const body: Record<string, unknown> = { ...payload };
+  const map: Record<string, string> = {
+    nameAr: 'name_ar',
+    fulfillmentMode: 'fulfillment_mode',
+    baseRate: 'base_rate',
+    perKgRate: 'per_kg_rate',
+    perKmRate: 'per_km_rate',
+    minOrderAmount: 'min_order_amount',
+    freeShippingThreshold: 'free_shipping_threshold',
+    estimatedDelivery: 'estimated_delivery',
+    etaType: 'eta_type',
+    etaValue: 'eta_value',
+    trackingEnabled: 'tracking_enabled',
+    isCodAllowed: 'is_cod_allowed',
+    allowOnline: 'allow_online',
+    allowBankTransfer: 'allow_bank_transfer',
+    paymentOptions: 'payment_options',
+    codFee: 'cod_fee',
+    courierCode: 'courier_code',
+    logoUrl: 'logo_url',
+    vehicleType: 'vehicle_type',
+    isActive: 'is_active',
+    sortOrder: 'sort_order',
+  };
+  for (const [from, to] of Object.entries(map)) {
+    if (from in body) {
+      body[to] = body[from];
+      delete body[from];
+    }
+  }
+  return body;
+}
+
+export function mapShippingMethodRow(row: any, storeId: string): import('../types').ShippingMethodItem {
+  return {
+    id: String(row.id),
+    storeId: String(row.store_id || storeId),
+    name: row.name || '',
+    nameAr: row.name_ar || row.nameAr || '',
+    type: row.type || 'flat_rate',
+    fulfillmentMode: row.fulfillment_mode || row.fulfillmentMode || 'courier',
+    baseRate: Number(row.base_rate ?? row.baseRate ?? 0),
+    perKgRate: Number(row.per_kg_rate ?? row.perKgRate ?? 0),
+    perKmRate: Number(row.per_km_rate ?? row.perKmRate ?? 0),
+    minOrderAmount: Number(row.min_order_amount ?? row.minOrderAmount ?? 0),
+    freeShippingThreshold:
+      row.free_shipping_threshold != null || row.freeShippingThreshold != null
+        ? Number(row.free_shipping_threshold ?? row.freeShippingThreshold)
+        : null,
+    estimatedDelivery: row.estimated_delivery || row.estimatedDelivery || '2-3 Days',
+    etaType: row.eta_type || row.etaType || undefined,
+    etaValue: row.eta_value != null ? Number(row.eta_value) : row.etaValue ?? null,
+    trackingEnabled: row.tracking_enabled ?? row.trackingEnabled ?? true,
+    isCodAllowed: Boolean(row.is_cod_allowed ?? row.isCodAllowed),
+    allowOnline: row.allow_online ?? row.allowOnline ?? true,
+    allowBankTransfer: row.allow_bank_transfer ?? row.allowBankTransfer ?? false,
+    paymentOptions: Array.isArray(row.payment_options || row.paymentOptions)
+      ? (row.payment_options || row.paymentOptions)
+      : undefined,
+    codFee: Number(row.cod_fee ?? row.codFee ?? 0),
+    courierCode: row.courier_code ?? row.courierCode ?? null,
+    logoUrl: row.logo_url ?? row.logoUrl ?? null,
+    vehicleType: row.vehicle_type ?? row.vehicleType ?? null,
+    isActive: row.is_active ?? row.isActive ?? true,
+    sortOrder: Number(row.sort_order ?? row.sortOrder ?? 0),
+    description: row.description || undefined,
+  };
 }
 
 export async function createShippingMethod(storeId: string, payload: Record<string, unknown>): Promise<any> {
   const res = await apiFetch<ItemResponse<any>>('/shipping-methods', {
     method: 'POST',
     storeId,
-    body: payload,
+    body: shippingMethodToApi(payload),
   });
   return res.data;
 }
@@ -1534,7 +1646,7 @@ export async function updateShippingMethod(storeId: string, id: string, payload:
   const res = await apiFetch<ItemResponse<any>>(`/shipping-methods/${id}`, {
     method: 'PATCH',
     storeId,
-    body: payload,
+    body: shippingMethodToApi(payload),
   });
   return res.data;
 }
@@ -1543,6 +1655,241 @@ export async function deleteShippingMethod(storeId: string, id: string): Promise
   await apiFetch(`/shipping-methods/${id}`, {
     method: 'DELETE',
     storeId,
+  });
+}
+
+// ── Delivery Drivers (own delivery) ──
+
+export type DeliveryDriverRow = {
+  id: string;
+  store_id: string;
+  name: string;
+  name_ar?: string | null;
+  phone: string;
+  email?: string | null;
+  vehicle_type?: string | null;
+  city?: string | null;
+  base_location?: string | null;
+  service_areas?: string[] | null;
+  rate_mode?: 'fixed' | 'per_kg' | 'per_km' | 'zone' | null;
+  fixed_rate?: number | string | null;
+  per_kg_rate?: number | string | null;
+  per_km_rate?: number | string | null;
+  same_day?: boolean;
+  eta_text?: string | null;
+  payment_options?: Array<'cod' | 'online' | 'bank_transfer'> | null;
+  is_active: boolean;
+  notes?: string | null;
+};
+
+export type DeliveryDriverPayload = {
+  name: string;
+  name_ar?: string | null;
+  phone: string;
+  email?: string | null;
+  vehicle_type?: string | null;
+  city?: string | null;
+  base_location?: string | null;
+  service_areas?: string[] | null;
+  rate_mode?: 'fixed' | 'per_kg' | 'per_km' | 'zone' | null;
+  fixed_rate?: number | null;
+  per_kg_rate?: number | null;
+  per_km_rate?: number | null;
+  same_day?: boolean;
+  eta_text?: string | null;
+  payment_options?: Array<'cod' | 'online' | 'bank_transfer'> | null;
+  is_active?: boolean;
+  notes?: string | null;
+};
+
+export async function fetchDeliveryDriversApi(
+  storeId: string,
+  opts?: { is_active?: boolean; all?: boolean; q?: string; city?: string },
+): Promise<DeliveryDriverRow[]> {
+  const params = new URLSearchParams();
+  if (opts?.all !== false) params.set('all', '1');
+  if (opts?.is_active !== undefined) params.set('is_active', opts.is_active ? '1' : '0');
+  if (opts?.q) params.set('q', opts.q);
+  if (opts?.city) params.set('city', opts.city);
+  const qs = params.toString();
+  const res = await apiFetch<ListResponse<DeliveryDriverRow>>(
+    `/delivery-drivers${qs ? `?${qs}` : ''}`,
+    { storeId },
+  );
+  return Array.isArray(res?.data) ? res.data : [];
+}
+
+export async function createDeliveryDriverApi(
+  storeId: string,
+  payload: DeliveryDriverPayload,
+): Promise<DeliveryDriverRow> {
+  const res = await apiFetch<ItemResponse<DeliveryDriverRow>>('/delivery-drivers', {
+    method: 'POST',
+    storeId,
+    body: payload,
+  });
+  return res.data;
+}
+
+export async function updateDeliveryDriverApi(
+  storeId: string,
+  id: string,
+  payload: Partial<DeliveryDriverPayload>,
+): Promise<DeliveryDriverRow> {
+  const res = await apiFetch<ItemResponse<DeliveryDriverRow>>(`/delivery-drivers/${id}`, {
+    method: 'PATCH',
+    storeId,
+    body: payload,
+  });
+  return res.data;
+}
+
+export async function deleteDeliveryDriverApi(storeId: string, id: string): Promise<void> {
+  await apiFetch(`/delivery-drivers/${id}`, {
+    method: 'DELETE',
+    storeId,
+  });
+}
+
+// ── Store Bank Accounts ──
+
+export type StoreBankAccountRow = {
+  id: string;
+  store_id: string;
+  bank_name: string;
+  bank_name_ar?: string | null;
+  account_title: string;
+  account_title_ar?: string | null;
+  iban: string;
+  account_number?: string | null;
+  payment_reference_prefix?: string | null;
+  is_default: boolean;
+  is_active: boolean;
+};
+
+export type StoreBankAccountPayload = {
+  bank_name: string;
+  bank_name_ar?: string | null;
+  account_title: string;
+  account_title_ar?: string | null;
+  iban: string;
+  account_number?: string | null;
+  payment_reference_prefix?: string | null;
+  is_default?: boolean;
+  is_active?: boolean;
+};
+
+export async function fetchStoreBankAccountsApi(
+  storeId: string,
+  opts?: { is_active?: boolean },
+): Promise<StoreBankAccountRow[]> {
+  const params = new URLSearchParams();
+  if (opts?.is_active !== undefined) params.set('is_active', opts.is_active ? '1' : '0');
+  const qs = params.toString();
+  const res = await apiFetch<ListResponse<StoreBankAccountRow>>(
+    `/bank-accounts${qs ? `?${qs}` : ''}`,
+    { storeId },
+  );
+  return Array.isArray(res?.data) ? res.data : [];
+}
+
+export async function createStoreBankAccountApi(
+  storeId: string,
+  payload: StoreBankAccountPayload,
+): Promise<StoreBankAccountRow> {
+  const res = await apiFetch<ItemResponse<StoreBankAccountRow>>('/bank-accounts', {
+    method: 'POST',
+    storeId,
+    body: payload,
+  });
+  return res.data;
+}
+
+export async function updateStoreBankAccountApi(
+  storeId: string,
+  id: string,
+  payload: Partial<StoreBankAccountPayload>,
+): Promise<StoreBankAccountRow> {
+  const res = await apiFetch<ItemResponse<StoreBankAccountRow>>(`/bank-accounts/${id}`, {
+    method: 'PATCH',
+    storeId,
+    body: payload,
+  });
+  return res.data;
+}
+
+export async function deleteStoreBankAccountApi(storeId: string, id: string): Promise<void> {
+  await apiFetch(`/bank-accounts/${id}`, {
+    method: 'DELETE',
+    storeId,
+  });
+}
+
+// ── Order Installments ──
+
+export type OrderInstallmentRow = {
+  id: string;
+  store_id: string;
+  order_id: string;
+  installment_number: number;
+  amount: number;
+  due_date: string;
+  paid_at?: string | null;
+  payment_transaction_id?: string | null;
+  status: string;
+  notes?: string | null;
+};
+
+export type CreateOrderInstallmentPayload = {
+  installment_number: number;
+  amount: number;
+  due_date: string;
+  notes?: string | null;
+};
+
+export type RecordInstallmentPaymentPayload = {
+  installment_id: string;
+  payment_transaction_id?: string | null;
+  recorded_amount?: number | null;
+  notes?: string | null;
+};
+
+export async function fetchOrderInstallmentsApi(
+  storeId: string,
+  orderId: string,
+): Promise<OrderInstallmentRow[]> {
+  const res = await apiFetch<ListResponse<OrderInstallmentRow>>(
+    `/orders/${orderId}/installments`,
+    { storeId },
+  );
+  return Array.isArray(res?.data) ? res.data : [];
+}
+
+export async function createOrderInstallmentsApi(
+  storeId: string,
+  orderId: string,
+  payload: CreateOrderInstallmentPayload,
+): Promise<OrderInstallmentRow> {
+  const res = await apiFetch<ItemResponse<OrderInstallmentRow>>(
+    `/orders/${orderId}/installments`,
+    {
+      method: 'POST',
+      storeId,
+      body: payload,
+    },
+  );
+  return res.data;
+}
+
+export async function recordInstallmentPaymentApi(
+  storeId: string,
+  orderId: string,
+  payload: RecordInstallmentPaymentPayload,
+): Promise<{ data: OrderInstallmentRow; order?: ApiOrderRow; recorded_amount?: number }> {
+  return apiFetch(`/orders/${orderId}/installments/record-payment`, {
+    method: 'POST',
+    storeId,
+    body: payload,
   });
 }
 
@@ -1573,12 +1920,27 @@ export async function deleteShippingZone(storeId: string, id: string): Promise<v
 
 export async function calculateShippingRates(
   storeId: string,
-  payload: { city: string; order_total: number; total_weight_kg?: number },
+  payload: {
+    city: string;
+    order_total: number;
+    total_weight_kg?: number;
+    distance_km?: number;
+    fulfillment_mode?: 'own_delivery' | 'courier';
+    product_ids?: string[];
+  },
 ): Promise<{
   matched_zone: any;
   calculated_shipping_fee: number;
   is_free_shipping: boolean;
   available_methods: any[];
+  fulfillment_hint?: 'own_delivery' | string;
+  product_shipping?: Array<{
+    product_id: string;
+    shipping_mode: string | null;
+    delivery_fee: number | null;
+    estimated_delivery_text: string | null;
+    requires_own_driver: boolean;
+  }>;
 }> {
   return apiFetch('/shipping/calculate', {
     method: 'POST',
@@ -1586,6 +1948,60 @@ export async function calculateShippingRates(
     body: payload,
   });
 }
+
+/** Example KSA courier methods merchants can install (real DB rows — not checkout mocks). */
+export const EXAMPLE_SHIPPING_METHOD_PRESETS = [
+  {
+    name: 'RedBox',
+    nameAr: 'ريدبوكس',
+    type: 'flat_rate' as const,
+    fulfillmentMode: 'courier' as const,
+    baseRate: 24,
+    estimatedDelivery: '5–7 business days',
+    courierCode: 'redbox',
+    isCodAllowed: true,
+    allowOnline: true,
+    paymentOptions: ['cod', 'online'] as Array<'cod' | 'online' | 'bank_transfer'>,
+  },
+  {
+    name: 'SMSA Express – Standard Shipping',
+    nameAr: 'سمسا إكسبريس — الشحن القياسي',
+    type: 'flat_rate' as const,
+    fulfillmentMode: 'courier' as const,
+    baseRate: 30,
+    estimatedDelivery: '5–8 business days',
+    courierCode: 'smsa',
+    isCodAllowed: true,
+    allowOnline: true,
+    paymentOptions: ['cod', 'online'] as Array<'cod' | 'online' | 'bank_transfer'>,
+  },
+  {
+    name: 'Aramex',
+    nameAr: 'أرامكس',
+    type: 'flat_rate' as const,
+    fulfillmentMode: 'courier' as const,
+    baseRate: 30,
+    estimatedDelivery: '5–8 business days',
+    courierCode: 'aramex',
+    isCodAllowed: true,
+    allowOnline: true,
+    paymentOptions: ['cod', 'online'] as Array<'cod' | 'online' | 'bank_transfer'>,
+  },
+  {
+    name: 'Local Delivery (Within Makkah City Limits)',
+    nameAr: 'توصيل محلي (داخل حدود مدينة مكة)',
+    type: 'same_day' as const,
+    fulfillmentMode: 'own_delivery' as const,
+    baseRate: 0,
+    estimatedDelivery: '2–3 days',
+    etaType: 'days' as const,
+    courierCode: null,
+    isCodAllowed: true,
+    allowOnline: true,
+    allowBankTransfer: true,
+    paymentOptions: ['cod', 'online', 'bank_transfer'] as Array<'cod' | 'online' | 'bank_transfer'>,
+  },
+];
 
 // ── Real Courier Integrations APIs ──
 

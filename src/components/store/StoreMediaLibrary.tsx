@@ -36,6 +36,7 @@ import {
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import type { MediaAsset, MediaFolderRecord, MediaType, MediaUsage } from '../../types/media';
 import { SYSTEM_MEDIA_FOLDERS, mediaFolderLabel } from '../../constants/mediaFolders';
 import * as tenantApi from '../../api/tenantApi';
@@ -1774,11 +1775,15 @@ export const StoreMediaLibrary: React.FC = () => {
 
       {/* ── Google Drive Import Modal ── */}
       {isGdriveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-2xs animate-in fade-in duration-150">
+        <GlobalModal
+          isOpen
+          onClose={() => setIsGdriveModalOpen(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'استيراد وسائط من جوجل درايف' : 'Google Drive Media Import'}
+        >
           <div
             className="w-full max-w-lg rounded-3xl border shadow-2xl p-6 space-y-5"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
               <div className="flex items-center gap-2.5">
@@ -1787,7 +1792,7 @@ export const StoreMediaLibrary: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-extrabold text-sm">
-                    {isAr ? 'استيراد وسائط من Google Drive' : 'Google Drive Media Import'}
+                    {isAr ? 'استيراد وسائط من جوجل درايف' : 'Google Drive Media Import'}
                   </h3>
                   <p className="text-[11px] text-muted">
                     {isAr ? 'الصق رابط المشاركة المباشر لحفظه وتحسينه' : 'Paste share link to optimize and store in library'}
@@ -1807,7 +1812,7 @@ export const StoreMediaLibrary: React.FC = () => {
             <form onSubmit={handleGoogleDriveImport} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold block">
-                  {isAr ? 'رابط ملف Google Drive' : 'Google Drive Share Link'} *
+                  {isAr ? 'رابط ملف جوجل درايف' : 'Google Drive Share Link'} *
                 </label>
                 <input
                   type="url"
@@ -1908,16 +1913,21 @@ export const StoreMediaLibrary: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* ── Delete Protection Warning Modal ── */}
       {isDeleteModalOpen && deleteTargetAsset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-2xs animate-in fade-in duration-150">
+        <GlobalModal
+          isOpen
+          onClose={() => setIsDeleteModalOpen(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'تأكيد حذف ملف الوسائط' : 'Delete Media Confirmation'}
+          role="alertdialog"
+        >
           <div
             className="w-full max-w-md rounded-3xl border shadow-2xl p-6 space-y-4"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3.5">
               <div className="w-11 h-11 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center shrink-0 shadow-xs">
@@ -1980,7 +1990,7 @@ export const StoreMediaLibrary: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

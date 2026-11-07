@@ -403,9 +403,23 @@ const CUSTOMER_NAME_EN_MAP: Record<string, string> = {
   'حمد بن راشد المري': 'Hamad Al-Marri',
 };
 
+function isCorruptedDisplayName(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (!trimmed) return true;
+  // ASCII ?, fullwidth ？, replacement char — classic mojibake leftovers
+  if (/^[?\uFFFD？\s.·_\-]+$/u.test(trimmed)) return true;
+  const marks = (trimmed.match(/[?\uFFFD？]/gu) || []).length;
+  const letters = (trimmed.match(/[A-Za-z\u0600-\u06FF]/gu) || []).length;
+  return marks >= 2 && letters === 0;
+}
+
 export function getCustomerDisplayName(rawName?: string | null, locale: string = 'ar'): string {
   if (!rawName) return locale === 'ar' ? 'عميل المتجر' : 'Store Customer';
   const trimmed = rawName.trim();
+  // Corrupted charset rows often arrive as ??? / � — show a clean fallback.
+  if (isCorruptedDisplayName(trimmed)) {
+    return locale === 'ar' ? 'عميل المتجر' : 'Store Customer';
+  }
   if (locale === 'ar') {
     return trimmed;
   }

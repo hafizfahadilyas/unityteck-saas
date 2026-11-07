@@ -1,5 +1,5 @@
-import React from 'react';
-import { Check, Palette, Type, Shapes, Sliders, Zap } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Check, Palette, Type, Shapes, Sliders, Zap, Pipette } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import {
   BRAND_FONTS,
@@ -9,6 +9,7 @@ import {
   BRAND_ICON_RADIUS,
   BRAND_PALETTES,
   TOP_15_PALETTES,
+  parseHexColor,
   type BrandFontId,
   type BrandFontWeight,
   type BrandIconStyle,
@@ -18,7 +19,8 @@ import { useToast } from './ToastProvider';
 
 /**
  * Shared Master + Store branding:
- * Top 15 Color Palettes · Professional Google Fonts (EN 7 + AR 6) · Font Weights · Icon Shapes.
+ * Top 15 palettes + custom hex · EN/AR fonts · weights · icon shapes.
+ * Applies globally via CSS variables (pages, tables, forms, modals).
  */
 export const BrandingPanel: React.FC<{
   title?: string;
@@ -26,18 +28,46 @@ export const BrandingPanel: React.FC<{
   onPaletteSelect?: (id: BrandPaletteId) => void;
   storeScoped?: boolean;
 }> = ({
-  title = 'Branding · Color · Font · Icons',
+  title,
   activePalette,
   onPaletteSelect,
   storeScoped = false,
 }) => {
-  const { brand, setPalette, setFont, setIconStyle, setFontWeight, locale } = usePrefs();
+  const { brand, setBrand, setPalette, setFont, setIconStyle, setFontWeight, locale } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
+  const [customHex, setCustomHex] = useState(brand.customAccentHex || '#1d8b94');
+
+  useEffect(() => {
+    if (brand.customAccentHex) setCustomHex(brand.customAccentHex);
+  }, [brand.customAccentHex]);
+
+  const panelTitle =
+    title ||
+    (isAr ? 'الهوية · الألوان · الخطوط · الأيقونات' : 'Branding · Color · Font · Icons');
+
+  const applyCustomAccent = (hex: string) => {
+    const normalized = hex.startsWith('#') ? hex : `#${hex}`;
+    if (!parseHexColor(normalized)) {
+      toast(isAr ? 'رمز لون غير صالح' : 'Invalid color code', 'error');
+      return;
+    }
+    setCustomHex(normalized);
+    setBrand({ customAccentHex: normalized });
+    toast(isAr ? 'تم تطبيق اللون المخصص' : 'Custom color applied', 'success');
+  };
+
+  const clearCustomAccent = () => {
+    setBrand({ customAccentHex: null });
+    toast(isAr ? 'تم إلغاء اللون المخصص' : 'Custom color cleared', 'success');
+  };
 
   const renderFontBtn = (id: BrandFontId) => {
     const f = BRAND_FONTS[id];
-    const active = brand.font === id;
+    const active =
+      f.script === 'ar'
+        ? (brand.fontAr || brand.font) === id
+        : (brand.fontEn || brand.font) === id;
     const label = isAr ? f.labelAr : f.label;
 
     return (
@@ -46,10 +76,7 @@ export const BrandingPanel: React.FC<{
         type="button"
         onClick={() => {
           setFont(id);
-          toast(
-            isAr ? 'تم تحديث الخط' : 'Font updated',
-            'success',
-          );
+          toast(isAr ? 'تم تحديث الخط' : 'Font updated', 'success');
         }}
         className={`px-3 py-2 text-xs font-semibold border cursor-pointer transition-all duration-150 flex items-center justify-between gap-2 ${
           active ? 'shadow-xs font-bold ring-2 ring-offset-1' : 'hover:border-slate-400'
@@ -75,6 +102,7 @@ export const BrandingPanel: React.FC<{
         background: 'var(--surface)',
         borderColor: 'var(--border)',
         color: 'var(--text)',
+        fontFamily: 'var(--font-ui)',
       }}
     >
       <div
@@ -91,11 +119,11 @@ export const BrandingPanel: React.FC<{
           <Palette className="w-5 h-5" />
         </div>
         <div>
-          <h3 className="font-extrabold text-sm tracking-tight">{title}</h3>
+          <h3 className="font-extrabold text-sm tracking-tight">{panelTitle}</h3>
           <p className="text-[11px] opacity-75 mt-0.5">
             {isAr
-              ? '١٥ لوحة ألوان مختارة · خطوط Google احترافية (عربية وإنجليزية) · أوزان الخطوط · تطبيق فوري'
-              : 'Top 15 Color Palettes · Professional Google Fonts (EN & AR) · Weights · Zero-reload instant apply'}
+              ? '١٥ لوحة ألوان · لون مخصص · خطوط عربية وإنجليزية · أوزان · تطبيق فوري على كل الصفحات والنوافذ'
+              : 'Top 15 palettes · Custom color · EN & AR fonts · Weights · Instant global apply'}
           </p>
         </div>
       </div>
@@ -106,18 +134,20 @@ export const BrandingPanel: React.FC<{
           <div className="flex items-center gap-1.5 text-xs font-bold">
             <Palette className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
             <span>
-              {isAr
-                ? 'لوحات الألوان المختارة (١٥ لون مميز)'
-                : 'Top 15 Color Palettes'}
+              {isAr ? 'لوحات الألوان المختارة (١٥ لون مميز)' : 'Top 15 Color Palettes'}
             </span>
           </div>
-          <span className="text-[10px] font-mono opacity-65">15 themes</span>
+          <span className="text-[10px] font-mono opacity-65">
+            {isAr ? '١٥ مظهر' : '15 themes'}
+          </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
           {TOP_15_PALETTES.map((id: BrandPaletteId) => {
             const p = BRAND_PALETTES[id];
-            const active = activePalette === null ? false : (activePalette ?? brand.palette) === id;
+            const active =
+              !brand.customAccentHex &&
+              (activePalette === null ? false : (activePalette ?? brand.palette) === id);
             const label = isAr ? p.labelAr : p.label;
 
             return (
@@ -127,13 +157,11 @@ export const BrandingPanel: React.FC<{
                 onClick={() => {
                   if (onPaletteSelect) {
                     onPaletteSelect(id);
+                    setBrand({ customAccentHex: null });
                     return;
                   }
                   setPalette(id);
-                  toast(
-                    isAr ? 'تم تحديث اللون' : 'Color palette updated',
-                    'success',
-                  );
+                  toast(isAr ? 'تم تحديث اللون' : 'Color palette updated', 'success');
                 }}
                 className={`text-start p-2.5 rounded-xl border cursor-pointer transition-all duration-150 ${
                   active ? 'ring-2 ring-offset-2' : 'hover:border-slate-400'
@@ -153,21 +181,13 @@ export const BrandingPanel: React.FC<{
                   />
                   <div className="flex flex-1 gap-0.5">
                     {[p.p900, p.p800, p.p400, p.p200].map((c) => (
-                      <span
-                        key={c}
-                        className="h-3 flex-1 rounded-xs"
-                        style={{ background: c }}
-                      />
+                      <span key={c} className="h-3 flex-1 rounded-xs" style={{ background: c }} />
                     ))}
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-[10px] font-bold leading-tight truncate">
-                    {label}
-                  </span>
-                  {active && (
-                    <Check className="w-3.5 h-3.5 shrink-0" style={{ color: p.p600 }} />
-                  )}
+                  <span className="text-[10px] font-bold leading-tight truncate">{label}</span>
+                  {active && <Check className="w-3.5 h-3.5 shrink-0" style={{ color: p.p600 }} />}
                 </div>
               </button>
             );
@@ -175,15 +195,73 @@ export const BrandingPanel: React.FC<{
         </div>
       </div>
 
+      {/* ── Custom accent color ── */}
+      <div className="space-y-2.5">
+        <div className="flex items-center gap-1.5 text-xs font-bold">
+          <Pipette className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+          <span>{isAr ? 'لون مخصص (اختر أي لون)' : 'Custom Color (pick any)'}</span>
+        </div>
+        <div
+          className="flex flex-wrap items-center gap-3 p-3 rounded-xl border"
+          style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+        >
+          <input
+            type="color"
+            value={parseHexColor(customHex) ? (customHex.startsWith('#') ? customHex : `#${customHex}`) : '#1d8b94'}
+            onChange={(e) => setCustomHex(e.target.value)}
+            className="w-12 h-10 rounded-lg border cursor-pointer bg-transparent"
+            style={{ borderColor: 'var(--border)' }}
+            aria-label={isAr ? 'منتقي اللون' : 'Color picker'}
+          />
+          <input
+            type="text"
+            value={customHex}
+            onChange={(e) => setCustomHex(e.target.value)}
+            placeholder="#1d8b94"
+            dir="ltr"
+            className="flex-1 min-w-[7rem] px-3 py-2 text-xs font-mono rounded-xl border"
+            style={{
+              borderColor: 'var(--border)',
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              borderRadius: 'var(--radius-ctrl)',
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => applyCustomAccent(customHex)}
+            className="px-3.5 py-2 text-xs font-bold rounded-xl text-white cursor-pointer"
+            style={{ background: 'var(--portal-cta)', borderRadius: 'var(--radius-ctrl)' }}
+          >
+            {isAr ? 'تطبيق' : 'Apply'}
+          </button>
+          {brand.customAccentHex ? (
+            <button
+              type="button"
+              onClick={clearCustomAccent}
+              className="px-3 py-2 text-xs font-semibold rounded-xl border cursor-pointer"
+              style={{
+                borderColor: 'var(--border)',
+                color: 'var(--text)',
+                borderRadius: 'var(--radius-ctrl)',
+              }}
+            >
+              {isAr ? 'إلغاء المخصص' : 'Clear custom'}
+            </button>
+          ) : null}
+        </div>
+        <p className="text-[10px] opacity-65">
+          {isAr
+            ? 'اللون المخصص يطبَّق على الأزرار والحدود والبطاقات والجداول والنوافذ فوراً.'
+            : 'Custom accent applies instantly to buttons, borders, cards, tables, and modals.'}
+        </p>
+      </div>
+
       {/* ── Font Weight Selector ── */}
       <div className="space-y-2">
         <div className="flex items-center gap-1.5 text-xs font-bold">
           <Sliders className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
-          <span>
-            {isAr
-              ? 'وزن وسماكة الخط'
-              : 'Font Weight & Thickness'}
-          </span>
+          <span>{isAr ? 'وزن وسماكة الخط' : 'Font Weight & Thickness'}</span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {(Object.keys(BRAND_FONT_WEIGHTS) as BrandFontWeight[]).map((wKey) => {
@@ -197,10 +275,7 @@ export const BrandingPanel: React.FC<{
                 type="button"
                 onClick={() => {
                   setFontWeight(wKey);
-                  toast(
-                    isAr ? 'تم تحديث سماكة الخط' : 'Font weight updated',
-                    'success',
-                  );
+                  toast(isAr ? 'تم تحديث سماكة الخط' : 'Font weight updated', 'success');
                 }}
                 className={`py-2 px-3 text-xs border cursor-pointer transition-all flex items-center justify-between ${
                   active ? 'shadow-xs font-bold ring-2' : ''
@@ -220,40 +295,43 @@ export const BrandingPanel: React.FC<{
         </div>
       </div>
 
-      {/* ── Top 7 English Fonts ── */}
+      {/* ── English Fonts ── */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-bold">
             <Type className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
             <span>
               {isAr
-                ? 'خطوط إنجليزية (٧ خطوط Google مختارة)'
-                : 'English Fonts (Top 7 Google Fonts)'}
+                ? 'خطوط الواجهة الإنجليزية (٧ خطوط)'
+                : 'English UI Fonts (Top 7)'}
             </span>
           </div>
-          <span className="text-[10px] opacity-65">Google CDN</span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
           {BRAND_FONTS_EN.map((f) => renderFontBtn(f.id))}
         </div>
       </div>
 
-      {/* ── Top 6 Arabic Fonts ── */}
+      {/* ── Arabic Fonts ── */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-bold">
             <Type className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
             <span>
               {isAr
-                ? 'خطوط عربية احترافية (٦ خطوط Google)'
-                : 'Arabic Fonts (Top 6 Google Fonts)'}
+                ? 'خطوط الواجهة العربية (٦ خطوط احترافية)'
+                : 'Arabic UI Fonts (Top 6)'}
             </span>
           </div>
-          <span className="text-[10px] opacity-65">Google CDN</span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-2" dir="rtl">
           {BRAND_FONTS_AR.map((f) => renderFontBtn(f.id))}
         </div>
+        <p className="text-[10px] opacity-65">
+          {isAr
+            ? 'عند اختيار العربية تُطبَّق خطوط عربية على كل الصفحات والنوافذ تلقائياً.'
+            : 'When Arabic locale is active, the Arabic font applies to every page and modal.'}
+        </p>
       </div>
 
       {/* ── Icon / Button Corner Radius Style ── */}
@@ -261,9 +339,7 @@ export const BrandingPanel: React.FC<{
         <div className="flex items-center gap-1.5 text-xs font-bold">
           <Shapes className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
           <span>
-            {isAr
-              ? 'نمط وحواف الأزرار والأيقونات'
-              : 'Button & Icon Corner Radius'}
+            {isAr ? 'نمط وحواف الأزرار والأيقونات' : 'Button & Icon Corner Radius'}
           </span>
         </div>
         <div className="flex flex-wrap gap-2.5">
@@ -276,10 +352,7 @@ export const BrandingPanel: React.FC<{
                 type="button"
                 onClick={() => {
                   setIconStyle(id);
-                  toast(
-                    isAr ? 'تم تحديث شكل الحواف' : 'Corner style updated',
-                    'success',
-                  );
+                  toast(isAr ? 'تم تحديث شكل الحواف' : 'Corner style updated', 'success');
                 }}
                 className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold border cursor-pointer transition-all duration-150 ${
                   active ? 'shadow-xs font-bold ring-2' : ''
@@ -298,25 +371,30 @@ export const BrandingPanel: React.FC<{
                     borderRadius: meta.px,
                   }}
                 >
-                  Aa
+                  {isAr ? 'أ' : 'Aa'}
                 </span>
-                <span>{meta.label} ({meta.px})</span>
+                <span>
+                  {isAr ? meta.labelAr : meta.label} ({meta.px})
+                </span>
               </button>
             );
           })}
         </div>
       </div>
 
-      <p className="text-[11px] opacity-65 leading-relaxed pt-2 border-t flex items-center gap-1.5" style={{ borderColor: 'var(--border)' }}>
+      <p
+        className="text-[11px] opacity-65 leading-relaxed pt-2 border-t flex items-center gap-1.5"
+        style={{ borderColor: 'var(--border)' }}
+      >
         <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
         <span>
           {isAr
             ? storeScoped
-              ? 'الألوان والتدرج والصورة تُحفظ لهذا المتجر فقط. الخط يطبق على لوحة هذا المتجر فوراً.'
-              : 'جميع تغييرات الألوان والخطوط والأوزان تطبق فورياً بدون إعادة تحميل الصفحة في جميع الشاشات واللوحات والمتاجر.'
+              ? 'الألوان والخط يُحفظان لهذا المتجر ويُطبَّقان فوراً على الصفحات والنوافذ.'
+              : 'كل تغيير في اللون أو الخط يُطبَّق فوراً على كل الصفحات والجداول والنوافذ دون إعادة تحميل.'
             : storeScoped
-              ? 'Colors, gradient, and image are saved for this store only and apply immediately.'
-              : 'All color, font, and weight customizations apply instantly without page reload across Store, Master, and Storefront.'}
+              ? 'Colors and fonts save for this store and apply instantly to pages and modals.'
+              : 'Color and font changes apply instantly across pages, tables, and modals with no reload.'}
         </span>
       </p>
     </div>

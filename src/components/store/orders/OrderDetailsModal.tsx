@@ -1,11 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { Order, OrderStatus, CodStatus } from '../../../types';
 import { usePrefs } from '../../../i18n/PrefsContext';
+import { commerceTerm } from '../../../i18n/commerceTerms';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 import { ReturnsManager } from './ReturnsManager';
 import { CourierShippingLabelModal } from './CourierShippingLabelModal';
-import type { ShippingLabelData, CourierCarrierCode } from '../../../utils/courierBarcode';
+import type { CourierCarrierCode } from '../../../utils/courierBarcode';
+import {
+  fetchOrderInstallmentsApi,
+  createOrderInstallmentsApi,
+  recordInstallmentPaymentApi,
+  fetchStoreBankAccountsApi,
+  type OrderInstallmentRow,
+  type StoreBankAccountRow,
+} from '../../../api/tenantApi';
+import { sendWhatsAppMessageApi } from '../../../services/whatsappManagerService';
 import {
   X,
   Printer,
@@ -13,25 +24,56 @@ import {
   Truck,
   RotateCcw,
   CheckCircle,
-  Clock,
   Package,
-  Calendar,
   CreditCard,
   Banknote,
-  Building2,
   Phone,
-  Mail,
   MapPin,
   ExternalLink,
-  ChevronRight,
   AlertTriangle,
-  ArrowRight,
-  ShieldCheck,
   Check,
-  Sparkles,
-  Tag,
+  MessageCircle,
 } from 'lucide-react';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE, resolveProductThumbnail } from '../../../utils/imageFallback';
+
+function digitsOnlyPhone(phone?: string | null): string {
+  return String(phone || '').replace(/[^0-9]/g, '');
+}
+
+function openWhatsAppChat(phone: string, message: string) {
+  const digits = digitsOnlyPhone(phone);
+  if (!digits) return false;
+  const url = `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+  window.open(url, '_blank', 'noopener,noreferrer');
+  return true;
+}
+
+function localizeInstallmentStatus(status: string, isAr: boolean): string {
+  const key = String(status || '').toLowerCase();
+  if (key === 'pending') return commerceTerm('pending', isAr);
+  if (key === 'paid' || key === 'completed') {
+    return isAr ? 'مدفوع' : 'Paid';
+  }
+  if (key === 'overdue' || key === 'late') {
+    return isAr ? 'متأخر' : 'Overdue';
+  }
+  if (key === 'partial') return commerceTerm('partialPayment', isAr);
+  return status || '—';
+}
+
+function splitEqualAmounts(total: number, count: number): number[] {
+  const n = Math.max(1, count);
+  const cents = Math.round(Number(total) * 100);
+  const base = Math.floor(cents / n);
+  const amounts: number[] = [];
+  let allocated = 0;
+  for (let i = 0; i < n - 1; i++) {
+    amounts.push(base / 100);
+    allocated += base;
+  }
+  amounts.push((cents - allocated) / 100);
+  return amounts;
+}
 
 interface OrderDetailsModalProps {
   isOpen: boolean;
@@ -48,7 +90,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
   onPrintInvoice,
   onEditOrder,
 }) => {
-  const { locale, t } = usePrefs();
+  const { locale } = usePrefs();
   const isAr = locale === 'ar';
   const { updateOrderStatus, updateOrder, updateOrderCodStatus, activeStore } = useTenant();
   const { toast } = useToast();
@@ -59,20 +101,73 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
   const [isEditingTracking, setIsEditingTracking] = useState(false);
   const [courierName, setCourierName] = useState(order?.shippingCompany || '');
   const [trackingNumber, setTrackingNumber] = useState(order?.trackingNumber || '');
+  const [installments, setInstallments] = useState<OrderInstallmentRow[]>([]);
+  const [installmentsLoading, setInstallmentsLoading] = useState(false);
+  const [installmentsError, setInstallmentsError] = useState<string | null>(null);
+  const [generatingInstallments, setGeneratingInstallments] = useState(false);
+  const [installmentCount, setInstallmentCount] = useState(3);
+  const [recordingInstallmentId, setRecordingInstallmentId] = useState<string | null>(null);
+  const [waSending, setWaSending] = useState(false);
+  const [bankAccount, setBankAccount] = useState<StoreBankAccountRow | null>(null);
 
+  const lifecycleSteps: { key: OrderStatus; labelAr: string; labelEn: string }[] = [
+    { key: 'pending', labelAr: commerceTerm('pending', true), labelEn: commerceTerm('pending', false) },
+    { key: 'processing', labelAr: commerceTerm('processing', true), labelEn: commerceTerm('processing', false) },
+    { key: 'shipped', labelAr: commerceTerm('shipped', true), labelEn: commerceTerm('shipped', false) },
+    { key: 'out_for_delivery', labelAr: commerceTerm('outForDelivery', true), labelEn: commerceTerm('outForDelivery', false) },
+    { key: 'delivered', labelAr: commerceTerm('delivered', true), labelEn: commerceTerm('delivered', false) },
+  ];
+
+  const reloadInstallments = async (storeId: string, orderId: string) => {
+    setInstallmentsLoading(true);
+    setInstallmentsError(null);
+    try {
+      const rows = await fetchOrderInstallmentsApi(storeId, orderId);
+      setInstallments(Array.isArray(rows) ? rows : []);
+    } catch (err: any) {
+      setInstallments([]);
+      setInstallmentsError(
+        err?.message || (isAr ? 'تعذر تحميل الأقساط' : 'Failed to load installments'),
+      );
+    } finally {
+      setInstallmentsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen || !order?.id || !activeStore?.id) {
+      return;
+    }
+    setCourierName(order.shippingCompany || '');
+    setTrackingNumber(order.trackingNumber || '');
+    void reloadInstallments(activeStore.id, order.id);
+
+    const bankId = order.bankAccountId;
+    if (!bankId) {
+      setBankAccount(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchStoreBankAccountsApi(activeStore.id)
+      .then((rows) => {
+        if (cancelled) return;
+        setBankAccount(rows.find((b) => b.id === bankId) || null);
+      })
+      .catch(() => {
+        if (!cancelled) setBankAccount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when modal/order/store opens
+  }, [isOpen, order?.id, order?.bankAccountId, activeStore?.id]);
+
+  // ALL hooks must stay above this early return
   if (!isOpen || !order) return null;
 
   const isCod = (order.paymentMethod || '').toLowerCase().includes('cod') ||
     (order.paymentMethod || '').toLowerCase().includes('cash') ||
     Boolean(order.codStatus && order.codStatus !== 'not_cod');
-
-  const lifecycleSteps: { key: OrderStatus; labelAr: string; labelEn: string }[] = [
-    { key: 'pending', labelAr: 'جديد / معلق', labelEn: 'Pending' },
-    { key: 'processing', labelAr: 'قيد التجهيز', labelEn: 'Processing' },
-    { key: 'shipped', labelAr: 'تم الشحن', labelEn: 'Shipped' },
-    { key: 'out_for_delivery', labelAr: 'خرج للتوصيل', labelEn: 'Out for Delivery' },
-    { key: 'delivered', labelAr: 'تم التوصيل', labelEn: 'Delivered' },
-  ];
 
   const currentStepIndex = (() => {
     if (order.status === 'completed') return 4;
@@ -126,12 +221,200 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
     }
   };
 
+  const currencyLabel = commerceTerm('currencySar', isAr);
+  const customerPhoneDigits = digitsOnlyPhone(order.customerPhone);
+  const orderTotalNum = Number(order.total);
+  const hasRealOrderTotal = Number.isFinite(orderTotalNum) && orderTotalNum > 0;
+  const isInstallmentPlan = order.paymentPlan === 'installment';
+  const canGenerateInstallments =
+    isInstallmentPlan && installments.length === 0 && hasRealOrderTotal && Boolean(activeStore?.id);
+
+  const handleGenerateInstallments = async () => {
+    if (!activeStore?.id || !canGenerateInstallments || generatingInstallments) return;
+    const count = installmentCount === 4 ? 4 : 3;
+    const amounts = splitEqualAmounts(orderTotalNum, count);
+    setGeneratingInstallments(true);
+    try {
+      const base = new Date();
+      for (let i = 0; i < count; i++) {
+        const due = new Date(base);
+        due.setDate(due.getDate() + 30 * (i + 1));
+        await createOrderInstallmentsApi(activeStore.id, order.id, {
+          installment_number: i + 1,
+          amount: amounts[i],
+          due_date: due.toISOString().slice(0, 10),
+        });
+      }
+      await reloadInstallments(activeStore.id, order.id);
+      toast(
+        isAr ? 'تم إنشاء جدول الأقساط بنجاح' : 'Installment schedule created successfully',
+        'success',
+      );
+    } catch (err: any) {
+      toast(
+        err?.message || (isAr ? 'تعذر إنشاء الأقساط' : 'Failed to create installments'),
+        'error',
+      );
+    } finally {
+      setGeneratingInstallments(false);
+    }
+  };
+
+  const handleRecordInstallmentPayment = async (row: OrderInstallmentRow) => {
+    if (!activeStore?.id || recordingInstallmentId) return;
+    const amount = Number(row.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast(isAr ? 'مبلغ القسط غير صالح' : 'Invalid installment amount', 'error');
+      return;
+    }
+    setRecordingInstallmentId(row.id);
+    try {
+      await recordInstallmentPaymentApi(activeStore.id, order.id, {
+        installment_id: row.id,
+        recorded_amount: amount,
+      });
+      await reloadInstallments(activeStore.id, order.id);
+      toast(isAr ? 'تم تسجيل الدفعة بنجاح' : 'Payment recorded successfully', 'success');
+    } catch (err: any) {
+      toast(
+        err?.message || (isAr ? 'تعذر تسجيل الدفعة' : 'Failed to record payment'),
+        'error',
+      );
+    } finally {
+      setRecordingInstallmentId(null);
+    }
+  };
+
+  const openWaAction = async (kind: 'order' | 'invoice' | 'payment' | 'status') => {
+    if (!customerPhoneDigits) {
+      toast(isAr ? 'لا يوجد رقم جوال للعميل' : 'Customer phone is missing', 'error');
+      return;
+    }
+    if (waSending || !activeStore?.id) return;
+
+    const storeLabel = activeStore?.name || '';
+    const orderRef = order.orderNumber || order.id;
+    const totalLine =
+      order.total != null ? `${order.total} ${currencyLabel}` : '';
+    const paidLine =
+      order.amountPaid != null
+        ? `${commerceTerm('amountPaid', isAr)}: ${order.amountPaid} ${currencyLabel}`
+        : '';
+    const remainingLine =
+      order.remainingBalance != null
+        ? `${commerceTerm('remainingBalance', isAr)}: ${order.remainingBalance} ${currencyLabel}`
+        : '';
+    const bankLine = bankAccount
+      ? [
+          `${commerceTerm('bankAccount', isAr)}: ${(isAr && bankAccount.bank_name_ar) || bankAccount.bank_name}`,
+          `${isAr ? 'اسم الحساب' : 'Account'}: ${(isAr && bankAccount.account_title_ar) || bankAccount.account_title}`,
+          `IBAN: ${bankAccount.iban}`,
+        ].join('\n')
+      : order.bankAccountId
+        ? `${commerceTerm('bankAccount', isAr)}: ${order.bankAccountId}`
+        : '';
+    const statusLabel = isAr
+      ? lifecycleSteps.find((s) => s.key === order.status)?.labelAr || order.status
+      : lifecycleSteps.find((s) => s.key === order.status)?.labelEn || order.status;
+
+    let message = '';
+    if (kind === 'order') {
+      message = isAr
+        ? `طلبك ${orderRef} من ${storeLabel}. الإجمالي: ${totalLine}`
+        : `Your order ${orderRef} from ${storeLabel}. Total: ${totalLine}`;
+    } else if (kind === 'invoice') {
+      message = isAr
+        ? `فاتورة الطلب ${orderRef}\nالإجمالي: ${totalLine}\nطريقة الدفع: ${order.paymentMethod || '—'}`
+        : `Invoice for order ${orderRef}\nTotal: ${totalLine}\nPayment method: ${order.paymentMethod || '—'}`;
+    } else if (kind === 'payment') {
+      message = [
+        isAr ? `تفاصيل الدفع للطلب ${orderRef}` : `Payment details for order ${orderRef}`,
+        totalLine ? (isAr ? `الإجمالي: ${totalLine}` : `Total: ${totalLine}`) : '',
+        paidLine,
+        remainingLine,
+        bankLine,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    } else {
+      message = isAr
+        ? `حالة طلبك ${orderRef}: ${statusLabel}`
+        : `Your order ${orderRef} status: ${statusLabel}`;
+    }
+
+    const openedChatToast = () =>
+      toast(isAr ? 'تم فتح المحادثة' : 'Opened chat', 'info');
+
+    setWaSending(true);
+    try {
+      const res = await sendWhatsAppMessageApi(activeStore.id, {
+        phone_number: order.customerPhone || customerPhoneDigits,
+        customer_name: order.customerName,
+        order_id: order.id,
+        order_number: order.orderNumber,
+        message_content: message,
+        message_type:
+          kind === 'invoice'
+            ? 'Order Invoice'
+            : kind === 'payment'
+              ? 'Payment Details'
+              : kind === 'status'
+                ? 'Order Status'
+                : 'Order Details',
+        category: 'order',
+        send_mode: 'api',
+      });
+
+      if (res?.direct_url || res?.is_direct_free) {
+        const url =
+          res.direct_url ||
+          `https://wa.me/${customerPhoneDigits}?text=${encodeURIComponent(message)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+        openedChatToast();
+        return;
+      }
+
+      if (res?.success) {
+        toast(isAr ? 'تم إرسال رسالة واتساب بنجاح' : 'WhatsApp message sent successfully', 'success');
+        return;
+      }
+
+      // API returned without confirmed cloud send — open chat only
+      openWhatsAppChat(order.customerPhone, message);
+      openedChatToast();
+    } catch (err: any) {
+      const opened = openWhatsAppChat(order.customerPhone, message);
+      if (opened) {
+        openedChatToast();
+      } else {
+        toast(
+          err?.message || (isAr ? 'تعذر إرسال الرسالة' : 'Failed to send message'),
+          'error',
+        );
+      }
+    } finally {
+      setWaSending(false);
+    }
+  };
+
+  const hasPaymentSummary =
+    order.subtotal != null ||
+    order.discountAmount != null ||
+    order.shippingFee != null ||
+    order.tax != null ||
+    order.total != null ||
+    order.amountPaid != null ||
+    order.remainingBalance != null ||
+    Boolean(order.bankAccountId);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/75 backdrop-blur-xs animate-fadeIn">
-      <div
-        className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh]"
-        dir={isAr ? 'rtl' : 'ltr'}
-      >
+    <GlobalModal
+      isOpen={isOpen}
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? `تفاصيل الطلب #${order.orderNumber}` : `Order Details #${order.orderNumber}`}
+    >
+      <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[min(92vh,92dvh)]">
         {/* Top Header */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-900/80">
           <div className="flex items-center gap-3">
@@ -378,7 +661,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                    {isAr ? 'رقم التتبع (AWB / Tracking Number)' : 'Tracking / Waybill Number'}
+                    {commerceTerm('trackingNumber', isAr)}
                   </label>
                   <input
                     type="text"
@@ -409,7 +692,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                 <div className="flex items-center gap-2">
                   <Banknote className="w-4 h-4 text-amber-600" />
                   <span className="text-xs font-black text-amber-950 dark:text-amber-200">
-                    {isAr ? 'حالة تحصيل الدفع عند الاستلام (COD)' : 'Cash on Delivery (COD) Status'}
+                    {isAr ? 'حالة تحصيل الدفع عند الاستلام' : 'Cash on Delivery Status'}
                   </span>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-200 text-amber-900">
                     {order.codStatus || 'pending_collection'}
@@ -417,7 +700,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                 </div>
 
                 <div className="text-xs font-black tabular-nums text-slate-900 dark:text-white">
-                  {order.total} SAR
+                  {order.total} {currencyLabel}
                 </div>
               </div>
 
@@ -500,10 +783,10 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                         {item.quantity || 1}
                       </td>
                       <td className="py-3 px-3 text-end font-bold tabular-nums">
-                        {item.price} SAR
+                        {item.price} {currencyLabel}
                       </td>
                       <td className="py-3 px-3 text-end font-black tabular-nums text-slate-900 dark:text-white">
-                        {item.total || ((item.price || 0) * (item.quantity || 1))} SAR
+                        {item.total || ((item.price || 0) * (item.quantity || 1))} {currencyLabel}
                       </td>
                     </tr>
                   ))}
@@ -515,13 +798,291 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                   <div className="text-slate-500">
                     {isAr ? 'الإجمالي النهائي:' : 'Grand Total:'}{' '}
                     <strong className="text-slate-900 dark:text-white text-sm font-black tabular-nums">
-                      {order.total} SAR
+                      {order.total} {currencyLabel}
                     </strong>
                   </div>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Payment Summary — only real fields from order */}
+          {hasPaymentSummary && (
+            <div className="p-4 rounded-2xl bg-teal-50/40 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/50 space-y-2">
+              <h4 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                <CreditCard className="w-3.5 h-3.5 text-teal-600" />
+                <span>{commerceTerm('paymentSummary', isAr)}</span>
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+                {order.subtotal != null && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-500">{commerceTerm('subtotal', isAr)}</span>
+                    <span className="font-bold tabular-nums">{order.subtotal} {currencyLabel}</span>
+                  </div>
+                )}
+                {order.discountAmount != null && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-500">{commerceTerm('discount', isAr)}</span>
+                    <span className="font-bold tabular-nums">{order.discountAmount} {currencyLabel}</span>
+                  </div>
+                )}
+                {order.shippingFee != null && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-500">{commerceTerm('shipping', isAr)}</span>
+                    <span className="font-bold tabular-nums">{order.shippingFee} {currencyLabel}</span>
+                  </div>
+                )}
+                {order.tax != null && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-500">{commerceTerm('taxVat', isAr)}</span>
+                    <span className="font-bold tabular-nums">{order.tax} {currencyLabel}</span>
+                  </div>
+                )}
+                {order.total != null && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-500">{commerceTerm('total', isAr)}</span>
+                    <span className="font-black tabular-nums text-teal-700 dark:text-teal-300">
+                      {order.total} {currencyLabel}
+                    </span>
+                  </div>
+                )}
+                {order.amountPaid != null && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-500">{commerceTerm('amountPaid', isAr)}</span>
+                    <span className="font-bold tabular-nums">{order.amountPaid} {currencyLabel}</span>
+                  </div>
+                )}
+                {order.remainingBalance != null && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-500">{commerceTerm('remainingBalance', isAr)}</span>
+                    <span className="font-bold tabular-nums text-amber-700 dark:text-amber-300">
+                      {order.remainingBalance} {currencyLabel}
+                    </span>
+                  </div>
+                )}
+                {(order.bankAccountId || bankAccount) && (
+                  <div className="sm:col-span-2 rounded-xl border border-teal-200/70 dark:border-teal-900/40 bg-teal-50/40 dark:bg-teal-950/20 p-3 space-y-1.5">
+                    <p className="text-[11px] font-black text-teal-800 dark:text-teal-200">
+                      {isAr ? 'تفاصيل التحويل البنكي' : 'Bank transfer details'}
+                    </p>
+                    {bankAccount ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-700 dark:text-slate-300">
+                        <span className="font-semibold">{isAr ? 'البنك' : 'Bank'}</span>
+                        <span className="font-bold sm:text-end break-words">
+                          {(isAr && bankAccount.bank_name_ar) || bankAccount.bank_name}
+                        </span>
+                        <span className="font-semibold">{isAr ? 'اسم الحساب' : 'Account title'}</span>
+                        <span className="font-bold sm:text-end break-words">
+                          {(isAr && bankAccount.account_title_ar) || bankAccount.account_title}
+                        </span>
+                        <span className="font-semibold">IBAN</span>
+                        <span className="font-mono font-bold sm:text-end break-all" dir="ltr">
+                          {bankAccount.iban}
+                        </span>
+                        {bankAccount.account_number ? (
+                          <>
+                            <span className="font-semibold">
+                              {isAr ? 'رقم الحساب' : 'Account number'}
+                            </span>
+                            <span className="font-mono font-bold sm:text-end" dir="ltr">
+                              {bankAccount.account_number}
+                            </span>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="font-mono text-[11px] font-bold break-all">{order.bankAccountId}</p>
+                    )}
+                  </div>
+                )}
+                {order.paymentPlan && (
+                  <div className="flex justify-between gap-3 sm:col-span-2">
+                    <span className="text-slate-500">{isAr ? 'خطة الدفع' : 'Payment Plan'}</span>
+                    <span className="font-bold">
+                      {order.paymentPlan === 'full'
+                        ? commerceTerm('fullPayment', isAr)
+                        : order.paymentPlan === 'partial'
+                          ? commerceTerm('partialPayment', isAr)
+                          : order.paymentPlan === 'installment'
+                            ? commerceTerm('installmentPayment', isAr)
+                            : order.paymentPlan}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Installment Schedule — real API only */}
+          {(isInstallmentPlan || installments.length > 0 || installmentsLoading || installmentsError) && (
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h4 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-teal-600" />
+                  <span>{commerceTerm('installmentSchedule', isAr)}</span>
+                </h4>
+                {canGenerateInstallments && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] font-bold text-slate-500">
+                      {isAr ? 'عدد الأقساط' : 'Installments'}
+                    </label>
+                    <select
+                      value={installmentCount}
+                      onChange={(e) => setInstallmentCount(Number(e.target.value) === 4 ? 4 : 3)}
+                      className="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-bold"
+                    >
+                      <option value={3}>3</option>
+                      <option value={4}>4</option>
+                    </select>
+                    <button
+                      type="button"
+                      disabled={generatingInstallments}
+                      onClick={() => void handleGenerateInstallments()}
+                      className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white text-[11px] font-bold transition-all"
+                    >
+                      {generatingInstallments
+                        ? isAr
+                          ? 'جاري الإنشاء...'
+                          : 'Generating...'
+                        : isAr
+                          ? 'إنشاء الأقساط'
+                          : 'Generate installments'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="text-[11px] text-slate-500 flex flex-wrap gap-3">
+                <span>{commerceTerm('dueDates', isAr)}</span>
+                <span>·</span>
+                <span>{commerceTerm('paymentHistory', isAr)}</span>
+              </div>
+
+              {installmentsLoading ? (
+                <p className="text-xs text-slate-500 py-3 text-center">
+                  {isAr ? 'جاري التحميل...' : 'Loading...'}
+                </p>
+              ) : installmentsError ? (
+                <p className="text-xs text-rose-600 dark:text-rose-400 py-2">{installmentsError}</p>
+              ) : installments.length === 0 ? (
+                <p className="text-xs text-slate-500 py-3 text-center">
+                  {isAr ? 'لا توجد سجلات' : 'No records found'}
+                </p>
+              ) : (
+                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                  <table className="w-full text-xs text-start">
+                    <thead className="bg-slate-100/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500">
+                      <tr>
+                        <th className="py-2 px-3 font-bold text-start">#</th>
+                        <th className="py-2 px-3 font-bold text-end">{commerceTerm('total', isAr)}</th>
+                        <th className="py-2 px-3 font-bold text-start">{commerceTerm('dueDates', isAr)}</th>
+                        <th className="py-2 px-3 font-bold text-start">
+                          {isAr ? 'الحالة' : 'Status'}
+                        </th>
+                        <th className="py-2 px-3 font-bold text-end">
+                          {isAr ? 'إجراء' : 'Action'}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                      {installments.map((row) => {
+                        const statusKey = String(row.status || '').toLowerCase();
+                        const isPaid = statusKey === 'paid' || statusKey === 'completed' || Boolean(row.paid_at);
+                        return (
+                          <tr key={row.id}>
+                            <td className="py-2.5 px-3 font-bold tabular-nums">
+                              {row.installment_number}
+                            </td>
+                            <td className="py-2.5 px-3 text-end font-bold tabular-nums">
+                              {row.amount} {currencyLabel}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[11px]">
+                              {row.due_date || '—'}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                  isPaid
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                    : 'bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200'
+                                }`}
+                              >
+                                {localizeInstallmentStatus(row.status, isAr)}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-end">
+                              {!isPaid ? (
+                                <button
+                                  type="button"
+                                  disabled={recordingInstallmentId === row.id}
+                                  onClick={() => void handleRecordInstallmentPayment(row)}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-[10px] font-bold"
+                                >
+                                  {recordingInstallmentId === row.id
+                                    ? isAr
+                                      ? 'جاري التسجيل...'
+                                      : 'Recording...'
+                                    : isAr
+                                      ? 'تسجيل دفعة'
+                                      : 'Record payment'}
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-slate-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* WhatsApp actions — Cloud send with honest status (never fake "sent") */}
+          {customerPhoneDigits ? (
+            <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 space-y-2">
+              <h4 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                <span>{isAr ? 'إجراءات واتساب' : 'WhatsApp Actions'}</span>
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={waSending}
+                  onClick={() => void openWaAction('order')}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-[11px] font-bold transition-all"
+                >
+                  {isAr ? 'إرسال الطلب' : 'Send Order'}
+                </button>
+                <button
+                  type="button"
+                  disabled={waSending}
+                  onClick={() => void openWaAction('invoice')}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-[11px] font-bold transition-all"
+                >
+                  {commerceTerm('sendInvoice', isAr)}
+                </button>
+                <button
+                  type="button"
+                  disabled={waSending}
+                  onClick={() => void openWaAction('payment')}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-[11px] font-bold transition-all"
+                >
+                  {isAr ? 'إرسال تفاصيل الدفع' : 'Send Payment Details'}
+                </button>
+                <button
+                  type="button"
+                  disabled={waSending}
+                  onClick={() => void openWaAction('status')}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-[11px] font-bold transition-all"
+                >
+                  {isAr ? 'إرسال الحالة' : 'Send Status'}
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           {/* 6. Customer & Delivery Address Card */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -534,17 +1095,19 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                 <div className="font-bold text-slate-900 dark:text-white">{order.customerName}</div>
                 <div className="text-slate-500 font-mono">{order.customerPhone}</div>
                 {order.customerEmail && <div className="text-slate-400">{order.customerEmail}</div>}
-                <div className="pt-2">
-                  <a
-                    href={`https://wa.me/${order.customerPhone.replace(/[^0-9]/g, '')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 hover:underline"
-                  >
-                    <span>{isAr ? 'مراسلة عبر واتساب' : 'Chat via WhatsApp'}</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
+                {customerPhoneDigits ? (
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      disabled={waSending}
+                      onClick={() => void openWaAction('order')}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 hover:underline cursor-pointer disabled:opacity-60"
+                    >
+                      <span>{isAr ? 'مراسلة عبر واتساب' : 'Chat via WhatsApp'}</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -557,8 +1120,16 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                 {order.deliveryLocation || order.shippingAddress || (isAr ? 'العنوان غير محفوظ' : 'Address not saved')}
               </div>
               <div className="text-[11px] text-slate-400 pt-1">
-                {isAr ? 'شركة الشحن:' : 'Carrier:'}{' '}
-                <strong className="text-slate-700 dark:text-slate-200">{order.shippingCompany || 'SMSA Express'}</strong>
+                {order.deliveryMode === 'own_delivery'
+                  ? commerceTerm('ownDelivery', isAr)
+                  : order.deliveryMode === 'shipping_company'
+                    ? commerceTerm('shippingCompany', isAr)
+                    : isAr
+                      ? 'شركة الشحن:'
+                      : 'Carrier:'}{' '}
+                <strong className="text-slate-700 dark:text-slate-200">
+                  {order.shippingCompany || (order.driverId ? order.driverId : '—')}
+                </strong>
                 {order.trackingNumber && (
                   <span className="ms-2 font-mono text-teal-600">({order.trackingNumber})</span>
                 )}
@@ -657,6 +1228,6 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
           }}
         />
       )}
-    </div>
+    </GlobalModal>
   );
 };

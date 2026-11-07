@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import type { ShippingZone } from '../../types';
 import {
@@ -23,9 +23,14 @@ import {
   ShieldCheck,
   Printer,
   RotateCcw,
+  UserRound,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { commerceTerm } from '../../i18n/commerceTerms';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import {
   AdvancedDataTable,
   type AdvancedTableColumn,
@@ -36,6 +41,14 @@ import { ShipmentsTrackingView } from './shipping/ShipmentsTrackingView';
 import { ShippingLabelsStudioView } from './shipping/ShippingLabelsStudioView';
 import { ShippingZonesRatesView } from './shipping/ShippingZonesRatesView';
 import { ReturnsExceptionsView } from './shipping/ReturnsExceptionsView';
+import {
+  fetchDeliveryDriversApi,
+  createDeliveryDriverApi,
+  updateDeliveryDriverApi,
+  deleteDeliveryDriverApi,
+  EXAMPLE_SHIPPING_METHOD_PRESETS,
+  type DeliveryDriverRow,
+} from '../../api/tenantApi';
 
 const REGIONS = [
   'All',
@@ -47,7 +60,7 @@ const REGIONS = [
   'Other',
 ] as const;
 
-export type ShippingTab = 'shipments' | 'labels' | 'zones' | 'returns' | 'carriers' | 'methods';
+export type ShippingTab = 'shipments' | 'labels' | 'zones' | 'returns' | 'carriers' | 'methods' | 'drivers';
 
 interface CarrierItem {
   id: string;
@@ -190,10 +203,19 @@ export const StoreShipping: React.FC = () => {
   const [methodType, setMethodType] = useState<
     'free' | 'flat_rate' | 'zone_based' | 'weight_based' | 'value_based' | 'same_day' | 'scheduled' | 'local_pickup' | 'cod'
   >('flat_rate');
+  const [methodFulfillment, setMethodFulfillment] = useState<'own_delivery' | 'courier'>('own_delivery');
+  const [methodCourierCode, setMethodCourierCode] = useState<string | null>(null);
+  const [methodLogoUrl, setMethodLogoUrl] = useState('');
+  const [methodVehicle, setMethodVehicle] = useState<'bike' | 'car' | 'van' | ''>('');
   const [methodBaseRate, setMethodBaseRate] = useState('25');
+  const [methodPerKg, setMethodPerKg] = useState('0');
+  const [methodPerKm, setMethodPerKm] = useState('0');
   const [methodFreeThreshold, setMethodFreeThreshold] = useState('250');
   const [methodEstimatedDays, setMethodEstimatedDays] = useState('1-3 Business Days');
-  const [methodAllowCod, setMethodAllowCod] = useState(true);
+  const [methodEtaType, setMethodEtaType] = useState<'same_day' | 'hours' | 'days'>('days');
+  const [methodPayments, setMethodPayments] = useState<Array<'cod' | 'online' | 'bank_transfer'>>(['cod', 'online']);
+  const [methodTracking, setMethodTracking] = useState(true);
+  const [presetBusy, setPresetBusy] = useState(false);
 
   // Add City/Zone Modal States
   const [showAddCityModal, setShowAddCityModal] = useState(false);
@@ -201,6 +223,152 @@ export const StoreShipping: React.FC = () => {
   const [newCityRegion, setNewCityRegion] = useState('Makkah Region');
   const [newCityRate, setNewCityRate] = useState('20');
   const [newCityEta, setNewCityEta] = useState('Same Day');
+
+  // Own Delivery Drivers
+  const [drivers, setDrivers] = useState<DeliveryDriverRow[]>([]);
+  const [driversLoading, setDriversLoading] = useState(false);
+  const [driversBusy, setDriversBusy] = useState(false);
+  const [showDriverModal, setShowDriverModal] = useState(false);
+  const [editingDriver, setEditingDriver] = useState<DeliveryDriverRow | null>(null);
+  const [driverName, setDriverName] = useState('');
+  const [driverPhone, setDriverPhone] = useState('');
+  const [driverEmail, setDriverEmail] = useState('');
+  const [driverCity, setDriverCity] = useState('');
+  const [driverVehicle, setDriverVehicle] = useState('');
+  const [driverBaseLocation, setDriverBaseLocation] = useState('');
+  const [driverAreas, setDriverAreas] = useState<string[]>(['makkah']);
+  const [driverRateMode, setDriverRateMode] = useState<'fixed' | 'per_kg' | 'per_km' | 'zone'>('fixed');
+  const [driverFixedRate, setDriverFixedRate] = useState('25');
+  const [driverPerKg, setDriverPerKg] = useState('0');
+  const [driverPerKm, setDriverPerKm] = useState('0');
+  const [driverSameDay, setDriverSameDay] = useState(false);
+  const [driverEta, setDriverEta] = useState('Same Day');
+  const [driverPayments, setDriverPayments] = useState<Array<'cod' | 'online' | 'bank_transfer'>>(['cod']);
+  const [driverActive, setDriverActive] = useState(true);
+
+  const SERVICE_AREA_OPTIONS = [
+    { id: 'makkah', en: 'Makkah', ar: 'مكة المكرمة' },
+    { id: 'makkah_outside', en: 'Outside Makkah', ar: 'خارج مكة' },
+    { id: 'jeddah', en: 'Jeddah', ar: 'جدة' },
+    { id: 'all_saudi', en: 'All Saudi Arabia', ar: 'كل السعودية' },
+  ] as const;
+
+  const loadDrivers = useCallback(async () => {
+    if (!activeStore?.id) {
+      setDrivers([]);
+      return;
+    }
+    setDriversLoading(true);
+    try {
+      const rows = await fetchDeliveryDriversApi(activeStore.id, { all: true });
+      setDrivers(rows);
+    } catch {
+      setDrivers([]);
+      toast(isAr ? 'تعذر تحميل مندوبي التوصيل' : 'Could not load delivery drivers', 'error');
+    } finally {
+      setDriversLoading(false);
+    }
+  }, [activeStore?.id, isAr, toast]);
+
+  useEffect(() => {
+    void loadDrivers();
+  }, [loadDrivers]);
+
+  const openCreateDriver = () => {
+    setEditingDriver(null);
+    setDriverName('');
+    setDriverPhone('');
+    setDriverEmail('');
+    setDriverCity('');
+    setDriverVehicle('');
+    setDriverBaseLocation('');
+    setDriverAreas(['makkah']);
+    setDriverRateMode('fixed');
+    setDriverFixedRate('25');
+    setDriverPerKg('0');
+    setDriverPerKm('0');
+    setDriverSameDay(false);
+    setDriverEta('Same Day');
+    setDriverPayments(['cod']);
+    setDriverActive(true);
+    setShowDriverModal(true);
+  };
+
+  const openEditDriver = (row: DeliveryDriverRow) => {
+    setEditingDriver(row);
+    setDriverName(row.name || '');
+    setDriverPhone(row.phone || '');
+    setDriverEmail(row.email || '');
+    setDriverCity(row.city || '');
+    setDriverVehicle(row.vehicle_type || '');
+    setDriverBaseLocation(row.base_location || '');
+    setDriverAreas(Array.isArray(row.service_areas) && row.service_areas.length ? row.service_areas : ['makkah']);
+    setDriverRateMode((row.rate_mode as typeof driverRateMode) || 'fixed');
+    setDriverFixedRate(String(row.fixed_rate ?? 25));
+    setDriverPerKg(String(row.per_kg_rate ?? 0));
+    setDriverPerKm(String(row.per_km_rate ?? 0));
+    setDriverSameDay(Boolean(row.same_day));
+    setDriverEta(row.eta_text || 'Same Day');
+    setDriverPayments(
+      Array.isArray(row.payment_options) && row.payment_options.length
+        ? row.payment_options
+        : ['cod'],
+    );
+    setDriverActive(row.is_active !== false);
+    setShowDriverModal(true);
+  };
+
+  const handleSaveDriver = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeStore?.id || !driverName.trim() || !driverPhone.trim()) return;
+    setDriversBusy(true);
+    try {
+      const payload = {
+        name: driverName.trim(),
+        phone: driverPhone.trim(),
+        email: driverEmail.trim() || null,
+        city: driverCity.trim() || null,
+        vehicle_type: driverVehicle.trim() || null,
+        base_location: driverBaseLocation.trim() || null,
+        service_areas: driverAreas,
+        rate_mode: driverRateMode,
+        fixed_rate: parseFloat(driverFixedRate) || 0,
+        per_kg_rate: parseFloat(driverPerKg) || 0,
+        per_km_rate: parseFloat(driverPerKm) || 0,
+        same_day: driverSameDay,
+        eta_text: driverEta.trim() || null,
+        payment_options: driverPayments,
+        is_active: driverActive,
+      };
+      if (editingDriver) {
+        await updateDeliveryDriverApi(activeStore.id, editingDriver.id, payload);
+        toast(isAr ? 'تم تحديث مندوب التوصيل' : 'Delivery driver updated', 'success');
+      } else {
+        await createDeliveryDriverApi(activeStore.id, payload);
+        toast(isAr ? 'تمت إضافة مندوب التوصيل' : 'Delivery driver added', 'success');
+      }
+      setShowDriverModal(false);
+      await loadDrivers();
+    } catch (err: any) {
+      toast(err?.message || (isAr ? 'تعذر حفظ مندوب التوصيل' : 'Could not save delivery driver'), 'error');
+    } finally {
+      setDriversBusy(false);
+    }
+  };
+
+  const handleDeleteDriver = async (row: DeliveryDriverRow) => {
+    if (!activeStore?.id) return;
+    setDriversBusy(true);
+    try {
+      await deleteDeliveryDriverApi(activeStore.id, row.id);
+      toast(isAr ? 'تم حذف مندوب التوصيل' : 'Delivery driver deleted', 'success');
+      await loadDrivers();
+    } catch (err: any) {
+      toast(err?.message || (isAr ? 'تعذر حذف مندوب التوصيل' : 'Could not delete delivery driver'), 'error');
+    } finally {
+      setDriversBusy(false);
+    }
+  };
 
   const filteredCouriers = useMemo(() => {
     const q = (carrierSearch || '').toLowerCase();
@@ -226,9 +394,14 @@ export const StoreShipping: React.FC = () => {
       setCourierApiKey('');
       setCourierApiSecret('');
       setCourierAccountNumber('');
-      toast(`Successfully configured and connected ${courierProvider.toUpperCase()} carrier!`, 'success');
+      toast(
+        isAr
+          ? `تم ضبط وربط شركة الشحن ${courierProvider.toUpperCase()} بنجاح`
+          : `Successfully configured and connected ${courierProvider.toUpperCase()} carrier!`,
+        'success'
+      );
     } catch {
-      toast('Failed to save courier credentials', 'error');
+      toast(isAr ? 'تعذر حفظ بيانات اعتماد شركة الشحن' : 'Failed to save courier credentials', 'error');
     }
   };
 
@@ -237,12 +410,22 @@ export const StoreShipping: React.FC = () => {
     try {
       const res = await testCourier(provider);
       if (res.success) {
-        toast(`${provider.toUpperCase()} API connection verified successfully! Ping: ${(res as any).ping_ms || 120}ms`, 'success');
+        toast(
+          isAr
+            ? `تم التحقق من اتصال ${provider.toUpperCase()} بنجاح. زمن الاستجابة: ${(res as any).ping_ms || 120} مللي ثانية`
+            : `${provider.toUpperCase()} API connection verified successfully! Ping: ${(res as any).ping_ms || 120}ms`,
+          'success'
+        );
       } else {
-        toast(`Carrier API test failed: ${res.message || 'Credentials invalid'}`, 'error');
+        toast(
+          isAr
+            ? `فشل اختبار اتصال شركة الشحن: ${res.message || 'بيانات الاعتماد غير صالحة'}`
+            : `Carrier API test failed: ${res.message || 'Credentials invalid'}`,
+          'error'
+        );
       }
     } catch {
-      toast('Could not contact courier API service', 'error');
+      toast(isAr ? 'تعذر التواصل مع خدمة شركة الشحن' : 'Could not contact courier API service', 'error');
     } finally {
       setIsTestingCourier(false);
     }
@@ -251,9 +434,14 @@ export const StoreShipping: React.FC = () => {
   const handleSyncCourier = async (provider: string) => {
     try {
       await syncCourier(provider);
-      toast(`${provider.toUpperCase()} shipping services & rates synced!`, 'success');
+      toast(
+        isAr
+          ? `تمت مزامنة خدمات وأسعار شحن ${provider.toUpperCase()}`
+          : `${provider.toUpperCase()} shipping services & rates synced!`,
+        'success'
+      );
     } catch {
-      toast('Failed to sync carrier configuration', 'error');
+      toast(isAr ? 'تعذر مزامنة إعدادات شركة الشحن' : 'Failed to sync carrier configuration', 'error');
     }
   };
 
@@ -265,20 +453,52 @@ export const StoreShipping: React.FC = () => {
         name: methodName.trim(),
         nameAr: methodNameAr.trim() || methodName.trim(),
         type: methodType,
+        fulfillmentMode: methodFulfillment,
         baseRate: parseFloat(methodBaseRate) || 0,
+        perKgRate: parseFloat(methodPerKg) || 0,
+        perKmRate: parseFloat(methodPerKm) || 0,
         freeShippingThreshold: methodFreeThreshold ? parseFloat(methodFreeThreshold) : null,
         estimatedDelivery: methodEstimatedDays,
-        isCodAllowed: methodAllowCod,
+        etaType: methodEtaType,
+        trackingEnabled: methodTracking,
+        courierCode: methodFulfillment === 'courier' ? methodCourierCode : null,
+        logoUrl: methodLogoUrl.trim() || null,
+        vehicleType: methodVehicle || null,
+        isCodAllowed: methodPayments.includes('cod'),
+        allowOnline: methodPayments.includes('online'),
+        allowBankTransfer: methodPayments.includes('bank_transfer'),
+        paymentOptions: methodPayments,
         isActive: true,
       });
       setShowAddMethod(false);
       setMethodName('');
       setMethodNameAr('');
-      toast('Real shipping method created successfully!', 'success');
+      setMethodCourierCode(null);
+      setMethodLogoUrl('');
+      setMethodVehicle('');
+      toast(
+        isAr ? 'تم إنشاء طريقة الشحن بنجاح' : 'Shipping method created successfully',
+        'success',
+      );
     } catch {
-      toast('Failed to create shipping method', 'error');
+      toast(isAr ? 'تعذر إنشاء طريقة الشحن' : 'Failed to create shipping method', 'error');
     }
   };
+
+  const togglePaymentOption = (
+    list: Array<'cod' | 'online' | 'bank_transfer'>,
+    setList: (v: Array<'cod' | 'online' | 'bank_transfer'>) => void,
+    key: 'cod' | 'online' | 'bank_transfer',
+  ) => {
+    setList(list.includes(key) ? list.filter((x) => x !== key) : [...list, key]);
+  };
+
+  const optionBtnClass = (on: boolean) =>
+    `px-3 py-2 rounded-xl text-[11px] font-bold border cursor-pointer transition-all ${
+      on
+        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+    }`;
 
   const handleAddCity = (e: React.FormEvent) => {
     e.preventDefault();
@@ -351,85 +571,78 @@ export const StoreShipping: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
-      {/* ── Main Module Navigation Bar ── */}
-      <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl text-xs font-bold w-full overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setActiveTab('shipments')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
-            activeTab === 'shipments'
-              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <Truck className="w-4 h-4 rtl:rotate-180" />
-          <span>{isAr ? 'الشحنات والتتبع' : 'Shipments & Tracking'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('labels')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
-            activeTab === 'labels'
-              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <Printer className="w-4 h-4" />
-          <span>{isAr ? 'بوالص الشحن والعمليات' : 'Shipping Labels'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('zones')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
-            activeTab === 'zones'
-              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <MapPin className="w-4 h-4" />
-          <span>{isAr ? 'مناطق الشحن والأسعار' : `Zones & Rates (${currentShipping.length})`}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('returns')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
-            activeTab === 'returns'
-              ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <RotateCcw className="w-4 h-4" />
-          <span>{isAr ? 'المرتجعات والحالات الخاصة' : 'Returns & Exceptions'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('carriers')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
-            activeTab === 'carriers'
-              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4" />
-          <span>{isAr ? 'شركات الشحن (APIs)' : `Couriers (${connectedCouriersCount})`}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('methods')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
-            activeTab === 'methods'
-              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <Package className="w-4 h-4" />
-          <span>{isAr ? 'طرق الشحن' : `Methods (${currentShippingMethods.length})`}</span>
-        </button>
+      {/* ── Main Module Navigation — 4 buttons per row ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
+        {(
+          [
+            {
+              id: 'shipments' as ShippingTab,
+              icon: Truck,
+              label: isAr ? 'الشحنات والتتبع' : 'Shipments & Tracking',
+              active: 'text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900',
+            },
+            {
+              id: 'labels' as ShippingTab,
+              icon: Printer,
+              label: isAr ? 'بوالص الشحن' : 'Shipping Labels',
+              active: 'text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900',
+            },
+            {
+              id: 'zones' as ShippingTab,
+              icon: MapPin,
+              label: isAr ? `المناطق والأسعار (${currentShipping.length})` : `Zones & Rates (${currentShipping.length})`,
+              active: 'text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900',
+            },
+            {
+              id: 'returns' as ShippingTab,
+              icon: RotateCcw,
+              label: isAr ? 'المرتجعات' : 'Returns & Exceptions',
+              active: 'text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800 bg-white dark:bg-slate-900',
+            },
+            {
+              id: 'carriers' as ShippingTab,
+              icon: ShieldCheck,
+              label: isAr
+                ? `شركات الشحن (${connectedCouriersCount})`
+                : `Shipping Companies (${connectedCouriersCount})`,
+              active: 'text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900',
+            },
+            {
+              id: 'methods' as ShippingTab,
+              icon: Package,
+              label: isAr
+                ? `طرق الشحن (${currentShippingMethods.length})`
+                : `Methods (${currentShippingMethods.length})`,
+              active: 'text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900',
+            },
+            {
+              id: 'drivers' as ShippingTab,
+              icon: UserRound,
+              label: isAr
+                ? `توصيل محلي داخل مدينة مكة (${drivers.length})`
+                : `Local delivery within Makkah city (${drivers.length})`,
+              active: 'text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900',
+            },
+          ] as const
+        ).map((tab) => {
+          const Icon = tab.icon;
+          const isOn = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                isOn
+                  ? tab.active + ' shadow-xs'
+                  : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+              }`}
+            >
+              <Icon className={`w-4 h-4 shrink-0 ${tab.id === 'shipments' ? 'rtl:rotate-180' : ''}`} />
+              <span className="truncate">{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Active Tab 1: Shipments & Tracking (Pixel-Perfect Image 1 Top) ── */}
@@ -460,10 +673,12 @@ export const StoreShipping: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                Official Saudi &amp; International Courier Services
+                {isAr ? 'خدمات الشحن السعودية والدولية الرسمية' : 'Official Saudi & International Courier Services'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Direct REST/SOAP API connections for auto AWB labels, tracking numbers, and delivery webhook webhooks.
+                {isAr
+                  ? 'ربط مباشر لإصدار بوالص الشحن وأرقام التتبع وإشعارات التسليم تلقائياً.'
+                  : 'Direct REST/SOAP API connections for auto AWB labels, tracking numbers, and delivery webhook webhooks.'}
               </p>
             </div>
 
@@ -474,7 +689,7 @@ export const StoreShipping: React.FC = () => {
                 className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Connect Provider</span>
+                <span>{isAr ? '+ ربط مزود' : '+ Connect Provider'}</span>
               </button>
             </div>
           </div>
@@ -557,7 +772,13 @@ export const StoreShipping: React.FC = () => {
                             : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
                         }`}
                       >
-                        {isConnected ? 'Connected ✓' : 'Not Connected'}
+                        {isConnected
+                          ? isAr
+                            ? 'متصل ✓'
+                            : 'Connected ✓'
+                          : isAr
+                            ? 'غير متصل'
+                            : 'Not Connected'}
                       </span>
                     </div>
 
@@ -567,8 +788,16 @@ export const StoreShipping: React.FC = () => {
 
                     {isConnected && conn?.maskedApiKey && (
                       <div className="text-[10px] font-mono text-slate-500 bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                        <span>Key: {conn.maskedApiKey}</span>
-                        <span className="text-teal-600 font-bold uppercase">{conn.isSandbox ? 'Sandbox' : 'Live API'}</span>
+                        <span>{isAr ? 'المفتاح:' : 'Key:'} {conn.maskedApiKey}</span>
+                        <span className="text-teal-600 font-bold uppercase">
+                          {conn.isSandbox
+                            ? isAr
+                              ? 'تجريبي'
+                              : 'Sandbox'
+                            : isAr
+                              ? 'ربط مباشر'
+                              : 'Live API'}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -582,7 +811,7 @@ export const StoreShipping: React.FC = () => {
                           onClick={() => handleTestCourier(prov.code)}
                           className="px-2.5 py-1 text-[11px] font-bold bg-white dark:bg-slate-800 hover:bg-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
                         >
-                          Test API
+                          {isAr ? 'فحص الاتصال' : 'Test API'}
                         </button>
                         <button
                           type="button"
@@ -650,7 +879,7 @@ export const StoreShipping: React.FC = () => {
                           onClick={() => handleSyncCourier(prov.code)}
                           className="px-2.5 py-1 text-[11px] font-bold text-teal-600 hover:text-teal-500 cursor-pointer"
                         >
-                          Sync Rates
+                          {isAr ? 'مزامنة الأسعار' : 'Sync Rates'}
                         </button>
                         <button
                           type="button"
@@ -660,7 +889,7 @@ export const StoreShipping: React.FC = () => {
                           }}
                           className="px-2.5 py-1 text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer"
                         >
-                          Config
+                          {isAr ? 'الإعدادات' : 'Config'}
                         </button>
                       </>
                     ) : (
@@ -672,7 +901,7 @@ export const StoreShipping: React.FC = () => {
                         }}
                         className="w-full py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-[11px] font-bold shadow-xs cursor-pointer text-center"
                       >
-                        Connect {prov.badge} Provider →
+                        {isAr ? `ربط ${prov.badge} ←` : `Connect ${prov.badge} Provider →`}
                       </button>
                     )}
                   </div>
@@ -680,6 +909,123 @@ export const StoreShipping: React.FC = () => {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* ── Own Delivery Drivers ── */}
+      {activeTab === 'drivers' && (
+        <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
+                {commerceTerm('ownDelivery', isAr)}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {isAr
+                  ? 'إدارة مندوبي التوصيل التابعين للمتجر'
+                  : 'Manage store-owned delivery drivers'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={openCreateDriver}
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>{isAr ? 'إضافة مندوب' : 'Add Driver'}</span>
+            </button>
+          </div>
+
+          {driversLoading ? (
+            <div className="py-12 flex items-center justify-center gap-2 text-sm text-slate-500">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>{isAr ? 'جاري التحميل…' : 'Loading…'}</span>
+            </div>
+          ) : drivers.length === 0 ? (
+            <div className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+              {isAr ? 'لا توجد سجلات' : 'No records found'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 text-start">
+                    <th className="py-3 px-4 font-medium text-start">{isAr ? 'الاسم' : 'Name'}</th>
+                    <th className="py-3 px-4 font-medium text-start">{isAr ? 'الجوال' : 'Phone'}</th>
+                    <th className="py-3 px-4 font-medium text-start">{isAr ? 'البريد الإلكتروني' : 'Email'}</th>
+                    <th className="py-3 px-4 font-medium text-start">{isAr ? 'المدينة' : 'City'}</th>
+                    <th className="py-3 px-4 font-medium text-start">{isAr ? 'المركبة' : 'Vehicle'}</th>
+                    <th className="py-3 px-4 font-medium text-center">{isAr ? 'الحالة' : 'Active'}</th>
+                    <th className="py-3 px-4 font-medium text-end">{isAr ? 'إجراء' : 'Action'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
+                  {drivers.map((d) => (
+                    <tr key={d.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                        {(isAr && d.name_ar) || d.name}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-300">{d.phone}</td>
+                      <td className="py-3.5 px-4 text-slate-500">{d.email || '—'}</td>
+                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{d.city || '—'}</td>
+                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
+                        {d.vehicle_type === 'bike'
+                          ? isAr
+                            ? 'دراجة نارية'
+                            : 'Bike'
+                          : d.vehicle_type === 'car'
+                            ? isAr
+                              ? 'سيارة'
+                              : 'Car'
+                            : d.vehicle_type === 'van'
+                              ? isAr
+                                ? 'فان'
+                                : 'Van'
+                              : d.vehicle_type || '—'}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                            d.is_active
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300'
+                              : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400'
+                          }`}
+                        >
+                          {d.is_active
+                            ? isAr
+                              ? 'نشط'
+                              : 'Active'
+                            : isAr
+                              ? 'غير نشط'
+                              : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-end">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openEditDriver(d)}
+                            disabled={driversBusy}
+                            className="px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 bg-slate-100 dark:bg-slate-800 rounded-lg cursor-pointer disabled:opacity-50"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteDriver(d)}
+                            disabled={driversBusy}
+                            className="px-2.5 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 bg-slate-100 dark:bg-slate-800 rounded-lg cursor-pointer disabled:opacity-50"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -691,34 +1037,93 @@ export const StoreShipping: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                Store Shipping Methods
+                {isAr ? 'طرق شحن المتجر' : 'Store Shipping Methods'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Configured shipping calculations: Flat Rate, Free Shipping, Weight Based, Same-Day, or Local Delivery.
+                {isAr
+                  ? 'حسابات الشحن المضبوطة: سعر ثابت، شحن مجاني، حسب الوزن، في نفس اليوم، أو توصيل محلي.'
+                  : 'Configured shipping calculations: Flat Rate, Free Shipping, Weight Based, Same-Day, or Local Delivery.'}
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowAddMethod(true)}
-              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Method</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+              <button
+                type="button"
+                disabled={presetBusy}
+                onClick={async () => {
+                  setPresetBusy(true);
+                  try {
+                    for (const preset of EXAMPLE_SHIPPING_METHOD_PRESETS) {
+                      const exists = currentShippingMethods.some(
+                        (m) =>
+                          m.name === preset.name ||
+                          (preset.courierCode && m.courierCode === preset.courierCode),
+                      );
+                      if (exists) continue;
+                      await addShippingMethod({
+                        name: preset.name,
+                        nameAr: preset.nameAr,
+                        type: preset.type,
+                        fulfillmentMode: preset.fulfillmentMode,
+                        baseRate: preset.baseRate,
+                        estimatedDelivery: preset.estimatedDelivery,
+                        etaType: 'etaType' in preset ? preset.etaType : 'days',
+                        courierCode: preset.courierCode,
+                        isCodAllowed: preset.isCodAllowed,
+                        allowOnline: preset.allowOnline,
+                        allowBankTransfer: 'allowBankTransfer' in preset ? preset.allowBankTransfer : false,
+                        paymentOptions: preset.paymentOptions,
+                        isActive: true,
+                      });
+                    }
+                    toast(
+                      isAr
+                        ? 'تمت إضافة شركات الشحن النموذجية (ريدبوكس، سمسا، أرامكس، توصيل محلي)'
+                        : 'Example couriers added (RedBox, SMSA, Aramex, Local Delivery)',
+                      'success',
+                    );
+                  } catch {
+                    toast(
+                      isAr ? 'تعذر إضافة الطرق النموذجية' : 'Could not add example methods',
+                      'error',
+                    );
+                  } finally {
+                    setPresetBusy(false);
+                  }
+                }}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {presetBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                <span>{isAr ? 'إضافة ريدبوكس/سمسا/أرامكس/محلي' : 'Add RedBox / SMSA / Aramex / Local'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddMethod(true)}
+                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{isAr ? 'إضافة شركة / طريقة' : 'Add company / method'}</span>
+              </button>
+            </div>
           </div>
+
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            {isAr
+              ? 'مثال الواجهة: ريدبوكس ٢٤ ر.س (٥–٧ أيام) · سمسا ٣٠ ر.س (٥–٨ أيام) · أرامكس ٣٠ ر.س · توصيل محلي داخل مكة ٢–٣ أيام. الوقت والرسوم يُؤكدان عند إتمام الشراء.'
+              : 'UI example: RedBox SAR 24 (5–7 days) · SMSA SAR 30 (5–8 days) · Aramex SAR 30 · Local Makkah 2–3 days. Time & charges confirmed at checkout.'}
+          </p>
 
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 text-start">
-                  <th className="py-3 px-4 font-medium text-start">Method Name</th>
-                  <th className="py-3 px-4 font-medium text-start">Type</th>
-                  <th className="py-3 px-4 font-medium text-end">Base Rate</th>
-                  <th className="py-3 px-4 font-medium text-end">Free Above</th>
-                  <th className="py-3 px-4 font-medium text-center">COD Allowed</th>
-                  <th className="py-3 px-4 font-medium text-center">Status</th>
-                  <th className="py-3 px-4 font-medium text-end">Action</th>
+                  <th className="py-3 px-4 font-medium text-start">{isAr ? 'اسم الطريقة' : 'Method Name'}</th>
+                  <th className="py-3 px-4 font-medium text-start">{isAr ? 'النوع' : 'Type'}</th>
+                  <th className="py-3 px-4 font-medium text-end">{isAr ? 'السعر الأساسي' : 'Base Rate'}</th>
+                  <th className="py-3 px-4 font-medium text-end">{isAr ? 'مجاني فوق' : 'Free Above'}</th>
+                  <th className="py-3 px-4 font-medium text-center">{isAr ? 'الدفع عند الاستلام' : 'COD Allowed'}</th>
+                  <th className="py-3 px-4 font-medium text-center">{isAr ? 'الحالة' : 'Status'}</th>
+                  <th className="py-3 px-4 font-medium text-end">{isAr ? 'إجراء' : 'Action'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
@@ -740,7 +1145,7 @@ export const StoreShipping: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-end font-black text-slate-900 dark:text-white tabular-nums">
-                      {m.baseRate === 0 ? 'Free' : money(m.baseRate)}
+                      {m.baseRate === 0 ? (isAr ? 'مجاني' : 'Free') : money(m.baseRate)}
                     </td>
                     <td className="py-3.5 px-4 text-end text-emerald-600 dark:text-emerald-400 font-bold tabular-nums">
                       {m.freeShippingThreshold ? money(m.freeShippingThreshold) : '—'}
@@ -753,7 +1158,13 @@ export const StoreShipping: React.FC = () => {
                             : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
                         }`}
                       >
-                        {m.isCodAllowed ? 'COD Available' : 'No COD'}
+                        {m.isCodAllowed
+                          ? isAr
+                            ? 'متاح عند الاستلام'
+                            : 'COD Available'
+                          : isAr
+                            ? 'غير متاح عند الاستلام'
+                            : 'No COD'}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-center">
@@ -761,7 +1172,14 @@ export const StoreShipping: React.FC = () => {
                         type="button"
                         onClick={() => {
                           updateShippingMethod(m.id, { isActive: !m.isActive });
-                          toast(`Shipping method ${m.isActive ? 'disabled' : 'activated'}!`, 'info');
+                          toast(
+                            isAr
+                              ? m.isActive
+                                ? 'تم تعطيل طريقة الشحن'
+                                : 'تم تفعيل طريقة الشحن'
+                              : `Shipping method ${m.isActive ? 'disabled' : 'activated'}!`,
+                            'info'
+                          );
                         }}
                         className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer ${
                           m.isActive
@@ -769,22 +1187,32 @@ export const StoreShipping: React.FC = () => {
                             : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400'
                         }`}
                       >
-                        {m.isActive ? 'Active' : 'Inactive'}
+                        {m.isActive ? (isAr ? 'نشط' : 'Active') : isAr ? 'غير نشط' : 'Inactive'}
                       </button>
                     </td>
                     <td className="py-3.5 px-4 text-end">
                       <button
                         type="button"
                         onClick={() => {
-                          const newRate = window.prompt(`Update base rate for ${m.name} (SAR):`, m.baseRate.toString());
+                          const newRate = window.prompt(
+                            isAr
+                              ? `حدّث السعر الأساسي لـ ${m.name} (ر.س):`
+                              : `Update base rate for ${m.name} (SAR):`,
+                            m.baseRate.toString()
+                          );
                           if (newRate !== null && !isNaN(parseFloat(newRate))) {
                             updateShippingMethod(m.id, { baseRate: parseFloat(newRate) });
-                            toast(`Base rate updated to ${money(parseFloat(newRate))}`, 'success');
+                            toast(
+                              isAr
+                                ? `تم تحديث السعر الأساسي إلى ${money(parseFloat(newRate))}`
+                                : `Base rate updated to ${money(parseFloat(newRate))}`,
+                              'success'
+                            );
                           }
                         }}
                         className="px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 bg-slate-100 dark:bg-slate-800 rounded-lg cursor-pointer"
                       >
-                        Edit Rate
+                        {isAr ? 'تعديل السعر' : 'Edit Rate'}
                       </button>
                     </td>
                   </tr>
@@ -797,16 +1225,22 @@ export const StoreShipping: React.FC = () => {
 
       {/* Connect Courier Modal */}
       {showConnectCourierModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <GlobalModal
+          onClose={() => setShowConnectCourierModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'ربط شركة الشحن' : 'Connect Shipping Company'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-lg w-full p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
                   <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                  <span>Connect Official Courier API</span>
+                  <span>{isAr ? 'ربط شركة الشحن' : 'Connect Official Courier API'}</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Secure server-side API integration. Credentials are never exposed to customers.
+                  {isAr
+                    ? 'تكامل آمن من جهة الخادم. بيانات الاعتماد لا تُعرض للعملاء أبدًا.'
+                    : 'Secure server-side API integration. Credentials are never exposed to customers.'}
                 </p>
               </div>
               <button
@@ -821,7 +1255,7 @@ export const StoreShipping: React.FC = () => {
             <form onSubmit={handleConnectCourier} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Courier Provider *
+                  {isAr ? 'شركة الشحن *' : 'Courier Provider *'}
                 </label>
                 <select
                   value={courierProvider}
@@ -831,49 +1265,49 @@ export const StoreShipping: React.FC = () => {
                   <option value="spl">{isAr ? 'البريد السعودي (سبل) - الناقل الوطني الرسمي' : 'Saudi Post (SPL) - Official National Carrier'}</option>
                   <option value="smsa">{isAr ? 'سمسا إكسبريس - شحن محلي سريع' : 'SMSA Express - Domestic Saudi Express'}</option>
                   <option value="aramex">{isAr ? 'أرامكس - شحن إقليمي ودولي' : 'Aramex - Regional & International Courier'}</option>
-                  <option value="dhl">DHL Express - Worldwide Express</option>
-                  <option value="fedex">FedEx Express - Priority Logistics</option>
-                  <option value="ups">UPS - Global Shipping Network</option>
+                  <option value="dhl">{isAr ? 'دي إتش إل إكسبريس - شحن عالمي' : 'DHL Express - Worldwide Express'}</option>
+                  <option value="fedex">{isAr ? 'فيدكس إكسبريس - لوجستيات أولوية' : 'FedEx Express - Priority Logistics'}</option>
+                  <option value="ups">{isAr ? 'يو بي إس - شبكة شحن عالمية' : 'UPS - Global Shipping Network'}</option>
                 </select>
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Courier Account Number / Shipper ID *
+                  {isAr ? 'رقم حساب الشحن / معرّف الشاحن *' : 'Courier Account Number / Shipper ID *'}
                 </label>
                 <input
                   type="text"
                   required
                   value={courierAccountNumber}
                   onChange={(e) => setCourierAccountNumber(e.target.value)}
-                  placeholder="e.g. SPL-ACC-99214 or SMSA-SHP-001"
+                  placeholder={isAr ? 'مثال: SPL-ACC-99214 أو SMSA-SHP-001' : 'e.g. SPL-ACC-99214 or SMSA-SHP-001'}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono"
                 />
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  API Key / Client ID *
+                  {isAr ? 'مفتاح الربط / معرّف العميل *' : 'API Key / Client ID *'}
                 </label>
                 <input
                   type="password"
                   required
                   value={courierApiKey}
                   onChange={(e) => setCourierApiKey(e.target.value)}
-                  placeholder="Enter official API key"
+                  placeholder={isAr ? 'أدخل مفتاح الربط الرسمي' : 'Enter official API key'}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono"
                 />
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  API Secret / Password (Optional for some providers)
+                  {isAr ? 'السر / كلمة المرور (اختياري لبعض المزودين)' : 'API Secret / Password (Optional for some providers)'}
                 </label>
                 <input
                   type="password"
                   value={courierApiSecret}
                   onChange={(e) => setCourierApiSecret(e.target.value)}
-                  placeholder="Enter API secret / token"
+                  placeholder={isAr ? 'أدخل السر أو الرمز' : 'Enter API secret / token'}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono"
                 />
               </div>
@@ -887,7 +1321,7 @@ export const StoreShipping: React.FC = () => {
                   className="rounded text-emerald-600 focus:ring-emerald-500"
                 />
                 <label htmlFor="courierSandbox" className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                  Use Sandbox / Testing Mode (Safe test environment)
+                  {isAr ? 'استخدام وضع الاختبار (بيئة آمنة للتجربة)' : 'Use Sandbox / Testing Mode (Safe test environment)'}
                 </label>
               </div>
 
@@ -897,27 +1331,31 @@ export const StoreShipping: React.FC = () => {
                   onClick={() => setShowConnectCourierModal(false)}
                   className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400"
                 >
-                  Cancel
+                  {isAr ? 'إلغاء' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer"
                 >
-                  Authorize &amp; Connect Carrier
+                  {isAr ? 'تفويض وربط الناقل' : 'Authorize & Connect Carrier'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Add Shipping Method Modal */}
       {showAddMethod && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md w-full p-6 space-y-4">
+        <GlobalModal
+          onClose={() => setShowAddMethod(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إعداد طريقة الشحن' : 'Configure Shipping Method'}
+        >
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
-                Configure Shipping Method
+                {isAr ? 'إعداد طريقة الشحن' : 'Configure Shipping Method'}
               </h3>
               <button
                 type="button"
@@ -930,105 +1368,250 @@ export const StoreShipping: React.FC = () => {
 
             <form onSubmit={handleAddShippingMethod} className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Method Name (English) *
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
+                  {isAr ? 'نوع التوصيل' : 'Fulfillment type'}
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={methodName}
-                  onChange={(e) => setMethodName(e.target.value)}
-                  placeholder="e.g. Express Same-Day Delivery"
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" className={optionBtnClass(methodFulfillment === 'own_delivery')} onClick={() => setMethodFulfillment('own_delivery')}>
+                    {isAr ? 'توصيل المتجر' : 'Our delivery'}
+                  </button>
+                  <button type="button" className={optionBtnClass(methodFulfillment === 'courier')} onClick={() => setMethodFulfillment('courier')}>
+                    {isAr ? 'شركة شحن' : 'Shipping company'}
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Method Name (Arabic)
-                </label>
-                <input
-                  type="text"
-                  value={methodNameAr}
-                  onChange={(e) => setMethodNameAr(e.target.value)}
-                  placeholder="e.g. التوصيل السريع خلال نفس اليوم"
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-end"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              {methodFulfillment === 'courier' ? (
                 <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'طريقة الحساب' : 'Calculation type'}
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
+                    {isAr ? 'شركة الشحن (يمكن إضافة المزيد لاحقاً)' : 'Courier company (more can be added later)'}
                   </label>
-                  <select
-                    value={methodType}
-                    onChange={(e) => setMethodType(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {(
+                      [
+                        { code: 'redbox', en: 'RedBox', ar: 'ريدبوكس', rate: '24', eta: '5–7 business days' },
+                        { code: 'smsa', en: 'SMSA', ar: 'سمسا', rate: '30', eta: '5–8 business days' },
+                        { code: 'aramex', en: 'Aramex', ar: 'أرامكس', rate: '30', eta: '5–8 business days' },
+                        { code: 'spl', en: 'SPL', ar: 'سبل', rate: '25', eta: '3–5 business days' },
+                      ] as const
+                    ).map((c) => (
+                      <button
+                        key={c.code}
+                        type="button"
+                        className={optionBtnClass(methodName.toLowerCase().includes(c.en.toLowerCase()) || methodNameAr.includes(c.ar))}
+                        onClick={() => {
+                          setMethodCourierCode(c.code);
+                          setMethodName(c.en === 'SMSA' ? 'SMSA Express – Standard Shipping' : c.en);
+                          setMethodNameAr(
+                            c.code === 'smsa'
+                              ? 'سمسا إكسبريس — الشحن القياسي'
+                              : c.code === 'redbox'
+                                ? 'ريدبوكس'
+                                : c.code === 'aramex'
+                                  ? 'أرامكس'
+                                  : 'البريد السعودي (سبل)',
+                          );
+                          setMethodBaseRate(c.rate);
+                          setMethodEstimatedDays(c.eta);
+                          setMethodFulfillment('courier');
+                          setMethodType('flat_rate');
+                        }}
+                      >
+                        {isAr ? c.ar : c.en}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <button
+                    type="button"
+                    className={optionBtnClass(true)}
+                    onClick={() => {
+                      setMethodCourierCode(null);
+                      setMethodName('Local Delivery (Within Makkah City Limits)');
+                      setMethodNameAr('توصيل محلي (داخل حدود مدينة مكة)');
+                      setMethodType('same_day');
+                      setMethodBaseRate('0');
+                      setMethodEstimatedDays('2–3 days');
+                      setMethodEtaType('days');
+                    }}
                   >
-                    <option value="flat_rate">{isAr ? 'سعر ثابت' : 'Flat rate'}</option>
-                    <option value="free">{isAr ? 'شحن مجاني' : 'Free shipping'}</option>
-                    <option value="zone_based">{isAr ? 'حسب المنطقة' : 'Zone based'}</option>
-                    <option value="weight_based">{isAr ? 'حسب الوزن' : 'Weight based'}</option>
-                    <option value="same_day">{isAr ? 'توصيل في نفس اليوم' : 'Same-day delivery'}</option>
-                    <option value="scheduled">{isAr ? 'توصيل مجدول' : 'Scheduled delivery'}</option>
-                    <option value="local_pickup">{isAr ? 'استلام من المتجر' : 'Local pickup'}</option>
-                    <option value="cod">{isAr ? 'الدفع عند الاستلام' : 'Cash on delivery'}</option>
-                  </select>
+                    {isAr ? 'تعبئة توصيل مكة المحلي' : 'Fill Local Makkah Delivery'}
+                  </button>
                 </div>
+              )}
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'الرسوم الأساسية (ر.س)' : 'Base fee (SAR)'}
-                  </label>
-                  <input
-                    type="number"
-                    value={methodBaseRate}
-                    onChange={(e) => setMethodBaseRate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    Free If Order Exceeds (SAR)
-                  </label>
-                  <input
-                    type="number"
-                    value={methodFreeThreshold}
-                    onChange={(e) => setMethodFreeThreshold(e.target.value)}
-                    placeholder="e.g. 250"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    Estimated Time (ETA)
+                    {isAr ? 'اسم الطريقة (بالإنجليزية) *' : 'Method Name (English) *'}
                   </label>
                   <input
                     type="text"
-                    value={methodEstimatedDays}
-                    onChange={(e) => setMethodEstimatedDays(e.target.value)}
-                    placeholder="e.g. 1-2 Business Days"
+                    required
+                    value={methodName}
+                    onChange={(e) => setMethodName(e.target.value)}
+                    placeholder={isAr ? '' : 'e.g. Express Same-Day Delivery'}
                     className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'اسم الطريقة (بالعربية)' : 'Method Name (Arabic)'}
+                  </label>
+                  <input
+                    type="text"
+                    value={methodNameAr}
+                    onChange={(e) => setMethodNameAr(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                    dir="rtl"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="allowCodCheck"
-                  checked={methodAllowCod}
-                  onChange={(e) => setMethodAllowCod(e.target.checked)}
-                  className="rounded text-blue-600 focus:ring-blue-500"
-                />
-                <label htmlFor="allowCodCheck" className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                  {isAr ? 'السماح بالدفع عند الاستلام لهذه الطريقة' : 'Allow cash on delivery for this method'}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'رابط شعار الشركة' : 'Company logo URL'}
+                  </label>
+                  <input
+                    type="url"
+                    value={methodLogoUrl}
+                    onChange={(e) => setMethodLogoUrl(e.target.value)}
+                    placeholder="https://…"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'نوع المركبة' : 'Vehicle type'}
+                  </label>
+                  <select
+                    value={methodVehicle}
+                    onChange={(e) => setMethodVehicle((e.target.value as 'bike' | 'car' | 'van' | '') || '')}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                  >
+                    <option value="">{isAr ? 'اختياري' : 'Optional'}</option>
+                    <option value="bike">{isAr ? 'دراجة نارية' : 'Bike'}</option>
+                    <option value="car">{isAr ? 'سيارة' : 'Car'}</option>
+                    <option value="van">{isAr ? 'فان' : 'Van'}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
+                  {isAr ? 'طريقة حساب الرسوم' : 'Charge calculation'}
                 </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {(
+                    [
+                      { id: 'flat_rate' as const, en: 'Fixed', ar: 'ثابت' },
+                      { id: 'weight_based' as const, en: 'Per kg', ar: 'حسب الكيلو' },
+                      { id: 'zone_based' as const, en: 'Per km / zone', ar: 'حسب الكيلومتر' },
+                      { id: 'same_day' as const, en: 'Same day', ar: 'نفس اليوم' },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      className={optionBtnClass(methodType === opt.id)}
+                      onClick={() => {
+                        setMethodType(opt.id);
+                        if (opt.id === 'same_day') setMethodEtaType('same_day');
+                      }}
+                    >
+                      {isAr ? opt.ar : opt.en}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'أساسي (ر.س)' : 'Base (SAR)'}
+                  </label>
+                  <input type="number" min="0" step="0.01" value={methodBaseRate} onChange={(e) => setMethodBaseRate(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'للكل كجم' : 'Per kg'}
+                  </label>
+                  <input type="number" min="0" step="0.01" value={methodPerKg} onChange={(e) => setMethodPerKg(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'للكل كم' : 'Per km'}
+                  </label>
+                  <input type="number" min="0" step="0.01" value={methodPerKm} onChange={(e) => setMethodPerKm(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'مجاني فوق (ر.س)' : 'Free above (SAR)'}
+                  </label>
+                  <input type="number" value={methodFreeThreshold} onChange={(e) => setMethodFreeThreshold(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'نص الوقت المتوقع' : 'ETA text'}
+                  </label>
+                  <input type="text" value={methodEstimatedDays} onChange={(e) => setMethodEstimatedDays(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
+                  {isAr ? 'وقت التوصيل' : 'Delivery timing'}
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {(
+                    [
+                      { id: 'same_day' as const, en: 'Same day', ar: 'نفس اليوم' },
+                      { id: 'hours' as const, en: 'Hours', ar: 'ساعات' },
+                      { id: 'days' as const, en: 'Days', ar: 'أيام' },
+                      { id: 'track' as const, en: 'Tracking', ar: 'تتبع' },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      className={optionBtnClass(
+                        opt.id === 'track' ? methodTracking : methodEtaType === opt.id,
+                      )}
+                      onClick={() => {
+                        if (opt.id === 'track') setMethodTracking((v) => !v);
+                        else setMethodEtaType(opt.id);
+                      }}
+                    >
+                      {isAr ? opt.ar : opt.en}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
+                  {isAr ? 'خيارات الدفع' : 'Payment options'}
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button type="button" className={optionBtnClass(methodPayments.includes('cod'))} onClick={() => togglePaymentOption(methodPayments, setMethodPayments, 'cod')}>
+                    {isAr ? 'عند الاستلام' : 'COD'}
+                  </button>
+                  <button type="button" className={optionBtnClass(methodPayments.includes('online'))} onClick={() => togglePaymentOption(methodPayments, setMethodPayments, 'online')}>
+                    {isAr ? 'دفع إلكتروني' : 'Online'}
+                  </button>
+                  <button type="button" className={optionBtnClass(methodPayments.includes('bank_transfer'))} onClick={() => togglePaymentOption(methodPayments, setMethodPayments, 'bank_transfer')}>
+                    {isAr ? 'تحويل بنكي' : 'Bank transfer'}
+                  </button>
+                  <button type="button" className={optionBtnClass(methodType === 'free')} onClick={() => setMethodType(methodType === 'free' ? 'flat_rate' : 'free')}>
+                    {isAr ? 'شحن مجاني' : 'Free shipping'}
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -1037,27 +1620,31 @@ export const StoreShipping: React.FC = () => {
                   onClick={() => setShowAddMethod(false)}
                   className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400"
                 >
-                  Cancel
+                  {isAr ? 'إلغاء' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer"
                 >
-                  Save Method
+                  {isAr ? 'حفظ الطريقة' : 'Save Method'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Add City Modal */}
       {showAddCityModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <GlobalModal
+          onClose={() => setShowAddCityModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إضافة مدينة أو منطقة' : 'Add Saudi City / Zone'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md w-full p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
-                Add Saudi City / Zone
+                {isAr ? 'إضافة مدينة أو منطقة' : 'Add Saudi City / Zone'}
               </h3>
               <button
                 type="button"
@@ -1071,21 +1658,21 @@ export const StoreShipping: React.FC = () => {
             <form onSubmit={handleAddCity} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  City / Area Name *
+                  {isAr ? 'اسم المدينة / المنطقة *' : 'City / Area Name *'}
                 </label>
                 <input
                   type="text"
                   required
                   value={newCityName}
                   onChange={(e) => setNewCityName(e.target.value)}
-                  placeholder="e.g. Taif, Tabuk, Al Ahsa"
+                  placeholder={isAr ? 'مثال: الطائف، تبوك، الأحساء' : 'e.g. Taif, Tabuk, Al Ahsa'}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
                 />
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Region / Province
+                  {isAr ? 'المنطقة / المحافظة' : 'Region / Province'}
                 </label>
                 <select
                   value={newCityRegion}
@@ -1103,7 +1690,7 @@ export const StoreShipping: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    Delivery Fee (SAR)
+                    {isAr ? 'رسوم التوصيل (ر.س)' : 'Delivery Fee (SAR)'}
                   </label>
                   <input
                     type="number"
@@ -1115,7 +1702,7 @@ export const StoreShipping: React.FC = () => {
 
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    ETA (e.g. 1-2 Days)
+                    {isAr ? 'الوقت المتوقع (مثال: ١–٢ يوم)' : 'ETA (e.g. 1-2 Days)'}
                   </label>
                   <input
                     type="text"
@@ -1132,18 +1719,226 @@ export const StoreShipping: React.FC = () => {
                   onClick={() => setShowAddCityModal(false)}
                   className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400"
                 >
-                  Cancel
+                  {isAr ? 'إلغاء' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer"
                 >
-                  Save City
+                  {isAr ? 'حفظ المدينة' : 'Save City'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
+      )}
+
+      {/* Delivery Driver Create / Edit Modal */}
+      {showDriverModal && (
+        <GlobalModal
+          onClose={() => setShowDriverModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={editingDriver ? commerceTerm('deliveryDriver', isAr) : commerceTerm('ownDelivery', isAr)}
+        >
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                <UserRound className="w-5 h-5 text-blue-600" />
+                <span>
+                  {editingDriver
+                    ? isAr
+                      ? 'تعديل مندوب التوصيل'
+                      : 'Edit Delivery Driver'
+                    : isAr
+                      ? 'إضافة مندوب توصيل'
+                      : 'Add Delivery Driver'}
+                </span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowDriverModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDriver} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'الاسم *' : 'Name *'}
+                  </label>
+                  <input type="text" required value={driverName} onChange={(e) => setDriverName(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'الجوال *' : 'Phone *'}
+                  </label>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    required
+                    value={driverPhone}
+                    onChange={(e) => setDriverPhone(e.target.value.replace(/[^\d+\s]/g, ''))}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'البريد الإلكتروني' : 'Email'}
+                  </label>
+                  <input type="email" value={driverEmail} onChange={(e) => setDriverEmail(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'موقع الانطلاق' : 'Base location'}
+                  </label>
+                  <input type="text" value={driverBaseLocation} onChange={(e) => setDriverBaseLocation(e.target.value)} placeholder={isAr ? 'مثال: العزيزية، مكة' : 'e.g. Aziziyah, Makkah'} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'المدينة' : 'City'}
+                  </label>
+                  <input type="text" value={driverCity} onChange={(e) => setDriverCity(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'المركبة' : 'Vehicle'}
+                  </label>
+                  <select
+                    value={driverVehicle}
+                    onChange={(e) => setDriverVehicle(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                  >
+                    <option value="">{isAr ? 'اختر المركبة' : 'Select vehicle'}</option>
+                    <option value="bike">{isAr ? 'دراجة نارية' : 'Bike'}</option>
+                    <option value="car">{isAr ? 'سيارة' : 'Car'}</option>
+                    <option value="van">{isAr ? 'فان' : 'Van'}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
+                  {isAr ? 'مناطق التوصيل' : 'Delivery areas'}
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {SERVICE_AREA_OPTIONS.map((area) => {
+                    const on = driverAreas.includes(area.id);
+                    return (
+                      <button
+                        key={area.id}
+                        type="button"
+                        className={optionBtnClass(on)}
+                        onClick={() =>
+                          setDriverAreas((prev) =>
+                            on ? prev.filter((x) => x !== area.id) : [...prev, area.id],
+                          )
+                        }
+                      >
+                        {isAr ? area.ar : area.en}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
+                  {isAr ? 'حساب أجرة التوصيل' : 'Delivery fee mode'}
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {(
+                    [
+                      { id: 'fixed' as const, en: 'Fixed', ar: 'ثابت' },
+                      { id: 'per_kg' as const, en: 'Per kg', ar: 'حسب الكيلو' },
+                      { id: 'per_km' as const, en: 'Per km', ar: 'حسب الكيلومتر' },
+                      { id: 'zone' as const, en: 'By zone', ar: 'حسب المنطقة' },
+                    ] as const
+                  ).map((opt) => (
+                    <button key={opt.id} type="button" className={optionBtnClass(driverRateMode === opt.id)} onClick={() => setDriverRateMode(opt.id)}>
+                      {isAr ? opt.ar : opt.en}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">{isAr ? 'ثابت' : 'Fixed'}</label>
+                  <input type="number" min="0" step="0.01" value={driverFixedRate} onChange={(e) => setDriverFixedRate(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">{isAr ? 'للكل كجم' : 'Per kg'}</label>
+                  <input type="number" min="0" step="0.01" value={driverPerKg} onChange={(e) => setDriverPerKg(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">{isAr ? 'للكل كم' : 'Per km'}</label>
+                  <input type="number" min="0" step="0.01" value={driverPerKm} onChange={(e) => setDriverPerKm(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
+                  {isAr ? 'الوقت والدفع' : 'Timing & payment'}
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button type="button" className={optionBtnClass(driverSameDay)} onClick={() => setDriverSameDay((v) => !v)}>
+                    {isAr ? 'نفس اليوم' : 'Same day'}
+                  </button>
+                  <button type="button" className={optionBtnClass(driverPayments.includes('cod'))} onClick={() => togglePaymentOption(driverPayments, setDriverPayments, 'cod')}>
+                    {isAr ? 'عند الاستلام' : 'COD'}
+                  </button>
+                  <button type="button" className={optionBtnClass(driverPayments.includes('online'))} onClick={() => togglePaymentOption(driverPayments, setDriverPayments, 'online')}>
+                    {isAr ? 'إلكتروني' : 'Online'}
+                  </button>
+                  <button type="button" className={optionBtnClass(driverPayments.includes('bank_transfer'))} onClick={() => togglePaymentOption(driverPayments, setDriverPayments, 'bank_transfer')}>
+                    {isAr ? 'تحويل بنكي' : 'Bank'}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  {isAr ? 'الوقت المتوقع / التتبع' : 'ETA / tracking note'}
+                </label>
+                <input type="text" value={driverEta} onChange={(e) => setDriverEta(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold" />
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button type="button" className={optionBtnClass(driverActive)} onClick={() => setDriverActive(true)}>
+                  {isAr ? 'نشط' : 'Active'}
+                </button>
+                <button type="button" className={optionBtnClass(!driverActive)} onClick={() => setDriverActive(false)}>
+                  {isAr ? 'غير نشط' : 'Inactive'}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowDriverModal(false)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400"
+                >
+                  {commerceTerm('cancel', isAr)}
+                </button>
+                <button
+                  type="submit"
+                  disabled={driversBusy}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                >
+                  {driversBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  <span>{commerceTerm('saveChanges', isAr)}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </GlobalModal>
       )}
 
       {/* Printable Courier Shipping Label Barcode Modal */}

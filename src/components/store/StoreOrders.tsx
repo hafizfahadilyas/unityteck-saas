@@ -77,6 +77,11 @@ import { CourierShippingLabelModal } from './orders/CourierShippingLabelModal';
 import { OrderStatusSettingsModal } from './orders/OrderStatusSettingsModal';
 import { ExportTemplateModal } from './orders/ExportTemplateModal';
 import { AutomaticAssignmentModal } from './orders/AutomaticAssignmentModal';
+import { PaymentTransactionsModal } from './orders/PaymentTransactionsModal';
+import {
+  DEFAULT_ORDER_EXPORT_FIELDS,
+  exportOrdersSpreadsheet,
+} from '../../utils/orderExport';
 import type { CourierCarrierCode } from '../../utils/courierBarcode';
 import { generateZatcaTlvBase64, generateInvoiceHashSha256 } from '../../utils/zatca';
 import { formatDisplayDate, formatDisplayTime } from '../../utils/dateLocale';
@@ -117,7 +122,7 @@ export const StoreOrders: React.FC = () => {
     createShipmentForOrder,
   } = useTenant();
   const { t, money, locale, dir } = usePrefs();
-  const { toast, confirm } = useToast();
+  const { toast, confirm, confirmWithReason } = useToast();
 
   const [activeTab, setActiveTab] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -208,8 +213,21 @@ export const StoreOrders: React.FC = () => {
   const [showOrderStatusSettings, setShowOrderStatusSettings] = useState(false);
   const [showExportTemplateModal, setShowExportTemplateModal] = useState(false);
   const [showAutoAssignmentModal, setShowAutoAssignmentModal] = useState(false);
+  const [showPaymentTransactionsModal, setShowPaymentTransactionsModal] = useState(false);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
   const [openFilterDropdown, setOpenFilterDropdown] = useState<'date' | 'payment' | 'shipping' | 'source' | null>(null);
+  const orderToolsMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!showOrderToolsMenu) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!orderToolsMenuRef.current?.contains(e.target as Node)) {
+        setShowOrderToolsMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [showOrderToolsMenu]);
 
   const isAr = locale === 'ar';
 
@@ -681,20 +699,24 @@ export const StoreOrders: React.FC = () => {
   };
 
   const handlePermanentDeleteSingleOrder = async (ord: Order) => {
-    const ok = await confirm({
+    const reason = await confirmWithReason({
       title: t('permanentDeleteOrderConfirmTitle') || (isAr ? 'حذف الطلب نهائياً' : 'Permanently Delete Order'),
-      message: (t('permanentDeleteOrderConfirmMsg') || (isAr ? 'هل أنت متأكد من الحذف النهائي للطلب {number}؟ هذا الإجراء نهائي ولا يمكن التراجع عنه أبداً!' : 'Are you sure you want to permanently delete order {number}? This action cannot be undone!')).replace('{number}', ord.orderNumber),
+      message: (t('permanentDeleteOrderConfirmMsg') || (isAr ? 'هل أنت متأكد من الحذف النهائي للطلب {number}؟ اكتب سبب الحذف للمتابعة. هذا الإجراء نهائي!' : 'Are you sure you want to permanently delete order {number}? Enter a reason to continue. This cannot be undone!')).replace('{number}', ord.orderNumber),
       confirmLabel: t('permanentDeleteOrder') || (isAr ? 'حذف نهائي' : 'Delete Permanently'),
       cancelLabel: isAr ? 'إلغاء' : 'Cancel',
       danger: true,
+      reasonRequired: true,
+      reasonLabel: isAr ? 'سبب الحذف' : 'Reason for deletion',
+      reasonPlaceholder: isAr
+        ? 'مثال: طلب مكرر، خطأ في البيانات، طلب تجريبي…'
+        : 'e.g. Duplicate order, data error, test order…',
     });
-    if (ok) {
-      permanentDeleteOrder(ord.id, ord.storeId);
-      if (selectedOrder?.id === ord.id) {
-        setSelectedOrder(null);
-      }
-      toast(t('permanentDeleteOrderSuccess') || (isAr ? 'تم حذف الطلب نهائياً بنجاح' : 'Order permanently deleted'), 'success');
+    if (reason == null) return;
+    permanentDeleteOrder(ord.id, ord.storeId, reason);
+    if (selectedOrder?.id === ord.id) {
+      setSelectedOrder(null);
     }
+    toast(t('permanentDeleteOrderSuccess') || (isAr ? 'تم حذف الطلب نهائياً بنجاح' : 'Order permanently deleted'), 'success');
   };
 
   const handleBulkArchive = async () => {
@@ -760,37 +782,43 @@ export const StoreOrders: React.FC = () => {
     setSelectedOrderIds([]);
   };
 
-  const handleExportCsv = (ordersToExport: Order[], filename = 'orders_export.csv') => {
+  const handleExportOrders = (
+    ordersToExport: Order[],
+    format: 'xlsx' | 'csv' = 'csv',
+    filename?: string,
+    fieldIds: string[] = DEFAULT_ORDER_EXPORT_FIELDS,
+  ) => {
     if (ordersToExport.length === 0) {
       toast(isAr ? 'لا توجد طلبات للتصدير' : 'No orders to export', 'error');
       return;
     }
-    const headers = isAr
-      ? ['رقم الطلب', 'التاريخ', 'اسم العميل', 'الهاتف', 'المنتجات', 'المبلغ الإجمالي', 'طريقة الدفع', 'حالة الدفع', 'حالة الطلب', 'المصدر']
-      : ['Order Number', 'Date', 'Customer Name', 'Phone', 'Products', 'Total Amount', 'Payment Method', 'Payment Status', 'Order Status', 'Source'];
-    const rows = ordersToExport.map((o) => [
-      o.orderNumber,
-      o.date,
-      `"${(getCustomerDisplayName(o.customerName, locale) || '').replace(/"/g, '""')}"`,
-      `"${(o.customerPhone || '').replace(/"/g, '""')}"`,
-      `"${(o.items?.map((it) => `${getLocalizedItemName(it, locale)} x${it.quantity}`).join('; ') || localeMixedLabel((o as any).itemsSummary, isAr) || (isAr ? 'منتج x 1' : 'Product x 1')).replace(/"/g, '""')}"`,
-      o.total,
-      localizePaymentMethod(o.paymentMethod, locale),
-      localizePaymentStatus(o.paymentStatus, locale),
-      localizeOrderStatus(o.status, locale),
-      localizeSalesChannel(o.source, locale),
-    ]);
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast(isAr ? 'تم تصدير ملف الطلبات بنجاح' : 'Orders exported successfully', 'success');
+    const stamp = Date.now();
+    const resolvedName =
+      filename ||
+      (format === 'xlsx' ? `orders_${stamp}.xlsx` : `orders_${stamp}.csv`);
+    exportOrdersSpreadsheet(ordersToExport, {
+      format,
+      filename: resolvedName,
+      fieldIds,
+      locale,
+      sheetName: isAr ? 'الطلبات' : 'Orders',
+    });
+    toast(
+      format === 'xlsx'
+        ? isAr
+          ? 'تم تصدير ملف إكسل بنجاح'
+          : 'Excel file exported successfully'
+        : isAr
+          ? 'تم تصدير ملف الطلبات بنجاح'
+          : 'Orders exported successfully',
+      'success',
+    );
+  };
+
+  /** @deprecated use handleExportOrders — kept for bulk bar call sites during migration */
+  const handleExportCsv = (ordersToExport: Order[], filename = 'orders_export.csv') => {
+    const format = filename.toLowerCase().endsWith('.xlsx') ? 'xlsx' : 'csv';
+    handleExportOrders(ordersToExport, format, filename);
   };
 
   const totalCount = filteredOrders.length;
@@ -1125,7 +1153,7 @@ export const StoreOrders: React.FC = () => {
               title={isAr ? 'طباعة بوليصة الشحن اللوجستية بالباركود الحراري (SMSA/SPL/Aramex)' : 'Print Courier Shipping Label (Code 128 Barcode)'}
             >
               <Truck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-              <span>{isAr ? 'بوليصة الشحن (AWB)' : 'Courier Waybill'}</span>
+              <span>{isAr ? 'بوليصة الشحن' : 'Courier Waybill'}</span>
             </button>
 
             {o.isArchived ? (
@@ -1346,7 +1374,11 @@ export const StoreOrders: React.FC = () => {
             </span>
             <span className="text-slate-400">→</span>
             <span className="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/70 text-indigo-800 dark:text-indigo-300 font-semibold">
-              {o.medium || 'Direct / Web'}
+              {o.medium
+                ? localizeSalesChannel(o.medium, locale)
+                : isAr
+                  ? 'مباشر / ويب'
+                  : 'Direct / Web'}
             </span>
             {o.campaign && (
               <>
@@ -1481,14 +1513,14 @@ export const StoreOrders: React.FC = () => {
                       onClick={async () => {
                         try {
                           await createShipmentForOrder(o.id, 'spl');
-                          toast(isAr ? 'تم إنشاء بوليصة الشحن (AWB) بنجاح وإسناد رقم التتبع!' : 'Shipment AWB created and assigned to order!', 'success');
+                          toast(isAr ? 'تم إنشاء بوليصة الشحن بنجاح وإسناد رقم التتبع' : 'Shipment waybill created and assigned to order', 'success');
                         } catch {
-                          toast('Failed to generate AWB', 'error');
+                          toast(isAr ? 'تعذر إصدار بوليصة الشحن' : 'Failed to generate waybill', 'error');
                         }
                       }}
                       className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-black text-[11px] hover:bg-blue-700 cursor-pointer shadow-2xs"
                     >
-                      {isAr ? 'إصدار بوليصة AWB' : 'Dispatch / Create AWB'}
+                      {isAr ? 'إصدار بوليصة الشحن' : 'Dispatch / Create Waybill'}
                     </button>
                   )}
                 </div>
@@ -2104,7 +2136,7 @@ export const StoreOrders: React.FC = () => {
           </div>
 
           {/* Order Tools Dropdown Button */}
-          <div className="relative shrink-0">
+          <div className="relative shrink-0" ref={orderToolsMenuRef}>
             <button
               type="button"
               onClick={() => setShowOrderToolsMenu(!showOrderToolsMenu)}
@@ -2141,25 +2173,25 @@ export const StoreOrders: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    handleExportCsv(filteredOrders, `orders_${Date.now()}.xlsx`);
+                    handleExportOrders(filteredOrders, 'xlsx', `orders_${Date.now()}.xlsx`);
                     setShowOrderToolsMenu(false);
                   }}
                   className="w-full text-start px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
                 >
                   <FileText className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{isAr ? 'ملف إكسل (Excel .xlsx)' : 'Excel (.xlsx)'}</span>
+                  <span>{isAr ? 'ملف إكسل (.xlsx)' : 'Excel (.xlsx)'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
-                    handleExportCsv(filteredOrders, `orders_${Date.now()}.csv`);
+                    handleExportOrders(filteredOrders, 'csv', `orders_${Date.now()}.csv`);
                     setShowOrderToolsMenu(false);
                   }}
                   className="w-full text-start px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5 text-blue-600" />
-                  <span>{isAr ? 'ملف نصي (CSV .csv)' : 'CSV (.csv)'}</span>
+                  <span>{isAr ? 'ملف نصي (.csv)' : 'CSV (.csv)'}</span>
                 </button>
 
                 <button
@@ -2191,13 +2223,13 @@ export const StoreOrders: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowCodLedgerModal(true);
+                    setShowPaymentTransactionsModal(true);
                     setShowOrderToolsMenu(false);
                   }}
                   className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
                 >
                   <CreditCard className="w-4 h-4 text-amber-600" />
-                  <span>{isAr ? 'العمليات المالية والدفع الإلكتروني' : 'Electronic Payment Transactions'}</span>
+                  <span>{isAr ? 'عمليات الدفع الإلكتروني' : 'Electronic Payment Transactions'}</span>
                 </button>
               </div>
             )}
@@ -3004,18 +3036,32 @@ export const StoreOrders: React.FC = () => {
                     </button>
                   </>
                 ) : (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      closeMenu();
-                      handleArchiveSingleOrder(ord);
-                    }}
-                    className="w-full text-start px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-                  >
-                    <Archive className="w-3.5 h-3.5 text-slate-500" />
-                    <span>{isAr ? 'أرشفة الطلب' : 'Archive Order'}</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        closeMenu();
+                        handleArchiveSingleOrder(ord);
+                      }}
+                      className="w-full text-start px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                    >
+                      <Archive className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{isAr ? 'أرشفة الطلب' : 'Archive Order'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        closeMenu();
+                        void handlePermanentDeleteSingleOrder(ord);
+                      }}
+                      className="w-full text-start px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{t('permanentDeleteOrder') || (isAr ? 'حذف نهائي' : 'Delete Permanently')}</span>
+                    </button>
+                  </>
                 )}
               </div>
             );
@@ -3030,9 +3076,13 @@ export const StoreOrders: React.FC = () => {
           storeId={activeStore.id}
           onClose={() => setShowNewOrderModal(false)}
           onCreate={async (orderData) => {
-            await addOrder({ ...orderData, storeId: activeStore.id } as any, activeStore.id);
+            const created = await addOrder(
+              { ...orderData, storeId: activeStore.id } as any,
+              activeStore.id,
+            );
             setShowNewOrderModal(false);
             toast(t('orderCreatedSuccess'), 'success');
+            return created;
           }}
         />
       )}
@@ -3171,8 +3221,14 @@ export const StoreOrders: React.FC = () => {
       <ExportTemplateModal
         isOpen={showExportTemplateModal}
         onClose={() => setShowExportTemplateModal(false)}
+        storeId={activeStore.id}
         onExport={(fields, format) => {
-          handleExportCsv(filteredOrders, `orders_export_${Date.now()}.${format}`);
+          handleExportOrders(
+            filteredOrders,
+            format,
+            `orders_export_${Date.now()}.${format}`,
+            fields,
+          );
         }}
       />
 
@@ -3180,6 +3236,12 @@ export const StoreOrders: React.FC = () => {
         isOpen={showAutoAssignmentModal}
         onClose={() => setShowAutoAssignmentModal(false)}
         storeId={activeStore.id}
+        orders={activeOrders}
+      />
+
+      <PaymentTransactionsModal
+        isOpen={showPaymentTransactionsModal}
+        onClose={() => setShowPaymentTransactionsModal(false)}
       />
     </AdminPageShell>
   );

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Smartphone, Monitor, Calendar, User, Eye, MessageSquare, ArrowLeft, Share2, Tag } from 'lucide-react';
 import type { BlogArticleItem, BlogPostSettings, BlogSeoSettings } from '../../../types/blog';
 import { usePrefs } from '../../../i18n/PrefsContext';
+import { GlobalModal } from '../../common/GlobalModal';
 
 interface ArticlePreviewModalProps {
   isOpen: boolean;
@@ -26,15 +27,17 @@ export const ArticlePreviewModal: React.FC<ArticlePreviewModalProps> = ({
   const isAr = locale === 'ar';
   const [deviceMode, setDeviceMode] = useState<'desktop' | 'mobile'>('desktop');
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+    <GlobalModal
+      isOpen={isOpen}
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={mode === 'blog_list' ? (isAr ? 'معاينة صفحة المدونة' : 'Live Blog Preview') : (isAr ? 'معاينة المقال للعملاء' : 'Customer Article Preview')}
+    >
       <div
         className={`bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col my-6 max-h-[92vh] transition-all duration-300 ${
           deviceMode === 'mobile' ? 'w-[420px]' : 'w-full max-w-4xl'
         }`}
-        dir={isAr ? 'rtl' : 'ltr'}
       >
         {/* Top Control Bar */}
         <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60">
@@ -42,7 +45,7 @@ export const ArticlePreviewModal: React.FC<ArticlePreviewModalProps> = ({
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
               {mode === 'blog_list'
                 ? isAr
-                  ? 'معاينة صفحة المدونة (Live Blog)'
+                  ? 'معاينة صفحة المدونة'
                   : 'Live Blog Preview'
                 : isAr
                 ? 'معاينة المقال للعملاء'
@@ -64,10 +67,10 @@ export const ArticlePreviewModal: React.FC<ArticlePreviewModalProps> = ({
                     ? 'bg-white dark:bg-slate-700 text-teal-700 dark:text-teal-300 shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                 }`}
-                title="Desktop View"
+                title={isAr ? 'عرض سطح المكتب' : 'Desktop View'}
               >
                 <Monitor className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Desktop</span>
+                <span className="hidden sm:inline">{isAr ? 'سطح المكتب' : 'Desktop'}</span>
               </button>
               <button
                 type="button"
@@ -77,10 +80,10 @@ export const ArticlePreviewModal: React.FC<ArticlePreviewModalProps> = ({
                     ? 'bg-white dark:bg-slate-700 text-teal-700 dark:text-teal-300 shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                 }`}
-                title="Mobile View"
+                title={isAr ? 'عرض الجوال' : 'Mobile View'}
               >
                 <Smartphone className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Mobile</span>
+                <span className="hidden sm:inline">{isAr ? 'الجوال' : 'Mobile'}</span>
               </button>
             </div>
 
@@ -242,6 +245,6 @@ export const ArticlePreviewModal: React.FC<ArticlePreviewModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import type { Order, OrderStatus } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { commerceTerm } from '../../i18n/commerceTerms';
+import { GlobalModal } from './GlobalModal';
 import {
   X,
   Check,
@@ -25,13 +27,6 @@ interface EditOrderModalProps {
   onSave: (orderId: string, updates: Partial<Order>) => void;
 }
 
-const EMPLOYEES = [
-  { id: 'emp-1', name: 'Sarah Ahmed', nameAr: 'سارة أحمد', initials: 'SA' },
-  { id: 'emp-2', name: 'Mohammed Ali', nameAr: 'محمد علي', initials: 'MA' },
-  { id: 'emp-3', name: 'Fahad Al-Otaibi', nameAr: 'فهد العتيبي', initials: 'FA' },
-  { id: 'emp-4', name: 'Lina Khaled', nameAr: 'لينا خالد', initials: 'LK' },
-];
-
 export const EditOrderModal: React.FC<EditOrderModalProps> = ({
   isOpen,
   onClose,
@@ -48,7 +43,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
   const [trackingNumber, setTrackingNumber] = useState<string>('');
   const [shippingLabelNumber, setShippingLabelNumber] = useState<string>('');
   const [shippingTrackingUrl, setShippingTrackingUrl] = useState<string>('');
-  const [assignedEmployee, setAssignedEmployee] = useState<string>('Sarah Ahmed');
+  const [assignedEmployee, setAssignedEmployee] = useState<string>('');
   const [cancellationReason, setCancellationReason] = useState<string>('');
   const [refundStatus, setRefundStatus] = useState<string>('none');
   const [internalNotes, setInternalNotes] = useState<string>('');
@@ -66,7 +61,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
         (order as any).shippingTrackingUrl ||
           (order.trackingNumber ? `https://www.smsaexpress.com/track/${order.trackingNumber}` : '')
       );
-      setAssignedEmployee((order as any).assignedEmployee || 'Sarah Ahmed');
+      setAssignedEmployee((order as any).assignedEmployee || '');
       setCancellationReason(order.cancelReason || order.returnReason || '');
       setRefundStatus(order.refundStatus || 'none');
       setInternalNotes(order.internalNotes || '');
@@ -96,11 +91,16 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
   const isCancelOrReturn = status === 'cancelled' || status === 'returned';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-      <div className="w-full max-w-2xl bg-white dark:bg-[#071E26] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
+    <GlobalModal
+      isOpen={isOpen}
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? `تعديل الطلب #${order.orderNumber}` : `Edit Order #${order.orderNumber}`}
+    >
+      <div className="w-full max-w-2xl bg-white dark:bg-[#071E26] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden max-h-[min(92vh,92dvh)] flex flex-col animate-in fade-in zoom-in-95 duration-150">
         
         {/* Header matching Image 2 */}
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
           <div>
             <h2 className="text-base font-black text-slate-900 dark:text-white">
               {isAr ? `تعديل الطلب #${order.orderNumber}` : `Edit Order #${order.orderNumber}`}
@@ -274,17 +274,13 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
                 <UserCheck className="w-3.5 h-3.5 text-teal-600" />
                 <span>{isAr ? 'الموظف المعين' : 'Assigned Employee'}</span>
               </label>
-              <select
+              <input
+                type="text"
                 value={assignedEmployee}
                 onChange={(e) => setAssignedEmployee(e.target.value)}
+                placeholder={isAr ? 'اسم الموظف (اختياري)' : 'Employee name (optional)'}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:border-teal-500"
-              >
-                {EMPLOYEES.map((emp) => (
-                  <option key={emp.id} value={emp.name}>
-                    {emp.initials} - {isAr ? emp.nameAr : emp.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           </div>
 
@@ -402,65 +398,71 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
               style={{ background: '#0d9488' }}
             >
               <Check className="w-4 h-4" />
-              <span>{isAr ? 'حفظ التغييرات' : 'Save Changes'}</span>
+              <span>{commerceTerm('saveChanges', isAr)}</span>
             </button>
           </div>
         </form>
       </div>
 
       {/* Change History Sub-Modal */}
-      {showHistoryModal && (
-        <div className="fixed inset-0 z-60 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-[#071E26] rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
-            <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <History className="w-4 h-4 text-teal-600" />
-                <span>{isAr ? 'سجل تدقيق وتغييرات الطلب' : 'Order Change Audit History'}</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowHistoryModal(false)}
-                className="p-1 rounded text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="space-y-3 text-xs max-h-60 overflow-y-auto">
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
-                <div className="flex justify-between text-[11px] text-slate-400 font-mono mb-1">
-                  <span>{order.date || 'Today'}</span>
-                  <span>{isAr ? 'النظام' : 'System'}</span>
-                </div>
-                <p className="font-semibold text-slate-800 dark:text-slate-200">
-                  {isAr ? 'تم إنشاء الطلب بنجاح' : 'Order placed successfully'}
-                </p>
+      <GlobalModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        dir={isAr ? 'rtl' : 'ltr'}
+        zIndexClassName="z-[10020]"
+        aria-label={isAr ? 'سجل تدقيق وتغييرات الطلب' : 'Order Change Audit History'}
+      >
+        <div className="w-full max-w-md bg-white dark:bg-[#071E26] rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
+          <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-800">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <History className="w-4 h-4 text-teal-600" />
+              <span>{isAr ? 'سجل تدقيق وتغييرات الطلب' : 'Order Change Audit History'}</span>
+            </h3>
+            <button
+              type="button"
+              onClick={() => setShowHistoryModal(false)}
+              className="p-1 rounded text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-3 text-xs max-h-60 overflow-y-auto">
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+              <div className="flex justify-between text-[11px] text-slate-400 font-mono mb-1">
+                <span>{order.date || (isAr ? 'اليوم' : 'Today')}</span>
+                <span>{isAr ? 'النظام' : 'System'}</span>
               </div>
-              {order.timeline?.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800"
-                >
-                  <div className="flex justify-between text-[11px] text-slate-400 font-mono mb-1">
-                    <span>{item.date} {item.time}</span>
-                    <span>Admin</span>
-                  </div>
-                  <p className="font-semibold text-slate-800 dark:text-slate-200">{item.title}</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">{item.description}</p>
-                </div>
-              ))}
+              <p className="font-semibold text-slate-800 dark:text-slate-200">
+                {isAr ? 'تم إنشاء الطلب بنجاح' : 'Order placed successfully'}
+              </p>
             </div>
-            <div className="text-end pt-2">
-              <button
-                type="button"
-                onClick={() => setShowHistoryModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+            {order.timeline?.map((item, idx) => (
+              <div
+                key={idx}
+                className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800"
               >
-                {isAr ? 'إغلاق' : 'Close'}
-              </button>
-            </div>
+                <div className="flex justify-between text-[11px] text-slate-400 font-mono mb-1">
+                  <span>
+                    {item.date} {item.time}
+                  </span>
+                  <span>{isAr ? 'المسؤول' : 'Admin'}</span>
+                </div>
+                <p className="font-semibold text-slate-800 dark:text-slate-200">{item.title}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{item.description}</p>
+              </div>
+            ))}
+          </div>
+          <div className="text-end pt-2">
+            <button
+              type="button"
+              onClick={() => setShowHistoryModal(false)}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+            >
+              {isAr ? 'إغلاق' : 'Close'}
+            </button>
           </div>
         </div>
-      )}
-    </div>
+      </GlobalModal>
+    </GlobalModal>
   );
 };

@@ -4,6 +4,8 @@ import { resolveStoreTheme } from '../../themes/registry';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { generateStoreSEO, applySEOToDOM } from '../../utils/storeSEO';
+import { captureTrafficSource } from '../../utils/trafficSource';
+import { trackStorefrontEvent } from '../../utils/storefrontAnalytics';
 import { Loader2, RefreshCw } from 'lucide-react';
 
 export interface DynamicThemeRendererProps {
@@ -183,6 +185,7 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
   // Golden Rule: Automatic Store-wise Public SEO computation with strict Tenant Isolation & Bilingual Switching
   useEffect(() => {
     if (isAdmin) return;
+    captureTrafficSource();
     const currentStoreObj = stores?.find((s: any) => s.id === effectiveStoreId) || activeStore;
     const storeProducts = (allProducts && allProducts[effectiveStoreId]) || currentProducts || [];
     const seoData = generateStoreSEO({
@@ -194,6 +197,9 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
       page: resolvedInitialPage,
     });
     applySEOToDOM(seoData);
+    trackStorefrontEvent(effectiveStoreId, 'page_view', {
+      path: typeof location !== 'undefined' ? location.pathname : `/${resolvedInitialPage || ''}`,
+    });
   }, [effectiveStoreId, activeStore, stores, currentSEOConfig, allProducts, currentProducts, locale, category, resolvedInitialPage, isAdmin]);
 
   // Live inject custom CSS if configured for the active store

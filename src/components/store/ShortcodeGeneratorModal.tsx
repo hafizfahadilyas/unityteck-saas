@@ -17,6 +17,7 @@ import {
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useTenant } from '../../context/TenantContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import {
   type ProductRowConfig,
   generateShortcode,
@@ -127,13 +128,15 @@ export const ShortcodeGeneratorModal: React.FC<ShortcodeGeneratorModalProps> = (
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+    <GlobalModal
+      isOpen={isOpen}
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'مولّد الأكواد القصيرة لصفوف المنتجات' : 'Product Row Shortcode Generator'}
+    >
       <div
         className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
-        dir={isAr ? 'rtl' : 'ltr'}
       >
         {/* Header */}
         <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
@@ -143,11 +146,11 @@ export const ShortcodeGeneratorModal: React.FC<ShortcodeGeneratorModalProps> = (
             </span>
             <div>
               <h3 className="font-black text-sm sm:text-base text-white">
-                {isAr ? 'مولّد الأكواد القصيرة لصفوف المنتجات (Shortcode Generator)' : 'Product Row Shortcode Generator'}
+                {isAr ? 'مولّد الأكواد القصيرة لصفوف المنتجات' : 'Product Row Shortcode Generator'}
               </h3>
               <p className="text-[11px] text-slate-300">
                 {isAr
-                  ? 'أنشئ كوداً قصيراً لأي تصنيف أو علامة تجارية والصقه في أي قسم بالـ Page Builder'
+                  ? 'أنشئ كوداً قصيراً لأي تصنيف أو علامة تجارية والصقه في أي قسم بمنشئ الصفحات'
                   : 'Generate shortcodes for any category/brand to paste anywhere in Page Builder'}
               </p>
             </div>
@@ -441,6 +444,6 @@ export const ShortcodeGeneratorModal: React.FC<ShortcodeGeneratorModalProps> = (
           </div>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

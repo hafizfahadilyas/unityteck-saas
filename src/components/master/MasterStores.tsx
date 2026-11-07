@@ -31,6 +31,7 @@ import {
 import { usePrefs } from '../../i18n/PrefsContext';
 import { OverviewStatCard } from '../common/OverviewStatCard';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import {
   getStoreDisplayName,
   getStoreDisplayCategory,
@@ -858,8 +859,8 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                     style={{ borderColor: 'var(--border)' }}
                     title={
                       isAr
-                        ? 'عدد قوالب كانفا المجانية لكل نوع (فارغ = ٥ أو برو غير محدود)'
-                        : 'Free Canva templates per category (empty = 5, or unlimited on Pro)'
+                        ? 'عدد قوالب استوديو التصميم المجانية لكل نوع (فارغ = ٥ أو برو غير محدود)'
+                        : 'Free Design Studio templates per category (empty = 5, or unlimited on Pro)'
                     }
                   >
                     <span className="text-muted whitespace-nowrap">
@@ -947,7 +948,12 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
 
       {/* Master WhatsApp Quotas & Anti-Ban Modal */}
       {showWhatsAppQuotasModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowWhatsAppQuotasModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إدارة حصص واتساب ومكافحة حظر الأرقام' : 'Store WhatsApp Quotas & Anti-Ban Safeguards'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -959,7 +965,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                   <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <span>
                       {isAr
-                        ? 'إدارة حصص واتساب ومكافحة حظر الأرقام (Anti-Ban)'
+                        ? 'إدارة حصص واتساب ومكافحة حظر الأرقام'
                         : 'Store WhatsApp Quotas & Anti-Ban Safeguards'}
                     </span>
                     <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">
@@ -968,7 +974,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {isAr
-                      ? 'التحكم المركزي في سقف الرسائل الآلية لكل متجر لحماية شرائح وأرقام التجار من حظر Meta'
+                      ? 'التحكم المركزي في سقف الرسائل الآلية لكل متجر لحماية شرائح وأرقام التجار من حظر ميتا'
                       : 'Centralized control: configure daily & monthly automated limits to protect merchant numbers from Meta spam flags'}
                   </p>
                 </div>
@@ -994,7 +1000,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                   </span>
                   <p className="text-[11px] text-emerald-700 dark:text-emerald-300/80 mt-0.5">
                     {isAr
-                      ? 'خوارزميات Meta تقوم بحظر الأرقام الجديدة عند إرسال رسائل جماعية مفاجئة. الرسائل اليدوية (Direct WhatsApp) مجانية 100% مدى الحياة بدون حدود وبدون خطر الحظر.'
+                      ? 'خوارزميات ميتا تقوم بحظر الأرقام الجديدة عند إرسال رسائل جماعية مفاجئة. الرسائل اليدوية عبر واتساب المباشر مجانية بالكامل مدى الحياة بدون حدود وبدون خطر الحظر.'
                       : 'Meta spam filters flag phone numbers sending bulk automated messages without prior customer opt-in. The Direct WhatsApp option is 100% Free Lifetime with zero quota limits.'}
                   </p>
                 </div>
@@ -1141,7 +1147,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

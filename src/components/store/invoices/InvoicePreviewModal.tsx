@@ -4,6 +4,7 @@ import { InvoiceTemplateRenderer } from './InvoiceTemplateRenderer';
 import { invoiceService } from '../../../services/invoiceService';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 import {
   Printer,
   Download,
@@ -88,7 +89,12 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto">
+    <GlobalModal
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'معاينة الفاتورة' : 'Invoice Preview'}
+      backdropClassName="print:p-0 print:bg-white print:static print:inset-auto"
+    >
       {/* Print CSS to isolate document print area */}
       <style>{`
         @media print {
@@ -299,7 +305,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                 </label>
 
                 <label className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
-                  <span>{isAr ? 'إظهار عمود SKU' : 'Show SKU Column'}</span>
+                  <span>{isAr ? 'إظهار عمود رمز المنتج' : 'Show SKU Column'}</span>
                   <input
                     type="checkbox"
                     checked={localConfig.columns.sku}
@@ -378,6 +384,6 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

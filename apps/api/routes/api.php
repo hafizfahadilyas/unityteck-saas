@@ -4,6 +4,10 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\CustomerController;
+use App\Http\Controllers\Api\CustomerActivityController;
+use App\Http\Controllers\Api\DeliveryDriverController;
+use App\Http\Controllers\Api\OrderInstallmentController;
+use App\Http\Controllers\Api\StoreBankAccountController;
 use App\Http\Controllers\Api\StorefrontCustomerController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\HealthController;
@@ -39,6 +43,8 @@ use App\Http\Controllers\Api\LoyaltyController;
 use App\Http\Controllers\Api\MarketingCampaignsController;
 use App\Http\Controllers\Api\CartInterceptController;
 use App\Http\Controllers\Api\GiftingController;
+use App\Http\Controllers\Api\StorefrontAnalyticsController;
+use App\Http\Controllers\Api\StorefrontSeoBootstrapController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', [HealthController::class, 'show']);
@@ -146,11 +152,14 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::middleware('role.can:customers.read')->group(function () {
         Route::get('/customers', [CustomerController::class, 'index']);
         Route::get('/customers/{id}', [CustomerController::class, 'show']);
+        Route::get('/customers/{id}/activities', [CustomerActivityController::class, 'forCustomer']);
+        Route::get('/customer-activities', [CustomerActivityController::class, 'index']);
     });
     Route::middleware(['role.can:customers.write', 'subscription.writable'])->group(function () {
         Route::post('/customers', [CustomerController::class, 'store']);
         Route::patch('/customers/{id}', [CustomerController::class, 'update']);
         Route::delete('/customers/{id}', [CustomerController::class, 'destroy']);
+        Route::post('/customer-activities', [CustomerActivityController::class, 'store']);
     });
 
     Route::middleware('role.can:customers.read')->group(function () {
@@ -178,6 +187,37 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
         'plan.feature:shipping',
         'subscription.writable',
     ])->patch('/shipping/{id}', [ShippingController::class, 'update']);
+
+    // Own-delivery drivers (store_id scoped)
+    Route::middleware(['role.can:shipping.read', 'plan.feature:shipping'])->get('/delivery-drivers', [DeliveryDriverController::class, 'index']);
+    Route::middleware([
+        'role.can:shipping.write',
+        'plan.feature:shipping',
+        'subscription.writable',
+    ])->group(function () {
+        Route::post('/delivery-drivers', [DeliveryDriverController::class, 'store']);
+        Route::patch('/delivery-drivers/{id}', [DeliveryDriverController::class, 'update']);
+        Route::delete('/delivery-drivers/{id}', [DeliveryDriverController::class, 'destroy']);
+    });
+
+    // Store bank accounts for bank-transfer / installment reference (settings permissions)
+    Route::middleware('role.can:settings.read')->get('/bank-accounts', [StoreBankAccountController::class, 'index']);
+    Route::middleware(['role.can:settings.write', 'subscription.writable'])->group(function () {
+        Route::post('/bank-accounts', [StoreBankAccountController::class, 'store']);
+        Route::patch('/bank-accounts/{id}', [StoreBankAccountController::class, 'update']);
+        Route::delete('/bank-accounts/{id}', [StoreBankAccountController::class, 'destroy']);
+    });
+
+    // Order installments — read with orders.read; record payment only with orders.write
+    Route::middleware('role.can:orders.read')->get('/orders/{id}/installments', [OrderInstallmentController::class, 'index']);
+    Route::middleware([
+        'role.can:orders.write',
+        'plan.feature:orders',
+        'subscription.writable',
+    ])->group(function () {
+        Route::post('/orders/{id}/installments', [OrderInstallmentController::class, 'store']);
+        Route::post('/orders/{id}/installments/record-payment', [OrderInstallmentController::class, 'recordPayment']);
+    });
 
     Route::middleware(['role.can:seo.read', 'plan.feature:seo'])->get('/seo', [SeoController::class, 'index']);
     Route::middleware([
@@ -393,6 +433,8 @@ Route::get('/resolve-domain', [DomainController::class, 'resolveDomain']);
 Route::get('/storefront/theme', [StoreThemeController::class, 'storefrontTheme']);
 Route::get('/storefront/sitemap', [StoreThemeController::class, 'storefrontSitemap']);
 Route::get('/storefront/robots', [StoreThemeController::class, 'storefrontRobots']);
+Route::get('/storefront/seo-bootstrap', [StorefrontSeoBootstrapController::class, 'show']);
+Route::post('/storefront/events', [StorefrontAnalyticsController::class, 'storeEvent']);
 Route::get('/storefront/builder-layout', [StoreThemeController::class, 'storefrontTheme']);
 
 // Public per-store product catalog (no auth). Isolated by store_id / slug.
@@ -400,6 +442,7 @@ Route::get('/storefront/catalog', [ProductController::class, 'storefrontCatalog'
 Route::get('/storefront/categories', [ProductController::class, 'storefrontCategories']);
 Route::post('/storefront/newsletter', [StoreSettingsController::class, 'subscribeNewsletter']);
 Route::post('/storefront/customers', [StorefrontCustomerController::class, 'upsert']);
+Route::post('/storefront/customer-activities', [CustomerActivityController::class, 'storefrontStore']);
 
 // Public Inbound Webhooks for official Payment Gateways and Couriers
 Route::post('/webhooks/payments/{provider}', [WebhooksController::class, 'paymentWebhook']);

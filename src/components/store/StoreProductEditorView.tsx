@@ -19,7 +19,11 @@ import {
   normalizeCustomFieldType,
 } from '../../utils/customFieldTypes';
 import { listAvailableProductChannels, normalizeProductSalesChannels } from '../../config/productChannels';
-import { GOOGLE_PRODUCT_TAXONOMY, isKnownGoogleTaxonomy } from '../../config/googleProductTaxonomy';
+import {
+  GOOGLE_PRODUCT_TAXONOMY,
+  googleTaxonomyLabel,
+  isKnownGoogleTaxonomy,
+} from '../../config/googleProductTaxonomy';
 import {
   findDuplicateBarcodes,
   findDuplicateOptionCombos,
@@ -30,8 +34,12 @@ import {
   variantPriceParts,
 } from '../../utils/productVariants';
 import { seedExistingCommerce } from '../../utils/existingProductCommerce';
+import { pickLocaleText } from '../../utils/localeLabel';
 import * as tenantApi from '../../api/tenantApi';
 import { isApiEnabled } from '../../api/client';
+import { commerceTerm } from '../../i18n/commerceTerms';
+import { buildStorefrontProductUrl } from '../../utils/storefrontLinks';
+import type { ProductEditSectionKey } from './ProductEditDrawer';
 import {
   Eye,
   EyeOff,
@@ -64,7 +72,66 @@ import {
   ImageIcon,
   UploadCloud,
   Package,
+  Truck,
 } from 'lucide-react';
+
+type EditorSectionKey =
+  | 'images'
+  | 'basic'
+  | 'pricing'
+  | 'inventory'
+  | 'variations'
+  | 'options'
+  | 'category_tags'
+  | 'custom_fields'
+  | 'seo';
+
+const EDITOR_TO_FILTER_KEY: Partial<Record<EditorSectionKey, ProductEditSectionKey>> = {
+  images: 'images',
+  basic: 'basic',
+  pricing: 'pricing',
+  inventory: 'inventory',
+  variations: 'variations',
+  options: 'variations',
+  category_tags: 'categoryTags',
+  custom_fields: 'customFields',
+  seo: 'seo',
+};
+
+function SectionVisibilityToggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onChange();
+      }}
+      className={`relative w-11 h-6 rounded-full transition-colors shrink-0 cursor-pointer ${
+        checked ? 'bg-teal-600' : 'bg-slate-300 dark:bg-slate-600'
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${
+          checked ? 'start-5' : 'start-0.5'
+        }`}
+      />
+    </button>
+  );
+}
+
+type ProductShippingMode = 'store_default' | 'own_delivery' | 'shipping_company';
 
 export interface StoreProductEditorViewProps {
   product: Product;
@@ -80,6 +147,9 @@ export interface StoreProductEditorViewProps {
   onSave: (updatedData: Partial<Product>) => void;
   onDelete: () => void;
   onDuplicate?: (product: Product) => void;
+  /** Shared with list Filter popover — hide/show editor cards. */
+  visibleSections?: Partial<Record<ProductEditSectionKey, boolean>>;
+  onVisibleSectionsChange?: (next: Record<ProductEditSectionKey, boolean>) => void;
 }
 
 export interface CustomFieldItem {
@@ -206,6 +276,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   onSave,
   onDelete,
   onDuplicate,
+  visibleSections,
+  onVisibleSectionsChange,
 }) => {
   const { t, locale, currency, money } = usePrefs();
   const { toast } = useToast();
@@ -269,6 +341,46 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     return 'in_stock';
   });
   const [weightKg, setWeightKg] = useState<number>(product.weightKg ?? 0.8);
+  const [shippingMode, setShippingMode] = useState<ProductShippingMode>(() => {
+    const mode = product.shippingMode;
+    if (mode === 'own_delivery' || mode === 'shipping_company' || mode === 'store_default') {
+      return mode;
+    }
+    return 'store_default';
+  });
+  const [deliveryFee, setDeliveryFee] = useState<number>(
+    product.deliveryFee != null && Number.isFinite(Number(product.deliveryFee))
+      ? Number(product.deliveryFee)
+      : 0,
+  );
+  const [estimatedDeliveryText, setEstimatedDeliveryText] = useState<string>(
+    product.estimatedDeliveryText || '',
+  );
+  const [requiresOwnDriver, setRequiresOwnDriver] = useState<boolean>(
+    Boolean(product.requiresOwnDriver),
+  );
+  const [allowOwnDelivery, setAllowOwnDelivery] = useState<boolean>(
+    product.allowOwnDelivery !== false,
+  );
+  const [allowShippingCompany, setAllowShippingCompany] = useState<boolean>(
+    product.allowShippingCompany !== false,
+  );
+  const [shippingRateMode, setShippingRateMode] = useState<'fixed' | 'per_kg' | 'per_km' | 'zone'>(
+    (product.shippingRateMode as 'fixed' | 'per_kg' | 'per_km' | 'zone') || 'fixed',
+  );
+  const [shippingPerKgRate, setShippingPerKgRate] = useState<number>(
+    Number(product.shippingPerKgRate ?? 0) || 0,
+  );
+  const [shippingPerKmRate, setShippingPerKmRate] = useState<number>(
+    Number(product.shippingPerKmRate ?? 0) || 0,
+  );
+  const [shippingPaymentOptions, setShippingPaymentOptions] = useState<
+    Array<'cod' | 'online' | 'bank_transfer'>
+  >(
+    Array.isArray(product.shippingPaymentOptions) && product.shippingPaymentOptions.length
+      ? product.shippingPaymentOptions
+      : ['cod', 'online'],
+  );
 
   // Dimensions (L, W, H)
   const initialDims = useMemo(() => {
@@ -489,7 +601,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     { id: 'valentines', labelAr: 'عيد الحب والرومانسية', labelEn: "Valentine's Day" },
     { id: 'eid', labelAr: 'الأعياد والاحتفالات', labelEn: 'Eid' },
     { id: 'birthday', labelAr: 'أعياد الميلاد', labelEn: 'Birthday' },
-    { id: 'luxury', labelAr: 'تشكيلة فاخرة VIP', labelEn: 'Luxury VIP' },
+    { id: 'luxury', labelAr: 'تشكيلة فاخرة', labelEn: 'Luxury VIP' },
   ];
 
   const toggleQuickTag = (tagId: string) => {
@@ -606,8 +718,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     product.customUrl || (product.name || 'product').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
   );
 
-  // ── Section Visibility State (sync with right sidebar and card toggles) ──
-  const [sectionVisibility, setSectionVisibility] = useState<Record<string, boolean>>({
+  // ── Section Visibility (card header toggles + list Filter popover) ──
+  const [localSectionVisibility, setLocalSectionVisibility] = useState<Record<EditorSectionKey, boolean>>({
     images: true,
     basic: true,
     pricing: true,
@@ -619,12 +731,91 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     seo: true,
   });
 
-  const toggleSection = (id: string) => {
-    setSectionVisibility((prev) => ({
+  useEffect(() => {
+    if (!visibleSections) return;
+    setLocalSectionVisibility((prev) => ({
       ...prev,
-      [id]: !prev[id],
+      images: visibleSections.images !== false,
+      basic: visibleSections.basic !== false,
+      pricing: visibleSections.pricing !== false,
+      inventory: visibleSections.inventory !== false,
+      variations: visibleSections.variations !== false,
+      options: visibleSections.variations !== false,
+      category_tags: visibleSections.categoryTags !== false,
+      custom_fields: visibleSections.customFields !== false,
+      seo: visibleSections.seo !== false,
     }));
+  }, [visibleSections]);
+
+  const sectionVisibility = localSectionVisibility;
+
+  const toggleEditorSection = (key: EditorSectionKey) => {
+    const nextOn = !sectionVisibility[key];
+    setLocalSectionVisibility((prev) => {
+      const next = { ...prev, [key]: nextOn };
+      if (key === 'variations' || key === 'options') {
+        next.variations = nextOn;
+        next.options = nextOn;
+      }
+      return next;
+    });
+    if (onVisibleSectionsChange) {
+      const filterKey = EDITOR_TO_FILTER_KEY[key];
+      const base: Record<ProductEditSectionKey, boolean> = {
+        images: sectionVisibility.images,
+        basic: sectionVisibility.basic,
+        pricing: sectionVisibility.pricing,
+        inventory: sectionVisibility.inventory,
+        variations: sectionVisibility.variations,
+        variationInventory: visibleSections?.variationInventory !== false,
+        customFields: sectionVisibility.custom_fields,
+        seo: sectionVisibility.seo,
+        categoryTags: sectionVisibility.category_tags,
+        ...(visibleSections || {}),
+      };
+      if (filterKey) base[filterKey] = nextOn;
+      onVisibleSectionsChange(base);
+    }
   };
+
+  const showAllEditorSections = () => {
+    const allOn: Record<EditorSectionKey, boolean> = {
+      images: true,
+      basic: true,
+      pricing: true,
+      inventory: true,
+      variations: true,
+      options: true,
+      category_tags: true,
+      custom_fields: true,
+      seo: true,
+    };
+    setLocalSectionVisibility(allOn);
+    onVisibleSectionsChange?.({
+      images: true,
+      basic: true,
+      pricing: true,
+      inventory: true,
+      variations: true,
+      variationInventory: true,
+      customFields: true,
+      seo: true,
+      categoryTags: true,
+    });
+  };
+
+  const hiddenSectionKeys = (
+    [
+      ['images', isAr ? 'صور المنتج' : 'Product Images'],
+      ['basic', isAr ? 'المعلومات الأساسية' : 'Basic Information'],
+      ['pricing', isAr ? 'التسعير' : 'Pricing'],
+      ['inventory', isAr ? 'المخزون والشحن' : 'Inventory & Shipping'],
+      ['variations', isAr ? 'الخيارات والتنوعات' : 'Options & Variations'],
+      ['category_tags', isAr ? 'التصنيف والوسوم' : 'Category & Tags'],
+      ['custom_fields', isAr ? 'الحقول المخصصة' : 'Custom Fields'],
+      ['seo', isAr ? 'إعدادات تحسين محركات البحث' : 'SEO Settings'],
+    ] as Array<[EditorSectionKey, string]>
+  ).filter(([key]) => !sectionVisibility[key]);
 
   // ── Handlers ──
   const handleMainFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1134,7 +1325,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     // Add active options
     options.forEach((opt) => {
       if (opt.values.some((v) => v.selected)) {
-        keysMap.set(opt.name, isAr && opt.nameAr ? opt.nameAr : opt.name);
+        keysMap.set(opt.name, pickLocaleText(isAr, opt.name, opt.nameAr));
       }
     });
     // Add any options found in existing variations
@@ -1148,9 +1339,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             keysMap.set(
               k,
               foundOpt
-                ? isAr && foundOpt.nameAr
-                  ? foundOpt.nameAr
-                  : foundOpt.name
+                ? pickLocaleText(isAr, foundOpt.name, foundOpt.nameAr)
                 : k.charAt(0).toUpperCase() + k.slice(1).replace('_', ' '),
             );
           }
@@ -1232,7 +1421,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const handleSaveEditedVariant = () => {
     if (!editingVariant) return;
     if (!editingVariant.sku.trim()) {
-      toast(isAr ? 'SKU مطلوب' : 'SKU is required', 'error');
+      toast(isAr ? 'رمز المنتج مطلوب' : 'SKU is required', 'error');
       return;
     }
     if (editingVariant.price != null && Number(editingVariant.price) < 0) {
@@ -1248,7 +1437,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     const dupBar = findDuplicateBarcodes(next);
     if (dupSku.length || dupBar.length) {
       toast(
-        isAr ? 'SKU أو باركود مكرر داخل التنويعات' : 'Duplicate SKU or barcode among variants',
+        isAr ? 'رمز منتج أو باركود مكرر داخل التنويعات' : 'Duplicate SKU or barcode among variants',
         'error',
       );
       return;
@@ -1290,7 +1479,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
   // Bulk handlers
   const handleBulkSetPrice = () => {
-    const val = prompt(isAr ? 'أدخل السعر الجديد للتنويعات المحددة (SAR):' : 'Enter new price for selected variants (SAR):');
+    const val = prompt(isAr ? 'أدخل السعر الجديد للتنويعات المحددة (ر.س):' : 'Enter new price for selected variants (SAR):');
     if (val === null) return;
     const num = parseFloat(val);
     if (isNaN(num) || num < 0) {
@@ -1336,7 +1525,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     }
 
     if (!sku.trim()) {
-      toast(isAr ? 'يرجى إدخال رمز SKU' : 'Please enter product SKU', 'error');
+      toast(isAr ? 'يرجى إدخال رمز المنتج' : 'Please enter product SKU', 'error');
       return;
     }
 
@@ -1351,7 +1540,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       if (dupSku.length || dupBar.length || dupCombo.length) {
         toast(
           isAr
-            ? 'تنويعات مكررة (SKU / باركود / خيارات) — أصلحها قبل الحفظ'
+            ? 'تنويعات مكررة (رمز المنتج / الرمز الشريطي / الخيارات) — أصلحها قبل الحفظ'
             : 'Duplicate variants (SKU / barcode / options) — fix before saving',
           'error',
         );
@@ -1387,6 +1576,16 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       lowStockAlert: Number(lowStockAlert),
       stockStatus,
       weightKg: Number(weightKg),
+      shippingMode,
+      deliveryFee: Number(deliveryFee) || 0,
+      estimatedDeliveryText: estimatedDeliveryText.trim() || null,
+      requiresOwnDriver,
+      allowOwnDelivery,
+      allowShippingCompany,
+      shippingRateMode,
+      shippingPerKgRate: Number(shippingPerKgRate) || 0,
+      shippingPerKmRate: Number(shippingPerKmRate) || 0,
+      shippingPaymentOptions,
       dimensions,
       image: gallery[selectedImageIndex] || gallery[0] || product.image,
       galleryUrls: gallery,
@@ -1538,8 +1737,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             <button
               type="button"
               onClick={() => {
-                const url = `/store/${storeSlug}?product=${product.id}`;
-                window.open(url, '_blank');
+                window.open(
+                  buildStorefrontProductUrl({ storeSlug, productId: product.id }),
+                  '_blank',
+                  'noopener,noreferrer',
+                );
               }}
               className="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 flex items-center gap-2 cursor-pointer shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             >
@@ -1571,18 +1773,43 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
       {/* ── MAIN GRID (100% Mockup 07 Layout) ── */}
       <form onSubmit={handleSubmit} className="space-y-5">
+        {hiddenSectionKeys.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-950/20">
+            <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+              {isAr ? 'أقسام مخفية:' : 'Hidden sections:'}
+            </span>
+            {hiddenSectionKeys.map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => toggleEditorSection(key)}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-amber-300 dark:border-amber-800 bg-white dark:bg-slate-900 text-amber-800 dark:text-amber-200 cursor-pointer hover:bg-amber-100/80 dark:hover:bg-amber-900/40"
+              >
+                {isAr ? `إظهار · ${label}` : `Show · ${label}`}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={showAllEditorSections}
+              className="ms-auto text-[11px] font-bold text-amber-800 dark:text-amber-200 underline cursor-pointer"
+            >
+              {isAr ? 'إظهار الكل' : 'Show All'}
+            </button>
+          </div>
+        )}
+
         {/* ROW 1: Product Images + Basic Information */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           {/* CARD 1: PRODUCT IMAGES */}
           {sectionVisibility.images && (
             <div className="lg:col-span-5 h-full flex flex-col bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               {/* Card Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
                     <ImageIcon className="w-5 h-5" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
                       {isAr ? 'صور المنتج' : 'Product Images'}
                     </h3>
@@ -1591,16 +1818,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     </p>
                   </div>
                 </div>
-
-                {/* Teal Toggle Switch */}
-                <button
-                  type="button"
-                  onClick={() => toggleSection('images')}
-                  className="w-11 h-6 rounded-full bg-teal-600 transition-colors relative cursor-pointer p-0.5"
-                  title="Toggle section"
-                >
-                  <span className="w-5 h-5 rounded-full bg-white shadow-md block transition-transform transform translate-x-5 rtl:-translate-x-5" />
-                </button>
+                <SectionVisibilityToggle
+                  checked={sectionVisibility.images}
+                  onChange={() => toggleEditorSection('images')}
+                  label={isAr ? 'إظهار صور المنتج' : 'Show product images'}
+                />
               </div>
 
               {/* Hidden File Inputs for Instant Selection */}
@@ -1822,27 +2044,22 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           {sectionVisibility.basic && (
             <div className="lg:col-span-7 h-full flex flex-col bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               {/* Card Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
                     <FileText className="w-5 h-5" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
                       {isAr ? 'المعلومات الأساسية' : 'Basic Information'}
                     </h3>
                   </div>
                 </div>
-
-                {/* Teal Toggle Switch */}
-                <button
-                  type="button"
-                  onClick={() => toggleSection('basic')}
-                  className="w-11 h-6 rounded-full bg-teal-600 transition-colors relative cursor-pointer p-0.5"
-                  title="Toggle section"
-                >
-                  <span className="w-5 h-5 rounded-full bg-white shadow-md block transition-transform transform translate-x-5 rtl:-translate-x-5" />
-                </button>
+                <SectionVisibilityToggle
+                  checked={sectionVisibility.basic}
+                  onChange={() => toggleEditorSection('basic')}
+                  label={isAr ? 'إظهار المعلومات الأساسية' : 'Show basic information'}
+                />
               </div>
 
               {/* Form Row 1: Product Name * and SKU * */}
@@ -1856,7 +2073,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Red Sports Shoes"
+                    placeholder={isAr ? 'مثال: مكينة قهوة منزلية' : 'e.g. Home espresso machine'}
                     className="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
@@ -1864,14 +2081,14 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
                 <div>
                   <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'رمز SKU' : 'SKU'} <span className="text-rose-500">*</span>
+                    {isAr ? 'رمز المنتج' : 'SKU'} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
                     value={sku}
                     onChange={(e) => setSku(e.target.value)}
-                    placeholder="e.g. SHOE-RED-001"
+                    placeholder={isAr ? 'مثال: SHOE-RED-001' : 'e.g. SHOE-RED-001'}
                     className="w-full px-3 py-2 rounded-xl border text-xs font-mono font-bold uppercase focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
@@ -1979,12 +2196,12 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     )}
                     {GOOGLE_PRODUCT_TAXONOMY.map((row) => (
                       <option key={row.id} value={row.path}>
-                        {row.path}
+                        {googleTaxonomyLabel(row, isAr)}
                       </option>
                     ))}
                   </select>
                   <p className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'قائمة جوجل الرسمية' : 'Official Google list'}
+                    {isAr ? 'قائمة التصنيف الرسمية من جوجل' : 'Official Google list'}
                   </p>
                 </div>
               </div>
@@ -2025,13 +2242,13 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         {sectionVisibility.basic && (
           <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
             <RichTextEditor
-              label={isAr ? 'الوصف الكامل (عناوين SEO، صور، فيديو)' : 'Full Description (SEO headings, images, video)'}
+              label={isAr ? 'الوصف الكامل (عناوين، صور، فيديو)' : 'Full Description (headings, images, video)'}
               value={description}
               onChange={setDescription}
               placeholder={
                 isAr
-                  ? 'اكتب وصف المنتج مع عناوين H1–H6 وصور وفيديو...'
-                  : 'Write product details with H1–H6 headings, images, and video...'
+                  ? 'اكتب وصف المنتج مع عناوين وصور وفيديو...'
+                  : 'Write product details with headings, images, and video...'
               }
               isAr={isAr}
               enableHeadings
@@ -2047,8 +2264,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           {sectionVisibility.pricing && (
             <div className="lg:col-span-5 bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               {/* Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
                     <Tag className="w-5 h-5" />
                   </div>
@@ -2056,21 +2273,18 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     {isAr ? 'التسعير' : 'Pricing'}
                   </h3>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => toggleSection('pricing')}
-                  className="w-11 h-6 rounded-full bg-teal-600 transition-colors relative cursor-pointer p-0.5"
-                >
-                  <span className="w-5 h-5 rounded-full bg-white shadow-md block transition-transform transform translate-x-5 rtl:-translate-x-5" />
-                </button>
+                <SectionVisibilityToggle
+                  checked={sectionVisibility.pricing}
+                  onChange={() => toggleEditorSection('pricing')}
+                  label={isAr ? 'إظهار التسعير' : 'Show pricing'}
+                />
               </div>
 
               {/* 3-Column Inputs: Regular Price, Sale Price, Tax Rate */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'السعر الأساسي (SAR)' : 'Regular Price (SAR)'} <span className="text-rose-500">*</span>
+                    {isAr ? 'السعر الأساسي (ر.س)' : 'Regular Price (SAR)'} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -2152,8 +2366,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           {sectionVisibility.inventory && (
             <div className="lg:col-span-7 bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               {/* Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
                     <Box className="w-5 h-5" />
                   </div>
@@ -2161,14 +2375,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     {isAr ? 'المخزون والشحن' : 'Inventory & Shipping'}
                   </h3>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => toggleSection('inventory')}
-                  className="w-11 h-6 rounded-full bg-teal-600 transition-colors relative cursor-pointer p-0.5"
-                >
-                  <span className="w-5 h-5 rounded-full bg-white shadow-md block transition-transform transform translate-x-5 rtl:-translate-x-5" />
-                </button>
+                <SectionVisibilityToggle
+                  checked={sectionVisibility.inventory}
+                  onChange={() => toggleEditorSection('inventory')}
+                  label={isAr ? 'إظهار المخزون والشحن' : 'Show inventory and shipping'}
+                />
               </div>
 
               {/* Row 1: Stock Quantity *, Low Stock Alert, Stock Status */}
@@ -2257,7 +2468,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                       min="0"
                       value={dimensions.length}
                       onChange={(e) => setDimensions({ ...dimensions, length: Number(e.target.value) })}
-                      placeholder="L"
+                      placeholder={isAr ? 'ط' : 'L'}
                       className="w-full px-2 py-2 rounded-xl border text-xs text-center font-mono focus:outline-none"
                       style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                     />
@@ -2266,7 +2477,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                       min="0"
                       value={dimensions.width}
                       onChange={(e) => setDimensions({ ...dimensions, width: Number(e.target.value) })}
-                      placeholder="W"
+                      placeholder={isAr ? 'ع' : 'W'}
                       className="w-full px-2 py-2 rounded-xl border text-xs text-center font-mono focus:outline-none"
                       style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                     />
@@ -2275,12 +2486,196 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                       min="0"
                       value={dimensions.height}
                       onChange={(e) => setDimensions({ ...dimensions, height: Number(e.target.value) })}
-                      placeholder="H"
+                      placeholder={isAr ? 'ا' : 'H'}
                       className="w-full px-2 py-2 rounded-xl border text-xs text-center font-mono focus:outline-none"
                       style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Product shipping — both channels + dynamic options */}
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                  <h4 className="font-bold text-xs" style={{ color: 'var(--text)' }}>
+                    {commerceTerm('shipping', isAr)}
+                  </h4>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold block mb-2" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'خيارات التوصيل للمنتج' : 'Product delivery options'}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !allowOwnDelivery;
+                        setAllowOwnDelivery(next);
+                        setRequiresOwnDriver(next);
+                        if (next) setShippingMode('own_delivery');
+                        else if (allowShippingCompany) setShippingMode('shipping_company');
+                        else setShippingMode('store_default');
+                      }}
+                      className={`px-3 py-2.5 rounded-xl text-xs font-bold border cursor-pointer ${
+                        allowOwnDelivery
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {commerceTerm('ownDelivery', isAr)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !allowShippingCompany;
+                        setAllowShippingCompany(next);
+                        if (next && !allowOwnDelivery) setShippingMode('shipping_company');
+                        else if (!next && allowOwnDelivery) setShippingMode('own_delivery');
+                        else if (!next && !allowOwnDelivery) setShippingMode('store_default');
+                      }}
+                      className={`px-3 py-2.5 rounded-xl text-xs font-bold border cursor-pointer ${
+                        allowShippingCompany
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {commerceTerm('shippingCompany', isAr)}
+                    </button>
+                  </div>
+                </div>
+
+                {(allowOwnDelivery || allowShippingCompany) && (
+                  <div className="space-y-3 rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--hover-bg)' }}>
+                    <div>
+                      <label className="text-xs font-bold block mb-2" style={{ color: 'var(--text)' }}>
+                        {isAr ? 'حساب رسوم الشحن' : 'Shipping charge mode'}
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {(
+                          [
+                            { id: 'fixed' as const, en: 'Fixed', ar: 'ثابت' },
+                            { id: 'per_kg' as const, en: 'Per kg', ar: 'حسب الكيلو' },
+                            { id: 'per_km' as const, en: 'Per km', ar: 'حسب الكيلومتر' },
+                            { id: 'zone' as const, en: 'By zone', ar: 'حسب المنطقة' },
+                          ] as const
+                        ).map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setShippingRateMode(opt.id)}
+                            className={`px-2 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
+                              shippingRateMode === opt.id
+                                ? 'bg-teal-600 text-white border-teal-600'
+                                : 'bg-white dark:bg-slate-900 text-slate-600 border-slate-200 dark:border-slate-700'
+                            }`}
+                          >
+                            {isAr ? opt.ar : opt.en}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                          {isAr ? 'أساسي' : 'Base'} ({commerceTerm('currencySar', isAr)})
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={deliveryFee}
+                          onChange={(e) => setDeliveryFee(Number(e.target.value))}
+                          className="w-full px-3 py-2 rounded-xl border text-xs font-mono focus:outline-none"
+                          style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                        />
+                      </div>
+                      {(shippingRateMode === 'per_kg' || shippingRateMode === 'zone') && (
+                        <div>
+                          <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                            {isAr ? 'للكل كجم' : 'Per kg'}
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={shippingPerKgRate}
+                            onChange={(e) => setShippingPerKgRate(Number(e.target.value))}
+                            className="w-full px-3 py-2 rounded-xl border text-xs font-mono focus:outline-none"
+                            style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                          />
+                        </div>
+                      )}
+                      {(shippingRateMode === 'per_km' || shippingRateMode === 'zone') && (
+                        <div>
+                          <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                            {isAr ? 'للكل كم' : 'Per km'}
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={shippingPerKmRate}
+                            onChange={(e) => setShippingPerKmRate(Number(e.target.value))}
+                            className="w-full px-3 py-2 rounded-xl border text-xs font-mono focus:outline-none"
+                            style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                        {isAr ? 'الوقت المتوقع / التتبع' : 'ETA / tracking text'}
+                      </label>
+                      <input
+                        type="text"
+                        value={estimatedDeliveryText}
+                        onChange={(e) => setEstimatedDeliveryText(e.target.value)}
+                        placeholder={isAr ? 'مثال: نفس اليوم أو خلال 24–48 ساعة' : 'e.g. Same day or Within 24–48 hours'}
+                        className="w-full px-3 py-2 rounded-xl border text-xs focus:outline-none"
+                        style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold block mb-2" style={{ color: 'var(--text)' }}>
+                        {isAr ? 'خيارات الدفع مع الشحن' : 'Payment options with shipping'}
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {(
+                          [
+                            { id: 'cod' as const, en: 'COD', ar: 'عند الاستلام' },
+                            { id: 'online' as const, en: 'Online', ar: 'إلكتروني' },
+                            { id: 'bank_transfer' as const, en: 'Bank', ar: 'تحويل بنكي' },
+                          ] as const
+                        ).map((opt) => {
+                          const on = shippingPaymentOptions.includes(opt.id);
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() =>
+                                setShippingPaymentOptions((prev) =>
+                                  on ? prev.filter((x) => x !== opt.id) : [...prev, opt.id],
+                                )
+                              }
+                              className={`px-2 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
+                                on
+                                  ? 'bg-emerald-600 text-white border-emerald-600'
+                                  : 'bg-white dark:bg-slate-900 text-slate-600 border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              {isAr ? opt.ar : opt.en}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2308,6 +2703,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               </div>
 
               <div className="flex items-center gap-3 self-start sm:self-center shrink-0">
+                <SectionVisibilityToggle
+                  checked={sectionVisibility.variations}
+                  onChange={() => toggleEditorSection('variations')}
+                  label={isAr ? 'إظهار قسم الخيارات' : 'Show options section'}
+                />
                 <button
                   type="button"
                   role="switch"
@@ -2375,7 +2775,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                           <GripVertical className="w-4 h-4" />
                         </span>
                         <span className="font-bold text-sm text-slate-900 dark:text-slate-100 min-w-[70px]">
-                          {isAr && opt.nameAr ? opt.nameAr : opt.name}
+                          {pickLocaleText(isAr, opt.name, opt.nameAr)}
                         </span>
                         <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                           {opt.type === 'color'
@@ -2407,7 +2807,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                               {val.imageUrl && (
                                 <img src={val.imageUrl} alt="" className="w-4 h-4 rounded object-cover" />
                               )}
-                              <span>{isAr && val.labelAr ? val.labelAr : val.label}</span>
+                              <span>{pickLocaleText(isAr, val.label, val.labelAr)}</span>
                             </span>
                           ))}
                         </div>
@@ -2511,7 +2911,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                                     )}
                                   </button>
                                 )}
-                                <span className="font-semibold text-slate-800 dark:text-slate-200">{isAr && val.labelAr ? val.labelAr : val.label}</span>
+                                <span className="font-semibold text-slate-800 dark:text-slate-200">{pickLocaleText(isAr, val.label, val.labelAr)}</span>
                               </label>
                               <button
                                 type="button"
@@ -2624,7 +3024,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                           {opt.label}
                         </th>
                       ))}
-                      <th className="py-3 px-3.5 text-start font-semibold">SKU</th>
+                      <th className="py-3 px-3.5 text-start font-semibold">{isAr ? 'رمز المنتج' : 'SKU'}</th>
                       <th className="py-3 px-3.5 text-start font-semibold">{isAr ? 'السعر' : 'Price'}</th>
                       <th className="py-3 px-3.5 text-start font-semibold">{isAr ? 'المخزون' : 'Stock'}</th>
                       <th className="py-3 px-3.5 text-center font-semibold w-16">{isAr ? 'الصورة' : 'Image'}</th>
@@ -2693,10 +3093,21 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                             {/* Dynamic Option Columns */}
                             {variantOptionKeys.map((opt) => {
                               const raw = v.options[opt.key] || v.options[opt.label] || '—';
-                              const matchedForLabel = options
-                                .find((o) => o.name === opt.key || o.name === opt.label)
-                                ?.values.find((item) => item.label === raw);
-                              const val = isAr && matchedForLabel?.labelAr ? matchedForLabel.labelAr : raw;
+                              const matchedOptRow = options.find(
+                                (o) =>
+                                  o.name === opt.key ||
+                                  o.name === opt.label ||
+                                  o.nameAr === opt.label ||
+                                  o.id === opt.key,
+                              );
+                              const matchedForLabel = matchedOptRow?.values.find(
+                                (item) => item.label === raw || item.labelAr === raw,
+                              );
+                              const val = pickLocaleText(
+                                isAr,
+                                raw === '—' ? '' : raw,
+                                matchedForLabel?.labelAr,
+                              ) || raw;
                               const kind = optionKind(opt.key) || optionKind(opt.label);
                               const isColor =
                                 kind === 'color' ||
@@ -3046,11 +3457,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           <div className="bg-white dark:bg-[#071E26] p-5 sm:p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-5">
             {/* Header matching reference screenshot */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 min-w-0">
                 <div className="mt-0.5 w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                   <Package className="w-5 h-5 stroke-[2.2]" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3 className="font-bold text-base text-slate-900 dark:text-slate-100 leading-tight">
                     {isAr ? 'الحقول المخصصة' : 'Custom Fields'}
                   </h3>
@@ -3061,15 +3472,19 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   </p>
                 </div>
               </div>
-
               <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+                <SectionVisibilityToggle
+                  checked={sectionVisibility.custom_fields}
+                  onChange={() => toggleEditorSection('custom_fields')}
+                  label={isAr ? 'إظهار الحقول المخصصة' : 'Show custom fields'}
+                />
                 <button
                   type="button"
                   onClick={handleOpenAddField}
                   className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-blue-500/50 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900/60 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-bold text-xs transition-colors shadow-2xs cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>{isAr ? 'إضافة حقل' : '+ Add Field'}</span>
+                  <span>{isAr ? 'إضافة حقل' : 'Add Field'}</span>
                 </button>
               </div>
             </div>
@@ -3282,8 +3697,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           {sectionVisibility.category_tags && (
             <div className="lg:col-span-6 bg-white dark:bg-[#071E26] p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               {/* Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
                     <Folder className="w-5 h-5" />
                   </div>
@@ -3291,14 +3706,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     {isAr ? 'التصنيف والوسوم' : 'Category & Tags'}
                   </h3>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => toggleSection('category_tags')}
-                  className="w-11 h-6 rounded-full bg-teal-600 transition-colors relative cursor-pointer p-0.5"
-                >
-                  <span className="w-5 h-5 rounded-full bg-white shadow-md block transition-transform transform translate-x-5 rtl:-translate-x-5" />
-                </button>
+                <SectionVisibilityToggle
+                  checked={sectionVisibility.category_tags}
+                  onChange={() => toggleEditorSection('category_tags')}
+                  label={isAr ? 'إظهار التصنيف والوسوم' : 'Show category and tags'}
+                />
               </div>
 
               {/* Multi-category assignment */}
@@ -3357,7 +3769,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   </p>
                   <p className="text-[10px] text-amber-700/80 dark:text-amber-300/70 mt-0.5">
                     {isAr
-                      ? 'يظهر في أقسام المنتجات المميزة والمجموعات Featured'
+                      ? 'يظهر في أقسام المنتجات المميزة والمجموعات المميزة'
                       : 'Appears in Featured homepage sections and collections'}
                   </p>
                 </div>
@@ -3496,7 +3908,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     value={newTagInput}
                     onChange={(e) => setNewTagInput(e.target.value)}
                     onKeyDown={handleAddTag}
-                    placeholder={isAr ? 'اكتب واضغط Enter...' : 'Type and press Enter...'}
+                    placeholder={isAr ? 'اكتب واضغط إدخال...' : 'Type and press Enter...'}
                     className="flex-1 min-w-[120px] bg-transparent text-xs focus:outline-none px-1"
                   />
                 </div>
@@ -3508,29 +3920,26 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           {sectionVisibility.seo && (
             <div className="lg:col-span-6 bg-white dark:bg-[#071E26] p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               {/* Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
                     <Search className="w-5 h-5" />
                   </div>
                   <h3 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'إعدادات SEO' : 'SEO Settings'}
+                    {isAr ? 'إعدادات تحسين محركات البحث' : 'SEO Settings'}
                   </h3>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => toggleSection('seo')}
-                  className="w-11 h-6 rounded-full bg-teal-600 transition-colors relative cursor-pointer p-0.5"
-                >
-                  <span className="w-5 h-5 rounded-full bg-white shadow-md block transition-transform transform translate-x-5 rtl:-translate-x-5" />
-                </button>
+                <SectionVisibilityToggle
+                  checked={sectionVisibility.seo}
+                  onChange={() => toggleEditorSection('seo')}
+                  label={isAr ? 'إظهار إعدادات تحسين محركات البحث' : 'Show SEO settings'}
+                />
               </div>
 
               {/* SEO Title */}
               <div>
                 <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                  {isAr ? 'عنوان الصفحة (SEO Title)' : 'SEO Title'}
+                  {isAr ? 'عنوان الصفحة' : 'SEO Title'}
                 </label>
                 <input
                   type="text"
@@ -3544,7 +3953,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               {/* Meta Description with live 0/160 counter */}
               <div>
                 <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                  {isAr ? 'الوصف التعريفي (Meta Description)' : 'Meta Description'}
+                  {isAr ? 'الوصف التعريفي' : 'Meta Description'}
                 </label>
                 <div className="relative">
                   <textarea
@@ -3564,7 +3973,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               {/* URL Slug with domain prefix */}
               <div>
                 <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                  {isAr ? 'رابط المنتج (URL Slug)' : 'URL Slug'}
+                  {isAr ? 'رابط المنتج' : 'URL Slug'}
                 </label>
                 <div className="flex items-center rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
                   <span className="px-2.5 py-2 text-[11px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0 border-e border-slate-200 dark:border-slate-700">
@@ -3654,7 +4063,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     />
                   ) : (
                     <p className="text-xs text-slate-500 mt-2 leading-relaxed whitespace-pre-line">
-                      {description || 'No description provided.'}
+                      {description || (isAr ? 'لا يوجد وصف.' : 'No description provided.')}
                     </p>
                   )}
 
@@ -3675,8 +4084,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     type="button"
                     onClick={() => {
                       setIsLightboxOpen(false);
-                      const url = `/store/${storeSlug}?product=${product.id}`;
-                      window.open(url, '_blank');
+                      window.open(
+                        buildStorefrontProductUrl({ storeSlug, productId: product.id }),
+                        '_blank',
+                        'noopener,noreferrer',
+                      );
                     }}
                     className="flex-1 py-2.5 rounded-xl bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-teal-800"
                   >
@@ -3727,7 +4139,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             <div className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  {isAr ? 'رمز SKU' : 'SKU'}
+                  {isAr ? 'رمز المنتج' : 'SKU'}
                 </label>
                 <input
                   type="text"
@@ -4310,8 +4722,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     onChange={(e) => setFldConditionJoin(e.target.value as 'AND' | 'OR')}
                     className="px-2 py-1 rounded-lg border text-[11px] font-bold cursor-pointer"
                   >
-                    <option value="AND">{isAr ? 'و (AND)' : 'AND'}</option>
-                    <option value="OR">{isAr ? 'أو (OR)' : 'OR'}</option>
+                    <option value="AND">{isAr ? 'و' : 'AND'}</option>
+                    <option value="OR">{isAr ? 'أو' : 'OR'}</option>
                   </select>
                 </div>
                 {fldConditions.map((c, idx) => (
@@ -4435,7 +4847,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'إذا تم اختيار الخيار (If Option)' : 'If Option'}
+                    {isAr ? 'إذا تم اختيار الخيار' : 'If Option'}
                   </label>
                   <select
                     value={ruleOptionName}
@@ -4458,7 +4870,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'القيمة المطلوبة (= Value)' : 'Equals Value'}
+                    {isAr ? 'القيمة المطلوبة' : 'Equals Value'}
                   </label>
                   <select
                     value={ruleOptionVal}
@@ -4476,7 +4888,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
-                  {isAr ? 'إظهار الحقول المخصصة التالية (Show Fields):' : 'Show the following custom fields:'}
+                  {isAr ? 'إظهار الحقول المخصصة التالية:' : 'Show the following custom fields:'}
                 </label>
                 <div className="space-y-2 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 max-h-48 overflow-y-auto">
                   {customFields.map((f) => {

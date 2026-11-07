@@ -27,11 +27,19 @@ import {
 import { useManualOrderForm } from '../../hooks/useManualOrderForm';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
-import { HADAAYA_MAKKAH_PRODUCTS } from '../../data/hadayaMeccaData';
+import { commerceTerm } from '../../i18n/commerceTerms';
 import type { Order, Product } from '../../types';
+import {
+  fetchDeliveryDriversApi,
+  fetchStoreBankAccountsApi,
+  createOrderInstallmentsApi,
+  type DeliveryDriverRow,
+  type StoreBankAccountRow,
+} from '../../api/tenantApi';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
 import { getProductDisplayCategory } from '../../utils/storeLocalization';
 import { ORDER_SOURCE_OPTIONS, OrderSourceIcon } from '../common/BrandIcons';
+import { GlobalModal } from '../common/GlobalModal';
 import {
   MadaIcon,
   ApplePayIcon,
@@ -49,7 +57,7 @@ export interface CreateStoreOrderModalProps {
   storeId?: string;
   products?: Product[];
   onClose: () => void;
-  onCreate: (orderData: Partial<Order>) => void | Promise<void>;
+  onCreate: (orderData: Partial<Order>) => void | Order | Promise<void | Order | null | undefined>;
 }
 
 const COUNTRY_OPTIONS = [
@@ -74,7 +82,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
   const currencyLabel = isAr ? 'ر.س' : 'SAR';
 
   // Access store catalog from TenantContext with fallbacks
-  const { currentProducts, allProducts, activeStore } = useTenant();
+  const { currentProducts, allProducts, activeStore, currentShippingMethods } = useTenant();
   const resolvedStoreId = storeId || activeStore?.id;
   
   const catalogProducts: Product[] = useMemo(() => {
@@ -85,7 +93,8 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
     if (currentProducts && currentProducts.length > 0) {
       return currentProducts;
     }
-    return HADAAYA_MAKKAH_PRODUCTS;
+    // Empty catalog → genuine empty (no cross-tenant / demo product seed)
+    return [];
   }, [propProducts, resolvedStoreId, allProducts, currentProducts]);
 
   const initialStoreItems = useMemo(() => {
@@ -122,18 +131,31 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
     setPaymentMethod,
     paymentStatus,
     setPaymentStatus,
+    paymentPlan,
+    setPaymentPlan,
+    amountPaid,
+    setAmountPaid,
+    bankAccountId,
+    setBankAccountId,
     deliveryMethod,
     setDeliveryMethod,
+    deliveryMode,
+    setDeliveryMode,
+    driverId,
+    setDriverId,
     shippingFee,
     setShippingFee,
     shippingAddress,
     setShippingAddress,
+    shippingCompany,
+    setShippingCompany,
     orderSource,
     setOrderSource,
     subtotal,
     effectiveShippingFee,
     tax,
     grandTotal,
+    remainingBalance,
     isValid,
     getOrderPayload,
   } = useManualOrderForm({
@@ -145,6 +167,58 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showCountryMenu, setShowCountryMenu] = useState(false);
+  const [drivers, setDrivers] = useState<DeliveryDriverRow[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<StoreBankAccountRow[]>([]);
+  const [driversLoading, setDriversLoading] = useState(false);
+  const [banksLoading, setBanksLoading] = useState(false);
+
+  useEffect(() => {
+    if (!resolvedStoreId) {
+      setDrivers([]);
+      return;
+    }
+    let cancelled = false;
+    setDriversLoading(true);
+    fetchDeliveryDriversApi(resolvedStoreId, { is_active: true, all: true })
+      .then((rows) => {
+        if (!cancelled) setDrivers(rows.filter((d) => d.is_active !== false));
+      })
+      .catch(() => {
+        if (!cancelled) setDrivers([]);
+      })
+      .finally(() => {
+        if (!cancelled) setDriversLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedStoreId]);
+
+  const needsBankAccount =
+    paymentMethod === 'bank_transfer' ||
+    paymentPlan === 'partial' ||
+    paymentPlan === 'installment';
+
+  useEffect(() => {
+    if (!resolvedStoreId || !needsBankAccount) {
+      return;
+    }
+    let cancelled = false;
+    setBanksLoading(true);
+    fetchStoreBankAccountsApi(resolvedStoreId, { is_active: true })
+      .then((rows) => {
+        if (!cancelled) setBankAccounts(rows.filter((b) => b.is_active !== false));
+      })
+      .catch(() => {
+        if (!cancelled) setBankAccounts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBanksLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedStoreId, needsBankAccount]);
   
   // Real Products Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -249,7 +323,46 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
     setSubmitError(null);
     try {
       const payload = getOrderPayload(resolvedStoreId);
-      await Promise.resolve(onCreate(payload));
+      const created = await Promise.resolve(onCreate(payload));
+      const createdOrder =
+        created && typeof created === 'object' && 'id' in created && created.id
+          ? (created as Order)
+          : null;
+
+      // Real API installments only when parent returns a created order with id
+      if (
+        paymentPlan === 'installment' &&
+        createdOrder?.id &&
+        resolvedStoreId
+      ) {
+        try {
+          const total = Number(createdOrder.total ?? payload.total) || 0;
+          if (total > 0) {
+            const count = 3;
+            const cents = Math.round(total * 100);
+            const baseCents = Math.floor(cents / count);
+            const amounts: number[] = [];
+            let allocated = 0;
+            for (let i = 0; i < count - 1; i++) {
+              amounts.push(baseCents / 100);
+              allocated += baseCents;
+            }
+            amounts.push((cents - allocated) / 100);
+            const baseDate = new Date();
+            for (let i = 0; i < count; i++) {
+              const due = new Date(baseDate);
+              due.setDate(due.getDate() + 30 * (i + 1));
+              await createOrderInstallmentsApi(resolvedStoreId, createdOrder.id, {
+                installment_number: i + 1,
+                amount: amounts[i],
+                due_date: due.toISOString().slice(0, 10),
+              });
+            }
+          }
+        } catch {
+          // Order already created — skip installment errors without fake rows
+        }
+      }
     } catch (err) {
       const msg =
         err instanceof Error
@@ -266,14 +379,12 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
   const selectedCountry = COUNTRY_OPTIONS.find((c) => c.code === countryCode) || COUNTRY_OPTIONS[0];
 
   return (
-    <div
+    <GlobalModal
+      onClose={onClose}
       dir={dir}
-      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-200"
+      aria-label={commerceTerm('createNewOrder', isAr)}
     >
-      <div
-        className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 overflow-hidden flex flex-col max-h-[94vh] text-slate-800 dark:text-slate-100 font-sans"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 overflow-hidden flex flex-col max-h-[min(94vh,94dvh)] text-slate-800 dark:text-slate-100 font-sans">
         {/* ── TOP HEADER ── */}
         <div className="px-6 py-4.5 border-b border-slate-100 dark:border-slate-800/90 flex items-center justify-between bg-gradient-to-r from-white via-slate-50/40 to-teal-50/30 dark:from-slate-900 dark:via-slate-900 dark:to-teal-950/20 sticky top-0 z-30">
           <div>
@@ -282,7 +393,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                 <Store className="w-4 h-4" />
               </span>
               <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                {isAr ? 'إنشاء طلب يدوي جديد للمتجر' : 'Create Store Order'}
+                {commerceTerm('createNewOrder', isAr)}
               </h2>
               {(storeName || activeStore?.name) && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-700 dark:bg-teal-950/80 dark:text-teal-300 border border-teal-200/70 dark:border-teal-800/60 shadow-2xs">
@@ -375,9 +486,15 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                   {/* Phone Input */}
                   <input
                     type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9\s]*"
                     required
                     value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    onChange={(e) => {
+                      // Digits + spaces only — block letter mixes like 123eee
+                      const cleaned = e.target.value.replace(/[^\d\s]/g, '');
+                      setCustomerPhone(cleaned);
+                    }}
                     placeholder="50 123 4567"
                     className="w-full px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none bg-transparent font-medium"
                   />
@@ -453,7 +570,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                   }}
                   placeholder={
                     isAr
-                      ? 'ابحث باسم المنتج، رمز SKU، التصنيف، أو الكلمات المفتاحية...'
+                      ? 'ابحث باسم المنتج، رمز المنتج، التصنيف، أو الكلمات المفتاحية...'
                       : 'Search by product name, SKU, category, or tags to add...'
                   }
                   className="w-full py-3 pe-10 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 bg-transparent focus:outline-none font-medium"
@@ -604,7 +721,9 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                               </div>
 
                               <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400 font-mono">
-                                <span>SKU: {product.sku || product.id}</span>
+                                <span>
+                                  {isAr ? 'رمز المنتج' : 'SKU'}: {product.sku || product.id}
+                                </span>
                                 <span>•</span>
                                 {isOutOfStock ? (
                                   <span className="text-rose-500 font-sans font-bold">
@@ -822,7 +941,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                             {item.name}
                           </p>
                           <p className="text-[11px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">
-                            SKU: {item.sku}
+                            {isAr ? 'رمز المنتج' : 'SKU'}: {item.sku}
                           </p>
                         </div>
                       </div>
@@ -923,7 +1042,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                   {isAr ? 'طريقة الدفع المختارة' : 'Selected Payment Method'} <span className="text-rose-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
                   {[
                     { id: 'mada', labelEn: 'mada', labelAr: 'مدى' },
                     { id: 'apple', labelEn: 'Apple Pay', labelAr: 'أبل باي' },
@@ -932,6 +1051,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                     { id: 'tabby', labelEn: 'Tabby', labelAr: 'تابي' },
                     { id: 'tamara', labelEn: 'Tamara', labelAr: 'تمارا' },
                     { id: 'cash', labelEn: 'Cash on Delivery', labelAr: 'الدفع عند الاستلام' },
+                    { id: 'bank_transfer', labelEn: 'Bank Transfer', labelAr: 'تحويل بنكي' },
                   ].map((pm) => {
                     const isSelected = paymentMethod === pm.id;
                     return (
@@ -957,6 +1077,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                         {pm.id === 'tabby' && <TabbyIcon className="h-6 w-auto" />}
                         {pm.id === 'tamara' && <TamaraIcon className="h-6 w-auto" />}
                         {pm.id === 'cash' && <CodIcon className="h-6 w-auto" />}
+                        {pm.id === 'bank_transfer' && <Building2 className="h-6 w-6 text-teal-600" />}
                         <span className="text-[11px] leading-tight text-center">
                           {isAr ? pm.labelAr : pm.labelEn}
                         </span>
@@ -965,6 +1086,151 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                   })}
                 </div>
               </div>
+
+              {/* Payment Plan */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  {isAr ? 'خطة الدفع' : 'Payment Plan'}
+                </label>
+                <div className="grid grid-cols-3 gap-2 max-w-xl">
+                  {(
+                    [
+                      { id: 'full' as const, label: commerceTerm('fullPayment', isAr) },
+                      { id: 'partial' as const, label: commerceTerm('partialPayment', isAr) },
+                      { id: 'installment' as const, label: commerceTerm('installmentPayment', isAr) },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        setPaymentPlan(opt.id);
+                        if (opt.id === 'full') setAmountPaid(grandTotal);
+                      }}
+                      className={`py-2.5 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                        paymentPlan === opt.id
+                          ? 'border-teal-600 bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 ring-2 ring-teal-500/15 shadow-xs'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {(paymentPlan === 'partial' || paymentPlan === 'installment') && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      {commerceTerm('amountPaid', isAr)}
+                    </label>
+                    <div className="flex rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 overflow-hidden">
+                      <span className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border-e border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500">
+                        {currencyLabel}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        max={grandTotal}
+                        value={amountPaid}
+                        onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2.5 text-xs font-medium tabular-nums bg-transparent focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      {commerceTerm('remainingBalance', isAr)}
+                    </label>
+                    <div className="px-3 py-2.5 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-950/30 text-xs font-black tabular-nums text-amber-800 dark:text-amber-200">
+                      {currencyLabel} {remainingBalance.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {needsBankAccount && (
+                <div className="space-y-2 max-w-xl">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    {commerceTerm('bankAccount', isAr)} <span className="text-rose-500">*</span>
+                  </label>
+                  {banksLoading ? (
+                    <p className="text-xs text-slate-500">{isAr ? 'جاري التحميل…' : 'Loading…'}</p>
+                  ) : bankAccounts.length === 0 ? (
+                    <p className="text-xs text-slate-500">
+                      {isAr
+                        ? 'لا توجد حسابات بنكية. أضفها من صفحة المدفوعات.'
+                        : 'No bank accounts found. Add them from Payments settings.'}
+                    </p>
+                  ) : (
+                    <>
+                      <select
+                        value={bankAccountId}
+                        onChange={(e) => setBankAccountId(e.target.value)}
+                        required
+                        className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 font-medium"
+                      >
+                        <option value="">
+                          {isAr ? 'اختر الحساب البنكي' : 'Select bank account'}
+                        </option>
+                        {bankAccounts.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {(isAr && b.bank_name_ar) || b.bank_name} — {b.iban}
+                            {b.is_default ? (isAr ? ' (افتراضي)' : ' (default)') : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {(() => {
+                        const selected = bankAccounts.find((b) => b.id === bankAccountId);
+                        if (!selected) return null;
+                        const bankLabel =
+                          (isAr && selected.bank_name_ar) || selected.bank_name;
+                        const titleLabel =
+                          (isAr && selected.account_title_ar) || selected.account_title;
+                        return (
+                          <div className="rounded-xl border border-teal-200/70 dark:border-teal-900/50 bg-teal-50/50 dark:bg-teal-950/30 p-3 space-y-1.5 text-xs">
+                            <p className="font-black text-teal-900 dark:text-teal-200">
+                              {isAr ? 'تفاصيل التحويل البنكي' : 'Bank transfer details'}
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-slate-700 dark:text-slate-300">
+                              <span className="font-semibold">{isAr ? 'البنك' : 'Bank'}</span>
+                              <span className="font-bold sm:text-end">{bankLabel}</span>
+                              <span className="font-semibold">{isAr ? 'اسم الحساب' : 'Account title'}</span>
+                              <span className="font-bold sm:text-end break-all">{titleLabel}</span>
+                              <span className="font-semibold">IBAN</span>
+                              <span className="font-mono font-bold sm:text-end break-all" dir="ltr">
+                                {selected.iban}
+                              </span>
+                              {selected.account_number ? (
+                                <>
+                                  <span className="font-semibold">
+                                    {isAr ? 'رقم الحساب' : 'Account number'}
+                                  </span>
+                                  <span className="font-mono font-bold sm:text-end" dir="ltr">
+                                    {selected.account_number}
+                                  </span>
+                                </>
+                              ) : null}
+                              {selected.payment_reference_prefix ? (
+                                <>
+                                  <span className="font-semibold">
+                                    {isAr ? 'مرجع الدفع' : 'Payment reference'}
+                                  </span>
+                                  <span className="font-mono font-bold sm:text-end" dir="ltr">
+                                    {selected.payment_reference_prefix}
+                                  </span>
+                                </>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Payment Status Segmented Control */}
               <div>
@@ -1061,12 +1327,159 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                     step="0.01"
                     disabled={deliveryMethod === 'pickup'}
                     value={deliveryMethod === 'pickup' ? 0 : shippingFee}
-                    onChange={(e) => setShippingFee(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^\d.]/g, '');
+                      setShippingFee(parseFloat(raw) || 0);
+                    }}
                     className="w-full px-3 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none bg-transparent disabled:opacity-40 disabled:cursor-not-allowed font-medium tabular-nums"
                   />
                 </div>
               </div>
             </div>
+
+            {deliveryMethod === 'delivery' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    {commerceTerm('shipping', isAr)}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 max-w-md">
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMode('own_delivery')}
+                      className={`py-2.5 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                        deliveryMode === 'own_delivery'
+                          ? 'border-teal-600 bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 ring-2 ring-teal-500/15'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      {commerceTerm('ownDelivery', isAr)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeliveryMode('shipping_company');
+                        setDriverId('');
+                      }}
+                      className={`py-2.5 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                        deliveryMode === 'shipping_company'
+                          ? 'border-teal-600 bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 ring-2 ring-teal-500/15'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      {commerceTerm('shippingCompany', isAr)}
+                    </button>
+                  </div>
+                </div>
+
+                {deliveryMode === 'own_delivery' && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      {commerceTerm('assignDriver', isAr)}
+                    </label>
+                    {driversLoading ? (
+                      <p className="text-xs text-slate-500">{isAr ? 'جاري التحميل…' : 'Loading…'}</p>
+                    ) : drivers.length === 0 ? (
+                      <p className="text-xs text-slate-500">
+                        {isAr
+                          ? 'لا يوجد مندوبو توصيل نشطون'
+                          : 'No active delivery drivers'}
+                      </p>
+                    ) : (
+                      <select
+                        value={driverId}
+                        onChange={(e) => setDriverId(e.target.value)}
+                        className="w-full max-w-md px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 font-medium"
+                      >
+                        <option value="">
+                          {isAr ? 'اختر مندوب التوصيل' : 'Select delivery driver'}
+                        </option>
+                        {drivers.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {(isAr && d.name_ar) || d.name}
+                            {d.phone ? ` · ${d.phone}` : ''}
+                            {d.city ? ` · ${d.city}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+
+                {deliveryMode === 'shipping_company' && (
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      {commerceTerm('shippingCompany', isAr)}
+                    </label>
+                    {(() => {
+                      const courierMethods = (currentShippingMethods || []).filter(
+                        (m) => m.isActive && (m.fulfillmentMode || 'courier') !== 'own_delivery',
+                      );
+                      if (courierMethods.length === 0) {
+                        return (
+                          <input
+                            type="text"
+                            value={shippingCompany}
+                            onChange={(e) => setShippingCompany(e.target.value)}
+                            placeholder={isAr ? 'مثال: سمسا، أرامكس، سبل' : 'e.g. SMSA, Aramex, SPL'}
+                            className="w-full max-w-md px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 font-medium"
+                          />
+                        );
+                      }
+                      return (
+                        <div className="space-y-2 max-w-md">
+                          <select
+                            value={shippingCompany}
+                            onChange={(e) => {
+                              const idOrName = e.target.value;
+                              setShippingCompany(idOrName);
+                              const m = courierMethods.find(
+                                (x) => x.id === idOrName || x.name === idOrName || x.nameAr === idOrName,
+                              );
+                              if (m) {
+                                setShippingFee(Number(m.baseRate) || 0);
+                                setShippingCompany(isAr ? (m.nameAr || m.name) : m.name);
+                              }
+                            }}
+                            className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 font-medium"
+                          >
+                            <option value="">
+                              {isAr ? 'اختر شركة الشحن' : 'Select shipping company'}
+                            </option>
+                            {courierMethods.map((m) => {
+                              const label = isAr ? (m.nameAr || m.name) : m.name;
+                              const fee = Number(m.baseRate) || 0;
+                              const perKg = Number(m.perKgRate) || 0;
+                              const eta = m.estimatedDelivery || '';
+                              const feeBit =
+                                perKg > 0
+                                  ? isAr
+                                    ? `${fee} ر.س + ${perKg}/كجم`
+                                    : `${fee} SAR + ${perKg}/kg`
+                                  : isAr
+                                    ? `${fee} ر.س`
+                                    : `${fee} SAR`;
+                              return (
+                                <option key={m.id} value={m.id}>
+                                  {label} · {feeBit}
+                                  {eta ? ` · ${eta}` : ''}
+                                  {m.trackingEnabled ? (isAr ? ' · تتبع' : ' · Track') : ''}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          <p className="text-[10px] text-slate-500">
+                            {isAr
+                              ? 'الرسوم والوقت والتتبع من إعدادات الشحن (ثابت أو حسب الكيلو).'
+                              : 'Fee, ETA, and tracking come from Shipping settings (fixed or per-kg).'}
+                          </p>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Shipping Address */}
             <div>
@@ -1123,7 +1536,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
               </div>
 
               <div className="flex justify-between items-center text-xs text-slate-600 dark:text-slate-300">
-                <span className="font-semibold">{isAr ? 'ضريبة القيمة المضافة (15% VAT)' : 'Value Added Tax (15% VAT)'}</span>
+                <span className="font-semibold">{isAr ? 'ضريبة القيمة المضافة (١٥٪)' : 'Value Added Tax (15%)'}</span>
                 <span className="font-bold text-slate-900 dark:text-white tabular-nums">
                   {currencyLabel} {tax.toFixed(2)}
                 </span>
@@ -1155,7 +1568,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
             onClick={onClose}
             className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
           >
-            {isAr ? 'إلغاء' : 'Cancel'}
+            {commerceTerm('cancel', isAr)}
           </button>
           <button
             type="button"
@@ -1168,7 +1581,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };
 

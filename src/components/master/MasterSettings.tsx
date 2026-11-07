@@ -427,7 +427,13 @@ export const MasterSettings: React.FC = () => {
 
       {/* ── TAB 3: Branding Panel (Top 15 Colors / Fonts / Weights) ── */}
       {activeTab === 'appearance' && (
-        <BrandingPanel title="Global Platform Branding · Top 15 Colors · Top 15 Fonts · Weights" />
+        <BrandingPanel
+          title={
+            isAr
+              ? 'هوية المنصة العامة · أهم 15 لونًا · أهم 15 خطًا · أوزان الخط'
+              : 'Global Platform Branding · Top 15 Colors · Top 15 Fonts · Weights'
+          }
+        />
       )}
 
       {/* ── TAB 4: WhatsApp & Social ── */}

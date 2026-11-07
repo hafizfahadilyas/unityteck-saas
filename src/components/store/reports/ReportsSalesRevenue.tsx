@@ -105,13 +105,19 @@ export const ReportsSalesRevenue: React.FC<ReportsSalesRevenueProps> = ({
   const totalOrders = apiData?.kpis?.total_orders ?? rawTotalOrders;
   const aov = apiData?.kpis?.aov ?? rawAov;
   const netRevenue = apiData?.kpis?.net_revenue ?? rawNetRevenue;
-  const profitMargin = apiData?.kpis?.profit_margin ?? '0%';
+  const profitMargin =
+    apiData?.kpis?.profit_margin != null && apiData?.kpis?.profit_margin !== ''
+      ? apiData.kpis.profit_margin
+      : '—';
 
   const revGrowth = apiData?.kpis?.revenue_growth ?? '0%';
   const ordersGrowth = apiData?.kpis?.orders_growth ?? '0%';
   const aovGrowth = apiData?.kpis?.aov_growth ?? '0%';
   const netGrowth = apiData?.kpis?.net_growth ?? '0%';
-  const marginGrowth = apiData?.kpis?.margin_growth ?? '0%';
+  const marginGrowth =
+    apiData?.kpis?.margin_growth != null && apiData?.kpis?.margin_growth !== ''
+      ? apiData.kpis.margin_growth
+      : '—';
 
   const prevRevenue = apiData?.kpis?.prev_revenue ?? 0;
   const prevOrders = apiData?.kpis?.prev_orders ?? 0;
@@ -498,7 +504,7 @@ export const ReportsSalesRevenue: React.FC<ReportsSalesRevenueProps> = ({
                 {marginGrowth}
               </span>
               <span className="text-[11px] text-slate-400 dark:text-slate-500">
-                vs. 28.4%
+                {isAr ? 'بدون هامش مخترع' : 'no invented margin'}
               </span>
             </div>
           </div>

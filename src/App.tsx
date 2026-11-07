@@ -31,12 +31,13 @@ import { usePermissions } from './hooks/usePermissions';
 import { STORE_TAB_ABILITY, MASTER_TAB_ABILITY } from './auth/modules';
 import { readAuthSession, clearAuthSession, writeAuthSession } from './auth/session';
 import type { AuthPortal, AuthSession } from './auth/session';
-import { logoutPortal, clearAppCache, loginPortal } from './auth/api';
+import { logoutPortal, clearAppCache } from './auth/api';
 import {
   isKnownAppPath,
   isStatusPath,
   resolveStatusKind,
 } from './status/routes';
+import { isPublicStoreSlugPath, storeSlugFromStorePath } from './utils/storefrontLinks';
 import { useToast } from './components/common/ToastProvider';
 import { applyPortalHead } from './utils/portalHead';
 import { Lock, ShieldAlert } from 'lucide-react';
@@ -677,6 +678,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   const isPublicStorefront =
     isFullscreenParam ||
     isTabStorefrontParam ||
+    isPublicStoreSlugPath(path) ||
     path === '/' ||
     path === '' ||
     path === '/shop' ||
@@ -821,7 +823,6 @@ const getDefaultStoreTheme = (storeId?: string): string => {
        (resolvedDomain?.resolved && resolvedDomain.storeId ? resolvedDomain.storeId : ''));
     if (!effectiveSlug) return;
     const tabParam = params.get('tab');
-    const tabQuery = tabParam ? `&tab=${encodeURIComponent(tabParam)}` : '';
 
     const targetStoreId =
       effectiveSlug === 'coffee' || effectiveSlug === 'store-coffee' || effectiveSlug === 'roasters'
@@ -869,21 +870,8 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     }
     lastSwitchedStoreKeyRef.current = currentKey;
 
+    // Password / ?autologin=1 bypass removed — email OTP (Clerk) only.
     if (targetStoreId === 'master') {
-      const allowAuto = params.get('autologin') === '1';
-      if (!isExplicitLoginPage && session?.portal !== 'master' && allowAuto) {
-        isAutoSwitchingRef.current = true;
-        loginPortal('master', 'master@unityteck.com', 'UnityMaster@2026!Secure')
-          .then((s) => {
-            setSession(s);
-            switchToMaster();
-            navigate('/master', { replace: true });
-          })
-          .catch(() => {})
-          .finally(() => {
-            isAutoSwitchingRef.current = false;
-          });
-      }
       return;
     }
 
@@ -894,7 +882,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       return;
     }
 
-    // Admin login per target store
+    // Admin: switch tenant context only — never mint a session without OTP.
     if (!isExplicitLoginPage) {
       if (session?.portal === 'store' && session?.storeId === targetStoreId) {
         if (activeStore?.id !== targetStoreId) {
@@ -906,32 +894,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         return;
       }
 
-      const allowAuto = params.get('autologin') === '1';
-
-      if (allowAuto) {
-        isAutoSwitchingRef.current = true;
-        const creds =
-          targetStoreId === 'store-coffee'
-            ? { email: 'mieraf.sa8@gmail.com', pass: 'CoffeeStore@2026!Secure', slug: 'coffee' }
-            : targetStoreId === 'store-bleco'
-            ? { email: 'admin@bleco.sa', pass: 'BlackoStore@2026!Secure', slug: 'bleco' }
-            : { email: 'admin@giftshop-sa.com', pass: 'MakkahStore@2026!Secure', slug: 'flowers' };
-
-        loginPortal('store', creds.email, creds.pass)
-          .then((s) => {
-            setSession(s);
-            switchToStore(targetStoreId);
-            if (tabParam && tabParam !== 'storefront' && tabParam !== 'inventory') {
-              setStoreTab(tabParam);
-            }
-            navigate(`/admin?store=${creds.slug}${tabQuery}`, { replace: true });
-          })
-          .catch(() => {})
-          .finally(() => {
-            isAutoSwitchingRef.current = false;
-          });
-      } else if (!session) {
-        // Switch context to target store gracefully without force-logging in with fake password
+      if (!session) {
         switchToStore(targetStoreId);
       }
     } else if (session?.portal === 'store' && session?.storeId === targetStoreId) {
@@ -1314,10 +1277,12 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       typeof window !== 'undefined'
         ? new URLSearchParams(window.location.search)
         : new URLSearchParams();
+    const pathStoreSlug = storeSlugFromStorePath(path) || '';
     const urlStoreSlug = (
       searchParams.get('store') ||
       searchParams.get('storeId') ||
       searchParams.get('demo') ||
+      pathStoreSlug ||
       ''
     )
       .toLowerCase()
@@ -1328,6 +1293,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     const storefrontStoreId =
       urlStoreSlug === 'coffee' ||
       urlStoreSlug === 'store-coffee' ||
+      urlStoreSlug === 'coffee-store' ||
       urlStoreSlug.includes('coffee') ||
       urlStoreSlug.includes('hibrew') ||
       urlStoreSlug.includes('roaster') ||

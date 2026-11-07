@@ -117,8 +117,17 @@ export function PrefsProvider({
       },
       setCurrency: (currency) => patch({ currency }),
       setBrand,
-      setPalette: (palette) => setBrand({ palette }),
-      setFont: (font) => setBrand({ font }),
+      setPalette: (palette) => setBrand({ palette, customAccentHex: null }),
+      setFont: (font) => {
+        const patchFont: Partial<typeof DEFAULT_BRAND> = { font };
+        if (font === 'jakarta' || font === 'inter' || font === 'dm-sans' || font === 'manrope' || font === 'outfit' || font === 'poppins' || font === 'urbanist') {
+          patchFont.fontEn = font;
+        }
+        if (font === 'cairo' || font === 'noto' || font === 'ibm-plex-ar' || font === 'tajawal' || font === 'almarai' || font === 'alexandria') {
+          patchFont.fontAr = font;
+        }
+        setBrand(patchFont);
+      },
       setIconStyle: (iconStyle) => setBrand({ iconStyle }),
       setFontWeight: (fontWeight) => setBrand({ fontWeight }),
       toggleTheme: () =>

@@ -45,6 +45,13 @@ class Order extends Model
         'awb_number',
         'tracking_number',
         'shipping_cost',
+        'delivery_mode',
+        'driver_id',
+        'bank_account_id',
+        'payment_plan',
+        'amount_paid',
+        'remaining_balance',
+        'estimated_delivery_at',
         'cod_status',
         'cod_collected_at',
         'cod_remitted_at',
@@ -64,8 +71,11 @@ class Order extends Model
             'items_count' => 'integer',
             'total_amount' => 'decimal:2',
             'shipping_cost' => 'decimal:2',
+            'amount_paid' => 'decimal:2',
+            'remaining_balance' => 'decimal:2',
             'refund_amount' => 'decimal:2',
             'order_date' => 'datetime',
+            'estimated_delivery_at' => 'datetime',
             'cod_collected_at' => 'datetime',
             'cod_remitted_at' => 'datetime',
             'returned_at' => 'datetime',
@@ -101,5 +111,20 @@ class Order extends Model
     public function returns(): HasMany
     {
         return $this->hasMany(OrderReturn::class);
+    }
+
+    public function installments(): HasMany
+    {
+        return $this->hasMany(OrderInstallment::class);
+    }
+
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(DeliveryDriver::class, 'driver_id');
+    }
+
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(StoreBankAccount::class, 'bank_account_id');
     }
 }

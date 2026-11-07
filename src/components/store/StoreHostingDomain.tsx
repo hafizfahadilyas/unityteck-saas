@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import {
   Globe,
   Server,
@@ -153,8 +154,8 @@ export const StoreHostingDomain: React.FC = () => {
       verifyDomainDns(storeDomain.id);
       toast(
         isAr
-          ? 'تم التحقق من سجلات DNS بنجاح على استضافة Hostinger المشتركة!'
-          : 'DNS records verified on Hostinger Shared Hosting!',
+          ? 'تم التحقق من سجلات DNS بنجاح على الاستضافة المشتركة!'
+          : 'DNS records verified on Shared Hosting!',
         'success',
       );
     }, 1000);
@@ -168,7 +169,7 @@ export const StoreHostingDomain: React.FC = () => {
       toast(
         isAr
           ? 'تم نشر أحدث إصدار للمتجر بنجاح! متجرك الآن مباشر عبر SSL.'
-          : 'Latest store build deployed to Hostinger Shared public_html! Store is now Live.',
+          : 'Latest store build deployed successfully! Store is now Live.',
         'success',
       );
     }, 1500);
@@ -195,8 +196,8 @@ export const StoreHostingDomain: React.FC = () => {
               </h1>
               <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
                 {isAr
-                  ? 'استضافة مشتركة سريعة من Hostinger حصرياً — لا خوادم VPS أو Dedicated.'
-                  : 'Hostinger Shared Hosting only (No VPS/Dedicated/Cloud). Seamless automated deployment & SSL.'}
+                  ? 'استضافة مشتركة سريعة من يونيتيك — بدون خوادم خاصة منفصلة.'
+                  : 'Unityteck Shared Hosting. Seamless automated deployment & SSL.'}
               </p>
             </div>
           </div>
@@ -259,12 +260,12 @@ export const StoreHostingDomain: React.FC = () => {
           </div>
           <div>
             <h3 className="text-sm font-black text-slate-900 dark:text-white">
-              {isAr ? 'مركز النسخ الاحتياطي والاستعادة ونقل المتاجر' : 'Hostinger Backup, Restore & 2nd Server Migration'}
+              {isAr ? 'مركز النسخ الاحتياطي والاستعادة ونقل المتاجر' : 'Backup, Restore & 2nd Server Migration'}
             </h3>
             <p className="text-xs opacity-75">
               {isAr
                 ? 'تحميل حزمة المتجر الكاملة ZIP، استعادة النسخ المجدولة، ونقل المتجر إلى استضافة ثانية بنقرة واحدة.'
-                : '1-click full store ZIP archive, automated daily/weekly snapshots, and all-in-one migration to 2nd Hostinger.'}
+                : '1-click full store ZIP archive, automated daily/weekly snapshots, and all-in-one migration to a second host.'}
             </p>
           </div>
         </div>
@@ -414,7 +415,7 @@ export const StoreHostingDomain: React.FC = () => {
                   {isAr ? 'نوع الاستضافة' : 'Hosting Type'}
                 </span>
                 <span className="font-bold text-xs" style={{ color: 'var(--text)' }}>
-                  Hostinger Shared Cloud
+                  Unityteck Shared Cloud
                 </span>
               </div>
               <div className="p-2.5 rounded-lg border" style={{ borderColor: 'var(--border)' }}>
@@ -468,7 +469,7 @@ export const StoreHostingDomain: React.FC = () => {
             </h2>
             <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--muted)' }}>
               {isAr
-                ? 'اربط متجرك بنطاقك المخصص عبر استضافة Hostinger المشتركة مع تحقق DNS التلقائي وشهادة SSL.'
+                ? 'اربط متجرك بنطاقك المخصص عبر الاستضافة المشتركة مع تحقق DNS التلقائي وشهادة الأمان.'
                 : 'Connect your custom domain (e.g. makkaflower.com). Payment is securely processed via our SaaS gateway.'}
             </p>
 
@@ -492,7 +493,7 @@ export const StoreHostingDomain: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text)' }}>
-                  {isAr ? 'باقة الاستضافة المشتركة (Hostinger Shared Only)' : 'Shared Hosting Plan (Hostinger Only)'}
+                  {isAr ? 'باقة الاستضافة المشتركة' : 'Shared Hosting Plan'}
                 </label>
                 <select
                   value={selectedHostingTier}
@@ -501,19 +502,18 @@ export const StoreHostingDomain: React.FC = () => {
                   style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
                 >
                   <option value="Hostinger Shared Starter">
-                    {isAr
-                      ? `Hostinger Shared Starter (${money(29)}/شهرياً) — 100GB SSD، SSL مجاني`
-                      : `Hostinger Shared Starter (${money(29)}/mo) — 100GB SSD, Free SSL`}
+                  {isAr ? `Starter Shared (${money(29)}/شهرياً) — 100GB SSD، SSL مجاني`
+                      : `Starter Shared (${money(29)}/mo) — 100GB SSD, Free SSL`}
                   </option>
                   <option value="Hostinger Shared Premium">
                     {isAr
-                      ? `Hostinger Shared Premium (${money(49)}/شهرياً) — 200GB NVMe، نطاق مجاني، نسخ احتياطي أسبوعي`
-                      : `Hostinger Shared Premium (${money(49)}/mo) — 200GB NVMe, Free Domain, Weekly Backups`}
+                      ? `استضافة مميزة (${money(49)}/شهرياً) — 200GB NVMe، نطاق مجاني، نسخ احتياطي أسبوعي`
+                      : `Premium Shared (${money(49)}/mo) — 200GB NVMe, Free Domain, Weekly Backups`}
                   </option>
                   <option value="Hostinger Shared Business">
                     {isAr
-                      ? `Hostinger Shared Business (${money(79)}/شهرياً) — نسخ احتياطي يومي، CDN مجاني، بيئة تجريبية`
-                      : `Hostinger Shared Business (${money(79)}/mo) — Daily Backups, Free CDN, Staging`}
+                      ? `استضافة أعمال (${money(79)}/شهرياً) — نسخ احتياطي يومي، CDN مجاني، بيئة تجريبية`
+                      : `Business Shared (${money(79)}/mo) — Daily Backups, Free CDN, Staging`}
                   </option>
                 </select>
                 <span className="text-[10px] mt-1 flex items-center gap-1 text-slate-400">
@@ -585,12 +585,12 @@ export const StoreHostingDomain: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-base font-bold" style={{ color: 'var(--text)' }}>
-              {isAr ? 'إعدادات وسجلات DNS للاستضافة المشتركة' : 'Hostinger Shared DNS Configuration'}
+              {isAr ? 'إعدادات وسجلات DNS للاستضافة المشتركة' : 'Shared DNS Configuration'}
             </h3>
             <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
               {isAr
-                ? 'السجلات المطلوبة لتوجيه نطاقك المخصص إلى خوادم Hostinger المشتركة التابعة للمنصة.'
-                : 'Required DNS records to route your custom domain to our Hostinger Shared server.'}
+                ? 'السجلات المطلوبة لتوجيه نطاقك المخصص إلى خوادم الاستضافة المشتركة التابعة للمنصة.'
+                : 'Required DNS records to route your custom domain to our shared hosting server.'}
             </p>
           </div>
 
@@ -626,7 +626,7 @@ export const StoreHostingDomain: React.FC = () => {
               <tr>
                 <td className="py-3 px-3 font-bold text-teal-600">A</td>
                 <td className="py-3 px-3">@</td>
-                <td className="py-3 px-3 font-bold">145.79.26.23 / 185.199.108.153 {isAr ? '(عنوان IP لاستضافة Hostinger المشتركة)' : '(Hostinger Shared IP)'}</td>
+                <td className="py-3 px-3 font-bold">145.79.26.23 / 185.199.108.153 {isAr ? '(عنوان IP للاستضافة المشتركة)' : '(Shared Hosting IP)'}</td>
                 <td className="py-3 px-3">3600</td>
                 <td className="py-3 px-3 text-end">
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200">
@@ -680,7 +680,7 @@ export const StoreHostingDomain: React.FC = () => {
             <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
               {isAr
                 ? 'الحقول الإلزامية المحفوظة في قاعدة بيانات النظام لكل متجر.'
-                : 'Exact database schema keys maintained for multi-tenant isolation on Hostinger Shared MySQL.'}
+                : 'Exact database schema keys maintained for multi-tenant isolation on shared MySQL.'}
             </p>
           </div>
           <span className="text-[10px] font-mono px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
@@ -750,13 +750,13 @@ export const StoreHostingDomain: React.FC = () => {
             </span>
           </div>
           <span className="text-[10px] text-slate-400">
-            {isAr ? 'اتصال Hostinger FTP و MySQL مفعل' : 'Hostinger FTP & MySQL Connected'}
+            {isAr ? 'اتصال النقل وقاعدة البيانات مفعّل' : 'FTP & MySQL Connected'}
           </span>
         </div>
 
         <div className="space-y-1 text-[11px] text-slate-300 pt-1">
           <p className="text-emerald-400">✔ Git build verified · Production SPA artifacts compiled</p>
-          <p>✔ Hostinger FTP Server: 145.79.26.23 · User: u920689430.giftshop</p>
+          <p>✔ FTP Server: 145.79.26.23 · User: u920689430.giftshop</p>
           <p>✔ Remote Directory: /home/u920689430/domains/{currentActiveDomain}/public_html</p>
           <p>✔ Database: srv1422.hstgr.io (u920689430_giftshop) · Dedicated MySQL</p>
           <p>✔ SSL certificate installed &amp; renewed via Let&apos;s Encrypt wildcard</p>
@@ -769,7 +769,11 @@ export const StoreHostingDomain: React.FC = () => {
 
       {/* Payment Gateway Modal for Buying Hosting & Domain */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+        <GlobalModal
+          onClose={() => setShowPaymentModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'بوابة الدفع الإلكتروني' : 'SaaS Payment Gateway'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 overflow-hidden">
             <div className="bg-teal-900 px-5 py-4 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -815,9 +819,9 @@ export const StoreHostingDomain: React.FC = () => {
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'mada', label: 'مدى Mada' },
-                    { id: 'apple_pay', label: 'Apple Pay' },
-                    { id: 'visa', label: 'Visa / MC' },
+                    { id: 'mada', label: isAr ? 'مدى' : 'Mada' },
+                    { id: 'apple_pay', label: isAr ? 'أبل باي' : 'Apple Pay' },
+                    { id: 'visa', label: isAr ? 'فيزا / ماستركارد' : 'Visa / MC' },
                   ].map((m) => (
                     <button
                       key={m.id}
@@ -861,7 +865,7 @@ export const StoreHostingDomain: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Docs Guide Modal */}

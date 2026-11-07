@@ -237,12 +237,16 @@ export const COFFEE_STORE_PRODUCTS: Product[] = [
     "storageOptions": [
       {
         "capacity": "Standard 58mm Kit",
+        "capacityAr": "طقم بورتفلتر 58 مم القياسي",
         "ram": "Single & Double Baskets",
+        "ramAr": "باسكت مفرد ومزدوج احترافي",
         "priceDelta": 0
       },
       {
         "capacity": "Master Barista Edition",
+        "capacityAr": "إصدار ماستر باريستا الشامل",
         "ram": "Includes Naked Boltfilter + Mill",
+        "ramAr": "يشمل بورتافلتر مكشوف + مطحنة بن",
         "priceDelta": 599
       }
     ],
@@ -520,12 +524,16 @@ export const COFFEE_STORE_PRODUCTS: Product[] = [
     "storageOptions": [
       {
         "capacity": "Standard 58mm Kit",
+        "capacityAr": "طقم بورتفلتر 58 مم القياسي",
         "ram": "Includes Double Filter Basket",
+        "ramAr": "يشمل سلة فلتر مزدوجة",
         "priceDelta": 0
       },
       {
         "capacity": "Pro Barista Edition",
+        "capacityAr": "إصدار باريستا برو",
         "ram": "Includes Precision Tamper & Pitcher",
+        "ramAr": "يشمل مدك دقيق وإبريق حليب",
         "priceDelta": 199
       }
     ],
@@ -622,7 +630,9 @@ export const COFFEE_STORE_PRODUCTS: Product[] = [
     "storageOptions": [
       {
         "capacity": "Standard Trio Adapter",
+        "capacityAr": "محول ثلاثي قياسي",
         "ram": "Nespresso, Dolce Gusto & Ground Coffee",
+        "ramAr": "نسبريسو ودولتشي غوستو والبن المطحون",
         "priceDelta": 0
       }
     ],
@@ -719,7 +729,9 @@ export const COFFEE_STORE_PRODUCTS: Product[] = [
     "storageOptions": [
       {
         "capacity": "1.5L Glass Carafe Edition",
+        "capacityAr": "إصدار إبريق زجاجي 1.5 لتر",
         "ram": "Up to 12 Cups per Brew",
+        "ramAr": "حتى 12 كوباً في التحضير الواحد",
         "priceDelta": 0
       }
     ],
@@ -816,7 +828,9 @@ export const COFFEE_STORE_PRODUCTS: Product[] = [
     "storageOptions": [
       {
         "capacity": "Dual Cup Barista Kit",
+        "capacityAr": "طقم باريستا بمخرجين للكوبين",
         "ram": "Includes 2 Stainless Steel Cups",
+        "ramAr": "يشمل كوبين ستانلس ستيل فاخرين",
         "priceDelta": 0
       }
     ],

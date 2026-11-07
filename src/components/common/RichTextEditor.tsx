@@ -232,7 +232,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
     const currentSel = window.getSelection();
     const defaultUrl = 'https://';
-    const url = window.prompt(isAr ? 'أدخل رابط URL:' : 'Enter Link URL:', defaultUrl);
+    const url = window.prompt(isAr ? 'أدخل الرابط:' : 'Enter Link URL:', defaultUrl);
 
     if (url && url.trim() && url.trim() !== defaultUrl) {
       const validUrl =
@@ -306,7 +306,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     if (isSourceMode) return;
     const raw = window.prompt(
       isAr
-        ? 'أدخل رابط فيديو (YouTube أو ملف MP4):'
+        ? 'أدخل رابط الفيديو:'
         : 'Enter video URL (YouTube or MP4 file):',
       'https://',
     );
@@ -522,7 +522,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 </button>
                 <button
                   type="button"
-                  title={isAr ? 'إدراج رابط فيديو (YouTube / MP4)' : 'Insert video URL (YouTube / MP4)'}
+                  title={isAr ? 'إدراج رابط فيديو' : 'Insert video URL (YouTube / MP4)'}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     handleInsertVideoUrl();
@@ -530,7 +530,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                   className={`${btnClass(false)} text-[9px] font-bold px-1.5 gap-0.5 hidden sm:flex`}
                 >
                   <Film className="w-3 h-3" />
-                  URL
+                  {isAr ? 'رابط' : 'URL'}
                 </button>
               </>
             )}
@@ -564,7 +564,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               >
                 <Code className="w-3.5 h-3.5" />
                 <span className="text-[10px] hidden sm:inline">
-                  {isSourceMode ? 'HTML' : 'Code'}
+                  {isSourceMode
+                    ? isAr
+                      ? 'تنسيق'
+                      : 'HTML'
+                    : isAr
+                      ? 'كود'
+                      : 'Code'}
                 </span>
               </button>
             )}

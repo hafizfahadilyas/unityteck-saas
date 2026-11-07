@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Wrench,
@@ -12,6 +12,7 @@ import {
   Info,
   BookOpen,
   ChevronLeft,
+  X,
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { AdminPageShell } from '../common/AdminPageHeader';
@@ -28,6 +29,7 @@ export const ProductTypePicker: React.FC<ProductTypePickerProps> = ({
   const { t, locale, theme } = usePrefs();
   const isAr = locale === 'ar';
   const isDark = theme === 'dark';
+  const [showGuide, setShowGuide] = useState(false);
 
   const types = [
     {
@@ -234,13 +236,39 @@ export const ProductTypePicker: React.FC<ProductTypePickerProps> = ({
 
         <button
           type="button"
-          onClick={() => {}}
+          onClick={() => setShowGuide((v) => !v)}
           className="px-4 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-white flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-colors shrink-0"
         >
           <BookOpen className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-          <span>{isAr ? 'عرض الدليل' : 'View Guide'}</span>
+          <span>{showGuide ? (isAr ? 'إخفاء الدليل' : 'Hide Guide') : isAr ? 'عرض الدليل' : 'View Guide'}</span>
         </button>
       </div>
+
+      {showGuide && (
+        <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071E26] space-y-3 shadow-2xs">
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
+              {isAr ? 'دليل سريع لأنواع المنتجات' : 'Quick guide to product types'}
+            </h4>
+            <button
+              type="button"
+              onClick={() => setShowGuide(false)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              aria-label={isAr ? 'إغلاق' : 'Close'}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+            {types.map((item) => (
+              <li key={item.id} className="flex gap-2">
+                <span className="font-bold text-slate-900 dark:text-white shrink-0">{item.title}:</span>
+                <span>{item.desc}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </AdminPageShell>
   );
 };

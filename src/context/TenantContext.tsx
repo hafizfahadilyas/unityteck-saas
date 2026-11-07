@@ -131,13 +131,27 @@ purgeHeavyDashboardCaches();
 
 function mergeOrdersKeepItems(prevList: Order[], incoming: Order[]): Order[] {
   if (!prevList.length) return incoming;
+  if (!incoming.length) return prevList;
   const prevById = new Map(prevList.map((o) => [o.id, o]));
-  return incoming.map((o) => {
+  const mergedIncoming = incoming.map((o) => {
     if (o.items && o.items.length > 0) return o;
     const old = prevById.get(o.id);
     if (old?.items && old.items.length > 0) return { ...o, items: old.items };
     return o;
   });
+  // Union by id: keep just-created local rows a stale GET may omit (≈2 min).
+  const incomingIds = new Set(mergedIncoming.map((o) => o.id));
+  const guardMs = 120_000;
+  const now = Date.now();
+  const localOnly = prevList.filter((o) => {
+    if (!o.id || incomingIds.has(o.id)) return false;
+    const raw = o.createdAt || (o.date && o.time ? `${o.date}T${o.time}` : o.date) || '';
+    const ts = raw ? Date.parse(raw.includes(' ') ? raw.replace(' ', 'T') : raw) : NaN;
+    if (!ts || Number.isNaN(ts)) return true;
+    return now - ts < guardMs;
+  });
+  if (!localOnly.length) return mergedIncoming;
+  return [...localOnly, ...mergedIncoming];
 }
 
 /** Safe shell until Laravel stores load — never shown as fake commerce metrics. */
@@ -296,7 +310,7 @@ interface TenantContextType {
   deleteOrder: (orderId: string, targetStoreId?: string) => void;
   archiveOrder: (orderId: string, targetStoreId?: string) => void;
   restoreOrder: (orderId: string, targetStoreId?: string) => void;
-  permanentDeleteOrder: (orderId: string, targetStoreId?: string) => void;
+  permanentDeleteOrder: (orderId: string, targetStoreId?: string, reason?: string) => void;
 
   // Coupons
   currentCoupons: CouponItem[];
@@ -781,8 +795,21 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const syncFromUrl = () => {
       try {
         const q = new URLSearchParams(window.location.search);
-        const s = (q.get('store') || q.get('storeId') || q.get('tenant') || q.get('demo') || '').toLowerCase();
         const p = (window.location.pathname || '').toLowerCase();
+        const pathSlugMatch = p.match(/^\/store\/([^/]+)\/?$/);
+        const pathSlug =
+          pathSlugMatch &&
+          !['login', 'register', 'forgot-password', 'reset-password'].includes(pathSlugMatch[1])
+            ? pathSlugMatch[1]
+            : '';
+        const s = (
+          q.get('store') ||
+          q.get('storeId') ||
+          q.get('tenant') ||
+          q.get('demo') ||
+          pathSlug ||
+          ''
+        ).toLowerCase();
 
         let targetId: string | null = null;
         if (
@@ -803,7 +830,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           p.startsWith('/bleco')
         ) {
           targetId = 'store-bleco';
-        } else if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html') || (window.location.hostname || '').toLowerCase().replace(/^www\./, '') === 'mieraf-ksa.com') {
+        } else if (
+          s === 'coffee' ||
+          s === 'store-coffee' ||
+          s === 'coffee-store' ||
+          s === 'roasters' ||
+          p.startsWith('/coffee') ||
+          p.startsWith('/public_html') ||
+          (window.location.hostname || '').toLowerCase().replace(/^www\./, '') === 'mieraf-ksa.com'
+        ) {
           targetId = 'store-coffee';
         } else if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || s === 'giftshop' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
           targetId = 'store-1';
@@ -1646,7 +1681,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         switch (resource) {
           case 'orders': {
             const orders = await tenantApi.fetchOrders(storeId);
-            setOrdersMap((prev) => ({ ...prev, [storeId]: orders }));
+            setOrdersMap((prev) => {
+              const merged = mergeOrdersKeepItems(prev[storeId] || [], orders);
+              const next = { ...prev, [storeId]: merged };
+              saveOrdersMap(next);
+              return next;
+            });
             const revenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
             setStores((prev) =>
               prev.map((s) =>
@@ -1851,8 +1891,21 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Exchange continues in the background; authTick reloads live API data when it lands.
       if (!hasLiveApiAuth()) {
         const pending = readAuthSession();
-        if (pending?.user?.email && pending.portal) {
-          void exchangeClerkForSanctum(pending.portal, pending.user.email, pending.storeId);
+        // Only exchange when we still hold a Clerk JWT (OTP proof) — never email-only.
+        const clerkJwt =
+          pending?.token &&
+          !pending.token.includes('|') &&
+          !pending.token.startsWith('mock-') &&
+          pending.token.split('.').length === 3
+            ? pending.token
+            : null;
+        if (pending?.user?.email && pending.portal && clerkJwt) {
+          void exchangeClerkForSanctum(
+            pending.portal,
+            pending.user.email,
+            pending.storeId,
+            clerkJwt,
+          );
         }
         if (cancelled) return;
         dataSourceRef.current = 'mock';
@@ -2370,7 +2423,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         productsCount: seeded ? 3 : 0,
         ordersCount: seeded ? 2 : 0,
         revenue: seeded ? 1450 : 0,
-        visitorsCount: seeded ? 120 : 0,
+        visitorsCount: 0,
         lastActivity: 'Just now',
         createdAt: new Date().toISOString().split('T')[0],
       };
@@ -3418,6 +3471,18 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           status: prodData.status,
           is_active: prodData.isActive ?? true,
           is_featured: prodData.isFeatured ?? false,
+          weight_kg: prodData.weightKg ?? null,
+          shipping_mode: prodData.shippingMode ?? null,
+          shipping_method_id: prodData.shippingMethodId ?? null,
+          delivery_fee: prodData.deliveryFee ?? null,
+          estimated_delivery_text: prodData.estimatedDeliveryText ?? null,
+          requires_own_driver: prodData.requiresOwnDriver ?? false,
+          allow_own_delivery: prodData.allowOwnDelivery ?? true,
+          allow_shipping_company: prodData.allowShippingCompany ?? true,
+          shipping_rate_mode: prodData.shippingRateMode ?? null,
+          shipping_per_kg_rate: prodData.shippingPerKgRate ?? null,
+          shipping_per_km_rate: prodData.shippingPerKmRate ?? null,
+          shipping_payment_options: prodData.shippingPaymentOptions ?? null,
         })
         .then(async (created) => {
           let variations = prodData.variations;
@@ -3615,6 +3680,24 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (patch.status !== undefined) body.status = patch.status;
       if (patch.isActive !== undefined) body.is_active = patch.isActive;
       if (patch.isFeatured !== undefined) body.is_featured = patch.isFeatured;
+      if (patch.weightKg !== undefined) body.weight_kg = patch.weightKg;
+      if (patch.shippingMode !== undefined) body.shipping_mode = patch.shippingMode;
+      if (patch.shippingMethodId !== undefined) body.shipping_method_id = patch.shippingMethodId;
+      if (patch.deliveryFee !== undefined) body.delivery_fee = patch.deliveryFee;
+      if (patch.estimatedDeliveryText !== undefined) {
+        body.estimated_delivery_text = patch.estimatedDeliveryText;
+      }
+      if (patch.requiresOwnDriver !== undefined) body.requires_own_driver = patch.requiresOwnDriver;
+      if (patch.allowOwnDelivery !== undefined) body.allow_own_delivery = patch.allowOwnDelivery;
+      if (patch.allowShippingCompany !== undefined) {
+        body.allow_shipping_company = patch.allowShippingCompany;
+      }
+      if (patch.shippingRateMode !== undefined) body.shipping_rate_mode = patch.shippingRateMode;
+      if (patch.shippingPerKgRate !== undefined) body.shipping_per_kg_rate = patch.shippingPerKgRate;
+      if (patch.shippingPerKmRate !== undefined) body.shipping_per_km_rate = patch.shippingPerKmRate;
+      if (patch.shippingPaymentOptions !== undefined) {
+        body.shipping_payment_options = patch.shippingPaymentOptions;
+      }
 
       void tenantApi
         .updateProduct(storeId!, productId, body)
@@ -3819,6 +3902,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     status: orderData.status || 'pending',
     payment_method: orderData.paymentMethod || 'Mada',
     payment_status: orderData.paymentStatus || 'Paid',
+    delivery_mode: orderData.deliveryMode ?? undefined,
+    driver_id: orderData.driverId ?? undefined,
+    bank_account_id: orderData.bankAccountId ?? undefined,
+    payment_plan: orderData.paymentPlan ?? undefined,
+    amount_paid: orderData.amountPaid ?? undefined,
+    remaining_balance: orderData.remainingBalance ?? undefined,
     items:
       orderData.items?.map((i) => ({
         product_id: i.id,
@@ -4379,7 +4468,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
-  const permanentDeleteOrder = (orderId: string, targetStoreId?: string) => {
+  const permanentDeleteOrder = (orderId: string, targetStoreId?: string, reason?: string) => {
     const session = readAuthSession();
     if (session?.user?.role && !canDeleteEntities(session.user.role)) {
       console.warn('Security guard blocked permanentDeleteOrder: role unauthorized to delete orders.');
@@ -4387,11 +4476,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
     let resolvedStoreId = targetStoreId || activeStoreId;
+    let deletedLabel = orderId;
     setOrdersMap((prev) => {
       const next = { ...prev };
       for (const sId of Object.keys(next)) {
-        if (next[sId]?.some((o) => o.id === orderId)) {
+        const hit = next[sId]?.find((o) => o.id === orderId);
+        if (hit) {
           resolvedStoreId = sId;
+          deletedLabel = hit.orderNumber || hit.id;
           next[sId] = next[sId].filter((o) => o.id !== orderId);
           break;
         }
@@ -4400,9 +4492,18 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return next;
     });
 
+    const reasonText = (reason || '').trim();
+    if (reasonText) {
+      addActivity({
+        title: 'Order deleted',
+        subtitle: `${deletedLabel} · ${reasonText}`,
+        type: 'order',
+      });
+    }
+
     if (dataSourceRef.current === 'api') {
       void tenantApi
-        .deleteOrder(resolvedStoreId, orderId)
+        .deleteOrder(resolvedStoreId, orderId, reasonText ? { reason: reasonText } : undefined)
         .then(() => {
           bumpCacheTag(storeTag(resolvedStoreId, 'orders'));
           bumpCacheTag(storeTag(resolvedStoreId, 'customers'));
@@ -4747,23 +4848,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const sId = activeStoreId || 'store-1';
     try {
       const created = await tenantApi.createShippingMethod(sId, methodData as any);
-      const mapped: ShippingMethodItem = {
-        id: created.id,
-        storeId: sId,
-        name: created.name,
-        nameAr: created.name_ar,
-        type: created.type,
-        baseRate: Number(created.base_rate),
-        perKgRate: Number(created.per_kg_rate ?? 0),
-        minOrderAmount: Number(created.min_order_amount ?? 0),
-        freeShippingThreshold: created.free_shipping_threshold ? Number(created.free_shipping_threshold) : null,
-        estimatedDelivery: created.estimated_delivery,
-        isCodAllowed: Boolean(created.is_cod_allowed),
-        codFee: Number(created.cod_fee ?? 0),
-        courierCode: created.courier_code,
-        isActive: Boolean(created.is_active),
-        description: created.description,
-      };
+      const mapped = tenantApi.mapShippingMethodRow(created, sId);
       setShippingMethodsMap(prev => ({ ...prev, [sId]: [mapped, ...(prev[sId] || [])] }));
     } catch {
       const fallback: ShippingMethodItem = {
@@ -5129,10 +5214,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       plan: clientData.plan,
       masterGrantedPro: clientData.plan === 'pro',
       status: 'active',
-      productsCount: 4,
-      ordersCount: 3,
-      revenue: 2850,
-      visitorsCount: 420,
+      productsCount: 0,
+      ordersCount: 0,
+      revenue: 0,
+      visitorsCount: 0,
       lastActivity: 'Just now',
       logo: 'flower',
       accentColor: '#059669',

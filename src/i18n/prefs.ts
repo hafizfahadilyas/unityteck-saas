@@ -11,6 +11,8 @@ import {
   BrandFontWeight,
   BrandState,
   DEFAULT_BRAND,
+  EN_FONTS,
+  AR_FONTS,
   isBrandFontId,
   isBrandPaletteId,
   resolveFontForLocale,
@@ -107,7 +109,21 @@ function parseBrand(raw: unknown): BrandState {
     b.fontWeight === 'light' || b.fontWeight === 'medium' || b.fontWeight === 'bold'
       ? b.fontWeight
       : 'regular';
-  return { palette, font, iconStyle, fontWeight };
+  const fontEn =
+    typeof b.fontEn === 'string' && isBrandFontId(b.fontEn) && EN_FONTS.includes(b.fontEn as never)
+      ? (b.fontEn as BrandState['fontEn'])
+      : DEFAULT_BRAND.fontEn;
+  const fontAr =
+    typeof b.fontAr === 'string' && isBrandFontId(b.fontAr) && AR_FONTS.includes(b.fontAr as never)
+      ? (b.fontAr as BrandState['fontAr'])
+      : DEFAULT_BRAND.fontAr;
+  const customAccentHex =
+    typeof b.customAccentHex === 'string' && /^#?[0-9a-fA-F]{3,8}$/.test(b.customAccentHex.trim())
+      ? b.customAccentHex.startsWith('#')
+        ? b.customAccentHex.trim()
+        : `#${b.customAccentHex.trim()}`
+      : null;
+  return { palette, font, fontEn, fontAr, iconStyle, fontWeight, customAccentHex };
 }
 
 export function readPrefs(): PrefsState {

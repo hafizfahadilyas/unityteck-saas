@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1280" fill="none" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="960" y2="1280" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#022018"/>
+      <stop offset="45%" stop-color="#064E3B"/>
+      <stop offset="100%" stop-color="#0B5345"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="160" y1="100" x2="700" y2="700" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#34D399" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#34D399" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="250" y1="360" x2="710" y2="720" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ECFDF5"/>
+      <stop offset="100%" stop-color="#D1FAE5"/>
+    </linearGradient>
+    <linearGradient id="bezel" x1="220" y1="320" x2="740" y2="780" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#134E4A"/>
+      <stop offset="100%" stop-color="#022C22"/>
+    </linearGradient>
+    <radialGradient id="orb" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(760 200) rotate(90) scale(240)">
+      <stop stop-color="#F59E0B" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#F59E0B" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="960" height="1280" fill="url(#bg)"/>
+  <rect width="960" height="1280" fill="url(#glow)"/>
+  <circle cx="760" cy="200" r="240" fill="url(#orb)"/>
+
+  <path d="M70 1020 Q300 900 500 960 T900 920" stroke="#6EE7B7" stroke-opacity="0.16" stroke-width="2" stroke-dasharray="8 10"/>
+  <path d="M90 1120 Q340 1020 520 1080 T930 1040" stroke="#FBBF24" stroke-opacity="0.12" stroke-width="2" stroke-dasharray="6 12"/>
+
+  <!-- Simple Arabic laptop -->
+  <g transform="translate(0 40)">
+    <!-- Lid / bezel -->
+    <rect x="210" y="320" width="540" height="380" rx="28" fill="url(#bezel)" stroke="#6EE7B7" stroke-opacity="0.35" stroke-width="2"/>
+    <!-- Screen -->
+    <rect x="236" y="346" width="488" height="312" rx="16" fill="url(#screen)"/>
+
+    <!-- Arabic RTL chrome lines on screen -->
+    <rect x="520" y="372" width="170" height="18" rx="9" fill="#0F766E" fill-opacity="0.85"/>
+    <rect x="420" y="400" width="270" height="10" rx="5" fill="#134E4A" fill-opacity="0.35"/>
+    <rect x="460" y="422" width="230" height="10" rx="5" fill="#134E4A" fill-opacity="0.22"/>
+
+    <!-- Card block (right-aligned Arabic layout) -->
+    <rect x="420" y="460" width="270" height="150" rx="18" fill="#FFFFFF" fill-opacity="0.72" stroke="#99F6E4" stroke-width="2"/>
+    <circle cx="640" cy="500" r="18" fill="#059669"/>
+    <path d="M632 500l6 6 12-14" stroke="#ECFDF5" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="450" y="486" width="140" height="12" rx="6" fill="#0F766E" fill-opacity="0.55"/>
+    <rect x="480" y="512" width="110" height="9" rx="4.5" fill="#134E4A" fill-opacity="0.28"/>
+    <rect x="500" y="536" width="90" height="9" rx="4.5" fill="#134E4A" fill-opacity="0.18"/>
+    <rect x="540" y="562" width="110" height="24" rx="12" fill="#0D9488"/>
+
+    <!-- Side nav stubs (RTL left of content = visual right of screen) -->
+    <rect x="256" y="460" width="130" height="150" rx="16" fill="#0F766E" fill-opacity="0.12"/>
+    <rect x="274" y="486" width="94" height="10" rx="5" fill="#0F766E" fill-opacity="0.35"/>
+    <rect x="274" y="512" width="78" height="10" rx="5" fill="#0F766E" fill-opacity="0.22"/>
+    <rect x="274" y="538" width="86" height="10" rx="5" fill="#0F766E" fill-opacity="0.18"/>
+    <rect x="274" y="564" width="70" height="10" rx="5" fill="#0F766E" fill-opacity="0.14"/>
+
+    <!-- Camera dot -->
+    <circle cx="480" cy="332" r="4" fill="#34D399" fill-opacity="0.7"/>
+
+    <!-- Base / keyboard deck -->
+    <path d="M170 700 H790 L830 760 H130 Z" fill="#022C22" stroke="#34D399" stroke-opacity="0.28" stroke-width="2"/>
+    <rect x="300" y="718" width="360" height="10" rx="5" fill="#134E4A"/>
+    <rect x="420" y="738" width="120" height="8" rx="4" fill="#0F766E" fill-opacity="0.55"/>
+  </g>
+
+  <circle cx="180" cy="1080" r="10" fill="#F59E0B" fill-opacity="0.45"/>
+  <circle cx="240" cy="1110" r="6" fill="#34D399" fill-opacity="0.55"/>
+  <circle cx="780" cy="1060" r="8" fill="#6EE7B7" fill-opacity="0.35"/>
+</svg>

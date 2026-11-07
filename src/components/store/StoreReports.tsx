@@ -91,19 +91,20 @@ export const StoreReports: React.FC = () => {
   const storeProducts = (allProducts && allProducts[activeStore.id]) || [];
 
   const computedTotalSales = storeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-  const computedNetSales = Math.round(computedTotalSales * 0.85); // minus tax & standard operational margin
+  const totalTax = storeOrders.reduce((sum, o) => sum + (Number((o as { tax?: number }).tax) || 0), 0);
+  const computedNetSales = Math.max(0, Math.round(computedTotalSales - totalTax));
   const computedTotalOrders = storeOrders.length;
-  const computedCustomersCount = storeCustomers.length || (storeOrders.length > 0 ? Math.max(1, Math.round(storeOrders.length * 0.8)) : 0);
-  const computedVisits = Number(activeStore.visitorsCount) || (storeOrders.length > 0 ? storeOrders.length * 15 : 0);
+  const computedCustomersCount = storeCustomers.length;
+  const computedVisits = Number(activeStore.visitorsCount) || 0;
 
-  // Main KPI cards from 11_reports.png
+  // Main KPI cards — real totals only; no invented growth %
   const mainKpis = [
     {
       id: 'total-sales',
       label: isAr ? 'إجمالي المبيعات' : 'Total Sales',
       value: computedTotalSales,
       isMoney: true,
-      change: computedTotalSales > 0 ? '+14%' : '0%',
+      change: '0%',
       positive: true,
       icon: ShoppingCart,
       color: 'emerald',
@@ -113,7 +114,7 @@ export const StoreReports: React.FC = () => {
       label: isAr ? 'صافي المبيعات' : 'Net Sales',
       value: computedNetSales,
       isMoney: true,
-      change: computedNetSales > 0 ? '+10%' : '0%',
+      change: '0%',
       positive: true,
       icon: DollarSign,
       color: 'blue',
@@ -123,7 +124,7 @@ export const StoreReports: React.FC = () => {
       label: isAr ? 'إجمالي الطلبات' : 'Total Orders',
       value: computedTotalOrders,
       isMoney: false,
-      change: computedTotalOrders > 0 ? '+8%' : '0%',
+      change: '0%',
       positive: true,
       icon: FileText,
       color: 'purple',
@@ -133,7 +134,7 @@ export const StoreReports: React.FC = () => {
       label: isAr ? 'العملاء' : 'Customers',
       value: computedCustomersCount,
       isMoney: false,
-      change: computedCustomersCount > 0 ? '+15%' : '0%',
+      change: '0%',
       positive: true,
       icon: Users,
       color: 'amber',
@@ -143,7 +144,7 @@ export const StoreReports: React.FC = () => {
       label: isAr ? 'زيارات المتجر' : 'Store Visits',
       value: computedVisits,
       isMoney: false,
-      change: computedVisits > 0 ? '+22%' : '0%',
+      change: '0%',
       positive: true,
       icon: BarChart3,
       color: 'rose',

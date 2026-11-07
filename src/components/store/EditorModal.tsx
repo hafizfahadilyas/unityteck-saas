@@ -1,34 +1,22 @@
-import React, { useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import React from 'react';
+import { GlobalModal } from '../common/GlobalModal';
 
-/** Viewport overlay. Portaled so page-shell containment cannot pin the dialog to the top. */
+/**
+ * Editor overlay used by product/theme editors.
+ * Delegates to GlobalModal (portal, center, blur, scroll lock, Escape).
+ */
 export function EditorModal({
   onClose,
   children,
+  dir,
 }: {
   onClose: () => void;
   children: React.ReactNode;
+  dir?: 'rtl' | 'ltr';
 }) {
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
-
-  if (typeof document === 'undefined') return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[10000] flex items-center justify-center p-4 overflow-y-auto bg-slate-950/60 backdrop-blur-md"
-      onClick={onClose}
-      role="presentation"
-    >
-      <div className="w-full flex justify-center my-auto" onClick={(e) => e.stopPropagation()}>
-        {children}
-      </div>
-    </div>,
-    document.body,
+  return (
+    <GlobalModal onClose={onClose} dir={dir} aria-label="Editor">
+      {children}
+    </GlobalModal>
   );
 }

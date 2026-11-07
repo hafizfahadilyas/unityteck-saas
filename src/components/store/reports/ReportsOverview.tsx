@@ -111,6 +111,31 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
   const prevCustomers = apiData?.kpis?.prev_customers ?? 0;
   const prevProfit = apiData?.kpis?.prev_profit ?? 0;
 
+  const formatGrowth = (current: number, previous: number, apiLabel?: string | null) => {
+    if (apiLabel != null && String(apiLabel).trim() !== '' && apiLabel !== 'null') {
+      return String(apiLabel);
+    }
+    if (previous > 0) {
+      const pct = Number((((current - previous) / previous) * 100).toFixed(1));
+      return `${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}%`;
+    }
+    if (current > 0) return '↑ 100%';
+    return '0%';
+  };
+
+  const revenueGrowthLabel = formatGrowth(totalRevenue, prevRevenue, apiData?.kpis?.revenue_growth);
+  const ordersGrowthLabel = formatGrowth(totalOrders, prevOrders, apiData?.kpis?.orders_growth);
+  const aovGrowthLabel = formatGrowth(aov, prevAov, apiData?.kpis?.aov_growth);
+  const customersGrowthLabel = formatGrowth(
+    newCustomersCount,
+    prevCustomers,
+    apiData?.kpis?.customers_growth,
+  );
+  const profitGrowthLabel =
+    netProfitEstimated == null || netProfitEstimated === 0
+      ? '—'
+      : formatGrowth(Number(netProfitEstimated), Number(prevProfit) || 0, apiData?.kpis?.profit_growth);
+
   // Time-series Trend Data for Dual Chart
   const trendPoints = useMemo(() => {
     if (apiData?.revenue_orders_trend && Array.isArray(apiData.revenue_orders_trend) && apiData.revenue_orders_trend.length > 0) {
@@ -150,13 +175,15 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
     }));
   }, [storeOrders, totalVisits]);
 
-  // Traffic to Order Funnel
+  // Traffic to Order Funnel — API event counts when present; never invent mid-stages
   const funnelStages = useMemo(() => {
-    const visits = totalVisits;
-    const views = 0;
-    const cart = 0;
-    const checkout = 0;
-    const orders = totalOrders;
+    const f = apiData?.funnel;
+    const visits = Number(f?.site_visits ?? totalVisits) || 0;
+    const views = Number(f?.product_views ?? 0) || 0;
+    const cart = Number(f?.add_to_cart ?? 0) || 0;
+    const checkout = Number(f?.checkout_started ?? 0) || 0;
+    const orders = Number(f?.orders_placed ?? totalOrders) || 0;
+    const pct = (n: number) => (visits > 0 ? `${((n / visits) * 100).toFixed(1)}%` : '0%');
 
     return [
       {
@@ -173,7 +200,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
         nameAr: 'مشاهدات المنتجات',
         nameEn: 'Product Views',
         count: views,
-        pct: visits > 0 ? `${((views / visits) * 100).toFixed(1)}%` : '0%',
+        pct: pct(views),
         color: '#8b5cf6',
         icon: Eye,
       },
@@ -182,7 +209,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
         nameAr: 'الإضافة إلى السلة',
         nameEn: 'Add to Cart',
         count: cart,
-        pct: visits > 0 ? `${((cart / visits) * 100).toFixed(1)}%` : '0%',
+        pct: pct(cart),
         color: '#ec4899',
         icon: ShoppingCart,
       },
@@ -191,7 +218,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
         nameAr: 'بدء إتمام الطلب',
         nameEn: 'Checkout Started',
         count: checkout,
-        pct: visits > 0 ? `${((checkout / visits) * 100).toFixed(1)}%` : '0%',
+        pct: pct(checkout),
         color: '#f97316',
         icon: ShoppingBag,
       },
@@ -200,12 +227,12 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
         nameAr: 'الطلبات المكتملة',
         nameEn: 'Completed Orders',
         count: orders,
-        pct: visits > 0 ? `${((orders / visits) * 100).toFixed(1)}%` : '0%',
+        pct: pct(orders),
         color: '#10b981',
         icon: CheckCircle2,
       },
     ];
-  }, [totalVisits, totalOrders]);
+  }, [apiData, totalVisits, totalOrders]);
 
   // Top Products by Revenue
   const topProducts = useMemo(() => {
@@ -314,7 +341,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
               {money(totalRevenue)}
             </div>
             <div className="mt-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 flex-wrap">
-              <span>0%</span>
+              <span>{revenueGrowthLabel}</span>
               <span className="text-slate-400 dark:text-slate-500 font-normal">
                 {isAr ? 'مقارنة بـ' : 'vs'} {money(prevRevenue)}
               </span>
@@ -337,7 +364,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
               {totalOrders.toLocaleString()}
             </div>
             <div className="mt-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 flex-wrap">
-              <span>{totalOrders > 0 ? '↑ 8.4%' : '0%'}</span>
+              <span>{ordersGrowthLabel}</span>
               <span className="text-slate-400 dark:text-slate-500 font-normal">
                 {isAr ? 'مقارنة بـ' : 'vs'} {prevOrders.toLocaleString()}
               </span>
@@ -360,9 +387,9 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
               {conversionRate}%
             </div>
             <div className="mt-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 flex-wrap">
-              <span>{totalOrders > 0 ? '↑ 0.5%' : '0%'}</span>
+              <span>{totalVisits > 0 ? (apiData?.kpis?.conversion_rate || `${conversionRate}%`) : '—'}</span>
               <span className="text-slate-400 dark:text-slate-500 font-normal">
-                {isAr ? 'مقارنة بـ' : 'vs'} {totalOrders > 0 ? '3.1%' : '0%'}
+                {isAr ? 'من الزيارات الحقيقية' : 'from real visits'}
               </span>
             </div>
           </div>
@@ -383,7 +410,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
               {money(aov)}
             </div>
             <div className="mt-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 flex-wrap">
-              <span>{aov > 0 ? '↑ 15.2%' : '0%'}</span>
+              <span>{aovGrowthLabel}</span>
               <span className="text-slate-400 dark:text-slate-500 font-normal">
                 {isAr ? 'مقارنة بـ' : 'vs'} {money(prevAov)}
               </span>
@@ -406,7 +433,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
               {newCustomersCount.toLocaleString()}
             </div>
             <div className="mt-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 flex-wrap">
-              <span>{newCustomersCount > 0 ? '↑ 22.1%' : '0%'}</span>
+              <span>{customersGrowthLabel}</span>
               <span className="text-slate-400 dark:text-slate-500 font-normal">
                 {isAr ? 'مقارنة بـ' : 'vs'} {prevCustomers.toLocaleString()}
               </span>
@@ -423,15 +450,17 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
           </div>
           <div>
             <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block truncate">
-              {isAr ? 'صافي الربح (تقديري)' : 'Net Profit (Est.)'}
+              {isAr ? 'صافي الربح' : 'Net Profit'}
             </span>
             <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight mt-0.5 truncate">
-              {money(netProfitEstimated)}
+              {netProfitEstimated == null || netProfitEstimated === 0
+                ? '—'
+                : money(netProfitEstimated)}
             </div>
             <div className="mt-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 flex-wrap">
-              <span>{netProfitEstimated > 0 ? '↑ 18.6%' : '0%'}</span>
+              <span>{profitGrowthLabel}</span>
               <span className="text-slate-400 dark:text-slate-500 font-normal">
-                {isAr ? 'مقارنة بـ' : 'vs'} {money(prevProfit)}
+                {isAr ? 'بانتظار تكلفة حقيقية' : 'waiting for real COGS'}
               </span>
             </div>
           </div>
@@ -1188,10 +1217,8 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
                 <div className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mt-0.5">
                   {isAr ? 'سلة متروكة' : 'Abandoned Carts'}
                 </div>
-                <div className={`text-[10px] font-semibold ${abandonedCount > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                  {abandonedCount > 0
-                    ? (isAr ? '↑ 18% مقارنة بالفترة السابقة' : '↑ 18% vs previous period')
-                    : (isAr ? '0% مقارنة بالفترة السابقة' : '0% vs previous period')}
+                <div className="text-[10px] font-semibold text-slate-400">
+                  {isAr ? 'من أحداث السلة الحقيقية فقط' : 'From real cart events only'}
                 </div>
               </div>
 

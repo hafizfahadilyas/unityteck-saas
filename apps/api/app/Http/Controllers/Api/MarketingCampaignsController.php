@@ -221,29 +221,24 @@ class MarketingCampaignsController extends Controller
             $prevOrdersCountCh = count($prevOrdersInChannel);
             $prevRevenueCh = (float) array_reduce($prevOrdersInChannel, fn($sum, $o) => $sum + (float) $o->total_amount, 0);
 
-            // Stored channel stats or fallback from database
+            // Visits / cart only from stored real stats — never invent from orders × N
             $stored = $storedChannels->get($def['name']) ?? $storedChannels->get($key);
-            $visits = $stored ? (int) $stored->visits : ($ordersCount > 0 ? (int) ($ordersCount * 18) : 0);
-            $addToCart = $stored ? (int) $stored->add_to_cart : ($ordersCount > 0 ? (int) ($ordersCount * 4) : 0);
+            $visits = $stored ? max(0, (int) $stored->visits) : 0;
+            $addToCart = $stored ? max(0, (int) $stored->add_to_cart) : 0;
 
             $totalVisitsSum += $visits;
             $totalAddToCartSum += $addToCart;
 
-            // Conversion rate
             $conversionRate = $visits > 0 ? round(($ordersCount / $visits) * 100, 1) : 0.0;
-
-            // Average Order Value (AOV)
             $aov = $ordersCount > 0 ? round($revenue / $ordersCount, 2) : 0.0;
 
-            // Growth vs previous period
             $growth = 0.0;
             if ($prevRevenueCh > 0) {
                 $growth = round((($revenue - $prevRevenueCh) / $prevRevenueCh) * 100, 1);
             } elseif ($revenue > 0) {
-                $growth = 12.0; // Baseline positive momentum for new active sales
+                $growth = 100.0;
             }
 
-            // Trend sparkline based on orders distribution across the period
             $trendSparkline = $this->buildChannelSparkline($ordersInChannel, $startDate, $endDate, $visits);
 
             $channelsData[] = [
@@ -263,76 +258,44 @@ class MarketingCampaignsController extends Controller
                 'aov' => $aov,
                 'growth' => $growth,
                 'trend_sparkline' => $trendSparkline,
-                'roas' => ($key === 'google_ads' || $key === 'tiktok_ads') ? ($revenue > 0 ? 4.8 : null) : null,
-                'is_connected' => true,
+                'roas' => null,
+                'is_connected' => $ordersCount > 0 || $visits > 0,
             ];
         }
 
-        // Overall conversion rate & AOV
         $overallConversionRate = $totalVisitsSum > 0 ? round(($totalOrdersCount / $totalVisitsSum) * 100, 1) : 0.0;
         $overallAov = $totalOrdersCount > 0 ? round($totalRevenueSum / $totalOrdersCount, 2) : 0.0;
 
-        // Overall growths
-        $ordersGrowth = $prevOrdersCount > 0 ? round((($totalOrdersCount - $prevOrdersCount) / $prevOrdersCount) * 100, 1) : ($totalOrdersCount > 0 ? 20.0 : 0.0);
-        $revenueGrowth = $prevRevenueSum > 0 ? round((($totalRevenueSum - $prevRevenueSum) / $prevRevenueSum) * 100, 1) : ($totalRevenueSum > 0 ? 12.0 : 0.0);
-        $visitsGrowth = $totalVisitsSum > 0 ? 12.0 : 0.0;
-        $convGrowth = $overallConversionRate > 0 ? 0.7 : 0.0;
-        $cartGrowth = $totalAddToCartSum > 0 ? 33.0 : 0.0;
-        $aovGrowth = $overallAov > 0 ? 8.0 : 0.0;
+        $ordersGrowth = $prevOrdersCount > 0
+            ? round((($totalOrdersCount - $prevOrdersCount) / $prevOrdersCount) * 100, 1)
+            : ($totalOrdersCount > 0 ? 100.0 : 0.0);
+        $revenueGrowth = $prevRevenueSum > 0
+            ? round((($totalRevenueSum - $prevRevenueSum) / $prevRevenueSum) * 100, 1)
+            : ($totalRevenueSum > 0 ? 100.0 : 0.0);
+        $visitsGrowth = 0.0;
+        $convGrowth = 0.0;
+        $cartGrowth = 0.0;
+        $prevAov = $prevOrdersCount > 0 ? round($prevRevenueSum / $prevOrdersCount, 2) : 0.0;
+        $aovGrowth = $prevAov > 0
+            ? round((($overallAov - $prevAov) / $prevAov) * 100, 1)
+            : ($overallAov > 0 ? 100.0 : 0.0);
 
-        // Overall visits trend line (e.g. 7 points across period)
         $visitsTrend = $this->buildVisitsTrendSeries($currentOrders, $prevOrders, $startDate, $endDate);
 
-        // Orders by channel breakdown
-        $ordersByChannel = array_map(fn($c) => [
+        $ordersByChannel = array_map(fn ($c) => [
             'name' => $c['name'],
             'name_ar' => $c['name_ar'],
             'orders' => $c['completed_orders'],
             'color' => $c['color'],
         ], $channelsData);
 
-        // Integration sync statuses
+        // Ads platforms stay Not Connected until a real integration exists (zero-mock)
         $integrations = [
-            [
-                'id' => 'google_ads',
-                'name' => 'Google Ads',
-                'icon' => 'Google',
-                'last_synced' => Carbon::now()->subMinutes(12)->format('h:i A'),
-                'status' => 'Synced',
-                'connected' => true,
-            ],
-            [
-                'id' => 'tiktok_ads',
-                'name' => 'TikTok Ads',
-                'icon' => 'Music',
-                'last_synced' => Carbon::now()->subMinutes(14)->format('h:i A'),
-                'status' => 'Synced',
-                'connected' => true,
-            ],
-            [
-                'id' => 'meta',
-                'name' => 'Meta',
-                'icon' => 'Share2',
-                'last_synced' => Carbon::now()->subMinutes(15)->format('h:i A'),
-                'status' => 'Synced',
-                'connected' => true,
-            ],
-            [
-                'id' => 'snapchat',
-                'name' => 'Snapchat',
-                'icon' => 'Share2',
-                'last_synced' => Carbon::now()->subMinutes(16)->format('h:i A'),
-                'status' => 'Synced',
-                'connected' => true,
-            ],
-            [
-                'id' => 'whatsapp',
-                'name' => 'WhatsApp',
-                'icon' => 'MessageCircle',
-                'last_synced' => Carbon::now()->subMinutes(18)->format('h:i A'),
-                'status' => 'Synced',
-                'connected' => true,
-            ],
+            ['id' => 'google_ads', 'name' => 'Google Ads', 'icon' => 'Google', 'last_synced' => null, 'status' => 'Not Connected', 'connected' => false],
+            ['id' => 'tiktok_ads', 'name' => 'TikTok Ads', 'icon' => 'Music', 'last_synced' => null, 'status' => 'Not Connected', 'connected' => false],
+            ['id' => 'meta', 'name' => 'Meta', 'icon' => 'Share2', 'last_synced' => null, 'status' => 'Not Connected', 'connected' => false],
+            ['id' => 'snapchat', 'name' => 'Snapchat', 'icon' => 'Share2', 'last_synced' => null, 'status' => 'Not Connected', 'connected' => false],
+            ['id' => 'whatsapp', 'name' => 'WhatsApp', 'icon' => 'MessageCircle', 'last_synced' => null, 'status' => 'Not Connected', 'connected' => false],
         ];
 
         return response()->json([
@@ -444,55 +407,51 @@ class MarketingCampaignsController extends Controller
             $points[$bucketIdx] += (float) $order->total_amount;
         }
 
-        // If points are all zero except one, smooth for mini sparkline visualization
         $max = max($points);
         if ($max > 0) {
-            return array_map(fn($v) => round(($v / $max) * 100, 1), $points);
+            return array_map(fn ($v) => round(($v / $max) * 100, 1), $points);
         }
 
-        return [20, 40, 50, 75, 100];
+        return [0, 0, 0, 0, 0];
     }
 
     /**
-     * Build visits trend series for the dual-line chart
+     * Real order-count trend by day — never invent visit curves.
      */
     protected function buildVisitsTrendSeries(mixed $currentOrders, mixed $prevOrders, Carbon $startDate, Carbon $endDate): array
     {
-        $intervals = [
-            ['label' => 'Jan 1', 'day' => 1],
-            ['label' => 'Jan 5', 'day' => 5],
-            ['label' => 'Jan 10', 'day' => 10],
-            ['label' => 'Jan 15', 'day' => 15],
-            ['label' => 'Jan 20', 'day' => 20],
-            ['label' => 'Jan 25', 'day' => 25],
-            ['label' => 'Jan 31', 'day' => 31],
-        ];
-
-        $currentSeries = [];
-        $previousSeries = [];
-
-        $hasOrders = count($currentOrders) > 0;
-
-        foreach ($intervals as $idx => $int) {
-            if ($hasOrders) {
-                $base = ($idx + 1) * 25 + ($idx % 2 === 0 ? 30 : -10);
-                $currentSeries[] = [
-                    'label' => $int['label'],
-                    'value' => $base + 40,
+        $bucketDays = function ($orders, Carbon $from, Carbon $to): array {
+            $days = max(1, (int) $from->diffInDays($to));
+            $points = 7;
+            $step = max(1, (int) ceil($days / $points));
+            $series = [];
+            for ($i = 0; $i < $points; $i++) {
+                $bucketStart = (clone $from)->addDays($i * $step)->startOfDay();
+                $bucketEnd = (clone $bucketStart)->addDays($step)->endOfDay();
+                if ($bucketEnd->gt($to)) {
+                    $bucketEnd = clone $to;
+                }
+                $count = 0;
+                foreach ($orders as $order) {
+                    $created = Carbon::parse($order->created_at);
+                    if ($created->betweenIncluded($bucketStart, $bucketEnd)) {
+                        $count++;
+                    }
+                }
+                $series[] = [
+                    'label' => $bucketStart->format('M j'),
+                    'value' => $count,
                 ];
-                $previousSeries[] = [
-                    'label' => $int['label'],
-                    'value' => max(10, $base),
-                ];
-            } else {
-                $currentSeries[] = ['label' => $int['label'], 'value' => 0];
-                $previousSeries[] = ['label' => $int['label'], 'value' => 0];
             }
-        }
+
+            return $series;
+        };
+
+        $prevStart = (clone $startDate)->subDays(max(1, (int) $endDate->diffInDays($startDate)));
 
         return [
-            'current' => $currentSeries,
-            'previous' => $previousSeries,
+            'current' => $bucketDays($currentOrders, $startDate, $endDate),
+            'previous' => $bucketDays($prevOrders, $prevStart, $startDate),
         ];
     }
 }

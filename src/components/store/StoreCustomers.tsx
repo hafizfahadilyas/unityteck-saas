@@ -36,6 +36,7 @@ import { handleImageError } from '../../utils/imageFallback';
 import { parseOrderDate, periodCountGrowth } from '../../utils/liveSeries';
 import { ORDER_SOURCE_OPTIONS, OrderSourceIcon, WhatsAppBrandIcon } from '../common/BrandIcons';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 
 type CustomerGroupDef = { id: string; name: string; icon: string };
 
@@ -1245,12 +1246,16 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
 
       {/* Add Customer Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 overflow-y-auto">
+        <GlobalModal
+          onClose={() => setShowAddModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إضافة عميل' : 'Add Customer'}
+        >
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="bg-[#0b1b36] px-5 py-4 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-400" />
-                <h3 className="font-bold text-base">Add New Customer</h3>
+                <h3 className="font-bold text-base">{isAr ? 'إضافة عميل' : 'Add New Customer'}</h3>
               </div>
               <button
                 onClick={() => setShowAddModal(false)}
@@ -1262,11 +1267,11 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
 
             <form onSubmit={handleAddSubmit} className="p-5 space-y-3.5 text-xs text-slate-700">
               <div>
-                <label className="block font-semibold mb-1">Customer Full Name *</label>
+                <label className="block font-semibold mb-1">{isAr ? 'الاسم الكامل *' : 'Customer Full Name *'}</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Faisal Al-Otaibi"
+                  placeholder={isAr ? 'مثال: فيصل العتيبي' : 'e.g. Faisal Al-Otaibi'}
                   value={newCustName}
                   onChange={(e) => setNewCustName(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -1275,7 +1280,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1">Phone Number</label>
+                  <label className="block font-semibold mb-1">{isAr ? 'رقم الجوال' : 'Phone Number'}</label>
                   <input
                     type="text"
                     required
@@ -1285,50 +1290,50 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1">City</label>
+                  <label className="block font-semibold mb-1">{isAr ? 'المدينة' : 'City'}</label>
                   <select
                     value={newCustCity}
                     onChange={(e) => setNewCustCity(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
                   >
-                    <option value="Riyadh">Riyadh</option>
-                    <option value="Jeddah">Jeddah</option>
-                    <option value="Dammam">Dammam</option>
-                    <option value="Makkah">Makkah</option>
-                    <option value="Madinah">Madinah</option>
-                    <option value="Taif">Taif</option>
+                    <option value="Riyadh">{isAr ? 'الرياض' : 'Riyadh'}</option>
+                    <option value="Jeddah">{isAr ? 'جدة' : 'Jeddah'}</option>
+                    <option value="Dammam">{isAr ? 'الدمام' : 'Dammam'}</option>
+                    <option value="Makkah">{isAr ? 'مكة' : 'Makkah'}</option>
+                    <option value="Madinah">{isAr ? 'المدينة' : 'Madinah'}</option>
+                    <option value="Taif">{isAr ? 'الطائف' : 'Taif'}</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1">Acquisition Source</label>
+                  <label className="block font-semibold mb-1">{isAr ? 'مصدر الاكتساب' : 'Acquisition Source'}</label>
                   <select
                     value={newCustSource}
                     onChange={(e) => setNewCustSource(e.target.value as CustomerSource)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
                   >
-                    <option value="Instagram">Instagram</option>
-                    <option value="Google Ads">Google Ads</option>
-                    <option value="TikTok">TikTok</option>
-                    <option value="Direct">Direct</option>
-                    <option value="Referral">Referral</option>
-                    <option value="Snapchat">Snapchat</option>
-                    <option value="Other">Other</option>
+                    <option value="Instagram">{isAr ? 'إنستغرام' : 'Instagram'}</option>
+                    <option value="Google Ads">{isAr ? 'إعلانات جوجل' : 'Google Ads'}</option>
+                    <option value="TikTok">{isAr ? 'تيك توك' : 'TikTok'}</option>
+                    <option value="Direct">{isAr ? 'مباشر' : 'Direct'}</option>
+                    <option value="Referral">{isAr ? 'إحالة' : 'Referral'}</option>
+                    <option value="Snapchat">{isAr ? 'سناب شات' : 'Snapchat'}</option>
+                    <option value="Other">{isAr ? 'أخرى' : 'Other'}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block font-semibold mb-1">Initial Status</label>
+                  <label className="block font-semibold mb-1">{isAr ? 'الحالة الأولية' : 'Initial Status'}</label>
                   <select
                     value={newCustStatus}
                     onChange={(e) => setNewCustStatus(e.target.value as CustomerStatus)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
                   >
-                    <option value="Active">Active</option>
-                    <option value="VIP">VIP</option>
-                    <option value="New">New</option>
+                    <option value="Active">{isAr ? 'نشط' : 'Active'}</option>
+                    <option value="VIP">{isAr ? 'عميل مميز' : 'VIP'}</option>
+                    <option value="New">{isAr ? 'جديد' : 'New'}</option>
                   </select>
                 </div>
               </div>
@@ -1350,7 +1355,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                   <div className="flex-1 min-w-0">
                     <input
                       type="url"
-                      placeholder="https://... or auto-assigned Arab portrait"
+                      placeholder={isAr ? 'https://... أو صورة تلقائية' : 'https://... or auto-assigned Arab portrait'}
                       value={newCustAvatar}
                       onChange={(e) => setNewCustAvatar(e.target.value)}
                       className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-lg text-slate-800 focus:outline-none"
@@ -1365,24 +1370,28 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                   onClick={() => setShowAddModal(false)}
                   className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100"
                 >
-                  Cancel
+                  {isAr ? 'إلغاء' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  Save Customer
+                  {isAr ? 'حفظ' : 'Save Customer'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Export Modal */}
       {showExportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+        <GlobalModal
+          onClose={() => setShowExportModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'تصدير بيانات العملاء' : 'Export Customer Dataset'}
+        >
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5 text-center border border-slate-200">
             <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3">
               <FileSpreadsheet className="w-6 h-6" />
@@ -1395,7 +1404,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                 <>
                   تصدير{' '}
                   <span className="font-semibold text-slate-700 dark:text-slate-200">{activeStore.name}</span>{' '}
-                  — {filteredCustomers.length} سجل بصيغة CSV.
+                  — {filteredCustomers.length} سجل بصيغة جداول.
                 </>
               ) : (
                 <>
@@ -1427,16 +1436,20 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                 }}
                 className="flex-1 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
               >
-                {isAr ? 'تنزيل CSV' : 'Download CSV'}
+                {isAr ? 'تنزيل الملف' : 'Download CSV'}
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+        <GlobalModal
+          onClose={() => setShowImportModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'استيراد العملاء' : 'Import Customers'}
+        >
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5 text-center border border-slate-200">
             <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-3">
               <Upload className="w-6 h-6" />
@@ -1446,7 +1459,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4 leading-relaxed">
               {isAr
-                ? 'ملف CSV بأعمدة: الاسم، الهاتف (مطلوب)، البريد، المدينة، المصدر، المجموعة.'
+                ? 'ملف جداول بأعمدة: الاسم، الهاتف (مطلوب)، البريد، المدينة، المصدر، المجموعة.'
                 : 'CSV with columns: Name, Phone (required), Email, City, Source, Group.'}
             </p>
             <input
@@ -1465,7 +1478,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
               onClick={() => importFileRef.current?.click()}
               className="w-full p-4 border-2 border-dashed border-slate-200 dark:border-slate-600 rounded-xl mb-4 bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs hover:border-blue-400 transition-colors"
             >
-              {isAr ? 'اختر ملف CSV' : 'Choose CSV file'}
+              {isAr ? 'اختر ملف الجداول' : 'Choose CSV file'}
             </button>
             <div className="flex gap-2">
               <button
@@ -1477,12 +1490,16 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Create Group Modal */}
       {showCreateGroupModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+        <GlobalModal
+          onClose={() => setShowCreateGroupModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إنشاء مجموعة عملاء' : 'Create Customer Group'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-700 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">
@@ -1540,12 +1557,19 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Assign Group (single customer) */}
       {assignGroupCustomerId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+        <GlobalModal
+          onClose={() => {
+            setAssignGroupCustomerId(null);
+            setAssignGroupValue('');
+          }}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'تعيين مجموعة' : 'Assign to Group'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-sm w-full p-5 border border-slate-200 dark:border-slate-700">
             <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-3">
               {isAr ? 'تعيين مجموعة' : 'Assign to Group'}
@@ -1588,12 +1612,19 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Bulk assign group */}
       {showBulkGroupModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+        <GlobalModal
+          onClose={() => {
+            setShowBulkGroupModal(false);
+            setBulkGroupValue('');
+          }}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'تعيين مجموعة جماعي' : 'Bulk Assign Group'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-sm w-full p-5 border border-slate-200 dark:border-slate-700">
             <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-1">
               {isAr ? 'تعيين مجموعة جماعي' : 'Bulk Assign Group'}
@@ -1636,7 +1667,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

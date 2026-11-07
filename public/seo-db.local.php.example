@@ -1,0 +1,14 @@
+<?php
+/**
+ * Copy to seo-db.local.php on Hostinger (never commit real passwords).
+ * Used by storefront-shell.php / sitemap / robots for live-domain SEO.
+ */
+return [
+    'host' => 'srv1422.hstgr.io',
+    'port' => 3306,
+    'database' => 'u920689430_giftshop',
+    'username' => 'u920689430_giftshop',
+    'password' => 'your_hostinger_db_password_here',
+    // Optional: Laravel API base for seo-bootstrap JSON (preferred when API is reachable)
+    // 'api_base' => 'https://api.yourdomain.com/api',
+];

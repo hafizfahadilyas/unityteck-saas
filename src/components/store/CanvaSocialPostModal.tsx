@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import { openSocialOAuthPopup } from '../../services/socialOAuthService';
 import {
   fetchSocialAccounts,
@@ -176,8 +177,6 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
       .catch(() => setAccounts([]));
   }, [isOpen, storeId, defaultCaption, isAr]);
 
-  if (!isOpen) return null;
-
   const isWhatsApp = platform === 'whatsapp';
   const currentAccount = accounts.find((a) => a.platform === platform && a.is_connected);
   const isCurrentConnected = isWhatsApp || Boolean(currentAccount);
@@ -186,21 +185,19 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
     if (isWhatsApp) return;
     setConnecting(true);
     try {
-      const isCoffee = storeId.includes('coffee');
+      const shortId = storeId.replace(/[^a-z0-9]/gi, '').slice(0, 8) || 'store';
       const accountName =
         platform === 'instagram'
-          ? (isCoffee ? 'HiBrew KSA Coffee' : 'Store Official')
+          ? 'Store Official'
           : platform === 'facebook'
-          ? (isCoffee ? 'HiBrew KSA Coffee Store' : 'Store Official Facebook')
+          ? 'Store Official Facebook'
           : platform === 'x'
-          ? (isCoffee ? 'HiBrew_KSA' : 'StoreOfficial')
+          ? 'StoreOfficial'
           : 'StoreOfficial';
 
       const handle =
-        platform === 'instagram'
-          ? (isCoffee ? '@hibrew_ksa' : `@store_${storeId.slice(0, 5)}`)
-          : platform === 'x'
-          ? (isCoffee ? '@hibrew_ksa' : `@store_${storeId.slice(0, 5)}`)
+        platform === 'instagram' || platform === 'x'
+          ? `@store_${shortId}`
           : accountName;
 
       await upsertSocialAccount(storeId, {
@@ -226,16 +223,15 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
   };
 
   const handleAiGenerateCaption = () => {
-    const isCoffee = storeId.includes('coffee');
     const promos = isAr
       ? [
-          `استمتع بأفخم تجربة قهوة مع تشكيلة عروضنا الحصرية ☕✨ تسوق الآن واستفد من التوصيل المجاني لكافة مدن المملكة. الكمية محدودة!\n\n${KSA_HASHTAGS.slice(0, 5).join(' ')}`,
-          `الجودة التي تستحقها بسعر لا يتكرر! 🔥 احصل على خصم فوري مع ضمان سنتين ودفع عند الاستلام. الرابط في البايو.\n\n${KSA_HASHTAGS.slice(2, 7).join(' ')}`,
-          `اخترنا لك الأفضل لعام 2026 🇸🇦 تصميم أنيق، أداء استثنائي وخدمة عملاء على مدار الساعة. اطلب اليوم!\n\n${KSA_HASHTAGS.slice(0, 4).join(' ')}`,
+          `عروض حصرية من متجرنا ✨ تسوق الآن واستفد من التوصيل السريع لكافة مدن المملكة. الكمية محدودة!\n\n${KSA_HASHTAGS.slice(0, 5).join(' ')}`,
+          `الجودة التي تستحقها بسعر لا يتكرر! 🔥 احصل على خصم فوري مع ضمان ودفع عند الاستلام.\n\n${KSA_HASHTAGS.slice(2, 7).join(' ')}`,
+          `اخترنا لك الأفضل 🇸🇦 تصميم أنيق وخدمة عملاء على مدار الساعة. اطلب اليوم!\n\n${KSA_HASHTAGS.slice(0, 4).join(' ')}`,
         ]
       : [
           `Elevate your daily routine with our premium collection! ✨ Free express delivery across Saudi Arabia. Shop now!\n\n#SaudiDeals #PremiumQuality #SpecialOffer`,
-          `Limited Edition Drop! 🔥 Grab yours today before stock runs out. 2-Year Warranty & Cash on Delivery.\n\n#KSAOffers #Riyadh #FastShipping`,
+          `Limited Edition Drop! 🔥 Grab yours today before stock runs out. Cash on Delivery available.\n\n#KSAOffers #Riyadh #FastShipping`,
         ];
     const picked = promos[Math.floor(Math.random() * promos.length)];
     setCaption(picked);
@@ -301,13 +297,16 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in font-sans"
-      onClick={onClose}
+    <GlobalModal
+      isOpen={isOpen}
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'النشر المباشر والجدولة على وسائل التواصل' : 'Publish Live & Schedule to Social Media'}
+      zIndexClassName="z-[70]"
+      backdropClassName="font-sans"
     >
       <div
         className="w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-3xl border border-slate-700/60 bg-slate-900 text-white shadow-2xl p-5 sm:p-6 space-y-4 select-none"
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -662,6 +661,6 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

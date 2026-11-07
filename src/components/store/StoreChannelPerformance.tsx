@@ -84,7 +84,7 @@ export const StoreChannelPerformance: React.FC = () => {
       const storeOrders = (allOrders && allOrders[activeStore.id]) || [];
       const totalRev = storeOrders.reduce((s: number, o: any) => s + (o.total || 0), 0);
       const ordersCount = storeOrders.length;
-      const visits = Number(activeStore.visitorsCount) || (ordersCount > 0 ? ordersCount * 15 : 0);
+      const visits = Number(activeStore.visitorsCount) || 0;
       const aov = ordersCount > 0 ? Math.round(totalRev / ordersCount) : 0;
       const convRate = visits > 0 ? Number(((ordersCount / visits) * 100).toFixed(1)) : 0;
 
@@ -96,13 +96,13 @@ export const StoreChannelPerformance: React.FC = () => {
           revenue: { value: totalRev, growth: '0%', growth_value: 0, label: isAr ? 'الإيرادات' : 'Revenue' },
           total_visits: { value: visits, growth: '0%', growth_value: 0, label: isAr ? 'إجمالي الزيارات' : 'Total Visits' },
           conversion_rate: { value: convRate, formatted: `${convRate}%`, growth: '0%', growth_value: 0, label: isAr ? 'معدل التحويل' : 'Conversion Rate' },
-          add_to_cart: { value: Math.round(ordersCount * 1.5), growth: '0%', growth_value: 0, label: isAr ? 'الإضافة للسلة' : 'Add to Cart' },
+          add_to_cart: { value: 0, growth: '0%', growth_value: 0, label: isAr ? 'الإضافة للسلة' : 'Add to Cart' },
           average_order_value: { value: aov, growth: '0%', growth_value: 0, label: isAr ? 'متوسط قيمة الطلب' : 'Average Order Value' },
         },
         channels: [],
         totals: {
           visits,
-          add_to_cart: Math.round(ordersCount * 1.5),
+          add_to_cart: 0,
           completed_orders: ordersCount,
           conversion_rate: convRate,
           revenue: totalRev,

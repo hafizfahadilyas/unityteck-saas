@@ -9,6 +9,7 @@ import { readAuthSession } from '../../auth/session';
 import { applyLocalWalletAdjust } from '../../utils/customerWalletStorage';
 import { fetchWhatsAppOverview } from '../../services/whatsappManagerService';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 
 export type WalletAdjustResult = {
   balance: number;
@@ -201,7 +202,12 @@ export const CustomerWalletAdjustModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4">
+    <GlobalModal
+      isOpen={isOpen}
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'تعديل رصيد المحفظة' : 'Wallet Balance Adjustment'}
+    >
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl">
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -326,6 +332,6 @@ export const CustomerWalletAdjustModal: React.FC<Props> = ({
           </button>
         </form>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

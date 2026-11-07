@@ -1,19 +1,26 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { commerceTerm } from '../../i18n/commerceTerms';
+import {
+  fetchStoreBankAccountsApi,
+  createStoreBankAccountApi,
+  updateStoreBankAccountApi,
+  deleteStoreBankAccountApi,
+  type StoreBankAccountRow,
+  type StoreBankAccountPayload,
+} from '../../api/tenantApi';
 import {
   CreditCard,
   Coins,
   CheckCircle2,
   ShieldCheck,
-  Building2,
   Clock,
   ArrowUpRight,
   Check,
   Download,
   AlertCircle,
   Crown,
-  Globe,
   DollarSign,
   Landmark,
   Save,
@@ -31,9 +38,22 @@ import {
   RefreshCw,
   Sliders,
   Smartphone,
+  Plus,
+  Loader2,
 } from 'lucide-react';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
+
+const emptyBankForm = (): StoreBankAccountPayload => ({
+  bank_name: '',
+  account_title: '',
+  iban: '',
+  account_number: '',
+  payment_reference_prefix: '',
+  is_default: false,
+  is_active: true,
+});
 
 /** Shared RTL-aware toggle switch track classes */
 const TOGGLE_TRACK =
@@ -106,42 +126,118 @@ export const StorePayments: React.FC = () => {
   const [feePercent, setFeePercent] = useState('1.5');
   const [feeFixed, setFeeFixed] = useState('1');
 
-  // Bank settlements tabs: Saudi (KSA), Pakistan (PK), USA/Global
-  const [bankTab, setBankTab] = useState<'saudi' | 'pak' | 'usa'>('saudi');
-  const [editingBank, setEditingBank] = useState(false);
-
-  // Bank account states
-  const [saudiBank, setSaudiBank] = useState({
-    bankName: 'Al Rajhi Bank (مصرف الراجحي)',
-    accountTitle: `${activeStore.name} LLC`,
-    iban: 'SA44 1000 0023 8819 0041 9901',
-    verified: true,
-  });
-
-  const [pakBank, setPakBank] = useState({
-    bankName: 'Meezan Bank Limited (میزان بینک)',
-    accountTitle: `${activeStore.name} Global`,
-    iban: 'PK36 MEZN 0001 0203 0405 0607',
-    swift: 'MEZNPKKA',
-    verified: true,
-  });
-
-  const [usaBank, setUsaBank] = useState({
-    bankName: 'JPMorgan Chase / Stripe USD Clearing',
-    accountTitle: `${activeStore.name} Global E-Commerce`,
-    routing: '021000021',
-    accountNumber: '••••••••8819',
-    verified: true,
-  });
-
+  // Real store bank accounts (API only — no mock IBAN rows)
+  const [bankAccounts, setBankAccounts] = useState<StoreBankAccountRow[]>([]);
+  const [banksLoading, setBanksLoading] = useState(false);
+  const [banksBusy, setBanksBusy] = useState(false);
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [editingBankRow, setEditingBankRow] = useState<StoreBankAccountRow | null>(null);
+  const [bankForm, setBankForm] = useState<StoreBankAccountPayload>(emptyBankForm);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [uploadedDocs, setUploadedDocs] = useState<{ id: string; name: string; type: string; date: string; status: string }[]>([
-    { id: 'doc-1', name: 'Commercial_Registration_CR_2026.pdf', type: 'Commercial Registration (CR)', date: 'Oct 1, 2026', status: 'Verified' },
-    { id: 'doc-2', name: 'ZATCA_VAT_Certificate_15pc.pdf', type: 'ZATCA VAT Certificate', date: 'Oct 1, 2026', status: 'Verified' },
-    { id: 'doc-3', name: 'AlRajhi_IBAN_Verification_Letter.pdf', type: 'Bank IBAN Confirmation', date: 'Sep 28, 2026', status: 'Verified' },
-  ]);
+  const [uploadedDocs, setUploadedDocs] = useState<{ id: string; name: string; type: string; date: string; status: string }[]>([]);
   const docInputRef = React.useRef<HTMLInputElement>(null);
+
+  const loadBankAccounts = useCallback(async () => {
+    if (!activeStore?.id) {
+      setBankAccounts([]);
+      return;
+    }
+    setBanksLoading(true);
+    try {
+      const rows = await fetchStoreBankAccountsApi(activeStore.id);
+      setBankAccounts(Array.isArray(rows) ? rows : []);
+    } catch {
+      setBankAccounts([]);
+    } finally {
+      setBanksLoading(false);
+    }
+  }, [activeStore?.id]);
+
+  useEffect(() => {
+    void loadBankAccounts();
+  }, [loadBankAccounts]);
+
+  const openCreateBankModal = () => {
+    setEditingBankRow(null);
+    setBankForm(emptyBankForm());
+    setShowBankModal(true);
+  };
+
+  const openEditBankModal = (row: StoreBankAccountRow) => {
+    setEditingBankRow(row);
+    setBankForm({
+      bank_name: row.bank_name || '',
+      account_title: row.account_title || '',
+      iban: row.iban || '',
+      account_number: row.account_number || '',
+      payment_reference_prefix: row.payment_reference_prefix || '',
+      is_default: Boolean(row.is_default),
+      is_active: row.is_active !== false,
+    });
+    setShowBankModal(true);
+  };
+
+  const handleSaveBankAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeStore?.id) return;
+    const payload: StoreBankAccountPayload = {
+      bank_name: bankForm.bank_name.trim(),
+      account_title: bankForm.account_title.trim(),
+      iban: bankForm.iban.trim().replace(/\s+/g, '').toUpperCase(),
+      account_number: bankForm.account_number?.trim() || null,
+      payment_reference_prefix: bankForm.payment_reference_prefix?.trim() || null,
+      is_default: Boolean(bankForm.is_default),
+      is_active: bankForm.is_active !== false,
+    };
+    if (!payload.bank_name || !payload.account_title || !payload.iban) {
+      toast(
+        isAr ? 'يرجى تعبئة اسم البنك واسم الحساب والآيبان' : 'Bank name, account title, and IBAN are required',
+        'error',
+      );
+      return;
+    }
+    setBanksBusy(true);
+    try {
+      if (editingBankRow) {
+        await updateStoreBankAccountApi(activeStore.id, editingBankRow.id, payload);
+        toast(isAr ? 'تم تحديث الحساب البنكي' : 'Bank account updated', 'success');
+      } else {
+        await createStoreBankAccountApi(activeStore.id, payload);
+        toast(isAr ? 'تم إضافة الحساب البنكي' : 'Bank account added', 'success');
+      }
+      setShowBankModal(false);
+      setEditingBankRow(null);
+      setBankForm(emptyBankForm());
+      await loadBankAccounts();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      toast(
+        msg || (isAr ? 'تعذر حفظ الحساب البنكي' : 'Could not save bank account'),
+        'error',
+      );
+    } finally {
+      setBanksBusy(false);
+    }
+  };
+
+  const handleDeleteBankAccount = async (row: StoreBankAccountRow) => {
+    if (!activeStore?.id) return;
+    setBanksBusy(true);
+    try {
+      await deleteStoreBankAccountApi(activeStore.id, row.id);
+      toast(isAr ? 'تم حذف الحساب البنكي' : 'Bank account deleted', 'success');
+      await loadBankAccounts();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      toast(
+        msg || (isAr ? 'تعذر حذف الحساب البنكي' : 'Could not delete bank account'),
+        'error',
+      );
+    } finally {
+      setBanksBusy(false);
+    }
+  };
 
   const handleSaveAll = (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,7 +298,7 @@ export const StorePayments: React.FC = () => {
     {
       key: 'apple',
       name: 'Apple Pay',
-      sub: isAr ? 'دفع بلمسة واحدة عبر iOS' : 'iOS Biometric 1-Tap',
+      sub: isAr ? 'دفع بلمسة واحدة عبر أجهزة آبل' : 'iOS Biometric 1-Tap',
       defaultAccount: `merchant.com.${activeStore.slug || 'store'}`,
       gatewayType: 'moyasar',
       logo: (
@@ -214,9 +310,9 @@ export const StorePayments: React.FC = () => {
         </div>
       ),
       desc: isAr
-        ? 'أكثر من 68% من المتسوقين السعوديين عبر الجوال يُتمّون الشراء بـ Apple Pay. دفع سريع بالبصمة دون إدخال بيانات البطاقة.'
+        ? 'أكثر من 68% من المتسوقين السعوديين عبر الجوال يُتمّون الشراء عبر دفع آبل. دفع سريع بالبصمة دون إدخال بيانات البطاقة.'
         : 'Over 68% of Saudi mobile shoppers convert with Apple Pay. Fast biometric checkout with zero card entry friction.',
-      badge: isAr ? 'معرّف تاجر Apple مفعّل' : 'Apple Merchant ID Active',
+      badge: isAr ? 'معرّف تاجر آبل مفعّل' : 'Apple Merchant ID Active',
       badgeCls: 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10',
     },
     // 3. Visa / Mastercard
@@ -234,7 +330,7 @@ export const StorePayments: React.FC = () => {
       desc: isAr
         ? 'قبول البطاقات حول العالم للهدايا الدولية والمشترين من الخارج الذين يرسلون الزهور إلى المملكة.'
         : 'Worldwide card acceptance for international gifts and overseas buyers sending flowers to Saudi Arabia.',
-      badge: isAr ? 'التحقق الآمن 3D Secure 2.0 مفعّل' : '3D Secure 2.0 Enabled',
+      badge: isAr ? 'التحقق الآمن بمصادقة ثلاثية الأبعاد مفعّل' : '3D Secure 2.0 Enabled',
       badgeCls: 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10',
     },
     // 4. STC Pay
@@ -376,7 +472,7 @@ export const StorePayments: React.FC = () => {
       setShowGatewayModal(false);
       toast(
         isAr
-          ? `تم ربط وتفعيل إعدادات ${gatewayTitle} ومفاتيح API بنجاح!`
+          ? `تم ربط وتفعيل إعدادات ${gatewayTitle} ومفاتيح الربط بنجاح!`
           : `Payment Provider ${gatewayTitle} API credentials saved & connected!`,
         'success'
       );
@@ -484,7 +580,7 @@ export const StorePayments: React.FC = () => {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    toast(isAr ? 'تم تصدير كشف التسويات بنجاح (CSV)' : 'Settlement statement exported (CSV)', 'success');
+    toast(isAr ? 'تم تصدير كشف التسويات بنجاح كملف مفصول بفواصل' : 'Settlement statement exported (CSV)', 'success');
   };
 
   /** Open a printable ZATCA-style tax invoice in a new window */
@@ -583,7 +679,7 @@ export const StorePayments: React.FC = () => {
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {isAr
-                ? 'ربط مباشر عبر واجهات برمجة التطبيقات API ومفاتيح التاجر للتحقق الفوري من عمليات الشراء.'
+                ? 'ربط مباشر عبر واجهات برمجة التطبيقات ومفاتيح التاجر للتحقق الفوري من عمليات الشراء.'
                 : 'Direct REST API connections for instant merchant settlement, tokenization & webhook callbacks.'}
             </p>
           </div>
@@ -649,8 +745,10 @@ export const StorePayments: React.FC = () => {
 
                   {/* Masked Key Display (Matching Shipping Card) */}
                   <div className="text-[10px] font-mono text-slate-500 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
-                    <span>Key: {m.key}_•••••••••8819</span>
-                    <span className="text-teal-600 dark:text-teal-400 font-bold uppercase">LIVE API</span>
+                    <span>{isAr ? 'المفتاح:' : 'Key:'} {m.key}_•••••••••8819</span>
+                    <span className="text-teal-600 dark:text-teal-400 font-bold uppercase">
+                      {isAr ? 'ربط مباشر' : 'LIVE API'}
+                    </span>
                   </div>
                 </div>
 
@@ -662,7 +760,7 @@ export const StorePayments: React.FC = () => {
                     onClick={() => handleTestGatewayApi(m.key, m.name)}
                     className="px-2.5 py-1 text-[11px] font-bold bg-white dark:bg-slate-800 hover:bg-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
                   >
-                    Test API
+                    {isAr ? 'فحص الاتصال' : 'Test Connection'}
                   </button>
 
                   <button
@@ -671,7 +769,7 @@ export const StorePayments: React.FC = () => {
                     onClick={() => handleSyncWebhooks(m.name)}
                     className="px-2.5 py-1 text-[11px] font-bold text-teal-600 hover:text-teal-500 cursor-pointer"
                   >
-                    Sync Webhooks
+                    {isAr ? 'مزامنة الإشعارات' : 'Sync Webhooks'}
                   </button>
 
                   <button
@@ -735,131 +833,125 @@ export const StorePayments: React.FC = () => {
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          SECTION 3: International & Multi-Region Bank Settlement Rails
+          SECTION 3: Store Bank Accounts (real API, store_id scoped)
       ───────────────────────────────────────────────────────────── */}
-      <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-5">
+      <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
               <Landmark className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span>{isAr ? 'حسابات التسوية البنكية للتاجر' : 'Merchant Bank Settlement Accounts'}</span>
+              <span>{isAr ? 'الحساب البنكي' : 'Bank Accounts'}</span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {isAr
-                ? 'اضبط حسابات الإيداع المحلية والخارجية لتحويل المبالغ اليومية تلقائياً.'
-                : 'Configure local and overseas payout accounts for automated daily deposits.'}
+                ? 'حسابات التحويل البنكي الخاصة بهذا المتجر فقط.'
+                : 'Bank transfer accounts for this store only.'}
             </p>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Region Tabs */}
-            <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl text-xs font-bold w-fit overflow-x-auto">
-              {(
-                [
-                  { id: 'saudi', icon: Landmark, label: isAr ? 'السعودية (ساما)' : 'Saudi Arabia (SAMA)' },
-                  { id: 'pak', icon: Building2, label: isAr ? 'باكستان (حوالة مباشرة)' : 'Pakistan (Direct Wire)' },
-                  { id: 'usa', icon: Globe, label: isAr ? 'أمريكا والعالم (حوالة بالدولار)' : 'USA & Global (USD Wire)' },
-                ] as const
-              ).map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => {
-                      setBankTab(tab.id);
-                      setEditingBank(false);
-                    }}
-                    className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                      bankTab === tab.id
-                        ? 'bg-teal-600 text-white shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (editingBank) {
-                  toast(isAr ? 'تم تحديث بيانات الحساب البنكي' : 'Bank account details updated', 'success');
-                }
-                setEditingBank((v) => !v);
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer border transition-colors ${
-                editingBank
-                  ? 'bg-teal-600 border-teal-600 text-white hover:bg-teal-500'
-                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-              }`}
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              <span>{editingBank ? (isAr ? 'تم الحفظ' : 'Done') : isAr ? 'تعديل الحساب' : 'Edit Account'}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={openCreateBankModal}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer bg-teal-600 hover:bg-teal-500 text-white shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>{isAr ? 'إضافة حساب' : 'Add Account'}</span>
+          </button>
         </div>
 
-        {/* Selected Bank Account Card */}
-        {bankTab === 'saudi' && (
-          <div className="p-5 rounded-2xl bg-teal-50/40 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800/60 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div>
-              <span className="font-bold text-slate-400 block mb-1">{isAr ? 'اسم البنك' : 'Bank Name'}</span>
-              <span className="font-extrabold text-sm text-slate-900 dark:text-white">{saudiBank.bankName}</span>
-            </div>
-            <div>
-              <span className="font-bold text-slate-400 block mb-1">{isAr ? 'اسم صاحب الحساب' : 'Account Title'}</span>
-              <span className="font-bold text-slate-800 dark:text-slate-200">{saudiBank.accountTitle}</span>
-            </div>
-            <div>
-              <span className="font-bold text-slate-400 block mb-1">{isAr ? 'رقم الآيبان (IBAN)' : 'IBAN Number'}</span>
-              <span className="font-mono font-bold text-teal-700 dark:text-teal-300">{saudiBank.iban}</span>
-            </div>
+        {banksLoading ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-xs text-slate-500">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>{isAr ? 'جاري التحميل…' : 'Loading…'}</span>
           </div>
-        )}
-
-        {bankTab === 'pak' && (
-          <div className="p-5 rounded-2xl bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60 grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-            <div>
-              <span className="font-bold text-slate-400 block mb-1">{isAr ? 'اسم البنك في باكستان' : 'Pakistan Bank'}</span>
-              <span className="font-extrabold text-sm text-slate-900 dark:text-white">{pakBank.bankName}</span>
-            </div>
-            <div>
-              <span className="font-bold text-slate-400 block mb-1">{isAr ? 'اسم الحساب' : 'Account Title'}</span>
-              <span className="font-bold text-slate-800 dark:text-slate-200">{pakBank.accountTitle}</span>
-            </div>
-            <div>
-              <span className="font-bold text-slate-400 block mb-1">{isAr ? 'رقم الآيبان PK' : 'PK IBAN'}</span>
-              <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">{pakBank.iban}</span>
-            </div>
-            <div>
-              <span className="font-bold text-slate-400 block mb-1">{isAr ? 'رمز السويفت SWIFT' : 'SWIFT BIC'}</span>
-              <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{pakBank.swift}</span>
-            </div>
+        ) : bankAccounts.length === 0 ? (
+          <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+            <Landmark className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              {isAr ? 'لا توجد سجلات' : 'No records found'}
+            </p>
           </div>
-        )}
-
-        {bankTab === 'usa' && (
-          <div className="p-5 rounded-2xl bg-blue-50/40 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/60 grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-            <div>
-              <span className="font-bold text-slate-400 block mb-1">{isAr ? 'البنك الأمريكي' : 'USA Bank'}</span>
-              <span className="font-extrabold text-sm text-slate-900 dark:text-white">{usaBank.bankName}</span>
-            </div>
-            <div>
-              <span className="font-bold text-slate-400 block mb-1">{isAr ? 'اسم المستفيد' : 'Beneficiary'}</span>
-              <span className="font-bold text-slate-800 dark:text-slate-200">{usaBank.accountTitle}</span>
-            </div>
-            <div>
-              <span className="font-bold text-slate-400 block mb-1">{isAr ? 'رقم التوجيه ABA' : 'Routing Number'}</span>
-              <span className="font-mono font-bold text-blue-700 dark:text-blue-300">{usaBank.routing}</span>
-            </div>
-            <div>
-              <span className="font-bold text-slate-400 block mb-1">{isAr ? 'رقم الحساب' : 'Account Number'}</span>
-              <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{usaBank.accountNumber}</span>
-            </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 text-start">
+                  <th className="py-2.5 px-3 font-medium text-start">{isAr ? 'اسم البنك' : 'Bank Name'}</th>
+                  <th className="py-2.5 px-3 font-medium text-start">{isAr ? 'اسم صاحب الحساب' : 'Account Title'}</th>
+                  <th className="py-2.5 px-3 font-medium text-start">{isAr ? 'الآيبان' : 'IBAN'}</th>
+                  <th className="py-2.5 px-3 font-medium text-start">{isAr ? 'رقم الحساب' : 'Account Number'}</th>
+                  <th className="py-2.5 px-3 font-medium text-start">{isAr ? 'بادئة المرجع' : 'Ref Prefix'}</th>
+                  <th className="py-2.5 px-3 font-medium text-center">{isAr ? 'الحالة' : 'Status'}</th>
+                  <th className="py-2.5 px-3 font-medium text-end">{isAr ? 'الإجراءات' : 'Actions'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {bankAccounts.map((row) => (
+                  <tr key={row.id} className="font-semibold">
+                    <td className="py-2.5 px-3 text-slate-900 dark:text-white">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{(isAr && row.bank_name_ar) || row.bank_name}</span>
+                        {row.is_default ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 font-bold">
+                            {isAr ? 'افتراضي' : 'Default'}
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
+                      {(isAr && row.account_title_ar) || row.account_title}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-teal-700 dark:text-teal-300" dir="ltr">
+                      {row.iban}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-400" dir="ltr">
+                      {row.account_number || '—'}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-400" dir="ltr">
+                      {row.payment_reference_prefix || '—'}
+                    </td>
+                    <td className="py-2.5 px-3 text-center">
+                      <span
+                        className={`inline-flex px-2 py-0.5 rounded-lg text-[10px] font-bold ${
+                          row.is_active !== false
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                        }`}
+                      >
+                        {row.is_active !== false
+                          ? isAr
+                            ? 'نشط'
+                            : 'Active'
+                          : isAr
+                            ? 'غير نشط'
+                            : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          disabled={banksBusy}
+                          onClick={() => openEditBankModal(row)}
+                          className="p-1.5 rounded-lg text-teal-600 dark:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer disabled:opacity-50"
+                          title={commerceTerm('update', isAr)}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={banksBusy}
+                          onClick={() => void handleDeleteBankAccount(row)}
+                          className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer disabled:opacity-50"
+                          title={commerceTerm('delete', isAr)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -872,7 +964,7 @@ export const StorePayments: React.FC = () => {
           <div>
             <h3 className="font-bold text-xs text-slate-900 dark:text-white">
               {isAr
-                ? 'أحدث المعاملات والتسويات البنكية والفواتير الضريبية (ZATCA)'
+                ? 'أحدث المعاملات والتسويات البنكية والفواتير الضريبية'
                 : 'Recent Payment Transactions, Settlements & ZATCA Tax Invoices'}
             </h3>
             <p className="text-[11px] text-slate-500">
@@ -971,11 +1063,177 @@ export const StorePayments: React.FC = () => {
         )}
       </div>
 
+      {/* Bank Account Add / Edit Modal */}
+      {showBankModal && (
+        <GlobalModal
+          onClose={() => {
+            if (banksBusy) return;
+            setShowBankModal(false);
+            setEditingBankRow(null);
+          }}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={
+            editingBankRow
+              ? isAr
+                ? 'تعديل الحساب البنكي'
+                : 'Edit Bank Account'
+              : isAr
+                ? 'إضافة حساب بنكي'
+                : 'Add Bank Account'
+          }
+        >
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 bg-teal-50 dark:bg-teal-950/60 text-teal-600 rounded-xl">
+                  <Landmark className="w-5 h-5" />
+                </span>
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                  {editingBankRow
+                    ? isAr
+                      ? 'تعديل الحساب البنكي'
+                      : 'Edit Bank Account'
+                    : isAr
+                      ? 'إضافة حساب بنكي'
+                      : 'Add Bank Account'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                disabled={banksBusy}
+                onClick={() => {
+                  setShowBankModal(false);
+                  setEditingBankRow(null);
+                }}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBankAccount} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  {isAr ? 'اسم البنك *' : 'Bank Name *'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={bankForm.bank_name}
+                  onChange={(e) => setBankForm((f) => ({ ...f, bank_name: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  {isAr ? 'اسم صاحب الحساب *' : 'Account Title *'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={bankForm.account_title}
+                  onChange={(e) => setBankForm((f) => ({ ...f, account_title: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  {isAr ? 'الآيبان *' : 'IBAN *'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={bankForm.iban}
+                  onChange={(e) => setBankForm((f) => ({ ...f, iban: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold"
+                  dir="ltr"
+                  placeholder={isAr ? 'SA…' : 'SA…'}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'رقم الحساب' : 'Account Number'}
+                  </label>
+                  <input
+                    type="text"
+                    value={bankForm.account_number || ''}
+                    onChange={(e) => setBankForm((f) => ({ ...f, account_number: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono"
+                    dir="ltr"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'بادئة مرجع الدفع' : 'Payment Reference Prefix'}
+                  </label>
+                  <input
+                    type="text"
+                    value={bankForm.payment_reference_prefix || ''}
+                    onChange={(e) =>
+                      setBankForm((f) => ({ ...f, payment_reference_prefix: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono"
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-4 pt-1">
+                <label className="inline-flex items-center gap-2 font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(bankForm.is_default)}
+                    onChange={(e) => setBankForm((f) => ({ ...f, is_default: e.target.checked }))}
+                    className="rounded border-slate-300"
+                  />
+                  <span>{isAr ? 'افتراضي' : 'Default'}</span>
+                </label>
+                <label className="inline-flex items-center gap-2 font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={bankForm.is_active !== false}
+                    onChange={(e) => setBankForm((f) => ({ ...f, is_active: e.target.checked }))}
+                    className="rounded border-slate-300"
+                  />
+                  <span>{isAr ? 'نشط' : 'Active'}</span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  disabled={banksBusy}
+                  onClick={() => {
+                    setShowBankModal(false);
+                    setEditingBankRow(null);
+                  }}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold text-slate-600 dark:text-slate-400 cursor-pointer disabled:opacity-50"
+                >
+                  {commerceTerm('cancel', isAr)}
+                </button>
+                <button
+                  type="submit"
+                  disabled={banksBusy}
+                  className="px-5 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-bold shadow-md cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                >
+                  {banksBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  <span>{commerceTerm('saveChanges', isAr)}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </GlobalModal>
+      )}
+
       {/* ─────────────────────────────────────────────────────────────
           PAYMENT GATEWAY CONFIGURATION MODAL
       ───────────────────────────────────────────────────────────── */}
       {showGatewayModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+        <GlobalModal
+          onClose={() => setShowGatewayModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? `إعدادات بوابة ${gatewayTitle}` : `Configure ${gatewayTitle} API`}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2.5">
@@ -987,7 +1245,9 @@ export const StorePayments: React.FC = () => {
                     {isAr ? `إعدادات بوابة ${gatewayTitle}` : `Configure ${gatewayTitle} API`}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    {isAr ? 'ربط رسمي ومفاتيح مشفرة ومحمية ببروتوكول ساما SAMA' : 'Encrypted store credentials for live payment settlement'}
+                    {isAr
+                      ? 'ربط رسمي ومفاتيح مشفرة ومحمية وفق أنظمة مؤسسة النقد العربي السعودي'
+                      : 'Encrypted store credentials for live payment settlement'}
                   </p>
                 </div>
               </div>
@@ -1004,7 +1264,7 @@ export const StorePayments: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'معرّف التاجر / الحساب (Merchant ID) *' : 'Merchant / Account ID *'}
+                    {isAr ? 'معرّف التاجر / الحساب *' : 'Merchant / Account ID *'}
                   </label>
                   <input
                     type="text"
@@ -1026,15 +1286,15 @@ export const StorePayments: React.FC = () => {
                     onChange={(e) => setGatewayIsSandbox(e.target.value === 'sandbox')}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
                   >
-                    <option value="live">{isAr ? '🟢 إنتاج حقيقي (Live Production)' : '🟢 Live Production'}</option>
-                    <option value="sandbox">{isAr ? '🟡 وضع الاختبار التجريبي (Sandbox Test)' : '🟡 Sandbox Test'}</option>
+                    <option value="live">{isAr ? '🟢 إنتاج حقيقي' : '🟢 Live Production'}</option>
+                    <option value="sandbox">{isAr ? '🟡 وضع الاختبار التجريبي' : '🟡 Sandbox Test'}</option>
                   </select>
                 </div>
               </div>
 
               <div>
                 <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  {isAr ? 'المفتاح العام / Public API Key *' : 'Public API Key / Publishable Key *'}
+                  {isAr ? 'المفتاح العام *' : 'Public API Key / Publishable Key *'}
                 </label>
                 <input
                   type="text"
@@ -1049,7 +1309,7 @@ export const StorePayments: React.FC = () => {
 
               <div>
                 <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  {isAr ? 'المفتاح السري / Secret Key (مشفر بالخادم) *' : 'Secret Key / Private Token *'}
+                  {isAr ? 'المفتاح السري (مشفر على الخادم) *' : 'Secret Key / Private Token *'}
                 </label>
                 <input
                   type="password"
@@ -1066,7 +1326,7 @@ export const StorePayments: React.FC = () => {
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-700 dark:text-slate-300">
-                    {isAr ? 'رابط Webhook للإشعارات اللحظية:' : 'Live Webhook IPN Endpoint:'}
+                    {isAr ? 'رابط الإشعارات اللحظية:' : 'Live Webhook IPN Endpoint:'}
                   </span>
                   <button
                     type="button"
@@ -1075,7 +1335,7 @@ export const StorePayments: React.FC = () => {
                       navigator.clipboard.writeText(url);
                       setCopiedWebhook(true);
                       setTimeout(() => setCopiedWebhook(false), 2000);
-                      toast(isAr ? 'تم نسخ رابط الـ Webhook' : 'Webhook URL copied', 'info');
+                      toast(isAr ? 'تم نسخ رابط الإشعارات' : 'Webhook URL copied', 'info');
                     }}
                     className="text-[11px] font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1 cursor-pointer"
                   >
@@ -1123,7 +1383,7 @@ export const StorePayments: React.FC = () => {
                   onClick={() => handleTestGatewayApi(selectedProvider, gatewayTitle)}
                   className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
                 >
-                  {isTestingGateway ? (isAr ? 'جاري الفحص...' : 'Testing...') : isAr ? 'فحص الاتصال (Test API)' : 'Test Connection'}
+                  {isTestingGateway ? (isAr ? 'جاري الفحص...' : 'Testing...') : isAr ? 'فحص الاتصال' : 'Test Connection'}
                 </button>
 
                 <div className="flex items-center gap-2">
@@ -1144,7 +1404,7 @@ export const StorePayments: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Docs Guide Modal */}

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 
 interface CourierShippingLabelModalProps {
   isOpen: boolean;
@@ -80,7 +81,12 @@ export const CourierShippingLabelModal: React.FC<CourierShippingLabelModalProps>
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto">
+    <GlobalModal
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'بوليصة الشحن' : 'Shipping Waybill'}
+      backdropClassName="print:p-0 print:bg-white print:static print:inset-auto"
+    >
       {/* 4x6 inch standard thermal shipping label print styles */}
       <style>{`
         @media print {
@@ -134,7 +140,7 @@ export const CourierShippingLabelModal: React.FC<CourierShippingLabelModalProps>
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-mono">
-                AWB: {labelData.awbNumber} · {labelData.orderNumber}
+                {isAr ? 'بوليصة الشحن' : 'AWB'}: {labelData.awbNumber} · {labelData.orderNumber}
               </p>
             </div>
           </div>
@@ -211,7 +217,7 @@ export const CourierShippingLabelModal: React.FC<CourierShippingLabelModalProps>
               {/* 2. Main High-Density Code 128 Barcode */}
               <div className="py-3 border-b-2 border-slate-900 text-center flex flex-col items-center">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
-                  {isAr ? 'رقم بوليصة الشحن (AWB Barcode)' : 'Air Waybill Barcode (Code 128)'}
+                  {isAr ? 'رقم بوليصة الشحن — باركود' : 'Air Waybill Barcode (Code 128)'}
                 </span>
                 <div
                   className="overflow-hidden flex justify-center max-w-full"
@@ -269,16 +275,16 @@ export const CourierShippingLabelModal: React.FC<CourierShippingLabelModalProps>
                   {labelData.payment.method === 'cod' ? (
                     <div className="mt-0.5">
                       <span className="text-xs font-black px-1.5 py-0.5 rounded-sm bg-rose-600 text-white inline-block">
-                        {isAr ? 'دفع عند الاستلام (COD)' : 'CASH ON DELIVERY'}
+                        {isAr ? 'الدفع عند الاستلام' : 'CASH ON DELIVERY'}
                       </span>
                       <p className="text-sm font-black text-rose-700 font-mono mt-1">
-                        {labelData.payment.codAmountSar} {labelData.payment.currency}
+                        {labelData.payment.codAmountSar} {isAr && labelData.payment.currency === 'SAR' ? 'ر.س' : labelData.payment.currency}
                       </p>
                     </div>
                   ) : (
                     <div className="mt-0.5">
                       <span className="text-xs font-black px-1.5 py-0.5 rounded-sm bg-emerald-700 text-white inline-block">
-                        {isAr ? 'مدفوع مسبقاً (Prepaid)' : 'PREPAID ELECTRONIC'}
+                        {isAr ? 'مدفوع مسبقاً' : 'PREPAID ELECTRONIC'}
                       </span>
                       <p className="text-[10px] font-bold text-emerald-800 mt-0.5">
                         {isAr ? 'لا يتم تحصيل أي مبالغ من العميل' : 'Do NOT collect any money'}
@@ -298,7 +304,7 @@ export const CourierShippingLabelModal: React.FC<CourierShippingLabelModalProps>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">{isAr ? 'القيمة المعلنة:' : 'Decl. Value:'}</span>
-                    <strong className="font-mono">{labelData.packageDetails.declaredValueSar} SAR</strong>
+                    <strong className="font-mono">{labelData.packageDetails.declaredValueSar} {isAr ? 'ر.س' : 'SAR'}</strong>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">{isAr ? 'الطلب:' : 'Order Ref:'}</span>
@@ -352,6 +358,6 @@ export const CourierShippingLabelModal: React.FC<CourierShippingLabelModalProps>
           </button>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

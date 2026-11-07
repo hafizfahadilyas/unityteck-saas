@@ -1,9 +1,11 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { commerceTerm, type CommerceTermKey } from '../../i18n/commerceTerms';
 import { Customer, CustomerWalletTransaction, Order } from '../../types';
 import { isApiEnabled } from '../../api/client';
 import {
+  fetchCustomerActivitiesApi,
   fetchCustomerWalletApi,
   fetchCustomerWalletTransactionsApi,
 } from '../../api/tenantApi';
@@ -21,6 +23,7 @@ import {
 } from '../../utils/customerWalletStorage';
 import { CustomerWalletAdjustModal } from './CustomerWalletAdjustModal';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import {
   ArrowLeft,
   ArrowRight,
@@ -151,6 +154,39 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [dob, setDob] = useState(customer.dob || '');
   const [isSavingInfo, setIsSavingInfo] = useState(false);
   const [infoSaveSuccess, setInfoSaveSuccess] = useState(false);
+
+  const [activityRows, setActivityRows] = useState<
+    Array<{
+      id: string;
+      activity_type: string;
+      product_name?: string | null;
+      order_id?: string | null;
+      occurred_at?: string | null;
+      meta?: Record<string, unknown> | null;
+    }>
+  >([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'activity' || !activeStore?.id || !customer.id || !isApiEnabled()) {
+      return;
+    }
+    let cancelled = false;
+    setActivityLoading(true);
+    fetchCustomerActivitiesApi(activeStore.id, customer.id)
+      .then((rows) => {
+        if (!cancelled) setActivityRows(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setActivityRows([]);
+      })
+      .finally(() => {
+        if (!cancelled) setActivityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, activeStore?.id, customer.id]);
 
   const [walletBalance, setWalletBalance] = useState<number>(
     customer.walletBalance ?? customer.cashbackBalance ?? 0,
@@ -444,11 +480,24 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     setIsAiTyping(true);
 
     setTimeout(() => {
-      let reply = `Based on ${customer.name}'s profile in ${activeStore.name}, they have high purchase propensity. Sending a personalized WhatsApp coupon code for free delivery on floral bouquets has an estimated 32% conversion rate.`;
-      if (userText.toLowerCase().includes('discount') || userText.toLowerCase().includes('offer')) {
-        reply = `I recommend generating a 15% VIP discount coupon valid for 7 days. ${customer.name} frequently interacts on WhatsApp and responds best to seasonal floral promotions.`;
-      } else if (userText.toLowerCase().includes('order')) {
-        reply = `${customer.name} currently has ${customerOrders.length} confirmed orders with a total value of ${money(customer.totalSpending || 0)}.`;
+      const wantsOffer =
+        /discount|offer/i.test(userText) ||
+        userText.includes('خصم') ||
+        userText.includes('عرض');
+      const wantsOrder =
+        /order/i.test(userText) ||
+        userText.includes('طلب');
+      let reply = isAr
+        ? `بناءً على ملف ${customer.name} في ${activeStore.name}، لديهم ميل مرتفع للشراء. إرسال كوبون واتساب مخصص للتوصيل المجاني قد يحقق معدل تحويل يقارب 32٪.`
+        : `Based on ${customer.name}'s profile in ${activeStore.name}, they have high purchase propensity. Sending a personalized WhatsApp coupon code for free delivery on floral bouquets has an estimated 32% conversion rate.`;
+      if (wantsOffer) {
+        reply = isAr
+          ? `أنصح بإنشاء كوبون خصم 15٪ للعميل المميز صالح لمدة 7 أيام. ${customer.name} يتفاعل كثيراً عبر واتساب ويستجيب أفضل للعروض الموسمية.`
+          : `I recommend generating a 15% VIP discount coupon valid for 7 days. ${customer.name} frequently interacts on WhatsApp and responds best to seasonal floral promotions.`;
+      } else if (wantsOrder) {
+        reply = isAr
+          ? `${customer.name} لديه حالياً ${customerOrders.length} طلبات مؤكدة بإجمالي قيمة ${money(customer.totalSpending || 0)}.`
+          : `${customer.name} currently has ${customerOrders.length} confirmed orders with a total value of ${money(customer.totalSpending || 0)}.`;
       }
       setAiChatMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
       setIsAiTyping(false);
@@ -664,7 +713,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     </h2>
                     <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
                       {customer.group === 'VIP'
-                        ? isAr ? 'عميل VIP' : 'VIP Customer'
+                        ? isAr ? 'عميل مميز' : 'VIP Customer'
                         : isAr ? 'عميل عادي' : 'Regular Customer'}
                     </span>
                   </div>
@@ -1257,9 +1306,61 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 {isAr ? 'سجل النشاط' : 'Activity Logs'}
               </h3>
-              <div className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
-                {isAr ? 'لا يوجد سجل نشاط متاح' : 'No activity logs available'}
-              </div>
+              {activityLoading ? (
+                <div className="py-10 flex items-center justify-center text-slate-500 gap-2 text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {isAr ? 'جاري التحميل…' : 'Loading…'}
+                </div>
+              ) : activityRows.length === 0 ? (
+                <div className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+                  {isAr ? 'لا توجد سجلات' : 'No records found'}
+                </div>
+              ) : (
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {activityRows.map((row) => {
+                    const typeKeyMap: Record<string, CommerceTermKey> = {
+                      product_viewed: 'productViewed',
+                      add_to_cart: 'addToCart',
+                      remove_from_cart: 'removeFromCart',
+                      checkout_started: 'checkoutStarted',
+                      order_created: 'orderCreated',
+                      payment_completed: 'paymentCompleted',
+                      order_cancelled: 'orderCancelled',
+                    };
+                    const termKey = typeKeyMap[row.activity_type];
+                    const typeLabel = termKey
+                      ? commerceTerm(termKey, isAr)
+                      : row.activity_type;
+                    return (
+                      <li key={row.id} className="py-3 flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                          <Activity className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white">{typeLabel}</p>
+                          {row.product_name ? (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                              {isAr ? 'المنتج: ' : 'Product: '}
+                              {row.product_name}
+                            </p>
+                          ) : null}
+                          {row.order_id ? (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate font-mono">
+                              {isAr ? 'الطلب المرتبط: ' : 'Related order: '}
+                              {row.order_id}
+                            </p>
+                          ) : null}
+                        </div>
+                        <time className="text-[11px] text-slate-400 shrink-0">
+                          {row.occurred_at
+                            ? new Date(row.occurred_at).toLocaleString(isAr ? 'ar-SA' : 'en-SA')
+                            : '—'}
+                        </time>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           )}
         </div>
@@ -1779,7 +1880,15 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
       {/* AI Assistant Chat Modal */}
       {showAiModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+        <GlobalModal
+          onClose={() => setShowAiModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={
+            isAr
+              ? 'مساعد الذكاء الاصطناعي لتحليل وسلوك العملاء'
+              : 'AI Customer Intelligence & Retention Assistant'
+          }
+        >
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
             {/* Modal Header */}
             <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-purple-50/50 to-indigo-50/50 dark:from-purple-950/20 dark:to-indigo-950/20">
@@ -1862,11 +1971,15 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               </button>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {showGroupsModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4">
+        <GlobalModal
+          onClose={() => setShowGroupsModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'تعيين المجموعات' : 'Assign Groups'}
+        >
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-4 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
@@ -1921,7 +2034,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       ) : null}
 
       <CustomerWalletAdjustModal

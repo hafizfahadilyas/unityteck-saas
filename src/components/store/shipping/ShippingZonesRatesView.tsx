@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 import type { ShippingZone } from '../../../types';
 import {
   Truck,
@@ -765,7 +766,7 @@ export const ShippingZonesRatesView: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] font-medium text-slate-500 block mb-1">
-                    {isAr ? 'الرسوم الأساسية (SAR)' : 'Base Rate (SAR)'}
+                    {isAr ? 'الرسوم الأساسية (ر.س)' : 'Base Rate (SAR)'}
                   </label>
                   <input
                     type="number"
@@ -964,7 +965,11 @@ export const ShippingZonesRatesView: React.FC = () => {
 
       {/* ── Modal: Add New Zone ── */}
       {showAddZoneModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+        <GlobalModal
+          onClose={() => setShowAddZoneModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إضافة مدينة / منطقة شحن جديدة' : 'Add New Shipping Zone'}
+        >
           <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">
@@ -1010,7 +1015,7 @@ export const ShippingZonesRatesView: React.FC = () => {
               </div>
               <div>
                 <label className="font-semibold block mb-1">
-                  {isAr ? 'تكلفة التوصيل الأساسية (SAR) *' : 'Base Rate (SAR) *'}
+                  {isAr ? 'تكلفة التوصيل الأساسية (ر.س) *' : 'Base Rate (SAR) *'}
                 </label>
                 <input
                   type="number"
@@ -1037,12 +1042,16 @@ export const ShippingZonesRatesView: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* ── Modal: Add Pricing Rule ── */}
       {showAddRuleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+        <GlobalModal
+          onClose={() => setShowAddRuleModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إضافة طريقة تسعير جديدة' : 'Add Shipping Method Rule'}
+        >
           <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">
@@ -1099,7 +1108,7 @@ export const ShippingZonesRatesView: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="font-semibold block mb-1">{isAr ? 'السعر (SAR)' : 'Base Rate (SAR)'}</label>
+                <label className="font-semibold block mb-1">{isAr ? 'السعر (ر.س)' : 'Base Rate (SAR)'}</label>
                 <input
                   type="number"
                   value={newRulePrice}
@@ -1124,12 +1133,16 @@ export const ShippingZonesRatesView: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* ── Modal: Add Free Rule ── */}
       {showAddFreeRuleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+        <GlobalModal
+          onClose={() => setShowAddFreeRuleModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إضافة قاعدة شحن مجاني' : 'Add Free Shipping Rule'}
+        >
           <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">
@@ -1157,7 +1170,7 @@ export const ShippingZonesRatesView: React.FC = () => {
               </div>
               <div>
                 <label className="font-semibold block mb-1">
-                  {isAr ? 'الحد الأدنى لقيمة الطلب (SAR)' : 'Minimum Order Threshold (SAR)'}
+                  {isAr ? 'الحد الأدنى لقيمة الطلب (ر.س)' : 'Minimum Order Threshold (SAR)'}
                 </label>
                 <input
                   type="number"
@@ -1184,12 +1197,16 @@ export const ShippingZonesRatesView: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* ── Modal: Manage Cities ── */}
       {showManageCitiesModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+        <GlobalModal
+          onClose={() => setShowManageCitiesModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? `إدارة مدن: ${activeZone.nameAr}` : `Manage Cities: ${activeZone.nameEn}`}
+        >
           <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">
@@ -1249,7 +1266,7 @@ export const ShippingZonesRatesView: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

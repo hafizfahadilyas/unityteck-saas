@@ -7,6 +7,7 @@ import { MediaPickerModal } from '../common/MediaPickerModal';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
 import { optimizeImageFile } from '../../utils/mediaOptimizer';
 import { RichTextEditor } from '../common/RichTextEditor';
+import { ProductVariationsPanel } from './ProductVariationsPanel';
 import {
   X,
   Maximize2,
@@ -39,7 +40,8 @@ export type ProductEditSectionKey =
   | 'variations'
   | 'variationInventory'
   | 'customFields'
-  | 'seo';
+  | 'seo'
+  | 'categoryTags';
 
 /** Default: all sections visible in Large Image (grid) and List edit drawers. */
 export const DEFAULT_PRODUCT_EDIT_SECTIONS: Record<ProductEditSectionKey, boolean> = {
@@ -51,6 +53,7 @@ export const DEFAULT_PRODUCT_EDIT_SECTIONS: Record<ProductEditSectionKey, boolea
   variationInventory: true,
   customFields: true,
   seo: true,
+  categoryTags: true,
 };
 
 export const PRODUCT_EDIT_SECTION_OPTIONS: {
@@ -64,8 +67,9 @@ export const PRODUCT_EDIT_SECTION_OPTIONS: {
   { id: 'inventory', labelEn: 'Inventory & Shipping', labelAr: 'المخزون والشحن' },
   { id: 'variations', labelEn: 'Product Options & Variations', labelAr: 'خيارات وتنوعات المنتج' },
   { id: 'variationInventory', labelEn: 'Variation Inventory', labelAr: 'مخزون التنوعات' },
+  { id: 'categoryTags', labelEn: 'Category & Tags', labelAr: 'التصنيف والوسوم' },
   { id: 'customFields', labelEn: 'Custom Fields', labelAr: 'الحقول المخصصة' },
-  { id: 'seo', labelEn: 'SEO Settings', labelAr: 'إعدادات تحسين محركات البحث (SEO)' },
+  { id: 'seo', labelEn: 'SEO Settings', labelAr: 'إعدادات تحسين محركات البحث' },
 ];
 
 export interface ProductEditDrawerProps {
@@ -482,7 +486,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               {isAr ? 'تعديل المنتج' : 'Edit Product'} — {name || product.name}
             </h3>
             <p className="text-[11px] text-slate-500 font-mono">
-              SKU: {sku || product.sku}
+              {isAr ? 'رمز المنتج' : 'SKU'}: {sku || product.sku}
             </p>
           </div>
 
@@ -778,20 +782,20 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g. HiBrew Barista Pro"
+                      placeholder={isAr ? 'مثال: مكينة قهوة منزلية' : 'e.g. HiBrew Barista Pro'}
                       className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold focus:outline-none focus:ring-1 focus:ring-teal-500"
                     />
                   </div>
 
                   <div>
                     <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                      SKU <span className="text-rose-500">*</span>
+                      {isAr ? 'رمز المنتج' : 'SKU'} <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={sku}
                       onChange={(e) => setSku(e.target.value)}
-                      placeholder="e.g. HB-H10A-SILVER"
+                      placeholder={isAr ? 'مثال: HB-H10A-SILVER' : 'e.g. HB-H10A-SILVER'}
                       className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono font-bold uppercase focus:outline-none focus:ring-1 focus:ring-teal-500"
                     />
                   </div>
@@ -818,7 +822,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
 
                 <div>
                   <RichTextEditor
-                    label={isAr ? 'الوصف الكامل (H1–H6، صور، فيديو)' : 'Full Description (H1–H6, images, video)'}
+                    label=                    {isAr ? 'الوصف الكامل (عناوين، صور، فيديو)' : 'Full Description (headings, images, video)'}
                     value={description}
                     onChange={setDescription}
                     placeholder={
@@ -842,7 +846,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                     <p className="text-[10px] text-amber-700/80 dark:text-amber-300/70">
                       {isAr
                         ? 'يظهر في أقسام المنتجات المميزة بالصفحة الرئيسية'
-                        : 'Shows in homepage Featured product sections'}
+                        : 'Shows in homepage featured product sections'}
                     </p>
                   </div>
                   <button
@@ -870,7 +874,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                 {/* Highlight Badge */}
                 <div>
                   <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                    {isAr ? 'شارة تميز المنتج (Homepage Ribbon)' : 'Product Highlight Ribbon'}
+                    {isAr ? 'شارة تميز المنتج' : 'Product Highlight Ribbon'}
                   </label>
                   <div className="grid grid-cols-2 gap-1.5">
                     {[
@@ -918,7 +922,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                       { id: 'valentines', labelAr: 'عيد الحب', labelEn: 'Valentine' },
                       { id: 'eid', labelAr: 'الأعياد', labelEn: 'Eid' },
                       { id: 'birthday', labelAr: 'أعياد ميلاد', labelEn: 'Birthday' },
-                      { id: 'luxury', labelAr: 'VIP فاخر', labelEn: 'Luxury VIP' },
+                      { id: 'luxury', labelAr: 'تشكيلة فاخرة', labelEn: 'Luxury VIP' },
                     ].map((tItem) => {
                       const isT = tags.includes(tItem.id);
                       return (
@@ -982,7 +986,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               <div className="p-3.5 pt-0 grid grid-cols-1 sm:grid-cols-3 gap-2.5 border-t border-slate-100 dark:border-slate-800/80">
                 <div>
                   <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                    {isAr ? 'السعر الأساسي (SAR)' : 'Regular Price (SAR)'} <span className="text-rose-500">*</span>
+                    {isAr ? 'السعر الأساسي (ر.س)' : 'Regular Price (SAR)'} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -996,7 +1000,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
 
                 <div>
                   <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                    {isAr ? 'سعر العرض (SAR)' : 'Sale Price (SAR)'}
+                    {isAr ? 'سعر العرض (ر.س)' : 'Sale Price (SAR)'}
                   </label>
                   <input
                     type="number"
@@ -1114,11 +1118,11 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                       onChange={(e) => setShippingClass(e.target.value)}
                       className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
                     >
-                      <option value="Shoes">Shoes</option>
-                      <option value="Small Items">Small Items</option>
-                      <option value="Medium Item">Medium Item</option>
-                      <option value="Electronics">Electronics</option>
-                      <option value="Standard">Standard</option>
+                      <option value="Shoes">{isAr ? 'أحذية' : 'Shoes'}</option>
+                      <option value="Small Items">{isAr ? 'قطع صغيرة' : 'Small Items'}</option>
+                      <option value="Medium Item">{isAr ? 'قطعة متوسطة' : 'Medium Item'}</option>
+                      <option value="Electronics">{isAr ? 'إلكترونيات' : 'Electronics'}</option>
+                      <option value="Standard">{isAr ? 'قياسي' : 'Standard'}</option>
                     </select>
                   </div>
                 </div>
@@ -1206,10 +1210,25 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
             </div>
 
             {sectionsOpen.variationInventory && (
-              <div className="p-3.5 pt-0 border-t border-slate-100 dark:border-slate-800/80">
+              <div className="p-3.5 pt-0 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
                 <p className="text-[11px] text-slate-500">
-                  {isAr ? 'تتبع المخزون والأسعار الخاصة بكل لون أو مقاس.' : 'Track stock levels and custom prices per SKU variation.'}
+                  {isAr
+                    ? 'تتبع المخزون والأسعار الخاصة بكل لون أو مقاس.'
+                    : 'Track stock levels and custom prices per product variation.'}
                 </p>
+                {product?.id ? (
+                  <ProductVariationsPanel
+                    storeId={storeId}
+                    productId={product.id}
+                    canMutate={true}
+                    onDenied={() =>
+                      toast(
+                        isAr ? 'لا تملك صلاحية التعديل' : 'You do not have permission to edit',
+                        'error',
+                      )
+                    }
+                  />
+                ) : null}
               </div>
             )}
           </div>
@@ -1249,7 +1268,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                   <div key={f.id || idx} className="flex items-center gap-2">
                     <input
                       type="text"
-                      placeholder="Field name"
+                      placeholder={isAr ? 'اسم الحقل' : 'Field name'}
                       value={f.name}
                       onChange={(e) => {
                         const updated = [...customFields];
@@ -1260,7 +1279,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                     />
                     <input
                       type="text"
-                      placeholder="Value"
+                      placeholder={isAr ? 'القيمة' : 'Value'}
                       value={f.value}
                       onChange={(e) => {
                         const updated = [...customFields];
@@ -1305,7 +1324,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'إعدادات تحسين محركات البحث (SEO)' : 'SEO Settings'}
+                    {isAr ? 'إعدادات تحسين محركات البحث' : 'SEO Settings'}
                   </h4>
                 </div>
               </div>
@@ -1323,7 +1342,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               <div className="p-3.5 pt-0 space-y-2.5 border-t border-slate-100 dark:border-slate-800/80">
                 <div>
                   <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                    SEO Meta Title
+                    {isAr ? 'عنوان الصفحة' : 'Page Title'}
                   </label>
                   <input
                     type="text"
@@ -1334,7 +1353,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                 </div>
                 <div>
                   <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                    SEO Meta Description
+                    {isAr ? 'الوصف التعريفي' : 'Meta Description'}
                   </label>
                   <textarea
                     rows={2}

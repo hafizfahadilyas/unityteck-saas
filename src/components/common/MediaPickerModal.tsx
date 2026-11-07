@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import {
   X,
   Image as ImageIcon,
@@ -23,6 +22,7 @@ import {
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from './ToastProvider';
+import { GlobalModal } from './GlobalModal';
 import type { MediaAsset, MediaType } from '../../types/media';
 import { SYSTEM_MEDIA_FOLDERS, mediaFolderLabel } from '../../constants/mediaFolders';
 import { isApiEnabled } from '../../api/client';
@@ -422,19 +422,20 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
   };
 
   const modalContent = (
-    <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-150"
-      onClick={onClose}
+    <GlobalModal
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      zIndexClassName="z-[99999]"
+      aria-label={title || (isAr ? 'مكتبة الوسائط المركزية' : 'Central Media Picker')}
     >
       <div
-        className="relative w-full max-w-5xl h-[95vh] sm:h-[90vh] md:h-[86vh] max-h-[850px] rounded-2xl sm:rounded-3xl border shadow-2xl flex flex-col overflow-hidden"
+        className="relative w-full max-w-5xl h-[min(95vh,95dvh)] sm:h-[min(90vh,90dvh)] md:h-[min(86vh,86dvh)] max-h-[850px] rounded-2xl sm:rounded-3xl border shadow-2xl flex flex-col overflow-hidden"
         style={{
           background: 'var(--surface)',
           borderColor: 'var(--border)',
           color: 'var(--text)',
           fontFamily: 'var(--font-ui)',
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* ── Modal Header ── */}
         <div
@@ -1146,12 +1147,8 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 
-  if (typeof document === 'undefined') {
-    return modalContent;
-  }
-
-  return createPortal(modalContent, document.body);
+  return modalContent;
 };

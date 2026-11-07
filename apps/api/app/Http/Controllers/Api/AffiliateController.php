@@ -349,7 +349,7 @@ class AffiliateController extends Controller
             'store_id' => $storeId,
             'name' => $data['name'],
             'location' => $data['location'] ?: 'Riyadh',
-            'avatar' => $data['avatar'] ?: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop',
+            'avatar' => $data['avatar'] ?: null,
             'joinDate' => Carbon::now()->format('M d, Y'),
             'totalSales' => 0,
             'ordersCount' => 0,

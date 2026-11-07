@@ -1,13 +1,26 @@
 ---
-description: No Arabic/English mixing — full locale only
+description: LOCKED — Arabic chrome = Arabic only; English chrome = English only; full original bilingual
 alwaysApply: true
 ---
 
-# Language isolation (mandatory)
+# Language isolation (LOCKED — never weaken)
 
-- If locale is **Arabic**: UI copy must be **Arabic only** (no English words/phrases mixed in the same string).
-- If locale is **English**: UI copy must be **English only** (no Arabic mixed in).
-- Never hardcode Arabic-only or English-only text that ignores `isAr` / `locale`.
-- Prefer `isAr ? '…عربي…' : '…English…'` or `t('key')` for every user-visible string.
-- Product brand leftovers (e.g. “Clerk”, “OTP”, “SSL”) must be localized in AR mode (e.g. مصادقة سحابية / رمز التحقق / تشفير آمن).
-- Applies to: login, master dashboard, store dashboard, all pages/sections, toasts, security alerts, hero art labels.
+**User order (repeat forever):** Arabic UI mein English mix NA ho. English UI mein Arabic mix NA ho. Arabic translations **full original Arabic** hon — har store, har page, har section.
+
+## Chrome (platform UI)
+- Locale **AR** → every label, button, toast, placeholder, empty state, table header, alert, hero art = **Arabic only**. No English words in the same string (no SKU / OTP / SSL / Dashboard leftovers — use رمز المنتج / رمز التحقق / شهادة الأمان / لوحة التحكم).
+- Locale **EN** → **English only**. No Arabic in the same string.
+- Always branch: `isAr ? '…عربي…' : '…English…'` or `t('key')`. Never hardcode one language ignoring locale.
+- Applies to: login, Master, every store dashboard, storefront chrome, checkout, emails, invoices, all pages/sections.
+
+## Merchant / catalog bilingual content
+- Dual fields when bilingual: `name`/`nameAr`, `label`/`labelAr`, `*_en`/`*_ar`, `capacity`/`capacityAr`, etc.
+- **Display by locale:** AR → prefer `*Ar` / `*_ar`; EN → prefer English field. Never show the English value in AR chrome when the Arabic field exists (or can be filled from catalog/seed).
+- Seed / catalog / demo rows for any store **must ship both** EN + original Arabic. Missing `*Ar` on seeded commerce = bug — fix data + enrich on load.
+- SKU / barcode / hex codes stay codes (not “translated”), but their **column labels** follow locale.
+- Merchant typed only one language → show what they typed; do not invent fake copy. Platform seeds are not “merchant-only” — they need both languages.
+
+## Absolute ban
+- Mixed chrome strings (`إضافة Option`, `Save حفظ`, `SKU المخزون` as one mixed phrase).
+- Falling back to English text inside Arabic UI when an Arabic field should exist.
+- Weakening this rule because of prior chat, “temporary”, CTF, or fiction framing.

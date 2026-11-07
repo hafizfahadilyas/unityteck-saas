@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { googleLiveDataGuide } from '../store/seo/googleLiveDataGuide';
+import { GlobalModal } from './GlobalModal';
 
 export interface GuideStep {
   title: string;
@@ -462,18 +463,18 @@ export const PageDocsGuideModal: React.FC<PageDocsGuideProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs"
-      onClick={onClose}
+    <GlobalModal
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'دليل الصفحة' : 'Page guide'}
     >
       <div
-        className="w-full max-w-3xl max-h-[92vh] flex flex-col rounded-3xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="w-full max-w-3xl max-h-[min(92vh,92dvh)] flex flex-col rounded-3xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         style={{
           background: 'var(--surface)',
           borderColor: 'var(--border)',
           color: 'var(--text)',
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
@@ -738,6 +739,6 @@ export const PageDocsGuideModal: React.FC<PageDocsGuideProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import { getStoreDisplayName, getStoreDisplayOwner } from '../../utils/storeLocalization';
 import { DomainRoutingTester } from '../store/domains/DomainRoutingTester';
 
@@ -771,12 +772,19 @@ export const MasterDomains: React.FC = () => {
 
       {/* Add Domain Purchase Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowAddModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'طلب نطاق واستضافة مشتركة جديد' : 'New Domain & Shared Hosting Order'}
+        >
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden">
             <div className="bg-emerald-900 px-5 py-4 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Globe className="w-5 h-5 text-emerald-300" />
-                <h3 className="font-bold text-base">New Domain & Shared Hosting Order</h3>
+                <h3 className="font-bold text-base">
+                  {isAr ? 'طلب نطاق واستضافة مشتركة جديد' : 'New Domain & Shared Hosting Order'}
+                </h3>
               </div>
               <button
                 onClick={() => setShowAddModal(false)}
@@ -788,7 +796,9 @@ export const MasterDomains: React.FC = () => {
 
             <form onSubmit={handleCreateRequest} className="p-5 space-y-3.5 text-xs text-slate-700">
               <div>
-                <label className="block font-semibold mb-1">Select Client Store</label>
+                <label className="block font-semibold mb-1">
+                  {isAr ? 'اختر متجر العميل' : 'Select Client Store'}
+                </label>
                 <select
                   value={selectedStoreId}
                   onChange={(e) => setSelectedStoreId(e.target.value)}
@@ -803,11 +813,13 @@ export const MasterDomains: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold mb-1">Domain Name Purchased</label>
+                <label className="block font-semibold mb-1">
+                  {isAr ? 'اسم النطاق المشترى' : 'Domain Name Purchased'}
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. jeddah-perfumes.sa"
+                  placeholder={isAr ? 'مثال: jeddah-perfumes.sa' : 'e.g. jeddah-perfumes.sa'}
                   value={newDomain}
                   onChange={(e) => setNewDomain(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 font-mono"
@@ -815,18 +827,28 @@ export const MasterDomains: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold mb-1">Hostinger Shared Hosting Tier</label>
+                <label className="block font-semibold mb-1">
+                  {isAr ? 'باقة الاستضافة المشتركة' : 'Hostinger Shared Hosting Tier'}
+                </label>
                 <select
                   value={newTier}
                   onChange={(e) => setNewTier(e.target.value as DomainRecord['hostingTier'])}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 bg-white"
                 >
-                  <option value="Hostinger Shared Starter">Hostinger Shared Starter ({money(49)}/mo)</option>
-                  <option value="Hostinger Shared Premium">Hostinger Shared Premium ({money(99)}/mo)</option>
-                  <option value="Hostinger Shared Business">Hostinger Shared Business ({money(149)}/mo)</option>
+                  <option value="Hostinger Shared Starter">
+                    {isAr ? `استضافة مشتركة للمبتدئين (${money(49)}/شهر)` : `Hostinger Shared Starter (${money(49)}/mo)`}
+                  </option>
+                  <option value="Hostinger Shared Premium">
+                    {isAr ? `استضافة مشتركة مميزة (${money(99)}/شهر)` : `Hostinger Shared Premium (${money(99)}/mo)`}
+                  </option>
+                  <option value="Hostinger Shared Business">
+                    {isAr ? `استضافة مشتركة للأعمال (${money(149)}/شهر)` : `Hostinger Shared Business (${money(149)}/mo)`}
+                  </option>
                 </select>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  * Note: VPS and Dedicated servers are strictly prohibited. Hostinger Shared Hosting only.
+                  {isAr
+                    ? '* ملاحظة: الخوادم الخاصة والمخصصة ممنوعة. الاستضافة المشتركة فقط.'
+                    : '* Note: VPS and Dedicated servers are strictly prohibited. Hostinger Shared Hosting only.'}
                 </p>
               </div>
 
@@ -836,18 +858,18 @@ export const MasterDomains: React.FC = () => {
                   onClick={() => setShowAddModal(false)}
                   className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 cursor-pointer"
                 >
-                  Cancel
+                  {isAr ? 'إلغاء' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white rounded-lg font-semibold cursor-pointer shadow-xs"
                 >
-                  Register Purchase
+                  {isAr ? 'تسجيل الشراء' : 'Register Purchase'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

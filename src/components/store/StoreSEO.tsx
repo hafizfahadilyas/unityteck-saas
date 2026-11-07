@@ -37,6 +37,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
+import { GlobalModal } from '../common/GlobalModal';
 import { GoogleToolsWaitGuide } from './seo/GoogleToolsWaitGuide';
 import { realTrackingId, seoSetupStep, storeGoogleEmail, storePublicHost } from './seo/storeSeoSetup';
 import { GoogleConnectModal } from './GoogleConnectModal';
@@ -1931,7 +1932,12 @@ export const StoreSEO: React.FC = () => {
 
       {/* ── Real Tracking IDs Configuration Modal ── */}
       {showTrackingConfigModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowTrackingConfigModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إعداد معرفات التتبع الحقيقية' : 'Set real tracking ids'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2.5">
@@ -1960,13 +1966,13 @@ export const StoreSEO: React.FC = () => {
               {/* GA4 ID */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Google Analytics 4 Measurement ID (GA4)
+                  {isAr ? 'معرف قياس تحليلات جوجل ٤' : 'Google Analytics 4 Measurement ID (GA4)'}
                 </label>
                 <input
                   type="text"
                   value={editGa4Id}
                   onChange={(e) => setEditGa4Id(e.target.value.trim())}
-                  placeholder="G-XXXXXXXXXX (e.g. G-9B2N4L7K8P)"
+                  placeholder="G-XXXXXXXXXX"
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <span className="text-[10px] text-slate-400 dark:text-slate-500 block mt-0.5">
@@ -1977,13 +1983,13 @@ export const StoreSEO: React.FC = () => {
               {/* GTM ID */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Google Tag Manager Container ID (GTM)
+                  {isAr ? 'معرف حاوية مدير العلامات من جوجل' : 'Google Tag Manager Container ID (GTM)'}
                 </label>
                 <input
                   type="text"
                   value={editGtmId}
                   onChange={(e) => setEditGtmId(e.target.value.trim())}
-                  placeholder="GTM-XXXXXXX (e.g. GTM-8H9J2K)"
+                  placeholder="GTM-XXXXXXX"
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -1991,7 +1997,7 @@ export const StoreSEO: React.FC = () => {
               {/* Search Console Tag */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Google Search Console Verification Tag
+                  {isAr ? 'وسم التحقق من أدوات مشرفي المواقع' : 'Google Search Console Verification Tag'}
                 </label>
                 <input
                   type="text"
@@ -2005,13 +2011,13 @@ export const StoreSEO: React.FC = () => {
               {/* Google Ads ID */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Google Ads Conversion ID / Tag (Optional)
+                  {isAr ? 'معرف تحويل إعلانات جوجل (اختياري)' : 'Google Ads Conversion ID / Tag (Optional)'}
                 </label>
                 <input
                   type="text"
                   value={editGoogleAdsId}
                   onChange={(e) => setEditGoogleAdsId(e.target.value.trim())}
-                  placeholder="AW-XXXXXXXXX (e.g. AW-1092837465)"
+                  placeholder="AW-XXXXXXXXX"
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -2049,7 +2055,7 @@ export const StoreSEO: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* ── Official Google Site Kit Connection & Property Modal ── */}

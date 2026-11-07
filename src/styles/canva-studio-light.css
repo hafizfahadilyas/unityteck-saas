@@ -1,0 +1,306 @@
+/**
+ * Design Studio chrome — same Holst / portal tokens as Master + Store dashboard.
+ * Accent = --accent (#1d8b94). No purple one-offs.
+ */
+.canva-studio-light {
+  --cs-bg: var(--surface, #ffffff);
+  --cs-panel: var(--bg, #f8fafc);
+  --cs-dock: var(--portal-950, #04222b);
+  --cs-border: var(--border, #e2e8f0);
+  --cs-text: var(--text, #020617);
+  --cs-muted: var(--muted, #334155);
+  --cs-accent: var(--accent, #1d8b94);
+  --cs-accent-soft: color-mix(in srgb, var(--cs-accent) 14%, transparent);
+  --cs-accent-ring: var(--active-ring, #4fb8b4);
+  --cs-success: var(--tone-success, #059669);
+  background: var(--cs-bg) !important;
+  color: var(--cs-text) !important;
+  box-shadow: none !important;
+}
+
+.canva-studio-light,
+.canva-studio-light * {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+/* Shared active / primary utilities — use across toolbar + panels */
+.canva-studio-light .cs-btn-primary {
+  background: var(--active-bg, var(--cs-accent)) !important;
+  color: var(--active-fg, #ffffff) !important;
+  border-color: var(--cs-accent) !important;
+}
+
+.canva-studio-light .cs-btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+.canva-studio-light .cs-btn-success {
+  background: var(--cs-success) !important;
+  color: #ffffff !important;
+  border-color: var(--cs-success) !important;
+}
+
+.canva-studio-light .cs-active {
+  background: var(--cs-accent) !important;
+  color: #ffffff !important;
+  border-color: var(--cs-accent) !important;
+}
+
+.canva-studio-light .cs-active-soft {
+  background: var(--cs-accent-soft) !important;
+  color: var(--cs-accent) !important;
+  border-color: color-mix(in srgb, var(--cs-accent) 40%, var(--cs-border)) !important;
+}
+
+.canva-studio-light .cs-accent-text {
+  color: var(--cs-accent) !important;
+}
+
+.canva-studio-light .cs-accent-border {
+  border-color: var(--cs-accent) !important;
+}
+
+.canva-studio-light .cs-accent-ring {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cs-accent) 35%, transparent) !important;
+}
+
+.canva-studio-light .cs-header {
+  background: var(--cs-bg) !important;
+  border-color: var(--cs-border) !important;
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light .cs-dock {
+  background: var(--cs-dock) !important;
+  border-color: color-mix(in srgb, var(--portal-400, #4fb8b4) 22%, transparent) !important;
+  color: var(--portal-200, #98d8d0) !important;
+}
+
+.canva-studio-light .cs-dock button {
+  color: color-mix(in srgb, #ffffff 72%, transparent) !important;
+  border-color: transparent !important;
+  background: transparent !important;
+}
+
+.canva-studio-light .cs-dock button.cs-dock-active {
+  background: color-mix(in srgb, var(--cs-accent) 22%, transparent) !important;
+  color: var(--portal-200, #98d8d0) !important;
+  border-color: color-mix(in srgb, var(--cs-accent) 45%, transparent) !important;
+}
+
+.canva-studio-light .cs-flyout {
+  background: var(--cs-bg) !important;
+  border-color: var(--cs-border) !important;
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light .cs-flyout .text-white,
+.canva-studio-light .cs-flyout .text-slate-200,
+.canva-studio-light .cs-flyout .text-slate-300 {
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light .cs-flyout .text-slate-400,
+.canva-studio-light .cs-flyout .text-muted {
+  color: var(--cs-muted) !important;
+}
+
+.canva-studio-light .cs-flyout input,
+.canva-studio-light .cs-flyout select,
+.canva-studio-light .cs-flyout textarea {
+  background: var(--input-bg, #ffffff) !important;
+  color: var(--input-fg, var(--cs-text)) !important;
+  border-color: var(--cs-border) !important;
+}
+
+.canva-studio-light .cs-flyout button:not([style*='background']):not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.bg-emerald-500):not(.bg-emerald-600) {
+  background: var(--cs-bg) !important;
+  border-color: var(--cs-border) !important;
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light .cs-flyout .border-slate-700,
+.canva-studio-light .cs-flyout .border-slate-800,
+.canva-studio-light .cs-flyout .border-border {
+  border-color: var(--cs-border) !important;
+}
+
+.canva-studio-light .cs-flyout .bg-slate-800,
+.canva-studio-light .cs-flyout .bg-slate-800\/80,
+.canva-studio-light .cs-flyout .bg-slate-800\/60,
+.canva-studio-light .cs-flyout .bg-slate-800\/40,
+.canva-studio-light .cs-flyout .bg-slate-950,
+.canva-studio-light .cs-flyout .bg-black\/40,
+.canva-studio-light .cs-flyout .bg-surface\/40,
+.canva-studio-light .cs-flyout .bg-surface\/50 {
+  background: var(--cs-panel) !important;
+}
+
+.canva-studio-light .cs-workspace {
+  background: var(--cs-panel) !important;
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light .cs-toolbar {
+  background: var(--cs-bg) !important;
+  border: 1px solid var(--cs-border) !important;
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light .cs-toolbar .text-white,
+.canva-studio-light .cs-toolbar .text-slate-300,
+.canva-studio-light .cs-toolbar .text-slate-400 {
+  color: var(--cs-muted) !important;
+}
+
+.canva-studio-light .cs-toolbar input,
+.canva-studio-light .cs-toolbar select,
+.canva-studio-light .cs-toolbar .bg-slate-800,
+.canva-studio-light .cs-toolbar .border-slate-700 {
+  background: var(--cs-bg) !important;
+  border-color: var(--cs-border) !important;
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light .cs-toolbar input[type='range'],
+.canva-studio-light .cs-flyout input[type='range'],
+.canva-studio-light input[type='range'].accent-violet-600,
+.canva-studio-light input[type='range'].accent-purple-500 {
+  accent-color: var(--cs-accent) !important;
+}
+
+.canva-studio-light .cs-canvas-frame {
+  background: repeating-conic-gradient(
+      color-mix(in srgb, var(--cs-border) 70%, #ffffff) 0% 25%,
+      #ffffff 0% 50%
+    )
+    50% / 16px 16px !important;
+  border: 1px solid var(--cs-border) !important;
+  border-radius: 4px !important;
+}
+
+.canva-studio-light .cs-footer {
+  border-color: var(--cs-border) !important;
+  color: var(--cs-muted) !important;
+}
+
+.canva-studio-light .cs-footer button:hover {
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light .cs-header .bg-slate-800,
+.canva-studio-light .cs-header .bg-slate-800\/80,
+.canva-studio-light .cs-header .bg-slate-800\/50,
+.canva-studio-light .cs-header .bg-slate-950,
+.canva-studio-light .cs-header .bg-slate-900 {
+  background: var(--cs-panel) !important;
+}
+
+.canva-studio-light .cs-header .border-slate-700,
+.canva-studio-light .cs-header .border-slate-800,
+.canva-studio-light .cs-header .text-slate-200,
+.canva-studio-light .cs-header .text-slate-300,
+.canva-studio-light .cs-header .text-slate-400 {
+  border-color: var(--cs-border) !important;
+  color: var(--cs-muted) !important;
+}
+
+.canva-studio-light .cs-header .text-white {
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light .cs-selection-box {
+  box-shadow: none !important;
+  border-radius: 2px !important;
+  border-color: var(--cs-accent) !important;
+}
+
+.canva-studio-light .cs-selection-pill {
+  background: var(--cs-bg) !important;
+  border: 1px solid var(--cs-border) !important;
+  color: var(--cs-text) !important;
+  box-shadow: none !important;
+}
+
+.canva-studio-light .cs-templates-panel .shadow-sm,
+.canva-studio-light .cs-templates-panel .shadow-md,
+.canva-studio-light .cs-templates-panel .drop-shadow-sm,
+.canva-studio-light .cs-templates-panel .drop-shadow-md {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.canva-studio-light .cs-format-blank {
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light .cs-layer-row {
+  background: var(--cs-bg) !important;
+  border: 1px solid var(--cs-border) !important;
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light .cs-layer-row.cs-layer-active {
+  border-color: var(--cs-accent) !important;
+  background: var(--cs-accent-soft) !important;
+}
+
+/* Force common Tailwind one-offs → Holst accent */
+.canva-studio-light .bg-violet-600,
+.canva-studio-light .bg-purple-600,
+.canva-studio-light .bg-\[\#8b3dff\],
+.canva-studio-light .hover\:bg-\[\#7c32ef\]:hover {
+  background-color: var(--cs-accent) !important;
+}
+
+.canva-studio-light .border-violet-500,
+.canva-studio-light .border-violet-600,
+.canva-studio-light .border-purple-500 {
+  border-color: var(--cs-accent) !important;
+}
+
+.canva-studio-light .text-violet-600,
+.canva-studio-light .text-violet-400,
+.canva-studio-light .text-purple-400,
+.canva-studio-light .text-purple-300 {
+  color: var(--cs-accent) !important;
+}
+
+.canva-studio-light .hover\:border-violet-500:hover,
+.canva-studio-light .hover\:bg-violet-50:hover {
+  border-color: var(--cs-accent) !important;
+  background-color: var(--cs-accent-soft) !important;
+}
+
+.canva-studio-light .bg-emerald-600,
+.canva-studio-light .bg-emerald-500,
+.canva-studio-light .from-emerald-600,
+.canva-studio-light .to-teal-600 {
+  background-color: var(--cs-accent) !important;
+  background-image: none !important;
+}
+
+.canva-studio-light .text-emerald-400,
+.canva-studio-light .text-emerald-600,
+.canva-studio-light .text-emerald-700,
+.canva-studio-light .text-emerald-300 {
+  color: var(--cs-accent) !important;
+}
+
+.canva-studio-light .border-emerald-500,
+.canva-studio-light .border-emerald-500\/50,
+.canva-studio-light .border-emerald-500\/40 {
+  border-color: var(--cs-accent) !important;
+}
+
+.canva-studio-light .bg-emerald-50,
+.canva-studio-light .hover\:bg-emerald-100:hover,
+.canva-studio-light .hover\:bg-emerald-500:hover {
+  background-color: var(--cs-accent-soft) !important;
+}
+
+.canva-studio-light .text-emerald-700 {
+  color: var(--cs-accent) !important;
+}

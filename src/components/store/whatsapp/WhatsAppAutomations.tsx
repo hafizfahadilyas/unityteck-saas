@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 import type { WhatsAppAutomationItem } from '../../../types/whatsapp';
 import {
   fetchWhatsAppAutomations,
@@ -506,7 +507,12 @@ export const WhatsAppAutomations: React.FC<Props> = ({ onNavigateSubView }) => {
 
       {/* 5. Test Trigger Modal */}
       {testModalItem && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <GlobalModal
+          isOpen
+          onClose={() => setTestModalItem(null)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'اختبار مسار الأتمتة' : 'Test Automation Trigger'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-5 space-y-4 shadow-xl">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
@@ -571,12 +577,17 @@ export const WhatsAppAutomations: React.FC<Props> = ({ onNavigateSubView }) => {
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* 6. Edit Details Modal */}
       {showEditModal && editingItem && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowEditModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'تعديل مسار الأتمتة' : 'Edit Automation'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-5 space-y-4 shadow-xl">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
@@ -597,7 +608,7 @@ export const WhatsAppAutomations: React.FC<Props> = ({ onNavigateSubView }) => {
             <div className="space-y-3 text-xs">
               <div>
                 <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  {isAr ? 'اسم الأتمتة (English)' : 'Automation Name (EN)'}
+                  {isAr ? 'اسم الأتمتة بالإنجليزية' : 'Automation Name (EN)'}
                 </label>
                 <input
                   type="text"
@@ -668,7 +679,7 @@ export const WhatsAppAutomations: React.FC<Props> = ({ onNavigateSubView }) => {
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

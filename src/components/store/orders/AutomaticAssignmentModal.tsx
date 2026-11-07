@@ -1,54 +1,69 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { useTenant } from '../../../context/TenantContext';
+import { GlobalModal } from '../../common/GlobalModal';
 import {
   X,
   Plus,
   Trash2,
   UserCheck,
   User,
-  Sliders,
   Check,
 } from 'lucide-react';
+import type { Order } from '../../../types';
+import {
+  loadAssignmentRules,
+  saveAssignmentRules,
+  orderMatchesAssignmentConditions,
+  type AssignmentRule,
+  type AssignmentRuleCondition,
+} from '../../../utils/orderExport';
 
 interface AutomaticAssignmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   storeId: string;
+  orders?: Order[];
 }
-
-interface AssignmentCondition {
-  id: string;
-  field: 'status' | 'branch' | 'city' | 'country';
-  operator: 'equals' | 'in';
-  value: string;
-}
-
-const EMPLOYEES = [
-  { id: 'emp-1', name: 'Sarah Ahmed', nameAr: 'سارة أحمد', initials: 'SA', role: 'Order Specialist' },
-  { id: 'emp-2', name: 'Mohammed Ali', nameAr: 'محمد علي', initials: 'MA', role: 'Fulfillment Lead' },
-  { id: 'emp-3', name: 'Fahad Al-Otaibi', nameAr: 'فهد العتيبي', initials: 'FA', role: 'Logistics Manager' },
-  { id: 'emp-4', name: 'Lina Khaled', nameAr: 'لينا خالد', initials: 'LK', role: 'Customer Service' },
-];
 
 export const AutomaticAssignmentModal: React.FC<AutomaticAssignmentModalProps> = ({
   isOpen,
   onClose,
   storeId,
+  orders = [],
 }) => {
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
   const { toast } = useToast();
+  const { updateOrder } = useTenant();
 
   const [selectedEmployee, setSelectedEmployee] = useState('');
-  const [conditions, setConditions] = useState<AssignmentCondition[]>([
+  const [conditions, setConditions] = useState<AssignmentRuleCondition[]>([
     { id: 'cond-1', field: 'status', operator: 'equals', value: 'processing' },
   ]);
+
+  useEffect(() => {
+    if (!isOpen || !storeId) return;
+    const rules = loadAssignmentRules(storeId);
+    const latest = rules[0];
+    if (latest) {
+      setSelectedEmployee(latest.employeeName || '');
+      setConditions(
+        latest.conditions?.length
+          ? latest.conditions
+          : [{ id: 'cond-1', field: 'status', operator: 'equals', value: 'processing' }],
+      );
+    } else {
+      setSelectedEmployee('');
+      setConditions([{ id: 'cond-1', field: 'status', operator: 'equals', value: 'processing' }]);
+    }
+  }, [isOpen, storeId]);
 
   if (!isOpen) return null;
 
   const handleAddCondition = () => {
-    const newCond: AssignmentCondition = {
+    const newCond: AssignmentRuleCondition = {
       id: `cond-${Date.now()}`,
       field: 'status',
       operator: 'equals',
@@ -61,32 +76,56 @@ export const AutomaticAssignmentModal: React.FC<AutomaticAssignmentModalProps> =
     setConditions((prev) => prev.filter((c) => c.id !== id));
   };
 
-  const handleConditionChange = (id: string, updates: Partial<AssignmentCondition>) => {
-    setConditions((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
-    );
+  const handleConditionChange = (id: string, updates: Partial<AssignmentRuleCondition>) => {
+    setConditions((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
   };
 
   const handleSave = () => {
-    if (!selectedEmployee) {
-      toast(isAr ? 'يرجى اختيار موظف أولاً' : 'Please select an employee first', 'error');
+    if (!selectedEmployee.trim()) {
+      toast(isAr ? 'يرجى إدخال اسم الموظف أولاً' : 'Please enter an employee name first', 'error');
       return;
+    }
+    if (!storeId) {
+      toast(isAr ? 'المتجر غير محدد' : 'Store not identified', 'error');
+      return;
+    }
+
+    const rule: AssignmentRule = {
+      id: `rule-${Date.now()}`,
+      employeeName: selectedEmployee.trim(),
+      conditions,
+      updatedAt: new Date().toISOString(),
+    };
+    const existing = loadAssignmentRules(storeId).filter(
+      (r) => r.employeeName.toLowerCase() !== rule.employeeName.toLowerCase(),
+    );
+    saveAssignmentRules(storeId, [rule, ...existing]);
+
+    const storeOrders = orders.filter((o) => o.storeId === storeId || !o.storeId);
+    let assigned = 0;
+    for (const order of storeOrders) {
+      if (order.assignedEmployee) continue;
+      if (!orderMatchesAssignmentConditions(order, conditions)) continue;
+      updateOrder(order.id, { assignedEmployee: rule.employeeName }, storeId);
+      assigned += 1;
     }
 
     toast(
       isAr
-        ? 'تم حفظ قاعدة التعيين التلقائي للطلبات بنجاح'
-        : 'Automatic order assignment rule saved successfully',
-      'success'
+        ? `تم حفظ القاعدة وتعيين ${assigned} طلب(ات) لـ ${rule.employeeName}`
+        : `Rule saved — assigned ${assigned} order(s) to ${rule.employeeName}`,
+      'success',
     );
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <GlobalModal
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'التعيين التلقائي للطلبات' : 'Automatic Order Assignment'}
+    >
       <div className="w-full max-w-xl bg-white dark:bg-[#071E26] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
-        
-        {/* Teal Header matching Image 1 */}
         <div
           className="px-6 py-4 flex items-center justify-between text-white"
           style={{ background: '#5eead4', color: '#134e4a' }}
@@ -104,7 +143,6 @@ export const AutomaticAssignmentModal: React.FC<AutomaticAssignmentModalProps> =
           </button>
         </div>
 
-        {/* Content Body */}
         <div className="p-6 space-y-5">
           <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
             {isAr
@@ -112,27 +150,25 @@ export const AutomaticAssignmentModal: React.FC<AutomaticAssignmentModalProps> =
               : 'Automatically assign an order to an employee when the order meets one of the following conditions: order status, branch, country, or city. Please select an employee to configure the assignment rules.'}
           </p>
 
-          {/* Select Employee */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
               <User className="w-3.5 h-3.5 text-slate-400" />
-              <span>{isAr ? 'اختر الموظف' : 'Select Employee'}</span>
+              <span>{isAr ? 'الموظف المعين' : 'Assigned Employee'}</span>
             </label>
-            <select
+            <input
+              type="text"
               value={selectedEmployee}
               onChange={(e) => setSelectedEmployee(e.target.value)}
+              placeholder={isAr ? 'اسم الموظف' : 'Employee name'}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:border-teal-500"
-            >
-              <option value="">{isAr ? '-- اختر موظفاً --' : '-- Select an employee --'}</option>
-              {EMPLOYEES.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {isAr ? emp.nameAr : emp.name} ({emp.role})
-                </option>
-              ))}
-            </select>
+            />
+            <p className="mt-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+              {isAr
+                ? 'تُحفظ القاعدة لهذا المتجر فقط وتُطبَّق على الطلبات غير المعيَّنة المطابقة.'
+                : 'Rule is saved for this store only and applied to matching unassigned orders.'}
+            </p>
           </div>
 
-          {/* Conditions List */}
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
@@ -156,7 +192,11 @@ export const AutomaticAssignmentModal: React.FC<AutomaticAssignmentModalProps> =
                 >
                   <select
                     value={cond.field}
-                    onChange={(e) => handleConditionChange(cond.id, { field: e.target.value as any })}
+                    onChange={(e) =>
+                      handleConditionChange(cond.id, {
+                        field: e.target.value as AssignmentRuleCondition['field'],
+                      })
+                    }
                     className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium"
                   >
                     <option value="status">{isAr ? 'حالة الطلب' : 'Order Status'}</option>
@@ -167,7 +207,11 @@ export const AutomaticAssignmentModal: React.FC<AutomaticAssignmentModalProps> =
 
                   <select
                     value={cond.operator}
-                    onChange={(e) => handleConditionChange(cond.id, { operator: e.target.value as any })}
+                    onChange={(e) =>
+                      handleConditionChange(cond.id, {
+                        operator: e.target.value as AssignmentRuleCondition['operator'],
+                      })
+                    }
                     className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium"
                   >
                     <option value="equals">{isAr ? 'يساوي' : 'Equals'}</option>
@@ -197,7 +241,6 @@ export const AutomaticAssignmentModal: React.FC<AutomaticAssignmentModalProps> =
           </div>
         </div>
 
-        {/* Footer Actions matching Image 1 */}
         <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/40">
           <button
             type="button"
@@ -214,11 +257,10 @@ export const AutomaticAssignmentModal: React.FC<AutomaticAssignmentModalProps> =
             style={{ background: '#0d9488' }}
           >
             <Check className="w-4 h-4" />
-            <span>{isAr ? 'حفظ' : 'Save'}</span>
+            <span>{isAr ? 'حفظ وتطبيق' : 'Save & Apply'}</span>
           </button>
         </div>
-
       </div>
-    </div>
+    </GlobalModal>
   );
 };

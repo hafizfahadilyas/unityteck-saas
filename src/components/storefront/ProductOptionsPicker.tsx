@@ -11,6 +11,7 @@ import {
   optionValuesList,
   variantPriceParts,
 } from '../../utils/productVariants';
+import { pickLocaleText } from '../../utils/localeLabel';
 
 export interface ProductOptionsPickerProps {
   product: Product;
@@ -75,17 +76,18 @@ export const ProductOptionsPicker: React.FC<ProductOptionsPickerProps> = ({
         return (
           <div key={opt.id || opt.name}>
             <p className="text-xs font-bold mb-2 text-slate-800 dark:text-slate-100">
-              {opt.name}
+              {pickLocaleText(isAr, opt.name, opt.nameAr)}
             </p>
             {kind === 'color' ? (
               <div className="flex flex-wrap gap-2">
                 {vals.map((v) => {
                   const on = selected[opt.name] === v.label;
+                  const shown = pickLocaleText(isAr, v.label, v.labelAr);
                   return (
                     <button
                       key={v.id}
                       type="button"
-                      title={v.label}
+                      title={shown}
                       onClick={() => setSelected((s) => ({ ...s, [opt.name]: v.label }))}
                       className={`w-9 h-9 rounded-full border-2 transition-all cursor-pointer ${
                         on ? 'border-teal-600 ring-2 ring-teal-500/30 scale-110' : 'border-slate-200'
@@ -100,6 +102,7 @@ export const ProductOptionsPicker: React.FC<ProductOptionsPickerProps> = ({
               <div className="flex flex-wrap gap-2">
                 {vals.map((v) => {
                   const on = selected[opt.name] === v.label;
+                  const shown = pickLocaleText(isAr, v.label, v.labelAr);
                   return (
                     <button
                       key={v.id}
@@ -111,9 +114,9 @@ export const ProductOptionsPicker: React.FC<ProductOptionsPickerProps> = ({
                       aria-pressed={on}
                     >
                       {v.imageUrl ? (
-                        <img src={v.imageUrl} alt={v.label} className="w-full h-full object-cover" />
+                        <img src={v.imageUrl} alt={shown} className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-[10px] font-bold p-1 block">{v.label}</span>
+                        <span className="text-[10px] font-bold p-1 block">{shown}</span>
                       )}
                     </button>
                   );
@@ -135,7 +138,7 @@ export const ProductOptionsPicker: React.FC<ProductOptionsPickerProps> = ({
                       }`}
                       aria-pressed={on}
                     >
-                      {v.label}
+                      {pickLocaleText(isAr, v.label, v.labelAr)}
                     </button>
                   );
                 })}
@@ -149,7 +152,16 @@ export const ProductOptionsPicker: React.FC<ProductOptionsPickerProps> = ({
         {matched && parts ? (
           <>
             <p className="font-semibold text-slate-700 dark:text-slate-200">
-              {isAr ? 'الخيار' : 'Label'}: {Object.values(selected).filter(Boolean).join(isAr ? ' · ' : ' · ')}
+              {isAr ? 'الخيار' : 'Label'}:{' '}
+              {definitions
+                .map((opt) => {
+                  const raw = selected[opt.name];
+                  if (!raw) return '';
+                  const match = optionValuesList(opt.values).find((v) => v.label === raw);
+                  return pickLocaleText(isAr, raw, match?.labelAr);
+                })
+                .filter(Boolean)
+                .join(' · ')}
             </p>
             {matched.imageUrl && (
               <img

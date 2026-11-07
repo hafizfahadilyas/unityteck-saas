@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Product, CartItem, ProductColor, StorageOption, WarrantyOption, BundleOption, CustomCornerOrderSpecs } from '../types';
 import { PRODUCTS } from '../data/products';
 import { usePrefs } from '../../../i18n/PrefsContext';
@@ -7,6 +7,7 @@ import type { CouponItem } from '../../../types';
 import { sellingPrice } from '../../../utils/productPricing';
 import { seedExistingCommerce } from '../../../utils/existingProductCommerce';
 import { buildGeneratedVariants } from '../../../utils/productVariants';
+import { trackStorefrontEvent } from '../../../utils/storefrontAnalytics';
 
 import { FlyingCartOverlay, FlyingCartItem } from '../components/FlyingCartOverlay';
 import { readStoreIdentity, type StoreIdentitySettings } from '../../settings/storeIdentity';
@@ -73,9 +74,19 @@ function learnMoreBits(dp: any, image: string) {
   return { fields, parts, video, colors, storage };
 }
 
+function productIdFromQuery(): string | null {
+  if (typeof window === 'undefined') return null;
+  const q = new URLSearchParams(window.location.search);
+  const id = (q.get('product') || q.get('productId') || q.get('pid') || '').trim();
+  return id || null;
+}
+
 function routeFromPreviewQuery(): RouteType {
   if (typeof window === 'undefined') return 'home';
-  const p = (new URLSearchParams(window.location.search).get('page') || '').toLowerCase().trim();
+  const params = new URLSearchParams(window.location.search);
+  const p = (params.get('page') || '').toLowerCase().trim();
+  const hasProduct = !!productIdFromQuery();
+  if (!p && hasProduct) return 'product-detail';
   if (!p) return 'home';
   if (p === 'catalog' || p === 'products' || p === 'shop') return 'products';
   if (p === 'product-buy' || p === 'buy' || p === 'buynow') return 'product-buy';
@@ -207,6 +218,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const storeIdRef = useRef<string | undefined>(undefined);
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       if (typeof window !== 'undefined') {
@@ -222,7 +234,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentRoute, setCurrentRoute] = useState<RouteType>(routeFromPreviewQuery);
   const [previousRoute, setPreviousRoute] = useState<RouteType>('home');
   const [routeHistory, setRouteHistory] = useState<RouteType[]>(['home']);
-  const [selectedProductId, setSelectedProductId] = useState<string>('hb-h10a-dualboiler');
+  const [selectedProductId, setSelectedProductId] = useState<string>(
+    () => productIdFromQuery() || 'hb-h10a-dualboiler',
+  );
   const [selectedPageSlug, setSelectedPageSlug] = useState<string>('privacy-policy');
   const [countryNoticeVisible, setCountryNoticeVisible] = useState(true);
 
@@ -403,6 +417,35 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
     }
     const targetRoute = route as RouteType;
+    try {
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        if (targetRoute === 'home') {
+          url.searchParams.delete('page');
+          url.searchParams.delete('product');
+          url.searchParams.delete('productId');
+        } else {
+          url.searchParams.set(
+            'page',
+            targetRoute === 'product-detail'
+              ? 'product'
+              : targetRoute === 'product-buy'
+                ? 'buy'
+                : targetRoute === 'products'
+                  ? 'products'
+                  : targetRoute,
+          );
+          const pid = productId || productIdFromQuery();
+          if ((targetRoute === 'product-detail' || targetRoute === 'product-buy') && pid) {
+            url.searchParams.set('product', pid);
+          } else if (targetRoute !== 'product-detail' && targetRoute !== 'product-buy') {
+            url.searchParams.delete('product');
+            url.searchParams.delete('productId');
+          }
+        }
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+      }
+    } catch {}
     setCurrentRoute((prev) => {
       setPreviousRoute(prev);
       setRouteHistory((h) => {
@@ -483,6 +526,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ? `تمت إضافة "${product.nameAr || product.name}" إلى السلة ✦`
       : `Added "${product.name}" to Shopping Bag ✦`;
     showToast(toastMsg);
+
+    const pid = String(product.id || '');
+    if (pid && !pid.startsWith('hb-custom-') && !pid.startsWith('custom_')) {
+      trackStorefrontEvent(storeIdRef.current, 'add_to_cart', {
+        path: typeof location !== 'undefined' ? location.pathname : '/cart',
+        meta: {
+          product_id: pid,
+          product_name: product.name || product.nameAr || undefined,
+        },
+      });
+    }
   };
 
   const addCustomCornerToCart = (
@@ -627,6 +681,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   } catch {
     tenant = null;
   }
+  storeIdRef.current = tenant?.activeStore?.id || undefined;
 
   useEffect(() => {
     const onReady = (event: Event) => {

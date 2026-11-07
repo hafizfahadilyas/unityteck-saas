@@ -232,7 +232,7 @@ export const ReportsAiInsights: React.FC<ReportsAiInsightsProps> = ({
           </div>
           <div className="mt-3">
             <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {kpis?.revenue_growth || (rawTotalOrders > 0 ? '+18.4%' : '0%')}
+              {kpis?.revenue_growth || '0%'}
             </div>
             <span className="text-[11px] text-slate-400 mt-1 inline-block">
               {isAr ? 'مقارنة بالفترة السابقة' : 'vs. previous baseline period'}
@@ -252,10 +252,10 @@ export const ReportsAiInsights: React.FC<ReportsAiInsightsProps> = ({
           </div>
           <div className="mt-3">
             <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {kpis?.conversion_rate || (rawTotalOrders > 0 ? '2.85%' : '0.00%')}
+              {kpis?.conversion_rate || '0%'}
             </div>
-            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1 inline-block">
-              {rawTotalOrders > 0 ? `+0.4% ${isAr ? 'تحسن عن الأسبوع الماضي' : 'improved vs last week'}` : '—'}
+            <span className="text-[11px] text-slate-400 font-medium mt-1 inline-block">
+              {isAr ? 'من الزيارات الحقيقية فقط' : 'From real visits only'}
             </span>
           </div>
         </div>

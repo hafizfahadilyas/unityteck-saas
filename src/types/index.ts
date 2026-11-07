@@ -195,6 +195,18 @@ export interface Product {
   taxRate?: number;
   /** Shipping weight in kilograms (premium kg-wise delivery) */
   weightKg?: number | null;
+  /** Per-product shipping override: store_default | own_delivery | shipping_company */
+  shippingMode?: 'store_default' | 'own_delivery' | 'shipping_company' | null;
+  shippingMethodId?: string | null;
+  deliveryFee?: number | null;
+  estimatedDeliveryText?: string | null;
+  requiresOwnDriver?: boolean;
+  allowOwnDelivery?: boolean;
+  allowShippingCompany?: boolean;
+  shippingRateMode?: 'fixed' | 'per_kg' | 'per_km' | 'zone' | null;
+  shippingPerKgRate?: number | null;
+  shippingPerKmRate?: number | null;
+  shippingPaymentOptions?: Array<'cod' | 'online' | 'bank_transfer'> | null;
   stock: number;
   status: 'published' | 'draft' | 'archived';
   isActive?: boolean;
@@ -452,7 +464,12 @@ export type PaymentMethod =
   | 'COD'
   | 'Tabby'
   | 'Tamara'
+  | 'Bank Transfer'
+  | 'bank_transfer'
   | string;
+
+export type DeliveryMode = 'own_delivery' | 'shipping_company';
+export type PaymentPlan = 'full' | 'partial' | 'installment';
 
 export interface OrderItemDetail {
   id: string;
@@ -565,6 +582,13 @@ export interface Order {
   customStatusId?: string;
   isArchived?: boolean;
   archivedAt?: string;
+  /** own_delivery | shipping_company — from API when set */
+  deliveryMode?: DeliveryMode | string | null;
+  driverId?: string | null;
+  bankAccountId?: string | null;
+  paymentPlan?: PaymentPlan | string | null;
+  amountPaid?: number | null;
+  remainingBalance?: number | null;
 }
 
 export interface ActivityItem {
@@ -827,20 +851,35 @@ export type ShippingMethodType =
   | 'local_pickup'
   | 'cod';
 
+export type ShippingFulfillmentMode = 'own_delivery' | 'courier';
+export type ShippingRateMode = 'fixed' | 'per_kg' | 'per_km' | 'zone';
+export type ShippingPaymentOption = 'cod' | 'online' | 'bank_transfer';
+export type ShippingEtaType = 'same_day' | 'hours' | 'days';
+
 export interface ShippingMethodItem {
   id: string;
   storeId: string;
   name: string;
   nameAr?: string;
   type: ShippingMethodType;
+  fulfillmentMode?: ShippingFulfillmentMode;
   baseRate: number;
   perKgRate?: number;
+  perKmRate?: number;
   minOrderAmount?: number;
   freeShippingThreshold?: number | null;
   estimatedDelivery: string;
+  etaType?: ShippingEtaType;
+  etaValue?: number | null;
+  trackingEnabled?: boolean;
   isCodAllowed: boolean;
+  allowOnline?: boolean;
+  allowBankTransfer?: boolean;
+  paymentOptions?: ShippingPaymentOption[];
   codFee?: number;
   courierCode?: string | null;
+  logoUrl?: string | null;
+  vehicleType?: 'bike' | 'car' | 'van' | null;
   isActive: boolean;
   sortOrder?: number;
   description?: string;

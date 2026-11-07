@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { OrderStatus } from '../../../types';
 import { usePrefs } from '../../../i18n/PrefsContext';
-import { ORDER_STATUS_CHANGE_OPTIONS } from '../../../utils/orderStatuses';
+import { useTenant } from '../../../context/TenantContext';
+import { getStoreOrderStatusOptions } from '../../../utils/orderStatuses';
 import { ChevronDown } from 'lucide-react';
 
 const STATUS_TONE: Record<string, string> = {
@@ -52,14 +53,19 @@ export const OrderStatusSelect: React.FC<OrderStatusSelectProps> = ({
   compact = true,
 }) => {
   const { locale } = usePrefs();
+  const { activeStore } = useTenant();
   const isAr = locale === 'ar';
   const key = String(value || 'pending').toLowerCase().replace(/[\s-]+/g, '_');
   const tone =
     STATUS_TONE[key] ||
     'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
 
-  const known = ORDER_STATUS_CHANGE_OPTIONS.some((o) => o.value === value);
-  const selectValue = known ? value : key;
+  const options = useMemo(
+    () => getStoreOrderStatusOptions(activeStore?.id),
+    [activeStore?.id],
+  );
+  const known = options.some((o) => o.value === value || o.value === key);
+  const selectValue = known ? (options.some((o) => o.value === value) ? value : key) : key;
 
   return (
     <div className={`relative inline-flex max-w-full ${className}`}>
@@ -81,7 +87,7 @@ export const OrderStatusSelect: React.FC<OrderStatusSelectProps> = ({
         {!known && value ? (
           <option value={selectValue}>{String(value)}</option>
         ) : null}
-        {ORDER_STATUS_CHANGE_OPTIONS.map((opt) => (
+        {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
             {isAr ? opt.labelAr : opt.labelEn}
           </option>

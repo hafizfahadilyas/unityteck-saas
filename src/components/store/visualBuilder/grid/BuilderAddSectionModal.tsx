@@ -18,6 +18,7 @@ import {
   Flame,
 } from 'lucide-react';
 import type { ThemeSectionDefinition } from '../../../../themes/types';
+import { GlobalModal } from '../../../common/GlobalModal';
 
 export interface NewSectionPayload {
   layoutColumns: '1' | '2' | '3' | '4' | '5' | '8' | '2-asym-left' | '2-asym-right' | 'bento' | '25-25-50' | '50-25-25' | '25-50-25' | '16-66-16';
@@ -48,8 +49,6 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
 }) => {
   const [selectedColumns, setSelectedColumns] = useState<NewSectionPayload['layoutColumns']>('1');
   const [selectedType, setSelectedType] = useState<string>('hero_slider');
-
-  if (!isOpen) return null;
 
   const columnLayouts = [
     {
@@ -420,11 +419,13 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-      <div
-        className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
-        dir={isAr ? 'rtl' : 'ltr'}
-      >
+    <GlobalModal
+      isOpen={isOpen}
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'إضافة قسم جديد وتخطيط الشبكة' : 'Add New Section & Grid Layout'}
+    >
+      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-3">
@@ -556,6 +557,6 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

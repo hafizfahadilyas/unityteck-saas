@@ -25,30 +25,18 @@ export interface CanvaTemplatesPanelProps {
   onSelectFormatPreset?: (width: number, height: number, label: string) => void;
 }
 
-const NICHE_SAMPLES: Record<string, string> = {
-  coffee: '/coffee-theme-refs/image15.png',
-  flowers: '',
-  general: '/coffee-theme-refs/image15.png',
-  blank: '',
-};
-
 /** True mini-canvas preview — layers at real xPct/yPct (no crude bottom overlay). */
 const TemplatePreviewCard: React.FC<{
   template: CanvaDesignTemplate;
   isAr: boolean;
   activeImageUrl?: string;
   storeNiche: CanvaTemplateNiche;
-}> = ({ template, isAr, activeImageUrl, storeNiche }) => {
+}> = ({ template, isAr, activeImageUrl }) => {
   const isBlank = template.niche === 'blank';
   const isLogo = template.category === 'logo';
 
-  const previewImg =
-    activeImageUrl ||
-    template.sampleImageUrl ||
-    (template.niche === 'coffee' || (template.niche === 'general' && storeNiche === 'coffee')
-      ? NICHE_SAMPLES.coffee
-      : '') ||
-    '';
+  // Only store/media URL or template sample — never hardcode coffee/flowers assets
+  const previewImg = activeImageUrl || template.sampleImageUrl || '';
 
   const aspectClass =
     template.width > template.height * 1.5
@@ -67,11 +55,9 @@ const TemplatePreviewCard: React.FC<{
 
   return (
     <div
-      className={`relative w-full ${aspectClass} overflow-hidden select-none rounded-xl ring-1 ring-black/5 shadow-sm group-hover:shadow-md transition-shadow`}
+      className={`relative w-full ${aspectClass} overflow-hidden select-none rounded-lg ring-1 ring-slate-200`}
       style={{ background: template.previewGradient }}
     >
-      {/* Soft vignette — light, not heavy dark wash */}
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-white/20 via-transparent to-black/15" />
 
       {/* Decorative shapes at real positions */}
       {shapeLayers.map((s, i) => (
@@ -110,7 +96,7 @@ const TemplatePreviewCard: React.FC<{
           <img
             src={previewImg}
             alt=""
-            className="max-w-full max-h-full object-contain drop-shadow-md"
+            className="max-w-full max-h-full object-contain"
             loading="lazy"
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).style.display = 'none';
@@ -156,17 +142,16 @@ const TemplatePreviewCard: React.FC<{
       })}
 
       {isBlank && (
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 text-slate-400">
-          <FilePlus2 className="w-5 h-5 opacity-70" />
-          <span className="text-[9px] font-bold tracking-wide">
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 text-slate-600">
+          <FilePlus2 className="w-5 h-5 opacity-80" />
+          <span className="text-[9px] font-bold tracking-wide text-slate-700">
             {isAr ? 'فارغ' : 'BLANK'}
           </span>
         </div>
       )}
 
-      {/* Size chip */}
       <div className="absolute bottom-1.5 end-1.5 z-30">
-        <span className="px-1.5 py-0.5 rounded-md text-[7px] font-bold bg-white/85 text-slate-700 shadow-sm backdrop-blur-sm">
+        <span className="px-1.5 py-0.5 rounded text-[7px] font-bold bg-white text-slate-800 border border-slate-200">
           {template.width}×{template.height}
         </span>
       </div>
@@ -234,18 +219,8 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
     },
   ];
 
-  const nicheLabel =
-    storeNiche === 'coffee'
-      ? isAr
-        ? 'قوالب القهوة'
-        : 'Coffee pack'
-      : storeNiche === 'flowers'
-        ? isAr
-          ? 'قوالب الزهور'
-          : 'Flowers pack'
-        : isAr
-          ? 'قوالب متجرك'
-          : 'Your store pack';
+  // Generic chrome only — never surface coffee/flowers pack names in UI
+  const nicheLabel = isAr ? 'قوالب متجرك' : 'Your templates';
 
   const templates = useMemo(() => {
     let list = listCanvaTemplatesForStore(store, activeCategory);
@@ -319,15 +294,27 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
                   onSelectFormatPreset?.(w, h, card.labelEn);
                 }
               }}
-              className={`p-2 rounded-xl text-start shadow-sm hover:shadow-md hover:scale-[1.02] cursor-pointer transition-all flex flex-col justify-between h-14 relative overflow-hidden ${
-                card.dark ? 'text-slate-700 border border-slate-200' : 'text-white'
+              className={`p-2 rounded-lg text-start cursor-pointer transition-colors flex flex-col justify-between h-14 relative overflow-hidden border ${
+                card.dark
+                  ? 'cs-format-blank text-slate-800 border-slate-200'
+                  : 'text-white border-transparent'
               }`}
               style={{ background: card.grad }}
             >
-              <div className="text-[10px] sm:text-[11px] font-black leading-tight drop-shadow-sm">
+              <div
+                className={`text-[10px] sm:text-[11px] font-black leading-tight ${
+                  card.dark ? 'text-slate-800' : 'text-white'
+                }`}
+              >
                 {isAr ? card.labelAr : card.labelEn}
               </div>
-              <div className="text-[8px] font-bold opacity-80 font-mono">{card.size}</div>
+              <div
+                className={`text-[8px] font-bold font-mono ${
+                  card.dark ? 'text-slate-600' : 'text-white/90'
+                }`}
+              >
+                {card.size}
+              </div>
             </button>
           ))}
         </div>
@@ -346,11 +333,16 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
             key={p.id}
             type="button"
             onClick={() => setNicheFilter(p.id)}
-            className={`px-2.5 py-1 rounded-xl text-[10px] font-black border cursor-pointer transition-all ${
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-black border cursor-pointer transition-colors ${
               nicheFilter === p.id
-                ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
-                : 'border-border text-muted hover:border-emerald-500/60'
+                ? 'text-white border-transparent'
+                : 'border-slate-200 text-slate-600 bg-white'
             }`}
+            style={
+              nicheFilter === p.id
+                ? { background: 'var(--accent, #1d8b94)', borderColor: 'var(--accent, #1d8b94)' }
+                : undefined
+            }
           >
             {isAr ? p.ar : p.en}
           </button>
@@ -369,7 +361,7 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
               ? 'ابحث في القوالب الجاهزة...'
               : 'Search premade templates...'
           }
-          className="w-full ps-8 pe-3 py-1.5 rounded-xl text-xs border bg-surface/50 border-border focus:border-emerald-500 focus:outline-none transition-colors"
+          className="w-full ps-8 pe-3 py-1.5 rounded-lg text-xs border bg-white text-slate-900 border-slate-200 focus:border-emerald-500 focus:outline-none transition-colors placeholder:text-slate-400"
         />
       </div>
 
@@ -378,11 +370,16 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
         <button
           type="button"
           onClick={() => setActiveCategory('all')}
-          className={`px-2.5 py-1 rounded-xl text-[10px] font-black border cursor-pointer transition-all ${
+          className={`px-2.5 py-1 rounded-lg text-[10px] font-black border cursor-pointer transition-colors ${
             activeCategory === 'all'
-              ? 'bg-slate-800 text-white border-slate-700'
-              : 'border-border text-muted hover:border-slate-500'
+              ? 'text-white border-transparent'
+              : 'border-slate-200 text-slate-600 bg-white hover:border-slate-400'
           }`}
+          style={
+            activeCategory === 'all'
+              ? { background: 'var(--accent, #1d8b94)', borderColor: 'var(--accent, #1d8b94)' }
+              : undefined
+          }
         >
           {isAr ? 'الكل' : 'All'}
         </button>
@@ -391,11 +388,16 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
             key={c.id}
             type="button"
             onClick={() => setActiveCategory(c.id)}
-            className={`px-2.5 py-1 rounded-xl text-[10px] font-black border cursor-pointer transition-all ${
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-black border cursor-pointer transition-colors ${
               activeCategory === c.id
-                ? 'bg-slate-800 text-white border-slate-700'
-                : 'border-border text-muted hover:border-slate-500'
+                ? 'text-white border-transparent'
+                : 'border-slate-200 text-slate-600 bg-white hover:border-slate-400'
             }`}
+            style={
+              activeCategory === c.id
+                ? { background: 'var(--accent, #1d8b94)', borderColor: 'var(--accent, #1d8b94)' }
+                : undefined
+            }
           >
             {isAr ? c.labelAr : c.labelEn}
           </button>
@@ -415,31 +417,29 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
         {templates.map((tpl) => {
           const unlocked = isCanvaTemplateUnlocked(tpl, store);
           const isSelected = selectedTemplateId === tpl.id;
-          const nicheTag =
+          const typeTag =
             tpl.niche === 'blank'
               ? isAr
                 ? 'فارغ'
                 : 'Blank'
-              : tpl.niche === 'coffee'
-                ? isAr
-                  ? 'قهوة'
-                  : 'Coffee'
-                : tpl.niche === 'flowers'
-                  ? isAr
-                    ? 'زهور'
-                    : 'Flowers'
-                  : isAr
-                    ? 'عام'
-                    : 'General';
+              : isAr
+                ? 'قالب'
+                : 'Template';
 
           return (
             <div
               key={tpl.id}
-              className={`group relative rounded-2xl border p-1.5 transition-all flex flex-col bg-surface/40 ${
-                isSelected
-                  ? 'border-emerald-500 ring-2 ring-emerald-500/25'
-                  : 'border-border hover:border-slate-400'
+              className={`group relative rounded-lg border p-1.5 transition-colors flex flex-col bg-white ${
+                isSelected ? 'ring-1' : 'border-slate-200 hover:border-slate-400'
               }`}
+              style={
+                isSelected
+                  ? {
+                      borderColor: 'var(--accent, #1d8b94)',
+                      boxShadow: '0 0 0 1px color-mix(in srgb, var(--accent, #1d8b94) 30%, transparent)',
+                    }
+                  : undefined
+              }
             >
               <button
                 type="button"
@@ -456,16 +456,23 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
 
               <div className="mt-1.5 flex items-center justify-between gap-1 px-0.5">
                 <div className="min-w-0 flex-1">
-                  <div className="text-[10px] font-black truncate">
+                  <div className="text-[10px] font-black truncate text-slate-900">
                     {isAr ? tpl.nameAr : tpl.nameEn}
                   </div>
-                  <div className="text-[8px] text-muted flex items-center gap-1 font-mono">
-                    <span className="text-emerald-600/90 font-bold not-italic font-sans">
-                      {nicheTag}
+                  <div className="text-[8px] text-slate-500 flex items-center gap-1 font-mono">
+                    <span
+                      className="font-bold not-italic font-sans"
+                      style={{ color: 'var(--accent, #1d8b94)' }}
+                    >
+                      {typeTag}
                     </span>
                     <span>·</span>
-                    <span className={tpl.tier === 'pro' ? 'text-amber-500' : 'text-emerald-600'}>
-                      {tpl.tier === 'pro' ? 'PRO' : 'FREE'}
+                    <span
+                      style={{
+                        color: tpl.tier === 'pro' ? 'var(--tone-warn, #d97706)' : 'var(--accent, #1d8b94)',
+                      }}
+                    >
+                      {tpl.tier === 'pro' ? (isAr ? 'برو' : 'PRO') : isAr ? 'مجاني' : 'FREE'}
                     </span>
                   </div>
                 </div>
@@ -474,7 +481,8 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => onApply(tpl)}
-                    className="shrink-0 px-2 py-1 rounded-lg text-[9px] font-black bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer shadow-sm active:scale-95 transition-transform"
+                    className="shrink-0 px-2 py-1 rounded-lg text-[9px] font-black text-white cursor-pointer"
+                    style={{ background: 'var(--accent, #1d8b94)' }}
                   >
                     {isAr ? 'تطبيق' : 'Use'}
                   </button>
@@ -482,7 +490,7 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
                   <button
                     type="button"
                     onClick={onRequestPro}
-                    className="shrink-0 p-1 rounded-lg bg-amber-500/15 text-amber-600 border border-amber-500/30 cursor-pointer"
+                    className="shrink-0 p-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 cursor-pointer"
                     title={isAr ? 'يتطلب باقة برو' : 'Requires Pro'}
                   >
                     <Lock className="w-3.5 h-3.5" />

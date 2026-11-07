@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 import type { WhatsAppTemplateItem } from '../../../types/whatsapp';
 import {
   fetchWhatsAppTemplates,
@@ -1169,7 +1170,12 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
 
       {/* MODAL 1: Create New Template Modal */}
       {showNewTplModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowNewTplModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إنشاء قالب واتساب جديد' : 'Create New WhatsApp Template'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full overflow-hidden text-start">
             <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
@@ -1182,7 +1188,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     {isAr
-                      ? 'سيتم إرسال القالب لـ Meta للاعتماد والمزامنة مع حسابك'
+                      ? 'سيتم إرسال القالب إلى ميتا للاعتماد والمزامنة مع حسابك'
                       : 'Template will be submitted to Meta for verification and sync'}
                   </p>
                 </div>
@@ -1309,12 +1315,17 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* MODAL 2: Send Test Message Modal */}
       {showTestModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowTestModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إرسال رسالة تجريبية' : 'Send Test Message'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-md w-full overflow-hidden text-start">
             <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
@@ -1392,12 +1403,17 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Anti-Ban Safety Protection Details Modal */}
       {showSafetyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowSafetyModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إرشادات الحماية من حظر الرقم' : 'WhatsApp Anti-Ban Rules & Quota Safety'}
+        >
           <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
@@ -1406,11 +1422,11 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'إرشادات الحماية من حظر الرقم (Anti-Ban Rules)' : 'WhatsApp Anti-Ban Rules & Quota Safety'}
+                    {isAr ? 'إرشادات الحماية من حظر الرقم' : 'WhatsApp Anti-Ban Rules & Quota Safety'}
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     {isAr
-                      ? 'كيف تحمي رقم هاتفك من الحظر وخوارزميات السبام'
+                      ? 'كيف تحمي رقم هاتفك من الحظر وخوارزميات الرسائل المزعجة'
                       : 'How your phone number is protected from WhatsApp spam blocks'}
                   </p>
                 </div>
@@ -1432,7 +1448,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
                 </div>
                 <p className="text-[11px] text-rose-800 dark:text-rose-300 leading-relaxed">
                   {isAr
-                    ? 'تقوم خوارزميات Meta بمراقبة الإرسال الآلي الكثيف. عند إرسال رسائل آلية سريعة من رقم غير موثق بالكامل أو جديد، يتم تصنيف الرقم كسبام وحظره مؤقتاً أو دائماً.'
+                    ? 'تقوم خوارزميات ميتا بمراقبة الإرسال الآلي الكثيف. عند إرسال رسائل آلية سريعة من رقم غير موثق بالكامل أو جديد، يتم تصنيف الرقم كرسائل مزعجة وحظره مؤقتاً أو دائماً.'
                     : 'Meta automated spam detectors flag numbers that send high-volume automated messages too quickly without prior customer contact. This can result in permanent phone number bans.'}
                 </p>
               </div>
@@ -1440,16 +1456,16 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
               <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-2">
                 <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span>{isAr ? 'الحدود المحددة من الإدارة العامة (Master Admin)' : 'Master Admin Safe Limits:'}</span>
+                  <span>{isAr ? 'الحدود المحددة من الإدارة العامة:' : 'Master Admin Safe Limits:'}</span>
                 </h4>
                 <ul className="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-300 ps-4 list-disc">
                   <li>
                     <strong>{isAr ? 'الحد اليومي الآمن:' : 'Safe Daily Limit:'}</strong>{' '}
-                    {isAr ? '10 رسائل تلقائية في اليوم للحفاظ على تقييم جودة الرقم (Quality Rating).' : '10 automated API messages per day to maintain green quality rating.'}
+                    {isAr ? '١٠ رسائل تلقائية في اليوم للحفاظ على تقييم جودة الرقم.' : '10 automated API messages per day to maintain green quality rating.'}
                   </li>
                   <li>
                     <strong>{isAr ? 'الحد الشهري:' : 'Monthly Limit:'}</strong>{' '}
-                    {isAr ? '50 رسالة شهرياً لكل متجر، ويمكن تعديلها من قبل Master Admin حسب الطلب.' : '50 messages per month per store, fully configurable by Master Admin.'}
+                    {isAr ? '٥٠ رسالة شهرياً لكل متجر، ويمكن تعديلها من قبل الإدارة العامة حسب الطلب.' : '50 messages per month per store, fully configurable by Master Admin.'}
                   </li>
                 </ul>
               </div>
@@ -1457,11 +1473,11 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
               <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 space-y-1">
                 <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-800 dark:text-emerald-300">
                   <MessageSquare className="w-4 h-4" />
-                  <span>{isAr ? 'الحل المجاني 100% مدى الحياة (واتساب مباشر)' : '100% Free Lifetime Solution (Direct WhatsApp):'}</span>
+                  <span>{isAr ? 'الحل المجاني بالكامل مدى الحياة (واتساب مباشر)' : '100% Free Lifetime Solution (Direct WhatsApp):'}</span>
                 </div>
                 <p className="text-[11px] text-emerald-800 dark:text-emerald-300 leading-relaxed">
                   {isAr
-                    ? 'استخدم زر «واتساب مباشر» لفتح محادثة واتساب ويب أو التطبيق فوراً. هذه الطريقة مجانية 100% مدى الحياة، بلا أي رسوم، وبلا أي حدود يومية، وآمنة تماماً ضد الحظر!'
+                    ? 'استخدم زر «واتساب مباشر» لفتح محادثة واتساب على الويب أو التطبيق فوراً. هذه الطريقة مجانية بالكامل مدى الحياة، بلا أي رسوم، وبلا أي حدود يومية، وآمنة تماماً ضد الحظر!'
                     : 'Use the Direct WhatsApp button to open WhatsApp Web or your phone app directly. This option is 100% free lifetime, has zero quota limits, and zero risk of automated bans!'}
                 </p>
               </div>
@@ -1488,7 +1504,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

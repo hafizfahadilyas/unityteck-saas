@@ -62,15 +62,21 @@ type MemHit = { at: number; data: unknown };
 const getMemory = new Map<string, MemHit>();
 const getInflight = new Map<string, Promise<unknown>>();
 
-/** Drop short-lived GET coalescing so the next read hits MySQL. */
+/** Drop short-lived GET coalescing so the next read hits MySQL (memory + in-flight). */
 export function invalidateApiGetCache(storeId?: string): void {
   if (!storeId) {
     getMemory.clear();
+    getInflight.clear();
     return;
   }
   const needle = storeId;
-  for (const key of getMemory.keys()) {
+  for (const key of [...getMemory.keys()]) {
     if (key.includes(needle)) getMemory.delete(key);
+  }
+  // Clear in-flight GETs too — otherwise a pre-write request can finish after
+  // POST and overwrite fresh UI state (e.g. newly created manual orders vanish).
+  for (const key of [...getInflight.keys()]) {
+    if (key.includes(needle)) getInflight.delete(key);
   }
 }
 

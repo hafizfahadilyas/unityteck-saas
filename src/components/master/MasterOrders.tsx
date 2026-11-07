@@ -49,6 +49,7 @@ import {
   ArchiveRestore,
 } from 'lucide-react';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import { RetailInvoiceModal } from '../common/RetailInvoiceModal';
 import { EditOrderModal } from '../common/EditOrderModal';
 import { WhatsAppBrandIcon } from '../common/BrandIcons';
@@ -2184,7 +2185,11 @@ const CreateOrderModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <GlobalModal
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'إنشاء طلب جديد' : 'Create New Order'}
+    >
       <div
         className="w-full max-w-lg rounded-2xl border p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150"
         style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
@@ -2279,9 +2284,9 @@ const CreateOrderModal: React.FC<{
                 style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
               >
                 <option value="mada">{isAr ? 'مدى' : 'mada'}</option>
-                <option value="Apple Pay">Apple Pay</option>
+                <option value="Apple Pay">{isAr ? 'أبل باي' : 'Apple Pay'}</option>
                 <option value="Credit Card">{isAr ? 'بطاقة ائتمان' : 'Credit Card'}</option>
-                <option value="stc pay">stc pay</option>
+                <option value="stc pay">{isAr ? 'STC باي' : 'stc pay'}</option>
                 <option value="Visa">{isAr ? 'فيزا' : 'Visa'}</option>
                 <option value="Cash on Delivery">{isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery'}</option>
               </select>
@@ -2295,7 +2300,7 @@ const CreateOrderModal: React.FC<{
                 style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
               >
                 <option value="Instagram">{isAr ? 'إنستغرام' : 'Instagram'}</option>
-                <option value="Google Ads">{isAr ? 'إعلانات Google' : 'Google Ads'}</option>
+                <option value="Google Ads">{isAr ? 'إعلانات جوجل' : 'Google Ads'}</option>
                 <option value="Direct">{isAr ? 'مباشر' : 'Direct'}</option>
                 <option value="TikTok">{isAr ? 'تيك توك' : 'TikTok'}</option>
                 <option value="Snapchat">{isAr ? 'سناب شات' : 'Snapchat'}</option>
@@ -2335,6 +2340,6 @@ const CreateOrderModal: React.FC<{
           </div>
         </form>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

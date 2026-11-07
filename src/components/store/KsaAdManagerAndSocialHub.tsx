@@ -27,6 +27,7 @@ import {
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import {
   KSA_CITIES,
   type KsaCity,
@@ -1002,19 +1003,20 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
 
       {/* Manual Ad Campaign Modal */}
       {showManualModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-2xs"
-          onClick={() => setShowManualModal(false)}
+        <GlobalModal
+          isOpen
+          onClose={() => setShowManualModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إنشاء حملة إعلانية سعودية مخصصة' : 'Manual Saudi Arabia Ad Campaign Builder'}
         >
           <form
             onSubmit={handleCreateManualCampaign}
-            onClick={(e) => e.stopPropagation()}
             className="w-full max-w-lg rounded-3xl border shadow-2xl p-6 space-y-4"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
           >
             <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
               <h3 className="font-black text-base">
-                {isAr ? 'إنشاء حملة إعلانية سعودية مخصصة (يدوي)' : 'Manual Saudi Arabia Ad Campaign Builder'}
+                {isAr ? 'إنشاء حملة إعلانية سعودية مخصصة' : 'Manual Saudi Arabia Ad Campaign Builder'}
               </h3>
               <button type="button" onClick={() => setShowManualModal(false)} className="p-1.5 rounded-xl border" style={{ borderColor: 'var(--border)' }}>
                 <X className="w-4 h-4" />
@@ -1122,11 +1124,11 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
                 type="submit"
                 className="px-5 py-2 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 cursor-pointer"
               >
-                {isAr ? 'إطلاق الحملة وتفعيل UTM' : 'Launch Campaign & Track UTM'}
+                {isAr ? 'إطلاق الحملة وتفعيل التتبع' : 'Launch Campaign & Track UTM'}
               </button>
             </div>
           </form>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Advance Feature Coming Soon Modal */}

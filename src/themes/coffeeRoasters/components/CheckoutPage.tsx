@@ -1,13 +1,23 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { cartChoiceLine } from '../cartLine';
 import { useTenant } from '../../../context/TenantContext';
-import { CreditCard, MapPin, Truck, CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react';
-import { MadaIcon, ApplePayIcon, TabbyIcon, TamaraIcon, VisaIcon, MastercardIcon, CodIcon } from './PaymentIcons';
+import { MapPin, Truck, ArrowRight, ArrowLeft } from 'lucide-react';
 import { PaymentGatewaySelector, type PaymentMethodId } from '../../../components/storefront/checkout/PaymentGatewaySelector';
+import {
+  CheckoutShippingMethods,
+  type CheckoutShippingMethodOption,
+} from '../../../components/storefront/checkout/CheckoutShippingMethods';
+import {
+  CheckoutLocationPicker,
+  type CheckoutGeoPoint,
+} from '../../../components/storefront/checkout/CheckoutLocationPicker';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 import { submitPublicStorefrontOrder } from '../../../utils/submitStorefrontOrder';
 import { readTrafficSource } from '../../../utils/trafficSource';
+import { trackStorefrontEvent } from '../../../utils/storefrontAnalytics';
+import { calculateShippingRates } from '../../../api/tenantApi';
+import { isApiEnabled } from '../../../api/client';
 
 const SAUDI_CITIES = [
   { en: 'Riyadh', ar: 'الرياض' },
@@ -40,6 +50,13 @@ export const CheckoutPage: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'tabby' | 'tamara' | 'mada' | 'apple_pay' | 'card' | 'cod'>('mada');
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderNote, setOrderNote] = useState('');
+  const [shippingFee, setShippingFee] = useState(0);
+  const [shippingHint, setShippingHint] = useState<string | null>(null);
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [shippingMethods, setShippingMethods] = useState<CheckoutShippingMethodOption[]>([]);
+  const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
+  const [selectedMethodLabel, setSelectedMethodLabel] = useState<string>('');
+  const [geo, setGeo] = useState<CheckoutGeoPoint | null>(null);
   const checkoutFields = activeStore?.id
     ? resolveCoffeeThemeSettings(activeStore.id, activeStore).checkoutFields
     : undefined;
@@ -47,7 +64,98 @@ export const CheckoutPage: React.FC = () => {
   const showOrderNote = checkoutFields?.showOrderNote === true;
   const guestBlocked = checkoutFields?.allowGuest === false && !user;
 
-  const installmentSAR = Math.round(cartTotal / 4);
+  const orderGrandTotal = cartTotal + (Number.isFinite(shippingFee) ? shippingFee : 0);
+
+  const moneyFmt = useMemo(
+    () => (n: number) =>
+      language === 'AR' ? `${n.toLocaleString()} ر.س` : `SAR ${n.toLocaleString()}`,
+    [language],
+  );
+
+  const distanceKm = useMemo(() => {
+    if (!geo) return undefined;
+    // Approx distance from Makkah Haram center as local-delivery reference
+    const makkah = { lat: 21.4225, lng: 39.8262 };
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const R = 6371;
+    const dLat = toRad(geo.lat - makkah.lat);
+    const dLng = toRad(geo.lng - makkah.lng);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(makkah.lat)) * Math.cos(toRad(geo.lat)) * Math.sin(dLng / 2) ** 2;
+    return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 10) / 10;
+  }, [geo]);
+
+  useEffect(() => {
+    if (!activeStore?.id || cart.length === 0) return;
+    const first = cart[0];
+    trackStorefrontEvent(activeStore.id, 'begin_checkout', {
+      path: typeof location !== 'undefined' ? location.pathname : '/checkout',
+      meta: {
+        product_id: first?.productId || undefined,
+        product_name: first?.productName || undefined,
+        product_ids: cart.map((it) => it.productId).filter(Boolean),
+        items_count: cart.reduce((acc, curr) => acc + (curr.quantity || 1), 0),
+        cart_total: cartTotal,
+      },
+    });
+  }, [activeStore?.id]);
+
+  useEffect(() => {
+    if (!showShipping || !activeStore?.id || !city.trim() || !isApiEnabled()) {
+      setShippingFee(0);
+      setShippingHint(null);
+      setShippingMethods([]);
+      return;
+    }
+    let cancelled = false;
+    setShippingLoading(true);
+    const productIds = cart.map((it) => it.productId).filter(Boolean) as string[];
+    void calculateShippingRates(activeStore.id, {
+      city: city.trim(),
+      order_total: cartTotal,
+      distance_km: distanceKm,
+      product_ids: productIds.length ? productIds : undefined,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        const methods = Array.isArray(res?.available_methods)
+          ? (res.available_methods as CheckoutShippingMethodOption[])
+          : [];
+        setShippingMethods(methods);
+        setShippingHint(res?.fulfillment_hint ? String(res.fulfillment_hint) : null);
+
+        setSelectedMethodId((prevId) => {
+          const still = prevId && methods.some((m) => m.id === prevId);
+          const picked = still
+            ? methods.find((m) => m.id === prevId)!
+            : methods[0] || null;
+          if (picked) {
+            setShippingFee(Number(picked.fee) || 0);
+            setSelectedMethodLabel(
+              language === 'AR' ? picked.name_ar || picked.name : picked.name,
+            );
+            return picked.id;
+          }
+          const fee = Number(res?.calculated_shipping_fee);
+          setSelectedMethodLabel('');
+          setShippingFee(Number.isFinite(fee) ? fee : 0);
+          return null;
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setShippingFee(0);
+        setShippingHint(null);
+        setShippingMethods([]);
+      })
+      .finally(() => {
+        if (!cancelled) setShippingLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore?.id, city, cartTotal, showShipping, cart, distanceKm, language]);
 
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,17 +188,35 @@ export const CheckoutPage: React.FC = () => {
       customerName: name,
       customerPhone: phone,
       customerEmail: user?.email || undefined,
-      deliveryLocation: `${city} - ${district}, ${street}`,
+      deliveryLocation: `${city} - ${district}, ${street}${
+        geo ? ` · ${geo.lat.toFixed(5)},${geo.lng.toFixed(5)}` : ''
+      }`,
       itemsCount: cart.reduce((acc, curr) => acc + (curr.quantity || 1), 0),
       items: lineItems,
       subtotal: cartTotal,
-      total: cartTotal,
+      shippingFee,
+      total: orderGrandTotal,
+      deliveryMode: shippingHint === 'own_delivery' ? ('own_delivery' as const) : undefined,
+      shippingCompany: selectedMethodLabel || undefined,
       status: 'pending' as const,
       paymentMethod: paymentLabel as any,
       paymentStatus: 'Pending' as const,
       source: traffic.source as any,
       sourceDetails: traffic.details,
-      customerNotes: `City: ${city}, District: ${district}, Street: ${street}`,
+      medium: traffic.medium,
+      campaign: traffic.campaign,
+      utmTerm: traffic.utmTerm,
+      utmContent: traffic.utmContent,
+      customerNotes: [
+        `City: ${city}`,
+        `District: ${district}`,
+        `Street: ${street}`,
+        selectedMethodLabel ? `Shipping: ${selectedMethodLabel}` : null,
+        geo ? `Geo: ${geo.lat.toFixed(5)},${geo.lng.toFixed(5)}` : null,
+        distanceKm != null ? `DistanceKm: ${distanceKm}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
     };
 
     void submitPublicStorefrontOrder(
@@ -99,13 +225,17 @@ export const CheckoutPage: React.FC = () => {
         customerName: name,
         customerPhone: phone,
         customerEmail: user?.email || undefined,
-        total: cartTotal,
+        total: orderGrandTotal,
         deliveryLocation: payload.deliveryLocation,
         status: 'pending',
         paymentMethod: paymentLabel,
         paymentStatus: 'Pending',
         source: traffic.source,
         sourceDetails: traffic.details,
+        medium: traffic.medium,
+        campaign: traffic.campaign,
+        utmTerm: traffic.utmTerm,
+        utmContent: traffic.utmContent,
         items: lineItems.map((item) => ({
           id: item.id,
           name: item.name,
@@ -125,7 +255,7 @@ export const CheckoutPage: React.FC = () => {
           orderNumber: order.orderNumber,
           date: order.date,
           items: [...cart],
-          total: cartTotal,
+          total: orderGrandTotal,
           paymentMethod,
           shippingAddress: { name, phone, city, district, street },
           status: 'Confirmed',
@@ -228,50 +358,37 @@ export const CheckoutPage: React.FC = () => {
                 </div>
 
                 {showShipping ? (
-                <>
-                <div>
-                  <label className="block font-semibold text-neutral-700 mb-1">
-                    {language === 'AR' ? 'المدينة' : 'City'}
-                  </label>
-                  <select
-                    value={city}
-                    onChange={e => setCity(e.target.value)}
-                    className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden cursor-pointer"
-                  >
-                    {SAUDI_CITIES.map(c => (
-                      <option key={c.en} value={language === 'AR' ? c.ar : c.en} className="bg-white text-neutral-900">
-                        {language === 'AR' ? c.ar : c.en}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-neutral-700 mb-1">
-                    {language === 'AR' ? 'الحي' : 'District'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={district}
-                    onChange={e => setDistrict(e.target.value)}
-                    className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block font-semibold text-neutral-700 mb-1">
-                    {language === 'AR' ? 'الشارع ورقم المبنى' : 'Street & Building Details'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={street}
-                    onChange={e => setStreet(e.target.value)}
-                    className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
-                  />
-                </div>
-                </>
+                  <div className="sm:col-span-2 space-y-5">
+                    <CheckoutLocationPicker
+                      isAr={language === 'AR'}
+                      city={city}
+                      district={district}
+                      street={street}
+                      onCityChange={setCity}
+                      onDistrictChange={setDistrict}
+                      onStreetChange={setStreet}
+                      geo={geo}
+                      onGeoChange={setGeo}
+                      cities={SAUDI_CITIES}
+                    />
+                    <CheckoutShippingMethods
+                      isAr={language === 'AR'}
+                      methods={shippingMethods}
+                      selectedId={selectedMethodId}
+                      loading={shippingLoading}
+                      money={moneyFmt}
+                      onSelect={(m) => {
+                        setSelectedMethodId(m.id);
+                        setShippingFee(Number(m.fee) || 0);
+                        setSelectedMethodLabel(
+                          language === 'AR' ? m.name_ar || m.name : m.name,
+                        );
+                        if (m.fulfillment_mode === 'own_delivery') {
+                          setShippingHint('own_delivery');
+                        }
+                      }}
+                    />
+                  </div>
                 ) : null}
               </div>
               {showOrderNote ? (
@@ -291,7 +408,7 @@ export const CheckoutPage: React.FC = () => {
             <div className="bg-[#F8F9FA] rounded-3xl p-5 sm:p-8">
               <PaymentGatewaySelector
                 storeId={activeStore?.id || 'store-coffee'}
-                totalAmount={cartTotal}
+                totalAmount={orderGrandTotal}
                 selectedMethod={paymentMethod as PaymentMethodId}
                 onMethodChange={(m) => setPaymentMethod(m)}
                 language={language === 'AR' ? 'ar' : 'en'}
@@ -342,14 +459,38 @@ export const CheckoutPage: React.FC = () => {
                     {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ر.س` : `SAR ${cartTotal.toLocaleString()}.00`}
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-emerald-700 font-medium">
-                  <span>{language === 'AR' ? 'الشحن السريع لكافة المدن' : 'Express Delivery'}</span>
-                  <span>{language === 'AR' ? 'مجاني' : 'FREE'}</span>
-                </div>
+                {showShipping ? (
+                  <div className="flex justify-between items-start gap-2 text-emerald-700 font-medium">
+                    <span className="min-w-0">
+                      {selectedMethodLabel
+                        || (shippingHint === 'own_delivery'
+                          ? language === 'AR'
+                            ? 'التوصيل بواسطة المتجر'
+                            : 'Store delivery'
+                          : language === 'AR'
+                            ? 'الشحن'
+                            : 'Shipping')}
+                      {shippingLoading ? '…' : ''}
+                    </span>
+                    <span className="font-sans shrink-0">
+                      {shippingLoading
+                        ? '—'
+                        : shippingFee <= 0
+                          ? language === 'AR'
+                            ? 'مجاني'
+                            : 'FREE'
+                          : language === 'AR'
+                            ? `${shippingFee.toLocaleString()} ر.س`
+                            : `SAR ${shippingFee.toLocaleString()}`}
+                    </span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between items-center text-sm sm:text-base font-black text-neutral-900 pt-2 border-t border-neutral-200/60">
                   <span>{language === 'AR' ? 'المبلغ المطلوب سداده' : 'Total Amount'}</span>
                   <span className="font-sans text-base sm:text-lg text-neutral-900">
-                    {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ر.س` : `SAR ${cartTotal.toLocaleString()}.00`}
+                    {language === 'AR'
+                      ? `${orderGrandTotal.toLocaleString()} ر.س`
+                      : `SAR ${orderGrandTotal.toLocaleString()}`}
                   </span>
                 </div>
               </div>

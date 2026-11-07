@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from './ToastProvider';
+import { GlobalModal } from './GlobalModal';
 import { type AdvanceFeatureConfig } from '../../services/advanceFeaturesService';
 
 interface AdvanceFeatureComingSoonModalProps {
@@ -33,7 +34,7 @@ export const AdvanceFeatureComingSoonModal: React.FC<AdvanceFeatureComingSoonMod
   const isAr = locale === 'ar';
   const [isNotified, setIsNotified] = useState(false);
 
-  if (!isOpen || !feature) return null;
+  if (!feature) return null;
 
   const title = isAr ? feature.nameAr : feature.nameEn;
   const description = isAr ? feature.descriptionAr : feature.descriptionEn;
@@ -66,12 +67,11 @@ export const AdvanceFeatureComingSoonModal: React.FC<AdvanceFeatureComingSoonMod
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
+    <GlobalModal
+      isOpen={isOpen}
+      onClose={onClose}
       dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={title || (isAr ? 'ميزة قادمة قريباً' : 'Coming soon feature')}
     >
       <div
         className="relative w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden transition-all text-start"
@@ -80,7 +80,6 @@ export const AdvanceFeatureComingSoonModal: React.FC<AdvanceFeatureComingSoonMod
           borderColor: 'var(--border)',
           color: 'var(--text)',
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header Ambient Accent Glow */}
         <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-teal-500 via-amber-500 to-indigo-500" />
@@ -202,6 +201,6 @@ export const AdvanceFeatureComingSoonModal: React.FC<AdvanceFeatureComingSoonMod
           </div>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

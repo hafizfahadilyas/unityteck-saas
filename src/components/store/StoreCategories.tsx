@@ -15,6 +15,7 @@ import {
   type AdvancedTableColumn,
 } from '../common/AdvancedDataTable';
 import { MediaUploadField } from '../common/MediaUploadField';
+import { GlobalModal } from '../common/GlobalModal';
 import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
 import { COFFEE_CATEGORIES_SEED } from '../../data/coffeeStoreData';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
@@ -1155,7 +1156,7 @@ export const StoreCategories: React.FC = () => {
           rowKey={(c) => c.id}
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder={isAr ? 'بحث بالاسم، المعرّف، أو SEO...' : 'Search name, slug, SEO…'}
+          searchPlaceholder={isAr ? 'بحث بالاسم، المعرّف، أو تحسين محركات البحث...' : 'Search name, slug, SEO…'}
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={onSort}
@@ -1186,7 +1187,11 @@ export const StoreCategories: React.FC = () => {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+        <GlobalModal
+          onClose={() => setShowModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={editingId ? (isAr ? 'تعديل التصنيف' : 'Edit Category') : (isAr ? 'إضافة تصنيف جديد' : 'Add Category')}
+        >
           <div className="bg-white dark:bg-[#071E26] rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 dark:border-slate-800 overflow-hidden max-h-[90vh] flex flex-col">
             <div className="bg-slate-900 dark:bg-slate-950 px-5 py-4 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
@@ -1223,7 +1228,7 @@ export const StoreCategories: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1">{isAr ? 'الرابط الدائم (Slug)' : 'Slug'}</label>
+                  <label className="block font-semibold mb-1">{isAr ? 'الرابط الدائم' : 'Slug'}</label>
                   <input
                     value={form.slug}
                     onChange={(e) => setField('slug', e.target.value)}
@@ -1258,7 +1263,7 @@ export const StoreCategories: React.FC = () => {
                 </select>
               </div>
               <MediaUploadField
-                label={isAr ? 'صورة القسم (Category Image)' : 'Category Image'}
+                label={isAr ? 'صورة القسم' : 'Category Image'}
                 value={form.imageUrl}
                 onChange={(url) => setField('imageUrl', url)}
                 recommendedSize="800 × 800 px"
@@ -1266,7 +1271,7 @@ export const StoreCategories: React.FC = () => {
                 initialFolder="categories"
               />
               <div>
-                <label className="block font-semibold mb-1">{isAr ? 'عنوان سيو (SEO)' : 'SEO title'}</label>
+                <label className="block font-semibold mb-1">{isAr ? 'عنوان تحسين محركات البحث' : 'SEO title'}</label>
                 <input
                   value={form.metaTitle}
                   onChange={(e) => setField('metaTitle', e.target.value)}
@@ -1274,7 +1279,7 @@ export const StoreCategories: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block font-semibold mb-1">{isAr ? 'وصف سيو (SEO)' : 'SEO description'}</label>
+                <label className="block font-semibold mb-1">{isAr ? 'وصف تحسين محركات البحث' : 'SEO description'}</label>
                 <textarea
                   rows={2}
                   value={form.metaDescription}
@@ -1413,7 +1418,7 @@ export const StoreCategories: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

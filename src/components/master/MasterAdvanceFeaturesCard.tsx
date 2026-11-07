@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import {
   useAdvanceFeatures,
   type AdvanceFeatureConfig,
@@ -196,8 +197,8 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
             </h2>
             <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
               {isAr
-                ? 'التحكم في إعلانات جوجل، تيك توك، محرر كانفا، النشر التلقائي وغيرها وتحديد إظهارها كـ (قريباً) مع تخصيص العنوان أو إخفائها.'
-                : 'Configure Google Ads, TikTok Ads, Canva Studio, Auto-Posting & set Coming Soon badges, custom tags, or hide them per store.'}
+                ? 'التحكم في إعلانات جوجل، تيك توك، استوديو التصميم، النشر التلقائي وغيرها وتحديد إظهارها كـ (قريباً) مع تخصيص العنوان أو إخفائها.'
+                : 'Configure Google Ads, TikTok Ads, Design Studio, Auto-Posting & set Coming Soon badges, custom tags, or hide them per store.'}
             </p>
           </div>
         </div>
@@ -381,10 +382,11 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
 
       {/* MODAL 1: EDIT ADVANCE FEATURE MODAL */}
       {editingFeature && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in"
-          onClick={() => setEditingFeature(null)}
+        <GlobalModal
+          isOpen
+          onClose={() => setEditingFeature(null)}
           dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'تعديل الوظيفة المتقدمة ووسم قريباً' : 'Edit Advance Function & Coming Soon Tag'}
         >
           <div
             className="w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden p-6 space-y-5"
@@ -393,7 +395,6 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
               borderColor: 'var(--border)',
               color: 'var(--text)',
             }}
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
               <div className="flex items-center gap-2.5">
@@ -573,15 +574,16 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* MODAL 2: ADD NEW CUSTOM ADVANCE FEATURE */}
       {isAddingNew && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in"
-          onClick={() => setIsAddingNew(false)}
+        <GlobalModal
+          isOpen
+          onClose={() => setIsAddingNew(false)}
           dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إضافة وظيفة متقدمة جديدة' : 'Add New Advance Function'}
         >
           <div
             className="w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden p-6 space-y-5"
@@ -590,7 +592,6 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
               borderColor: 'var(--border)',
               color: 'var(--text)',
             }}
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
               <div className="flex items-center gap-2.5">
@@ -729,9 +730,9 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
                       color: 'var(--input-fg)',
                     }}
                   >
-                    <option value="coming_soon">{isAr ? 'قريباً (Coming Soon)' : 'Coming Soon'}</option>
-                    <option value="active">{isAr ? 'مفعل شغال (Active)' : 'Active (Live)'}</option>
-                    <option value="hidden">{isAr ? 'مخفي (Hidden)' : 'Hidden'}</option>
+                    <option value="coming_soon">{isAr ? 'قريباً' : 'Coming Soon'}</option>
+                    <option value="active">{isAr ? 'مفعّل' : 'Active (Live)'}</option>
+                    <option value="hidden">{isAr ? 'مخفي' : 'Hidden'}</option>
                   </select>
                 </div>
               </div>
@@ -755,7 +756,7 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import { listAvailableProductChannels } from '../../config/productChannels';
 
 export interface ProductFilterCriteria {
@@ -388,7 +389,7 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                   setActivePresetId(null);
                   onCriteriaChange((prev) => ({ ...prev, search: e.target.value }));
                 }}
-                placeholder={isAr ? '...ابحث بالاسم، SKU أو الكلمات المفتاحية' : 'Search by product name, SKU, or keywords...'}
+                placeholder={isAr ? '...ابحث بالاسم أو رمز المنتج أو الكلمات المفتاحية' : 'Search by product name, SKU, or keywords...'}
                 className="w-full pl-3.5 pr-9 py-2.5 text-xs bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors text-right rtl:text-right"
               />
               <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -566,7 +567,11 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
 
       {/* ── 3. Modal: Save Current Filter ── */}
       {isSaveModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+        <GlobalModal
+          onClose={() => setIsSaveModalOpen(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'حفظ الفلتر الحالي' : 'Save Current Filter'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
@@ -608,11 +613,64 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
               <span className="font-bold block text-slate-700 dark:text-slate-200">
                 {isAr ? 'الإعدادات المحفوظة:' : 'Included Criteria:'}
               </span>
-              <div>{isAr ? 'القناة:' : 'Channel:'} <span className="font-semibold text-slate-900 dark:text-white">{criteria.channel}</span></div>
-              <div>{isAr ? 'العلامة التجارية:' : 'Brand:'} <span className="font-semibold text-slate-900 dark:text-white">{criteria.brand}</span></div>
-              <div>{isAr ? 'القسم:' : 'Category:'} <span className="font-semibold text-slate-900 dark:text-white">{criteria.category}</span></div>
-              <div>{isAr ? 'الحالة:' : 'Status:'} <span className="font-semibold text-slate-900 dark:text-white">{criteria.status}</span></div>
-              {criteria.search && <div>{isAr ? 'البحث:' : 'Search:'} <span className="font-semibold text-slate-900 dark:text-white">"{criteria.search}"</span></div>}
+              <div>
+                {isAr ? 'القناة:' : 'Channel:'}{' '}
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {criteria.channel === 'All'
+                    ? isAr
+                      ? 'الكل'
+                      : 'All'
+                    : criteria.channel}
+                </span>
+              </div>
+              <div>
+                {isAr ? 'العلامة التجارية:' : 'Brand:'}{' '}
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {criteria.brand === 'All' ? (isAr ? 'الكل' : 'All') : criteria.brand}
+                </span>
+              </div>
+              <div>
+                {isAr ? 'القسم:' : 'Category:'}{' '}
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {criteria.category === 'All' ? (isAr ? 'الكل' : 'All') : criteria.category}
+                </span>
+              </div>
+              <div>
+                {isAr ? 'الحالة:' : 'Status:'}{' '}
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {criteria.status === 'All'
+                    ? isAr
+                      ? 'الكل'
+                      : 'All'
+                    : criteria.status === 'Active'
+                      ? isAr
+                        ? 'نشط'
+                        : 'Active'
+                      : criteria.status === 'Out of Stock'
+                        ? isAr
+                          ? 'نفدت الكمية'
+                          : 'Out of Stock'
+                        : criteria.status === 'Low Stock'
+                          ? isAr
+                            ? 'مخزون منخفض'
+                            : 'Low Stock'
+                          : criteria.status === 'Draft'
+                            ? isAr
+                              ? 'مسودة'
+                              : 'Draft'
+                            : criteria.status === 'Archived'
+                              ? isAr
+                                ? 'مؤرشف'
+                                : 'Archived'
+                              : criteria.status}
+                </span>
+              </div>
+              {criteria.search && (
+                <div>
+                  {isAr ? 'البحث:' : 'Search:'}{' '}
+                  <span className="font-semibold text-slate-900 dark:text-white">"{criteria.search}"</span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
@@ -632,12 +690,16 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* ── 4. Modal: Saved Filters List ── */}
       {isSavedFiltersListOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+        <GlobalModal
+          onClose={() => setIsSavedFiltersListOpen(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إدارة الفلاتر المحفوظة' : 'Manage Saved Filters'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 max-w-lg w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
@@ -682,7 +744,9 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                         {isAr ? p.nameAr : p.name}
                       </div>
                       <div className="text-[10px] text-slate-400">
-                        Status: {p.criteria.status} • Category: {p.criteria.category}
+                        {isAr
+                          ? `الحالة: ${p.criteria.status} • القسم: ${p.criteria.category}`
+                          : `Status: ${p.criteria.status} • Category: ${p.criteria.category}`}
                       </div>
                     </div>
                   </div>
@@ -717,7 +781,9 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                           {p.name}
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          Channel: {p.criteria.channel} • Brand: {p.criteria.brand} • Status: {p.criteria.status}
+                          {isAr
+                            ? `القناة: ${p.criteria.channel} • العلامة: ${p.criteria.brand} • الحالة: ${p.criteria.status}`
+                            : `Channel: ${p.criteria.channel} • Brand: ${p.criteria.brand} • Status: ${p.criteria.status}`}
                         </div>
                       </div>
                     </div>
@@ -748,12 +814,16 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* ── 5. Modal: Create New Filter ── */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+        <GlobalModal
+          onClose={() => setIsCreateModalOpen(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إنشاء فلتر جديد' : 'Create New Filter'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 max-w-lg w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
@@ -812,7 +882,7 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                   onChange={(e) => setNewCriteria({ ...newCriteria, brand: e.target.value })}
                   className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
                 >
-                  <option value="All">All Brands</option>
+                  <option value="All">{isAr ? 'جميع العلامات' : 'All Brands'}</option>
                   {availableBrands.map((b) => (
                     <option key={b.id} value={b.name}>{b.name}</option>
                   ))}
@@ -828,7 +898,7 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                   onChange={(e) => setNewCriteria({ ...newCriteria, category: e.target.value })}
                   className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
                 >
-                  <option value="All">All Categories</option>
+                  <option value="All">{isAr ? 'جميع الأقسام' : 'All Categories'}</option>
                   {availableCategories.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
@@ -844,11 +914,11 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                   onChange={(e) => setNewCriteria({ ...newCriteria, status: e.target.value })}
                   className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
                 >
-                  <option value="All">All Statuses</option>
-                  <option value="Active">Active</option>
-                  <option value="Out of Stock">Out of Stock</option>
-                  <option value="Low Stock">Low Stock</option>
-                  <option value="Draft">Draft</option>
+                  <option value="All">{isAr ? 'جميع الحالات' : 'All Statuses'}</option>
+                  <option value="Active">{isAr ? 'نشط' : 'Active'}</option>
+                  <option value="Out of Stock">{isAr ? 'نفد المخزون' : 'Out of Stock'}</option>
+                  <option value="Low Stock">{isAr ? 'مخزون منخفض' : 'Low Stock'}</option>
+                  <option value="Draft">{isAr ? 'مسودة' : 'Draft'}</option>
                 </select>
               </div>
             </div>
@@ -870,7 +940,7 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

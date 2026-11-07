@@ -3,6 +3,7 @@ import { useTenant } from '../../context/TenantContext';
 import { ShieldCheck, Server, Database, Cloud, Zap, ArrowRight, CheckCircle2, Lock, X, Copy } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from './ToastProvider';
+import { GlobalModal } from './GlobalModal';
 
 const TOPOLOGY_EN = `Users / Merchants / Customers
      │
@@ -20,16 +21,16 @@ const TOPOLOGY_EN = `Users / Merchants / Customers
 
 const TOPOLOGY_AR = `المستخدمون / التجار / العملاء
      │
-     ├─► Admin UI (Master + Store) Vite SPA ──► Hostinger Static (apps/admin)
-     │   (تطبيق صفحة واحدة سريع، TanStack Query، React Router، مساحات عمل معزولة)
+     ├─► واجهة الإدارة (العامة + المتجر) عبر فايت ──► استضافة هوستنجر الثابتة
+     │   (تطبيق صفحة واحدة سريع، استعلامات مؤقتة، توجيه صفحات، مساحات عمل معزولة)
      │
-     ├─► Public Storefront Next.js 15 ───────► Vercel (apps/web)
-     │   (عرض من جهة الخادم لتحسين SEO، وتحديث ISR فوري بلا محتوى قديم)
+     ├─► واجهة المتجر العامة نكست ١٥ ───────► فيرسل
+     │   (عرض من جهة الخادم لتحسين محركات البحث، وتحديث فوري بلا محتوى قديم)
      │
-     ├─► Laravel 11 API (PHP 8.2+) ──────────► Hostinger (apps/api)
-     │   (مصادقة Sanctum، تعدد المستأجرين عبر store_id في MySQL 8، طوابير عبر cron)
+     ├─► واجهة برمجة لارافيل ١١ ──────────► هوستنجر
+     │   (مصادقة سحابية، تعدد المستأجرين عبر معرّف المتجر في ماي إس كيو إل، طوابير عبر كرون)
      │
-     └─► Media & Assets ─────────────────────► Cloudflare R2 + CDN
+     └─► الوسائط والأصول ─────────────────────► كلاودفلير مع شبكة توصيل المحتوى
          (روابط ثابتة مُجزّأة، بلا تكلفة نقل بيانات، تسليم فوري للصور)`;
 
 export const ArchitectureBanner: React.FC = () => {
@@ -52,7 +53,12 @@ export const ArchitectureBanner: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
+    <GlobalModal
+      isOpen
+      onClose={() => setShowArchDrawer(false)}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'بنية منصة التجارة الإلكترونية متعددة المستأجرين' : 'Multi-Tenant E-Commerce SaaS Architecture'}
+    >
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="bg-gradient-to-r rtl:bg-gradient-to-l from-[#032b28] via-[#06423d] to-[#0a524c] px-6 py-5 text-white flex items-center justify-between">
@@ -219,6 +225,6 @@ export const ArchitectureBanner: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

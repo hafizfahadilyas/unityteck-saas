@@ -4,6 +4,7 @@ import { X, Store as StoreIcon, ShieldCheck, Database, Check } from 'lucide-reac
 import { PlanType } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 
 interface CreateStoreModalProps {
   isOpen: boolean;
@@ -103,7 +104,11 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({ isOpen, onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 overflow-y-auto">
+    <GlobalModal
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'إنشاء متجر جديد' : 'Create New Store'}
+    >
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-[#05322e] to-[#0a4843] px-6 py-4 text-white flex items-center justify-between">
@@ -376,6 +381,6 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({ isOpen, onCl
           </div>
         </form>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

@@ -32,6 +32,14 @@ return [
     ],
 
     /*
+    | Clerk — email OTP for Master / Store admin. Secret never leaves the API.
+    */
+    'clerk' => [
+        'secret' => env('CLERK_SECRET_KEY'),
+        'publishable' => env('CLERK_PUBLISHABLE_KEY', env('VITE_CLERK_PUBLISHABLE_KEY')),
+    ],
+
+    /*
     | Unityteck Site Kit — one platform OAuth app; each store connects its own Google account.
     | Set on Hostinger API .env (Master once). Store owners only Sign in with Google.
     */

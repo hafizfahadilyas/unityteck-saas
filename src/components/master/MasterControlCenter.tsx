@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import { MasterAdvanceFeaturesCard } from './MasterAdvanceFeaturesCard';
 import {
   CONTROL_DEFINITIONS,
@@ -1564,7 +1565,13 @@ export const MasterControlCenter: React.FC = () => {
 
       {/* ── MODAL: APPLY CURRENT CONFIG TO ALL STORES ── */}
       {showApplyAllModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowApplyAllModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'تأكيد نشر التكوين على كافة المتاجر' : 'Confirm Global Synchronization'}
+          role="alertdialog"
+        >
           <div
             className="w-full max-w-md rounded-3xl p-6 border shadow-2xl space-y-5 animate-in zoom-in-95 duration-200"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
@@ -1590,11 +1597,11 @@ export const MasterControlCenter: React.FC = () => {
             >
               <div className="flex justify-between">
                 <span>{isAr ? 'المتاجر المتأثرة:' : 'Affected Stores:'}</span>
-                <span className="font-bold">{stores.length} stores</span>
+                <span className="font-bold">{stores.length} {isAr ? 'متجر' : 'stores'}</span>
               </div>
               <div className="flex justify-between">
                 <span>{isAr ? 'المكونات المحدثة:' : 'Total Controls:'}</span>
-                <span className="font-bold">{totalCount} items</span>
+                <span className="font-bold">{totalCount} {isAr ? 'عنصر' : 'items'}</span>
               </div>
             </div>
 
@@ -1616,12 +1623,17 @@ export const MasterControlCenter: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* ── MODAL: COPY SETTINGS FROM ANOTHER STORE ── */}
       {showCopyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowCopyModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'نسخ إعدادات متجر آخر' : 'Copy Controls From Another Store'}
+        >
           <div
             className="w-full max-w-md rounded-3xl p-6 border shadow-2xl space-y-5 animate-in zoom-in-95 duration-200"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
@@ -1683,12 +1695,17 @@ export const MasterControlCenter: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* ── MODAL: IMPORT JSON CONFIG ── */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowImportModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'استيراد تكوين جيسون' : 'Import JSON Configuration'}
+        >
           <div
             className="w-full max-w-lg rounded-3xl p-6 border shadow-2xl space-y-5 animate-in zoom-in-95 duration-200"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
@@ -1699,11 +1716,11 @@ export const MasterControlCenter: React.FC = () => {
 
             <div className="space-y-2">
               <h3 className="text-lg font-black tracking-tight" style={{ color: 'var(--text)' }}>
-                {isAr ? 'استيراد تكوين JSON' : 'Import JSON Configuration'}
+                {isAr ? 'استيراد تكوين جيسون' : 'Import JSON Configuration'}
               </h3>
               <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
                 {isAr
-                  ? 'الصق محتوى ملف JSON المصدر لتطبيق إعدادات التشغيل فوراً.'
+                  ? 'الصق محتوى ملف التكوين المصدر لتطبيق إعدادات التشغيل فوراً.'
                   : 'Paste your exported JSON settings payload below to restore controls.'}
               </p>
             </div>
@@ -1740,7 +1757,7 @@ export const MasterControlCenter: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

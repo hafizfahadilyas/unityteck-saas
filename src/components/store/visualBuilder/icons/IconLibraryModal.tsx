@@ -24,6 +24,7 @@ import {
   Search,
   Check,
 } from 'lucide-react';
+import { GlobalModal } from '../../../common/GlobalModal';
 
 export interface IconItem {
   id: string;
@@ -78,8 +79,6 @@ export const IconLibraryModal: React.FC<IconLibraryModalProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
 
-  if (!isOpen) return null;
-
   const categories = ['All', 'Header Toggle', 'Brand & Boutique', 'Commerce', 'Features'];
 
   const filtered = AVAILABLE_ICONS.filter((item) => {
@@ -89,11 +88,13 @@ export const IconLibraryModal: React.FC<IconLibraryModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-      <div
-        className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
-        dir={isAr ? 'rtl' : 'ltr'}
-      >
+    <GlobalModal
+      isOpen={isOpen}
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={title || (isAr ? 'مكتبة الأيقونات المتقدمة' : 'Icon Library Selector')}
+    >
+      <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="p-4 px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div>
@@ -183,6 +184,6 @@ export const IconLibraryModal: React.FC<IconLibraryModalProps> = ({
           })}
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

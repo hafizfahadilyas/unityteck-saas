@@ -135,7 +135,7 @@ Execute **in order**. One wave = one focused PR/slice. Ship only when that waveâ
 | Wave | Status |
 |------|--------|
 | 1 SEO / Google fake kill | **Done** (Instant connect killed, SEO seed off, PSI empty, KPI badges honest) |
-| 2 Analytics invent kill | **Done** (devices/locations/GA invent, campaigns invent, loyalty/affiliate invent) |
+| 2 Analytics invent kill | **Done** (API invent kill 2026-11-07: campaigns/AI/behavior/searchQueries/channel ROAS; UTM columns + storefront events; public MySQL SEO shell) |
 | 3 Isolation leaks | **Done** (payment store-1, MasterThemes Flora, brands/invoice, identity defaults, theme default) |
 | 4 EN/AR dual | **Partial** (dual meta in `extra` done; indexing table and tracking/warranty fakes removed). SEO form still has leftover English in Arabic on some lower sections. Master Themes/Updates not fully passed. |
 | 5 Master fake tooling | **Done** (DB /health ping, Control Center no fake GTM/GA4, no invent ROAS 4.2) |

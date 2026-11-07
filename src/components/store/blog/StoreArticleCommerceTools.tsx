@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 import {
   Eye,
   Save,
@@ -3173,7 +3174,12 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
 
       {/* Exit Intent Modal Simulation */}
       {showExitModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowExitModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'عرض الخروج من الصفحة' : 'Exit intent offer'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-800 text-center space-y-4 animate-in zoom-in-95">
             <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto text-xl font-black">
               %
@@ -3196,23 +3202,28 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                 }}
                 className="flex-1 py-2 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700"
               >
-                Claim Discount
+                {isAr ? 'احصل على الخصم' : 'Claim Discount'}
               </button>
               <button
                 type="button"
                 onClick={() => setShowExitModal(false)}
                 className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-500"
               >
-                Close
+                {isAr ? 'إغلاق' : 'Close'}
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Full Article Reader Modal */}
       {showArticleFullPreview && currentArticle && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowArticleFullPreview(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'معاينة المقال الكاملة' : 'Full article preview'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 space-y-6">
             <div className="flex justify-between items-start">
               <div>
@@ -3231,22 +3242,29 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
             </div>
 
             <div className="aspect-16/9 rounded-2xl overflow-hidden">
-              <img src={currentArticle.thumbnail} alt="Hero" className="w-full h-full object-cover" />
+              <img src={currentArticle.thumbnail} alt={isAr ? 'صورة المقال' : 'Hero'} className="w-full h-full object-cover" />
             </div>
 
             <div className="prose dark:prose-invert max-w-none text-xs sm:text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-line">
               {currentArticle.content}
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* Google SEO Result Preview Modal */}
       {showGooglePreviewModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowGooglePreviewModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'معاينة نتيجة البحث' : 'Google Search Preview'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white">Google Search Preview</h3>
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                {isAr ? 'معاينة نتيجة البحث' : 'Google Search Preview'}
+              </h3>
               <button
                 type="button"
                 onClick={() => setShowGooglePreviewModal(false)}
@@ -3267,7 +3285,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
               </p>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

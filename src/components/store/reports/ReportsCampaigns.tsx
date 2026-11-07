@@ -537,7 +537,15 @@ export const ReportsCampaigns: React.FC<ReportsCampaignsProps> = ({
 
           <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-center">
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              {isAr ? 'تيك توك يمثل 35.5% من إجمالي الإيرادات' : 'TikTok drives 35.5% of total ad sales'}
+              {(() => {
+                const top = channelsList[0];
+                if (!top || !(top.share > 0) || !(campaignRevenue > 0)) {
+                  return isAr ? 'لا توجد قنوات منسوبة بعد' : 'No attributed channels yet';
+                }
+                return isAr
+                  ? `${top.name} يمثل ${top.share}% من إيرادات الحملات`
+                  : `${top.name} drives ${top.share}% of campaign revenue`;
+              })()}
             </span>
           </div>
         </div>
@@ -560,13 +568,13 @@ export const ReportsCampaigns: React.FC<ReportsCampaignsProps> = ({
                       {ch.name}
                     </span>
                     <span className="font-bold text-slate-900 dark:text-white">
-                      {ch.roas}x
+                      {ch.roas == null || ch.roas === 0 ? '—' : `${ch.roas}x`}
                     </span>
                   </div>
                   <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                     <div
                       style={{
-                        width: `${Math.min(100, (ch.roas / 7) * 100)}%`,
+                        width: `${ch.roas ? Math.min(100, (Number(ch.roas) / 7) * 100) : 0}%`,
                         backgroundColor: ch.color || '#3b82f6',
                       }}
                       className="h-full rounded-full"

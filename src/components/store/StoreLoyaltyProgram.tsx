@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import {
   Award,
   Plus,
@@ -859,7 +860,12 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
 
       {/* Add Reward Modal */}
       {showAddRewardModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowAddRewardModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إضافة مكافأة جديدة' : 'Create New Reward'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-800">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
@@ -883,7 +889,7 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
                   required
                   value={newRewardName}
                   onChange={(e) => setNewRewardName(e.target.value)}
-                  placeholder={isAr ? 'مثال: خصم 20% على كامل الطلب' : 'e.g., 20% off entire order'}
+                  placeholder={isAr ? 'مثال: خصم ٢٠٪ على كامل الطلب' : 'e.g., 20% off entire order'}
                   className="w-full px-3.5 py-2.5 border rounded-xl border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-indigo-500"
                 />
               </div>
@@ -897,9 +903,9 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
                   onChange={(e) => setNewRewardType(e.target.value)}
                   className="w-full px-3 py-2 border rounded-xl border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-indigo-500"
                 >
-                  <option value="discount">{isAr ? 'خصم نسبة مئوية (Percentage Discount)' : 'Percentage Discount'}</option>
-                  <option value="shipping">{isAr ? 'شحن وتوصيل مجاني (Free Shipping)' : 'Free Shipping'}</option>
-                  <option value="gift">{isAr ? 'منتج أو هدية مجانية (Free Product Gift)' : 'Free Product Gift'}</option>
+                  <option value="discount">{isAr ? 'خصم نسبة مئوية' : 'Percentage Discount'}</option>
+                  <option value="shipping">{isAr ? 'شحن وتوصيل مجاني' : 'Free Shipping'}</option>
+                  <option value="gift">{isAr ? 'منتج أو هدية مجانية' : 'Free Product Gift'}</option>
                 </select>
               </div>
 
@@ -934,7 +940,7 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

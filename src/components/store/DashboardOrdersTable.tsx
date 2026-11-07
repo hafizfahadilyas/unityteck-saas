@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { Order } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { useTenant } from '../../context/TenantContext';
+import { useToast } from '../common/ToastProvider';
 import {
   ShoppingCart,
   ChevronLeft,
@@ -18,8 +20,8 @@ import {
   RotateCcw,
   Check,
   X,
-  ExternalLink,
-  Layers,
+  Trash2,
+  Building2,
 } from 'lucide-react';
 import { getOrderDate, parseOrderDate, statusChipStyle } from '../../utils/liveSeries';
 import { formatRelativeTime } from '../../notification-system/utils/dateFilters';
@@ -60,6 +62,9 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
   onOpenCreateOrder,
 }) => {
   const { t, money, locale, dir } = usePrefs();
+  const isAr = locale === 'ar';
+  const { permanentDeleteOrder } = useTenant();
+  const { toast, confirmWithReason } = useToast();
   const [inspectOrder, setInspectOrder] = useState<Order | null>(null);
 
   // Search, Filter & Sort states
@@ -247,6 +252,8 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
       icon = <TamaraIcon className="h-5 w-auto shrink-0" />;
     } else if (pm.includes('tabby') || pm.includes('تابي')) {
       icon = <TabbyIcon className="h-5 w-auto shrink-0" />;
+    } else if (pm.includes('bank')) {
+      icon = <Building2 className="h-4 w-4 shrink-0 text-teal-600" />;
     } else if (pm.includes('visa') || pm.includes('master') || pm.includes('card')) {
       icon = (
         <span className="inline-flex items-center gap-0.5 shrink-0">
@@ -265,6 +272,33 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
 
   const startRange = totalCount === 0 ? 0 : (validPage - 1) * PAGE_SIZE + 1;
   const endRange = Math.min(validPage * PAGE_SIZE, totalCount);
+
+  const handleDeleteOrder = async (ord: Order) => {
+    const reason = await confirmWithReason({
+      title: t('permanentDeleteOrderConfirmTitle') || (isAr ? 'حذف الطلب' : 'Delete Order'),
+      message: (
+        t('permanentDeleteOrderConfirmMsg') ||
+        (isAr
+          ? 'هل أنت متأكد من حذف الطلب {number}؟ اكتب سبب الحذف للمتابعة.'
+          : 'Are you sure you want to delete order {number}? Enter a reason to continue.')
+      ).replace('{number}', String(ord.orderNumber || ord.id)),
+      confirmLabel: t('permanentDeleteOrder') || (isAr ? 'حذف' : 'Delete'),
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+      danger: true,
+      reasonRequired: true,
+      reasonLabel: isAr ? 'سبب الحذف' : 'Reason for deletion',
+      reasonPlaceholder: isAr
+        ? 'مثال: طلب مكرر، خطأ في البيانات، طلب تجريبي…'
+        : 'e.g. Duplicate order, data error, test order…',
+    });
+    if (reason == null) return;
+    permanentDeleteOrder(ord.id, ord.storeId, reason);
+    if (inspectOrder?.id === ord.id) setInspectOrder(null);
+    toast(
+      t('permanentDeleteOrderSuccess') || (isAr ? 'تم حذف الطلب بنجاح' : 'Order deleted successfully'),
+      'success',
+    );
+  };
 
   return (
     <div
@@ -400,6 +434,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
                     <option value="tamara">{t('tamara')}</option>
                     <option value="tabby">{t('tabby')}</option>
                     <option value="cash">{t('cashOnDelivery')}</option>
+                    <option value="bank">{isAr ? 'تحويل بنكي' : 'Bank Transfer'}</option>
                   </select>
                 </div>
 
@@ -691,17 +726,28 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
                       {ord.date || '—'}
                     </td>
 
-                    {/* 9. Actions */}
-                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => setInspectOrder(ord)}
-                        className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 hover:text-teal-700 dark:text-slate-200 dark:hover:text-teal-400 transition-colors cursor-pointer inline-flex items-center justify-center shadow-2xs"
-                        title={t('viewOrder')}
-                        aria-label={t('viewOrder')}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                    {/* 9. Actions — view + delete (reason required) */}
+                    <td className="py-3.5 px-3 sm:px-4 text-center whitespace-nowrap">
+                      <div className="inline-flex items-center justify-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setInspectOrder(ord)}
+                          className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 hover:text-teal-700 dark:text-slate-200 dark:hover:text-teal-400 transition-colors cursor-pointer inline-flex items-center justify-center shadow-2xs"
+                          title={t('viewOrder')}
+                          aria-label={t('viewOrder')}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteOrder(ord)}
+                          className="p-2 rounded-xl border border-rose-200 dark:border-rose-900/50 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer inline-flex items-center justify-center shadow-2xs"
+                          title={t('permanentDeleteOrder') || (isAr ? 'حذف' : 'Delete')}
+                          aria-label={t('permanentDeleteOrder') || (isAr ? 'حذف' : 'Delete')}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

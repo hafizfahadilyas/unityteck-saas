@@ -64,8 +64,17 @@ function optionsFromDraft(d: Draft): Record<string, string> {
   return o;
 }
 
-function labelOptions(opts: Record<string, string>): string {
-  const parts = Object.entries(opts).map(([k, v]) => `${k}: ${v}`);
+function labelOptions(opts: Record<string, string>, isAr: boolean): string {
+  const keyLabel = (k: string) => {
+    if (!isAr) return k;
+    if (k === 'size') return 'المقاس';
+    if (k === 'color') return 'اللون';
+    if (k === 'weight') return 'الوزن';
+    if (k === 'material') return 'المادة';
+    if (k === 'custom') return 'مخصص';
+    return k;
+  };
+  const parts = Object.entries(opts).map(([k, v]) => `${keyLabel(k)}: ${v}`);
   return parts.length ? parts.join(' · ') : '—';
 }
 
@@ -76,7 +85,8 @@ export const ProductVariationsPanel: React.FC<Props> = ({
   onDenied,
 }) => {
   const { toast } = useToast();
-  const { money } = usePrefs();
+  const { money, locale } = usePrefs();
+  const isAr = locale === 'ar';
   const [rows, setRows] = useState<ProductVariation[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -94,11 +104,18 @@ export const ProductVariationsPanel: React.FC<Props> = ({
         setRows((prev) => prev.filter((r) => r.productId === productId));
       }
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Failed to load variations', 'error');
+      toast(
+        err instanceof Error
+          ? err.message
+          : isAr
+            ? 'تعذر تحميل التنويعات'
+            : 'Failed to load variations',
+        'error',
+      );
     } finally {
       setLoading(false);
     }
-  }, [storeId, productId, toast]);
+  }, [storeId, productId, toast, isAr]);
 
   useEffect(() => {
     void load();
@@ -131,7 +148,7 @@ export const ProductVariationsPanel: React.FC<Props> = ({
       return;
     }
     if (!draft.sku.trim()) {
-      toast('Variation SKU is required', 'error');
+      toast(isAr ? 'رمز المنتج للتنويع مطلوب' : 'Variation SKU is required', 'error');
       return;
     }
 
@@ -155,11 +172,11 @@ export const ProductVariationsPanel: React.FC<Props> = ({
             payload,
           );
           setRows((prev) => prev.map((r) => (r.id === editingId ? updated : r)));
-          toast('Variation updated', 'success');
+          toast(isAr ? 'تم تحديث التنويع' : 'Variation updated', 'success');
         } else {
           const created = await tenantApi.createVariation(storeId, productId, payload);
           setRows((prev) => [...prev, created]);
-          toast('Variation added', 'success');
+          toast(isAr ? 'تمت إضافة التنويع' : 'Variation added', 'success');
         }
       } else {
         if (editingId) {
@@ -178,7 +195,7 @@ export const ProductVariationsPanel: React.FC<Props> = ({
                 : r,
             ),
           );
-          toast('Variation updated', 'success');
+          toast(isAr ? 'تم تحديث التنويع' : 'Variation updated', 'success');
         } else {
           const created: ProductVariation = {
             id: `var-${Date.now()}`,
@@ -192,12 +209,19 @@ export const ProductVariationsPanel: React.FC<Props> = ({
             isActive: payload.is_active ?? true,
           };
           setRows((prev) => [...prev, created]);
-          toast('Variation added', 'success');
+          toast(isAr ? 'تمت إضافة التنويع' : 'Variation added', 'success');
         }
       }
       cancelEdit();
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Save variation failed', 'error');
+      toast(
+        err instanceof Error
+          ? err.message
+          : isAr
+            ? 'فشل حفظ التنويع'
+            : 'Save variation failed',
+        'error',
+      );
     } finally {
       setBusy(false);
     }
@@ -210,7 +234,7 @@ export const ProductVariationsPanel: React.FC<Props> = ({
     }
     if (confirmDeleteId !== id) {
       setConfirmDeleteId(id);
-      toast('Click delete again to confirm', 'info');
+      toast(isAr ? 'اضغط حذف مرة أخرى للتأكيد' : 'Click delete again to confirm', 'info');
       return;
     }
     setBusy(true);
@@ -221,42 +245,66 @@ export const ProductVariationsPanel: React.FC<Props> = ({
       setRows((prev) => prev.filter((r) => r.id !== id));
       setConfirmDeleteId(null);
       if (editingId === id) cancelEdit();
-      toast('Variation deleted', 'success');
+      toast(isAr ? 'تم حذف التنويع' : 'Variation deleted', 'success');
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Delete variation failed', 'error');
+      toast(
+        err instanceof Error
+          ? err.message
+          : isAr
+            ? 'فشل حذف التنويع'
+            : 'Delete variation failed',
+        'error',
+      );
     } finally {
       setBusy(false);
     }
   };
 
+  const applyPreset = (next: Partial<Draft> & { size: string; material: string; custom: string }) => {
+    setField('size', next.size);
+    setField('material', next.material);
+    setField('custom', next.custom);
+    if (!draft.sku && next.sku) setField('sku', next.sku);
+    if (!draft.price && next.price) setField('price', next.price);
+  };
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 space-y-3">
+    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-3 space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+        <div className="flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200">
           <Layers className="w-3.5 h-3.5 text-blue-600" />
-          <span>Variations</span>
+          <span>{isAr ? 'التنويعات' : 'Variations'}</span>
           <span className="text-[10px] font-bold text-slate-400">{rows.length}</span>
         </div>
-        <span className="text-[10px] text-slate-400">size · color · weight · material · custom</span>
+        <span className="text-[10px] text-slate-400">
+          {isAr ? 'مقاس · لون · وزن · مادة · مخصص' : 'size · color · weight · material · custom'}
+        </span>
       </div>
 
       {loading ? (
-        <p className="text-[11px] text-slate-400 py-2">Loading variations…</p>
+        <p className="text-[11px] text-slate-400 py-2">
+          {isAr ? 'جاري تحميل التنويعات…' : 'Loading variations…'}
+        </p>
       ) : rows.length === 0 && !editingId ? (
-        <p className="text-[11px] text-slate-400">No variations yet. Add size/color (etc.) below.</p>
+        <p className="text-[11px] text-slate-400">
+          {isAr
+            ? 'لا توجد تنويعات بعد. أضف مقاساً أو لوناً أدناه.'
+            : 'No variations yet. Add size/color (etc.) below.'}
+        </p>
       ) : (
         <ul className="space-y-1.5 max-h-40 overflow-y-auto">
           {rows.map((v) => (
             <li
               key={v.id}
-              className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px]"
+              className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px]"
             >
               <div className="min-w-0">
-                <div className="font-mono text-slate-600 truncate">{v.sku}</div>
-                <div className="text-slate-500 truncate">{labelOptions(v.options)}</div>
-                <div className="tabular-nums text-slate-800">
-                  {v.price != null ? money(v.price) : '—'} · {v.stock} units
-                  {!v.isActive ? ' · hidden' : ''}
+                <div className="font-mono text-slate-600 dark:text-slate-300 truncate">{v.sku}</div>
+                <div className="text-slate-500 truncate">{labelOptions(v.options, isAr)}</div>
+                <div className="tabular-nums text-slate-800 dark:text-slate-200">
+                  {v.price != null ? money(v.price) : '—'} · {v.stock}{' '}
+                  {isAr ? 'وحدة' : 'units'}
+                  {!v.isActive ? (isAr ? ' · مخفي' : ' · hidden') : ''}
                 </div>
               </div>
               <div className="flex items-center gap-0.5 shrink-0">
@@ -264,8 +312,8 @@ export const ProductVariationsPanel: React.FC<Props> = ({
                   type="button"
                   disabled={!canMutate || busy}
                   onClick={() => startEdit(v)}
-                  className="p-1 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-40"
-                  title="Edit variation"
+                  className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded disabled:opacity-40 cursor-pointer"
+                  title={isAr ? 'تعديل التنويع' : 'Edit variation'}
                 >
                   <Pencil className="w-3 h-3" />
                 </button>
@@ -273,12 +321,12 @@ export const ProductVariationsPanel: React.FC<Props> = ({
                   type="button"
                   disabled={!canMutate || busy}
                   onClick={() => void remove(v.id)}
-                  className={`p-1 rounded disabled:opacity-40 ${
+                  className={`p-1 rounded disabled:opacity-40 cursor-pointer ${
                     confirmDeleteId === v.id
                       ? 'text-white bg-rose-600'
-                      : 'text-rose-600 hover:bg-rose-50'
+                      : 'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40'
                   }`}
-                  title="Delete variation"
+                  title={isAr ? 'حذف التنويع' : 'Delete variation'}
                 >
                   <Trash2 className="w-3 h-3" />
                 </button>
@@ -288,162 +336,163 @@ export const ProductVariationsPanel: React.FC<Props> = ({
         </ul>
       )}
 
-      <div className="border-t border-slate-200 pt-2 space-y-2">
+      <div className="border-t border-slate-200 dark:border-slate-800 pt-2 space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-slate-700">
-            {editingId ? 'Edit variation' : 'Add variation'}
+          <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+            {editingId
+              ? isAr
+                ? 'تعديل التنويع'
+                : 'Edit variation'
+              : isAr
+                ? 'إضافة تنويع'
+                : 'Add variation'}
           </span>
           {editingId && (
-            <button type="button" onClick={cancelEdit} className="text-slate-400 hover:text-slate-600">
+            <button
+              type="button"
+              onClick={cancelEdit}
+              className="text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        {/* Automotive Floor Mats Quick Presets */}
-        <div className="p-2 rounded-lg bg-purple-50/80 border border-purple-200 text-[11px] space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-purple-900">قوالب أرضيات السيارات السريعة (Auto Presets):</span>
-            <span className="text-[10px] text-purple-600">نقرة واحدة للتعبئة</span>
+        {storeId === 'store-bleco' && (
+          <div className="p-2 rounded-lg bg-purple-50/80 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/50 text-[11px] space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-bold text-purple-900 dark:text-purple-200">
+                {isAr
+                  ? 'قوالب أرضيات السيارات السريعة:'
+                  : 'Automotive floor-mat quick presets:'}
+              </span>
+              <span className="text-[10px] text-purple-600 dark:text-purple-300 shrink-0">
+                {isAr ? 'نقرة واحدة للتعبئة' : 'One-click fill'}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              <button
+                type="button"
+                onClick={() =>
+                  applyPreset({
+                    size: isAr ? '5 مقاعد (صفين)' : '5 seats (2 rows)',
+                    material: isAr ? 'جلد صناعي 5D ليزر' : '5D laser PU leather',
+                    custom: isAr ? 'شامل كلبسات التثبيت' : 'Includes mounting clips',
+                    sku: `MAT-5S-${Date.now().toString().slice(-4)}`,
+                    price: '380',
+                  })
+                }
+                className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-800 text-purple-800 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-950/40 cursor-pointer font-bold"
+              >
+                {isAr ? '٥ مقاعد (صفين)' : '5 seats (2 rows)'}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  applyPreset({
+                    size: isAr ? '7 مقاعد (3 صفوف)' : '7 seats (3 rows)',
+                    material: isAr ? 'جلد صناعي 5D ليزر' : '5D laser PU leather',
+                    custom: isAr ? 'تغطية كاملة مع الصف الثالث' : 'Full coverage with 3rd row',
+                    sku: `MAT-7S-${Date.now().toString().slice(-4)}`,
+                    price: '440',
+                  })
+                }
+                className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-800 text-purple-800 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-950/40 cursor-pointer font-bold"
+              >
+                {isAr ? '٧ مقاعد (+60 ر.س)' : '7 seats (+SAR 60)'}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  applyPreset({
+                    size: isAr ? '٥ مقاعد + دعاسة الشنطة' : '5 seats + trunk mat',
+                    material: isAr
+                      ? 'جلد صناعي 5D ليزر مقاوم للماء'
+                      : 'Waterproof 5D laser PU leather',
+                    custom: isAr
+                      ? 'كامل الكابينة مع الصندوق الخلفي'
+                      : 'Full cabin with trunk protection',
+                    sku: `MAT-5S-TRK-${Date.now().toString().slice(-4)}`,
+                    price: '470',
+                  })
+                }
+                className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-800 text-purple-800 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-950/40 cursor-pointer font-bold"
+              >
+                {isAr ? '٥ مقاعد + الشنطة (+90 ر.س)' : '5 seats + trunk (+SAR 90)'}
+              </button>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                setField('size', '5 مقاعد (صفين)');
-                setField('material', 'جلد صناعي 5D ليزر');
-                setField('custom', 'شامل كلبسات التثبيت');
-                if (!draft.sku) setField('sku', `MAT-5S-${Date.now().toString().slice(-4)}`);
-                if (!draft.price) setField('price', '380');
-              }}
-              className="px-2 py-0.5 rounded bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 cursor-pointer font-bold"
-            >
-              ٥ مقاعد (صفين)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setField('size', '7 مقاعد (3 صفوف)');
-                setField('material', 'جلد صناعي 5D ليزر');
-                setField('custom', 'تغطية كاملة مع الصف الثالث');
-                if (!draft.sku) setField('sku', `MAT-7S-${Date.now().toString().slice(-4)}`);
-                if (!draft.price) setField('price', '440');
-              }}
-              className="px-2 py-0.5 rounded bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 cursor-pointer font-bold"
-            >
-              ٧ مقاعد (+60 ر.س)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setField('size', '٥ مقاعد + دعاسة الشنطة');
-                setField('material', 'جلد صناعي 5D ليزر مقاوم للماء');
-                setField('custom', 'كامل الكابينة مع الصندوق الخلفي');
-                if (!draft.sku) setField('sku', `MAT-5S-TRK-${Date.now().toString().slice(-4)}`);
-                if (!draft.price) setField('price', '470');
-              }}
-              className="px-2 py-0.5 rounded bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 cursor-pointer font-bold"
-            >
-              ٥ مقاعد + الشنطة (+90 ر.س)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setField('size', '٧ مقاعد + دعاسة الشنطة');
-                setField('material', 'جلد صناعي 5D ليزر مقاوم للماء');
-                setField('custom', '3 صفوف + حماية الصندوق الخلفي');
-                if (!draft.sku) setField('sku', `MAT-7S-TRK-${Date.now().toString().slice(-4)}`);
-                if (!draft.price) setField('price', '530');
-              }}
-              className="px-2 py-0.5 rounded bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 cursor-pointer font-bold"
-            >
-              ٧ مقاعد + الشنطة (+150 ر.س)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setField('size', 'دعاسة الشنطة فقط');
-                setField('material', 'جلد صناعي 5D ليزر');
-                setField('custom', 'حماية الصندوق الخلفي من السوائل');
-                if (!draft.sku) setField('sku', `MAT-TRK-${Date.now().toString().slice(-4)}`);
-                if (!draft.price) setField('price', '150');
-              }}
-              className="px-2 py-0.5 rounded bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 cursor-pointer font-bold"
-            >
-              دعاسة الشنطة فقط (150 ر.س)
-            </button>
-          </div>
-        </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2">
           <input
-            placeholder="SKU *"
+            placeholder={isAr ? 'رمز المنتج *' : 'SKU *'}
             value={draft.sku}
             onChange={(e) => setField('sku', e.target.value)}
             disabled={!canMutate}
-            className="col-span-2 px-2 py-1.5 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+            className="col-span-2 px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
           />
           <input
-            placeholder="Size"
+            placeholder={isAr ? 'المقاس' : 'Size'}
             value={draft.size}
             onChange={(e) => setField('size', e.target.value)}
             disabled={!canMutate}
-            className="px-2 py-1.5 border border-slate-300 rounded-lg disabled:opacity-50"
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 disabled:opacity-50"
           />
           <input
-            placeholder="Color"
+            placeholder={isAr ? 'اللون' : 'Color'}
             value={draft.color}
             onChange={(e) => setField('color', e.target.value)}
             disabled={!canMutate}
-            className="px-2 py-1.5 border border-slate-300 rounded-lg disabled:opacity-50"
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 disabled:opacity-50"
           />
           <input
-            placeholder="Weight"
+            placeholder={isAr ? 'الوزن' : 'Weight'}
             value={draft.weight}
             onChange={(e) => setField('weight', e.target.value)}
             disabled={!canMutate}
-            className="px-2 py-1.5 border border-slate-300 rounded-lg disabled:opacity-50"
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 disabled:opacity-50"
           />
           <input
-            placeholder="Material"
+            placeholder={isAr ? 'المادة' : 'Material'}
             value={draft.material}
             onChange={(e) => setField('material', e.target.value)}
             disabled={!canMutate}
-            className="px-2 py-1.5 border border-slate-300 rounded-lg disabled:opacity-50"
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 disabled:opacity-50"
           />
           <input
-            placeholder="Custom"
+            placeholder={isAr ? 'مخصص' : 'Custom'}
             value={draft.custom}
             onChange={(e) => setField('custom', e.target.value)}
             disabled={!canMutate}
-            className="col-span-2 px-2 py-1.5 border border-slate-300 rounded-lg disabled:opacity-50"
+            className="col-span-2 px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 disabled:opacity-50"
           />
           <input
             type="number"
             min={0}
             step="0.01"
-            placeholder="Price"
+            placeholder={isAr ? 'السعر' : 'Price'}
             value={draft.price}
             onChange={(e) => setField('price', e.target.value)}
             disabled={!canMutate}
-            className="px-2 py-1.5 border border-slate-300 rounded-lg disabled:opacity-50"
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 disabled:opacity-50"
           />
           <input
             type="number"
             min={0}
-            placeholder="Stock"
+            placeholder={isAr ? 'المخزون' : 'Stock'}
             value={draft.stock}
             onChange={(e) => setField('stock', e.target.value)}
             disabled={!canMutate}
-            className="px-2 py-1.5 border border-slate-300 rounded-lg disabled:opacity-50"
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 disabled:opacity-50"
           />
           <input
             type="url"
-            placeholder="Image URL"
+            placeholder={isAr ? 'رابط الصورة' : 'Image URL'}
             value={draft.imageUrl}
             onChange={(e) => setField('imageUrl', e.target.value)}
             disabled={!canMutate}
-            className="col-span-2 px-2 py-1.5 border border-slate-300 rounded-lg font-mono text-[10px] disabled:opacity-50"
+            className="col-span-2 px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg font-mono text-[10px] bg-white dark:bg-slate-900 disabled:opacity-50"
           />
           <label className="col-span-2 inline-flex items-center gap-2 text-[11px] cursor-pointer">
             <input
@@ -452,7 +501,7 @@ export const ProductVariationsPanel: React.FC<Props> = ({
               onChange={(e) => setField('isActive', e.target.checked)}
               disabled={!canMutate}
             />
-            Active
+            {isAr ? 'نشط' : 'Active'}
           </label>
         </div>
 
@@ -461,10 +510,18 @@ export const ProductVariationsPanel: React.FC<Props> = ({
           disabled={!canMutate || busy}
           aria-busy={busy}
           onClick={() => void save()}
-          className="w-full px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50"
+          className="w-full px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
         >
           {editingId ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-          <span>{editingId ? 'Save variation' : 'Add variation'}</span>
+          <span>
+            {editingId
+              ? isAr
+                ? 'حفظ التنويع'
+                : 'Save variation'
+              : isAr
+                ? 'إضافة تنويع'
+                : 'Add variation'}
+          </span>
         </button>
       </div>
     </div>

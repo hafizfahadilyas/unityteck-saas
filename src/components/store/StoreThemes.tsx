@@ -30,6 +30,7 @@ import { readAllThemeSettings, writeAllThemeSettings } from '../../themes/settin
 import { planHasFullThemes, planInfoForStore } from '../../auth/plans';
 import { DEFAULT_COMMERCE_THEME_ID, defaultThemeSettings, getDefaultStoreTheme } from '../../auth/defaultTheme';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import { StoreIdentityForm } from './themeSettings/StoreIdentityForm';
 import { ThemeSettingsMaster } from './themeSettings/ThemeSettingsMaster';
 import { getStoreDisplayName } from '../../utils/storeLocalization';
@@ -1242,7 +1243,11 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
       {/* CREATE NEW CUSTOM PAGE MODAL                             */}
       {/* ======================================================== */}
       {isCreatePageModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <GlobalModal
+          onClose={() => setIsCreatePageModalOpen(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إنشاء صفحة مخصصة جديدة للمتجر' : 'Create New Custom Page'}
+        >
           <div
             className="w-full max-w-lg rounded-2xl border p-6 space-y-5 shadow-2xl relative"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
@@ -1298,7 +1303,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold block">{isAr ? 'مسار الرابط (Slug URL)' : 'URL Slug / Path'}</label>
+                <label className="font-bold block">{isAr ? 'مسار الرابط' : 'URL Slug / Path'}</label>
                 <div className="flex items-center rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
                   <span className="px-3 py-2 text-slate-400 bg-slate-100 dark:bg-slate-800 text-[11px] font-mono border-e" style={{ borderColor: 'var(--border)' }}>
                     /page/
@@ -1315,17 +1320,17 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold block">{isAr ? 'نموذج التخطيط المبدئي (Layout Type)' : 'Initial Layout Template'}</label>
+                <label className="font-bold block">{isAr ? 'نموذج التخطيط المبدئي' : 'Initial Layout Template'}</label>
                 <select
                   value={newPageLayout}
                   onChange={(e) => setNewPageLayout(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border outline-none cursor-pointer"
                   style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)' }}
                 >
-                  <option value="standard">{isAr ? 'محتوى نصي وبانر تسويقي (Standard Banner & Story)' : 'Standard Banner & Story'}</option>
-                  <option value="promo">{isAr ? 'صفحة هبوط تسويقية + شبكة منتجات (Promotional Landing + Products)' : 'Promotional Landing + Products'}</option>
-                  <option value="story">{isAr ? 'قصة الماركة وهوية الزهور الفاخرة (Brand Showcase & Gallery)' : 'Brand Showcase & Gallery'}</option>
-                  <option value="form">{isAr ? 'استفسارات خاصة وطلبيات الجملة (VIP Inquiries & Form)' : 'VIP Inquiries & Form'}</option>
+                  <option value="standard">{isAr ? 'محتوى نصي وبانر تسويقي' : 'Standard Banner & Story'}</option>
+                  <option value="promo">{isAr ? 'صفحة هبوط تسويقية مع شبكة منتجات' : 'Promotional Landing + Products'}</option>
+                  <option value="story">{isAr ? 'عرض الهوية والمعرض' : 'Brand Showcase & Gallery'}</option>
+                  <option value="form">{isAr ? 'استفسارات خاصة وطلبيات الجملة' : 'VIP Inquiries & Form'}</option>
                 </select>
               </div>
 
@@ -1337,7 +1342,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
                   className="w-4 h-4 rounded text-emerald-600 cursor-pointer"
                 />
                 <div>
-                  <span className="font-bold block">{isAr ? 'إضافة الصفحة تلقائياً إلى شريط التنقل العلوي (Navbar)' : 'Add automatically to Store Top Navigation Menu'}</span>
+                  <span className="font-bold block">{isAr ? 'إضافة الصفحة تلقائياً إلى شريط التنقل العلوي' : 'Add automatically to Store Top Navigation Menu'}</span>
                   <span className="text-[11px]" style={{ color: 'var(--muted)' }}>
                     {isAr ? 'ستظهر فوراً في هيدر المتجر والقائمة المنسدلة للعملاء' : 'Will appear instantly in storefront header and mobile menu drawer'}
                   </span>
@@ -1363,14 +1368,18 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* ======================================================== */}
       {/* CREATE NEW PRIVATE THEME MODAL                           */}
       {/* ======================================================== */}
       {isCreateThemeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <GlobalModal
+          onClose={() => setIsCreateThemeModalOpen(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إنشاء ثيم جديد خاص بمتجرك' : 'Create New Private Theme'}
+        >
           <div
             className="w-full max-w-lg rounded-2xl border p-6 space-y-5 shadow-2xl relative"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
@@ -1483,7 +1492,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

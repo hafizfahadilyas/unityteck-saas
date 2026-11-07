@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { generateZatcaTlvBase64, generateQrSvgDataUri } from '../../utils/zatca';
 import { WhatsAppBrandIcon } from './BrandIcons';
+import { GlobalModal } from './GlobalModal';
 
 interface RetailInvoiceModalProps {
   isOpen: boolean;
@@ -261,7 +262,13 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
   const displayTime = order.time ? (order.time.includes('M') ? order.time : `PM ${order.time}`) : 'PM 09:30';
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto">
+    <GlobalModal
+      isOpen={isOpen}
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'الفاتورة' : 'Invoice'}
+      backdropClassName="bg-slate-950/80"
+    >
       {/* Dynamic Print Stylesheet for A4 and Thermal */}
       <style>{`
         @media print {
@@ -913,6 +920,6 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

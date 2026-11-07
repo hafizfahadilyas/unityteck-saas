@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 import type { WhatsAppCampaignItem, WhatsAppSegmentItem, WhatsAppTemplateItem } from '../../../types/whatsapp';
 import {
   fetchWhatsAppCampaigns,
@@ -430,7 +431,12 @@ export const WhatsAppCampaigns: React.FC<Props> = ({ onNavigateSubView }) => {
 
       {/* 5. Create Campaign Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <GlobalModal
+          isOpen
+          onClose={() => setShowCreateModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إنشاء حملة تسويقية جديدة' : 'Create New Campaign'}
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-5 space-y-4 shadow-xl">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
@@ -457,7 +463,7 @@ export const WhatsAppCampaigns: React.FC<Props> = ({ onNavigateSubView }) => {
                   type="text"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  placeholder={isAr ? 'مثال: عرض نهاية الأسبوع 20%' : 'e.g. Weekend Flash Sale 20%'}
+                  placeholder={isAr ? 'مثال: عرض نهاية الأسبوع ٢٠٪' : 'e.g. Weekend Flash Sale 20%'}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
@@ -551,7 +557,7 @@ export const WhatsAppCampaigns: React.FC<Props> = ({ onNavigateSubView }) => {
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

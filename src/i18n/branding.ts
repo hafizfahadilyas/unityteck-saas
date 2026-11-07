@@ -552,10 +552,13 @@ export const BRAND_FONTS_UR = BRAND_FONTS_AR;
 
 export const BRAND_FONT_IDS = Object.keys(BRAND_FONTS) as BrandFontId[];
 
-export const BRAND_ICON_RADIUS: Record<BrandIconStyle, { label: string; px: string }> = {
-  soft: { label: 'Soft', px: '12px' },
-  rounded: { label: 'Rounded', px: '16px' },
-  sharp: { label: 'Sharp', px: '6px' },
+export const BRAND_ICON_RADIUS: Record<
+  BrandIconStyle,
+  { label: string; labelAr: string; px: string }
+> = {
+  soft: { label: 'Soft', labelAr: 'ناعم', px: '12px' },
+  rounded: { label: 'Rounded', labelAr: 'مستدير', px: '16px' },
+  sharp: { label: 'Sharp', labelAr: 'حاد', px: '6px' },
 };
 
 export const BRAND_FONT_WEIGHTS: Record<
@@ -570,17 +573,76 @@ export const BRAND_FONT_WEIGHTS: Record<
 
 export type BrandState = {
   palette: BrandPaletteId;
+  /** Active font for current UI (legacy + resolved). */
   font: BrandFontId;
+  /** Persisted English dashboard font. */
+  fontEn?: BrandFontEnId;
+  /** Persisted Arabic dashboard font. */
+  fontAr?: BrandFontArId;
   iconStyle: BrandIconStyle;
   fontWeight: BrandFontWeight;
+  /** Optional custom primary hex (#RRGGBB). When set, overrides preset palette shades. */
+  customAccentHex?: string | null;
 };
 
 export const DEFAULT_BRAND: BrandState = {
   palette: 'holst',
   font: 'jakarta',
+  fontEn: 'jakarta',
+  fontAr: 'ibm-plex-ar',
   iconStyle: 'rounded',
   fontWeight: 'regular',
+  customAccentHex: null,
 };
+
+/** Parse #RGB / #RRGGBB → {r,g,b} or null. */
+export function parseHexColor(hex: string): { r: number; g: number; b: number } | null {
+  const raw = hex.trim().replace(/^#/, '');
+  if (!/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(raw)) return null;
+  const full =
+    raw.length === 3
+      ? raw
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : raw;
+  const n = parseInt(full, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function mixChannel(channel: number, target: number, amount: number): number {
+  return Math.round(channel + (target - channel) * amount);
+}
+
+/** Build portal shade ramp from a single accent hex (light→dark). */
+export function paletteFromAccentHex(hex: string): Pick<
+  BrandPalette,
+  'colorHex' | 'p950' | 'p900' | 'p800' | 'p600' | 'p400' | 'p200' | 'p50'
+> | null {
+  const rgb = parseHexColor(hex);
+  if (!rgb) return null;
+  const toHex = (r: number, g: number, b: number) =>
+    `#${[r, g, b]
+      .map((c) => Math.max(0, Math.min(255, c)).toString(16).padStart(2, '0'))
+      .join('')}`;
+  const shade = (towardWhite: number, towardBlack: number) => {
+    const r = mixChannel(mixChannel(rgb.r, 255, towardWhite), 0, towardBlack);
+    const g = mixChannel(mixChannel(rgb.g, 255, towardWhite), 0, towardBlack);
+    const b = mixChannel(mixChannel(rgb.b, 255, towardWhite), 0, towardBlack);
+    return toHex(r, g, b);
+  };
+  const colorHex = toHex(rgb.r, rgb.g, rgb.b);
+  return {
+    colorHex,
+    p600: colorHex,
+    p400: shade(0.35, 0),
+    p200: shade(0.55, 0),
+    p50: shade(0.88, 0),
+    p800: shade(0, 0.28),
+    p900: shade(0, 0.45),
+    p950: shade(0, 0.62),
+  };
+}
 
 export const EN_FONTS: BrandFontId[] = [
   'jakarta',
@@ -602,14 +664,39 @@ export const AR_FONTS: BrandFontId[] = [
 
 export function resolveFontForLocale(font: BrandFontId, locale: 'en' | 'ar'): BrandFontId {
   if (locale === 'ar') {
-    if (AR_FONTS.includes(font)) return font;
+    if (AR_FONTS.includes(font as BrandFontArId)) return font;
     return 'ibm-plex-ar';
   }
   if (locale === 'en') {
-    if (EN_FONTS.includes(font)) return font;
+    if (EN_FONTS.includes(font as BrandFontEnId)) return font;
     return 'jakarta';
   }
   return font;
+}
+
+/** Resolve EN/AR fonts independently so locale switch keeps both choices. */
+export function resolveBrandFonts(brand: BrandState, locale: 'en' | 'ar'): {
+  activeId: BrandFontId;
+  enId: BrandFontEnId;
+  arId: BrandFontArId;
+} {
+  const enId: BrandFontEnId =
+    brand.fontEn && EN_FONTS.includes(brand.fontEn)
+      ? brand.fontEn
+      : EN_FONTS.includes(brand.font as BrandFontEnId)
+        ? (brand.font as BrandFontEnId)
+        : 'jakarta';
+  const arId: BrandFontArId =
+    brand.fontAr && AR_FONTS.includes(brand.fontAr)
+      ? brand.fontAr
+      : AR_FONTS.includes(brand.font as BrandFontArId)
+        ? (brand.font as BrandFontArId)
+        : 'ibm-plex-ar';
+  return {
+    activeId: locale === 'ar' ? arId : enId,
+    enId,
+    arId,
+  };
 }
 
 export function isBrandPaletteId(v: unknown): v is BrandPaletteId {
@@ -621,14 +708,19 @@ export function isBrandFontId(v: unknown): v is BrandFontId {
 }
 
 export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): void {
-  const p = BRAND_PALETTES[brand.palette] ?? BRAND_PALETTES.holst;
-  const resolvedFontId = resolveFontForLocale(brand.font, locale);
-  const font = BRAND_FONTS[resolvedFontId] ?? BRAND_FONTS.jakarta;
+  const preset = BRAND_PALETTES[brand.palette] ?? BRAND_PALETTES.holst;
+  const custom = brand.customAccentHex ? paletteFromAccentHex(brand.customAccentHex) : null;
+  const p = custom
+    ? { ...preset, ...custom, id: preset.id, label: preset.label, labelAr: preset.labelAr }
+    : preset;
+
+  const { activeId, enId, arId } = resolveBrandFonts(brand, locale);
+  const font = BRAND_FONTS[activeId] ?? BRAND_FONTS.jakarta;
   const icon = BRAND_ICON_RADIUS[brand.iconStyle] ?? BRAND_ICON_RADIUS.rounded;
   const weight = BRAND_FONT_WEIGHTS[brand.fontWeight ?? 'regular'] ?? BRAND_FONT_WEIGHTS.regular;
   const root = document.documentElement;
 
-  // Color shades
+  // Color shades (preset or custom accent)
   root.style.setProperty('--portal-950', p.p950);
   root.style.setProperty('--portal-900', p.p900);
   root.style.setProperty('--portal-800', p.p800);
@@ -638,16 +730,11 @@ export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): vo
   root.style.setProperty('--portal-50', p.p50);
   root.style.setProperty('--portal-cta', `linear-gradient(90deg, ${p.p600}, ${p.p400})`);
 
-  // Primary UI font
+  // Primary UI font follows active locale (Arabic font in AR, English in EN)
   root.style.setProperty('--font-ui', font.stack);
-
-  // Script-specific stacks
-  const activeArFont = AR_FONTS.includes(brand.font) ? BRAND_FONTS[brand.font] : BRAND_FONTS['ibm-plex-ar'];
-  const activeEnFont = EN_FONTS.includes(brand.font) ? BRAND_FONTS[brand.font] : BRAND_FONTS.jakarta;
-
-  root.style.setProperty('--font-ui-ar', activeArFont.stack);
-  root.style.setProperty('--font-ui-en', activeEnFont.stack);
-  root.style.setProperty('--font-ar', "'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Cairo', sans-serif");
+  root.style.setProperty('--font-ui-ar', BRAND_FONTS[arId].stack);
+  root.style.setProperty('--font-ui-en', BRAND_FONTS[enId].stack);
+  root.style.setProperty('--font-ar', BRAND_FONTS[arId].stack);
 
   // Font weights
   root.style.setProperty('--font-weight-body', weight.body);
@@ -661,9 +748,14 @@ export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): vo
   root.style.setProperty('--active-fg', '#ffffff');
   root.style.setProperty('--active-ring', p.p400);
 
-  root.setAttribute('data-brand', brand.palette);
-  root.setAttribute('data-font', resolvedFontId);
+  root.setAttribute('data-brand', custom ? 'custom' : brand.palette);
+  root.setAttribute('data-font', activeId);
   root.setAttribute('data-icon', brand.iconStyle);
   root.setAttribute('data-weight', brand.fontWeight ?? 'regular');
+  if (custom) {
+    root.setAttribute('data-custom-accent', p.colorHex);
+  } else {
+    root.removeAttribute('data-custom-accent');
+  }
   runChromePainter(root);
 }

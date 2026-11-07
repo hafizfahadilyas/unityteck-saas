@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\ShippingMethod;
 use App\Models\ShippingZone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class ShippingController extends Controller
@@ -190,11 +192,21 @@ class ShippingController extends Controller
             'city' => ['required', 'string'],
             'order_total' => ['required', 'numeric', 'min:0'],
             'total_weight_kg' => ['nullable', 'numeric', 'min:0'],
+            'distance_km' => ['nullable', 'numeric', 'min:0'],
+            'fulfillment_mode' => ['nullable', 'in:own_delivery,courier'],
+            'product_ids' => ['nullable', 'array'],
+            'product_ids.*' => ['string', 'max:64'],
         ]);
 
         $city = trim($validated['city']);
         $orderTotal = (float) $validated['order_total'];
         $weightKg = (float) ($validated['total_weight_kg'] ?? 1.0);
+        $distanceKm = (float) ($validated['distance_km'] ?? 0);
+        $fulfillmentMode = $validated['fulfillment_mode'] ?? null;
+        $productIds = array_values(array_unique(array_filter(array_map(
+            static fn ($id) => trim((string) $id),
+            $validated['product_ids'] ?? []
+        ))));
 
         // Find best matching zone for this store
         $zones = ShippingZone::query()->forStore($storeId)->where('is_active', true)->get();
@@ -223,10 +235,14 @@ class ShippingController extends Controller
             } else {
                 $base = (float) $matchedZone->rate;
                 $perKg = (float) ($matchedZone->rate_per_kg ?? 0);
+                $perKm = (float) ($matchedZone->per_km_rate ?? 0);
                 $minW = (float) ($matchedZone->min_weight_kg ?? 0);
+                $rateMode = (string) ($matchedZone->rate_mode ?? 'fixed');
 
-                if ($perKg > 0 && $weightKg > $minW) {
-                    $excess = $weightKg - $minW;
+                if ($rateMode === 'per_km' && $perKm > 0) {
+                    $rate = $base + ($distanceKm * $perKm);
+                } elseif (($rateMode === 'per_kg' || $perKg > 0) && $weightKg > $minW) {
+                    $excess = max(0, $weightKg - $minW);
                     $rate = $base + ($excess * $perKg);
                 } else {
                     $rate = $base;
@@ -234,35 +250,158 @@ class ShippingController extends Controller
             }
         }
 
-        // Also fetch active configurable shipping methods for store
-        $methods = ShippingMethod::query()->forStore($storeId)->where('is_active', true)->get();
+        $productShipping = [];
+        $fulfillmentHint = null;
+        $ownDeliveryFees = [];
+        $ownDeliveryCount = 0;
 
-        $availableMethods = $methods->map(function ($m) use ($orderTotal, $weightKg) {
-            $fee = (float) $m->base_rate;
-            $isMethodFree = false;
+        if ($productIds !== []) {
+            $products = Product::query()
+                ->withoutGlobalScope('store')
+                ->forStore($storeId)
+                ->whereIn('id', $productIds)
+                ->get([
+                    'id',
+                    'shipping_mode',
+                    'delivery_fee',
+                    'estimated_delivery_text',
+                    'requires_own_driver',
+                    'allow_own_delivery',
+                    'allow_shipping_company',
+                    'shipping_rate_mode',
+                    'shipping_per_kg_rate',
+                    'shipping_per_km_rate',
+                    'shipping_payment_options',
+                    'weight_kg',
+                ]);
 
-            if ($m->type === 'free' || ($m->free_shipping_threshold && $orderTotal >= (float) $m->free_shipping_threshold)) {
-                $fee = 0.0;
-                $isMethodFree = true;
-            } elseif ($m->type === 'weight_based' && $m->per_kg_rate > 0) {
-                $fee = (float) $m->base_rate + ($weightKg * (float) $m->per_kg_rate);
+            foreach ($products as $product) {
+                $mode = $product->shipping_mode;
+                $fee = $product->delivery_fee !== null ? (float) $product->delivery_fee : null;
+                $requiresOwn = (bool) ($product->requires_own_driver ?? false);
+                $allowOwn = $product->allow_own_delivery !== null
+                    ? (bool) $product->allow_own_delivery
+                    : true;
+                $allowCourier = $product->allow_shipping_company !== null
+                    ? (bool) $product->allow_shipping_company
+                    : true;
+                $rateMode = (string) ($product->shipping_rate_mode ?: 'fixed');
+                $perKg = (float) ($product->shipping_per_kg_rate ?? 0);
+                $perKm = (float) ($product->shipping_per_km_rate ?? 0);
+                $productWeight = (float) ($product->weight_kg ?? $weightKg);
+
+                if ($fee !== null) {
+                    if ($rateMode === 'per_kg' && $perKg > 0) {
+                        $fee = $fee + ($productWeight * $perKg);
+                    } elseif ($rateMode === 'per_km' && $perKm > 0) {
+                        $fee = $fee + ($distanceKm * $perKm);
+                    }
+                }
+
+                $isOwn = $mode === 'own_delivery' || $requiresOwn
+                    || ($fulfillmentMode === 'own_delivery' && $allowOwn);
+
+                if ($isOwn) {
+                    $ownDeliveryCount++;
+                    if ($fee !== null) {
+                        $ownDeliveryFees[] = $fee;
+                    }
+                }
+
+                $productShipping[] = [
+                    'product_id' => $product->id,
+                    'shipping_mode' => $mode,
+                    'delivery_fee' => $fee,
+                    'estimated_delivery_text' => $product->estimated_delivery_text,
+                    'requires_own_driver' => $requiresOwn,
+                    'allow_own_delivery' => $allowOwn,
+                    'allow_shipping_company' => $allowCourier,
+                    'shipping_rate_mode' => $rateMode,
+                    'payment_options' => $product->shipping_payment_options ?? null,
+                ];
             }
 
-            return [
-                'id' => $m->id,
-                'name' => $m->name,
-                'name_ar' => $m->name_ar,
-                'type' => $m->type,
-                'fee' => round($fee, 2),
-                'is_free' => $isMethodFree,
-                'estimated_delivery' => $m->estimated_delivery,
-                'courier_code' => $m->courier_code,
-                'is_cod_allowed' => $m->is_cod_allowed,
-                'cod_fee' => (float) $m->cod_fee,
-            ];
-        });
+            if ($ownDeliveryCount > 0) {
+                $fulfillmentHint = 'own_delivery';
+                if ($ownDeliveryFees !== []) {
+                    $maxOwnFee = max($ownDeliveryFees);
+                    if ($ownDeliveryCount === count($productShipping)) {
+                        // All cart products are own-delivery → override calculated fee with max product fee
+                        $rate = $maxOwnFee;
+                        $isFree = $rate <= 0;
+                    } elseif (! $isFree) {
+                        // Mixed cart: prefer max own-delivery product fee when zone rate would apply
+                        $rate = max($rate, $maxOwnFee);
+                    }
+                }
+            }
+        }
 
-        return response()->json([
+        // Also fetch active configurable shipping methods for store
+        $methods = ShippingMethod::query()->forStore($storeId)->where('is_active', true)->get();
+        $hasFulfillmentMode = Schema::hasColumn('shipping_methods', 'fulfillment_mode');
+
+        $availableMethods = $methods
+            ->when($fulfillmentMode && $hasFulfillmentMode, function ($col) use ($fulfillmentMode) {
+                return $col->filter(function ($m) use ($fulfillmentMode) {
+                    $mode = $m->fulfillment_mode ?: 'courier';
+
+                    return $mode === $fulfillmentMode
+                        || ($fulfillmentMode === 'own_delivery' && $mode === 'own_delivery')
+                        || ($fulfillmentMode === 'courier' && $mode === 'courier');
+                })->values();
+            })
+            ->map(function ($m) use ($orderTotal, $weightKg, $distanceKm, $hasFulfillmentMode) {
+                $fee = (float) $m->base_rate;
+                $isMethodFree = false;
+
+                if ($m->type === 'free' || ($m->free_shipping_threshold && $orderTotal >= (float) $m->free_shipping_threshold)) {
+                    $fee = 0.0;
+                    $isMethodFree = true;
+                } elseif ($m->type === 'weight_based' && (float) $m->per_kg_rate > 0) {
+                    $fee = (float) $m->base_rate + ($weightKg * (float) $m->per_kg_rate);
+                } elseif ((float) ($m->per_km_rate ?? 0) > 0 && $distanceKm > 0) {
+                    $fee = (float) $m->base_rate + ($distanceKm * (float) $m->per_km_rate);
+                }
+
+                $paymentOptions = is_array($m->payment_options) ? $m->payment_options : [];
+                if ($paymentOptions === []) {
+                    $paymentOptions = array_values(array_filter([
+                        $m->is_cod_allowed ? 'cod' : null,
+                        ($m->allow_online ?? true) ? 'online' : null,
+                        ($m->allow_bank_transfer ?? false) ? 'bank_transfer' : null,
+                    ]));
+                }
+
+                $row = [
+                    'id' => $m->id,
+                    'name' => $m->name,
+                    'name_ar' => $m->name_ar,
+                    'type' => $m->type,
+                    'fee' => round($fee, 2),
+                    'is_free' => $isMethodFree,
+                    'estimated_delivery' => $m->estimated_delivery,
+                    'eta_type' => $m->eta_type ?? null,
+                    'eta_value' => $m->eta_value ?? null,
+                    'tracking_enabled' => (bool) ($m->tracking_enabled ?? true),
+                    'courier_code' => $m->courier_code,
+                    'is_cod_allowed' => (bool) $m->is_cod_allowed,
+                    'allow_online' => (bool) ($m->allow_online ?? true),
+                    'allow_bank_transfer' => (bool) ($m->allow_bank_transfer ?? false),
+                    'payment_options' => $paymentOptions,
+                    'cod_fee' => (float) $m->cod_fee,
+                    'per_kg_rate' => (float) ($m->per_kg_rate ?? 0),
+                    'per_km_rate' => (float) ($m->per_km_rate ?? 0),
+                ];
+
+                if ($hasFulfillmentMode) {
+                    $row['fulfillment_mode'] = $m->fulfillment_mode ?: 'courier';
+                }
+
+                return $row;
+            });
+
+        $payload = [
             'store_id' => $storeId,
             'matched_zone' => $matchedZone ? [
                 'id' => $matchedZone->id,
@@ -276,6 +415,13 @@ class ShippingController extends Controller
             'calculated_shipping_fee' => round($rate, 2),
             'is_free_shipping' => $isFree,
             'available_methods' => $availableMethods,
-        ]);
+            'product_shipping' => $productShipping,
+        ];
+
+        if ($fulfillmentHint !== null) {
+            $payload['fulfillment_hint'] = $fulfillmentHint;
+        }
+
+        return response()->json($payload);
     }
 }

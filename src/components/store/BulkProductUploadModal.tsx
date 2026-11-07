@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import type { Product } from '../../types';
 import { isCoffeeStore } from '../../themes/settings/coffeeThemeDefaults';
 import { isFlowerStore } from '../../themes/settings/themeSettingsStore';
@@ -536,7 +537,7 @@ function demoCopy(vertical: DemoVertical, locale: string) {
     return {
       step2Title: isAr ? 'تحميل 50 منتج قهوة جاهزة' : 'Download 50 Coffee Ready CSV',
       step2Desc: isAr
-        ? 'ملف يحتوي على 50 منتج قهوة مختصة بأسعار وصور وSKU وتصنيفات'
+        ? 'ملف يحتوي على 50 منتج قهوة مختصة بأسعار وصور ورمز المنتج وتصنيفات'
         : 'Download pre-filled 50 specialty coffee catalog CSV to inspect or customize.',
       loadTitle: isAr ? 'معاينة ورفع 50 منتج قهوة فوراً' : '1-Click Load 50 Coffee Catalog',
       loadDesc: isAr
@@ -558,7 +559,7 @@ function demoCopy(vertical: DemoVertical, locale: string) {
     return {
       step2Title: isAr ? 'تحميل 50 منتج ورود جاهزة' : 'Download 50 Flowers Ready CSV',
       step2Desc: isAr
-        ? 'ملف يحتوي على 50 منتج ورود وهدايا بأسعار وصور وSKU وتصنيفات'
+        ? 'ملف يحتوي على 50 منتج ورود وهدايا بأسعار وصور ورمز المنتج وتصنيفات'
         : 'Download pre-filled 50 flowers catalog CSV to inspect or customize.',
       loadTitle: isAr ? 'معاينة ورفع 50 منتج ورود فوراً' : '1-Click Load 50 Flowers Catalog',
       loadDesc: isAr
@@ -579,7 +580,7 @@ function demoCopy(vertical: DemoVertical, locale: string) {
   return {
     step2Title: isAr ? 'تحميل 50 منتج جاهزة' : 'Download 50 Products Ready CSV',
     step2Desc: isAr
-      ? 'ملف يحتوي على 50 منتج تجريبي بأسعار وصور وSKU وتصنيفات'
+      ? 'ملف يحتوي على 50 منتج تجريبي بأسعار وصور ورمز المنتج وتصنيفات'
       : 'Download pre-filled 50-product catalog CSV to inspect or customize.',
     loadTitle: isAr ? 'معاينة ورفع 50 منتج فوراً' : '1-Click Load 50 Products Catalog',
     loadDesc: isAr
@@ -901,12 +902,13 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
   };
 
   return (
-    <div
+    <GlobalModal
+      onClose={onClose}
       dir={dir}
-      lang={locale}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+      aria-label={locale === 'ar' ? 'استيراد منتجات' : 'Import Products'}
     >
       <div
+        lang={locale}
         className="w-full max-w-5xl max-h-[92vh] flex flex-col rounded-3xl border shadow-2xl overflow-hidden"
         style={{
           background: 'var(--surface, #ffffff)',
@@ -924,12 +926,12 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
               <h2 className="text-lg font-extrabold flex items-center gap-2">
                 <span>{locale === 'ar' ? 'استيراد منتجات' : 'Import Products'}</span>
                 <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-emerald-800">
-                  50+ Products
+                  {locale === 'ar' ? '+٥٠ منتج' : '50+ Products'}
                 </span>
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {locale === 'ar'
-                  ? 'رفع ملف CSV متوافق مع Google Sheets أو Excel بضغطة واحدة وتحديد الأسعار والخصومات والأكواد'
+                  ? 'رفع ملف مفصول بفواصل متوافق مع جداول جوجل أو إكسل بضغطة واحدة وتحديد الأسعار والخصومات والأكواد'
                   : 'Import / Export 50+ products via Google Sheet or Excel CSV with custom categories, SKU, stock & discount codes'}
               </p>
             </div>
@@ -965,7 +967,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
             }`}
           >
             <Download className="w-4 h-4" />
-            <span>{locale === 'ar' ? 'تصدير الكتالوج إلى ملف CSV' : 'Export Catalog to CSV'}</span>
+            <span>{locale === 'ar' ? 'تصدير الكتالوج إلى ملف مفصول بفواصل' : 'Export Catalog to CSV'}</span>
           </button>
         </div>
 
@@ -978,13 +980,15 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
                 {/* 1. Download Demo Google Sheet template */}
                 <div className="p-4 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/60 flex flex-col justify-between gap-3">
                   <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Step 1</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      {locale === 'ar' ? 'الخطوة ١' : 'Step 1'}
+                    </span>
                     <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      {locale === 'ar' ? 'تحميل نموذج Google Sheet / Excel' : 'Download Demo Sheet Template'}
+                      {locale === 'ar' ? 'تحميل نموذج جداول جوجل / إكسل' : 'Download Demo Sheet Template'}
                     </h4>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
                       {locale === 'ar'
-                        ? 'نموذج CSV جاهز لتعديله في Google Sheets أو Excel ثم تصديره'
+                        ? 'نموذج ملف مفصول بفواصل جاهز لتعديله في جداول جوجل أو إكسل ثم تصديره'
                         : 'Clean template with header columns: Title, Category, SKU, Price, Discount, Stock, Offers.'}
                     </p>
                   </div>
@@ -993,14 +997,16 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
                     className="w-full py-2 px-3 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-800 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>{locale === 'ar' ? 'تحميل ملف CSV التجريبي' : 'Download Sample CSV'}</span>
+                    <span>{locale === 'ar' ? 'تحميل الملف التجريبي المفصول بفواصل' : 'Download Sample CSV'}</span>
                   </button>
                 </div>
 
                 {/* 2. Download 50 Items Catalog */}
                 <div className="p-4 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/60 flex flex-col justify-between gap-3">
                   <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">Step 2 (Demo)</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">
+                      {locale === 'ar' ? 'الخطوة ٢ (تجريبي)' : 'Step 2 (Demo)'}
+                    </span>
                     <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
                       {copy.step2Title}
                     </h4>
@@ -1013,7 +1019,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
                     className="w-full py-2 px-3 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-800 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5 text-blue-500" />
-                    <span>{locale === 'ar' ? 'تحميل 50 منتج CSV' : 'Download 50 Products CSV'}</span>
+                    <span>{locale === 'ar' ? 'تحميل ٥٠ منتجاً (ملف مفصول بفواصل)' : 'Download 50 Products CSV'}</span>
                   </button>
                 </div>
 
@@ -1021,7 +1027,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
                 <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-950/20 flex flex-col justify-between gap-3">
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                      ⚡ Quick 1-Click Test
+                      {locale === 'ar' ? 'اختبار سريع بنقرة واحدة' : 'Quick 1-Click Test'}
                     </span>
                     <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
                       {copy.loadTitle}
@@ -1060,12 +1066,12 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
                     {uploadFileName
                       ? `${locale === 'ar' ? 'الملف المحدد:' : 'Selected File:'} ${uploadFileName}`
                       : locale === 'ar'
-                      ? 'اسحب وأفلت ملف CSV هنا، أو انقر للاختيار'
+                      ? 'اسحب وأفلت الملف المفصول بفواصل هنا، أو انقر للاختيار'
                       : 'Drag & Drop CSV file here, or click to browse'}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
                     {locale === 'ar'
-                      ? 'يدعم ملفات CSV المصدرة من Google Sheets أو Microsoft Excel حتى 50+ منتج'
+                      ? 'يدعم الملفات المفصولة بفواصل المصدرة من جداول جوجل أو مايكروسوفت إكسل حتى أكثر من ٥٠ منتجاً'
                       : 'Supports .CSV format from Google Sheets or Excel (up to 50+ items at once)'}
                   </p>
                 </div>
@@ -1101,7 +1107,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
                           <th className="py-2.5 px-3">#</th>
                           <th className="py-2.5 px-3">{locale === 'ar' ? 'المنتج والصورة' : 'Product & Image'}</th>
                           <th className="py-2.5 px-3">{locale === 'ar' ? 'التصنيف' : 'Category'}</th>
-                          <th className="py-2.5 px-3">SKU</th>
+                          <th className="py-2.5 px-3">{locale === 'ar' ? 'رمز المنتج' : 'SKU'}</th>
                           <th className="py-2.5 px-3">{locale === 'ar' ? 'السعر' : 'Price'}</th>
                           <th className="py-2.5 px-3">{locale === 'ar' ? 'سعر الخصم' : 'Discount'}</th>
                           <th className="py-2.5 px-3">{locale === 'ar' ? 'المخزون' : 'Stock'}</th>
@@ -1249,6 +1255,6 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

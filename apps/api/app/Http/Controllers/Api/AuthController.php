@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -23,130 +24,26 @@ class AuthController extends Controller
 
     private const OTP_TTL_MINUTES = 1;
 
+    /**
+     * Password login closed — email OTP (Clerk) or /auth/otp/verify only.
+     */
     public function masterLogin(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'email' => ['required', 'string'],
-            'password' => ['required', 'string'],
-        ]);
-
-        $input = strtolower(trim($data['email']));
-        $masterAliases = ['master', 'admin', 'superadmin', 'master@unityteck.com'];
-        $email = in_array($input, $masterAliases, true) ? 'master@unityteck.com' : $input;
-
-        $user = User::query()->where('email', $email)->first();
-
-        if (! $user || ! Hash::check($data['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['Invalid email or password.'],
-            ]);
-        }
-
-        if (Roles::normalize($user->role) !== Roles::SUPER_ADMIN) {
-            return response()->json([
-                'message' => 'This account cannot access Master Admin.',
-            ], 403);
-        }
-
-        // Lifetime: do not revoke older tokens. A session ends only on explicit logout.
-        $token = $user->createToken('master', ['portal:master'])->plainTextToken;
-
-        return response()->json($this->authPayload(
-            $user,
-            'master',
-            $token,
-            null,
-            null,
-            Roles::SUPER_ADMIN
-        ));
+        return response()->json([
+            'message' => 'Password login is disabled. Use email verification code (OTP).',
+            'code' => 'OTP_REQUIRED',
+        ], 403);
     }
 
+    /**
+     * Password login closed — email OTP (Clerk) or /auth/otp/verify only.
+     */
     public function storeLogin(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'email' => ['required', 'string'],
-            'password' => ['required', 'string'],
-            'store_id' => ['nullable', 'string'],
-        ]);
-
-        $input = strtolower(trim($data['email']));
-
-        $aliasMap = [
-            'admin@giftshop-sa.com' => 'tariq@wardalmakkah.sa',
-            'makkah' => 'tariq@wardalmakkah.sa',
-            'ward' => 'tariq@wardalmakkah.sa',
-            'flowers' => 'tariq@wardalmakkah.sa',
-            'gifts' => 'tariq@wardalmakkah.sa',
-            'giftshop' => 'tariq@wardalmakkah.sa',
-            'giftshop2030m@gmail.com' => 'tariq@wardalmakkah.sa',
-            'admin@bleco.sa' => 'owner@tanjeedmakkah.com',
-            'bleco' => 'owner@tanjeedmakkah.com',
-            'car' => 'owner@tanjeedmakkah.com',
-            'tanjeed' => 'owner@tanjeedmakkah.com',
-            'alsaeedi' => 'owner@tanjeedmakkah.com',
-            'blacko' => 'owner@tanjeedmakkah.com',
-            'coffee' => 'mieraf.sa8@gmail.com',
-            'mieraf' => 'mieraf.sa8@gmail.com',
-            'store-coffee' => 'mieraf.sa8@gmail.com',
-        ];
-
-        $targetEmail = $aliasMap[$input] ?? $input;
-
-        $user = User::query()->where('email', $targetEmail)->first();
-
-        $passwordValid = false;
-        if ($user) {
-            $passwordValid = Hash::check($data['password'], $user->password);
-            if (! $passwordValid && in_array($targetEmail, ['owner@tanjeedmakkah.com', 'support@tanjeedmakkah.com'], true)) {
-                $alternate = str_contains($data['password'], 'Blacko')
-                    ? str_replace('Blacko', 'Bleco', $data['password'])
-                    : str_replace('Bleco', 'Blacko', $data['password']);
-                $passwordValid = Hash::check($alternate, $user->password);
-            }
-        }
-
-        if (! $user || ! $passwordValid) {
-            throw ValidationException::withMessages([
-                'email' => ['Invalid email or password.'],
-            ]);
-        }
-
-        if (Roles::normalize($user->role) === Roles::SUPER_ADMIN) {
-            return response()->json([
-                'message' => 'Use Master Admin login for this account.',
-            ], 403);
-        }
-
-        $membershipQuery = StoreUser::query()->where('user_id', $user->id);
-        if (! empty($data['store_id'])) {
-            $membershipQuery->where('store_id', $data['store_id']);
-        }
-
-        $membership = $membershipQuery->orderBy('created_at')->first();
-
-        if (! $membership) {
-            return response()->json([
-                'message' => 'No store membership for this account.',
-            ], 403);
-        }
-
-        $store = Store::query()->find($membership->store_id);
-        $role = Roles::normalize($membership->role ?: $user->role);
-
-        // Lifetime: keep every store session until that admin signs out.
-        $token = $user->createToken('store', [
-            'portal:store',
-            'store:'.$membership->store_id,
-        ])->plainTextToken;
-
-        return response()->json($this->authPayload(
-            $user,
-            'store',
-            $token,
-            $membership->store_id,
-            $store?->name,
-            $role
-        ));
+        return response()->json([
+            'message' => 'Password login is disabled. Use email verification code (OTP).',
+            'code' => 'OTP_REQUIRED',
+        ], 403);
     }
 
     public function me(Request $request): JsonResponse
@@ -428,8 +325,8 @@ class AuthController extends Controller
     }
 
     /**
-     * After Clerk (or other IdP) verifies email ownership, mint a Sanctum PAT
-     * so store-scoped APIs (products, orders, …) work. Only registered users.
+     * After Clerk verifies email OTP, mint a Sanctum PAT.
+     * Requires clerk_token — email alone cannot mint a session.
      */
     public function exchangeClerkSession(Request $request): JsonResponse
     {
@@ -437,9 +334,12 @@ class AuthController extends Controller
             'email' => ['required', 'email'],
             'portal' => ['required', 'in:master,store'],
             'store_id' => ['nullable', 'string'],
+            'clerk_token' => ['required', 'string', 'min:20'],
         ]);
 
         $email = Str::lower(trim($data['email']));
+        $this->assertClerkTokenOwnsEmail($data['clerk_token'], $email);
+
         $user = User::query()->where('email', $email)->first();
 
         if (! $user || ! $this->userMatchesPortal($user, $data['portal'])) {
@@ -587,6 +487,101 @@ class AuthController extends Controller
         }
 
         return $role !== Roles::SUPER_ADMIN;
+    }
+
+    /**
+     * Prove Clerk OTP session owns this email before minting Sanctum.
+     * Prefer CLERK_SECRET_KEY (Backend API). Without it, reject in production;
+     * local/debug still requires a well-formed JWT with matching email claim.
+     */
+    private function assertClerkTokenOwnsEmail(string $clerkToken, string $email): void
+    {
+        $parts = explode('.', $clerkToken);
+        if (count($parts) !== 3) {
+            throw ValidationException::withMessages([
+                'clerk_token' => ['Invalid verification session. Complete email OTP again.'],
+            ]);
+        }
+
+        $payloadJson = base64_decode(strtr($parts[1], '-_', '+/'), true);
+        $payload = is_string($payloadJson) ? json_decode($payloadJson, true) : null;
+        if (! is_array($payload)) {
+            throw ValidationException::withMessages([
+                'clerk_token' => ['Invalid verification session. Complete email OTP again.'],
+            ]);
+        }
+
+        if (isset($payload['exp']) && (int) $payload['exp'] < time()) {
+            throw ValidationException::withMessages([
+                'clerk_token' => ['Verification session expired. Request a new OTP.'],
+            ]);
+        }
+
+        $secret = (string) config('services.clerk.secret', '');
+        if ($secret !== '') {
+            $sessionId = (string) ($payload['sid'] ?? '');
+            if ($sessionId === '') {
+                throw ValidationException::withMessages([
+                    'clerk_token' => ['Invalid verification session. Complete email OTP again.'],
+                ]);
+            }
+
+            $sessionResp = Http::withToken($secret)
+                ->acceptJson()
+                ->timeout(8)
+                ->get('https://api.clerk.com/v1/sessions/'.$sessionId);
+
+            if (! $sessionResp->successful()) {
+                throw ValidationException::withMessages([
+                    'clerk_token' => ['Could not verify OTP session with identity provider.'],
+                ]);
+            }
+
+            $status = (string) $sessionResp->json('status');
+            if (! in_array($status, ['active', 'pending'], true)) {
+                throw ValidationException::withMessages([
+                    'clerk_token' => ['OTP session is not active. Request a new code.'],
+                ]);
+            }
+
+            $userId = (string) ($sessionResp->json('user_id') ?: ($payload['sub'] ?? ''));
+            if ($userId === '') {
+                throw ValidationException::withMessages([
+                    'clerk_token' => ['Could not resolve verified user from OTP session.'],
+                ]);
+            }
+
+            $userResp = Http::withToken($secret)
+                ->acceptJson()
+                ->timeout(8)
+                ->get('https://api.clerk.com/v1/users/'.$userId);
+
+            if (! $userResp->successful()) {
+                throw ValidationException::withMessages([
+                    'clerk_token' => ['Could not verify email ownership after OTP.'],
+                ]);
+            }
+
+            $emails = collect($userResp->json('email_addresses') ?? [])
+                ->pluck('email_address')
+                ->filter()
+                ->map(fn ($e) => Str::lower((string) $e))
+                ->values()
+                ->all();
+
+            if (! in_array($email, $emails, true)) {
+                throw ValidationException::withMessages([
+                    'clerk_token' => ['Verified OTP email does not match login email.'],
+                ]);
+            }
+
+            return;
+        }
+
+        // Unsigned JWT checks are forgeable — never mint Sanctum without Clerk secret.
+        throw ValidationException::withMessages([
+            'clerk_token' => ['CLERK_SECRET_KEY is required to verify OTP sessions.'],
+        ]);
     }
 
     /** Reveal stub token/code only in local/debug — never assume production mailer. */

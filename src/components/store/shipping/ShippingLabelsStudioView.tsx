@@ -576,33 +576,57 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
                   </div>
                 </div>
 
-                {/* Toggles */}
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
-                  {/* COD Toggle */}
-                  <label className="flex items-center justify-between cursor-pointer">
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">
-                      {isAr ? 'الدفع عند الاستلام (COD)' : 'Cash on Delivery (COD)'}
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={isCodEnabled}
-                      onChange={(e) => setIsCodEnabled(e.target.checked)}
-                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                    />
-                  </label>
-
-                  {/* Insurance Toggle */}
-                  <label className="flex items-center justify-between cursor-pointer">
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">
-                      {isAr ? 'إضافة تأمين على الشحنة' : 'Add Insurance'}
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={isInsuranceEnabled}
-                      onChange={(e) => setIsInsuranceEnabled(e.target.checked)}
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-                    />
-                  </label>
+                {/* Option buttons (4 per row) */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    {isAr ? 'خيارات الشحنة والدفع' : 'Shipment & payment options'}
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsCodEnabled(true)}
+                      className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
+                        isCodEnabled
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {isAr ? 'عند الاستلام' : 'COD'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsCodEnabled(false)}
+                      className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
+                        !isCodEnabled
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {isAr ? 'مدفوع مسبقاً' : 'Prepaid'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsInsuranceEnabled(true)}
+                      className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
+                        isInsuranceEnabled
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {isAr ? 'تأمين' : 'Insurance'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsInsuranceEnabled(false)}
+                      className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
+                        !isInsuranceEnabled
+                          ? 'bg-slate-700 text-white border-slate-700'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {isAr ? 'بدون تأمين' : 'No insurance'}
+                    </button>
+                  </div>
                 </div>
               </div>
 

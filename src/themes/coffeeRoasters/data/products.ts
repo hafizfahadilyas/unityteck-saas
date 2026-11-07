@@ -245,8 +245,20 @@ export const PRODUCTS: Product[] = [
       }
     ],
     storageOptions: [
-      { capacity: 'Standard 58mm Kit', ram: 'Includes Double Filter Basket', priceDelta: 0 },
-      { capacity: 'Pro Barista Edition', ram: 'Includes Precision Tamper & Pitcher', priceDelta: 199 }
+      {
+        capacity: 'Standard 58mm Kit',
+        capacityAr: 'طقم بورتفلتر 58 مم القياسي',
+        ram: 'Includes Double Filter Basket',
+        ramAr: 'يشمل سلة فلتر مزدوجة',
+        priceDelta: 0,
+      },
+      {
+        capacity: 'Pro Barista Edition',
+        capacityAr: 'إصدار باريستا برو',
+        ram: 'Includes Precision Tamper & Pitcher',
+        ramAr: 'يشمل مدك دقيق وإبريق حليب',
+        priceDelta: 199,
+      },
     ],
     warranties: [
       { id: 'agency-2y', name: 'Official 2-Year KSA Agency Warranty', nameAr: 'ضمان سنتين شامل الوكيل المعتمد بالسعودية', price: 0 }
@@ -284,7 +296,13 @@ export const PRODUCTS: Product[] = [
       }
     ],
     storageOptions: [
-      { capacity: 'Standard Trio Adapter', ram: 'Nespresso, Dolce Gusto & Ground Coffee', priceDelta: 0 }
+      {
+        capacity: 'Standard Trio Adapter',
+        capacityAr: 'محول ثلاثي قياسي',
+        ram: 'Nespresso, Dolce Gusto & Ground Coffee',
+        ramAr: 'نسبريسو ودولتشي غوستو والبن المطحون',
+        priceDelta: 0,
+      },
     ],
     warranties: [
       { id: 'agency-2y', name: 'Official 2-Year KSA Agency Warranty', nameAr: 'ضمان سنتين شامل الوكيل المعتمد بالسعودية', price: 0 }
@@ -321,7 +339,13 @@ export const PRODUCTS: Product[] = [
       }
     ],
     storageOptions: [
-      { capacity: '1.5L Glass Carafe Edition', ram: 'Up to 12 Cups per Brew', priceDelta: 0 }
+      {
+        capacity: '1.5L Glass Carafe Edition',
+        capacityAr: 'إصدار إبريق زجاجي 1.5 لتر',
+        ram: 'Up to 12 Cups per Brew',
+        ramAr: 'حتى 12 كوباً في التحضير الواحد',
+        priceDelta: 0,
+      },
     ],
     warranties: [
       { id: 'agency-2y', name: 'Official 2-Year KSA Agency Warranty', nameAr: 'ضمان سنتين شامل الوكيل المعتمد بالسعودية', price: 0 }

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 import {
   readAllThemeSettings,
   writeAllThemeSettings,
@@ -6031,7 +6032,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
           6. SAVE AS CUSTOM TEMPLATE MODAL
           ======================================================== */}
       {showSaveCustomTplModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <GlobalModal
+          onClose={() => setShowSaveCustomTplModal(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'حفظ التصميم كقالب مخصص للمتجر' : 'Save as Custom Template'}
+        >
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <span className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
@@ -6112,14 +6117,18 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* ========================================================
           7. COLUMN WIDGET PICKER MODAL (Elementor Pro Column Module (+)
           ======================================================== */}
       {columnPickerTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <GlobalModal
+          onClose={() => setColumnPickerTarget(null)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إدراج عنصر في العمود' : `Insert Module in Column #${columnPickerTarget.colIdx + 1}`}
+        >
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
@@ -6262,7 +6271,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

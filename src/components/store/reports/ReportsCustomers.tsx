@@ -76,7 +76,7 @@ export const ReportsCustomers: React.FC<ReportsCustomersProps> = ({
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-                {isAr ? 'تحليلات العملاء والمجموعات (Customers & Cohorts)' : 'Customer Analytics'}
+                {isAr ? 'تحليلات العملاء والمجموعات' : 'Customer Analytics'}
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {isAr ? 'تقسيم العملاء بحسب القيمة ومعدلات التكرار والاحتفاظ' : 'RFM customer segmentation, retention cohorts, and lifetime value'}
@@ -110,12 +110,12 @@ export const ReportsCustomers: React.FC<ReportsCustomersProps> = ({
                 {isAr ? 'تحليلات العملاء والولاء' : 'Customer Analytics & Retention'}
               </h1>
               <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-200 dark:border-emerald-800">
-                RFM Scored
+                {isAr ? 'تقييم سلوكي مكتمل' : 'RFM Scored'}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {isAr
-                ? 'متابعة قيمة العميل الدائمة (CLV)، شرائح العملاء الأكثر ربحية، وتحليل الاحتفاظ الشهري'
+                ? 'متابعة قيمة العميل الدائمة، شرائح العملاء الأكثر ربحية، وتحليل الاحتفاظ الشهري'
                 : 'Customer Lifetime Value (CLV), high-roller retention, and RFM loyalty distribution'}
             </p>
           </div>
@@ -130,7 +130,7 @@ export const ReportsCustomers: React.FC<ReportsCustomersProps> = ({
             {(kpis?.total_customers ?? storeCustomers.length).toLocaleString()}
           </div>
           <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 inline-block">
-            {kpis?.customer_growth || (storeCustomers.length > 0 ? '+12.5% new' : '0%')}
+            {kpis?.customer_growth || '0%'}
           </span>
         </div>
 
@@ -140,7 +140,11 @@ export const ReportsCustomers: React.FC<ReportsCustomersProps> = ({
             {(kpis?.new_customers ?? storeCustomers.length).toLocaleString()}
           </div>
           <span className="text-[11px] text-purple-600 dark:text-purple-400 font-bold mt-1 inline-block">
-            {storeCustomers.length > 0 ? 'First-time shoppers' : '0%'}
+            {storeCustomers.length > 0
+              ? isAr
+                ? 'متسوقون لأول مرة'
+                : 'First-time shoppers'
+              : '0%'}
           </span>
         </div>
 
@@ -150,7 +154,11 @@ export const ReportsCustomers: React.FC<ReportsCustomersProps> = ({
             {kpis?.returning_rate || '0%'}
           </div>
           <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 inline-block">
-            {kpis?.returning_rate ? '+3.2% loyalty' : '—'}
+            {kpis?.returning_rate
+              ? isAr
+                ? '+3.2٪ ولاء'
+                : '+3.2% loyalty'
+              : '—'}
           </span>
         </div>
 
@@ -160,17 +168,17 @@ export const ReportsCustomers: React.FC<ReportsCustomersProps> = ({
             {money(kpis?.clv || 0)}
           </div>
           <span className="text-[11px] text-slate-400 mt-1 inline-block">
-            {kpis?.clv ? 'Historical mean' : '—'}
+            {kpis?.clv ? (isAr ? 'المتوسط التاريخي' : 'Historical mean') : '—'}
           </span>
         </div>
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{isAr ? 'معدل التوقف (Churn)' : 'Churn Rate'}</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{isAr ? 'معدل التوقف' : 'Churn Rate'}</span>
           <div className="text-2xl font-black text-slate-900 dark:text-white mt-2">
-            {kpis?.churn_rate || '0%'}
+            {kpis?.churn_rate != null && kpis?.churn_rate !== '' ? kpis.churn_rate : '—'}
           </div>
-          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 inline-block">
-            {kpis?.churn_rate ? 'Low Risk' : '—'}
+          <span className="text-[11px] text-slate-400 font-medium mt-1 inline-block">
+            {isAr ? 'بانتظار بيانات كافية' : 'Waiting for enough history'}
           </span>
         </div>
       </div>
@@ -182,7 +190,7 @@ export const ReportsCustomers: React.FC<ReportsCustomersProps> = ({
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {isAr ? 'تقسيم العملاء السلوكي (RFM Segmentation)' : 'RFM Customer Segments'}
+                {isAr ? 'تقسيم العملاء السلوكي' : 'RFM Customer Segments'}
               </h3>
               <Award className="w-4 h-4 text-purple-500" />
             </div>
@@ -221,7 +229,7 @@ export const ReportsCustomers: React.FC<ReportsCustomersProps> = ({
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {isAr ? 'مصفوفة الاحتفاظ بالعملاء (Cohort Retention)' : 'Cohort Retention Matrix'}
+                {isAr ? 'مصفوفة الاحتفاظ بالعملاء' : 'Cohort Retention Matrix'}
               </h3>
               <RotateCcw className="w-4 h-4 text-blue-500" />
             </div>
@@ -264,7 +272,7 @@ export const ReportsCustomers: React.FC<ReportsCustomersProps> = ({
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              {isAr ? 'أعلى العملاء إنفاقاً (Top Spenders)' : 'Top VIP Customers by Spend'}
+              {isAr ? 'أعلى العملاء إنفاقاً' : 'Top VIP Customers by Spend'}
             </h3>
             <p className="text-[11px] text-slate-400 dark:text-slate-500">
               {isAr ? 'العملاء الأكثر إسهاماً في إيرادات المتجر' : 'Highest lifetime spend contributors'}

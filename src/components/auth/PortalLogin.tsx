@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
-  CheckCircle2,
   Clock,
   KeyRound,
   Layers,
@@ -10,7 +9,6 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
-  Sparkles,
   Store,
 } from 'lucide-react';
 import { useSignIn, useSignUp, useClerk } from '@clerk/clerk-react';
@@ -20,7 +18,9 @@ import {
   assertStoreLoginEmailAllowed,
   exchangeClerkForSanctum,
   isMasterLoginEmail,
+  resolveStoreIdFromLoginParam,
 } from '../../auth/api';
+import { isApiEnabled } from '../../api/client';
 import {
   getRateLimitStatus,
   recordFailedAttempt,
@@ -31,7 +31,10 @@ import {
 import { useToast } from '../common/ToastProvider';
 import { PrefsSwitcher } from '../common/PrefsSwitcher';
 import { usePrefs } from '../../i18n/PrefsContext';
-import { MasterLoginArt, SaudiCommerceHeroArt } from './LoginHeroArt';
+import {
+  DEFAULT_LOGIN_SIDE_IMAGE,
+  resolveLoginSideImageUrl,
+} from '../../themes/settings/storeIdentity';
 
 type PortalLoginProps = {
   portal: AuthPortal;
@@ -118,17 +121,30 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
           .trim()
       : '';
 
-  const isCoffee = storeParam === 'coffee' || storeParam === 'store-coffee';
-  const isBleco =
-    storeParam === 'bleco' ||
-    storeParam === 'store-bleco' ||
-    storeParam === 'car' ||
-    storeParam === 'tanjeed';
-  const isFlowers =
-    storeParam === 'store-1' ||
-    storeParam === 'makkah' ||
-    storeParam === 'giftshop' ||
-    storeParam === 'flowers';
+  const resolvedStoreId = useMemo(
+    () => (isMaster ? null : resolveStoreIdFromLoginParam(storeParam)),
+    [isMaster, storeParam],
+  );
+  const isCoffee = resolvedStoreId === 'store-coffee';
+  const isBleco = resolvedStoreId === 'store-bleco';
+  const isFlowers = resolvedStoreId === 'store-1';
+
+  const [loginSideImageUrl, setLoginSideImageUrl] = useState(DEFAULT_LOGIN_SIDE_IMAGE);
+
+  useEffect(() => {
+    if (isMaster || !resolvedStoreId) {
+      setLoginSideImageUrl(DEFAULT_LOGIN_SIDE_IMAGE);
+      return;
+    }
+    setLoginSideImageUrl(resolveLoginSideImageUrl(resolvedStoreId));
+    const onIdentity = (e: Event) => {
+      const detail = (e as CustomEvent<{ storeId?: string }>).detail;
+      if (detail?.storeId && detail.storeId !== resolvedStoreId) return;
+      setLoginSideImageUrl(resolveLoginSideImageUrl(resolvedStoreId));
+    };
+    window.addEventListener('unityteck-theme-identity', onIdentity);
+    return () => window.removeEventListener('unityteck-theme-identity', onIdentity);
+  }, [isMaster, resolvedStoreId]);
 
   const portalInfo = useMemo(() => {
     if (isMaster) {
@@ -324,13 +340,28 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
     const localSession = sessionFromClerkUser(portal, user as any, token, {
       storeParam: storeParam || null,
     });
-    // Clerk JWT ≠ Sanctum — exchange so products/orders API can authenticate
-    const liveSession =
-      (await exchangeClerkForSanctum(
-        portal,
-        email,
-        localSession.storeId,
-      )) || localSession;
+    // Clerk JWT ≠ Sanctum — exchange only with verified Clerk session token (OTP proof)
+    if (!token) {
+      throw new Error(
+        isAr
+          ? 'تعذّر إثبات جلسة التحقق. أعد إرسال رمز التحقق.'
+          : 'Could not prove OTP session. Request a new verification code.',
+      );
+    }
+    const exchanged = await exchangeClerkForSanctum(
+      portal,
+      email,
+      localSession.storeId,
+      token,
+    );
+    if (isApiEnabled() && !exchanged) {
+      throw new Error(
+        isAr
+          ? 'تعذّر تأكيد رمز التحقق على الخادم. أكمل رمز التحقق من البريد ثم أعد المحاولة.'
+          : 'Could not confirm OTP with the server. Finish the email verification code and try again.',
+      );
+    }
+    const liveSession = exchanged || localSession;
     resetRateLimit(email);
     try {
       localStorage.setItem('unityteck_last_login_email', email);
@@ -616,70 +647,23 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
 
       <div className="portal-auth-split flex-1 flex min-h-0 relative overflow-hidden">
         <aside
-          className="portal-auth-hero relative lg:w-[48%] xl:w-[50%] px-6 sm:px-12 py-10 lg:py-14 flex flex-col justify-between overflow-hidden border-b lg:border-b-0"
+          className="portal-auth-hero relative lg:w-[48%] xl:w-[50%] min-h-[220px] sm:min-h-[280px] lg:min-h-0 overflow-hidden border-b lg:border-b-0"
           style={{
             borderColor: 'var(--border)',
-            background: 'linear-gradient(155deg, #022018 0%, #064E3B 40%, #047857 85%, #0B5345 100%)',
-            color: '#F0FDF4',
+            background: '#022018',
           }}
+          aria-hidden
         >
-          <div
-            className="pointer-events-none absolute inset-0 opacity-30"
-            style={{ background: 'radial-gradient(ellipse 80% 50% at 20% 15%, #34D399 0%, transparent 60%)' }}
+          <img
+            src={loginSideImageUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={(e) => {
+              const img = e.currentTarget;
+              if (img.src.endsWith(DEFAULT_LOGIN_SIDE_IMAGE)) return;
+              img.src = DEFAULT_LOGIN_SIDE_IMAGE;
+            }}
           />
-          <div className="relative z-10 space-y-4 max-w-xl">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                {portalInfo.badge}
-              </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white/10 text-white border border-white/15">
-                <Mail className="w-3 h-3 text-emerald-400" />
-                {isAr ? 'رمز تحقق عبر البريد' : 'Email verification code'}
-              </span>
-            </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-black leading-tight tracking-tight text-white">
-              {isMaster
-                ? isAr
-                  ? 'لوحة الإشراف المركزية لمنصة يونيتيك'
-                  : 'Unityteck Central Master Platform'
-                : isAr
-                  ? 'بوابة دخول المتاجر السعودية الموحدة'
-                  : 'Saudi Unified Merchants Portal'}
-            </h1>
-            <p className="text-sm sm:text-base leading-relaxed text-emerald-100/90 font-medium">{portalInfo.subtitle}</p>
-            <div className="pt-2 space-y-2.5">
-              <div className="flex items-center gap-2.5 text-xs sm:text-sm text-emerald-100/90 font-semibold">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>
-                  {isAr
-                    ? 'رمز التحقق يُرسل إلى بريدك فقط — ولا يظهر على هذه الشاشة'
-                    : 'Verification code is emailed only — never shown on this screen'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2.5 text-xs sm:text-sm text-emerald-100/90 font-semibold">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>
-                  {isAr
-                    ? 'الجلسة تبقى مفتوحة حتى تقوم بتسجيل الخروج يدوياً'
-                    : 'Session stays open until you explicitly sign out'}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="relative z-10 my-6 flex justify-center lg:justify-start">
-            {isMaster ? (
-              <MasterLoginArt className="w-full max-w-[340px] drop-shadow-2xl" />
-            ) : (
-              <SaudiCommerceHeroArt className="w-full max-w-[360px] drop-shadow-2xl" isAr={isAr} />
-            )}
-          </div>
-          <div className="relative z-10 pt-4 border-t border-emerald-400/20 flex flex-wrap items-center justify-between gap-2 text-[11px] text-emerald-200/80">
-            <span>{isAr ? '🇸🇦 مصادقة سحابية آمنة' : '🇸🇦 Secure cloud authentication'}</span>
-            <span className="font-bold text-white">
-              {isAr ? 'تشفير بنكي معتمد' : 'Bank-grade encrypted session'}
-            </span>
-          </div>
         </aside>
 
         <main

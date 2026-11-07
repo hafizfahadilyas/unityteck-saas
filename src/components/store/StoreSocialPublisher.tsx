@@ -29,6 +29,7 @@ import {
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import { openSocialOAuthPopup } from '../../services/socialOAuthService';
 import {
   cancelSocialPost,
@@ -952,13 +953,15 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
 
       {/* Connect Account Modal */}
       {isConnectModalOpen && (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm"
-          onClick={() => setIsConnectModalOpen(false)}
+        <GlobalModal
+          isOpen
+          onClose={() => setIsConnectModalOpen(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'ربط قناة تواصل اجتماعي' : 'Connect Social Channel'}
+          zIndexClassName="z-[80]"
         >
           <div
             className="w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-6 space-y-4 text-slate-900 dark:text-white"
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-sm font-black flex items-center gap-2">
@@ -1068,7 +1071,7 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
               </div>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

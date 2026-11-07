@@ -77,9 +77,9 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
         {
           id: 'stat-2',
           image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80',
-          value: `+${counts.orders * 4}`,
-          label: 'Daily Brews Served',
-          labelAr: 'كوب قهوة محضر يومياً',
+          value: `+${counts.orders}`,
+          label: 'Orders Served',
+          labelAr: 'طلبات مكتملة',
         },
         {
           id: 'stat-3',

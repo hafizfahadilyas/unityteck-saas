@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 import {
   X,
   Plus,
@@ -59,15 +60,24 @@ export const OrderStatusSettingsModal: React.FC<OrderStatusSettingsModalProps> =
   const { toast } = useToast();
 
   const storageKey = `store_order_statuses_${storeId}`;
-  const [statuses, setStatuses] = useState<OrderStatusConfigItem[]>(() => {
+  const [statuses, setStatuses] = useState<OrderStatusConfigItem[]>(DEFAULT_STATUS_ITEMS);
+
+  useEffect(() => {
+    if (!isOpen || !storeId) return;
     try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) return JSON.parse(saved);
+      const saved = localStorage.getItem(`store_order_statuses_${storeId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length) {
+          setStatuses(parsed);
+          return;
+        }
+      }
     } catch {
       /* ignore */
     }
-    return DEFAULT_STATUS_ITEMS;
-  });
+    setStatuses(DEFAULT_STATUS_ITEMS);
+  }, [isOpen, storeId]);
 
   if (!isOpen) return null;
 
@@ -148,9 +158,10 @@ export const OrderStatusSettingsModal: React.FC<OrderStatusSettingsModalProps> =
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+    <GlobalModal
+      onClose={onClose}
       dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'حالات الطلب' : 'Order Statuses'}
     >
       <div className="w-full max-w-5xl bg-white dark:bg-[#071E26] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
@@ -347,6 +358,6 @@ export const OrderStatusSettingsModal: React.FC<OrderStatusSettingsModalProps> =
           </button>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

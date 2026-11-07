@@ -19,6 +19,8 @@ import { FloatingHelpWidget } from './components/FloatingHelpWidget';
 import { CheckCircle2 } from 'lucide-react';
 import './coffeeRoasters.css';
 import './themeFlow.css';
+import { captureTrafficSource } from '../../utils/trafficSource';
+import { trackStorefrontEvent } from '../../utils/storefrontAnalytics';
 
 // Code-split secondary routes for blazing fast initial homepage load
 const ProductsListPage = lazy(() => import('./components/ProductsListPage').then(m => ({ default: m.ProductsListPage })));
@@ -99,7 +101,7 @@ interface CoffeeRoastersThemeViewProps {
 }
 
 function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage?: string; isAdmin?: boolean }) {
-  const { currentRoute, navigateTo, toastMessage, language } = useCart();
+  const { currentRoute, navigateTo, toastMessage, language, selectedProduct } = useCart();
 
   let tenant: ReturnType<typeof useTenant> | null = null;
   try {
@@ -114,6 +116,30 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
     window.addEventListener('unityteck-theme-settings', onThemeChange);
     return () => window.removeEventListener('unityteck-theme-settings', onThemeChange);
   }, []);
+
+  useEffect(() => {
+    if (isAdmin) return;
+    captureTrafficSource();
+    const storeId = tenant?.activeStore?.id;
+    trackStorefrontEvent(storeId, 'page_view', {
+      path: typeof location !== 'undefined' ? location.pathname : `/${currentRoute || 'home'}`,
+    });
+  }, [isAdmin, tenant?.activeStore?.id, currentRoute]);
+
+  useEffect(() => {
+    if (isAdmin) return;
+    if (currentRoute !== 'product-detail' && currentRoute !== 'product-buy') return;
+    const storeId = tenant?.activeStore?.id;
+    const product = selectedProduct;
+    if (!storeId || !product?.id) return;
+    trackStorefrontEvent(storeId, 'product_view', {
+      path: typeof location !== 'undefined' ? location.pathname : `/${currentRoute}`,
+      meta: {
+        product_id: String(product.id),
+        product_name: product.nameAr || product.name || undefined,
+      },
+    });
+  }, [isAdmin, tenant?.activeStore?.id, currentRoute, selectedProduct?.id]);
 
   useEffect(() => {
     const alias: Record<string, string> = {

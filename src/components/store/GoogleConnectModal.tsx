@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useTenant } from '../../context/TenantContext';
 import { useToast } from '../common/ToastProvider';
+import { GlobalModal } from '../common/GlobalModal';
 import { realTrackingId, seoSetupStep, storeGoogleEmail } from './seo/storeSeoSetup';
 import {
   fetchGoogleStatus,
@@ -541,8 +542,13 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-sm animate-fadeIn" dir={dir}>
-      <div className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <GlobalModal
+      isOpen={isOpen}
+      onClose={onClose}
+      dir={dir}
+      aria-label={isAr ? 'ربط خدمات جوجل الرسمية' : 'Connect Google Services'}
+    >
+      <div className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[min(92vh,92dvh)]">
         {/* Modal Header */}
         <div className="p-5 sm:p-6 bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 text-white flex items-center justify-between border-b border-slate-700/60 shrink-0">
           <div className="flex items-center gap-3">
@@ -560,12 +566,12 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
                   {isAr ? 'ربط خدمات Google الرسمية' : 'Connect Google Services'}
                 </h2>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
-                  Site Kit 2.0
+                  {isAr ? 'الإصدار ٢' : 'Site Kit 2.0'}
                 </span>
               </div>
               <p className="text-xs text-slate-300">
                 {isAr
-                  ? 'ربط مباشر وموثّق لـ Search Console و Analytics 4 و Tag Manager و Core Web Vitals'
+                  ? 'ربط مباشر وموثّق لوحدة تحكم البحث وتحليلات ٤ ومدير العلامات ومؤشرات الأداء الأساسية'
                   : 'Official connection for Search Console, GA4, Tag Manager, and Core Web Vitals.'}
               </p>
             </div>
@@ -1011,7 +1017,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
         <div className="p-4 bg-slate-50 dark:bg-slate-900/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs shrink-0">
           <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
             <Lock className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="text-[11px]">{isAr ? 'اتصال محمي عبر بروتوكول Google OAuth 2.0 الرسمي' : 'Secured via official Google OAuth 2.0 protocol'}</span>
+            <span className="text-[11px]">{isAr ? 'اتصال محمي عبر بروتوكول المصادقة الرسمي من جوجل' : 'Secured via official Google OAuth 2.0 protocol'}</span>
           </div>
           <button
             onClick={onClose}
@@ -1021,6 +1027,6 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

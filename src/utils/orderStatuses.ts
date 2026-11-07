@@ -19,10 +19,69 @@ export const ORDER_STATUS_CHANGE_OPTIONS: {
   { value: 'refunded', labelEn: 'Refunded', labelAr: 'مسترد' },
 ];
 
-export function orderStatusOptionLabel(
-  value: string,
-  isAr: boolean,
-): string {
+export interface StoreOrderStatusOption {
+  value: string;
+  labelEn: string;
+  labelAr: string;
+  active: boolean;
+  colorHex?: string;
+  systemKey?: string;
+}
+
+function statusesStorageKey(storeId: string) {
+  return `store_order_statuses_${storeId}`;
+}
+
+/** Active custom/system statuses for a store (Customize Statuses tool). Falls back to canonical list. */
+export function getStoreOrderStatusOptions(storeId?: string | null): StoreOrderStatusOption[] {
+  if (!storeId) {
+    return ORDER_STATUS_CHANGE_OPTIONS.map((o) => ({
+      value: o.value,
+      labelEn: o.labelEn,
+      labelAr: o.labelAr,
+      active: true,
+    }));
+  }
+  try {
+    const raw = localStorage.getItem(statusesStorageKey(storeId));
+    if (raw) {
+      const parsed = JSON.parse(raw) as Array<{
+        active?: boolean;
+        nameAr?: string;
+        nameEn?: string;
+        systemKey?: string;
+        colorHex?: string;
+        sortOrder?: number;
+      }>;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed
+          .slice()
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+          .filter((s) => s.active !== false)
+          .map((s) => ({
+            value: String(s.systemKey || s.nameEn || '').toLowerCase().replace(/[\s-]+/g, '_') || 'custom',
+            labelEn: s.nameEn || s.systemKey || 'Status',
+            labelAr: s.nameAr || s.nameEn || 'حالة',
+            active: true,
+            colorHex: s.colorHex,
+            systemKey: s.systemKey,
+          }));
+      }
+    }
+  } catch {
+    /* ignore corrupt storage */
+  }
+  return ORDER_STATUS_CHANGE_OPTIONS.map((o) => ({
+    value: o.value,
+    labelEn: o.labelEn,
+    labelAr: o.labelAr,
+    active: true,
+  }));
+}
+
+export function orderStatusOptionLabel(value: string, isAr: boolean, storeId?: string | null): string {
+  const fromStore = getStoreOrderStatusOptions(storeId).find((o) => o.value === value);
+  if (fromStore) return isAr ? fromStore.labelAr : fromStore.labelEn;
   const hit = ORDER_STATUS_CHANGE_OPTIONS.find((o) => o.value === value);
   if (hit) return isAr ? hit.labelAr : hit.labelEn;
   return value;

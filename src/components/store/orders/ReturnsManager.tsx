@@ -3,6 +3,7 @@ import type { Order, OrderReturn, ReturnReason } from '../../../types';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 import {
   RotateCcw,
   CheckCircle,
@@ -116,11 +117,12 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({
   const totalItemsCount = (order.items || []).reduce((acc, it) => acc + (it.quantity || 1), 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
-      <div
-        className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]"
-        dir={isAr ? 'rtl' : 'ltr'}
-      >
+    <GlobalModal
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'معالجة إرجاع واسترداد الطلب' : 'Process Order Return & Refund'}
+    >
+      <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-900/80">
           <div className="flex items-center gap-3">
@@ -155,7 +157,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({
                 {isAr ? 'قيمة الطلب الإجمالية' : 'Order Total Value'}
               </div>
               <div className="text-lg font-black text-slate-900 dark:text-white">
-                {order.total} SAR
+                {order.total} {isAr ? 'ر.س' : 'SAR'}
               </div>
             </div>
 
@@ -164,7 +166,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({
                 {isAr ? 'طريقة الدفع' : 'Payment Method'}
               </div>
               <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                {order.paymentMethod || 'COD'}
+                {order.paymentMethod || (isAr ? 'الدفع عند الاستلام' : 'COD')}
               </div>
             </div>
 
@@ -219,7 +221,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                 <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                <span>{isAr ? 'المبلغ المسترد للعميل (SAR)' : 'Refund Amount (SAR)'}</span>
+                <span>{isAr ? 'المبلغ المسترد للعميل (ر.س)' : 'Refund Amount (SAR)'}</span>
               </label>
               <div className="flex items-center gap-2">
                 <button
@@ -264,13 +266,13 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({
                   <Package className="w-3.5 h-3.5 text-teal-600" />
                   <span>
                     {isAr
-                      ? 'إعادة المنتجات تلقائياً إلى مخزون المتجر (Auto-Restock)'
+                      ? 'إعادة المنتجات تلقائياً إلى مخزون المتجر'
                       : 'Auto-Restock Returned Items back to Store Inventory'}
                   </span>
                 </div>
                 <p className="text-[11px] text-teal-800 dark:text-teal-400 mt-0.5 leading-relaxed">
                   {isAr
-                    ? `عند تفعيل هذا الخيار، ستتم إضافة (+${totalItemsCount} قطع) فوراً إلى رصيد المخزون في قاعدة البيانات وسيتم إلغاء علامة "نفد المخزون" إن وجدت.`
+                    ? `عند تفعيل هذا الخيار، ستتم إضافة (+${totalItemsCount} قطع) فوراً إلى رصيد المخزون وسيتم إلغاء علامة «نفد المخزون» إن وجدت.`
                     : `When checked, (+${totalItemsCount} units) will be immediately credited back to store product inventory in MySQL, and out-of-stock badges cleared.`}
                 </p>
               </div>
@@ -280,7 +282,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({
           {/* Admin Internal Notes */}
           <div>
             <label className="block text-xs font-black text-slate-900 dark:text-slate-100 mb-1.5">
-              {isAr ? 'ملاحظات الإدارة الداخلية (Audit Log)' : 'Internal Admin Resolution Notes'}
+              {isAr ? 'ملاحظات الإدارة الداخلية' : 'Internal Admin Resolution Notes'}
             </label>
             <input
               type="text"
@@ -334,6 +336,6 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };

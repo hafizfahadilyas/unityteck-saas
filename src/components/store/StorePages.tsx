@@ -23,6 +23,7 @@ import {
   Save,
   Check
 } from 'lucide-react';
+import { GlobalModal } from '../common/GlobalModal';
 import {
   StoreCustomPage,
   hydrateStorePages,
@@ -474,7 +475,22 @@ export const StorePages: React.FC = () => {
       {/* EDIT / CREATE MODAL                                                       */}
       {/* ========================================================================= */}
       {(editingPage || isCreating) && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+        <GlobalModal
+          onClose={() => {
+            setEditingPage(null);
+            setIsCreating(false);
+          }}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={
+            isCreating
+              ? isAr
+                ? 'بناء وإنشاء صفحة جديدة'
+                : 'Build & Create New Page'
+              : isAr
+                ? `تعديل الصفحة: ${editingPage?.titleAr}`
+                : `Edit Page: ${editingPage?.titleEn}`
+          }
+        >
           <div className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[92vh] flex flex-col">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
@@ -674,14 +690,18 @@ export const StorePages: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </GlobalModal>
       )}
 
       {/* ========================================================================= */}
       {/* LIVE PREVIEW MODAL                                                        */}
       {/* ========================================================================= */}
       {previewPage && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+        <GlobalModal
+          onClose={() => setPreviewPage(null)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'معاينة صفحة المتجر' : 'Storefront Preview'}
+        >
           <div className="bg-white rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[90vh] flex flex-col">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div>
@@ -741,7 +761,7 @@ export const StorePages: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </GlobalModal>
       )}
     </div>
   );

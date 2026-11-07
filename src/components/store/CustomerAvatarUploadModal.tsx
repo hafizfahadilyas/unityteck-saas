@@ -18,6 +18,7 @@ import {
   getCustomerSeoAlt,
 } from '../../utils/customerAvatars';
 import { handleImageError } from '../../utils/imageFallback';
+import { GlobalModal } from '../common/GlobalModal';
 
 interface CustomerAvatarUploadModalProps {
   isOpen: boolean;
@@ -130,11 +131,12 @@ export const CustomerAvatarUploadModal: React.FC<CustomerAvatarUploadModalProps>
   const seoAlt = getCustomerSeoAlt({ name: customerName }, activeStore?.name, isAr);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div
-        className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-xl w-full border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col my-auto transition-all"
-        dir={isAr ? 'rtl' : 'ltr'}
-      >
+    <GlobalModal
+      onClose={onClose}
+      dir={isAr ? 'rtl' : 'ltr'}
+      aria-label={isAr ? 'تغيير صورة العميل' : 'Change Customer Photo'}
+    >
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-xl w-full border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col my-auto transition-all">
         {/* Modal Header */}
         <div className="px-6 py-4.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -464,6 +466,6 @@ export const CustomerAvatarUploadModal: React.FC<CustomerAvatarUploadModalProps>
           </button>
         </div>
       </div>
-    </div>
+    </GlobalModal>
   );
 };
