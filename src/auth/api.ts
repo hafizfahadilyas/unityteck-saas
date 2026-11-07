@@ -44,14 +44,12 @@ export const DEMO_CREDENTIALS = {
     aliases: ['master@unityteck.com', 'admin@unityteck.com', 'admin@giftshop-sa.com', 'master', 'admin', 'superadmin'],
   },
   store: {
-    email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STORE_ADMIN_EMAIL) || 'giftshop2030m@gmail.com',
+    email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STORE_ADMIN_EMAIL) || 'p4pakistan098@gmail.com',
     password: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STORE_ADMIN_PASSWORD) || 'MakkahStore@2026!Secure',
     name: 'Makkah Gifts Store',
     storeId: 'store-1',
     aliases: [
-      'giftshop2030m@gmail.com',
-      'admin@giftshop-sa.com',
-      'tariq@wardalmakkah.sa',
+      'p4pakistan098@gmail.com',
       'makkah',
       'ward',
       'giftshop',
@@ -59,7 +57,7 @@ export const DEMO_CREDENTIALS = {
       'flowers',
       'gifts',
     ],
-    supportEmail: 'giftshop2030m@gmail.com',
+    supportEmail: 'p4pakistan098@gmail.com',
     supportPassword: 'WardSupport@2026!Secure',
   },
   coffee: {
@@ -637,53 +635,18 @@ function mockLogin(
   throw new Error('اسم المستخدم أو البريد الإلكتروني غير مسجل. يرجى التحقق من بيانات الدخول لمتجرك / Account not found. Please verify your username or email.');
 }
 
+/**
+ * Password login is permanently closed. Master / store admin must use email OTP (Clerk).
+ * Kept as a hard guard so old callers cannot mint a session without OTP.
+ */
 export async function loginPortal(
-  portal: AuthPortal,
-  email: string,
-  password: string,
+  _portal: AuthPortal,
+  _email: string,
+  _password: string,
 ): Promise<LoginResult> {
-  // Pre-flight anti-SQLi & XSS defense
-  const secCheck = validateAuthInput(email, password);
-  if (!secCheck.isSecure) {
-    throw new Error(secCheck.messageAr || secCheck.messageEn || 'Security check failed. Malicious input blocked.');
-  }
-
-  if (!isApiEnabled()) {
-    const session = mockLogin(portal, email, password);
-    writeAuthSession(session);
-    return session;
-  }
-
-  try {
-    const path =
-      portal === 'master' ? '/auth/master/login' : '/auth/store/login';
-    const data = await Promise.race([
-      apiFetch<LoginResponse>(path, {
-        method: 'POST',
-        body: { email: email.trim(), password },
-        skipAuth: true,
-      }),
-      new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('API login timeout — backend server unreachable')), 4000);
-      }),
-    ]);
-    if (!data || !data.user) {
-      throw new Error('No user data returned from API');
-    }
-    const session = toSession(data);
-    writeAuthSession(session);
-    return session;
-  } catch (err) {
-    // If backend server is not running or returned non-JSON / error, fallback to secure local validation
-    console.warn('Backend API login unavailable, falling back to secure local validation:', err);
-    try {
-      const session = mockLogin(portal, email, password);
-      writeAuthSession(session);
-      return session;
-    } catch (mockErr) {
-      throw mockErr instanceof Error ? mockErr : new Error('Invalid email or password.');
-    }
-  }
+  throw new Error(
+    'OTP_REQUIRED: تسجيل الدخول بكلمة المرور مغلق. استخدم رمز التحقق المرسل إلى البريد / Password login is disabled. Use the email verification code (OTP).',
+  );
 }
 
 /** Merchant Google sign-in is closed until a verified store account is linked. */
@@ -694,44 +657,16 @@ export async function loginWithGoogleMerchant(
 }
 
 /**
- * Saudi Mobile OTP Login for Merchants (+966)
+ * Saudi mobile OTP for merchants — not wired to a real SMS gateway yet.
+ * Never invent a store session from phone+code alone.
  */
 export async function loginWithSaudiPhoneOtp(
-  phone: string,
-  code: string,
+  _phone: string,
+  _code: string,
 ): Promise<LoginResult> {
-  const cleanPhone = phone.replace(/[^0-9]/g, '');
-  if (!cleanPhone || cleanPhone.length < 9) {
-    throw new Error('يرجى إدخال رقم جوال سعودي صحيح يبدأ بـ 05 / Please enter a valid Saudi phone number.');
-  }
-
-  if (!code || code.trim().length !== 6) {
-    throw new Error('رمز التحقق يجب أن يتكون من 6 أرقام / Verification code must be 6 digits.');
-  }
-
-  const phoneTail = cleanPhone.slice(-9);
-  const storeId = `store-sa-${phoneTail.slice(0, 6)}`;
-  const storeName = `متجر التاجر (${phoneTail.slice(-4)}) - السعودية`;
-  const email = `merchant.${phoneTail}@saudistores.sa`;
-
-  const session: AuthSession = {
-    token: `saudi-otp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-    portal: 'store',
-    user: {
-      id: `user-phone-${storeId}`,
-      name: `تاجر سعودي (${phoneTail.slice(0, 3)}***${phoneTail.slice(-2)})`,
-      email,
-      role: 'manager',
-      role_label: roleLabel('manager'),
-      role_level: roleLevel('manager'),
-    },
-    storeId,
-    storeName,
-    abilities: abilitiesFor('manager'),
-  };
-
-  writeAuthSession(session);
-  return session;
+  throw new Error(
+    'OTP_REQUIRED: تسجيل الدخول برمز الجوال غير مفعّل بعد. استخدم رمز التحقق عبر البريد / Phone OTP login is not enabled. Use email verification code.',
+  );
 }
 
 
@@ -1224,15 +1159,22 @@ function clerkExchangeKey(portal: AuthPortal, email: string, storeId?: string | 
 }
 
 /**
- * After Clerk verifies email, mint a real Sanctum PAT so /products etc. work.
- * Falls back to the local Clerk session if API is offline.
+ * After Clerk verifies email OTP, mint a real Sanctum PAT so /products etc. work.
+ * Requires the Clerk session JWT — email alone cannot mint a token.
  */
 export async function exchangeClerkForSanctum(
   portal: AuthPortal,
   email: string,
   storeId?: string | null,
+  clerkToken?: string | null,
 ): Promise<AuthSession | null> {
   if (!isApiEnabled()) return null;
+
+  const token = (clerkToken || '').trim();
+  if (!token || token.startsWith('mock-') || token.includes('|')) {
+    // Sanctum PAT / mock tokens are not Clerk proofs
+    return null;
+  }
 
   const key = clerkExchangeKey(portal, email, storeId);
   const failUntil = clerkExchangeFailUntil.get(key) ?? 0;
@@ -1252,6 +1194,7 @@ export async function exchangeClerkForSanctum(
             email: email.trim().toLowerCase(),
             portal,
             store_id: storeId || undefined,
+            clerk_token: token,
           },
           skipAuth: true,
         }),
@@ -1272,7 +1215,7 @@ export async function exchangeClerkForSanctum(
       // 422 wrong email / 429 rate limit / timeout — back off hard
       const backoffMs = /429|Too Many/i.test(msg)
         ? 120_000
-        : /422|matching account|Unprocessable/i.test(msg)
+        : /422|matching account|Unprocessable|OTP|clerk/i.test(msg)
           ? 300_000
           : 60_000;
       clerkExchangeFailUntil.set(key, Date.now() + backoffMs);
@@ -1304,16 +1247,10 @@ export async function loginWithEmailOtp(
     throw new Error('رمز التحقق يجب أن يتكون من 6 أرقام / Verification code must be 6 digits.');
   }
 
-  const finishLocal = (): AuthSession => {
-    consumeMockOtp(portal, cleanEmail, cleanCode);
-    const session = mockSessionFromEmail(portal, cleanEmail);
-    writeAuthSession(session);
-    resetRateLimit(cleanEmail.toLowerCase());
-    return session;
-  };
-
   if (!isApiEnabled()) {
-    return finishLocal();
+    throw new Error(
+      'OTP_REQUIRED: واجهة البرمجة غير مفعّلة — لا يمكن تسجيل الدخول بدون تحقق حقيقي / API disabled — login requires live OTP verification.',
+    );
   }
 
   try {
@@ -1335,18 +1272,14 @@ export async function loginWithEmailOtp(
       return session;
     }
 
-    // Verified without token payload — map local identity
-    const session = mockSessionFromEmail(portal, cleanEmail);
-    writeAuthSession(session);
-    resetRateLimit(cleanEmail.toLowerCase());
-    return session;
+    throw new Error(
+      'رمز التحقق غير صالح أو منتهٍ / Invalid or expired verification code.',
+    );
   } catch (err) {
-    console.warn('Backend OTP login unavailable, falling back to secure local OTP:', err);
-    try {
-      return finishLocal();
-    } catch (mockErr) {
-      throw mockErr instanceof Error ? mockErr : err;
-    }
+    // Never fall back to mock OTP when live API mode is on
+    throw err instanceof Error
+      ? err
+      : new Error('رمز التحقق غير صالح أو منتهٍ / Invalid or expired verification code.');
   }
 }
 

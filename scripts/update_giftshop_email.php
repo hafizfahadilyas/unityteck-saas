@@ -1,46 +1,55 @@
 <?php
-require 'apps/api/vendor/autoload.php';
-$app = require_once 'apps/api/bootstrap/app.php';
+/**
+ * Set gift store (store-1) login email to the active Gmail.
+ * Run: php scripts/update_giftshop_email.php
+ */
+require __DIR__ . '/../apps/api/vendor/autoload.php';
+$app = require_once __DIR__ . '/../apps/api/bootstrap/app.php';
 $k = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $k->bootstrap();
 
 use App\Models\Store;
 use App\Models\User;
 
-// 1. Update store-1
+$NEW_EMAIL = 'p4pakistan098@gmail.com';
+$OLD_EMAILS = [
+    'giftshop2030m@gmail.com',
+    'tariq@wardalmakkah.sa',
+    'admin@giftshop-sa.com',
+];
+
 $store = Store::find('store-1');
 if ($store) {
-    $store->email = 'giftshop2030m@gmail.com';
-    $store->name = 'متجر هدايا';
-    $store->owner_name = 'متجر هدايا';
-    $store->phone = '+966 50 442 8819';
+    $store->email = $NEW_EMAIL;
     $store->save();
-    echo "Updated store-1 successfully!\n";
+    echo "Updated store-1 email → {$NEW_EMAIL}\n";
 } else {
     echo "store-1 not found\n";
 }
 
-// 2. Update user-store-1
 $user = User::find('user-store-1');
-if ($user) {
-    $user->email = 'giftshop2030m@gmail.com';
-    $user->name = 'متجر هدايا';
-    $user->save();
-    echo "Updated user-store-1 to giftshop2030m@gmail.com successfully!\n";
-} else {
-    // If user by email exists or need to create
-    $user = User::where('email', 'giftshop2030m@gmail.com')->first();
-    if ($user) {
-        $user->name = 'متجر هدايا';
-        $user->save();
-        echo "Found and updated existing user giftshop2030m@gmail.com\n";
+if (!$user) {
+    foreach ($OLD_EMAILS as $old) {
+        $user = User::where('email', $old)->first();
+        if ($user) {
+            break;
+        }
     }
 }
 
-// 3. Ensure tariq@wardalmakkah.sa can also exist or alias
-$tariq = User::where('email', 'tariq@wardalmakkah.sa')->first();
-if ($tariq && $tariq->id !== 'user-store-1') {
-    // keep as alias
+if ($user) {
+    $conflict = User::where('email', $NEW_EMAIL)->where('id', '!=', $user->id)->first();
+    if ($conflict) {
+        echo "Conflict: {$NEW_EMAIL} already used by user {$conflict->id}\n";
+        exit(1);
+    }
+    $user->email = $NEW_EMAIL;
+    $user->name = $user->name ?: 'متجر هدايا';
+    $user->save();
+    echo "Updated user {$user->id} email → {$NEW_EMAIL}\n";
+} else {
+    echo "Gift store user not found (user-store-1 / old emails)\n";
+    exit(1);
 }
 
 echo "Done.\n";

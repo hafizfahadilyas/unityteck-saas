@@ -202,7 +202,7 @@ class DatabaseSeeder extends Seeder
                 'text_direction' => 'rtl',
                 'timezone' => 'Asia/Riyadh',
                 'phone' => '+966 50 442 8819',
-                'email' => 'giftshop2030m@gmail.com',
+                'email' => 'p4pakistan098@gmail.com',
                 'owner_name' => 'متجر هدايا',
                 'city' => 'Makkah',
                 'country' => 'Saudi Arabia',
@@ -273,7 +273,7 @@ class DatabaseSeeder extends Seeder
         );
 
         $storeOwner = User::query()->updateOrCreate(
-            ['email' => 'giftshop2030m@gmail.com'],
+            ['email' => 'p4pakistan098@gmail.com'],
             [
                 'id' => 'user-store-1',
                 'name' => 'متجر هدايا',

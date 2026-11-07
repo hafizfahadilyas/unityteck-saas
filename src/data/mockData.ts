@@ -42,7 +42,7 @@ export const INITIAL_STORES: Store[] = [
     owner: 'Makkah Gifts Store',
     ownerAr: 'متجر هدايا مكة',
     ownerEn: 'Makkah Gifts Store',
-    ownerEmail: 'giftshop2030m@gmail.com',
+    ownerEmail: 'p4pakistan098@gmail.com',
     plan: 'pro',
     masterGrantedPro: true,
     status: 'active',
