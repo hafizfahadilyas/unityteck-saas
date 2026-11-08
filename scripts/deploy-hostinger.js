@@ -115,25 +115,40 @@ function collectFiles(dir, root, out) {
   }
 }
 
-async function openClient(target) {
-  const client = new ftp.Client(90000);
-  client.ftp.verbose = false;
+async function openClient(target, tries = 5) {
   const base = {
     host: target.host,
     user: target.user,
     password: target.password,
   };
-  try {
-    await client.access({
-      ...base,
-      secure: true,
-      secureOptions: { rejectUnauthorized: false },
-    });
-  } catch (tlsErr) {
-    console.log(`Secure FTP failed (${tlsErr.message}). Trying plain FTP.`);
-    await client.access({ ...base, secure: false });
+  let lastErr;
+  for (let i = 1; i <= tries; i++) {
+    const client = new ftp.Client(120000);
+    client.ftp.verbose = false;
+    try {
+      try {
+        await client.access({
+          ...base,
+          secure: true,
+          secureOptions: { rejectUnauthorized: false },
+        });
+      } catch (tlsErr) {
+        console.log(`Secure FTP failed (${tlsErr.message}). Trying plain FTP.`);
+        try { client.close(); } catch { /* ignore */ }
+        const plain = new ftp.Client(120000);
+        plain.ftp.verbose = false;
+        await plain.access({ ...base, secure: false });
+        return plain;
+      }
+      return client;
+    } catch (err) {
+      lastErr = err;
+      console.warn(`FTP connect attempt ${i}/${tries}: ${err.message}`);
+      try { client.close(); } catch { /* ignore */ }
+      await new Promise((r) => setTimeout(r, 2000 * i));
+    }
   }
-  return client;
+  throw lastErr || new Error('FTP connect failed');
 }
 
 async function uploadTarget(target) {
@@ -147,6 +162,23 @@ async function uploadTarget(target) {
     await client.remove(`${remoteRoot}/robots.txt`.replace(/\/{2,}/g, '/'));
   } catch {
     /* no old robots file */
+  }
+  // Clear leftover FTP temp uploads from prior interrupted deploys
+  try {
+    const assetsDir = `${remoteRoot}/assets`.replace(/\/{2,}/g, '/');
+    const listing = await client.list(assetsDir);
+    for (const entry of listing) {
+      if (entry.name && entry.name.startsWith('.in.') && entry.name.endsWith('.')) {
+        try {
+          await client.remove(`${assetsDir}/${entry.name}`);
+          console.log(`Cleared stuck FTP temp ${entry.name}`);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  } catch {
+    /* assets dir missing or list not allowed */
   }
   const readyDirs = new Set();
   try {
@@ -177,10 +209,17 @@ async function uploadTarget(target) {
         } catch (err) {
           attempts += 1;
           console.warn(`  ${file.rel} attempt ${attempts}: ${err.message}`);
+          // Hostinger often leaves `.in.*` temp files after ECONNRESET — clear before retry.
+          const baseName = path.posix.basename(remotePath);
+          const tempPath = `${parent}/.in.${baseName}.`;
+          try { await client.remove(tempPath); } catch { /* ignore */ }
+          try { await client.remove(remotePath); } catch { /* ignore */ }
           try { client.close(); } catch { /* already closed */ }
-          if (attempts >= 4) throw err;
+          if (attempts >= 6) throw err;
           readyDirs.clear();
+          await new Promise((r) => setTimeout(r, 1500 * attempts));
           client = await openClient(target);
+          try { await client.remove(tempPath); } catch { /* ignore */ }
         }
       }
     }
