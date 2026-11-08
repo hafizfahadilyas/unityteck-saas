@@ -53,7 +53,7 @@ interface StoreInvoicesProps {
 
 export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) => {
   const { activeStore, currentOrders, addOrder } = useTenant();
-  const storeId = activeStore?.id || 'store-1';
+  const storeId = activeStore?.id || '';
   const { t, locale, money } = usePrefs();
   const { toast, confirm } = useToast();
   const isAr = locale === 'ar';

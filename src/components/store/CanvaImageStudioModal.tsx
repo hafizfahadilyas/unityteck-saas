@@ -77,8 +77,10 @@ import {
   CANVA_FONT_FAMILIES,
   getDefaultBlankTemplate,
   getDefaultNicheStarterTemplate,
+  resolveCanvaLayerLabel,
   type CanvaDesignTemplate,
   type CanvaTemplateCategory,
+  type CanvaTemplateElement,
 } from '../../data/ksaCanvaTemplates';
 import {
   CANVA_UPLOAD_CATEGORIES,
@@ -97,6 +99,12 @@ import {
   ensureReadableTextStyle,
   resolveCanvasApproxColor,
 } from '../../services/canvaTextContrast';
+import {
+  estimateElementBounds,
+  rectContainsPoint,
+  rectToPercentStyle,
+  type StudioRect,
+} from '../../services/canvaElementBounds';
 import { CanvaTemplatesPanel } from './CanvaTemplatesPanel';
 import { CanvaSocialPostModal } from './CanvaSocialPostModal';
 import '../../styles/canva-studio-light.css';
@@ -249,12 +257,17 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const canvasFrameRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageCacheRef = useRef<Record<string, HTMLImageElement>>({});
+  const layoutCacheRef = useRef<Record<string, StudioRect>>({});
+  const productBoundsRef = useRef<StudioRect | null>(null);
 
   // Document Title (Canva style: editable at top)
   const [docTitle, setDocTitle] = useState('Untitled Design');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  /** True only after real Save to Media — never pretend "cloud saved" */
+  const [savedToMediaLibrary, setSavedToMediaLibrary] = useState(false);
 
   // Loaded Product/Subject Image
   const [activeImageUrl, setActiveImageUrl] = useState<string>('');
@@ -318,10 +331,21 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [isDraggingElement, setIsDraggingElement] = useState(false);
   const [isDraggingProduct, setIsDraggingProduct] = useState(false);
+  const [productHeroSelected, setProductHeroSelected] = useState(false);
+  const [isResizingProduct, setIsResizingProduct] = useState(false);
   const [isResizingElement, setIsResizingElement] = useState(false);
   const [resizeCorner, setResizeCorner] = useState<string | null>(null);
+  const [viewZoom, setViewZoom] = useState(1);
+  const [layoutEpoch, setLayoutEpoch] = useState(0);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [initialResizeState, setInitialResizeState] = useState<{ startX: number; startY: number; elW: number; elH: number; fontSize: number }>({ startX: 0, startY: 0, elW: 0, elH: 0, fontSize: 24 });
+  const [initialResizeState, setInitialResizeState] = useState<{
+    startX: number;
+    startY: number;
+    elW: number;
+    elH: number;
+    fontSize: number;
+    productScale?: number;
+  }>({ startX: 0, startY: 0, elW: 0, elH: 0, fontSize: 24 });
 
   // Social Post & Publish Modal
   const [socialModalOpen, setSocialModalOpen] = useState(false);
@@ -494,6 +518,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         bgTolerance,
         filters: { brightness, contrast, saturation, blur: blurAmount },
       };
+      setSavedToMediaLibrary(false);
       setHistory((prev) => {
         const idx = historyIndexRef.current;
         const next = [...prev.slice(0, idx + 1), snap].slice(-40);
@@ -592,6 +617,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     canvas.height = H;
 
     ctx.clearRect(0, 0, W, H);
+    layoutCacheRef.current = {};
+    productBoundsRef.current = null;
 
     // 1. Draw Selected Backdrop Preset / Gradient / Solid Color
     const preset = STUDIO_BACKDROPS.find((b) => b.id === selectedBackdrop);
@@ -689,6 +716,12 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       } else {
         ctx.drawImage(loadedImg, drawX, drawY, drawW, drawH);
       }
+      productBoundsRef.current = {
+        x: drawX,
+        y: drawY,
+        w: drawW,
+        h: drawH,
+      };
       ctx.restore();
     }
 
@@ -813,6 +846,12 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
           ctx.strokeStyle = el.strokeColor || el.bgColor || '#0f172a';
           ctx.lineWidth = el.strokeWidth || 3;
           ctx.stroke();
+          layoutCacheRef.current[el.id] = {
+            x: el.x - w / 2,
+            y: el.y - (el.strokeWidth || 3) - 6,
+            w,
+            h: (el.strokeWidth || 3) * 2 + 12,
+          };
         } else {
           // Rounded Rectangle
           ctx.beginPath();
@@ -829,6 +868,9 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
             ctx.stroke();
           }
         }
+        if (el.shapeType !== 'line' && !layoutCacheRef.current[el.id]) {
+          layoutCacheRef.current[el.id] = { x: el.x - w / 2, y: el.y - h / 2, w, h };
+        }
         ctx.restore();
         return;
       }
@@ -842,6 +884,13 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         const item = QUICK_ICONS.find((i) => i.id === el.icon);
         const glyph = item ? item.glyph : el.text || '★';
         ctx.fillText(glyph, el.x, el.y);
+        const iconSide = Math.max(32, (el.fontSize || 32) * 1.4);
+        layoutCacheRef.current[el.id] = {
+          x: el.x - iconSide / 2,
+          y: el.y - iconSide / 2,
+          w: iconSide,
+          h: iconSide,
+        };
         ctx.restore();
         return;
       }
@@ -882,6 +931,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
           img.src = el.imageUrl;
           imageCacheRef.current[el.imageUrl] = img;
         }
+        layoutCacheRef.current[el.id] = { x: el.x - w / 2, y: el.y - h / 2, w, h };
         ctx.restore();
         return;
       }
@@ -1030,8 +1080,11 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         ctx.stroke();
       }
 
+      layoutCacheRef.current[el.id] = { x: boxX, y: boxY, w: boxW, h: boxH };
+
       ctx.restore();
     });
+    setLayoutEpoch((n) => n + 1);
   }, [
     canvasW,
     canvasH,
@@ -1064,9 +1117,31 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     }
   }, [isOpen, renderCanvas]);
 
+  useEffect(() => {
+    const approx = resolveCanvasApproxColor(selectedBackdrop, customSolidColor, gradientColor2);
+    setElements((prev) => {
+      let changed = false;
+      const next = prev.map((el) => {
+        if (el.type === 'shape' || el.type === 'image' || el.type === 'icon') return el;
+        const readable = ensureReadableTextStyle(el.fontColor, el.bgColor, approx, {
+          preferPill:
+            el.type === 'headline' ||
+            el.type === 'subtitle' ||
+            el.type === 'custom_text' ||
+            el.bgColor === 'transparent',
+        });
+        if (readable.fontColor === el.fontColor && readable.bgColor === el.bgColor) return el;
+        changed = true;
+        return { ...el, fontColor: readable.fontColor, bgColor: readable.bgColor };
+      });
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- backdrop palette only
+  }, [selectedBackdrop, customSolidColor, gradientColor2]);
+
   // Keep drag / resize working when pointer leaves the design frame
   useEffect(() => {
-    if (!isDraggingElement && !isDraggingProduct && !isResizingElement) return;
+    if (!isDraggingElement && !isDraggingProduct && !isResizingElement && !isResizingProduct) return;
     const onMove = (ev: MouseEvent | TouchEvent) => {
       handlePointerMove(ev as unknown as React.MouseEvent);
     };
@@ -1082,7 +1157,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       window.removeEventListener('touchend', onUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handlers close over latest state
-  }, [isDraggingElement, isDraggingProduct, isResizingElement]);
+  }, [isDraggingElement, isDraggingProduct, isResizingElement, isResizingProduct]);
 
   // 1-Click AI Background Removal
   const handleAiRemoveBg = () => {
@@ -1108,7 +1183,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       setIsProcessingAi(false);
       pushHistorySnapshot();
       toast(
-        isAr ? 'تم عزل خلفية المنتج بنجاح باستخدام الذكاء الاصطناعي!' : 'Product background isolated successfully with AI!',
+        isAr ? 'تم عزل خلفية المنتج على اللوحة.' : 'Product background isolated on the canvas.',
         'success',
       );
     }, 600);
@@ -1116,28 +1191,35 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
   const formatStudioPrice = (price: number | string | undefined | null): string => {
     if (price == null || price === '') return '';
-    return `${price} ${isAr ? 'ر.س' : 'SAR'}`;
+    const n = typeof price === 'number' ? price : Number(price);
+    if (!Number.isFinite(n)) return '';
+    return `${n} ${isAr ? 'ر.س' : 'SAR'}`;
   };
 
-  const resolveDynamicLayerText = (
-    layer: { type: string; textEn?: string; textAr?: string },
-    idx: number,
-  ): string => {
-    const fallback = (isAr ? layer.textAr || layer.textEn : layer.textEn) || '';
+  const studioDynamicContext = () => {
     const product = currentProducts[0];
-    const storeLabel = (isAr ? activeStore.nameAr || activeStore.name : activeStore.name) || '';
+    const storeName = (isAr ? activeStore.nameAr || activeStore.name : activeStore.name) || '';
+    const productName = product
+      ? (isAr ? product.nameAr || product.nameEn || product.name : product.nameEn || product.name) || ''
+      : '';
+    const priceLabel = product ? formatStudioPrice(product.discountedPrice ?? product.price) : '';
+    const categoryName = product
+      ? (isAr
+          ? product.categoryAr || product.categoryEn || product.category
+          : product.categoryEn || product.category) || ''
+      : '';
+    return { storeName, productName, priceLabel, categoryName, product };
+  };
 
-    if (layer.type === 'headline' && product) {
-      const pname = isAr ? product.nameAr || product.name : product.name;
-      if (pname) return pname;
-    }
-    if (layer.type === 'price' && product?.price != null && product.price !== '') {
-      return formatStudioPrice(product.price);
-    }
-    if ((layer.type === 'badge' || layer.type === 'subtitle') && idx === 0 && storeLabel && !fallback.trim()) {
-      return storeLabel;
-    }
-    return fallback;
+  const resolveDynamicLayerText = (layer: CanvaTemplateElement): string => {
+    const ctx = studioDynamicContext();
+    return resolveCanvaLayerLabel(layer, {
+      isAr,
+      storeName: ctx.storeName,
+      productName: ctx.productName,
+      priceLabel: ctx.priceLabel,
+      categoryName: ctx.categoryName,
+    });
   };
 
   // Apply Template
@@ -1153,48 +1235,66 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     setProductPosY(Math.round(template.productPosPct.y * template.height));
     setProductScale(template.productPosPct.scale);
 
+    // Hero image = this store's live product only (never sample / other-tenant assets)
+    const liveProductImg = currentProducts[0]?.image || currentProducts[0]?.imageUrl || '';
+    if (template.productPosPct.scale > 0 && liveProductImg) {
+      setActiveImageUrl(String(liveProductImg));
+    } else if (template.productPosPct.scale <= 0) {
+      setActiveImageUrl('');
+      setLoadedImg(null);
+    }
+
     const canvasApprox = resolveCanvasApproxColor(
       template.backdropId,
       template.customSolidColor || customSolidColor,
       gradientColor2,
     );
 
-    const mapped: CanvasElement[] = template.elements.map((layer, idx) => {
-      const readable = ensureReadableTextStyle(
-        layer.fontColor || '#0f172a',
-        layer.bgColor || 'transparent',
-        canvasApprox,
-        { preferPill: layer.type === 'headline' || layer.type === 'subtitle' },
-      );
-      return {
-        id: `el-${Date.now()}-${idx}`,
-        type: layer.type,
-        text: resolveDynamicLayerText(layer, idx),
-        x: Math.round(layer.xPct * template.width),
-        y: Math.round(layer.yPct * template.height),
-        width: layer.widthPct ? Math.round(layer.widthPct * template.width) : 120,
-        height: layer.heightPct ? Math.round(layer.heightPct * template.height) : 120,
-        fontSize: layer.fontSize || 24,
-        fontColor: readable.fontColor,
-        bgColor: readable.bgColor,
-        bgPadding: layer.bgPadding ?? 14,
-        borderRadius: layer.borderRadius ?? 16,
-        isBold: layer.isBold ?? true,
-        isItalic: layer.isItalic ?? false,
-        textAlign: layer.textAlign || 'center',
-        badgeStyle: layer.badgeStyle,
-        fontFamily: layer.fontFamily || (isAr ? 'Tajawal' : 'Outfit'),
-        shapeType: layer.shapeType,
-        strokeColor: layer.strokeColor,
-        strokeWidth: layer.strokeWidth,
-        opacity: layer.opacity,
-        icon: layer.icon,
-        imageUrl: layer.imageUrl,
-      };
-    });
+    const mapped: CanvasElement[] = template.elements
+      .map((layer, idx) => {
+        const text = resolveDynamicLayerText(layer);
+        // Skip empty price / empty bound layers — no fake SAR placeholders
+        if (!text.trim() && (layer.bind === 'price' || layer.type === 'price')) {
+          return null;
+        }
+        const readable = ensureReadableTextStyle(
+          layer.fontColor || '#0f172a',
+          layer.bgColor || 'transparent',
+          canvasApprox,
+          { preferPill: layer.type === 'headline' || layer.type === 'subtitle' },
+        );
+        return {
+          id: `el-${Date.now()}-${idx}`,
+          type: layer.type,
+          text,
+          x: Math.round(layer.xPct * template.width),
+          y: Math.round(layer.yPct * template.height),
+          width: layer.widthPct ? Math.round(layer.widthPct * template.width) : undefined,
+          height: layer.heightPct ? Math.round(layer.heightPct * template.height) : undefined,
+          fontSize: layer.fontSize || 24,
+          fontColor: readable.fontColor,
+          bgColor: readable.bgColor,
+          bgPadding: layer.bgPadding ?? 14,
+          borderRadius: layer.borderRadius ?? 16,
+          isBold: layer.isBold ?? true,
+          isItalic: layer.isItalic ?? false,
+          textAlign: layer.textAlign || 'center',
+          badgeStyle: layer.badgeStyle,
+          fontFamily: layer.fontFamily || (isAr ? 'Tajawal' : 'Outfit'),
+          shapeType: layer.shapeType,
+          strokeColor: layer.strokeColor,
+          strokeWidth: layer.strokeWidth,
+          opacity: layer.opacity,
+          icon: layer.icon,
+          imageUrl: layer.imageUrl,
+        } as CanvasElement;
+      })
+      .filter((el): el is CanvasElement => el != null);
 
     setElements(mapped);
     setSelectedElementId(mapped[0]?.id || null);
+    setProductHeroSelected(false);
+    setSavedToMediaLibrary(false);
     setDocTitle(isAr ? template.nameAr || template.nameEn : template.nameEn);
     pushHistorySnapshot(mapped);
     toast(
@@ -1550,9 +1650,9 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
   // Pointer drag & resize handling
   const getCanvasCoords = (e: React.MouseEvent | React.TouchEvent): { x: number; y: number } => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
+    const frame = canvasFrameRef.current || canvasRef.current;
+    if (!frame) return { x: 0, y: 0 };
+    const rect = frame.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
     const scaleX = canvasW / rect.width;
@@ -1563,8 +1663,27 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     };
   };
 
+  const startProductResize = (e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!loadedImg || productScale <= 0) return;
+    const { x, y } = getCanvasCoords(e);
+    setIsResizingProduct(true);
+    setIsResizingElement(false);
+    setIsDraggingElement(false);
+    setIsDraggingProduct(false);
+    setInitialResizeState({
+      startX: x,
+      startY: y,
+      elW: 0,
+      elH: 0,
+      fontSize: productScale,
+      productScale,
+    });
+  };
+
   const startElementResize = (
-    corner: 'nw' | 'ne' | 'sw' | 'se',
+    corner: 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w',
     e: React.MouseEvent | React.TouchEvent,
   ) => {
     e.stopPropagation();
@@ -1574,8 +1693,10 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     if (!el || el.locked) return;
     const { x, y } = getCanvasCoords(e);
     setIsResizingElement(true);
+    setIsResizingProduct(false);
     setResizeCorner(corner);
     setIsDraggingElement(false);
+    setProductHeroSelected(false);
     setInitialResizeState({
       startX: x,
       startY: y,
@@ -1601,65 +1722,62 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   };
 
   const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
-    if (isResizingElement) return;
+    if (isResizingElement || isResizingProduct) return;
     const { x, y } = getCanvasCoords(e);
 
-    // Hit test elements in reverse order
+    // Hit test elements in reverse order (use measured layout from canvas)
     for (let i = elements.length - 1; i >= 0; i--) {
       const el = elements[i];
       if (el.locked) continue;
-
-      let approxW = el.width || 120;
-      let approxH = el.height || 120;
-
-      if (el.type !== 'shape' && el.type !== 'image') {
-        const textLen = Math.max(1, (el.text || '').split('\n')[0].length);
-        approxW = textLen * (el.fontSize * 0.65) + (el.bgPadding || 14) * 2;
-        approxH = (el.text || '').split('\n').length * (el.fontSize * 1.35) + (el.bgPadding || 14);
-      }
-
-      let minX = el.x - approxW / 2;
-      let maxX = el.x + approxW / 2;
-      if (el.textAlign === 'left') {
-        minX = el.x;
-        maxX = el.x + approxW;
-      } else if (el.textAlign === 'right') {
-        minX = el.x - approxW;
-        maxX = el.x;
-      }
-      const minY = el.y - approxH / 2;
-      const maxY = el.y + approxH / 2;
-
-      if (x >= minX - 15 && x <= maxX + 15 && y >= minY - 15 && y <= maxY + 15) {
+      const bounds = layoutCacheRef.current[el.id] || estimateElementBounds(el);
+      if (rectContainsPoint(bounds, x, y, 8)) {
         setSelectedElementId(el.id);
+        setProductHeroSelected(false);
         setIsDraggingElement(true);
         setDragOffset({ x: x - el.x, y: y - el.y });
         return;
       }
     }
 
-    // Hit test product image
-    const imgDist = Math.hypot(x - productPosX, y - productPosY);
-    if (imgDist < (300 * productScale) / 100) {
+    const productBounds = productBoundsRef.current;
+    if (productBounds && productScale > 0 && rectContainsPoint(productBounds, x, y, 4)) {
+      setProductHeroSelected(true);
+      setSelectedElementId(null);
       setIsDraggingProduct(true);
       setDragOffset({ x: x - productPosX, y: y - productPosY });
-      setSelectedElementId(null);
       return;
     }
 
     setSelectedElementId(null);
+    setProductHeroSelected(false);
   };
 
   const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDraggingElement && !isDraggingProduct && !isResizingElement) return;
+    if (!isDraggingElement && !isDraggingProduct && !isResizingElement && !isResizingProduct) return;
     const { x, y } = getCanvasCoords(e);
+
+    if (isResizingProduct) {
+      const dx = x - initialResizeState.startX;
+      const dy = y - initialResizeState.startY;
+      const delta = Math.max(dx, dy);
+      const base = initialResizeState.productScale ?? productScale;
+      setProductScale(Math.max(18, Math.min(120, Math.round(base + delta * 0.12))));
+      return;
+    }
 
     if (isResizingElement && selectedElementId && resizeCorner) {
       const dx = x - initialResizeState.startX;
       const dy = y - initialResizeState.startY;
-      const signX = resizeCorner.includes('e') ? 1 : -1;
-      const signY = resizeCorner.includes('s') ? 1 : -1;
-      const delta = Math.max(dx * signX, dy * signY);
+      let delta = 0;
+      if (resizeCorner === 'e' || resizeCorner === 'w') {
+        delta = dx * (resizeCorner === 'e' ? 1 : -1);
+      } else if (resizeCorner === 'n' || resizeCorner === 's') {
+        delta = dy * (resizeCorner === 's' ? 1 : -1);
+      } else {
+        const signX = resizeCorner.includes('e') ? 1 : -1;
+        const signY = resizeCorner.includes('s') ? 1 : -1;
+        delta = Math.max(dx * signX, dy * signY);
+      }
 
       setElements((prev) =>
         prev.map((el) => {
@@ -1697,10 +1815,11 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   };
 
   const handlePointerUp = () => {
-    if (isDraggingElement || isDraggingProduct || isResizingElement) {
+    if (isDraggingElement || isDraggingProduct || isResizingElement || isResizingProduct) {
       setIsDraggingElement(false);
       setIsDraggingProduct(false);
       setIsResizingElement(false);
+      setIsResizingProduct(false);
       setResizeCorner(null);
       pushHistorySnapshot();
     }
@@ -1817,11 +1936,34 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     const dataUrl = exportCanvasDataUrl('image/webp');
     if (!dataUrl) return;
     onSaveNewAsset(dataUrl, docTitle, canvasW, canvasH);
+    setSavedToMediaLibrary(true);
     toast(isAr ? 'تم حفظ التصميم في مكتبة وسائط المتجر!' : 'Saved to Store Media Library!', 'success');
   };
 
   const selectedElement = elements.find((el) => el.id === selectedElementId);
+  const elementSelectionRect = selectedElement
+    ? layoutCacheRef.current[selectedElement.id] ?? estimateElementBounds(selectedElement)
+    : null;
+  const productSelectionRect =
+    productHeroSelected && productBoundsRef.current ? productBoundsRef.current : null;
+  void layoutEpoch;
   const isPage = variant === 'page';
+
+  const resizeHandle = (
+    corner: 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w',
+    style: React.CSSProperties,
+    cursor: string,
+    onResize: (c: typeof corner, e: React.MouseEvent | React.TouchEvent) => void,
+    edge = false,
+  ) => (
+    <div
+      key={corner}
+      className={`cs-selection-handle ${edge ? 'cs-selection-handle-edge' : ''}`}
+      style={{ ...style, cursor }}
+      onMouseDown={(e) => onResize(corner, e)}
+      onTouchStart={(e) => onResize(corner, e)}
+    />
+  );
 
   const studioTabs = [
     { id: 'templates' as const, label: isAr ? 'القوالب' : 'Templates', icon: FolderKanban },
@@ -1929,10 +2071,21 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               </span>
             )}
 
-            {/* Cloud Status */}
-            <span className="hidden sm:flex items-center gap-1 text-[11px] cs-accent-text" style={{ color: 'var(--accent, #1d8b94)' }}>
-              <Check className="w-3.5 h-3.5" />
-              <span>{isAr ? 'محفوظ بالسحابة' : 'Saved to cloud'}</span>
+            {/* Honest save status — never claim cloud save without media write */}
+            <span
+              className={`hidden sm:flex items-center gap-1 text-[11px] ${
+                savedToMediaLibrary ? 'cs-accent-text' : 'text-slate-500'
+              }`}
+              style={savedToMediaLibrary ? { color: 'var(--accent, #1d8b94)' } : undefined}
+            >
+              {savedToMediaLibrary ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{isAr ? 'محفوظ في مكتبة الوسائط' : 'Saved to media library'}</span>
+                </>
+              ) : (
+                <span>{isAr ? 'مسودة — لم يُحفظ بعد' : 'Draft — not saved yet'}</span>
+              )}
             </span>
           </div>
 
@@ -2042,6 +2195,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                   isAr={isAr}
                   selectedTemplateId={selectedTemplateId}
                   activeImageUrl={activeImageUrl}
+                  previewProduct={currentProducts[0] || null}
                   myTemplates={myTemplates}
                   onApply={applyCanvaTemplate}
                   onApplyMyTemplate={(tpl) => {
@@ -3428,14 +3582,17 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
             {/* Canvas Container */}
             <div
               ref={containerRef}
-              className="flex-1 flex items-center justify-center min-h-[350px] overflow-hidden"
+              className="flex-1 flex items-center justify-center min-h-[350px] overflow-auto p-2"
             >
               <div
-                className="cs-canvas-frame relative overflow-hidden flex items-center justify-center cursor-crosshair select-none"
+                ref={canvasFrameRef}
+                className="cs-canvas-frame relative overflow-visible flex items-center justify-center is-pan-ready select-none"
                 style={{
                   aspectRatio: `${canvasW} / ${canvasH}`,
                   maxHeight: isPage ? 'min(76vh, 720px)' : 'min(64vh, 580px)',
                   maxWidth: '100%',
+                  transform: `scale(${viewZoom})`,
+                  transformOrigin: 'center center',
                 }}
                 onMouseDown={handlePointerDown}
                 onMouseMove={handlePointerMove}
@@ -3455,35 +3612,14 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                   </div>
                 )}
 
-                {selectedElement && (
+                {selectedElement && elementSelectionRect && (
                   <div
-                    className="cs-selection-box absolute border-2 border-violet-500 pointer-events-auto"
-                    style={{
-                      left: `${(selectedElement.x / canvasW) * 100}%`,
-                      top: `${(selectedElement.y / canvasH) * 100}%`,
-                      transform:
-                        selectedElement.textAlign === 'center'
-                          ? 'translate(-50%, -50%)'
-                          : selectedElement.textAlign === 'right'
-                          ? 'translate(-100%, -50%)'
-                          : 'translate(0, -50%)',
-                      width: `${Math.max(
-                        10,
-                        (selectedElement.width ||
-                          (selectedElement.text || '').split('\n')[0].length * (selectedElement.fontSize * 0.72) + 30) *
-                          (100 / canvasW),
-                      )}%`,
-                      height: `${Math.max(
-                        6,
-                        ((selectedElement.height ||
-                          (selectedElement.text || '').split('\n').length * (selectedElement.fontSize * 1.4) + 20) *
-                          100) /
-                          canvasH,
-                      )}%`,
-                    }}
+                    key={`sel-el-${selectedElement.id}-${layoutEpoch}`}
+                    className="cs-selection-box absolute"
+                    style={rectToPercentStyle(elementSelectionRect, canvasW, canvasH)}
                   >
                     <div
-                      className="cs-selection-pill absolute -top-10 start-1/2 -translate-x-1/2 flex items-center gap-1 rounded-lg px-2 py-0.5 z-40 whitespace-nowrap text-[11px] text-slate-800"
+                      className="cs-selection-toolbar cs-selection-pill absolute -top-11 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-lg px-2 py-1 whitespace-nowrap text-[11px] text-slate-800"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <button
@@ -3493,9 +3629,9 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                         title={selectedElement.locked ? (isAr ? 'فتح القفل' : 'Unlock') : isAr ? 'قفل' : 'Lock'}
                       >
                         {selectedElement.locked ? (
-                          <LockKeyhole className="w-3 h-3 text-amber-500" />
+                          <LockKeyhole className="w-3.5 h-3.5 text-amber-500" />
                         ) : (
-                          <Unlock className="w-3 h-3" />
+                          <Unlock className="w-3.5 h-3.5" />
                         )}
                       </button>
                       <button
@@ -3504,7 +3640,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                         className="p-1 rounded text-slate-600 hover:bg-slate-100"
                         title={isAr ? 'تكرار' : 'Duplicate'}
                       >
-                        <Copy className="w-3 h-3" />
+                        <Copy className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
@@ -3512,46 +3648,88 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                         className="p-1 rounded text-rose-600 hover:bg-rose-50"
                         title={isAr ? 'حذف' : 'Delete'}
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
+                    {resizeHandle('nw', { left: 0, top: 0 }, 'nwse-resize', startElementResize)}
+                    {resizeHandle('ne', { left: '100%', top: 0 }, 'nesw-resize', startElementResize)}
+                    {resizeHandle('sw', { left: 0, top: '100%' }, 'nesw-resize', startElementResize)}
+                    {resizeHandle('se', { left: '100%', top: '100%' }, 'nwse-resize', startElementResize)}
+                    {(selectedElement.type === 'image' || selectedElement.type === 'shape') && (
+                      <>
+                        {resizeHandle('n', { left: '50%', top: 0 }, 'ns-resize', startElementResize, true)}
+                        {resizeHandle('e', { left: '100%', top: '50%' }, 'ew-resize', startElementResize, true)}
+                        {resizeHandle('s', { left: '50%', top: '100%' }, 'ns-resize', startElementResize, true)}
+                        {resizeHandle('w', { left: 0, top: '50%' }, 'ew-resize', startElementResize, true)}
+                      </>
+                    )}
+                  </div>
+                )}
 
-                    <div
-                      className="absolute -top-1.5 -start-1.5 w-3.5 h-3.5 rounded-full bg-white border-2 cursor-nwse-resize z-50"
-                      style={{ borderColor: 'var(--accent, #1d8b94)' }}
-                      onMouseDown={(e) => startElementResize('nw', e)}
-                      onTouchStart={(e) => startElementResize('nw', e)}
-                    />
-                    <div
-                      className="absolute -top-1.5 -end-1.5 w-3.5 h-3.5 rounded-full bg-white border-2 cursor-nesw-resize z-50"
-                      style={{ borderColor: 'var(--accent, #1d8b94)' }}
-                      onMouseDown={(e) => startElementResize('ne', e)}
-                      onTouchStart={(e) => startElementResize('ne', e)}
-                    />
-                    <div
-                      className="absolute -bottom-1.5 -start-1.5 w-3.5 h-3.5 rounded-full bg-white border-2 cursor-nesw-resize z-50"
-                      style={{ borderColor: 'var(--accent, #1d8b94)' }}
-                      onMouseDown={(e) => startElementResize('sw', e)}
-                      onTouchStart={(e) => startElementResize('sw', e)}
-                    />
-                    <div
-                      className="absolute -bottom-1.5 -end-1.5 w-3.5 h-3.5 rounded-full bg-white border-2 cursor-nwse-resize z-50"
-                      style={{ borderColor: 'var(--accent, #1d8b94)' }}
-                      onMouseDown={(e) => startElementResize('se', e)}
-                      onTouchStart={(e) => startElementResize('se', e)}
-                    />
+                {productSelectionRect && (
+                  <div
+                    key={`sel-product-${layoutEpoch}`}
+                    className="cs-selection-box absolute"
+                    style={rectToPercentStyle(productSelectionRect, canvasW, canvasH)}
+                  >
+                    <div className="cs-selection-toolbar absolute -top-11 left-1/2 -translate-x-1/2 rounded-lg px-2.5 py-1 text-[10px] font-bold text-slate-700 whitespace-nowrap">
+                      {isAr ? 'صورة المنتج · اسحب الزاوية لتكبير' : 'Product · drag corner to resize'}
+                    </div>
+                    {resizeHandle('se', { left: '100%', top: '100%' }, 'nwse-resize', (_, e) => startProductResize(e))}
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="cs-footer pt-2.5 mt-2 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+            <div className="cs-footer pt-2.5 mt-2 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4" style={{ color: 'var(--accent, #1d8b94)' }} />
                 <span>
                   {isAr ? 'استوديو التصميم' : 'Design Studio'} • {canvasW}×{canvasH} px
                 </span>
               </div>
+              <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5">
+                <button
+                  type="button"
+                  onClick={() => setViewZoom((z) => Math.max(0.5, Math.round((z - 0.1) * 100) / 100))}
+                  className="p-1 hover:bg-slate-100 rounded text-slate-700"
+                  title={isAr ? 'تصغير' : 'Zoom out'}
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="min-w-[42px] text-center font-mono font-bold text-slate-800">
+                  {Math.round(viewZoom * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setViewZoom((z) => Math.min(1.5, Math.round((z + 0.1) * 100) / 100))}
+                  className="p-1 hover:bg-slate-100 rounded text-slate-700"
+                  title={isAr ? 'تكبير' : 'Zoom in'}
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewZoom(1)}
+                  className="px-1.5 py-0.5 text-[10px] font-bold hover:bg-slate-100 rounded text-slate-600"
+                >
+                  {isAr ? 'ملاءمة' : 'Fit'}
+                </button>
+              </div>
+              {productHeroSelected && (
+                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-0.5">
+                  <span className="text-[10px] text-slate-500">{isAr ? 'حجم المنتج' : 'Product size'}</span>
+                  <input
+                    type="range"
+                    min={18}
+                    max={120}
+                    value={productScale}
+                    onChange={(e) => setProductScale(Number(e.target.value))}
+                    className="w-24 accent-violet-600"
+                  />
+                  <span className="text-[10px] font-mono text-slate-700 w-8">{productScale}%</span>
+                </div>
+              )}
               <div className="flex items-center gap-3">
                 <button
                   type="button"

@@ -139,6 +139,6 @@ Execute **in order**. One wave = one focused PR/slice. Ship only when that waveâ
 | 3 Isolation leaks | **Done** (payment store-1, MasterThemes Flora, brands/invoice, identity defaults, theme default) |
 | 4 EN/AR dual | **Partial** (dual meta in `extra` done; indexing table and tracking/warranty fakes removed). SEO form still has leftover English in Arabic on some lower sections. Master Themes/Updates not fully passed. |
 | 5 Master fake tooling | **Done** (DB /health ping, Control Center no fake GTM/GA4, no invent ROAS 4.2) |
-| 6 Verify | Pending manual QA |
+| 6 Verify | **In progress** (2026-11-08 deep audit: killed public/api store-1 cross-tenant clone for blog/reviews/banners/pages; UTM fake campaigns; Channel KPI invent growth; WhatsApp fake Connected seed; blog commerce invent articles/metrics; loyalty invent customer; courier fake-connect on API fail; live-path INITIAL coupons/shipping hydrate) |
 
-**Next:** Wave 6 manual QA. Do not mark it done from code review. Page builder `PB-32` is still the single next builder step.
+**Next:** Finish Wave 6 manual QA side-by-side (giftshop + coffee). Page builder `PB-32` is still the single next builder step.

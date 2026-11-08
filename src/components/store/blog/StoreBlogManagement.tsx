@@ -54,7 +54,7 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
   onOpenCommerceTools,
 }) => {
   const { activeStore } = useTenant();
-  const storeId = activeStore?.id || 'store-1';
+  const storeId = activeStore?.id || '';
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
   const { toast } = useToast();

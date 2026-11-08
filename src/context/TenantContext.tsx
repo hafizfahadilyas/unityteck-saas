@@ -1940,8 +1940,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
         setOrdersMap((prev) => (Object.keys(prev).length > 0 ? prev : {}));
         setCustomersMap((prev) => (Object.keys(prev).length > 0 ? prev : (API_MODE ? {} : INITIAL_CUSTOMERS)));
-        setCouponsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_COUPONS));
-        setShippingMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_SHIPPING));
+        // Live API path: never hydrate INITIAL coupons/shipping (zero-mock)
+        setCouponsMap((prev) => (Object.keys(prev).length > 0 ? prev : (API_MODE ? {} : INITIAL_COUPONS)));
+        setShippingMap((prev) => (Object.keys(prev).length > 0 ? prev : (API_MODE ? {} : INITIAL_SHIPPING)));
         if (!cancelled) {
           setApiError(null);
           setApiReady(true);
@@ -4953,24 +4954,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
       return { success: true, message: 'Courier credentials authenticated and connected!' };
     } catch {
-      const fallback: CourierConnectionItem = {
-        id: `cour-${courierData.provider}-${Date.now()}`,
-        storeId: sId,
-        provider: courierData.provider,
-        accountName: courierData.accountName,
-        accountNumber: courierData.accountNumber,
-        maskedApiKey: courierData.apiKey.slice(0, 4) + '••••••••',
-        isSandbox: courierData.isSandbox ?? true,
-        isConnected: true,
-        status: 'connected',
-        lastTestedAt: new Date().toISOString(),
-      };
-      setCouriersMap(prev => {
-        const list = prev[sId] || [];
-        const filtered = list.filter(c => c.provider !== courierData.provider);
-        return { ...prev, [sId]: [fallback, ...filtered] };
-      });
-      return { success: true, message: 'Courier connected successfully!' };
+      // Zero-mock: never mark courier Connected when API auth failed
+      return { success: false, message: 'Courier connection failed. Verify credentials and try again.' };
     }
   }, [activeStoreId]);
 

@@ -51,218 +51,10 @@ interface StoreArticleCommerceToolsProps {
 }
 
 /**
- * Fallback store-isolated baseline articles for initial setup if store database is fresh.
- * Strictly multi-tenant isolated by store_id.
+ * Zero-mock: never invent blog articles. Empty API/DB → empty list.
  */
-function getStoreDefaultArticles(storeId: string, storeName?: string, category?: string): BlogArticleItem[] {
-  const sId = (storeId || '').toLowerCase();
-  const isCoffee =
-    sId === 'store-coffee' ||
-    sId.includes('coffee') ||
-    (category || '').toLowerCase().includes('coffee') ||
-    (category || '').includes('قهوة');
-  const isCar =
-    sId === 'store-bleco' ||
-    sId === 'store-car' ||
-    sId.includes('car') ||
-    (category || '').toLowerCase().includes('car') ||
-    (category || '').includes('سيارات');
-
-  if (isCoffee) {
-    return [
-      {
-        id: 'art-coffee-1',
-        store_id: storeId,
-        title: 'Mastering the V60 Pour-Over: Ratios, Bloom & Extraction Guide',
-        slug: 'mastering-the-v60-pour-over-ratios-bloom-and-extraction-guide',
-        excerpt: 'Master grind consistency, 1:16 brew ratios, and precision pouring techniques for an exquisitely balanced cup.',
-        content: `Specialty coffee brewing is a harmonious blend of precision, water temperature, and grind sizing. Whether you prefer a floral Ethiopian Yirgacheffe or a deep, chocolatey Colombian Supremo, dialing in your grind size is essential.\n\n### 1. Water Ratio & Golden Ratios\nWe recommend a 1:15 to 1:16 brew ratio (15g of ground coffee per 250ml of water at 92°C-94°C).\n\n### 2. The 45-Second Bloom\nPouring 50ml of water to initiate blooming allows CO2 to escape and unleashes delicate origin aromas.\n\n### 3. Equipment That Elevates Daily Cups\nPrecision flat burr grinders and PID-controlled kettle make all the difference in cup clarity.`,
-        category: 'Brewing Guides',
-        author: {
-          name: 'Rayan Al-Sulaiman',
-          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
-          role: 'Certified Q-Grader & Roaster',
-        },
-        status: 'published',
-        views: 4520,
-        comments: 38,
-        published_at: '2026-09-10 10:00:00',
-        updated_at: '2026-09-10 10:00:00',
-        thumbnail: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&auto=format&fit=crop&q=80',
-        featured: true,
-        seo: {
-          meta_title: 'Mastering the V60 Pour-Over Coffee Guide',
-          meta_description: 'Master pour-over V60, espresso ratios, and barista techniques for the ultimate coffee cup.',
-          focus_keyword: 'specialty coffee brewing',
-        },
-      },
-      {
-        id: 'art-coffee-2',
-        store_id: storeId,
-        title: 'Single-Origin Specialty Beans: Ethiopian vs Colombian Comparison',
-        slug: 'single-origin-specialty-beans-ethiopian-vs-colombian-comparison',
-        excerpt: 'Explore flavor profiles, processing methods, and acidity differences between East African and South American coffees.',
-        content: `Understanding origin altitude, terroir, and processing methods unlocks new dimensions of taste in specialty coffee.\n\n### 1. Ethiopian Yirgacheffe & Guji\nCelebrated for jasmine floral aromatics, bright bergamot citrus acidity, and delicate tea-like body.\n\n### 2. Colombian Huila & Narino\nFamous for rich caramel sweetness, stone fruit notes, and a silky, chocolate-forward finish.`,
-        category: 'Coffee Beans',
-        author: {
-          name: 'Rayan Al-Sulaiman',
-          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
-          role: 'Certified Q-Grader & Roaster',
-        },
-        status: 'published',
-        views: 3120,
-        comments: 24,
-        published_at: '2026-09-05 14:00:00',
-        updated_at: '2026-09-05 14:00:00',
-        thumbnail: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=800&auto=format&fit=crop&q=80',
-        featured: false,
-        seo: {
-          meta_title: 'Single-Origin Specialty Beans: Ethiopian vs Colombian',
-          meta_description: 'Explore flavor profiles and roasting nuances between Ethiopian and Colombian coffee beans.',
-          focus_keyword: 'ethiopian vs colombian coffee',
-        },
-      },
-    ];
-  }
-
-  if (isCar) {
-    return [
-      {
-        id: 'art-car-1',
-        store_id: storeId,
-        title: 'Ultimate Guide to Ceramic Coating & Paint Protection for Saudi Climate',
-        slug: 'ultimate-guide-to-ceramic-coating-and-paint-protection-saudi-climate',
-        excerpt: 'Shield your vehicle against extreme desert heat, sandstorms, and UV degradation with 9H ceramic coating.',
-        content: `Driving in the Gulf region exposes automotive paint to sand abrasion, 48°C ambient heat, and intense ultraviolet radiation.\n\n### 1. Hardness Rating & Sand Protection\n9H Nano-ceramic coatings provide a sacrificial shield that resists fine swirl marks from sandstorms.\n\n### 2. Hydrophobic Self-Cleaning Properties\nWater beads instantly, allowing dust and desert grime to wash off effortlessly with zero paint scratching.`,
-        category: 'Paint Protection',
-        author: {
-          name: 'Fahad Al-Harbi',
-          avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80',
-          role: 'Master Detailer',
-        },
-        status: 'published',
-        views: 3890,
-        comments: 42,
-        published_at: '2026-09-12 11:30:00',
-        updated_at: '2026-09-12 11:30:00',
-        thumbnail: 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=800&auto=format&fit=crop&q=80',
-        featured: true,
-        seo: {
-          meta_title: 'Ceramic Coating Guide for Saudi Vehicles',
-          meta_description: 'Protect your vehicle paint against heat, sandstorms, and UV rays with 9H ceramic coating.',
-          focus_keyword: 'ceramic coating saudi arabia',
-        },
-      },
-    ];
-  }
-
-  // Default Home Fragrance / Luxury Decor Store (Matching Reference Image 5)
-  return [
-    {
-      id: 'art-decor-1',
-      store_id: storeId,
-      title: 'A Complete Guide to Choosing the Perfect Fragrance for Your Home',
-      slug: 'a-complete-guide-to-choosing-the-perfect-fragrance-for-your-home',
-      excerpt: 'A pleasant fragrance can transform your home, boost your mood, and create a welcoming atmosphere. In this guide, explore the best home fragrances, how to choose the right scent, and top recommendations.',
-      content: `A pleasant fragrance can transform your home, boost your mood, and create a welcoming atmosphere. In this guide, we'll explore the best home fragrances, how to choose the right scent, and our top product recommendations.\n\n### 1. Why Home Fragrance Matters\nScents directly stimulate the limbic system, evoking comforting memories and reducing daily stress.\n\n### 2. Types of Home Fragrances\nFrom slow-releasing reed diffusers to rich soy wax candles and instantaneous room sprays, each medium plays a distinct role in room ambiance.\n\n### 3. Choosing the Right Scent\nFloral notes uplift living rooms, woody ambers warm master bedrooms, and crisp citrus refreshes dining and kitchen areas.`,
-      category: 'Home Decor',
-      author: {
-        name: 'Sarah Ahmed',
-        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80',
-        role: 'Interior Fragrance Stylist',
-      },
-      status: 'published',
-      views: 24532,
-      comments: 65,
-      published_at: '2026-10-15 09:00:00',
-      updated_at: '2026-10-15 09:00:00',
-      thumbnail: 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=800&auto=format&fit=crop&q=80',
-      featured: true,
-      seo: {
-        meta_title: 'A Complete Guide to Choosing the Perfect Fragrance for Your Home',
-        meta_description: 'Discover the best home fragrances, diffuser scents, and candles to create a luxurious welcoming atmosphere.',
-        focus_keyword: 'home fragrance',
-      },
-    },
-    {
-      id: 'art-decor-2',
-      store_id: storeId,
-      title: '10 Ways to Make Your Home Smell Amazing All Year Round',
-      slug: '10-ways-to-make-your-home-smell-amazing-all-year-round',
-      excerpt: 'Discover layering scents with luxury diffusers and room mists for long-lasting aroma.',
-      content: `Layering fragrances throughout each room creates a subtle, evolving olfactory experience. Combine reed diffusers with evening scented candles for an unmatched welcoming warmth.`,
-      category: 'Home Decor',
-      author: {
-        name: 'Sarah Ahmed',
-        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80',
-        role: 'Interior Fragrance Stylist',
-      },
-      status: 'published',
-      views: 18200,
-      comments: 42,
-      published_at: '2026-10-10 14:00:00',
-      updated_at: '2026-10-10 14:00:00',
-      thumbnail: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&auto=format&fit=crop&q=80',
-      featured: false,
-      seo: {
-        meta_title: '10 Ways to Make Your Home Smell Amazing',
-        meta_description: 'Simple and effective fragrance tips for fresh indoor air and relaxing scents.',
-        focus_keyword: 'home scent tips',
-      },
-    },
-    {
-      id: 'art-decor-3',
-      store_id: storeId,
-      title: 'Best Scents for Every Room in Your Home',
-      slug: 'best-scents-for-every-room-in-your-home',
-      excerpt: 'Match room functionality with therapeutic scents: lavender in bedroom, lemon in kitchen.',
-      content: `Room-by-room fragrance curation enhances mood and functionality. Energetic bergamot in home offices boosts focus, while sandalwood in living areas promotes relaxation.`,
-      category: 'Home Decor',
-      author: {
-        name: 'Sarah Ahmed',
-        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80',
-        role: 'Interior Fragrance Stylist',
-      },
-      status: 'published',
-      views: 15400,
-      comments: 31,
-      published_at: '2026-10-05 10:00:00',
-      updated_at: '2026-10-05 10:00:00',
-      thumbnail: 'https://images.unsplash.com/photo-1507652313519-d4e9174996dd?w=800&auto=format&fit=crop&q=80',
-      featured: false,
-      seo: {
-        meta_title: 'Best Scents for Every Room',
-        meta_description: 'Curate fragrances tailored to bedrooms, living spaces, and offices.',
-        focus_keyword: 'room fragrance guide',
-      },
-    },
-    {
-      id: 'art-decor-4',
-      store_id: storeId,
-      title: 'How to Create a Relaxing Atmosphere at Home',
-      slug: 'how-to-create-a-relaxing-atmosphere-at-home',
-      excerpt: 'Combine gentle warm lighting with soothing vanilla and sandalwood aromas.',
-      content: `Create an everyday sanctuary with minimalist decor, soft amber lighting, and natural essential oil diffusion.`,
-      category: 'Home Decor',
-      author: {
-        name: 'Sarah Ahmed',
-        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80',
-        role: 'Interior Fragrance Stylist',
-      },
-      status: 'published',
-      views: 12900,
-      comments: 19,
-      published_at: '2026-09-28 12:00:00',
-      updated_at: '2026-09-28 12:00:00',
-      thumbnail: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&auto=format&fit=crop&q=80',
-      featured: false,
-      seo: {
-        meta_title: 'How to Create a Relaxing Atmosphere at Home',
-        meta_description: 'Atmospheric living room tips with scented candles and soft lighting.',
-        focus_keyword: 'relaxing home atmosphere',
-      },
-    },
-  ];
+function getStoreDefaultArticles(_storeId: string, _storeName?: string, _category?: string): BlogArticleItem[] {
+  return [];
 }
 
 /**
@@ -278,17 +70,18 @@ function buildStoreCommerceToolsConfig(
   const p2 = products[1];
   const p3 = products[2];
 
-  const mainProdName = p1?.name || 'Luxury Reed Diffuser';
-  const mainProdPrice = p1?.price || 89;
-  const mainProdImg = p1?.image || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=500&auto=format&fit=crop&q=80';
+  // Real catalog only — empty store stays empty (zero-mock)
+  const mainProdName = p1?.name || '';
+  const mainProdPrice = p1?.price ?? 0;
+  const mainProdImg = p1?.image || '';
 
-  const prod2Name = p2?.name || 'Scented Candle';
-  const prod2Price = p2?.price || 25;
-  const prod2Img = p2?.image || 'https://images.unsplash.com/photo-1507652313519-d4e9174996dd?w=500&auto=format&fit=crop&q=80';
+  const prod2Name = p2?.name || '';
+  const prod2Price = p2?.price ?? 0;
+  const prod2Img = p2?.image || '';
 
-  const prod3Name = p3?.name || 'Room Spray';
-  const prod3Price = p3?.price || 19;
-  const prod3Img = p3?.image || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=500&auto=format&fit=crop&q=80';
+  const prod3Name = p3?.name || '';
+  const prod3Price = p3?.price ?? 0;
+  const prod3Img = p3?.image || '';
 
   return {
     article_id: articleId,
@@ -297,8 +90,8 @@ function buildStoreCommerceToolsConfig(
       product_name: mainProdName,
       product_image: mainProdImg,
       price: mainProdPrice,
-      rating: 4.8,
-      rating_count: 1209,
+      rating: p1?.rating ?? 0,
+      rating_count: p1?.reviewsCount ?? 0,
       show_price: true,
       show_rating: true,
       show_add_to_cart: true,
@@ -491,10 +284,10 @@ function buildStoreCommerceToolsConfig(
       enabled: true,
       metrics_to_display: ['views', 'product_clicks', 'add_to_cart', 'orders'],
       time_range: 'Last 30 Days',
-      views: 24532,
-      product_clicks: 3420,
-      add_to_cart: 620,
-      orders: 210,
+      views: 0,
+      product_clicks: 0,
+      add_to_cart: 0,
+      orders: 0,
     },
     exit_intent: {
       enabled: true,
@@ -680,8 +473,8 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
           product_name: isAr ? found.nameAr || found.name : found.name,
           product_image: found.image || prev.product_cards.product_image,
           price: found.price,
-          rating: found.rating || 4.8,
-          rating_count: found.reviewsCount || 1209,
+          rating: found.rating ?? 0,
+          rating_count: found.reviewsCount ?? 0,
         },
       }));
     } else {
@@ -860,7 +653,11 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   </div>
                   <div className="flex items-center justify-center gap-0.5 text-[9px] text-amber-500 font-semibold">
                     <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
-                    <span>4.8 (1209)</span>
+                    <span>
+                      {config.product_cards.rating
+                        ? `${config.product_cards.rating} (${config.product_cards.rating_count || 0})`
+                        : '—'}
+                    </span>
                   </div>
                   <button
                     type="button"
@@ -3022,39 +2819,37 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
               {config.product_cards.enabled && (
                 <div className="space-y-2 pt-2">
                   <div className="font-black text-xs text-slate-900 dark:text-white">
-                    Top Picks for {currentArticle?.category || 'Home Fragrance'}
+                    {currentArticle?.category
+                      ? (isAr ? `أفضل اختيارات ${currentArticle.category}` : `Top Picks for ${currentArticle.category}`)
+                      : (isAr ? 'أفضل المنتجات' : 'Top Picks')}
                   </div>
+                  {availableProducts.length === 0 ? (
+                    <p className="text-[11px] text-slate-400 text-center py-4">
+                      {isAr ? 'لا توجد سجلات' : 'No records found'}
+                    </p>
+                  ) : (
                   <div className="grid grid-cols-3 gap-2">
-                    {[
-                      {
-                        name: 'Luxury Reed Diffuser',
-                        sub: 'Vanilla Scent',
-                        price: '$89',
-                        rating: '4.8 (1209)',
-                        img: 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=300&auto=format&fit=crop&q=80',
-                      },
-                      {
-                        name: 'Scented Candle',
-                        sub: 'Sandalwood',
-                        price: '$25',
-                        rating: '4.9 (910)',
-                        img: 'https://images.unsplash.com/photo-1507652313519-d4e9174996dd?w=300&auto=format&fit=crop&q=80',
-                      },
-                      {
-                        name: 'Room Spray',
-                        sub: 'Ocean Breeze',
-                        price: '$19',
-                        rating: '4.8 (716)',
-                        img: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=300&auto=format&fit=crop&q=80',
-                      },
-                    ].map((item, idx) => (
+                    {availableProducts.slice(0, 3).map((p) => {
+                      const item = {
+                        name: isAr ? p.nameAr || p.name : p.name,
+                        sub: p.category || '',
+                        price: String(p.price ?? 0),
+                        rating:
+                          p.rating != null
+                            ? `${p.rating} (${p.reviewsCount || 0})`
+                            : '—',
+                        img: p.image || '',
+                      };
+                      return (
                       <div
-                        key={idx}
+                        key={p.id}
                         className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-center space-y-1 relative"
                       >
                         <Heart className="w-3 h-3 text-rose-500 fill-rose-500 absolute top-1.5 right-1.5" />
                         <div className="w-full aspect-square rounded-lg overflow-hidden bg-slate-100">
-                          <img src={item.img} alt={item.name} className="w-full h-full object-cover" />
+                          {item.img ? (
+                            <img src={item.img} alt={item.name} className="w-full h-full object-cover" />
+                          ) : null}
                         </div>
                         <div className="font-bold text-[10px] text-slate-900 dark:text-white truncate">
                           {item.name}
@@ -3066,11 +2861,13 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                           type="button"
                           className="w-full py-1 rounded bg-teal-600 hover:bg-teal-700 text-white text-[9px] font-bold"
                         >
-                          Add to Cart
+                          {isAr ? 'أضف إلى السلة' : 'Add to Cart'}
                         </button>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
+                  )}
                 </div>
               )}
 

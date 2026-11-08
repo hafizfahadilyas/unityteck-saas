@@ -19,7 +19,7 @@
 }
 
 .canva-studio-light,
-.canva-studio-light * {
+.canva-studio-light *:not(.cs-selection-box):not(.cs-selection-handle):not(.cs-selection-toolbar) {
   box-shadow: none !important;
   text-shadow: none !important;
 }
@@ -212,16 +212,50 @@
 }
 
 .canva-studio-light .cs-selection-box {
-  box-shadow: none !important;
-  border-radius: 2px !important;
-  border-color: var(--cs-accent) !important;
+  border-radius: 1px !important;
+  border: 2px solid var(--cs-accent) !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--cs-accent) 18%, #ffffff),
+    0 2px 8px rgba(15, 23, 42, 0.12) !important;
+  pointer-events: none;
+  z-index: 30;
 }
 
+.canva-studio-light .cs-selection-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff !important;
+  border: 2px solid var(--cs-accent) !important;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.22) !important;
+  pointer-events: auto;
+  z-index: 35;
+  transform: translate(-50%, -50%);
+}
+
+.canva-studio-light .cs-selection-handle-edge {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.canva-studio-light .cs-selection-toolbar,
 .canva-studio-light .cs-selection-pill {
   background: var(--cs-bg) !important;
   border: 1px solid var(--cs-border) !important;
   color: var(--cs-text) !important;
-  box-shadow: none !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14) !important;
+  pointer-events: auto;
+  z-index: 40;
+}
+
+.canva-studio-light .cs-canvas-frame {
+  cursor: default;
+}
+
+.canva-studio-light .cs-canvas-frame.is-pan-ready {
+  cursor: crosshair;
 }
 
 .canva-studio-light .cs-templates-panel .shadow-sm,

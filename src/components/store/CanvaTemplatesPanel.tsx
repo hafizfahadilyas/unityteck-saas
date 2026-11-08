@@ -4,6 +4,7 @@ import type { Store } from '../../types';
 import {
   CANVA_TEMPLATE_CATEGORIES,
   getCanvaTemplate,
+  resolveCanvaLayerLabel,
   type CanvaDesignTemplate,
   type CanvaTemplateCategory,
   type CanvaTemplateNiche,
@@ -17,10 +18,21 @@ import {
 import type { CanvaMyTemplate } from '../../services/canvaMyTemplates';
 
 export interface CanvaTemplatesPanelProps {
-  store: Pick<Store, 'id' | 'slug' | 'name' | 'category' | 'plan' | 'masterGrantedPro' | 'canvaTemplatesPerCategory'>;
+  store: Pick<
+    Store,
+    'id' | 'slug' | 'name' | 'nameAr' | 'category' | 'plan' | 'masterGrantedPro' | 'canvaTemplatesPerCategory'
+  >;
   isAr: boolean;
   selectedTemplateId: string | null;
   activeImageUrl?: string;
+  /** Live product fields for dynamic preview — never fake SAR / brand */
+  previewProduct?: {
+    name?: string;
+    nameAr?: string;
+    price?: number | string | null;
+    category?: string;
+    categoryAr?: string;
+  } | null;
   myTemplates?: CanvaMyTemplate[];
   onApply: (template: CanvaDesignTemplate) => void;
   onApplyMyTemplate?: (template: CanvaMyTemplate) => void;
@@ -36,12 +48,16 @@ const TemplatePreviewCard: React.FC<{
   isAr: boolean;
   activeImageUrl?: string;
   storeNiche: CanvaTemplateNiche;
-}> = ({ template, isAr, activeImageUrl }) => {
+  storeName?: string;
+  productName?: string;
+  priceLabel?: string;
+  categoryName?: string;
+}> = ({ template, isAr, activeImageUrl, storeName, productName, priceLabel, categoryName }) => {
   const isBlank = template.niche === 'blank';
   const isLogo = template.category === 'logo';
 
-  // Only store/media URL or template sample — never hardcode coffee/flowers assets
-  const previewImg = activeImageUrl || template.sampleImageUrl || '';
+  // Live store/product image only — no cross-tenant sample product photos
+  const previewImg = activeImageUrl || '';
 
   const aspectClass =
     template.width > template.height * 1.5
@@ -50,12 +66,7 @@ const TemplatePreviewCard: React.FC<{
         ? 'aspect-[9/16]'
         : 'aspect-square';
 
-  const textLayers = template.elements.filter(
-    (e) =>
-      e.type !== 'shape' &&
-      e.type !== 'icon' &&
-      (e.textEn || e.textAr),
-  );
+  const textLayers = template.elements.filter((e) => e.type !== 'shape' && e.type !== 'icon');
   const shapeLayers = template.elements.filter((e) => e.type === 'shape');
 
   return (
@@ -110,17 +121,30 @@ const TemplatePreviewCard: React.FC<{
         </div>
       )}
 
-      {/* Text / badge layers at real positions — readable, no stack dump */}
+      {/* Text / badge layers at real positions — dynamic bind labels */}
       {textLayers.slice(0, 5).map((layer, i) => {
-        const label = isAr ? layer.textAr || layer.textEn : layer.textEn;
+        const label = resolveCanvaLayerLabel(layer, {
+          isAr,
+          storeName,
+          productName,
+          priceLabel,
+          categoryName,
+        });
         if (!label) return null;
         const isBadge = layer.type === 'badge' || layer.type === 'price';
+        const align = layer.textAlign || 'center';
         const fs =
           layer.type === 'headline'
             ? 'text-[8px] sm:text-[9px] font-black leading-tight'
             : layer.type === 'subtitle'
               ? 'text-[6px] sm:text-[7px] font-medium leading-tight opacity-90'
               : 'text-[6px] sm:text-[7px] font-bold leading-tight';
+        const xform =
+          align === 'left'
+            ? 'translate(0, -50%)'
+            : align === 'right'
+              ? 'translate(-100%, -50%)'
+              : 'translate(-50%, -50%)';
         return (
           <div
             key={`tx-${i}`}
@@ -128,7 +152,7 @@ const TemplatePreviewCard: React.FC<{
             style={{
               left: `${(layer.xPct || 0.5) * 100}%`,
               top: `${(layer.yPct || 0.5) * 100}%`,
-              transform: 'translate(-50%, -50%)',
+              transform: xform,
               color: layer.fontColor || '#0f172a',
               background:
                 layer.bgColor && layer.bgColor !== 'transparent'
@@ -137,7 +161,7 @@ const TemplatePreviewCard: React.FC<{
                     ? 'rgba(15,23,42,0.75)'
                     : 'transparent',
               borderRadius: layer.borderRadius ? Math.min(layer.borderRadius, 12) : 8,
-              textAlign: layer.textAlign || 'center',
+              textAlign: align,
               whiteSpace: 'pre-line',
             }}
           >
@@ -169,6 +193,7 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
   isAr,
   selectedTemplateId,
   activeImageUrl,
+  previewProduct = null,
   myTemplates = [],
   onApply,
   onApplyMyTemplate,
@@ -181,6 +206,18 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
   const [activeCategory, setActiveCategory] = useState<CanvaTemplateCategory | 'all'>('all');
   const [nicheFilter, setNicheFilter] = useState<'for_you' | 'blank' | 'all' | 'mine'>('for_you');
   const [search, setSearch] = useState('');
+
+  const storeName = (isAr ? store.nameAr || store.name : store.name) || '';
+  const productName = previewProduct
+    ? (isAr ? previewProduct.nameAr || previewProduct.name : previewProduct.name) || ''
+    : '';
+  const priceLabel =
+    previewProduct?.price != null && previewProduct.price !== ''
+      ? `${previewProduct.price} ${isAr ? 'ر.س' : 'SAR'}`
+      : '';
+  const categoryName = previewProduct
+    ? (isAr ? previewProduct.categoryAr || previewProduct.category : previewProduct.category) || ''
+    : '';
 
   const filteredMyTemplates = useMemo(() => {
     let list = myTemplates.filter((t) => t.storeId === store.id);
@@ -559,6 +596,10 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
                   isAr={isAr}
                   activeImageUrl={activeImageUrl}
                   storeNiche={storeNiche}
+                  storeName={storeName}
+                  productName={productName}
+                  priceLabel={priceLabel}
+                  categoryName={categoryName}
                 />
               </button>
 

@@ -814,11 +814,12 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             'meta_description' => (string)($seo['metaDescription'] ?? $data['metaDescription'] ?? $data['meta_description'] ?? ''),
             'keywords' => $seo['keywords'] ?? $data['keywords'] ?? [],
             'sitemap_url' => $publicHost !== '' ? 'https://' . $publicHost . '/sitemap.xml' : '',
-            'indexed_urls_count' => 0,
-            'total_search_clicks' => 0,
-            'total_search_impressions' => 0,
-            'avg_ctr' => 0,
-            'avg_position' => 0,
+            // No Google Search Console connection → null / empty (never invent clicks)
+            'indexed_urls_count' => null,
+            'total_search_clicks' => null,
+            'total_search_impressions' => null,
+            'avg_ctr' => null,
+            'avg_position' => null,
             'top_queries' => [],
             'extra' => new stdClass(),
         ]]);

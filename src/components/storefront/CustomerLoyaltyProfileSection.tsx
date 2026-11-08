@@ -45,25 +45,36 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
   const { toast } = useToast();
   const isAr = locale === 'ar';
 
-  const effectiveStoreId = propStoreId || activeStore?.id || 'store-1';
-  const storeCusts = (allStoreCustomers && allStoreCustomers[effectiveStoreId]) || [];
-  const primaryCust = storeCusts[0] || {
-    id: propCustomerId || `cust-${effectiveStoreId}-1`,
-    name: customerName || (isAr ? 'عميل المتجر المميز' : 'Valued Customer'),
-    phone: customerPhone || '+966 50 123 4567',
-    email: customerEmail || 'customer@ksa-store.sa',
-    city: 'Riyadh',
-  };
+  const effectiveStoreId = propStoreId || activeStore?.id || '';
+  const storeCusts = (allStoreCustomers && effectiveStoreId && allStoreCustomers[effectiveStoreId]) || [];
+  // Only use a real customer from props or this store's customer list — never invent identity
+  const primaryCust =
+    (propCustomerId && storeCusts.find((c) => c.id === propCustomerId)) ||
+    (customerEmail && storeCusts.find((c) => (c.email || '').toLowerCase() === customerEmail.toLowerCase())) ||
+    (customerPhone && storeCusts.find((c) => c.phone === customerPhone)) ||
+    (propCustomerId || customerName || customerEmail || customerPhone
+      ? {
+          id: propCustomerId || '',
+          name: customerName || '',
+          phone: customerPhone || '',
+          email: customerEmail || '',
+          city: '',
+        }
+      : storeCusts[0]) ||
+    null;
 
-  const effectiveCustomerId = propCustomerId || primaryCust.id || `cust-${effectiveStoreId}-1`;
+  const effectiveCustomerId = propCustomerId || primaryCust?.id || '';
+  const hasCustomer = Boolean(effectiveStoreId && effectiveCustomerId);
 
-  const [profile, setProfile] = useState<CustomerGamifiedProfile>(() =>
-    getOrCreateCustomerGamifiedProfile(effectiveStoreId, effectiveCustomerId, {
-      name: customerName || primaryCust.name,
-      phone: customerPhone || primaryCust.phone,
-      email: customerEmail || primaryCust.email,
-      city: (primaryCust as any).city || 'Riyadh',
-    }),
+  const [profile, setProfile] = useState<CustomerGamifiedProfile | null>(() =>
+    hasCustomer
+      ? getOrCreateCustomerGamifiedProfile(effectiveStoreId, effectiveCustomerId, {
+          name: customerName || primaryCust?.name || '',
+          phone: customerPhone || primaryCust?.phone || '',
+          email: customerEmail || primaryCust?.email || '',
+          city: (primaryCust as { city?: string } | null)?.city || '',
+        })
+      : null,
   );
 
   const [loyaltySettings, setLoyaltySettings] = useState(() =>
@@ -74,27 +85,32 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
   const [copiedCard, setCopiedCard] = useState(false);
 
   useEffect(() => {
+    if (!hasCustomer) {
+      setProfile(null);
+      return;
+    }
     setProfile(
       getOrCreateCustomerGamifiedProfile(effectiveStoreId, effectiveCustomerId, {
-        name: customerName || primaryCust.name,
-        phone: customerPhone || primaryCust.phone,
-        email: customerEmail || primaryCust.email,
-        city: (primaryCust as any).city || 'Riyadh',
+        name: customerName || primaryCust?.name || '',
+        phone: customerPhone || primaryCust?.phone || '',
+        email: customerEmail || primaryCust?.email || '',
+        city: (primaryCust as { city?: string } | null)?.city || '',
       }),
     );
     setLoyaltySettings(getStoreLoyaltyGameSettings(effectiveStoreId));
-  }, [effectiveStoreId, effectiveCustomerId, customerName, customerEmail, customerPhone]);
+  }, [effectiveStoreId, effectiveCustomerId, customerName, customerEmail, customerPhone, hasCustomer]);
 
   useEffect(() => {
     const handleSync = (e: any) => {
+      if (!hasCustomer) return;
       if (!e.detail || e.detail.storeId === effectiveStoreId) {
         setLoyaltySettings(getStoreLoyaltyGameSettings(effectiveStoreId));
         setProfile(
           getOrCreateCustomerGamifiedProfile(effectiveStoreId, effectiveCustomerId, {
-            name: customerName || primaryCust.name,
-            phone: customerPhone || primaryCust.phone,
-            email: customerEmail || primaryCust.email,
-            city: (primaryCust as any).city || 'Riyadh',
+            name: customerName || primaryCust?.name || '',
+            phone: customerPhone || primaryCust?.phone || '',
+            email: customerEmail || primaryCust?.email || '',
+            city: (primaryCust as { city?: string } | null)?.city || '',
           }),
         );
       }
@@ -105,7 +121,19 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
       window.removeEventListener('unityteck-ksa-engine-sync', handleSync);
       window.removeEventListener('storage', handleSync);
     };
-  }, [effectiveStoreId, effectiveCustomerId, customerName, customerEmail, customerPhone]);
+  }, [effectiveStoreId, effectiveCustomerId, customerName, customerEmail, customerPhone, hasCustomer]);
+
+  if (!hasCustomer || !profile) {
+    return (
+      <div
+        className={`rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm p-5 sm:p-7 ${className}`}
+      >
+        <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">
+          {isAr ? 'لا توجد سجلات' : 'No records found'}
+        </p>
+      </div>
+    );
+  }
 
   const sarDiscountWorth = (
     profile.coinsBalance / (loyaltySettings.coinsPerSar || 10)
@@ -138,7 +166,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
         ...profile,
         locationAllowed: true,
         notificationsAllowed: true,
-        coordinates: lat && lng ? { lat, lng } : { lat: 24.7136, lng: 46.6753 },
+        coordinates: lat && lng ? { lat, lng } : profile.coordinates,
         coinsBalance: profile.coinsBalance + bonus,
         totalCoinsEarned: profile.totalCoinsEarned + bonus,
       });

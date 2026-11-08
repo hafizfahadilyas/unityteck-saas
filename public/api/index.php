@@ -390,8 +390,8 @@ try {
                 'content_ar' => 'تعتبر هدية الكيك مع الورد في مكة من أجمل الهدايا التي تجمع بين المذاق اللذيذ والمظهر الأنيق للمناسبات وأعياد الميلاد. نوفر باقات متميزة تجمع بين أجود أنواع الكيك الطازج والورود الهولندية النضرة مع كروت إهداء ملكية وتوصيل مبرد وسريع لجميع أحياء مكة المكرمة.',
                 'content_en' => 'Pairing artisan fresh cakes with hand-tied Dutch bouquets creates an unforgettable sensory celebration for birthdays, graduations, and anniversaries across Mecca.',
                 'author' => json_encode(['name' => 'منسق هدايا مكة', 'avatar' => 'https://cdn.assets.salla.network/prod/stores/themes/default/assets/images/avatar_male.png', 'role' => 'Master Florist']),
-                'views_count' => 540,
-                'comments_count' => 8,
+                'views_count' => 0,
+                'comments_count' => 0,
                 'is_featured' => 1
             ],
             [
@@ -414,8 +414,8 @@ try {
                 'content_ar' => 'عندما تبحث عن هدية تجمع بين الأصالة والذوق الرفيع، فإن الورد مع القهوة والحلا يقدم تجربة إهداء متكاملة تعبر عن التقدير والامتنان في كل مناسبة بمكة المكرمة مع أروع تشكيلات الحلويات الفاخرة وباقات الجوري النضرة.',
                 'content_en' => 'A quintessential Saudi tribute blending freshly roasted Arabica beans, artisanal sweets, and crisp blooms celebrating genuine Hijazi hospitality.',
                 'author' => json_encode(['name' => 'أخصائي الضيافة', 'avatar' => 'https://cdn.assets.salla.network/prod/stores/themes/default/assets/images/avatar_male.png', 'role' => 'Hospitality Concierge']),
-                'views_count' => 420,
-                'comments_count' => 5,
+                'views_count' => 0,
+                'comments_count' => 0,
                 'is_featured' => 0
             ],
             [
@@ -438,8 +438,8 @@ try {
                 'content_ar' => 'تجمع هذه الهدية الفريدة بين جمال الورود الطبيعية الزاهية وحيوية عصافير الحب المغردة داخل قفص ذهبي فاخر، لتصنع لحظة بهجة استثنائية لا تُنسى في المناسبات الكبرى بمكة.',
                 'content_en' => 'Combining cheerful lovebirds in an ornate gilded cage alongside lush fresh blooms delivers a magical gift of living beauty.',
                 'author' => json_encode(['name' => 'خبير الهدايا الحية', 'avatar' => 'https://cdn.assets.salla.network/prod/stores/themes/default/assets/images/avatar_male.png', 'role' => 'Master Curator']),
-                'views_count' => 610,
-                'comments_count' => 7,
+                'views_count' => 0,
+                'comments_count' => 0,
                 'is_featured' => 0
             ],
             [
@@ -462,8 +462,8 @@ try {
                 'content_ar' => 'هدية مبتكرة تجمع بين هدوء الحياة المائية في حوض كريستالي أنيق وتألق باقات الزهور الهولندية المختارة بعناية لتزيين أرقى المكاتب والمجالس في مكة المكرمة.',
                 'content_en' => 'A breathtaking harmonious novelty uniting crystal aquatic tranquility with vivid premium floristry for executive offices and luxury homes.',
                 'author' => json_encode(['name' => 'مهندس الديكور الحيوي', 'avatar' => 'https://cdn.assets.salla.network/prod/stores/themes/default/assets/images/avatar_male.png', 'role' => 'Design Specialist']),
-                'views_count' => 490,
-                'comments_count' => 4,
+                'views_count' => 0,
+                'comments_count' => 0,
                 'is_featured' => 0
             ],
         ];
@@ -487,94 +487,7 @@ try {
         }
     }
 
-    // Auto-seed customer reviews for store-1 if empty
-    $reviewCount = (int)$pdo->query("SELECT COUNT(*) FROM reviews WHERE store_id = 'store-1'")->fetchColumn();
-    if ($reviewCount === 0) {
-        $seedReviews = [
-            [
-                'id' => 'rev-1',
-                'store_id' => 'store-1',
-                'name' => 'د. سارة الغامدي',
-                'name_en' => 'Dr. Sarah Al-Ghamdi',
-                'role' => 'مكة المكرمة · حي الشوقية',
-                'role_en' => 'Mecca • Al-Shawqiyyah',
-                'avatar' => '/src/assets/images/hadaya_white_roses_bouquet_1791276726730.jpg',
-                'rating' => 5,
-                'comment' => 'ما شاء الله تبارك الرحمن، تنسيق باقة الورد فاق التوقعات بكثير! الورد طبيعي جداً وفريش والتغليف فاخر يليق بأرقى المناسبات، والتوصيل خلال 45 دقيقة فقط.',
-                'comment_en' => 'Exceeded all expectations! The roses were remarkably fresh and the packaging is worthy of the finest VIP celebrations, delivered in under 45 minutes.',
-                'verified' => 1,
-                'date' => 'منذ 3 أيام'
-            ],
-            [
-                'id' => 'rev-2',
-                'store_id' => 'store-1',
-                'name' => 'م. عبدالرحمن الحربي',
-                'name_en' => 'Eng. Abdulrahman Al-Harbi',
-                'role' => 'مكة المكرمة · حي العوالي',
-                'role_en' => 'Mecca • Al-Awali VIP',
-                'avatar' => '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg',
-                'rating' => 5,
-                'comment' => 'طلبت بوكس الجوري وشوكولاتة باتشي، الصراحة فخامة لا توصف والاهتمام بأدق التفاصيل والكرت المكتوب بخط اليد مع ختم الشمع الملكي كان لمسة إبداعية.',
-                'comment_en' => 'Ordered the roses & Patchi chocolate chest. Unmatched elegance, bespoke attention to detail, and the wax-sealed calligraphy card was breathtaking.',
-                'verified' => 1,
-                'date' => 'منذ أسبوع'
-            ],
-            [
-                'id' => 'rev-3',
-                'store_id' => 'store-1',
-                'name' => 'أ/ فيصل السلمي',
-                'name_en' => 'Faisal Al-Sulami',
-                'role' => 'مكة المكرمة · العزيزية',
-                'role_en' => 'Mecca • Al-Aziziyah',
-                'avatar' => '/src/assets/images/hadaya_luxury_gift_set_1791216170853.jpg',
-                'rating' => 5,
-                'comment' => 'خدمة أكثر من رائعة وتجاوب فوري عبر الواتساب. الأفضل في مكة بلا منازع، الفازة الكريستالية كانت تحفة فنية أبهرت كل الضيوف في المجلس.',
-                'comment_en' => 'Prompt WhatsApp concierge assistance and unmatched floristry quality. The crystal vase became the highlight of our reception salon.',
-                'verified' => 1,
-                'date' => 'منذ 10 أيام'
-            ],
-            [
-                'id' => 'rev-4',
-                'store_id' => 'store-1',
-                'name' => 'نورة الهذلي',
-                'name_en' => 'Noura Al-Hothali',
-                'role' => 'مكة المكرمة · بطحاء قريش',
-                'role_en' => 'Mecca • Batha Quraish',
-                'avatar' => '/src/assets/images/hadaya_white_orchid_penthouse_1791218732789.jpg',
-                'rating' => 5,
-                'comment' => 'تنسيق باقة العروس مع اللؤلؤ كان حلم وتحقق، الله يعطيكم العافية على الدقة والاحترافية وسرعة التوصيل المبرد اللي حافظت على نضارة كل وردة.',
-                'comment_en' => 'The bridal bouquet with pearls was a dream come true. Immense gratitude for the chilled express delivery that kept every single petal fresh.',
-                'verified' => 1,
-                'date' => 'منذ أسبوعين'
-            ],
-            [
-                'id' => 'rev-5',
-                'store_id' => 'store-1',
-                'name' => 'سعيد الزهراني',
-                'name_en' => 'Saeed Al-Zahrani',
-                'role' => 'مكة المكرمة · النزهة',
-                'role_en' => 'Mecca • Al-Nuzha',
-                'avatar' => '/src/assets/images/hadaya_blue_flower_1791218844895.jpg',
-                'rating' => 5,
-                'comment' => 'باقات الزهور الزرقاء نادرة جداً ومتقنة الصنع، تجربة شراء سهلة وخدمة عملاء راقية. أنصح الجميع بالتعامل معهم.',
-                'comment_en' => 'The rare blue floral arrangement was exquisite. Effortless ordering process and VIP customer service.',
-                'verified' => 1,
-                'date' => 'منذ أسبوعين'
-            ],
-        ];
-
-        $insRev = $pdo->prepare("
-            INSERT OR REPLACE INTO reviews (
-                id, store_id, name, name_en, role, role_en, avatar, rating, comment, comment_en, verified, date, is_active, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))
-        ");
-        foreach ($seedReviews as $r) {
-            $insRev->execute([
-                $r['id'], $r['store_id'], $r['name'], $r['name_en'], $r['role'], $r['role_en'],
-                $r['avatar'], $r['rating'], $r['comment'], $r['comment_en'], $r['verified'], $r['date']
-            ]);
-        }
-    }
+    // Zero-mock: do not auto-seed fabricated customer reviews for any store.
 
     // Always enforce latest ZEDAAN perfume image for HM-WOMEN-01
     $pdo->exec('
@@ -1338,7 +1251,8 @@ if (preg_match('#^/stores/([^/]+)/blog/articles/([^/]+)$#', $uri, $mArt)) {
     $artId = $mArt[2];
 
     if ($method === 'GET') {
-        $st = $pdo->prepare("SELECT * FROM blog_articles WHERE (store_id = ? OR store_id = 'store-1') AND id = ?");
+        // Strict store_id isolation — never fall back to another tenant's articles
+        $st = $pdo->prepare("SELECT * FROM blog_articles WHERE store_id = ? AND id = ?");
         $st->execute([$targetStore, $artId]);
         $row = $st->fetch();
         if ($row) {
@@ -1490,14 +1404,9 @@ if (preg_match('#^/stores/([^/]+)/blog/articles#', $uri, $mList) || $uri === '/b
     $cat = trim($_GET['category'] ?? '');
     $status = trim($_GET['status'] ?? '');
 
+    // Strict store_id isolation — empty store returns empty list (no cross-tenant clone)
     $sql = "SELECT * FROM blog_articles WHERE store_id = ?";
     $params = [$targetStore];
-
-    // If zero articles for current store and store is not store-1, fallback clone from store-1
-    $cnt = (int)$pdo->query("SELECT COUNT(*) FROM blog_articles WHERE store_id = " . $pdo->quote($targetStore))->fetchColumn();
-    if ($cnt === 0) {
-        $sql = "SELECT * FROM blog_articles WHERE (store_id = ? OR store_id = 'store-1')";
-    }
 
     if (!empty($q)) {
         $sql .= " AND (title LIKE ? OR title_ar LIKE ? OR title_en LIKE ? OR summary LIKE ? OR summary_en LIKE ?)";
@@ -1603,7 +1512,7 @@ if (preg_match('#^/stores/([^/]+)/reviews#', $uri, $mRev) || $uri === '/reviews'
         exit;
     }
 
-    $st = $pdo->prepare("SELECT * FROM reviews WHERE store_id = ? OR store_id = 'store-1' ORDER BY id ASC");
+    $st = $pdo->prepare("SELECT * FROM reviews WHERE store_id = ? ORDER BY id ASC");
     $st->execute([$targetStore]);
     $rows = $st->fetchAll();
     echo json_encode([
@@ -1642,7 +1551,7 @@ if (preg_match('#^/stores/([^/]+)/banners#', $uri, $mBan) || $uri === '/banners'
         exit;
     }
 
-    $st = $pdo->prepare("SELECT * FROM banners WHERE store_id = ? OR store_id = 'store-1' ORDER BY sort_order ASC");
+    $st = $pdo->prepare("SELECT * FROM banners WHERE store_id = ? ORDER BY sort_order ASC");
     $st->execute([$targetStore]);
     $rows = $st->fetchAll();
     echo json_encode(['success' => true, 'data' => array_map('formatBanner', $rows)]);
@@ -1743,7 +1652,7 @@ if (preg_match('#^/stores/([^/]+)/pages#', $uri, $mP) || $uri === '/pages') {
         exit;
     }
 
-    $st = $pdo->prepare("SELECT * FROM pages WHERE store_id = ? OR store_id = 'store-1'");
+    $st = $pdo->prepare("SELECT * FROM pages WHERE store_id = ?");
     $st->execute([$targetStore]);
     $rows = $st->fetchAll();
     echo json_encode(['success' => true, 'data' => $rows]);
@@ -1911,6 +1820,11 @@ if ($uri === '/settings' && $method === 'GET') {
 if (!function_exists('souq_commerce_dispatch')) {
     require_once __DIR__ . '/commerce.php';
 }
+require_once __DIR__ . '/live_extensions.php';
+if (souq_live_extensions_dispatch($pdo, $uri, $method, (string)$storeId, is_array($inputData) ? $inputData : [])) {
+    exit;
+}
+
 if (souq_commerce_dispatch($pdo, $uri, $method, (string)$storeId, is_array($inputData) ? $inputData : [])) {
     exit;
 }

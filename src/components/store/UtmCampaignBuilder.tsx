@@ -44,7 +44,8 @@ export const UtmCampaignBuilder: React.FC = () => {
 
   const baseUrl = useMemo(() => {
     if (activeStore.custom_domain) return `https://${activeStore.custom_domain}`;
-    return `https://${activeStore.slug || 'giftshop'}.saudi-stores.com`;
+    if (activeStore.slug) return `https://${activeStore.slug}.saudi-stores.com`;
+    return `https://${activeStore.id}.saudi-stores.com`;
   }, [activeStore]);
 
   // Form State
@@ -58,65 +59,18 @@ export const UtmCampaignBuilder: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [showQrCode, setShowQrCode] = useState(false);
 
-  // Stored Campaign History
+  // Stored Campaign History — empty until merchant saves (zero-mock, store-scoped)
   const [savedCampaigns, setSavedCampaigns] = useState<SavedCampaign[]>(() => {
     try {
       const saved = localStorage.getItem(`utm_campaigns_${activeStore.id}`);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : [];
+      }
     } catch {
-      // fallback
+      // ignore corrupt storage
     }
-    return [
-      {
-        id: 'camp-1',
-        name: isAr ? 'حملة إعلانات جوجل سيرش - ورد مكة' : 'Google Search - Mecca Flowers',
-        url: `${baseUrl}/catalog?utm_source=google&utm_medium=cpc&utm_campaign=makkah-flowers&utm_term=ورد-مكة&utm_content=search-v1`,
-        source: 'google',
-        medium: 'cpc',
-        campaign: 'makkah-flowers',
-        term: 'ورد-مكة',
-        content: 'search-v1',
-        createdAt: '2026-10-07',
-        clicks: 342,
-        conversions: 28,
-      },
-      {
-        id: 'camp-2',
-        name: isAr ? 'ريلز تيك توك - باقات هدايا الفنادق' : 'TikTok Reels - Hotel Gift Sets',
-        url: `${baseUrl}/?utm_source=tiktok&utm_medium=reels&utm_campaign=hotel-gifts-promo&utm_content=video-story-1`,
-        source: 'tiktok',
-        medium: 'reels',
-        campaign: 'hotel-gifts-promo',
-        content: 'video-story-1',
-        createdAt: '2026-10-06',
-        clicks: 814,
-        conversions: 62,
-      },
-      {
-        id: 'camp-3',
-        name: isAr ? 'سناب شات - عروض التوصيل السريع لساعتين' : 'Snapchat Ads - 2-Hour Express Delivery',
-        url: `${baseUrl}/catalog?utm_source=snapchat&utm_medium=stories&utm_campaign=express-delivery-2h&utm_content=snap-ad-gold`,
-        source: 'snapchat',
-        medium: 'stories',
-        campaign: 'express-delivery-2h',
-        content: 'snap-ad-gold',
-        createdAt: '2026-10-05',
-        clicks: 520,
-        conversions: 41,
-      },
-      {
-        id: 'camp-4',
-        name: isAr ? 'واتساب ستاند فنادق الحرم رمز الاستجابة' : 'Haram Hotels Concierge WhatsApp QR',
-        url: `${baseUrl}/?utm_source=whatsapp&utm_medium=qr_stand&utm_campaign=hotel-concierge-reception&utm_content=qr-card-stand`,
-        source: 'whatsapp',
-        medium: 'qr_stand',
-        campaign: 'hotel-concierge-reception',
-        content: 'qr-card-stand',
-        createdAt: '2026-10-04',
-        clicks: 195,
-        conversions: 37,
-      },
-    ];
+    return [];
   });
 
   const saveToLocalStorage = (list: SavedCampaign[]) => {

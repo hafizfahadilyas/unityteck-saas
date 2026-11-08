@@ -57,10 +57,10 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
 
   const storeIdentity = readStoreIdentity(activeStore?.id || '', activeStore);
   const [centralPhone, setCentralPhone] = useState(
-    storeIdentity.whatsapp || storeIdentity.phone || activeStore?.phone || '+966 50 123 4567'
+    storeIdentity.whatsapp || storeIdentity.phone || activeStore?.phone || ''
   );
   const [centralEmail, setCentralEmail] = useState(
-    storeIdentity.email || activeStore?.ownerEmail || `contact@${activeStore?.slug || 'store'}.com`
+    storeIdentity.email || ''
   );
 
   // Top Tabs
@@ -81,26 +81,17 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
     business_name: '',
   });
 
-  // Settings State
+  // Settings State — disconnected + empty until API returns real store credentials (zero-mock)
   const [settings, setSettings] = useState<WhatsAppSettingsData>({
-    is_connected: true,
-    business_name: activeStore?.name || 'My Store',
-    business_id: '123456789012345',
-    phone_number_id: '123456789012345',
-    waba_id: '987654321098765',
-    access_token: 'EAABwzLixnjYBAOd6...',
-    phone_numbers: [
-      {
-        phone: centralPhone,
-        display_name: activeStore?.name || 'My Store',
-        quality_rating: 'GREEN',
-        is_primary: true,
-        status: 'ACTIVE',
-        last_synced: 'Oct 14, 2026, 10:42 AM',
-      },
-    ],
-    webhook_url: 'https://yourstore.com/api/whatsapp/webhook',
-    verify_token: 'unityteck_wa_verify_2026',
+    is_connected: false,
+    business_name: activeStore?.name || '',
+    business_id: '',
+    phone_number_id: '',
+    waba_id: '',
+    access_token: '',
+    phone_numbers: [],
+    webhook_url: '',
+    verify_token: '',
     webhook_events: {
       messages: true,
       message_status: true,
@@ -109,15 +100,15 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
       phone_number_updates: true,
     },
     business_profile: {
-      category: 'Shopping & Retail',
-      address: 'Riyadh, Saudi Arabia',
-      website: activeStore?.custom_domain ? `https://${activeStore.custom_domain}` : 'https://mystore.com',
-      description: `Official Storefront for ${activeStore?.name || 'Store'}`,
+      category: '',
+      address: '',
+      website: activeStore?.custom_domain ? `https://${activeStore.custom_domain}` : '',
+      description: '',
     },
     message_settings: {
       default_window: '24 hours',
       timezone: '(GMT+3) Riyadh',
-      business_display_name: activeStore?.name || 'My Store',
+      business_display_name: activeStore?.name || '',
       default_language: isAr ? 'العربية' : 'English (US)',
       fallback_number: centralPhone,
       enable_read_receipts: true,

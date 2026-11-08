@@ -93,7 +93,8 @@ export const StoreCartInterceptTab: React.FC = () => {
     const loadAll = async () => {
       setLoading(true);
       try {
-        const storeId = activeStore?.id || 'store-1';
+        const storeId = activeStore?.id;
+        if (!storeId) return;
         const [settingsRes, trackingRes] = await Promise.all([
           fetchCartInterceptSettingsApi(storeId).catch(() => null),
           fetchCartInterceptTrackingApi(storeId).catch(() => null),
@@ -114,9 +115,10 @@ export const StoreCartInterceptTab: React.FC = () => {
   }, [activeStore?.id]);
 
   const handleRefreshTracking = async () => {
+    const storeId = activeStore?.id;
+    if (!storeId) return;
     setIsRefreshing(true);
     try {
-      const storeId = activeStore?.id || 'store-1';
       const trackingRes = await fetchCartInterceptTrackingApi(storeId);
       if (trackingRes) {
         setTrackingData(trackingRes);
@@ -130,9 +132,10 @@ export const StoreCartInterceptTab: React.FC = () => {
   };
 
   const handleSaveSettings = async () => {
+    const storeId = activeStore?.id;
+    if (!storeId) return;
     setIsSaving(true);
     try {
-      const storeId = activeStore?.id || 'store-1';
       const updated = await updateCartInterceptSettingsApi(storeId, config);
       if (updated) {
         setConfig(updated);

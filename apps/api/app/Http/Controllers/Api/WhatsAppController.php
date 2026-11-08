@@ -806,7 +806,7 @@ class WhatsAppController extends Controller
                 'timezone' => 'Asia/Riyadh (GMT+3)',
                 'business_display_name' => $storeName,
                 'default_language' => 'Arabic (ar_SA)',
-                'fallback_number' => $stored['sender_phone'] ?? '+966 50 123 4567',
+                'fallback_number' => $stored['sender_phone'] ?? '',
                 'enable_read_receipts' => true,
                 'auto_retry_failed' => true,
                 'notify_on_errors' => true,

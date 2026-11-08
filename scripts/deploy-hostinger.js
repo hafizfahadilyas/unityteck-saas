@@ -247,7 +247,7 @@ async function deploy() {
   const distApiDir = path.join(distDir, 'api');
   if (fs.existsSync(publicApiDir)) {
     fs.mkdirSync(distApiDir, { recursive: true });
-    for (const name of ['index.php', 'commerce.php']) {
+    for (const name of ['index.php', 'commerce.php', 'live_extensions.php']) {
       const src = path.join(publicApiDir, name);
       if (fs.existsSync(src)) {
         fs.copyFileSync(src, path.join(distApiDir, name));

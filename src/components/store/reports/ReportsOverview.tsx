@@ -119,8 +119,8 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
       const pct = Number((((current - previous) / previous) * 100).toFixed(1));
       return `${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}%`;
     }
-    if (current > 0) return '↑ 100%';
-    return '0%';
+    // No prior period → do not invent growth (zero-mock)
+    return '—';
   };
 
   const revenueGrowthLabel = formatGrowth(totalRevenue, prevRevenue, apiData?.kpis?.revenue_growth);

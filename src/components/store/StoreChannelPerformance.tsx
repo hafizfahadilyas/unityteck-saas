@@ -422,7 +422,7 @@ export const StoreChannelPerformance: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 text-end text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-            {kpis?.completed_orders?.growth || '↑ 20%'} <span className="font-normal text-slate-400">{isAr ? 'مقارنة بالسابق' : 'vs previous period'}</span>
+            {kpis?.completed_orders?.growth || '—'} <span className="font-normal text-slate-400">{isAr ? 'مقارنة بالسابق' : 'vs previous period'}</span>
           </div>
         </div>
 
@@ -442,7 +442,7 @@ export const StoreChannelPerformance: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 text-end text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-            {kpis?.revenue?.growth || '↑ 12%'} <span className="font-normal text-slate-400">{isAr ? 'مقارنة بالسابق' : 'vs previous period'}</span>
+            {kpis?.revenue?.growth || '—'} <span className="font-normal text-slate-400">{isAr ? 'مقارنة بالسابق' : 'vs previous period'}</span>
           </div>
         </div>
 
@@ -462,7 +462,7 @@ export const StoreChannelPerformance: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 text-end text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-            {kpis?.total_visits?.growth || '↑ 12%'} <span className="font-normal text-slate-400">{isAr ? 'مقارنة بالسابق' : 'vs previous period'}</span>
+            {kpis?.total_visits?.growth || '—'} <span className="font-normal text-slate-400">{isAr ? 'مقارنة بالسابق' : 'vs previous period'}</span>
           </div>
         </div>
 
@@ -482,7 +482,7 @@ export const StoreChannelPerformance: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 text-end text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-            {kpis?.conversion_rate?.growth || '↑ 0.7%'} <span className="font-normal text-slate-400">{isAr ? 'مقارنة بالسابق' : 'vs previous period'}</span>
+            {kpis?.conversion_rate?.growth || '—'} <span className="font-normal text-slate-400">{isAr ? 'مقارنة بالسابق' : 'vs previous period'}</span>
           </div>
         </div>
 
@@ -502,7 +502,7 @@ export const StoreChannelPerformance: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 text-end text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-            {kpis?.add_to_cart?.growth || '↑ 33%'} <span className="font-normal text-slate-400">{isAr ? 'مقارنة بالسابق' : 'vs previous period'}</span>
+            {kpis?.add_to_cart?.growth || '—'} <span className="font-normal text-slate-400">{isAr ? 'مقارنة بالسابق' : 'vs previous period'}</span>
           </div>
         </div>
 
@@ -522,7 +522,7 @@ export const StoreChannelPerformance: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 text-end text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-            {kpis?.average_order_value?.growth || '↑ 8%'} <span className="font-normal text-slate-400">{isAr ? 'مقارنة بالسابق' : 'vs previous period'}</span>
+            {kpis?.average_order_value?.growth || '—'} <span className="font-normal text-slate-400">{isAr ? 'مقارنة بالسابق' : 'vs previous period'}</span>
           </div>
         </div>
       </div>

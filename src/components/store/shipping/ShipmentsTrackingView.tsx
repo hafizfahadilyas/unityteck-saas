@@ -124,7 +124,7 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
 
         list.push({
           id: `shp-${ord.id}`,
-          storeId: activeStore?.id || 'store-1',
+          storeId: activeStore?.id || '',
           orderId: ord.id,
           provider,
           awbNumber: awb,
