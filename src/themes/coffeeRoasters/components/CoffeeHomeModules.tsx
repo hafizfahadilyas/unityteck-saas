@@ -136,7 +136,7 @@ export const CoffeeHomeModules: React.FC<{
                 <div className="font-bold text-sm mt-2">
                   {language === 'AR' ? (p.nameAr || '').trim() : (p.name || '').trim()}
                 </div>
-                <div className="text-xs mt-1">{language === 'AR' ? `${p.basePrice.toLocaleString()} ر.س` : `SAR ${p.basePrice.toLocaleString()}`}</div>
+                <div className="text-xs mt-1">{language === 'AR' ? `${p.basePrice.toLocaleString()}ر.س` : `SAR ${p.basePrice.toLocaleString()}`}</div>
               </button>
             ))}
           </div>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { DashboardOrdersTable } from './DashboardOrdersTable';
@@ -19,6 +19,9 @@ import {
   orderStatusGrowth,
   type DateRangeKey,
 } from '../../utils/liveSeries';
+import { isApiEnabled } from '../../api/client';
+import { fetchDashboardHomeAnalytics, type DashboardHomeAnalytics } from '../../api/tenantApi';
+import type { DayVisitPoint } from './dashboard/VisitsByDayChart';
 
 interface StoreDashboardProps {
   onNavigateTab: (tab: string) => void;
@@ -49,6 +52,26 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
 
   const [dateRange, setDateRange] = useState<DateRangeKey>('month');
   const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
+  const [homeAnalytics, setHomeAnalytics] = useState<DashboardHomeAnalytics | null>(null);
+
+  useEffect(() => {
+    const storeId = activeStore?.id;
+    if (!storeId || !isApiEnabled()) {
+      setHomeAnalytics(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchDashboardHomeAnalytics(storeId)
+      .then((data) => {
+        if (!cancelled) setHomeAnalytics(data);
+      })
+      .catch(() => {
+        if (!cancelled) setHomeAnalytics(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore?.id]);
 
   // Month and Year string for Monthly Summary Card
   const currentMonthYear = useMemo(() => {
@@ -70,8 +93,11 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
 
   // Real storefront visits only — never invent orders×N (zero-mock).
   const visitorsCount = useMemo(() => {
-    return Math.max(0, Number(activeStore.visitorsCount) || 0);
-  }, [activeStore.visitorsCount]);
+    const fromApi = homeAnalytics?.visitors_count;
+    const fromStore = Number(activeStore.visitorsCount) || 0;
+    if (typeof fromApi === 'number') return Math.max(fromStore, fromApi);
+    return Math.max(0, fromStore);
+  }, [activeStore.visitorsCount, homeAnalytics?.visitors_count]);
 
   // Profit stays 0 until real cost data exists — never invent a margin %.
   const estimatedProfit = useMemo(() => {
@@ -131,10 +157,14 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
     return currentMonthDateRangeStr;
   }, [dateRange, isAr, currentMonthDateRangeStr]);
 
-  // Visits-by-day needs real storefront day buckets — do not fake from order counts.
-  const visitsByDayPoints = useMemo(() => {
-    return [] as Array<{ dayEn: string; dayAr: string; percentage: number; highlighted: boolean }>;
-  }, []);
+  const visitsByDayPoints = useMemo<DayVisitPoint[]>(() => {
+    return homeAnalytics?.visits_by_weekday?.length ? homeAnalytics.visits_by_weekday : [];
+  }, [homeAnalytics?.visits_by_weekday]);
+
+  const visitsGrowth = useMemo(() => {
+    if (!homeAnalytics || homeAnalytics.visits_growth === undefined) return null;
+    return homeAnalytics.visits_growth;
+  }, [homeAnalytics]);
 
   // Traffic channels need real visit counts — never invent visits from order×N.
   // When storefront visits exist, order `source` mix is used only as channel share.
@@ -220,11 +250,13 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
       prevSales > 0
         ? Math.round(((currentSales - prevSales) / prevSales) * 100)
         : currentSales > 0
-          ? 100
+          ? null
           : 0;
-    const oGrowth = orderStatusGrowth(currentOrders).pct;
+    const oGrowth = orderStatusGrowth(currentOrders);
+    const ordersGrowthVal =
+      oGrowth.previous > 0 ? oGrowth.pct : oGrowth.current > 0 ? null : 0;
 
-    return { salesGrowth: sGrowth, ordersGrowth: oGrowth };
+    return { salesGrowth: sGrowth, ordersGrowth: ordersGrowthVal };
   }, [currentOrders]);
 
   const missingSettingsCount = useMemo(() => {
@@ -265,8 +297,8 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
               profitValue={estimatedProfit}
               ordersValue={currentOrders.length}
               salesGrowth={salesGrowth}
-              visitsGrowth={0}
-              profitGrowth={salesGrowth}
+              visitsGrowth={visitsGrowth}
+              profitGrowth={estimatedProfit > 0 ? salesGrowth : null}
               ordersGrowth={ordersGrowth}
               onViewReports={() => onNavigateTab('reports')}
             />

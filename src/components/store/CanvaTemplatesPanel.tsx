@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Lock, Search, Sparkles, FilePlus2 } from 'lucide-react';
+import { Lock, Search, Sparkles, FilePlus2, Upload, Trash2 } from 'lucide-react';
 import type { Store } from '../../types';
 import {
   CANVA_TEMPLATE_CATEGORIES,
@@ -14,13 +14,18 @@ import {
   countUnlockedInCategory,
   isCanvaTemplateUnlocked,
 } from '../../services/canvaTemplateAccess';
+import type { CanvaMyTemplate } from '../../services/canvaMyTemplates';
 
 export interface CanvaTemplatesPanelProps {
   store: Pick<Store, 'id' | 'slug' | 'name' | 'category' | 'plan' | 'masterGrantedPro' | 'canvaTemplatesPerCategory'>;
   isAr: boolean;
   selectedTemplateId: string | null;
   activeImageUrl?: string;
+  myTemplates?: CanvaMyTemplate[];
   onApply: (template: CanvaDesignTemplate) => void;
+  onApplyMyTemplate?: (template: CanvaMyTemplate) => void;
+  onDeleteMyTemplate?: (templateId: string) => void;
+  onOpenUploadTab?: () => void;
   onRequestPro: () => void;
   onSelectFormatPreset?: (width: number, height: number, label: string) => void;
 }
@@ -164,14 +169,33 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
   isAr,
   selectedTemplateId,
   activeImageUrl,
+  myTemplates = [],
   onApply,
+  onApplyMyTemplate,
+  onDeleteMyTemplate,
+  onOpenUploadTab,
   onRequestPro,
   onSelectFormatPreset,
 }) => {
   const storeNiche = useMemo(() => resolveStoreCanvaNiche(store), [store]);
   const [activeCategory, setActiveCategory] = useState<CanvaTemplateCategory | 'all'>('all');
-  const [nicheFilter, setNicheFilter] = useState<'for_you' | 'blank' | 'all'>('for_you');
+  const [nicheFilter, setNicheFilter] = useState<'for_you' | 'blank' | 'all' | 'mine'>('for_you');
   const [search, setSearch] = useState('');
+
+  const filteredMyTemplates = useMemo(() => {
+    let list = myTemplates.filter((t) => t.storeId === store.id);
+    if (activeCategory !== 'all') {
+      list = list.filter((t) => t.category === activeCategory);
+    }
+    if (!search.trim()) return list;
+    const q = search.toLowerCase();
+    return list.filter(
+      (t) =>
+        t.nameEn.toLowerCase().includes(q) ||
+        t.nameAr.includes(search) ||
+        t.category.includes(q),
+    );
+  }, [myTemplates, store.id, activeCategory, search]);
 
   const canvaExploreCards = [
     {
@@ -223,6 +247,8 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
   const nicheLabel = isAr ? 'قوالب متجرك' : 'Your templates';
 
   const templates = useMemo(() => {
+    if (nicheFilter === 'mine') return [];
+
     let list = listCanvaTemplatesForStore(store, activeCategory);
 
     if (nicheFilter === 'blank') {
@@ -325,6 +351,7 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
         {(
           [
             { id: 'for_you' as const, en: nicheLabel, ar: nicheLabel },
+            { id: 'mine' as const, en: 'My uploads', ar: 'قوالبي المرفوعة' },
             { id: 'blank' as const, en: 'Blank', ar: 'فارغ' },
             { id: 'all' as const, en: 'All formats', ar: 'كل المقاسات' },
           ] as const
@@ -345,9 +372,89 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
             }
           >
             {isAr ? p.ar : p.en}
+            {p.id === 'mine' && myTemplates.length > 0 ? ` (${myTemplates.length})` : ''}
           </button>
         ))}
       </div>
+
+      {nicheFilter === 'mine' && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={onOpenUploadTab}
+            className="w-full py-2 rounded-lg border border-dashed border-slate-300 text-[10px] font-black text-slate-700 flex items-center justify-center gap-1.5 cursor-pointer bg-white hover:border-emerald-500"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            {isAr ? 'رفع بي إس دي أو صورة' : 'Upload PSD or image'}
+          </button>
+          <div className="grid grid-cols-2 gap-2.5 max-h-[min(420px,50vh)] overflow-y-auto pe-1">
+            {filteredMyTemplates.map((tpl) => {
+              const isSelected = selectedTemplateId === tpl.id;
+              return (
+                <div
+                  key={tpl.id}
+                  className={`group relative rounded-lg border p-1.5 bg-white flex flex-col ${
+                    isSelected ? 'ring-1 border-emerald-500' : 'border-slate-200'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    className="w-full text-start cursor-pointer"
+                    onClick={() => onApplyMyTemplate?.(tpl)}
+                  >
+                    <div
+                      className="relative w-full aspect-square overflow-hidden rounded-lg bg-slate-100"
+                      style={
+                        tpl.previewDataUrl
+                          ? {
+                              backgroundImage: `url(${tpl.previewDataUrl})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                            }
+                          : undefined
+                      }
+                    >
+                      {!tpl.previewDataUrl && (
+                        <div className="absolute inset-0 flex items-center justify-center text-[9px] text-slate-500 font-bold">
+                          {tpl.layers.length} {isAr ? 'طبقة' : 'layers'}
+                        </div>
+                      )}
+                      <span className="absolute bottom-1 end-1 px-1.5 py-0.5 rounded text-[7px] font-bold bg-white/90 text-slate-800 border border-slate-200">
+                        {tpl.width}×{tpl.height}
+                      </span>
+                    </div>
+                  </button>
+                  <div className="mt-1.5 flex items-center justify-between gap-1 px-0.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] font-black truncate text-slate-900">
+                        {isAr ? tpl.nameAr || tpl.nameEn : tpl.nameEn}
+                      </div>
+                      <div className="text-[8px] text-emerald-700 font-bold">
+                        {isAr ? 'مرفوع · قابل للتعديل' : 'Uploaded · editable'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onDeleteMyTemplate?.(tpl.id)}
+                      className="shrink-0 p-1 rounded-lg border border-slate-200 text-slate-500 hover:text-red-600 cursor-pointer"
+                      title={isAr ? 'حذف' : 'Delete'}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {filteredMyTemplates.length === 0 && (
+            <div className="py-6 text-center text-xs text-muted">
+              {isAr
+                ? 'لا توجد قوالب مرفوعة بعد. ارفع ملف بي إس دي أو صورة من تبويب الرفع.'
+                : 'No uploads yet. Upload a PSD or image from the Uploads tab.'}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative">
@@ -404,15 +511,16 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
         ))}
       </div>
 
-      {activeCategory !== 'all' && counts.limit != null && (
+      {nicheFilter !== 'mine' && activeCategory !== 'all' && counts.limit != null && (
         <p className="text-[10px] text-muted">
           {isAr
-            ? `${counts.unlocked} من ${counts.total} مفتوح في الباقة الحالية`
+            ? `${counts.unlocked}من${counts.total}مفتوح في الباقة الحالية`
             : `${counts.unlocked} of ${counts.total} unlocked on your plan`}
         </p>
       )}
 
-      {/* Template grid — responsive cards */}
+      {/* Template grid — responsive cards (premade packs) */}
+      {nicheFilter !== 'mine' && (
       <div className="grid grid-cols-2 gap-2.5 max-h-[min(520px,55vh)] overflow-y-auto pe-1">
         {templates.map((tpl) => {
           const unlocked = isCanvaTemplateUnlocked(tpl, store);
@@ -501,8 +609,9 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
           );
         })}
       </div>
+      )}
 
-      {templates.length === 0 && (
+      {nicheFilter !== 'mine' && templates.length === 0 && (
         <div className="py-8 text-center text-xs text-muted">
           {isAr ? 'لا توجد قوالب مطابقة' : 'No matching templates'}
         </div>

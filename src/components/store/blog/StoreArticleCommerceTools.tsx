@@ -641,7 +641,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
       await saveArticleCommerceToolsApi(activeStore.id, selectedArticleId, config);
       toast(
         isAr
-          ? 'تم حفظ جميع أدوات التجارة للمقال بنجاح في قاعدة بيانات Hostinger MySQL!'
+          ? 'تم حفظ جميع أدوات التجارة للمقال بنجاح في قاعدة بيانات هوستنجر MySQL!'
           : 'All 20 Article Commerce Tools saved successfully to Hostinger MySQL!',
         'success'
       );
@@ -713,7 +713,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
     if (navigator?.clipboard) {
       navigator.clipboard.writeText(code);
       setCopiedCode(true);
-      toast(isAr ? `تم نسخ الكوبون: ${code}` : `Coupon copied: ${code}`, 'success');
+      toast(isAr ? `تم نسخ الكوبون:${code}` : `Coupon copied: ${code}`, 'success');
       setTimeout(() => setCopiedCode(false), 2000);
     }
   };

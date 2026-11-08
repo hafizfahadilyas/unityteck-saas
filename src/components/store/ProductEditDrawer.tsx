@@ -323,7 +323,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
           storeId
         );
       }
-      toast(isAr ? `تم ضغط وإضافة ${optimizedUrls.length} صور في أجزاء من الثانية` : `Added & optimized ${optimizedUrls.length} images instantly`, 'success');
+      toast(isAr ? `تم ضغط وإضافة${optimizedUrls.length}صور في أجزاء من الثانية` : `Added & optimized ${optimizedUrls.length} images instantly`, 'success');
     } catch {
       const newUrls = files.map((f) => URL.createObjectURL(f));
       const updated = [...gallery, ...newUrls];
@@ -341,7 +341,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
           storeId
         );
       }
-      toast(isAr ? `تمت إضافة ${newUrls.length} صور فوراً` : `Added ${newUrls.length} images instantly`, 'success');
+      toast(isAr ? `تمت إضافة${newUrls.length}صور فوراً` : `Added ${newUrls.length} images instantly`, 'success');
     }
     e.target.value = '';
   };
@@ -414,7 +414,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
             storeId
           );
         }
-        toast(isAr ? `تمت إضافة ${urls.length} صور للمعرض` : `Added ${urls.length} images to gallery`, 'success');
+        toast(isAr ? `تمت إضافة${urls.length}صور للمعرض` : `Added ${urls.length} images to gallery`, 'success');
       }
     }
     setIsMediaPickerOpen(false);

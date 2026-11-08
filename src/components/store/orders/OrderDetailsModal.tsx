@@ -320,16 +320,16 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
     let message = '';
     if (kind === 'order') {
       message = isAr
-        ? `طلبك ${orderRef} من ${storeLabel}. الإجمالي: ${totalLine}`
+        ? `طلبك${orderRef}من${storeLabel}. الإجمالي:${totalLine}`
         : `Your order ${orderRef} from ${storeLabel}. Total: ${totalLine}`;
     } else if (kind === 'invoice') {
       message = isAr
-        ? `فاتورة الطلب ${orderRef}\nالإجمالي: ${totalLine}\nطريقة الدفع: ${order.paymentMethod || '—'}`
+        ? `فاتورة الطلب${orderRef}\nالإجمالي:${totalLine}\nطريقة الدفع:${order.paymentMethod || '—'}`
         : `Invoice for order ${orderRef}\nTotal: ${totalLine}\nPayment method: ${order.paymentMethod || '—'}`;
     } else if (kind === 'payment') {
       message = [
-        isAr ? `تفاصيل الدفع للطلب ${orderRef}` : `Payment details for order ${orderRef}`,
-        totalLine ? (isAr ? `الإجمالي: ${totalLine}` : `Total: ${totalLine}`) : '',
+        isAr ? `تفاصيل الدفع للطلب${orderRef}` : `Payment details for order ${orderRef}`,
+        totalLine ? (isAr ? `الإجمالي:${totalLine}` : `Total: ${totalLine}`) : '',
         paidLine,
         remainingLine,
         bankLine,
@@ -338,7 +338,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
         .join('\n');
     } else {
       message = isAr
-        ? `حالة طلبك ${orderRef}: ${statusLabel}`
+        ? `حالة طلبك${orderRef}:${statusLabel}`
         : `Your order ${orderRef} status: ${statusLabel}`;
     }
 

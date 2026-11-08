@@ -159,8 +159,8 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
         return {
           id: o.id,
           customerName: o.customerName || (cust ? cust.name : isAr ? 'عميل زائر' : 'Guest Customer'),
-          customerEmail: o.customerEmail || (cust ? cust.email : 'guest@example.com'),
-          customerPhone: o.customerPhone || (cust ? cust.phone : '+966 50 000 0000'),
+          customerEmail: o.customerEmail || (cust ? cust.email : '') || '—',
+          customerPhone: o.customerPhone || (cust ? cust.phone : '') || '—',
           cartValue: o.total || 0,
           source: (o as any).source || 'Online Store',
           abandonedAt: o.createdAt || o.date || new Date().toISOString(),
@@ -237,13 +237,13 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
     a.download = `abandoned-carts-${activeStore.id}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast(isAr ? `تم تصدير ${filtered.length} سلة بنجاح` : `Exported ${filtered.length} carts`, 'success');
+    toast(isAr ? `تم تصدير${filtered.length}سلة بنجاح` : `Exported ${filtered.length} carts`, 'success');
   };
 
   const handleSendManualReminder = (cartId: string, name: string) => {
     toast(
       isAr
-        ? `تم جدولة إرسال تذكير سلة للعميل ${name}`
+        ? `تم جدولة إرسال تذكير سلة للعميل${name}`
         : `Cart recovery reminder scheduled for ${name}`,
       'success'
     );
@@ -474,7 +474,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
                     } else {
                       toast(
                         isAr
-                          ? `تم إرسال تذكيرات لـ ${selectedCartIds.length} سلة`
+                          ? `تم إرسال تذكيرات لـ${selectedCartIds.length}سلة`
                           : `Sent reminders to ${selectedCartIds.length} carts`,
                         'success'
                       );
@@ -497,7 +497,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
               onClick={() => {
                 toast(
                   isAr
-                    ? `تم جدولة إرسال التذكيرات لـ ${selectedCartIds.length} سلة`
+                    ? `تم جدولة إرسال التذكيرات لـ${selectedCartIds.length}سلة`
                     : `Reminders scheduled for ${selectedCartIds.length} carts`,
                   'success'
                 );
@@ -685,7 +685,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
           <div>
             {isAr
-              ? `عرض 1 إلى ${pageRows.length} من أصل ${filtered.length} سلة`
+              ? `عرض 1 إلى${pageRows.length}من أصل${filtered.length}سلة`
               : `Showing 1 to ${pageRows.length} of ${filtered.length} results`}
           </div>
 
@@ -1389,7 +1389,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
                   <Info className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
                   <p className="leading-snug">
                     {isAr
-                      ? 'يمكنك تفعيل أكثر من قناة (مثل الإرسال عبر SMS) من خلال إعدادات الأتمتة المتقدمة.'
+                      ? 'يمكنك تفعيل أكثر من قناة (مثل الإرسال عبر الرسائل النصية) من خلال إعدادات الأتمتة المتقدمة.'
                       : 'You can activate more than one channel (e.g. send via SMS) from the automation settings.'}
                   </p>
                 </div>
@@ -1729,7 +1729,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
               <h3 className="font-bold text-xs text-purple-900 dark:text-purple-200">
-                {isAr ? 'المساعد الذكي (AI)' : 'AI Assistant'}
+                {isAr ? 'المساعد الذكي' : 'AI Assistant'}
               </h3>
             </div>
 

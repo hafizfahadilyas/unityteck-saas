@@ -251,7 +251,7 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
     const phone = order.customerPhone ? order.customerPhone.replace(/[^0-9]/g, '') : '';
     const text = encodeURIComponent(
       isAr
-        ? `مرحباً ${order.customerName}، مرفق لكم الفاتورة الضريبية الرسمية لطلبكم رقم ${order.orderNumber} بمبلغ ${grandTotal} ر.س.`
+        ? `مرحباً${order.customerName}، مرفق لكم الفاتورة الضريبية الرسمية لطلبكم رقم${order.orderNumber}بمبلغ${grandTotal}ر.س.`
         : `Hello ${order.customerName}, here is your official tax invoice for order ${order.orderNumber} totaling ${grandTotal} SAR.`
     );
     window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
@@ -332,7 +332,7 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                {isAr ? `الطلب ${order.orderNumber} • ${order.customerName}` : `Order ${order.orderNumber} • ${order.customerName}`}
+                {isAr ? `الطلب${order.orderNumber}•${order.customerName}` : `Order ${order.orderNumber} • ${order.customerName}`}
               </p>
             </div>
           </div>
@@ -907,7 +907,7 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
                 </div>
                 <span className="text-[10px] font-bold text-emerald-700 flex items-center justify-center gap-1">
                   <CheckCircle2 className="w-3 h-3" />
-                  {isAr ? 'فاتورة إلكترونية معتمدة ZATCA' : 'ZATCA Phase 1 & 2 Compliant'}
+                  {isAr ? 'فاتورة إلكترونية معتمدة هيئة الزكاة' : 'ZATCA Phase 1 & 2 Compliant'}
                 </span>
                 <p className="text-[10px] text-slate-600 font-sans text-center leading-relaxed max-w-[280px]">
                   {isAr ? customNote : customNoteEn}

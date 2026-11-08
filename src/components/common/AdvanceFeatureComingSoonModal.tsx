@@ -161,7 +161,7 @@ export const AdvanceFeatureComingSoonModal: React.FC<AdvanceFeatureComingSoonMod
             <Lock className="w-4 h-4 shrink-0 mt-0.5 text-teal-600 dark:text-teal-400" />
             <p className="leading-snug">
               {isAr
-                ? 'تم ضبط هذه الميزة حالياً كـ "قريباً" عبر الإدارة المركزية (Master Admin). يمكنك طلب التنبيه وسيجري إشعارك فور تفعيلها لمتجرك.'
+                ? 'تم ضبط هذه الميزة حالياً كـ "قريباً" عبر الإدارة المركزية. يمكنك طلب التنبيه وسيجري إشعارك فور تفعيلها لمتجرك.'
                 : 'This module is marked as "Coming Soon" by the Master Administrator. You can register below to be notified as soon as it goes live.'}
             </p>
           </div>

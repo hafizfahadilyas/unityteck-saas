@@ -236,7 +236,7 @@ function AuthModalBody({
                 )}
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#102a1c]/10 text-[#102a1c] text-xs font-semibold mt-2">
                   <Sparkles className="w-3.5 h-3.5 text-[#d4af37]" />
-                  <span>{isAr ? 'عضوية النخبة الملكية (VIP)' : 'Royal Elite Member (VIP)'}</span>
+                  <span>{isAr ? 'عضوية النخبة الملكية' : 'Royal Elite Member (VIP)'}</span>
                 </div>
               </div>
 
@@ -292,7 +292,7 @@ function AuthModalBody({
                   className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-[#102a1c] to-[#1c4830] hover:brightness-110 text-[#f3e5ab] text-xs font-bold transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 border border-[#e6ca98]/40 mt-2"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-[#d4af37]" />
-                  <span>{isAr ? 'متابعة إتمام الطلب (Checkout)' : 'Proceed to Checkout'}</span>
+                  <span>{isAr ? 'متابعة إتمام الطلب' : 'Proceed to Checkout'}</span>
                 </button>
               )}
             </div>

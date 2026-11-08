@@ -109,7 +109,7 @@ export const StoreCartOffers: React.FC<StoreCartOffersProps> = ({ onNavigateTab 
     setCartOffersList([newOffer, ...cartOffersList]);
     toast(
       isAr
-        ? `تم حفظ وتفعيل عرض السلة "${isAr ? titleAr : titleEn}" بنجاح`
+        ? `تم حفظ وتفعيل عرض السلة "${isAr ? titleAr: titleEn}" بنجاح`
         : `Cart offer "${titleEn}" saved successfully`,
       'success'
     );
@@ -682,7 +682,7 @@ export const StoreCartOffers: React.FC<StoreCartOffersProps> = ({ onNavigateTab 
             </h3>
             <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
               {isAr
-                ? 'عروض السلة تزيد من متوسط قيمة الطلب (AOV) عن طريق تطبيق خصومات تلقائية عندما يصل العميل لحد معين.'
+                ? 'عروض السلة تزيد من متوسط قيمة الطلب عن طريق تطبيق خصومات تلقائية عندما يصل العميل لحد معين.'
                 : 'Cart offers boost average order value (AOV) by providing automated discounts when customer carts reach specific amounts.'}
             </p>
             <button

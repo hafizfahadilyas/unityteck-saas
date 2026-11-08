@@ -37,6 +37,7 @@ export const STORE_NAV_KEYS: Record<string, DictKey> = {
   products: 'navProducts',
   media: 'navMediaLibrary',
   canva: 'navDesignStudio',
+  'ai-media': 'navAiMediaStudio',
   categories: 'navCategories',
   brands: 'navBrands',
   customers: 'navCustomers',

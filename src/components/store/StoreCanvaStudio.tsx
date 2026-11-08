@@ -49,7 +49,7 @@ export const StoreCanvaStudio: React.FC<StoreCanvaStudioProps> = ({ onNavigateTa
             title,
             altText: `${title} - ${activeStore.name}`,
             caption: isAr
-              ? `تصميم من استوديو المنصة — ${activeStore.name}`
+              ? `تصميم من استوديو المنصة —${activeStore.name}`
               : `Created in platform design studio — ${activeStore.name}`,
             folder: 'marketing',
             tags: ['ksa-template', 'studio', activeStore.slug],

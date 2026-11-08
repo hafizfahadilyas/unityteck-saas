@@ -133,7 +133,7 @@ export const CustomerDeliveriesPanel: React.FC<CustomerDeliveriesPanelProps> = (
       <div className="px-5 py-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0" style={{ borderColor: 'var(--border)' }}>
         <div>
           <h3 className="text-sm font-black" style={{ color: 'var(--text)' }}>
-            {isAr ? 'إشعارات العميل (إيميل / واتساب / SMS)' : 'Customer alerts (Email / WhatsApp / SMS)'}
+            {isAr ? 'إشعارات العميل (إيميل / واتساب / الرسائل النصية)' : 'Customer alerts (Email / WhatsApp / SMS)'}
           </h3>
           <p className="text-[11px] text-slate-500 mt-0.5">
             {isAr
@@ -222,7 +222,7 @@ export const CustomerDeliveriesPanel: React.FC<CustomerDeliveriesPanelProps> = (
             </p>
             <p>
               {isAr
-                ? 'عند تغيير حالة الطلب (شحن / إلغاء / إرجاع) ستظهر هنا قنوات الإيميل وواتساب وSMS.'
+                ? 'عند تغيير حالة الطلب (شحن / إلغاء / إرجاع) ستظهر هنا قنوات الإيميل وواتساب والرسائل النصية.'
                 : 'When order status changes (ship / cancel / return), Email, WhatsApp and SMS attempts appear here.'}
             </p>
           </div>

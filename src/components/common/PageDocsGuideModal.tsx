@@ -58,7 +58,7 @@ const PAGE_GUIDE_DATA: Record<
         title: '1. Add or Edit Brands with High-Res Logo',
         titleAr: '١. إضافة أو تعديل العلامات التجارية مع شعار عالي الدقة',
         description: 'Upload PNG/SVG/WEBP logo directly from your device or paste an image URL. Preview appears instantly.',
-        descriptionAr: 'قم برفع شعار PNG/SVG/WEBP مباشرة من جهازك أو الصق رابط الصورة، وتظهر المعاينة فوراً.',
+        descriptionAr: 'قم برفع شعار الصور المدعومة مباشرة من جهازك أو الصق رابط الصورة، وتظهر المعاينة فوراً.',
         badge: 'Media Upload',
       },
       {
@@ -98,7 +98,7 @@ const PAGE_GUIDE_DATA: Record<
     titleEn: 'Financial Reports & Accounting Guide',
     titleAr: 'دليل التقارير المالية والمحاسبية',
     subtitleEn: 'Comprehensive insights into gross revenue, VAT compliance, order lifecycle, and CSV exports.',
-    subtitleAr: 'نظرة شاملة على الإيرادات، ضريبة القيمة المضافة، دورة الطلبات، وتصدير ملفات CSV.',
+    subtitleAr: 'نظرة شاملة على الإيرادات، ضريبة القيمة المضافة، دورة الطلبات، وتصدير ملفات جداول البيانات.',
     mockScreenshotType: 'reports',
     steps: [
       {
@@ -117,14 +117,14 @@ const PAGE_GUIDE_DATA: Record<
       },
       {
         title: '3. 1-Click Export to CSV / Excel (UTF-8 BOM)',
-        titleAr: '٣. تصدير فوري إلى CSV / Excel باللغة العربية',
+        titleAr: '٣. تصدير فوري إلى جداول البيانات باللغة العربية',
         description: 'Download full spreadsheets with UTF-8 BOM encoding for seamless Arabic text viewing in Excel.',
-        descriptionAr: 'تحميل جداول البيانات المجهزة بترميز UTF-8 لفتح النصوص العربية بشكل سليم في Excel.',
+        descriptionAr: 'تحميل جداول البيانات المجهزة بترميز الترميز العربي لفتح النصوص العربية بشكل سليم في جداول البيانات.',
         badge: 'Export',
       },
       {
         title: '4. Print Professional PDF Invoices & Reports',
-        titleAr: '٤. طباعة تقارير وفواتير رسمية بصيغة PDF',
+        titleAr: '٤. طباعة تقارير وفواتير رسمية بصيغة ملف محمول',
         description: 'Click "Print Report" to generate clean, printable paper-ready layouts for accounting and ZATCA tax audits.',
         descriptionAr: 'انقر على "طباعة التقرير" لإنشاء مستند منسق وجاهز للطباعة للمحاسب وهيئة الزكاة والضريبة.',
         badge: 'Print',
@@ -166,7 +166,7 @@ const PAGE_GUIDE_DATA: Record<
         title: '3. Customer Retention & Repeat Purchase Rate',
         titleAr: '٣. معدل عودة العملاء والولاء',
         description: 'Distinguish between first-time shoppers, repeat customers, and VIP loyal buyers.',
-        descriptionAr: 'التمييز بين المشترين لأول مرة، العملاء المتكررين، وعملاء VIP الدائمين.',
+        descriptionAr: 'التمييز بين المشترين لأول مرة، العملاء المتكررين، وكبار العملاء الدائمين.',
         badge: 'Retention',
       },
     ],
@@ -219,7 +219,7 @@ const PAGE_GUIDE_DATA: Record<
   },
   whatsapp: {
     titleEn: 'WhatsApp Business Hub & Meta Cloud Guide',
-    titleAr: 'دليل الواتساب التجاري والربط السحابي مع Meta',
+    titleAr: 'دليل الواتساب التجاري والربط السحابي مع ميتا',
     subtitleEn: 'Direct WhatsApp messaging, message templates, customer notifications, and media attachments.',
     subtitleAr: 'المراسلة المباشرة عبر الواتساب، قوالب الرسائل الجاهزة، إشعارات العملاء، وإرفاق الصور.',
     mockScreenshotType: 'whatsapp',
@@ -247,9 +247,9 @@ const PAGE_GUIDE_DATA: Record<
       },
       {
         title: '4. Daily Quota & Meta Session Monitoring',
-        titleAr: '٤. متابعة الحصة اليومية وحالة جلسة Meta',
+        titleAr: '٤. متابعة الحصة اليومية وحالة جلسة ميتا',
         description: 'Monitor daily quota (20 free messages included) and re-sync Cloud API credentials on demand.',
-        descriptionAr: 'تابع رصيدك اليومي (يشمل 20 رسالة مجانية يومياً) وجدد جلسة Meta Cloud API عند الحاجة.',
+        descriptionAr: 'تابع رصيدك اليومي (يشمل 20 رسالة مجانية يومياً) وجدد جلسة واجهة ميتا كلاود عند الحاجة.',
         badge: 'Quota',
       },
     ],
@@ -305,37 +305,37 @@ const PAGE_GUIDE_DATA: Record<
   },
   hosting: {
     titleEn: 'Hostinger Shared Hosting & Custom Domain Guide',
-    titleAr: 'دليل استضافة Hostinger المشتركة والنطاق المخصص',
+    titleAr: 'دليل استضافة هوستنجر المشتركة والنطاق المخصص',
     subtitleEn: 'Link your custom domain, verify DNS A-records, auto-provision SSL, and deploy storefront.',
-    subtitleAr: 'ربط النطاق الخاص بك، التحقق من سجلات DNS، تفعيل SSL التلقائي، ونشر المتجر.',
+    subtitleAr: 'ربط النطاق الخاص بك، التحقق من سجلات النطاق، تفعيل شهادة الأمان التلقائية، ونشر المتجر.',
     mockScreenshotType: 'hosting',
     steps: [
       {
         title: '1. Connect Custom Domain (e.g. mystore.sa)',
         titleAr: '١. إدخال النطاق المخصص (مثل mystore.sa)',
         description: 'Enter your domain purchased from Hostinger, SaudiNIC, or GoDaddy and select hosting tier.',
-        descriptionAr: 'أدخل نطاقك المشترى من Hostinger أو المركز السعودي لمعلومات الشبكة أو GoDaddy.',
+        descriptionAr: 'أدخل نطاقك المشترى من هوستنجر أو المركز السعودي لمعلومات الشبكة أو جودادي.',
         badge: 'Domain',
       },
       {
         title: '2. Point DNS Records in Hostinger DNS Zone',
-        titleAr: '٢. توجيه سجلات DNS في لوحة Hostinger',
+        titleAr: '٢. توجيه سجلات النطاق في لوحة هوستنجر',
         description: 'Add an A record pointing to Hostinger IP (195.35.40.22) and CNAME for www subdomain.',
-        descriptionAr: 'أضف سجل A يشير إلى IP استضافة Hostinger وسجل CNAME للنطاق الفرعي www.',
+        descriptionAr: 'أضف سجل A يشير إلى IP استضافة هوستنجر وسجل CNAME للنطاق الفرعي www.',
         badge: 'DNS Zone',
       },
       {
         title: '3. Verify DNS & Auto-Issue Let\'s Encrypt SSL',
-        titleAr: '٣. التحقق من DNS وتفعيل شهادة الأمان SSL',
+        titleAr: '٣. التحقق من النطاق وتفعيل شهادة الأمان',
         description: 'Click "Verify DNS". Once validated, free wildcard SSL is issued and HTTPS enforced.',
-        descriptionAr: 'انقر على "تحقق من DNS". فور التحقق، تصدر شهادة SSL المجانية ويتم تفعيل التشفير HTTPS.',
+        descriptionAr: 'انقر على «تحقق من النطاق». فور التحقق، تصدر شهادة الأمان المجانية ويتم تفعيل التشفير الآمن.',
         badge: 'SSL Certificate',
       },
       {
         title: '4. 1-Click Storefront Deployment',
         titleAr: '٤. نشر المتجر المباشر بنقرة واحدة',
         description: 'Deploy latest store build directly to Hostinger public_html with zero downtime.',
-        descriptionAr: 'نشر أحدث إصدار من المتجر مباشرة إلى مجلد public_html في Hostinger دون أي انقطاع.',
+        descriptionAr: 'نشر أحدث إصدار من المتجر مباشرة إلى مجلد public_html في هوستنجر دون أي انقطاع.',
         badge: 'Deploy Live',
       },
     ],
@@ -352,12 +352,12 @@ const PAGE_GUIDE_DATA: Record<
     titleEn: 'Payment Gateways & Payout Settlement Guide',
     titleAr: 'دليل بوابات الدفع والتحويلات البنكية',
     subtitleEn: 'Enable Mada, Apple Pay, Visa, STC Pay, and submit bank/tax verification documents.',
-    subtitleAr: 'تفعيل مدى، Apple Pay، فيزا، STC Pay، ورفع وثائق التحقق البنكي والضريبي.',
+    subtitleAr: 'تفعيل مدى، آبل باي، فيزا، إس تي سي باي، ورفع وثائق التحقق البنكي والضريبي.',
     mockScreenshotType: 'payments',
     steps: [
       {
         title: '1. Toggle Payment Channels (Mada, Apple Pay, Visa)',
-        titleAr: '١. تفعيل قنوات الدفع (مدى، Apple Pay، فيزا)',
+        titleAr: '١. تفعيل قنوات الدفع (مدى، آبل باي، فيزا)',
         description: 'Enable or disable checkout payment rails with instant toggle switches.',
         descriptionAr: 'تفعيل أو تعطيل طرق الدفع عند إتمام الطلب بنقرة مفتاحية سريعة.',
         badge: 'Rails',
@@ -380,7 +380,7 @@ const PAGE_GUIDE_DATA: Record<
         title: '4. Download Settlement Slips & Invoices',
         titleAr: '٤. تحميل إيصالات التحويل والفواتير المحاسبية',
         description: 'Export all payout receipts as CSV and print official SAMA settlement statements.',
-        descriptionAr: 'تصدير كافة إيصالات التحويل بصيغة CSV وطباعة كشوفات التسوية الرسمية.',
+        descriptionAr: 'تصدير كافة إيصالات التحويل بصيغة جداول البيانات وطباعة كشوفات التسوية الرسمية.',
         badge: 'Payouts',
       },
     ],
@@ -395,16 +395,16 @@ const PAGE_GUIDE_DATA: Record<
   },
   backup: {
     titleEn: 'Hostinger Backup, Restore & Migration Center Guide',
-    titleAr: 'دليل مركز النسخ الاحتياطي والاستعادة ونقل المتاجر في Hostinger',
+    titleAr: 'دليل مركز النسخ الاحتياطي والاستعادة ونقل المتاجر في هوستنجر',
     subtitleEn: 'Download full ZIP backups, manage automated daily/weekly snapshots, and migrate stores between Hostinger accounts.',
-    subtitleAr: 'تحميل حزمة المتجر الكاملة ZIP، إدارة النسخ الاحتياطية اليومية والأسبوعية، ونقل المتجر بين استضافات Hostinger.',
+    subtitleAr: 'تحميل حزمة المتجر الكاملة أرشيف مضغوط، إدارة النسخ الاحتياطية اليومية والأسبوعية، ونقل المتجر بين استضافات هوستنجر.',
     mockScreenshotType: 'backup',
     steps: [
       {
         title: '1. One-Click Full Store ZIP Export',
-        titleAr: '١. تصدير حزمة المتجر الكاملة ZIP بنقرة واحدة',
+        titleAr: '١. تصدير حزمة المتجر الكاملة أرشيف مضغوط بنقرة واحدة',
         description: 'Download full archive containing MySQL SQL dump, public_html files, media manifests, themes, and .env config.',
-        descriptionAr: 'تحميل حزمة شاملة تحوي قاعدة بيانات MySQL، ملفات المتجر، وسائط التخزين، القوالب، وملف .env.',
+        descriptionAr: 'تحميل حزمة شاملة تحوي قاعدة بيانات MySQL، ملفات المتجر، وسائط التخزين، القوالب، وملف.env.',
         badge: 'Full ZIP',
       },
       {
@@ -416,16 +416,16 @@ const PAGE_GUIDE_DATA: Record<
       },
       {
         title: '3. Restore from Backup Archive (.zip / .sql)',
-        titleAr: '٣. الاستعادة من ملف خارجي (.zip / .sql)',
+        titleAr: '٣. الاستعادة من ملف خارجي (.zip /.sql)',
         description: 'Drag and drop your backup ZIP or SQL file to initiate safe restore with relational table validation.',
         descriptionAr: 'اسحب وأفلت ملف النسخة الاحتياطية لبدء عملية الاستعادة الآمنة مع فحص ترابط الجداول.',
         badge: 'Restore File',
       },
       {
         title: '4. All-in-One Migration to 2nd Hostinger Account',
-        titleAr: '٤. النقل الكامل إلى حساب Hostinger ثانٍ',
+        titleAr: '٤. النقل الكامل إلى حساب هوستنجر ثانٍ',
         description: 'Migrate entire store from Server A to Server B with 5-stage live animated progress bar, domain re-binding, and SSL.',
-        descriptionAr: 'نقل المتجر بالكامل من الخادم القديم إلى الجديد مع شريط تقدم تفاعلي من 5 مراحل وإعادة ربط النطاق وSSL.',
+        descriptionAr: 'نقل المتجر بالكامل من الخادم القديم إلى الجديد مع شريط تقدم تفاعلي من 5 مراحل وإعادة ربط النطاق وشهادة الأمان.',
         badge: 'Migration',
       },
     ],
@@ -727,7 +727,7 @@ export const PageDocsGuideModal: React.FC<PageDocsGuideProps> = ({
           style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
         >
           <span className="text-[11px] opacity-60">
-            {isAr ? 'مركز مساعدة منصة UnityTeck SaaS' : 'UnityTeck Multi-Store SaaS Documentation'}
+            {isAr ? 'مركز مساعدة منصة UnityTeck البرمجيات السحابية' : 'UnityTeck Multi-Store SaaS Documentation'}
           </span>
           <button
             type="button"

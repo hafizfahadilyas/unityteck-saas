@@ -931,24 +931,26 @@ export interface StorefrontPaymentMethod {
   badge_en?: string;
   is_enabled: boolean;
   is_instant?: boolean;
-  type: 'card' | 'digital_wallet' | 'bnpl' | 'cod' | 'bank_wire';
-  icon: 'mada' | 'apple_pay' | 'card' | 'tabby' | 'tamara' | 'cod' | 'bank_wire';
+  type: 'card' | 'digital_wallet' | 'bnpl' | 'cod' | 'bank_wire' | 'bank_transfer';
+  icon: 'mada' | 'apple_pay' | 'card' | 'tabby' | 'tamara' | 'cod' | 'bank_wire' | 'bank_transfer';
   installments_count?: number;
 }
 
 export interface StorefrontPaymentSession {
   success: boolean;
   store_id: string;
-  order_id: string;
+  order_id?: string | null;
   payment_method: string;
   provider: string;
   transaction_reference: string;
   amount: number;
   currency: string;
+  message?: string;
+  publishable_key?: string | null;
   installments?: {
     count: number;
     per_month: number;
-    schedule: { due: string; amount: number; label: string }[];
+    schedule: { due: string; amount: number; label?: string; label_ar?: string; label_en?: string }[];
   } | null;
   checkout_ready: boolean;
   timestamp: string;

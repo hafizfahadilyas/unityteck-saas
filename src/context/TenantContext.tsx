@@ -134,10 +134,17 @@ function mergeOrdersKeepItems(prevList: Order[], incoming: Order[]): Order[] {
   if (!incoming.length) return prevList;
   const prevById = new Map(prevList.map((o) => [o.id, o]));
   const mergedIncoming = incoming.map((o) => {
-    if (o.items && o.items.length > 0) return o;
     const old = prevById.get(o.id);
-    if (old?.items && old.items.length > 0) return { ...o, items: old.items };
-    return o;
+    let next = o;
+    // Keep line items when lean GET omits them.
+    if (!(o.items && o.items.length > 0) && old?.items && old.items.length > 0) {
+      next = { ...next, items: old.items };
+    }
+    // Keep local archive flag until API column is present / synced.
+    if (!o.isArchived && old?.isArchived) {
+      next = { ...next, isArchived: true, archivedAt: old.archivedAt || next.archivedAt };
+    }
+    return next;
   });
   // Union by id: keep just-created local rows a stale GET may omit (≈2 min).
   const incomingIds = new Set(mergedIncoming.map((o) => o.id));
@@ -4441,31 +4448,62 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const archiveOrder = (orderId: string, targetStoreId?: string) => {
+    const archivedAt = new Date().toISOString();
+    let resolvedStoreId = targetStoreId || activeStoreId;
     setOrdersMap((prev) => {
       const next = { ...prev };
       for (const sId of Object.keys(next)) {
         if (next[sId]?.some((o) => o.id === orderId)) {
-          next[sId] = next[sId].map((o) => (o.id === orderId ? { ...o, isArchived: true, archivedAt: new Date().toISOString() } : o));
+          resolvedStoreId = sId;
+          next[sId] = next[sId].map((o) =>
+            o.id === orderId ? { ...o, isArchived: true, archivedAt } : o,
+          );
           break;
         }
       }
       saveOrdersMap(next);
       return next;
     });
+
+    if (dataSourceRef.current === 'api' && resolvedStoreId) {
+      void tenantApi
+        .updateOrder(resolvedStoreId, orderId, { isArchived: true, archivedAt })
+        .then(() => {
+          bumpCacheTag(storeTag(resolvedStoreId, 'orders'));
+        })
+        .catch((err) => {
+          console.warn('API Order archive note:', err);
+        });
+    }
   };
 
   const restoreOrder = (orderId: string, targetStoreId?: string) => {
+    let resolvedStoreId = targetStoreId || activeStoreId;
     setOrdersMap((prev) => {
       const next = { ...prev };
       for (const sId of Object.keys(next)) {
         if (next[sId]?.some((o) => o.id === orderId)) {
-          next[sId] = next[sId].map((o) => (o.id === orderId ? { ...o, isArchived: false, archivedAt: undefined } : o));
+          resolvedStoreId = sId;
+          next[sId] = next[sId].map((o) =>
+            o.id === orderId ? { ...o, isArchived: false, archivedAt: undefined } : o,
+          );
           break;
         }
       }
       saveOrdersMap(next);
       return next;
     });
+
+    if (dataSourceRef.current === 'api' && resolvedStoreId) {
+      void tenantApi
+        .updateOrder(resolvedStoreId, orderId, { isArchived: false, archivedAt: null })
+        .then(() => {
+          bumpCacheTag(storeTag(resolvedStoreId, 'orders'));
+        })
+        .catch((err) => {
+          console.warn('API Order restore note:', err);
+        });
+    }
   };
 
   const permanentDeleteOrder = (orderId: string, targetStoreId?: string, reason?: string) => {

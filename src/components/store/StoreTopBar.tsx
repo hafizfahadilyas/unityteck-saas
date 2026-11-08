@@ -182,7 +182,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
 
   return (
     <header
-      className="min-h-14 sm:h-16 border-b px-2 sm:px-3.5 md:px-4 flex items-center justify-between gap-1 sm:gap-2 w-full bg-[var(--surface)] text-[var(--text)] border-[var(--border)] shrink-0 z-30 select-none max-lg:sticky max-lg:top-0"
+      className="min-h-14 sm:h-16 border-b px-2 sm:px-3.5 md:px-4 flex items-center justify-between gap-1 sm:gap-2 w-full bg-[var(--surface)] text-[var(--text)] border-[var(--border)] shrink-0 z-50 select-none max-lg:sticky max-lg:top-0 isolate"
       style={{
         background: 'var(--surface)',
         borderColor: 'var(--border)',
@@ -394,7 +394,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                   >
                     <span className="flex items-center gap-2">
                       <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-                      <span>{isAr ? 'مخصص الثيم المباشر (WordPress)' : 'Live Theme Customizer'}</span>
+                      <span>{isAr ? 'مخصص الثيم المباشر' : 'Live Theme Customizer'}</span>
                     </span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-600 text-white font-black">18</span>
                   </button>
@@ -556,7 +556,9 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
             >
               <div className="px-3 py-2 rounded-xl bg-slate-500/5 border border-slate-500/10 space-y-1">
                 <div className="font-extrabold text-sm truncate">{displayName}</div>
-                <div className="text-[11px] text-slate-500 truncate">{session?.user?.email || activeStore.ownerEmail || 'admin@giftshop-sa.com'}</div>
+                <div className="text-[11px] text-slate-500 truncate">
+                  {session?.user?.email || activeStore.ownerEmail || '—'}
+                </div>
                 <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 pt-0.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                   <span className="truncate">{roleLabel} · {storeDisplayName}</span>

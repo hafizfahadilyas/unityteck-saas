@@ -290,7 +290,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
         prev.map((o) => (o.id === opp.id ? { ...o, status: nextStatus } : o))
       );
       toast(
-        isAr ? `تم تحديث حالة الفرصة إلى ${nextStatus}` : `Opportunity status updated to ${nextStatus}`,
+        isAr ? `تم تحديث حالة الفرصة إلى${nextStatus}` : `Opportunity status updated to ${nextStatus}`,
         'success'
       );
     } catch {

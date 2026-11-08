@@ -60,7 +60,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     invoiceService.recordPrintOrExport(document.storeId, document.id, 'exported_pdf', 'Store Administrator');
 
     toast(
-      isAr ? 'جاري تحضير ملف PDF وتنزيله...' : 'Generating and downloading high-resolution PDF...',
+      isAr ? 'جاري تحضير ملف ملف محمول وتنزيله...' : 'Generating and downloading high-resolution PDF...',
       'info'
     );
 
@@ -75,7 +75,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     const phone = document.buyer.phone?.replace(/[^0-9]/g, '') || '';
     const text = encodeURIComponent(
       isAr
-        ? `مرحباً ${document.buyer.name}، مرفق لكم إشعار مستند ${document.titleAr || document.documentNumber} بمبلغ ${document.grandTotal} ${document.currency}.`
+        ? `مرحباً${document.buyer.name}، مرفق لكم إشعار مستند${document.titleAr || document.documentNumber}بمبلغ${document.grandTotal}${document.currency}.`
         : `Hello ${document.buyer.name}, here is your ${document.documentNumber} document statement for ${document.grandTotal} ${document.currency}.`
     );
     window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
@@ -198,7 +198,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
               className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
             >
               <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              <span>{isAr ? 'تصدير PDF' : 'Export PDF'}</span>
+              <span>{isAr ? 'تصدير ملف محمول' : 'Export PDF'}</span>
             </button>
 
             {/* Print Button */}
@@ -285,7 +285,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                 </span>
 
                 <label className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
-                  <span>{isAr ? 'إظهار باركود ZATCA QR' : 'Show ZATCA QR Code'}</span>
+                  <span>{isAr ? 'إظهار باركود هيئة الزكاة QR' : 'Show ZATCA QR Code'}</span>
                   <input
                     type="checkbox"
                     checked={localConfig.showZatcaQr}

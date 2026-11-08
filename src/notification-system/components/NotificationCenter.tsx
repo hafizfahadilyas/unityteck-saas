@@ -188,7 +188,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                 {mainView === 'customer'
                   ? isAr
-                    ? 'إدارة إشعارات العميل عبر الإيميل وواتساب وSMS'
+                    ? 'إدارة إشعارات العميل عبر الإيميل وواتساب والرسائل النصية'
                     : 'Manage real customer Email, WhatsApp & SMS deliveries'
                   : isAr
                     ? `إدارة التنبيهات والفرص (${filteredItems.length})`
@@ -445,7 +445,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       <div className="px-5 py-3 border-t flex items-center justify-between text-xs text-slate-500 shrink-0" style={{ borderColor: 'var(--border)' }}>
         <span>
           {isAr
-            ? `إجمالي الإشعارات في الفترة (${dateRange.preset}): ${filteredItems.length}`
+            ? `إجمالي الإشعارات في الفترة (${dateRange.preset}):${filteredItems.length}`
             : `Showing ${filteredItems.length} alerts for period: ${dateRange.labelEn}`}
         </span>
         {!isFullPage && onClose && (

@@ -111,7 +111,7 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
     : '';
 
   const currentMakeLabel = formMake === 'all' 
-    ? (isAr ? 'جميع الماركات (18+)' : 'All Makes (18+)') 
+    ? (isAr ? 'جميع الماركات' : 'All Makes (18+)') 
     : (selectedBrand ? (isAr ? selectedBrand.nameAr : selectedBrand.nameEn) : formMake.toUpperCase());
 
   const currentModelLabel = formModel === 'all' 
@@ -125,18 +125,18 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
     : formYear;
 
   const currentColorLabel = formColor === 'all' 
-    ? (isAr ? 'جميع الألوان (6)' : 'All Colors (6)') 
+    ? (isAr ? 'جميع الألوان' : 'All Colors (6)') 
     : (selectedColorObj ? (isAr ? selectedColorObj.nameAr : selectedColorObj.nameEn) : formColor);
 
   const handleQuickWhatsAppConsultation = (customNote?: string) => {
     let msg = isAr 
-      ? `السلام عليكم متجر السعيدي VIP، أرغب باستشارة تفصيل لسيارتي`
+      ? `السلام عليكم متجر السعيدي كبار العملاء، أرغب باستشارة تفصيل لسيارتي`
       : `Hello Al-Saeedi VIP, I need custom tailoring consultation for my car`;
     
     if (hasVehicleSelected) {
       msg += isAr ? ` (${fullSelectedTitle})` : ` (${fullSelectedTitle})`;
       if (formColor !== 'all') {
-        msg += isAr ? ` باللون ${formColor}` : ` in ${formColor}`;
+        msg += isAr ? `باللون${formColor}` : ` in ${formColor}`;
       }
     }
     if (customNote) {
@@ -167,7 +167,7 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
         <div className="flex flex-col items-center justify-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#d5a027]/20 border border-[#d5a027]/50 text-[#f6c344] text-xs font-black shadow-xs">
             <Sparkles className="w-3.5 h-3.5 text-[#f6c344] shrink-0" />
-            <span>{isAr ? 'متجر السعيدي VIP — تنجيد وتلابيس مكة الفاخرة' : 'Al-Saeedi VIP Automotive — Flagship Makkah Studio'}</span>
+            <span>{isAr ? 'متجر السعيدي كبار العملاء — تنجيد وتلابيس مكة الفاخرة' : 'Al-Saeedi VIP Automotive — Flagship Makkah Studio'}</span>
           </div>
         </div>
 
@@ -330,7 +330,7 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
                       formMake === 'all' ? 'bg-amber-50 text-[#3e0f77] font-black' : 'text-slate-700 hover:bg-slate-50'
                     }`}
                   >
-                    <span>{isAr ? 'جميع الماركات (18+)' : 'All Makes (18+)'}</span>
+                    <span>{isAr ? 'جميع الماركات' : 'All Makes (18+)'}</span>
                     {formMake === 'all' && <Check className="w-3.5 h-3.5 text-[#d5a027]" />}
                   </button>
                   {CAR_BRANDS.map(b => (
@@ -598,7 +598,7 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
                 </span>
                 <div className="min-w-0">
                   <p className="font-black text-slate-900 text-xs sm:text-sm truncate">
-                    {isAr ? `✓ تطابق ليزري 100% مؤكد لـ: ${fullSelectedTitle}` : `✓ 100% OEM Laser Fit Verified for: ${fullSelectedTitle}`}
+                    {isAr ? `✓ تطابق ليزري 100% مؤكد لـ:${fullSelectedTitle}` : `✓ 100% OEM Laser Fit Verified for: ${fullSelectedTitle}`}
                   </p>
                   <p className="text-[11px] text-emerald-800 font-semibold truncate">
                     {isAr 

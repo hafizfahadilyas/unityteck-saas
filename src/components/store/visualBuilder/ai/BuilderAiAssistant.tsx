@@ -197,7 +197,7 @@ export const BuilderAiAssistant: React.FC<BuilderAiAssistantProps> = ({
               className="px-2.5 py-1.5 rounded-lg hover:border-indigo-500 text-[11px] font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-40 transition-colors"
             >
               <Languages className="w-3 h-3 text-indigo-400" />
-              <span>{isAr ? 'ترجمة EN' : 'Translate'}</span>
+              <span>{isAr ? 'ترجمة إنجليزي' : 'Translate'}</span>
             </button>
             <button
               type="button"

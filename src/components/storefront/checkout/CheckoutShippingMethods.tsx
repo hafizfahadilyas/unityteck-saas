@@ -99,7 +99,7 @@ export const CheckoutShippingMethods: React.FC<Props> = ({
                     <p className="text-[11px] text-neutral-500 flex items-center gap-1 ps-6">
                       <Clock className="w-3 h-3 shrink-0" />
                       <span>
-                        {isAr ? 'الوقت المتوقع للتوصيل: ' : 'Estimated delivery: '}
+                        {isAr ? 'الوقت المتوقع للتوصيل:' : 'Estimated delivery: '}
                         {m.estimated_delivery}
                       </span>
                     </p>

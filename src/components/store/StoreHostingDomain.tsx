@@ -103,8 +103,8 @@ export const StoreHostingDomain: React.FC = () => {
     { id: 'Payment Pending', label: isAr ? 'في انتظار الدفع' : 'Payment Pending' },
     { id: 'Shared Hosting Connected', label: isAr ? 'استضافة مشتركة متصلة' : 'Shared Hosting Connected' },
     { id: 'Domain Pending', label: isAr ? 'النطاق قيد المعالجة' : 'Domain Pending' },
-    { id: 'DNS Verified', label: isAr ? 'تم التحقق من DNS' : 'DNS Verified' },
-    { id: 'SSL Active', label: isAr ? 'شهادة SSL مفعلة' : 'SSL Active' },
+    { id: 'DNS Verified', label: isAr ? 'تم التحقق من سجلات النطاق' : 'DNS Verified' },
+    { id: 'SSL Active', label: isAr ? 'شهادة الأمان مفعلة' : 'SSL Active' },
     { id: 'Deploying', label: isAr ? 'جاري النشر' : 'Deploying' },
     { id: 'Live', label: isAr ? 'المتجر مباشر' : 'Live' },
   ];
@@ -154,7 +154,7 @@ export const StoreHostingDomain: React.FC = () => {
       verifyDomainDns(storeDomain.id);
       toast(
         isAr
-          ? 'تم التحقق من سجلات DNS بنجاح على الاستضافة المشتركة!'
+          ? 'تم التحقق من سجلات النطاق بنجاح على الاستضافة المشتركة!'
           : 'DNS records verified on Shared Hosting!',
         'success',
       );
@@ -264,7 +264,7 @@ export const StoreHostingDomain: React.FC = () => {
             </h3>
             <p className="text-xs opacity-75">
               {isAr
-                ? 'تحميل حزمة المتجر الكاملة ZIP، استعادة النسخ المجدولة، ونقل المتجر إلى استضافة ثانية بنقرة واحدة.'
+                ? 'تحميل حزمة المتجر الكاملة أرشيف مضغوط، استعادة النسخ المجدولة، ونقل المتجر إلى استضافة ثانية بنقرة واحدة.'
                 : '1-click full store ZIP archive, automated daily/weekly snapshots, and all-in-one migration to a second host.'}
             </p>
           </div>
@@ -382,7 +382,7 @@ export const StoreHostingDomain: React.FC = () => {
             </h2>
             <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--muted)' }}>
               {isAr
-                ? 'يتم تعيين نطاق فرعي تلقائياً لمتجرك مع استضافة مشتركة مجانية وشهادة SSL مفعلة فوراً دون أي إعداد يدوي.'
+                ? 'يتم تعيين نطاق فرعي تلقائياً لمتجرك مع استضافة مشتركة مجانية وشهادة الأمان مفعلة فوراً دون أي إعداد يدوي.'
                 : 'Demo subdomain automatically assigned. Client store is immediately live in demo mode with pre-configured SSL.'}
             </p>
 
@@ -469,7 +469,7 @@ export const StoreHostingDomain: React.FC = () => {
             </h2>
             <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--muted)' }}>
               {isAr
-                ? 'اربط متجرك بنطاقك المخصص عبر الاستضافة المشتركة مع تحقق DNS التلقائي وشهادة الأمان.'
+                ? 'اربط متجرك بنطاقك المخصص عبر الاستضافة المشتركة مع تحقق من النطاق التلقائي وشهادة الأمان.'
                 : 'Connect your custom domain (e.g. makkaflower.com). Payment is securely processed via our SaaS gateway.'}
             </p>
 
@@ -502,7 +502,7 @@ export const StoreHostingDomain: React.FC = () => {
                   style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
                 >
                   <option value="Hostinger Shared Starter">
-                  {isAr ? `Starter Shared (${money(29)}/شهرياً) — 100GB SSD، SSL مجاني`
+                  {isAr ? `الاستضافة المشتركة للمبتدئين (${money(29)}/شهرياً) — ١٠٠ جيجابايت تخزين، شهادة أمان مجانية`
                       : `Starter Shared (${money(29)}/mo) — 100GB SSD, Free SSL`}
                   </option>
                   <option value="Hostinger Shared Premium">
@@ -520,7 +520,7 @@ export const StoreHostingDomain: React.FC = () => {
                   <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
                   <span>
                     {isAr
-                      ? 'تنبيه: نظامنا يدعم فقط الاستضافة المشتركة (Shared Hosting). لا نستخدم VPS أو خوادم سحابية.'
+                      ? 'تنبيه: نظامنا يدعم فقط الاستضافة المشتركة. لا نستخدم VPS أو خوادم سحابية.'
                       : 'Important rule: Shared Hosting only. VPS or dedicated cloud servers are strictly prohibited.'}
                   </span>
                 </span>
@@ -558,7 +558,7 @@ export const StoreHostingDomain: React.FC = () => {
                   style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
                 >
                   <RefreshCw className={`w-3 h-3 ${isVerifyingDns ? 'animate-spin' : ''}`} />
-                  <span>{isAr ? 'تحقق DNS' : 'Verify DNS'}</span>
+                  <span>{isAr ? 'تحقق من النطاق' : 'Verify DNS'}</span>
                 </button>
 
                 <button
@@ -585,7 +585,7 @@ export const StoreHostingDomain: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-base font-bold" style={{ color: 'var(--text)' }}>
-              {isAr ? 'إعدادات وسجلات DNS للاستضافة المشتركة' : 'Shared DNS Configuration'}
+              {isAr ? 'إعدادات وسجلات النطاق للاستضافة المشتركة' : 'Shared DNS Configuration'}
             </h3>
             <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
               {isAr
@@ -603,7 +603,7 @@ export const StoreHostingDomain: React.FC = () => {
               style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isVerifyingDns ? 'animate-spin text-teal-600' : ''}`} />
-              <span>{isVerifyingDns ? (isAr ? 'جاري الفحص…' : 'Checking DNS…') : isAr ? 'إعادة فحص DNS' : 'Check DNS Records'}</span>
+              <span>{isVerifyingDns ? (isAr ? 'جاري الفحص…' : 'Checking DNS…') : isAr ? 'إعادة فحص سجلات النطاق' : 'Check DNS Records'}</span>
             </button>
           </div>
         </div>
@@ -746,7 +746,7 @@ export const StoreHostingDomain: React.FC = () => {
           <div className="flex items-center gap-2">
             <Terminal className="w-4 h-4 text-emerald-400" />
             <span className="font-bold text-slate-100">
-              {isAr ? 'مسار النشر الآلي عبر Git/API للاستضافة المشتركة' : 'Automated Git/API Shared Deployment Pipeline'}
+              {isAr ? 'مسار النشر الآلي عبر الواجهة للاستضافة المشتركة' : 'Automated Git/API Shared Deployment Pipeline'}
             </span>
           </div>
           <span className="text-[10px] text-slate-400">

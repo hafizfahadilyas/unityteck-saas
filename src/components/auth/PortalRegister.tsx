@@ -112,8 +112,8 @@ export const PortalRegister: React.FC<PortalRegisterProps> = ({
     { id: 4, text: isAr ? 'إنشاء المتجر في النظام' : 'Store Created' },
     { id: 5, text: isAr ? 'اتصال قاعدة البيانات المشتركة' : 'Database Connected' },
     { id: 6, text: isAr ? 'تثبيت الثيم التجاري الافتراضي' : 'Theme Installed' },
-    { id: 7, text: isAr ? 'تكوين النطاق وتوجيه DNS' : 'Domain Configured' },
-    { id: 8, text: isAr ? 'تفعيل شهادة SSL للأمان' : 'SSL Configured' },
+    { id: 7, text: isAr ? 'تكوين النطاق وتوجيه النطاق' : 'Domain Configured' },
+    { id: 8, text: isAr ? 'تفعيل شهادة الأمان للأمان' : 'SSL Configured' },
     { id: 9, text: isAr ? 'اكتمل إعداد المتجر بنجاح' : 'Store Setup Completed' },
   ];
 
@@ -699,7 +699,7 @@ export const PortalRegister: React.FC<PortalRegisterProps> = ({
                     <h3 className="text-base font-bold">Custom Domain + Shared Hosting</h3>
                     <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                       {isAr
-                        ? 'أدخل نطاقك المخصص وشراء استضافة Hostinger المشتركة مع توجيه تلقائي وشهادة SSL.'
+                        ? 'أدخل نطاقك المخصص وشراء استضافة هوستنجر المشتركة مع توجيه تلقائي وشهادة الأمان.'
                         : 'Connect your branded domain (e.g. makkaflower.com). Workflow processed by Master Admin / Hostinger API.'}
                     </p>
 
@@ -854,7 +854,7 @@ export const PortalRegister: React.FC<PortalRegisterProps> = ({
                 <div className="p-4 rounded-xl border bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-teal-600 dark:text-teal-300">
-                      {isAr ? 'لوحة تحكم SaaS' : 'SaaS Dashboard'}
+                      {isAr ? 'لوحة تحكم البرمجيات السحابية' : 'SaaS Dashboard'}
                     </span>
                     <button
                       type="button"
@@ -899,8 +899,8 @@ export const PortalRegister: React.FC<PortalRegisterProps> = ({
                   </p>
                   <p className="text-[10px] text-slate-400">
                     {hostingOption === 'custom'
-                      ? (isAr ? 'رابط احتياطي مباشر: ' : 'Live fallback: ') + demoSubdomain
-                      : (isAr ? 'متاح فوراً مع شهادة SSL مجانية.' : 'Live immediately with free SSL certificate.')}
+                      ? (isAr ? 'رابط احتياطي مباشر:' : 'Live fallback: ') + demoSubdomain
+                      : (isAr ? 'متاح فوراً مع شهادة الأمان مجانية.' : 'Live immediately with free SSL certificate.')}
                   </p>
                 </div>
               </div>

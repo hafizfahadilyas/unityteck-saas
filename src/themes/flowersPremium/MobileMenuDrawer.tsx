@@ -131,7 +131,7 @@ export const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({
           {categories.length > 0 && (
             <div className="space-y-1.5 pt-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 block">
-                {isAr ? 'تسوق حسب القسم (Categories)' : 'Shop by Category'}
+                {isAr ? 'تسوق حسب القسم' : 'Shop by Category'}
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {categories.map((c) => (

@@ -118,7 +118,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
       default_window: '24 hours',
       timezone: '(GMT+3) Riyadh',
       business_display_name: activeStore?.name || 'My Store',
-      default_language: isAr ? 'Arabic (ar_SA)' : 'English (US)',
+      default_language: isAr ? 'العربية' : 'English (US)',
       fallback_number: centralPhone,
       enable_read_receipts: true,
       auto_retry_failed: true,
@@ -172,7 +172,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
     try {
       setTesting(true);
       const res = await testWhatsAppConnectionApi(activeStore.id);
-      toast(isAr ? 'تم التحقق من اتصال WhatsApp Business API بنجاح ✓' : res.message, 'success');
+      toast(isAr ? 'تم التحقق من اتصال واتساب للأعمال بنجاح ✓' : res.message, 'success');
     } catch (err: any) {
       toast(err.message || (isAr ? 'فشل فحص الاتصال' : 'Connection test failed'), 'error');
     } finally {
@@ -261,7 +261,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
       setSettings(nextSettings);
       await updateWhatsAppSettingsApi(activeStore.id, nextSettings);
       setShowCredsModal(false);
-      toast(isAr ? 'تم حفظ بيانات Meta API بنجاح ✓' : 'Meta API credentials saved successfully ✓', 'success');
+      toast(isAr ? 'تم حفظ بيانات واجهة ميتا بنجاح ✓' : 'Meta API credentials saved successfully ✓', 'success');
       // Proactively test connection
       setTesting(true);
       try {
@@ -298,7 +298,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
               {isAr
-                ? 'إدارة ربط WhatsApp Business API، تكوين إعدادات المراسلة، ومراقبة سجلات الرسائل والأخطاء.'
+                ? 'إدارة ربط واتساب للأعمال، تكوين إعدادات المراسلة، ومراقبة سجلات الرسائل والأخطاء.'
                 : 'Manage your WhatsApp Business API connection, configure settings, and monitor message logs.'}
             </p>
           </div>
@@ -317,7 +317,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
       {/* 2. Top Sub-Tabs (Matching Reference Image 1) */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
         {[
-          { id: 'api', labelAr: 'تكوين API', labelEn: 'API Configuration' },
+          { id: 'api', labelAr: 'تكوين واجهة البرمجة', labelEn: 'API Configuration' },
           { id: 'phones', labelAr: 'أرقام الهواتف', labelEn: 'Phone Numbers' },
           { id: 'webhooks', labelAr: 'الويبهوك', labelEn: 'Webhooks' },
           { id: 'message_logs', labelAr: 'سجلات الرسائل', labelEn: 'Message Logs' },
@@ -423,7 +423,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
             />
             <p className="text-[10px] text-slate-500 dark:text-slate-400">
               {isAr
-                ? '• يُستخدم في: إشعارات الطلبات الجديدة، فواتير المشتريات، رسائل الدعم الفني، وتقرير Google SEO.'
+                ? '• يُستخدم في: إشعارات الطلبات الجديدة، فواتير المشتريات، رسائل الدعم الفني، وتقرير جوجل SEO.'
                 : '• Powers: New order receipts, tax invoices, customer support tickets, and Google SEO reporting.'}
             </p>
           </div>
@@ -505,7 +505,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-slate-500 dark:text-slate-400">{isAr ? 'معرف النشاط (Business ID)' : 'Business ID'}</span>
+              <span className="text-slate-500 dark:text-slate-400">{isAr ? 'معرف النشاط معرّف النشاط' : 'Business ID'}</span>
               <span className="font-mono text-slate-700 dark:text-slate-300 truncate max-w-[150px]">{settings.business_id}</span>
             </div>
 
@@ -515,7 +515,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-slate-500 dark:text-slate-400">{isAr ? 'معرف الحساب (WABA ID)' : 'WABA ID'}</span>
+              <span className="text-slate-500 dark:text-slate-400">{isAr ? 'معرف الحساب معرّف واتساب للأعمال' : 'WABA ID'}</span>
               <span className="font-mono text-slate-700 dark:text-slate-300 truncate max-w-[150px]">{settings.waba_id}</span>
             </div>
           </div>
@@ -564,7 +564,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-                {isAr ? 'أرقام الهواتف (1)' : 'Phone Numbers (1)'}
+                {isAr ? 'أرقام الهواتف' : 'Phone Numbers (1)'}
               </h3>
               <button
                 type="button"
@@ -642,7 +642,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm space-y-3.5">
           <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800">
             <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-              {isAr ? 'تكوين الويبهوك (Webhook Configuration)' : 'Webhook Configuration'}
+              {isAr ? 'تكوين الويبهوك' : 'Webhook Configuration'}
             </h3>
             <button
               type="button"
@@ -710,7 +710,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm space-y-3.5">
           <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800">
             <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-              {isAr ? 'إعدادات الرسائل (Message Settings)' : 'Message Settings'}
+              {isAr ? 'إعدادات الرسائل' : 'Message Settings'}
             </h3>
             <button
               type="button"
@@ -813,7 +813,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
             <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-              {isAr ? 'سجلات الرسائل الحديثة (Recent Message Logs)' : 'Recent Message Logs'}
+              {isAr ? 'سجلات الرسائل الحديثة' : 'Recent Message Logs'}
             </h3>
             <button
               type="button"
@@ -886,7 +886,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
             <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-              {isAr ? 'سجلات الأخطاء (Error Logs)' : 'Error Logs'}
+              {isAr ? 'سجلات الأخطاء' : 'Error Logs'}
             </h3>
             <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer">
               View all
@@ -978,7 +978,7 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
                 </div>
                 <p className="text-[11px] text-sky-800 dark:text-sky-300 leading-relaxed">
                   {isAr
-                    ? 'توفر ميتا باقة مجانية تتضمن ألف محادثة شهرياً مجاناً ورقم اختبار تجريبي. يمكنك استخراج هذه المفاتيح في دقيقتين عبر '
+                    ? 'توفر ميتا باقة مجانية تتضمن ألف محادثة شهرياً مجاناً ورقم اختبار تجريبي. يمكنك استخراج هذه المفاتيح في دقيقتين عبر'
                     : 'Meta offers 1,000 free conversations per month and a free sandbox test phone. Get these keys from '}
                   <a
                     href="https://developers.facebook.com/apps"

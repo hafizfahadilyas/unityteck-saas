@@ -725,7 +725,7 @@ export const MasterProducts: React.FC = () => {
               </select>
             </div>
             <span>
-              {isAr ? `عرض ${totalCount > 0 ? (safePage - 1) * pageSize + 1 : 0}–${Math.min(safePage * pageSize, totalCount)} من أصل ${totalCount} منتج` : `Showing ${totalCount > 0 ? (safePage - 1) * pageSize + 1 : 0}–${Math.min(safePage * pageSize, totalCount)} of ${totalCount.toLocaleString()} products`}
+              {isAr ? `عرض${totalCount > 0 ? (safePage - 1) * pageSize + 1 : 0}–${Math.min(safePage * pageSize, totalCount)}من أصل${totalCount}منتج` : `Showing ${totalCount > 0 ? (safePage - 1) * pageSize + 1 : 0}–${Math.min(safePage * pageSize, totalCount)} of ${totalCount.toLocaleString()} products`}
             </span>
           </div>
 

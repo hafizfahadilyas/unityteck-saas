@@ -12,7 +12,7 @@ import {
   Store,
 } from 'lucide-react';
 import { useSignIn, useSignUp, useClerk } from '@clerk/clerk-react';
-import { readAuthSession, type AuthPortal } from '../../auth/session';
+import { readAuthSession, type AuthPortal, type AuthSession } from '../../auth/session';
 import { sessionFromClerkUser, isClerkConfigured } from '../../auth/clerkSession';
 import {
   assertStoreLoginEmailAllowed,
@@ -38,7 +38,7 @@ import {
 
 type PortalLoginProps = {
   portal: AuthPortal;
-  onSuccess: (portal: AuthPortal, storeId?: string | null) => void;
+  onSuccess: (portal: AuthPortal, storeId?: string | null, session?: AuthSession | null) => void;
   onSwitchPortal: (portal: AuthPortal) => void;
   onForgotPassword?: () => void;
 };
@@ -250,7 +250,8 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
     if (clerk.loaded === false) return;
     if (readAuthSession()) return;
     if (!clerk.session && !clerk.user) return;
-    void clerk.signOut().catch(() => undefined);
+    // Stay on this login URL — default afterSignOutUrl must not send users to the public storefront.
+    void clerk.signOut({ redirectUrl: window.location.href }).catch(() => undefined);
   }, [clerk]);
 
   useEffect(() => {
@@ -374,11 +375,11 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
           ? 'مرحباً بك! تم تسجيل الدخول بنجاح.'
           : 'Welcome! Signed in successfully.'
         : isAr
-          ? `تم تسجيل الدخول بنجاح · ${liveSession.storeName ?? portalInfo.title}`
+          ? `تم تسجيل الدخول بنجاح ·${liveSession.storeName ?? portalInfo.title}`
           : `Signed in successfully · ${liveSession.storeName ?? portalInfo.title}`,
       'success',
     );
-    onSuccess(liveSession.portal, liveSession.storeId);
+    onSuccess(liveSession.portal, liveSession.storeId, liveSession);
   };
 
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -407,7 +408,7 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
       setRateLimit(currentRate);
       toast(
         isAr
-          ? `الحساب مؤمن مؤقتاً. انتظر ${currentRate.remainingSeconds}ث`
+          ? `الحساب مؤمن مؤقتاً. انتظر${currentRate.remainingSeconds}ث`
           : `Account locked. Wait ${currentRate.remainingSeconds}s`,
         'error',
       );
@@ -443,7 +444,8 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
 
     const clearClerkThenContinue = async (): Promise<void> => {
       try {
-        await clerk.signOut();
+        // Keep /store/login or /master/login — never bounce to "/" storefront mid-OTP.
+        await clerk.signOut({ redirectUrl: window.location.href });
       } catch {
         /* ignore */
       }
@@ -802,7 +804,7 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
                     <p style={{ color: 'var(--muted)' }}>
                       {otpExpiresIn > 0
                         ? isAr
-                          ? `يمكنك تغيير البريد بعد 0:${String(otpExpiresIn).padStart(2, '0')}`
+                          ? `يمكنك تغيير البريد بعد 0:${String.padStart(2, '0')}`
                           : `Change email after 0:${String(otpExpiresIn).padStart(2, '0')}`
                         : isAr
                           ? 'يمكنك الآن تغيير البريد أو إعادة الإرسال'
@@ -822,7 +824,7 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
                     </button>
                   ) : (
                     <span className="text-[10px] font-bold shrink-0 px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-700">
-                      {isAr ? `انتظر ${otpExpiresIn}ث` : `Wait ${otpExpiresIn}s`}
+                      {isAr ? `انتظر${otpExpiresIn}ث` : `Wait ${otpExpiresIn}s`}
                     </span>
                   )}
                 </div>

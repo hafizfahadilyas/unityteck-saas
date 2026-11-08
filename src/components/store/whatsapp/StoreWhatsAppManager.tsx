@@ -33,20 +33,32 @@ export const StoreWhatsAppManager: React.FC<Props> = ({
   const [currentSubView, setCurrentSubView] = useState<WhatsAppSubView>(initialSubView);
   const [navContextData, setNavContextData] = useState<any>(null);
 
-  // Listen to custom navigation events from StoreSidebar
+  // Listen to custom navigation events from StoreSidebar (+ sessionStorage if manager mounts late)
   useEffect(() => {
-    const handleSubViewChange = (e: CustomEvent<string>) => {
-      const view = e.detail as WhatsAppSubView;
+    const applyView = (view: string | null | undefined) => {
       if (
+        view &&
         ['center', 'compose', 'templates', 'automations', 'campaigns', 'contacts', 'settings'].includes(
           view,
         )
       ) {
-        setCurrentSubView(view);
+        setCurrentSubView(view as WhatsAppSubView);
       }
+    };
+    const handleSubViewChange = (e: CustomEvent<string>) => {
+      applyView(e.detail);
     };
 
     window.addEventListener('unityteck-whatsapp-view' as any, handleSubViewChange);
+    try {
+      const saved = sessionStorage.getItem('unityteck-whatsapp-view');
+      if (saved) {
+        applyView(saved);
+        sessionStorage.removeItem('unityteck-whatsapp-view');
+      }
+    } catch {
+      /* storage may be unavailable */
+    }
     return () => {
       window.removeEventListener('unityteck-whatsapp-view' as any, handleSubViewChange);
     };

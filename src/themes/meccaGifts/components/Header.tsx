@@ -510,7 +510,7 @@ export const Header: React.FC<HeaderProps> = ({
                   className="px-2.5 py-1 rounded-full text-xs font-bold border transition-all shadow-2xs cursor-pointer"
                   aria-label="Toggle language"
                 >
-                  {isAr ? 'EN' : 'عربي'}
+                  {isAr ? 'إنجليزي' : 'عربي'}
                 </button>
               )}
             </div>
@@ -1260,7 +1260,7 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-bold text-[#102a1c] truncate">
-                        {user.isLoggedIn ? user.name : (isAr ? 'تسجيل الدخول / Google' : 'Sign In')}
+                        {user.isLoggedIn ? user.name : (isAr ? 'تسجيل الدخول / جوجل' : 'Sign In')}
                       </h4>
                       <p className="text-[11px] text-[#7a7164] font-medium truncate">
                         {user.isLoggedIn ? (isAr ? 'عضوية النخبة الفاخرة' : 'VIP Member') : (isAr ? 'اضغط للمتابعة السريعة' : 'Tap to continue')}
@@ -1323,7 +1323,7 @@ export const Header: React.FC<HeaderProps> = ({
                         <div className="w-7 h-7 rounded-lg bg-[#8b263e]/25 text-[#8b263e] flex items-center justify-center">
                           <Crown className="w-4 h-4 text-[#d4af37]" />
                         </div>
-                        <span>{isAr ? 'بوابة العميل VIP والطلبات' : 'VIP Portal & Orders'}</span>
+                        <span>{isAr ? 'بوابة العميل كبار العملاء والطلبات' : 'VIP Portal & Orders'}</span>
                       </div>
                       {isAr ? <ChevronLeft className="w-4 h-4 text-[#8b263e]" /> : <ChevronRight className="w-4 h-4 text-[#8b263e]" />}
                     </button>

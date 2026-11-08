@@ -71,7 +71,7 @@ export function mapTrackApiToCoffeeResult(data: StorefrontTrackOrderResult, isAr
   return {
     orderNumber: data.order_number,
     status: trackingStatusLabel(data.status, isAr),
-    courier: data.courier_code || (isAr ? 'SMSA Express / SPL' : 'SMSA Express / SPL'),
+    courier: data.courier_code || (isAr ? 'سمسا إكسبريس / سبل' : 'SMSA Express / SPL'),
     trackingNumber: data.tracking_number || undefined,
     estimatedDelivery:
       data.estimated_delivery || (isAr ? 'خلال 24-48 ساعة' : 'Within 24-48 hours'),

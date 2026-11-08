@@ -342,12 +342,12 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
             <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
             <div>
               <div className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                <span>{isAr ? 'بيانات Google Analytics 4 المباشرة' : 'Live Google Analytics 4 Connected Stream'}</span>
+                <span>{isAr ? 'بيانات تحليلات جوجل ٤ المباشرة' : 'Live Google Analytics 4 Connected Stream'}</span>
                 {gaEmail && <span className="text-[10px] text-slate-500 font-normal">({gaEmail})</span>}
               </div>
               <div className="text-[11px] text-slate-600 dark:text-slate-400">
                 {isAr
-                  ? 'يتم عرض الزوار والجلسات ومصادر الزيارات الحقيقية من حساب Google الخاص بالمتجر.'
+                  ? 'يتم عرض الزوار والجلسات ومصادر الزيارات الحقيقية من حساب جوجل الخاص بالمتجر.'
                   : 'Displaying real active users, sessions, and traffic sources from store Google property.'}
               </div>
             </div>
@@ -626,7 +626,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
                 onClick={() => setIsGoogleModalOpen(true)}
                 className="text-[11px] font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
               >
-                {isAr ? '← اربط Google Analytics لعرض الزيارات الفعلية' : 'Connect GA4 for real-time visits →'}
+                {isAr ? '← اربط تحليلات جوجل لعرض الزيارات الفعلية' : 'Connect GA4 for real-time visits →'}
               </button>
             </div>
           )}
@@ -653,7 +653,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
             </div>
             <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
               {isAr
-                ? `بلغت إيرادات المتجر ${money(storeOrders.reduce((acc, o) => acc + o.total, 0))} عبر ${storeOrders.length} طلبات عملاء مكتملة.`
+                ? `بلغت إيرادات المتجر${money(storeOrders.reduce((acc, o) => acc + o.total, 0))}عبر${storeOrders.length}طلبات عملاء مكتملة.`
                 : `Store revenue stands at ${money(storeOrders.reduce((acc, o) => acc + o.total, 0))} across ${storeOrders.length} processed customer orders.`}
             </p>
           </div>
@@ -666,7 +666,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
             </div>
             <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
               {isAr
-                ? `تتتبع قاعدة البيانات ${storeCustomers.length} عملاء مسجلين لديهم سجل طلبات نشط في مدن المملكة.`
+                ? `تتتبع قاعدة البيانات${storeCustomers.length}عملاء مسجلين لديهم سجل طلبات نشط في مدن المملكة.`
                 : `Database tracks ${storeCustomers.length} registered customers with active order histories across Saudi cities.`}
             </p>
           </div>
@@ -688,12 +688,12 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
           <div className="p-4 rounded-2xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-900/40 space-y-2">
             <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 font-bold text-xs">
               <Megaphone className="w-4 h-4" />
-              <span>{isAr ? 'بيانات Google المتصلة' : 'Google Connected Real Data'}</span>
+              <span>{isAr ? 'بيانات جوجل المتصلة' : 'Google Connected Real Data'}</span>
             </div>
             <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
               {gaConnected
-                ? (isAr ? `نظام Google Analytics 4 يقوم ببث القياسات المباشرة لمتجر ${activeStore.name}.` : `Google Analytics 4 is streaming live telemetry for ${activeStore.name}.`)
-                : (isAr ? 'اربط حساب Google الخاص بك لبث بيانات الزوار الحقيقيين والجلسات وأحداث الشراء.' : 'Connect your Google account to stream real GA4 visitors, sessions, and e-commerce events.')}
+                ? (isAr ? `نظام تحليلات جوجل ٤ يقوم ببث القياسات المباشرة لمتجر${activeStore.name}.` : `Google Analytics 4 is streaming live telemetry for ${activeStore.name}.`)
+                : (isAr ? 'اربط حساب جوجل الخاص بك لبث بيانات الزوار الحقيقيين والجلسات وأحداث الشراء.' : 'Connect your Google account to stream real GA4 visitors, sessions, and e-commerce events.')}
             </p>
           </div>
         </div>

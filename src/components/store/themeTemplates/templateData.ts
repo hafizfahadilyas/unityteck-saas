@@ -136,7 +136,7 @@ export const HOMEPAGE_TEMPLATES: HomepageTemplateItem[] = [
   {
     id: 'hp-coffee-boutique',
     name: 'Boutique Espresso Showroom (HiBrew Flagship)',
-    nameAr: 'معرض الإسبريسو الحصري (HiBrew Flagship)',
+    nameAr: 'معرض الإسبريسو الحصري',
     styleKey: 'Boutique Espresso Showroom',
     tagline: 'Highlighting flagship 20-bar espresso hardware, dual boiler specs, 3D exploded parts and cinematic video banners.',
     taglineAr: 'واجهة فاخرة لمكائن الإسبريسو 20 بار والدبل بويلر مع عروض 3D تفاعلية وفيديوهات تشغيل سينمائية.',
@@ -192,7 +192,7 @@ export const HOMEPAGE_TEMPLATES: HomepageTemplateItem[] = [
   {
     id: 'hp-coffee-minimal',
     name: 'Minimal Roastery Dark (Matte Obsidian)',
-    nameAr: 'المحمصة المودرن الفاخرة (Matte Obsidian)',
+    nameAr: 'المحمصة المودرن الفاخرة',
     styleKey: 'Minimal Roastery Dark',
     tagline: 'High-contrast matte black and gold accents with bespoke coffee corner cabinet stations and unboxing flows.',
     taglineAr: 'تصميم فخم باللون الأسود المطفي مع أركان ودواليب القهوة الفاخرة وتجربة شحن متميزة.',
@@ -419,7 +419,7 @@ export const ALL_PAGE_TEMPLATES: PageCategoryTemplate[] = [
       {
         id: 'brand-directory-az',
         name: 'A-Z Alphabetical Brands Directory Hub',
-        nameAr: 'دليل الماركات الأبجدي الشامل (A-Z)',
+        nameAr: 'دليل الماركات الأبجدي الشامل',
         description: 'Index page allowing customers to jump between brands with quick logo cards.',
         descriptionAr: 'فهرس متكامل يتيح للعميل التبديل بين جميع الماركات بالحروف والبحث السريع.',
         styleTag: 'Directory Grid',
@@ -554,7 +554,7 @@ export const ALL_PAGE_TEMPLATES: PageCategoryTemplate[] = [
         name: 'Digital Wallets & Global Payment Ready',
         nameAr: 'المحافظ الرقمية والبطاقات الدولية',
         description: 'Includes PayPal, STC Pay, and international multi-currency processing for cross-border shoppers.',
-        descriptionAr: 'دعم المحافظ الرقمية مثل STC Pay وبايبال للعملاء الدوليين مع تحويل العملات المباشر.',
+        descriptionAr: 'دعم المحافظ الرقمية مثل إس تي سي باي وبايبال للعملاء الدوليين مع تحويل العملات المباشر.',
         styleTag: 'Global Wallets',
         previewBg: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
         highlights: ['STC Pay direct QR', 'PayPal 1-click login', 'Multi-currency auto conversion', 'Fraud protection shield'],
@@ -572,7 +572,7 @@ export const ALL_PAGE_TEMPLATES: PageCategoryTemplate[] = [
       {
         id: 'ty-confetti-invoice',
         name: 'Celebratory Confetti with ZATCA Invoice Download',
-        nameAr: 'احتفال بالطلب مع تحميل الفاتورة الضريبية ZATCA',
+        nameAr: 'احتفال بالطلب مع تحميل الفاتورة الضريبية هيئة الزكاة',
         description: 'Displays order celebration animation, QR code verified invoice download, and dispatch timeline.',
         descriptionAr: 'تأكيد احتفالي فوري مع إمكانية طباعة الفاتورة الضريبية المعتمدة برمز QR وتفاصيل التوصيل.',
         styleTag: 'Celebratory / ZATCA',
@@ -675,7 +675,7 @@ export const ALL_PAGE_TEMPLATES: PageCategoryTemplate[] = [
       {
         id: 'acc-vip-loyalty',
         name: 'VIP Loyalty Tier & Cashback Hub',
-        nameAr: 'مركز العضوية الذهبية ونقاط المكافآت (VIP)',
+        nameAr: 'مركز العضوية الذهبية ونقاط المكافآت',
         description: 'Highlights customer tier (Silver/Gold/Platinum), perks, cash credit, and exclusive tier discounts.',
         descriptionAr: 'يوضح مستوى عضوية العميل، الرصيد المتاح للاستخدام، والخصومات الحصرية المتاحة لرتبته.',
         styleTag: 'Gamified VIP',

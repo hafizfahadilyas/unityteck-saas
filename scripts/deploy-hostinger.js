@@ -203,6 +203,26 @@ async function deploy() {
     fs.copyFileSync(htaccessSource, htaccessDist);
   }
 
+  // Live Hostinger gateway (SQLite REST) — keep visits/events/commerce fixes in sync
+  const publicApiDir = path.join(rootDir, 'public', 'api');
+  const distApiDir = path.join(distDir, 'api');
+  if (fs.existsSync(publicApiDir)) {
+    fs.mkdirSync(distApiDir, { recursive: true });
+    for (const name of ['index.php', 'commerce.php']) {
+      const src = path.join(publicApiDir, name);
+      if (fs.existsSync(src)) {
+        fs.copyFileSync(src, path.join(distApiDir, name));
+        console.log(`Bundled public/api/${name} → dist/api/`);
+      }
+    }
+  }
+  for (const php of ['sitemap.php', 'robots.php', 'storefront-shell.php']) {
+    const src = path.join(rootDir, 'public', php);
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, path.join(distDir, php));
+    }
+  }
+
   const refsDir = path.join(distDir, 'coffee-theme-refs');
   if (fs.existsSync(refsDir)) {
     fs.rmSync(refsDir, { recursive: true, force: true });

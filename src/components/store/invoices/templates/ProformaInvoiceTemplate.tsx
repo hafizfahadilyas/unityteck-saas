@@ -133,7 +133,7 @@ export const ProformaInvoiceTemplate: React.FC<TemplateProps> = ({ document, con
               <tr className="border-b-2 text-[11px] font-black uppercase text-slate-700" style={{ borderColor: '#cbd5e1' }}>
                 <th className="py-3 px-2 text-start">#</th>
                 <th className="py-3 px-2 text-start">{isAr ? 'المنتجات والخدمات المقترحة' : 'Proposed Products / Services'}</th>
-                {config.columns.sku && <th className="py-3 px-2 text-start">{isAr ? 'الرمز SKU' : 'SKU'}</th>}
+                {config.columns.sku && <th className="py-3 px-2 text-start">{isAr ? 'رمز المنتج' : 'SKU'}</th>}
                 <th className="py-3 px-2 text-center">{isAr ? 'الكمية' : 'Qty'}</th>
                 {config.columns.unitPrice && <th className="py-3 px-2 text-end">{isAr ? 'السعر التقديري' : 'Estimated Unit Price'}</th>}
                 {config.columns.discount && <th className="py-3 px-2 text-end">{isAr ? 'الخصم' : 'Discount'}</th>}

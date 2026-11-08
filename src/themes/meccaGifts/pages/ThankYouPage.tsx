@@ -60,7 +60,7 @@ export const ThankYouPage: React.FC = () => {
 
         <p className="text-xs sm:text-sm text-[#7a7164] max-w-md mx-auto">
           {isAr
-            ? `رقم طلبك الخاص هو ${order.orderId}، وسيتولى خبير الزهور تجهيز باقتك الملكية حالاً.`
+            ? `رقم طلبك الخاص هو${order.orderId}، وسيتولى خبير الزهور تجهيز باقتك الملكية حالاً.`
             : `Your order reference is ${order.orderId}. Our master florist has commenced crafting your royal arrangement.`}
         </p>
       </div>

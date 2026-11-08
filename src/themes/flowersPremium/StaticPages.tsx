@@ -182,7 +182,7 @@ export const FlowersStaticPage: React.FC<Props> = ({ page, lang, onBack }) => {
                     <input
                       required
                       type="text"
-                      placeholder={isAr ? 'رقم الجوال (05xxxxxxxx)' : 'Phone Number'}
+                      placeholder={isAr ? 'رقم الجوال' : 'Phone Number'}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200"
                     />
                     <textarea

@@ -8,10 +8,10 @@ interface MonthlySummaryCardProps {
   visitsValue?: number | string;
   profitValue?: number | string;
   ordersValue?: number | string;
-  salesGrowth?: number;
-  visitsGrowth?: number;
-  profitGrowth?: number;
-  ordersGrowth?: number;
+  salesGrowth?: number | null;
+  visitsGrowth?: number | null;
+  profitGrowth?: number | null;
+  ordersGrowth?: number | null;
   onViewReports: () => void;
 }
 
@@ -139,7 +139,7 @@ export const MonthlySummaryCard: React.FC<MonthlySummaryCardProps> = React.memo(
 
               {/* Bottom Row: Growth Badge / Dash on Start, Info HelpCircle on End */}
               <div className="mt-2.5 pt-1.5 flex items-center justify-between gap-1 text-[11px] font-bold">
-                {item.growth !== 0 ? (
+                {item.growth != null && item.growth !== 0 ? (
                   <div
                     className={`flex items-center gap-1 font-black ${
                       item.growth > 0

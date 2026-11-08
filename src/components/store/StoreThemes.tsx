@@ -315,6 +315,30 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
     const goThemeSettings = () => setActiveTab('theme-settings');
     window.addEventListener('unityteck-open-visual-builder', openFromSidebar as EventListener);
     window.addEventListener('unityteck-open-theme-settings', goThemeSettings);
+    try {
+      const intentRaw = sessionStorage.getItem('unityteck-theme-intent');
+      if (intentRaw) {
+        sessionStorage.removeItem('unityteck-theme-intent');
+        if (intentRaw === 'theme-settings') {
+          goThemeSettings();
+        } else {
+          try {
+            const parsed = JSON.parse(intentRaw) as { type?: string; page?: string };
+            if (parsed?.type === 'builder') {
+              openFromSidebar(
+                new CustomEvent('unityteck-open-visual-builder', {
+                  detail: { page: parsed.page },
+                }),
+              );
+            }
+          } catch {
+            /* ignore bad intent */
+          }
+        }
+      }
+    } catch {
+      /* storage may be unavailable */
+    }
     return () => {
       window.removeEventListener('unityteck-open-visual-builder', openFromSidebar as EventListener);
       window.removeEventListener('unityteck-open-theme-settings', goThemeSettings);
@@ -404,7 +428,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
     setStoreHomepageStyle(activeStore.id, template.styleKey);
     toast(
       isAr
-        ? `تم تفعيل قالب الواجهة الرئيسية: ${template.nameAr}`
+        ? `تم تفعيل قالب الواجهة الرئيسية:${template.nameAr}`
         : `Activated Homepage Template: ${template.name}! Active on live store.`,
       'success',
     );
@@ -415,7 +439,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
     setActivePageTemplates({ ...updated });
     toast(
       isAr
-        ? `تم تفعيل نموذج الصفحة: ${variationName}`
+        ? `تم تفعيل نموذج الصفحة:${variationName}`
         : `Applied template "${variationName}" to live storefront!`,
       'success',
     );
@@ -472,7 +496,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
           </div>
           <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? `القالب الفعال: ${currentStyle} · بيانات متصلة حقيقية بالكامل`
+              ? `القالب الفعال:${currentStyle}· بيانات متصلة حقيقية بالكامل`
               : `Active Style: ${currentStyle} · Zero fake data, fully dynamic`}
           </p>
         </div>
@@ -505,7 +529,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
               borderColor: isCarStore ? '#127bfe' : 'var(--accent)',
               color: isCarStore ? '#127bfe' : 'var(--accent)',
             }}
-            title={isAr ? `زيارة المتجر المباشر: ${liveStoreLabel}` : `Visit Live Storefront: ${liveStoreLabel}`}
+            title={isAr ? `زيارة المتجر المباشر:${liveStoreLabel}` : `Visit Live Storefront: ${liveStoreLabel}`}
           >
             <Globe className={`w-4 h-4 ${isCarStore ? 'text-[#127bfe]' : 'text-emerald-500'}`} />
             <span>{liveStoreLabel}</span>
@@ -554,10 +578,10 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
             type="button"
             onClick={() => onOpenThemeCustomizer('01_store_identity')}
             className="px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 cursor-pointer transition-all shadow-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shrink-0 active:scale-[0.98]"
-            title={isAr ? 'فتح مخصص الثيم التفاعلي المباشر (WordPress Customizer)' : 'Launch Live WordPress Customizer'}
+            title={isAr ? 'فتح مخصص الثيم التفاعلي المباشر' : 'Launch Live WordPress Customizer'}
           >
             <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-            <span>{isAr ? 'فتح مخصص الثيم المباشر (WordPress Style)' : 'Launch Live Customizer'}</span>
+            <span>{isAr ? 'فتح مخصص الثيم المباشر' : 'Launch Live Customizer'}</span>
           </button>
         )}
 
@@ -1057,7 +1081,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
                       <div className="absolute top-2.5 start-2.5 end-2.5 flex items-center justify-between z-10 pointer-events-none">
                         <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-slate-950/85 text-white backdrop-blur-xs border border-white/20 shadow-md">
                           {themeCategory}
-                          {theme.isDefault ? (isAr ? ' · الأساسي' : ' · Primary') : ''}
+                          {theme.isDefault ? (isAr ? '· الأساسي' : ' · Primary') : ''}
                         </span>
                         {isActive ? (
                           <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-600 text-white flex items-center gap-1 shadow-md">
@@ -1141,7 +1165,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
                         onClick={() => openVisualBuilder(theme.id)}
                         className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white shadow-xs flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] transition-all"
                         style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}
-                        title={isAr ? `تخصيص ${theme.name} في المحرر البصري` : `Customize ${theme.name}`}
+                        title={isAr ? `تخصيص${theme.name}في المحرر البصري` : `Customize ${theme.name}`}
                       >
                         <Palette className="w-3.5 h-3.5 text-white" />
                         <span>{isAr ? 'تخصيص' : 'Customize'}</span>
@@ -1163,7 +1187,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
                         type="button"
                         onClick={() => {
                           const copy = duplicateStoreTheme(activeStore.id, theme.id);
-                          toast(isAr ? `تم نسخ الثيم بنجاح: ${copy.name}` : `Theme duplicated: ${copy.name}`, 'success');
+                          toast(isAr ? `تم نسخ الثيم بنجاح:${copy.name}` : `Theme duplicated: ${copy.name}`, 'success');
                         }}
                         className="px-2.5 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1 cursor-pointer transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
                         style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
@@ -1395,7 +1419,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
                   </h3>
                   <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
                     {isAr
-                      ? `سيتم حفظ هذا الثيم حصرياً لمتجر ${activeStore.name} ولن يظهر لأي متجر آخر`
+                      ? `سيتم حفظ هذا الثيم حصرياً لمتجر${activeStore.name}ولن يظهر لأي متجر آخر`
                       : `This theme will be private to ${activeStore.name} and hidden from other stores`}
                   </p>
                 </div>

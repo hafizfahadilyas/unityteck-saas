@@ -162,7 +162,7 @@ Return a structured JSON with titleAr, titleEn, subtitleAr, subtitleEn, contentA
 
     case 'generate_product_desc':
       return {
-        titleAr: 'باقة الجوري الملكي الأحمر المخملية VIP',
+        titleAr: 'باقة الجوري الملكي الأحمر المخملية كبار العملاء',
         titleEn: 'Royal Red Velvet Rose Hand Bouquet VIP',
         subtitleAr: '50 وردة جوري هولندي فاخر مع تغليف ساتان ملكي وكرت إهداء مذهب',
         subtitleEn: '50 premium long-stem Dutch red roses with gold-embossed message card',
@@ -183,7 +183,7 @@ Return a structured JSON with titleAr, titleEn, subtitleAr, subtitleEn, contentA
           },
           {
             type: 'hero_slider',
-            titleAr: 'سلايدر الواجهة التفاعلي ثلاثي الأبعاد VIP',
+            titleAr: 'سلايدر الواجهة التفاعلي ثلاثي الأبعاد كبار العملاء',
             titleEn: '3D Motion Hero Slider',
             templateStyle: 'hero-luxury-gold',
           },

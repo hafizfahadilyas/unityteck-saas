@@ -207,7 +207,7 @@ export const PaymentTransactionsModal: React.FC<PaymentTransactionsModalProps> =
             <div className="text-xs font-bold text-slate-500 mb-1">{isAr ? 'إجمالي الرسوم' : 'Total Fees'}</div>
             <div className="text-lg font-black tabular-nums">{money(summary.fees)}</div>
             <div className="text-[11px] text-slate-500">
-              {isAr ? `فشل ${summary.failedCount} · مسترجع ${summary.refundedCount}` : `Failed ${summary.failedCount} · Refunded ${summary.refundedCount}`}
+              {isAr ? `فشل${summary.failedCount}· مسترجع${summary.refundedCount}` : `Failed ${summary.failedCount} · Refunded ${summary.refundedCount}`}
             </div>
           </div>
         </div>

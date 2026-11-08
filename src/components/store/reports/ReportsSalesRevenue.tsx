@@ -980,7 +980,7 @@ export const ReportsSalesRevenue: React.FC<ReportsSalesRevenueProps> = ({
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {isAr ? 'توقعات المبيعات (AI Forecast)' : 'Sales Forecast'}
+                  {isAr ? 'توقعات المبيعات' : 'Sales Forecast'}
                 </h3>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">

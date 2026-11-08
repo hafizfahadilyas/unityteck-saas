@@ -38,7 +38,7 @@ createRoot(root).render(
     {isClerkConfigured() ? (
       <ClerkProvider
         publishableKey={publishableKey}
-        afterSignOutUrl="/"
+        afterSignOutUrl="/store/login"
         allowedRedirectOrigins={clerkAllowedRedirectOrigins()}
       >
         <App />

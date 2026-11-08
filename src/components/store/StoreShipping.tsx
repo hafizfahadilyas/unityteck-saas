@@ -419,7 +419,7 @@ export const StoreShipping: React.FC = () => {
       } else {
         toast(
           isAr
-            ? `فشل اختبار اتصال شركة الشحن: ${res.message || 'بيانات الاعتماد غير صالحة'}`
+            ? `فشل اختبار اتصال شركة الشحن:${res.message || 'بيانات الاعتماد غير صالحة'}`
             : `Carrier API test failed: ${res.message || 'Credentials invalid'}`,
           'error'
         );
@@ -901,7 +901,7 @@ export const StoreShipping: React.FC = () => {
                         }}
                         className="w-full py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-[11px] font-bold shadow-xs cursor-pointer text-center"
                       >
-                        {isAr ? `ربط ${prov.badge} ←` : `Connect ${prov.badge} Provider →`}
+                        {isAr ? `ربط${prov.badge}←` : `Connect ${prov.badge} Provider →`}
                       </button>
                     )}
                   </div>
@@ -1196,7 +1196,7 @@ export const StoreShipping: React.FC = () => {
                         onClick={() => {
                           const newRate = window.prompt(
                             isAr
-                              ? `حدّث السعر الأساسي لـ ${m.name} (ر.س):`
+                              ? `حدّث السعر الأساسي لـ${m.name}(ر.س):`
                               : `Update base rate for ${m.name} (SAR):`,
                             m.baseRate.toString()
                           );
@@ -1204,7 +1204,7 @@ export const StoreShipping: React.FC = () => {
                             updateShippingMethod(m.id, { baseRate: parseFloat(newRate) });
                             toast(
                               isAr
-                                ? `تم تحديث السعر الأساسي إلى ${money(parseFloat(newRate))}`
+                                ? `تم تحديث السعر الأساسي إلى${money(parseFloat(newRate))}`
                                 : `Base rate updated to ${money(parseFloat(newRate))}`,
                               'success'
                             );
@@ -1280,7 +1280,7 @@ export const StoreShipping: React.FC = () => {
                   required
                   value={courierAccountNumber}
                   onChange={(e) => setCourierAccountNumber(e.target.value)}
-                  placeholder={isAr ? 'مثال: SPL-ACC-99214 أو SMSA-SHP-001' : 'e.g. SPL-ACC-99214 or SMSA-SHP-001'}
+                  placeholder={isAr ? 'مثال: سبل-ACC-99214 أو سمسا-SHP-001' : 'e.g. SPL-ACC-99214 or SMSA-SHP-001'}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono"
                 />
               </div>

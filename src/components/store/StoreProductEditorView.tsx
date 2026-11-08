@@ -712,7 +712,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const [seoDescription, setSeoDescription] = useState(
     product.seoDescription ||
       product.description ||
-      (isAr ? `تسوق ${product.name || 'المنتج'} بجودة عالية وسرعة توصيل بالمملكة العربية السعودية.` : `Buy ${product.name || 'this product'} with top quality and fast shipping in Saudi Arabia.`)
+      (isAr ? `تسوق${product.name || 'المنتج'}بجودة عالية وسرعة توصيل بالمملكة العربية السعودية.` : `Buy ${product.name || 'this product'} with top quality and fast shipping in Saudi Arabia.`)
   );
   const [urlSlug, setUrlSlug] = useState(
     product.customUrl || (product.name || 'product').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
@@ -889,7 +889,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       if (updateProduct && product?.id && storeId) {
         updateProduct(product.id, { galleryUrls: updated }, storeId);
       }
-      toast(isAr ? `تم ضغط وإضافة ${optimizedUrls.length} صور في أجزاء من الثانية` : `Added & optimized ${optimizedUrls.length} images instantly`, 'success');
+      toast(isAr ? `تم ضغط وإضافة${optimizedUrls.length}صور في أجزاء من الثانية` : `Added & optimized ${optimizedUrls.length} images instantly`, 'success');
     } catch {
       const newUrls = files.map((f) => URL.createObjectURL(f));
       const updated = [...gallery, ...newUrls];
@@ -932,7 +932,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       if (updateProduct && product?.id && storeId) {
         updateProduct(product.id, { galleryUrls: updated }, storeId);
       }
-      toast(isAr ? `تمت إضافة ${newUrls.length} صور للمعرض` : `Added ${newUrls.length} images to gallery`, 'success');
+      toast(isAr ? `تمت إضافة${newUrls.length}صور للمعرض` : `Added ${newUrls.length} images to gallery`, 'success');
     } else if (mediaPickerTarget === 'variant' && variantMediaTargetIndex !== null) {
       const copy = [...variations];
       if (copy[variantMediaTargetIndex]) {
@@ -1192,7 +1192,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     const copy: ProductOptionItem = {
       ...opt,
       id: `opt_${Date.now()}`,
-      name: isAr ? `${opt.name} نسخة` : `${opt.name} copy`,
+      name: isAr ? `${opt.name}نسخة` : `${opt.name} copy`,
       values: opt.values.map((v) => ({ ...v, id: `${v.id}_${stamp}` })),
     };
     applyVariantMatrix([...options, copy]);
@@ -1291,7 +1291,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
     // Sync conditionalRule text to target fields
     const ruleText = isAr
-      ? `إذا كان ${ruleOptionName} = ${ruleOptionVal}`
+      ? `إذا كان${ruleOptionName}=${ruleOptionVal}`
       : `If ${ruleOptionName} = ${ruleOptionVal}`;
 
     setCustomFields(
@@ -1507,7 +1507,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   };
 
   const handleBulkDelete = () => {
-    if (!window.confirm(isAr ? `هل أنت متأكد من حذف ${selectedVariationIds.length} تنويع؟` : `Delete ${selectedVariationIds.length} selected variants?`)) {
+    if (!window.confirm(isAr ? `هل أنت متأكد من حذف${selectedVariationIds.length}تنويع؟` : `Delete ${selectedVariationIds.length} selected variants?`)) {
       return;
     }
     setVariations(variations.filter((v) => !selectedVariationIds.includes(v.id)));
@@ -1785,7 +1785,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 onClick={() => toggleEditorSection(key)}
                 className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-amber-300 dark:border-amber-800 bg-white dark:bg-slate-900 text-amber-800 dark:text-amber-200 cursor-pointer hover:bg-amber-100/80 dark:hover:bg-amber-900/40"
               >
-                {isAr ? `إظهار · ${label}` : `Show · ${label}`}
+                {isAr ? `إظهار ·${label}` : `Show · ${label}`}
               </button>
             ))}
             <button
@@ -2940,7 +2940,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {isAr
-                      ? `إجمالي الكمية: ${variantQuantityTotal} · عدد التنويعات: ${variations.length}`
+                      ? `إجمالي الكمية:${variantQuantityTotal}· عدد التنويعات:${variations.length}`
                       : `Total quantity: ${variantQuantityTotal} · Variants: ${variations.length}`}
                   </p>
                 </div>
@@ -3368,7 +3368,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                                           />
                                           {parts.percent > 0 && (
                                             <span className="text-[10px] font-bold text-rose-600">
-                                              {isAr ? `خصم ${parts.percent}٪` : `${parts.percent}% off`}
+                                              {isAr ? `خصم${parts.percent}٪` : `${parts.percent}% off`}
                                             </span>
                                           )}
                                         </div>

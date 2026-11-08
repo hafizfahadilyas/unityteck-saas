@@ -120,7 +120,7 @@ export const ReportsNavHeader: React.FC<ReportsNavHeaderProps> = ({
               <option value="7d" className="dark:bg-slate-900 text-slate-800 dark:text-slate-100">{isAr ? 'آخر 7 أيام' : 'Last 7 Days'}</option>
               <option value="30d" className="dark:bg-slate-900 text-slate-800 dark:text-slate-100">{isAr ? 'آخر 30 يوم' : 'Last 30 Days'}</option>
               <option value="90d" className="dark:bg-slate-900 text-slate-800 dark:text-slate-100">{isAr ? 'آخر 90 يوم' : 'Last 90 Days'}</option>
-              <option value="year" className="dark:bg-slate-900 text-slate-800 dark:text-slate-100">{isAr ? 'العام الحالي (2026)' : 'This Year (2026)'}</option>
+              <option value="year" className="dark:bg-slate-900 text-slate-800 dark:text-slate-100">{isAr ? 'العام الحالي' : 'This Year (2026)'}</option>
             </select>
           </div>
 

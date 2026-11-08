@@ -257,7 +257,7 @@ export const BlogForm: React.FC = () => {
                   <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-[10px]">
                     {idx + 1}
                   </span>
-                  <span>{isAr ? `مقال: ${art.title}` : `Article #${idx + 1}`}</span>
+                  <span>{isAr ? `مقال:${art.title}` : `Article #${idx + 1}`}</span>
                 </span>
                 <button
                   type="button"

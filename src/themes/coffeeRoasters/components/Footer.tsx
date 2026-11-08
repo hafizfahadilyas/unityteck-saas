@@ -67,9 +67,25 @@ export const Footer: React.FC = () => {
   );
   const paymentLabel = bi(language, footerCfg?.paymentsEn, footerCfg?.paymentsAr);
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim()) return;
+    const value = inputValue.trim();
+    if (!value) return;
+    const storeId = activeStore?.id;
+    if (storeId && subChannel === 'email' && value.includes('@')) {
+      try {
+        const { subscribeStoreNewsletter } = await import('../../../api/tenantApi');
+        await subscribeStoreNewsletter(storeId, value);
+      } catch {
+        /* show success only when API accepts — otherwise keep form for retry */
+        return;
+      }
+    } else if (subChannel === 'whatsapp') {
+      /* WhatsApp subscribe needs gateway — skip fake success */
+      return;
+    } else if (!storeId) {
+      return;
+    }
     setSubSuccess(true);
     setTimeout(() => {
       setInputValue('');
@@ -198,7 +214,7 @@ export const Footer: React.FC = () => {
 
               {newsletter?.showCoupon && newsletter.couponCode ? (
                 <p className="text-[11px] font-bold opacity-90">
-                  {language === 'AR' ? `رمز الكوبون: ${newsletter.couponCode}` : `Coupon code: ${newsletter.couponCode}`}
+                  {language === 'AR' ? `رمز الكوبون:${newsletter.couponCode}` : `Coupon code: ${newsletter.couponCode}`}
                 </p>
               ) : null}
 
@@ -260,15 +276,23 @@ export const Footer: React.FC = () => {
               {contactAddress ? <div className="text-neutral-300 text-xs">{contactAddress}</div> : null}
             </div>
 
-            {/* Official KSA VAT & Commercial Registration Numbers (Screenshot 5) */}
-            <div className="text-[11px] text-neutral-300 space-y-1.5 pt-1 font-mono">
-              <div>Tax ID/VAT Registration No. {storeIdentity?.vatNumber || '311123479500003'}</div>
-              <div>Commercial Registration No. {storeIdentity?.commercialReg || '1010754462'}</div>
-              <div className="flex items-center gap-1 text-neutral-300 hover:text-white cursor-pointer transition-colors">
-                <span>E-Commerce Authentication No. 0000093589</span>
-                <span>&gt;</span>
+            {/* Official KSA VAT & Commercial Registration — real store identity only */}
+            {(storeIdentity?.vatNumber || storeIdentity?.commercialReg) ? (
+              <div className="text-[11px] text-neutral-300 space-y-1.5 pt-1 font-mono">
+                {storeIdentity?.vatNumber ? (
+                  <div>
+                    {isAr ? 'الرقم الضريبي / ضريبة القيمة المضافة:' : 'Tax ID / VAT Registration No.'}{' '}
+                    {storeIdentity.vatNumber}
+                  </div>
+                ) : null}
+                {storeIdentity?.commercialReg ? (
+                  <div>
+                    {isAr ? 'السجل التجاري:' : 'Commercial Registration No.'}{' '}
+                    {storeIdentity.commercialReg}
+                  </div>
+                ) : null}
               </div>
-            </div>
+            ) : null}
 
             {/* Social Icons Row — C-FOOT showSocial */}
             {showSocial ? (

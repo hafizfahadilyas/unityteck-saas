@@ -8,83 +8,61 @@ export const TestimonialsSection: React.FC = () => {
   const { language } = useApp();
   const isAr = language === 'ar';
   const { activeStore } = useTenant();
-  const storeId = activeStore?.id || 'store-1';
+  const storeId = activeStore?.id || '';
 
   const [activeCard, setActiveCard] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  const fallbackTestimonials = [
-    {
-      id: 'test-1',
-      name: 'د. سارة الغامدي',
-      nameEn: 'Dr. Sarah Al-Ghamdi',
-      role: 'مكة المكرمة · حي الشوقية',
-      roleEn: 'Mecca • Al-Shawqiyyah',
-      avatar: '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
-      rating: 5,
-      comment: 'ما شاء الله تبارك الرحمن، تنسيق باقة الورد فاق التوقعات بكثير! الورد طبيعي جداً وفريش والتغليف فاخر يليق بأرقى المناسبات، والتوصيل خلال 45 دقيقة فقط.',
-      commentEn: 'Exceeded all expectations! The roses were remarkably fresh and the packaging is worthy of the finest VIP celebrations, delivered in under 45 minutes.',
-    },
-    {
-      id: 'test-2',
-      name: 'م. عبدالرحمن الحربي',
-      nameEn: 'Eng. Abdulrahman Al-Harbi',
-      role: 'مكة المكرمة · حي العوالي',
-      roleEn: 'Mecca • Al-Awali VIP',
-      avatar: '/images/hadaya_red_roses_bouquet_1791276749666.jpg',
-      rating: 5,
-      comment: 'طلبت بوكس الجوري وشوكولاتة باتشي، الصراحة فخامة لا توصف والاهتمام بأدق التفاصيل والكرت المكتوب بخط اليد مع ختم الشمع الملكي كان لمسة إبداعية.',
-      commentEn: 'Ordered the roses & Patchi chocolate chest. Unmatched elegance, bespoke attention to detail, and the wax-sealed calligraphy card was breathtaking.',
-    },
-    {
-      id: 'test-3',
-      name: 'أ/ فيصل السلمي',
-      nameEn: 'Faisal Al-Sulami',
-      role: 'مكة المكرمة · العزيزية',
-      roleEn: 'Mecca • Al-Aziziyah',
-      avatar: '/images/hadaya_luxury_gift_set_1791216170853.jpg',
-      rating: 5,
-      comment: 'خدمة أكثر من رائعة وتجاوب فوري عبر الواتساب. الأفضل في مكة بلا منازع، الفازة الكريستالية كانت تحفة فنية أبهرت كل الضيوف في المجلس.',
-      commentEn: 'Prompt WhatsApp concierge assistance and unmatched floristry quality. The crystal vase became the highlight of our reception salon.',
-    },
-    {
-      id: 'test-4',
-      name: 'نورة الهذلي',
-      nameEn: 'Noura Al-Hothali',
-      role: 'مكة المكرمة · بطحاء قريش',
-      roleEn: 'Mecca • Batha Quraish',
-      avatar: '/images/hadaya_white_orchid_penthouse_1791218732789.jpg',
-      rating: 5,
-      comment: 'تنسيق باقة العروس مع اللؤلؤ كان حلم وتحقق، الله يعطيكم العافية على الدقة والاحترافية وسرعة التوصيل المبرد اللي حافظت على نضارة كل وردة.',
-      commentEn: 'The bridal bouquet with pearls was a dream come true. Immense gratitude for the chilled express delivery that kept every single petal fresh.',
-    },
-    {
-      id: 'test-5',
-      name: 'سعيد الزهراني',
-      nameEn: 'Saeed Al-Zahrani',
-      role: 'مكة المكرمة · حي النزهة',
-      roleEn: 'Mecca • Al-Nuzha',
-      avatar: '/images/hadaya_men_luxury_gift_1791219799100.jpg',
-      rating: 5,
-      comment: 'سرعة الإنجاز والتعامل الراقي وباقة الورد ملأت المكان بعطرها الفواح. معتمدكم في كل مناسباتي القادمة بإذن الله.',
-      commentEn: 'Swift execution, courteous service, and the flowers filled the entire room with alluring fragrance. My go-to store for all Mecca occasions.',
-    },
-  ];
+  type TestimonialCard = {
+    id: string;
+    name: string;
+    nameEn?: string;
+    role?: string;
+    roleEn?: string;
+    avatar?: string;
+    rating: number;
+    comment: string;
+    commentEn?: string;
+  };
 
-  const [testimonials, setTestimonials] = useState(fallbackTestimonials);
+  const [testimonials, setTestimonials] = useState<TestimonialCard[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!storeId) {
+      setTestimonials([]);
+      return;
+    }
     let mounted = true;
+    setLoading(true);
     apiFetch<{ success: boolean; data: any[] }>(`/stores/${storeId}/reviews`, { storeId })
       .then((res) => {
-        if (mounted && res && res.data && res.data.length > 0) {
-          setTestimonials(res.data);
-        }
+        if (!mounted) return;
+        const rows = Array.isArray(res?.data) ? res.data : [];
+        const mapped: TestimonialCard[] = rows
+          .filter((r) => (r as { active?: boolean }).active !== false)
+          .map((r) => ({
+            id: String((r as { id?: string }).id || `rev-${Math.random()}`),
+            name: String((r as { author?: string }).author || '—'),
+            nameEn: String((r as { author?: string }).author || '—'),
+            role: String((r as { city?: string }).city || ''),
+            roleEn: String((r as { city?: string }).city || ''),
+            avatar: '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+            rating: Number((r as { rating?: number }).rating) || 5,
+            comment: String((r as { commentAr?: string }).commentAr || (r as { comment?: string }).comment || ''),
+            commentEn: String((r as { comment?: string }).comment || (r as { commentAr?: string }).commentAr || ''),
+          }));
+        setTestimonials(mapped);
       })
       .catch(() => {
-        // Fallback gracefully to default
+        if (mounted) setTestimonials([]);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
       });
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [storeId]);
 
   const total = testimonials.length;
@@ -103,6 +81,10 @@ export const TestimonialsSection: React.FC = () => {
     const interval = setInterval(next, 7000);
     return () => clearInterval(interval);
   }, [isPaused, next]);
+
+  if (!storeId || loading || testimonials.length === 0) {
+    return null;
+  }
 
   return (
     <section

@@ -121,7 +121,7 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#102a1c] border border-[#e6ca98]/30 text-xs font-semibold text-[#e6ca98] hover:bg-[#e6ca98] hover:text-[#102a1c] transition-all shadow-md"
           >
             <Globe className="w-3.5 h-3.5" />
-            <span>{isAr ? 'English' : 'العربية'}</span>
+            <span>{isAr ? 'الإنجليزية' : 'العربية'}</span>
           </button>
 
           {/* Admin Bypass Preview button */}

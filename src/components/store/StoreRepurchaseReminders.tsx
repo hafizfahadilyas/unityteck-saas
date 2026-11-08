@@ -270,7 +270,7 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {isAr
-                  ? `مخصص لمتجر: ${activeStore.name}`
+                  ? `مخصص لمتجر:${activeStore.name}`
                   : `Configured specifically for: ${activeStore.name}`}
               </p>
             </div>
@@ -865,7 +865,7 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
                         {isAr ? 'الرسائل النصية' : 'SMS'}
                       </div>
                       <div className="text-[11px] text-gray-500 mt-0.5">
-                        {isAr ? 'إرسال عبر SMS' : 'Send via SMS'}
+                        {isAr ? 'إرسال عبر الرسائل النصية' : 'Send via SMS'}
                       </div>
                     </div>
                   </label>

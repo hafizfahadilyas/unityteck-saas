@@ -109,7 +109,7 @@ export const MasterHealthAlertsHub: React.FC<MasterHealthAlertsHubProps> = ({
             keywords: [targetStore.name, 'Saudi Arabia', 'Online Store', 'Fast Delivery'],
           });
           toast(
-            isAr ? `تم تحديث SEO للمتجر ${targetStore.name}` : `SEO generated for ${targetStore.name}`,
+            isAr ? `تم تحديث تحسين محركات البحث للمتجر${targetStore.name}` : `SEO generated for ${targetStore.name}`,
             'success'
           );
         }
@@ -140,7 +140,7 @@ export const MasterHealthAlertsHub: React.FC<MasterHealthAlertsHubProps> = ({
       }
       toast(
         isAr
-          ? `تمت معالجة ${autoFixable.length} مشكلة مؤهلة للإصلاح التلقائي بنجاح`
+          ? `تمت معالجة${autoFixable.length}مشكلة مؤهلة للإصلاح التلقائي بنجاح`
           : `Successfully auto-resolved ${autoFixable.length} eligible issues`,
         'success'
       );
@@ -208,7 +208,7 @@ export const MasterHealthAlertsHub: React.FC<MasterHealthAlertsHubProps> = ({
               </div>
               <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--muted)' }}>
                 {isAr
-                  ? 'مراقبة مركزية شاملة لربط Google، بوابات الدفع، شركات الشحن، واكتمال بيانات المتاجر.'
+                  ? 'مراقبة مركزية شاملة لربط جوجل، بوابات الدفع، شركات الشحن، واكتمال بيانات المتاجر.'
                   : 'Central live diagnostics across Google integration, payment gateways, couriers, and store setup.'}
               </p>
             </div>

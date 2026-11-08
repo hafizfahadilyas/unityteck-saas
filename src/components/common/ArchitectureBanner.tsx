@@ -109,13 +109,13 @@ export const ArchitectureBanner: React.FC = () => {
                 )}
               </p>
               <div className="mt-2 text-[11px] font-medium text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-300 px-2 py-1 rounded inline-block">
-                {isAr ? 'قاعدة بيانات المتجر النشط: ' : 'Active Store DB: '}
+                {isAr ? 'قاعدة بيانات المتجر النشط:' : 'Active Store DB: '}
                 {activeStore.dbIsolation === 'dedicated_mysql'
                   ? isAr
                     ? 'MySQL مخصصة'
                     : 'Dedicated MySQL'
                   : isAr
-                    ? 'قسم مشترك (store_id)'
+                    ? 'قسم مشترك'
                     : 'Shared partition (store_id)'}
               </div>
             </div>
@@ -127,11 +127,11 @@ export const ArchitectureBanner: React.FC = () => {
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
                 {isAr
-                  ? 'يمكن أن تكون المتاجر مجانية أو احترافية. ويستطيع المشرف العام منح ميزات الباقة الاحترافية مباشرةً عبر صلاحية التجاوز، لتفعيل تحليلات التسويق المتقدمة وتقسيم عملاء VIP.'
+                  ? 'يمكن أن تكون المتاجر مجانية أو احترافية. ويستطيع المشرف العام منح ميزات الباقة الاحترافية مباشرةً عبر صلاحية التجاوز، لتفعيل تحليلات التسويق المتقدمة وتقسيم شرائح كبار العملاء.'
                   : 'Stores can be Free or Pro. The Master Admin can grant Pro features directly via Master override, unlocking advanced marketing analytics & VIP segmentation.'}
               </p>
               <div className="mt-2 text-[11px] font-medium text-blue-700 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-300 px-2 py-1 rounded inline-block">
-                {isAr ? 'الباقة الحالية: ' : 'Current Plan: '}
+                {isAr ? 'الباقة الحالية:' : 'Current Plan: '}
                 <span className="uppercase font-bold">
                   {isAr
                     ? activeStore.plan === 'premium'
@@ -197,7 +197,7 @@ export const ArchitectureBanner: React.FC = () => {
           <div className="flex items-center justify-between gap-3 p-3.5 bg-teal-50 border border-teal-200 dark:bg-teal-500/10 dark:border-teal-500/30 rounded-xl">
             <div>
               <span className="text-xs font-semibold text-teal-900 dark:text-teal-200 block">
-                {isAr ? 'وضع العرض الحالي: ' : 'Currently viewing in: '}
+                {isAr ? 'وضع العرض الحالي:' : 'Currently viewing in: '}
                 {mode === 'master'
                   ? isAr
                     ? 'لوحة المشرف العام للمنصة'
@@ -209,7 +209,7 @@ export const ArchitectureBanner: React.FC = () => {
               <span className="text-[11px] text-teal-700 dark:text-teal-300">
                 {canAccessMaster
                   ? isAr
-                    ? 'حساب المشرف العام يمكنه فتح جميع المتاجر، بينما يبقى حساب المتجر مقيّدًا بـ store_id الخاص به فقط.'
+                    ? 'حساب المشرف العام يمكنه فتح جميع المتاجر، بينما يبقى حساب المتجر مقيّدًا بـ معرّف المتجر الخاص به فقط.'
                     : 'Master login can open every store. Store login stays on its own store_id only.'
                   : isAr
                     ? 'حساب المتجر: لوحة المشرف العام مخفية، وترى هذا المتجر فقط.'

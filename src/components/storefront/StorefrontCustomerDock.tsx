@@ -119,7 +119,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
       setProfile(updated);
       toast(
         isAr
-          ? `تم تفعيل الموقع الجغرافي والإشعارات في ملفك الشخصي بنجاح (+${bonus} عملة مكافأة)!`
+          ? `تم تفعيل الموقع الجغرافي والإشعارات في ملفك الشخصي بنجاح (+${bonus}عملة مكافأة)!`
           : `Location & Notifications enabled in your Profile (+${bonus} Bonus Coins)!`,
         'success',
       );
@@ -147,7 +147,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
       );
       toast(
         isAr
-          ? `لعبت اليوم بالفعل! يمكنك اللعب مجدداً بعد ${hrs} ساعة.`
+          ? `لعبت اليوم بالفعل! يمكنك اللعب مجدداً بعد${hrs}ساعة.`
           : `You already played today! Next daily spin available in ~${hrs}h.`,
         'info',
       );
@@ -170,7 +170,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
       setIsSpinning(false);
       toast(
         isAr
-          ? `مبروك! ربحت +${won} عملة يمكنك التسوق بها فوراً!`
+          ? `مبروك! ربحت +${won}عملة يمكنك التسوق بها فوراً!`
           : `Congratulations! You won +${won} Coins to shop with at checkout!`,
         'success',
       );
@@ -217,7 +217,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
               <Coins className="w-3.5 h-3.5 text-amber-300 shrink-0" />
               <span className="truncate max-w-[200px] sm:max-w-none">
                 {isAr
-                  ? `عملاتي والولاء (${profile.coinsBalance} = ${sarDiscountWorth} ر.س)`
+                  ? `عملاتي والولاء (${profile.coinsBalance}=${sarDiscountWorth}ر.س)`
                   : `Coins & Loyalty (${profile.coinsBalance} = ${sarDiscountWorth} SAR)`}
               </span>
             </button>
@@ -257,7 +257,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <h3 className="font-black text-base">
-                  {isAr ? `ملف ومكافآت العميل — ${activeStore.name}` : `Customer Rewards, Cards & Tracking — ${activeStore.name}`}
+                  {isAr ? `ملف ومكافآت العميل —${activeStore.name}` : `Customer Rewards, Cards & Tracking — ${activeStore.name}`}
                 </h3>
                 <p className="text-xs text-slate-500">
                   {profile.name} · {profile.city}, KSA · {profile.loyaltyCardNumber}
@@ -290,7 +290,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
                   onClick={handleAllowLocationAndPush}
                   className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-black cursor-pointer shrink-0"
                 >
-                  {isAr ? `تفعيل (+${loyaltySettings.signupLocationBonusCoins} عملة)` : `Allow (+${loyaltySettings.signupLocationBonusCoins} Coins)`}
+                  {isAr ? `تفعيل (+${loyaltySettings.signupLocationBonusCoins}عملة)` : `Allow (+${loyaltySettings.signupLocationBonusCoins} Coins)`}
                 </button>
               )}
             </div>
@@ -390,7 +390,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
                           setProfile(updated);
                           toast(
                             isAr
-                              ? `تم استخدام البطاقة المحفوظة وإضافة +${c.bonusCoinsPerUse} عملة لرصيدك!`
+                              ? `تم استخدام البطاقة المحفوظة وإضافة +${c.bonusCoinsPerUse}عملة لرصيدك!`
                               : `Used Saved Card & earned +${c.bonusCoinsPerUse} Bonus Coins!`,
                             'success',
                           );

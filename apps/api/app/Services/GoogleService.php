@@ -277,7 +277,10 @@ class GoogleService
         $accounts = [];
         try {
             $res = Http::withToken($accessToken)
-                ->withHeaders(['developer-token' => env('GOOGLE_ADS_DEVELOPER_TOKEN', 'unityteck-ads-dev')])
+                ->withHeaders(array_filter([
+                    'developer-token' => (string) (config('services.google.ads_developer_token') ?: env('GOOGLE_ADS_DEVELOPER_TOKEN', '')),
+                    'login-customer-id' => preg_replace('/\D+/', '', (string) (config('services.google.ads_login_customer_id') ?: env('GOOGLE_ADS_LOGIN_CUSTOMER_ID', ''))) ?: null,
+                ]))
                 ->get('https://googleads.googleapis.com/v17/customers:listAccessibleCustomers');
 
             if ($res->successful()) {

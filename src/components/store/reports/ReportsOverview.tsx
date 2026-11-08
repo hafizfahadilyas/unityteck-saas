@@ -533,11 +533,11 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
                 <div className="text-slate-300 text-[10px]">{trendPoints[hoveredIndex].label}, 2026</div>
                 <div className="flex items-center gap-1 text-blue-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                  <span>{isAr ? 'الإيرادات: ' : 'Revenue: '}{money(trendPoints[hoveredIndex].revenue)}</span>
+                  <span>{isAr ? 'الإيرادات:' : 'Revenue: '}{money(trendPoints[hoveredIndex].revenue)}</span>
                 </div>
                 <div className="flex items-center gap-1 text-purple-300">
                   <span className="w-1.5 h-1.5 rounded-full bg-purple-300" />
-                  <span>{isAr ? 'الطلبات: ' : 'Orders: '}{trendPoints[hoveredIndex].orders}</span>
+                  <span>{isAr ? 'الطلبات:' : 'Orders: '}{trendPoints[hoveredIndex].orders}</span>
                 </div>
               </div>
             )}
@@ -1127,7 +1127,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-1.5 truncate">
                     <span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />
-                    <span className="text-slate-600 dark:text-slate-400 truncate">{isAr ? 'عملاء VIP' : 'VIP'}</span>
+                    <span className="text-slate-600 dark:text-slate-400 truncate">{isAr ? 'كبار العملاء' : 'VIP'}</span>
                   </div>
                   <span className="font-bold text-slate-900 dark:text-white whitespace-nowrap">{vipCust} ({vipPct}%)</span>
                 </div>
@@ -1140,7 +1140,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
             <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
             <span>
               {isAr
-                ? 'يولد عملاء VIP نسبة 34% من إجمالي الإيرادات. يُنصح بإنشاء عروض خاصة لزيادة تكرار الشراء.'
+                ? 'يولد كبار العملاء نسبة 34% من إجمالي الإيرادات. يُنصح بإنشاء عروض خاصة لزيادة تكرار الشراء.'
                 : 'VIP customers generate 34% of total revenue. Consider creating exclusive offers to increase repeat purchases.'}
             </span>
           </div>

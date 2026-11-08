@@ -241,7 +241,7 @@ export const TopCircularCategories: React.FC<TopCircularCategoriesProps> = ({
                   <Edit3 className="w-3 h-3 text-amber-500" />
                   <span>
                     {isAr
-                      ? `تصنيف ${idx + 1} (انقر للتعديل)`
+                      ? `تصنيف${idx + 1}(انقر للتعديل)`
                       : `Cat ${idx + 1} (Click to edit)`}
                   </span>
                 </div>

@@ -81,7 +81,7 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   {
     id: 'w_columns',
     type: 'columns_container',
-    titleAr: 'أعمدة شبكية (Elementor Grid)',
+    titleAr: 'أعمدة شبكية',
     titleEn: 'Columns Container',
     category: 'general',
     icon: Columns,
@@ -91,7 +91,7 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   {
     id: 'w_inner_section',
     type: 'columns_container',
-    titleAr: 'قسم داخلي (Inner Section 25, 25, 50)',
+    titleAr: 'قسم داخلي',
     titleEn: 'Inner Section (25, 25, 50)',
     category: 'general',
     icon: Layout,
@@ -107,7 +107,7 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   {
     id: 'w_featured_posts',
     type: 'featured_posts',
-    titleAr: 'مقالات مميزة (Typer Articles)',
+    titleAr: 'مقالات مميزة',
     titleEn: 'Featured Posts / Typer Articles',
     category: 'general',
     icon: BookOpen,
@@ -244,7 +244,7 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   {
     id: 'w_category_grid',
     type: 'category_grid',
-    titleAr: 'شبكة التصنيفات 8 (Category Grid)',
+    titleAr: 'شبكة التصنيفات 8',
     titleEn: '8-Categories Grid Showcase',
     category: 'ecommerce',
     icon: Grid,
@@ -254,7 +254,7 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   {
     id: 'w_best_sellers',
     type: 'best_sellers',
-    titleAr: 'الأكثر مبيعاً (Best Sellers)',
+    titleAr: 'الأكثر مبيعاً',
     titleEn: 'Best Sellers Showcase',
     category: 'ecommerce',
     icon: ShoppingBag,
@@ -264,7 +264,7 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   {
     id: 'w_shop_by_category',
     type: 'shop_by_category',
-    titleAr: 'تسوق حسب التصنيف (Shop by Category)',
+    titleAr: 'تسوق حسب التصنيف',
     titleEn: 'Shop by Category Cards',
     category: 'ecommerce',
     icon: Layers,
@@ -274,7 +274,7 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   {
     id: 'w_featured_collections',
     type: 'featured_collections',
-    titleAr: 'تشكيلات مميزة وإحصائيات (Featured Collections)',
+    titleAr: 'تشكيلات مميزة وإحصائيات',
     titleEn: 'Featured Collections & Stats',
     category: 'sections',
     icon: Sparkles,
@@ -284,7 +284,7 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   {
     id: 'w_occasion_why_us',
     type: 'occasion_why_us',
-    titleAr: 'المناسبات ولماذا تختارنا (Occasion & Why Us)',
+    titleAr: 'المناسبات ولماذا تختارنا',
     titleEn: 'Shop by Occasion & Why Choose Us',
     category: 'sections',
     icon: CreditCard,
@@ -294,7 +294,7 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   {
     id: 'w_custom_gift',
     type: 'custom_gift_banner',
-    titleAr: 'بانر هدية خاصة (Looking for unique)',
+    titleAr: 'بانر هدية خاصة',
     titleEn: 'Looking for Unique Banner',
     category: 'sections',
     icon: Flame,
@@ -304,7 +304,7 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   {
     id: 'w_trending_this_week',
     type: 'trending_this_week',
-    titleAr: 'الأكثر رواجاً هذا الأسبوع (Trending)',
+    titleAr: 'الأكثر رواجاً هذا الأسبوع',
     titleEn: 'Trending This Week Carousel',
     category: 'ecommerce',
     icon: ShoppingBag,

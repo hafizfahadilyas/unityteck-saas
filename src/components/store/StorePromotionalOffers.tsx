@@ -97,7 +97,7 @@ export const StorePromotionalOffers: React.FC<StorePromotionalOffersProps> = ({ 
     setOffersList([newOffer, ...offersList]);
     toast(
       isAr
-        ? `تم حفظ وتفعيل العرض الخاص "${isAr ? titleAr : titleEn}" بنجاح`
+        ? `تم حفظ وتفعيل العرض الخاص "${isAr ? titleAr: titleEn}" بنجاح`
         : `Special offer "${titleEn}" saved successfully`,
       'success'
     );

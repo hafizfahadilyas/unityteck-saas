@@ -100,7 +100,7 @@ export const StoreAppStore: React.FC<StoreAppStoreProps> = ({ onOpenStorefront }
         <AppStoreBrand
           subtitle={
             isAr
-              ? `سوق الثيمات · ثيمات ${otherStoreCount || 'باقي'} متاجر · شراء ومعاينة`
+              ? `سوق الثيمات · ثيمات${otherStoreCount || 'باقي'}متاجر · شراء ومعاينة`
               : `Themes Market · Themes from ${otherStoreCount || 'other'} stores · Buy & View`
           }
         />
@@ -196,7 +196,7 @@ export const StoreAppStore: React.FC<StoreAppStoreProps> = ({ onOpenStorefront }
                   <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
                     {plug.monthlyFee === 0
                       ? isAr ? 'مجاني' : 'Free'
-                      : isAr ? `${plug.monthlyFee} ر.س/شهريًا` : `SAR ${plug.monthlyFee}/mo`}
+                      : isAr ? `${plug.monthlyFee}ر.س/شهريًا` : `SAR ${plug.monthlyFee}/mo`}
                   </span>
                   <button
                     type="button"

@@ -191,7 +191,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
     },
     {
       id: 'bento' as const,
-      labelAr: 'شبكة بينتو العصرية (Bento Grid)',
+      labelAr: 'شبكة بينتو العصرية',
       labelEn: 'Modern Bento Grid Layout',
       preview: (
         <div className="grid grid-cols-3 gap-1 h-6 w-full">
@@ -205,7 +205,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
   const defaultFlowerWidgets = [
     {
       id: 'hero_slider',
-      titleAr: 'سلايدر بانر الواجهة التفاعلي (3D Motion Hero)',
+      titleAr: 'سلايدر بانر الواجهة التفاعلي',
       titleEn: 'Hero Visual Slider & 3D Banner',
       icon: Sparkles,
       descAr: 'عرض الباقات الرئيسية والعروض مع خلفيات وفيديو وبطاقات عائمة',
@@ -214,7 +214,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
     },
     {
       id: 'marquee_banner',
-      titleAr: 'شريط الإعلانات المتحرك الفاخر (Marquee Banner)',
+      titleAr: 'شريط الإعلانات المتحرك الفاخر',
       titleEn: 'Running Luxury Marquee Banner',
       icon: Flame,
       descAr: 'شريط نصوص ترويجي متحرك بلمسات ذهبية (توصيل ساعتين، ورد طازج، دفع آمن)',
@@ -223,7 +223,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
     },
     {
       id: 'circle_categories',
-      titleAr: 'المجموعات والتصنيفات الدائرية (3D Dedicated Circulars)',
+      titleAr: 'المجموعات والتصنيفات الدائرية',
       titleEn: 'Dedicated Circular Collections',
       icon: Grid,
       descAr: '٣ مجموعات حصرية غير مكررة (المتجر، المناسبات، العروض) مع تصفح دائري ثلاثي الأبعاد',
@@ -241,7 +241,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
     },
     {
       id: 'product_tabs',
-      titleAr: 'سلايدر أقسام وباقات الورود (Product Sliders)',
+      titleAr: 'سلايدر أقسام وباقات الورود',
       titleEn: 'Product Section Sliders',
       icon: ShoppingBag,
       descAr: 'عرض أقسام الورود الطبيعية، الشوكولاتة، الكيك، والقهوة مع بطاقات فاخرة وأزرار سريعة',
@@ -250,7 +250,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
     },
     {
       id: 'promo_banners_pair',
-      titleAr: 'زوج البنرات الترويجية الملكية (Dual Promo Banners)',
+      titleAr: 'زوج البنرات الترويجية الملكية',
       titleEn: 'Royal Dual Promotional Banners',
       icon: ImageIcon,
       descAr: 'زوج بنرات متناسقة لهدايا الحرم وعروض المواسم مع تأثيرات زووم تفاعلية',
@@ -259,7 +259,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
     },
     {
       id: 'social_reels',
-      titleAr: 'ريلز تيك توك وسناب شات التفاعلية (Video Reels)',
+      titleAr: 'ريلز تيك توك وسناب شات التفاعلية',
       titleEn: 'TikTok & Snapchat Social Reels',
       icon: Video,
       descAr: '٤ مقاطع فيديو ريلز قصيرة لتنسيقات الزهور مع تشغيل فوري وتفاعل مباشر',
@@ -277,7 +277,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
     },
     {
       id: 'magazine_section',
-      titleAr: 'مجلة ومقالات هدايا مكة (Magazine & Journal)',
+      titleAr: 'مجلة ومقالات هدايا مكة',
       titleEn: 'Mecca Gifts Magazine & Articles',
       icon: Sparkles,
       descAr: 'مقالات نصائح اختيار الزهور ودليل العناية بالباقات في أجواء مكة المكرمة',
@@ -298,7 +298,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
   const universalWidgets = [
     {
       id: 'dynamic_product_row',
-      titleAr: 'صف منتجات مخصص (Dynamic Product Row / Category)',
+      titleAr: 'صف منتجات مخصص',
       titleEn: 'Dynamic Product Row & Category Filter',
       icon: ShoppingBag,
       descAr: 'تحكم مستقل بصف المنتجات: اختر التصنيف، البراند، عدد المنتجات (4، 6، 8) وتخطيط العرض',
@@ -307,7 +307,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
     },
     {
       id: 'shortcode_widget',
-      titleAr: 'عنصر الكود القصير (Shortcode Widget)',
+      titleAr: 'عنصر الكود القصير',
       titleEn: 'Custom Shortcode Block',
       icon: Layers,
       descAr: 'الصق أي كود قصير [products category="..." limit="6"] لعرض المنتجات في أي مكان تلقائياً',
@@ -316,7 +316,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
     },
     {
       id: 'columns_container',
-      titleAr: 'حاوية أعمدة شبكية / قسم داخلي (Inner Section)',
+      titleAr: 'حاوية أعمدة شبكية / قسم داخلي',
       titleEn: 'Inner Section / Multi-Column Grid',
       icon: Layout,
       descAr: 'قسم مرن متعدد الأعمدة مثل Elementor Pro (تقسيم 25/25/50، تباعد عريض، وإدراج عناصر داخل كل عمود)',

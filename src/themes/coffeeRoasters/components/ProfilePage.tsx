@@ -112,8 +112,12 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
         clerk.setActive,
         clerk.setSignUpActive,
       );
+      if (!activeStore?.id) {
+        setAuthErrorCode('CODE_WRONG');
+        return;
+      }
       establishStorefrontSession({
-        storeId: activeStore?.id || 'store-coffee',
+        storeId: activeStore.id,
         name: '',
         email: emailInput.trim(),
         phone: '',
@@ -179,7 +183,11 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
 
   const handleGoogleSignIn = () => {
     setAuthErrorCode('');
-    const storeId = activeStore?.id || 'store-coffee';
+    const storeId = activeStore?.id;
+    if (!storeId) {
+      setAuthErrorCode('GOOGLE_FAILED');
+      return;
+    }
     setIsSubmitting(true);
     const clientId = getStoredGoogleClientId();
     if (hasRealGoogleClientId(clientId)) {
@@ -264,7 +272,7 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
             </div>
             <h2 className="honor-heading text-xl sm:text-2xl font-black text-neutral-900">
               {language === 'AR'
-                ? `تسجيل الدخول إلى ${storeDisplayName}`
+                ? `تسجيل الدخول إلى${storeDisplayName}`
                 : `Sign in to ${storeDisplayName}`}
             </h2>
             <p className="text-xs text-neutral-500 leading-relaxed">
@@ -356,7 +364,7 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
             <form onSubmit={handleVerifyOtp} className="space-y-4 text-xs">
               <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-[11px] leading-relaxed">
                 {language === 'AR'
-                  ? `تم إرسال رمز التحقق إلى ${emailInput}. راجِع الوارد.`
+                  ? `تم إرسال رمز التحقق إلى${emailInput}. راجِع الوارد.`
                   : `Verification code sent to ${emailInput}. Check your inbox.`}
               </div>
 

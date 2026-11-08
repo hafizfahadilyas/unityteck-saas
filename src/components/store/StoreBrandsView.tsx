@@ -269,7 +269,7 @@ export const CAR_STORE_BRANDS: BrandItem[] = CAR_BRANDS.map((cb) => ({
   nameAr: cb.nameAr,
   description: `Official ${cb.nameEn} agency — precision laser upholstery & 5D floor mats for all models.`,
   descriptionEn: `Official ${cb.nameEn} agency — precision laser upholstery & 5D floor mats for all models.`,
-  descriptionAr: `وكالة وماركة ${cb.nameAr} الرسمية — تفصيل وتلبيس مقاعد ليزري وأرضيات 5D لجميع الموديلات والفئات.`,
+  descriptionAr: `وكالة وماركة${cb.nameAr}الرسمية — تفصيل وتلبيس مقاعد ليزري وأرضيات 5D لجميع الموديلات والفئات.`,
   logo: cb.logo,
   productsCount: cb.productCount || 4,
   showInChannels: true,
@@ -633,7 +633,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
   // Helper for reading uploaded image file into Base64 Data URL
   const handleLogoFileUpload = (file: File, callback: (dataUrl: string) => void) => {
     if (!file.type.startsWith('image/')) {
-      toast(isAr ? 'يرجى اختيار ملف صورة صالح (PNG, JPG, WEBP, SVG)' : 'Please select a valid image file', 'error');
+      toast(isAr ? 'يرجى اختيار ملف صورة صالح صور مدعومة' : 'Please select a valid image file', 'error');
       return;
     }
     const reader = new FileReader();
@@ -1004,7 +1004,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
           >
             <span>
               {isAr
-                ? `عرض 1-${filteredBrands.length} من ${brands.length} علامة تجارية`
+                ? `عرض 1-${filteredBrands.length}من${brands.length}علامة تجارية`
                 : `Showing 1-${filteredBrands.length} of ${brands.length} brands`}
             </span>
             <div className="flex items-center gap-1">

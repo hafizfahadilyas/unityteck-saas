@@ -961,7 +961,7 @@ export const BuilderThankYouPage: React.FC<BuilderPageProps> = ({
           {isAr ? 'تم استلام وتأكيد طلبك بنجاح!' : 'Order Placed & Confirmed Successfully!'}
         </h1>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
-          {isAr ? `شكراً لاختيارك ${storeName}. تم إصدار فاتورة زاتكا الضريبية وتجهيز طلبك بأعلى معايير الإتقان.` : `Thank you for choosing ${storeName}. Your official ZATCA tax invoice is ready and your order is confirmed.`}
+          {isAr ? `شكراً لاختيارك${storeName}. تم إصدار فاتورة زاتكا الضريبية وتجهيز طلبك بأعلى معايير الإتقان.` : `Thank you for choosing ${storeName}. Your official ZATCA tax invoice is ready and your order is confirmed.`}
         </p>
       </div>
 
@@ -1039,7 +1039,7 @@ export const BuilderThankYouPage: React.FC<BuilderPageProps> = ({
           onClick={onNavigateHome}
           className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
         >
-          {isAr ? `العودة لـ ${storeName}` : `Back to ${storeName}`}
+          {isAr ? `العودة لـ${storeName}` : `Back to ${storeName}`}
         </button>
       </div>
     </div>
@@ -1172,7 +1172,7 @@ export const BuilderContactPage: React.FC<BuilderPageProps> = ({
     <div className={`max-w-4xl mx-auto space-y-8 ${isMobile ? 'p-3' : 'p-6 sm:p-10'}`}>
       <div className="text-center space-y-2">
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900">
-          {isAr ? `تواصل مع فريق خدمة عملاء ${storeName}` : `Contact ${storeName} Concierge`}
+          {isAr ? `تواصل مع فريق خدمة عملاء${storeName}` : `Contact ${storeName} Concierge`}
         </h1>
         <p className="text-xs text-slate-500">
           {isAr ? 'فريقنا متواجد على مدار الساعة لخدمة طلباتكم والإجابة على استفساراتكم' : 'Our team is available 24/7 to assist with your orders and inquiries'}
@@ -1288,7 +1288,7 @@ export const BuilderStoreLocatorPage: React.FC<BuilderPageProps> = ({
 }) => {
   const branches = [
     {
-      nameAr: 'بوتيك العزيزية الرئيسي (Flagship)',
+      nameAr: 'بوتيك العزيزية الرئيسي',
       nameEn: 'Al-Aziziyah Flagship Boutique',
       locationAr: 'مكة المكرمة · طريق المسجد الحرام · بجوار بن داود',
       locationEn: 'Al Masjid Al Haram Road, next to BinDawood',
@@ -1298,7 +1298,7 @@ export const BuilderStoreLocatorPage: React.FC<BuilderPageProps> = ({
       tag: isAr ? 'المقر الرئيسي والورش المركزية' : 'Headquarters & Atelier',
     },
     {
-      nameAr: 'فرع برج الساعة وفنادق الحرم (Clock Tower)',
+      nameAr: 'فرع برج الساعة وفنادق الحرم',
       nameEn: 'Clock Tower & Central Haram Branch',
       locationAr: 'مجمع أبراج البيت · الدور التجاري الثالث',
       locationEn: 'Abraj Al-Bait Complex · Level 3 Mall',
@@ -1308,7 +1308,7 @@ export const BuilderStoreLocatorPage: React.FC<BuilderPageProps> = ({
       tag: isAr ? 'خدمة النزلاء وفنادق المركزية' : 'Hotel Guests Concierge',
     },
     {
-      nameAr: 'فرع جبل عمر (Jabal Omar Branch)',
+      nameAr: 'فرع جبل عمر',
       nameEn: 'Jabal Omar Luxury Boutique',
       locationAr: 'شارع إبراهيم الخليل · ممشى جبل عمر التجاري',
       locationEn: 'Ibrahim Al Khalil Street · Jabal Omar Galleria',
@@ -1402,7 +1402,7 @@ export const BuilderTrackOrderPage: React.FC<BuilderPageProps> = ({
     <div className={`max-w-2xl mx-auto space-y-6 ${isMobile ? 'p-3' : 'p-6 sm:p-10'}`}>
       <div className="text-center space-y-2">
         <h1 className="text-2xl font-black text-slate-900">
-          {isAr ? `تتبع مسار طلبك المباشر - ${storeName}` : `Live Order Tracker - ${storeName}`}
+          {isAr ? `تتبع مسار طلبك المباشر -${storeName}` : `Live Order Tracker - ${storeName}`}
         </h1>
         <p className="text-xs text-slate-500">
           {isAr ? 'أدخل رقم طلبك للاطلاع على خط سير الشحنة المباشر' : 'Enter order number or phone to view live driver ETA'}
@@ -1497,7 +1497,7 @@ export const BuilderPrivacyPage: React.FC<BuilderPageProps> = ({
     <div className={`max-w-3xl mx-auto space-y-6 ${isMobile ? 'p-3' : 'p-6 sm:p-10'}`}>
       <div className="border-b pb-4 space-y-2">
         <h1 className="text-2xl font-black text-slate-900">
-          {isAr ? `سياسة الخصوصية وسرية البيانات - ${storeName}` : `Privacy & Data Protection Policy - ${storeName}`}
+          {isAr ? `سياسة الخصوصية وسرية البيانات -${storeName}` : `Privacy & Data Protection Policy - ${storeName}`}
         </h1>
         <p className="text-xs text-slate-500">
           {isAr ? 'متوافقة مع نظام حماية البيانات الشخصية بالمملكة وهيئة الزكاة والضريبة والجمارك' : 'Compliant with KSA Personal Data Protection Law (PDPL) and ZATCA regulations'}
@@ -1510,7 +1510,7 @@ export const BuilderPrivacyPage: React.FC<BuilderPageProps> = ({
             {isAr ? '١. جمع البيانات واستخدامها:' : '1. Data Collection & Purpose:'}
           </h3>
           <p>
-            {isAr ? `نقوم بجمع بيانات العميل الأساسية (الاسم، رقم الجوال، عنوان التوصيل) حصراً لغرض معالجة وتوصيل طلبات ${storeName}، وإصدار الفواتير الضريبية الإلكترونية المعتمدة.` : `We collect customer contact details solely for ${storeName} order fulfillment, dispatch, and official ZATCA tax invoice generation.`}
+            {isAr ? `نقوم بجمع بيانات العميل الأساسية (الاسم، رقم الجوال، عنوان التوصيل) حصراً لغرض معالجة وتوصيل طلبات${storeName}، وإصدار الفواتير الضريبية الإلكترونية المعتمدة.` : `We collect customer contact details solely for ${storeName} order fulfillment, dispatch, and official ZATCA tax invoice generation.`}
           </p>
         </section>
 
@@ -1553,10 +1553,10 @@ export const BuilderReturnPolicyPage: React.FC<BuilderPageProps> = ({
     <div className={`max-w-3xl mx-auto space-y-6 ${isMobile ? 'p-3' : 'p-6 sm:p-10'}`}>
       <div className="border-b pb-4 space-y-2">
         <h1 className="text-2xl font-black text-slate-900">
-          {isAr ? `سياسة الاستبدال والاسترجاع وضمان الجودة - ${storeName}` : `Return & Quality Guarantee Policy - ${storeName}`}
+          {isAr ? `سياسة الاستبدال والاسترجاع وضمان الجودة -${storeName}` : `Return & Quality Guarantee Policy - ${storeName}`}
         </h1>
         <p className="text-xs text-slate-500">
-          {isAr ? `نضمن رضاكم التام عن كل منتج وخدمة تصلكم من ${storeName}` : `Our 100% satisfaction commitment for every order delivered by ${storeName}`}
+          {isAr ? `نضمن رضاكم التام عن كل منتج وخدمة تصلكم من${storeName}` : `Our 100% satisfaction commitment for every order delivered by ${storeName}`}
         </p>
       </div>
 

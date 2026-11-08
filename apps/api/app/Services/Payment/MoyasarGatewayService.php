@@ -53,9 +53,14 @@ class MoyasarGatewayService implements PaymentGatewayInterface
 
     public function createPaymentSession(PaymentGateway $gateway, Order $order, array $params = []): array
     {
+        if (empty($gateway->public_key) && empty($gateway->secret_key) && empty($gateway->api_key)) {
+            return [
+                'success' => false,
+                'message' => 'Moyasar keys are missing for this store.',
+            ];
+        }
+
         $ref = 'MOY-' . strtoupper(Str::random(10));
-        // Amount in Halalas (1 SAR = 100 Halalas)
-        $amountHalalas = (int) round($order->total_amount * 100);
 
         return [
             'success' => true,
@@ -64,7 +69,7 @@ class MoyasarGatewayService implements PaymentGatewayInterface
             'currency' => 'SAR',
             'publishable_key' => $gateway->public_key,
             'supported_methods' => ['mada', 'apple_pay', 'stc_pay', 'credit_card'],
-            'checkout_url' => "https://api.moyasar.com/v1/invoices/{$ref}/pay",
+            // Client must create the payment with Moyasar.js using publishable_key — no fake pay URL.
         ];
     }
 

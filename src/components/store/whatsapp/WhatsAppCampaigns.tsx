@@ -275,7 +275,7 @@ export const WhatsAppCampaigns: React.FC<Props> = ({ onNavigateSubView }) => {
             99.2%
           </div>
           <p className="text-[11px] text-slate-400 mt-1">
-            {isAr ? 'عبر WhatsApp Cloud API' : 'Verified via Cloud API'}
+            {isAr ? 'عبر واتساب السحابي' : 'Verified via Cloud API'}
           </p>
         </div>
       </div>

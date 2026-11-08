@@ -200,7 +200,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
 
     toast(
       isAr
-        ? 'تم تنزيل الحزمة الشاملة ZIP للاستضافة بنجاح!'
+        ? 'تم تنزيل الحزمة الشاملة أرشيف مضغوط للاستضافة بنجاح!'
         : 'Full store ZIP bundle downloaded successfully!',
       'success',
     );
@@ -323,7 +323,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
             </h1>
             <p className="text-xs opacity-70 mt-0.5">
               {isAr
-                ? 'تصدير حزم المتجر الكاملة بصيغة ZIP، إدارة النسخ الاحتياطية المجدولة، ونقل المتجر بين بيئات الاستضافة بنقرة واحدة.'
+                ? 'تصدير حزم المتجر الكاملة بصيغة أرشيف مضغوط، إدارة النسخ الاحتياطية المجدولة، ونقل المتجر بين بيئات الاستضافة بنقرة واحدة.'
                 : '1-click full store ZIP bundle, automated daily/weekly/monthly snapshots, and all-in-one migration to a second hosting environment.'}
             </p>
           </div>
@@ -347,7 +347,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
             style={{ background: 'var(--portal-cta)' }}
           >
             <Download className="w-4 h-4" />
-            <span>{isAr ? 'تحميل حزمة المتجر الكاملة (ZIP)' : 'Download Full Store ZIP'}</span>
+            <span>{isAr ? 'تحميل حزمة المتجر الكاملة' : 'Download Full Store ZIP'}</span>
           </button>
         </div>
       </div>
@@ -447,7 +447,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                 style={{ background: 'var(--portal-cta)' }}
               >
                 <Download className="w-4 h-4" />
-                <span>{isAr ? 'تحميل ملف ZIP الآن' : 'Download Full ZIP Bundle'}</span>
+                <span>{isAr ? 'تحميل ملف أرشيف مضغوط الآن' : 'Download Full ZIP Bundle'}</span>
               </button>
             </div>
 
@@ -504,7 +504,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                     <Lock className="w-4 h-4" />
                     <span>{isAr ? 'ملفات الإعدادات والربط' : 'Configuration'}</span>
                   </span>
-                  <span className="font-mono text-[11px] opacity-70">{isAr ? 'ملف env وسجلات DNS' : '.env / DNS'}</span>
+                  <span className="font-mono text-[11px] opacity-70">{isAr ? 'ملف البيئة وسجلات النطاق' : '.env / DNS'}</span>
                 </div>
                 <p className="text-[11px] opacity-70">
                   {isAr
@@ -561,7 +561,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                       : 'opacity-70 hover:opacity-100'
                   }`}
                 >
-                  {isAr ? 'النقل إلى Hosting ثانٍ (Old ➔ New)' : 'Migrate to 2nd Host (Old ➔ New)'}
+                  {isAr ? 'النقل إلى استضافة ثانية' : 'Migrate to 2nd Host (Old ➔ New)'}
                 </button>
               </div>
             </div>
@@ -655,7 +655,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
             <div className="pt-2">
               <label className="block text-xs font-bold mb-2 opacity-80">
                 {isAr
-                  ? 'اختر أو اسحب ملف النسخة الاحتياطية (.zip أو .sql):'
+                  ? 'اختر أو اسحب ملف النسخة الاحتياطية (.zip أو.sql):'
                   : 'Select or Drag & Drop Backup File (.zip or .sql):'}
               </label>
               <div
@@ -675,7 +675,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                     const f = e.target.files?.[0];
                     if (f) {
                       setUploadedFile(f);
-                      toast(isAr ? `تم تحديد الملف: ${f.name}` : `Selected file: ${f.name}`, 'info');
+                      toast(isAr ? `تم تحديد الملف:${f.name}` : `Selected file: ${f.name}`, 'info');
                     }
                   }}
                 />
@@ -683,7 +683,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                   <Upload className="w-6 h-6" />
                 </div>
                 <span className="text-xs font-bold text-slate-900 dark:text-white">
-                  {uploadedFile ? uploadedFile.name : isAr ? 'انقر لرفع ملف ZIP أو SQL، أو اسحبه هنا' : 'Click to browse ZIP / SQL archive, or drag & drop'}
+                  {uploadedFile ? uploadedFile.name : isAr ? 'انقر لرفع ملف أرشيف مضغوط أو SQL، أو اسحبه هنا' : 'Click to browse ZIP / SQL archive, or drag & drop'}
                 </span>
                 <span className="text-[11px] opacity-60 mt-1">
                   {uploadedFile
@@ -742,7 +742,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                   </h4>
                   <p className="text-[11px] opacity-70 mt-0.5">
                     {isAr
-                      ? `المرحلة ${currentStep} من ٥ · مزامنة العلاقات والبيانات للمستأجرين`
+                      ? `المرحلة${currentStep}من ٥ · مزامنة العلاقات والبيانات للمستأجرين`
                       : `Stage ${currentStep} of 5 · Multi-Tenant Relational Synchronization`}
                   </p>
                 </div>
@@ -766,7 +766,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                   { step: 1, label: 'Verify Archive', labelAr: 'التحقق من الأرشيف' },
                   { step: 2, label: 'Unpack files', labelAr: 'فك ملفات المتجر' },
                   { step: 3, label: 'MySQL Schema & Data', labelAr: 'استيراد قاعدة البيانات' },
-                  { step: 4, label: 'DNS & SSL Provision', labelAr: 'ربط النطاق وتشفير SSL' },
+                  { step: 4, label: 'DNS & SSL Provision', labelAr: 'ربط النطاق وتفعيل شهادة الأمان' },
                   { step: 5, label: 'Health Check 200', labelAr: 'فحص الجاهزية' },
                 ].map((s) => (
                   <div
@@ -891,7 +891,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                       <td className="py-3 px-3 text-center font-mono font-bold">{snap.size}</td>
                       <td className="py-3 px-3 text-center font-mono text-[11px]">
                         {isAr
-                          ? `${snap.recordsCount} سجلاً · ${snap.tablesCount} جدولاً`
+                          ? `${snap.recordsCount}سجلاً ·${snap.tablesCount}جدولاً`
                           : `${snap.recordsCount} rows · ${snap.tablesCount} tables`}
                       </td>
                       <td className="py-3 px-3 text-center">
@@ -994,7 +994,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
             >
               <div className="flex items-center gap-2 text-xs font-bold text-emerald-500">
                 <Globe className="w-4 h-4" />
-                <span>{isAr ? '٢. خطوات ربط النطاق المخصص DNS' : '2. Custom Domain & DNS Connection'}</span>
+                <span>{isAr ? '٢. خطوات ربط النطاق المخصص' : '2. Custom Domain & DNS Connection'}</span>
               </div>
               <h4 className="font-black text-sm text-slate-900 dark:text-white">
                 {isAr ? 'توجيه سجلات النطاق A و CNAME' : 'Point DNS Records to Hosting'}
@@ -1020,7 +1020,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
               </ol>
 
               <div className="p-3 rounded-xl bg-slate-900 font-mono text-[11px] text-emerald-400 space-y-1">
-                <div className="text-slate-400">{isAr ? '// سجلات منطقة DNS المطلوبة:' : '// DNS Zone Records:'}</div>
+                <div className="text-slate-400">{isAr ? 'سجلات منطقة النطاق المطلوبة:' : '// DNS Zone Records:'}</div>
                 <div>A&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;@&nbsp;&nbsp;&nbsp;&nbsp;195.35.40.22&nbsp;&nbsp;(TTL 300)</div>
                 <div>CNAME&nbsp;www&nbsp;&nbsp;mystore.sa&nbsp;&nbsp;&nbsp;&nbsp;(TTL 300)</div>
               </div>

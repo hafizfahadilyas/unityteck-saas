@@ -130,7 +130,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
           <div className="flex items-center gap-1 shrink-0 min-w-0">
             <Gift className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#78471A] shrink-0" />
             <span className="truncate">
-              {isAr ? `هدايا ${computedGiftVal} ر.س` : `Gifts ${computedGiftVal} SAR`}
+              {isAr ? `هدايا${computedGiftVal}ر.س` : `Gifts ${computedGiftVal} SAR`}
             </span>
           </div>
 
@@ -166,7 +166,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
           {/* Installment breakdown (Tabby & Tamara style) */}
           <p className="text-[9px] sm:text-[11px] text-neutral-500 font-medium truncate">
             {isAr
-              ? `أو يبدأ من ${monthlyInstallment} ر.س / شهرياً`
+              ? `أو يبدأ من${monthlyInstallment}ر.س / شهرياً`
               : `Or from ${monthlyInstallment} SAR / mo`}
           </p>
         </div>
@@ -185,7 +185,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
           {card.showStock && typeof stock === 'number' ? (
             <p className="text-[9px] sm:text-[11px] text-neutral-500 font-medium">
               {stock > 0
-                ? (isAr ? `المتوفر ${stock}` : `In stock ${stock}`)
+                ? (isAr ? `المتوفر${stock}` : `In stock ${stock}`)
                 : (isAr ? 'نفد المخزون' : 'Out of stock')}
             </p>
           ) : null}

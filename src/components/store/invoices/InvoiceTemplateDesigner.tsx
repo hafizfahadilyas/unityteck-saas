@@ -168,7 +168,7 @@ export const InvoiceTemplateDesigner: React.FC<InvoiceTemplateDesignerProps> = (
             {designerTab === 'branding' && (
               <div className="space-y-4">
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">{isAr ? 'اللون الرئيسي (Navy / Brand)' : 'Primary Color'}</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">{isAr ? 'اللون الرئيسي' : 'Primary Color'}</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="color"
@@ -298,7 +298,7 @@ export const InvoiceTemplateDesigner: React.FC<InvoiceTemplateDesignerProps> = (
                 <span className="text-slate-600 dark:text-slate-400 block mb-2">{isAr ? 'إظهار / إخفاء أقسام المستند:' : 'Toggle document sections:'}</span>
                 {[
                   { key: 'showLogo', label: isAr ? 'شعار المتجر' : 'Store Logo' },
-                  { key: 'showZatcaQr', label: isAr ? 'رمز الاستجابة السريعة (ZATCA QR)' : 'ZATCA TLV QR Code' },
+                  { key: 'showZatcaQr', label: isAr ? 'رمز الاستجابة السريعة لهيئة الزكاة' : 'ZATCA TLV QR Code' },
                   { key: 'showPaymentInstructions', label: isAr ? 'تعليمات وبيانات الدفع' : 'Payment Instructions' },
                   { key: 'showBankDetails', label: isAr ? 'الحساب البنكي والآيبان' : 'Bank & IBAN Details' },
                   { key: 'showSignatureField', label: isAr ? 'حقل التوقيع والاعتماد' : 'Signature Field' },

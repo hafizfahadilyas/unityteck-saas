@@ -111,7 +111,7 @@ export const ReportsAiInsights: React.FC<ReportsAiInsightsProps> = ({
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-                {isAr ? 'تحليلات الذكاء الاصطناعي (AI Insights)' : 'AI Insights'}
+                {isAr ? 'تحليلات الذكاء الاصطناعي' : 'AI Insights'}
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {isAr ? 'تحليل ذكي وملاحظات تشغيلية لتحسين المبيعات ومسار التحويل' : 'Smart store diagnostics and automated revenue growth recommendations'}
@@ -264,7 +264,7 @@ export const ReportsAiInsights: React.FC<ReportsAiInsightsProps> = ({
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              {isAr ? 'عملاء القيمة العالية (VIP)' : 'High-Value Customers'}
+              {isAr ? 'عملاء القيمة العالية' : 'High-Value Customers'}
             </span>
             <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
               <Users className="w-4 h-4" />
@@ -308,7 +308,7 @@ export const ReportsAiInsights: React.FC<ReportsAiInsightsProps> = ({
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {isAr ? 'أهم الملاحظات التشغيلية (Key Takeaways)' : 'Key Takeaways'}
+                {isAr ? 'أهم الملاحظات التشغيلية' : 'Key Takeaways'}
               </h3>
               <Sparkles className="w-4 h-4 text-purple-500" />
             </div>

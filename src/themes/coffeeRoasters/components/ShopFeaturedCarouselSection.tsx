@@ -220,7 +220,7 @@ export const ShopFeaturedCarouselSection: React.FC<ShopFeaturedCarouselSectionPr
                 {isAr ? 'سلسلة احترافية' : 'Pro Series &'}
               </span>
               <h3 className="text-xl font-black text-white tracking-tight leading-tight drop-shadow-xs">
-                {isAr ? 'Barista & Pro' : 'Barista Edition'}
+                {isAr ? 'باريستا والاحترافي' : 'Barista Edition'}
               </h3>
             </div>
           </div>

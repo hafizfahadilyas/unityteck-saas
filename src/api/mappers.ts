@@ -516,6 +516,8 @@ export function mapOrder(row: ApiOrderRow): Order {
     discountAmount: rowAny.discount_amount != null ? num(rowAny.discount_amount) : undefined,
     shippingFee: rowAny.shipping_cost != null ? num(rowAny.shipping_cost) : (rowAny.shipping_fee != null ? num(rowAny.shipping_fee) : undefined),
     tax: rowAny.tax != null ? num(rowAny.tax) : (rowAny.vat != null ? num(rowAny.vat) : undefined),
+    isArchived: rowAny.is_archived === true || rowAny.is_archived === 1 || rowAny.is_archived === '1',
+    archivedAt: rowAny.archived_at != null ? String(rowAny.archived_at) : undefined,
   };
 }
 
@@ -555,6 +557,8 @@ export function orderPatchToApi(patch: Record<string, unknown>): Record<string, 
   assign('paymentPlan', 'payment_plan');
   assign('amountPaid', 'amount_paid');
   assign('remainingBalance', 'remaining_balance');
+  assign('isArchived', 'is_archived');
+  assign('archivedAt', 'archived_at');
   if (src.restock !== undefined) out.restock = src.restock;
 
   return out;

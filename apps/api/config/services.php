@@ -49,6 +49,8 @@ return [
         'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
         'pagespeed_api_key' => env('GOOGLE_PAGESPEED_API_KEY'),
         'ads_developer_token' => env('GOOGLE_ADS_DEVELOPER_TOKEN'),
+        // Optional MCC login-customer-id for manager (SOQU) when accessing client accounts
+        'ads_login_customer_id' => env('GOOGLE_ADS_LOGIN_CUSTOMER_ID'),
     ],
 
     /*
@@ -80,6 +82,17 @@ return [
         'unifonic_app_sid' => env('UNIFONIC_APP_SID'),
         'unifonic_base_url' => env('UNIFONIC_BASE_URL', 'https://el.cloud.unifonic.com'),
         'taqnyat_api_key' => env('TAQNYAT_API_KEY'),
+    ],
+
+    /*
+    | Gemini / Imagen — AI image (+ optional video) generation. Key stays on API only.
+    | Video stays off until GEMINI_VIDEO_ENABLED=true and a Veo model is provisioned.
+    */
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY', env('GOOGLE_AI_API_KEY')),
+        'image_model' => env('GEMINI_IMAGE_MODEL', 'gemini-2.0-flash-preview-image-generation'),
+        'video_enabled' => filter_var(env('GEMINI_VIDEO_ENABLED', false), FILTER_VALIDATE_BOOL),
+        'video_model' => env('GEMINI_VIDEO_MODEL', 'veo-2.0-generate-001'),
     ],
 
 ];

@@ -298,7 +298,7 @@ export const MasterOrders: React.FC = () => {
     const count = selectedOrderIds.length;
     const ok = await confirm({
       title: t('archiveOrderConfirmTitle') || (isAr ? 'أرشفة الطلبات المحددة' : 'Archive Selected Orders'),
-      message: isAr ? `هل أنت متأكد من نقل ${count} طلبات محددة إلى الأرشيف؟` : `Are you sure you want to move ${count} selected orders to the archive?`,
+      message: isAr ? `هل أنت متأكد من نقل${count}طلبات محددة إلى الأرشيف؟` : `Are you sure you want to move ${count} selected orders to the archive?`,
       confirmLabel: t('bulkArchiveOrders') || (isAr ? 'أرشفة المحدد' : 'Archive Selected'),
       cancelLabel: isAr ? 'إلغاء' : 'Cancel',
       danger: false,
@@ -309,7 +309,7 @@ export const MasterOrders: React.FC = () => {
         archiveOrder(id, ord?.storeId);
       });
       setSelectedOrderIds([]);
-      toast(isAr ? `تم نقل ${count} طلبات إلى الأرشيف بنجاح` : `${count} orders moved to archive`, 'success');
+      toast(isAr ? `تم نقل${count}طلبات إلى الأرشيف بنجاح` : `${count} orders moved to archive`, 'success');
     }
   };
 
@@ -318,7 +318,7 @@ export const MasterOrders: React.FC = () => {
     const count = selectedOrderIds.length;
     const ok = await confirm({
       title: t('restoreOrderConfirmTitle') || (isAr ? 'استعادة الطلبات المحددة' : 'Restore Selected Orders'),
-      message: isAr ? `هل أنت متأكد من استعادة ${count} طلبات محددة إلى القائمة النشطة؟` : `Are you sure you want to restore ${count} selected orders?`,
+      message: isAr ? `هل أنت متأكد من استعادة${count}طلبات محددة إلى القائمة النشطة؟` : `Are you sure you want to restore ${count} selected orders?`,
       confirmLabel: t('bulkRestoreOrders') || (isAr ? 'استعادة المحدد' : 'Restore Selected'),
       cancelLabel: isAr ? 'إلغاء' : 'Cancel',
       danger: false,
@@ -329,7 +329,7 @@ export const MasterOrders: React.FC = () => {
         restoreOrder(id, ord?.storeId);
       });
       setSelectedOrderIds([]);
-      toast(isAr ? `تمت استعادة ${count} طلبات بنجاح` : `${count} orders restored successfully`, 'success');
+      toast(isAr ? `تمت استعادة${count}طلبات بنجاح` : `${count} orders restored successfully`, 'success');
     }
   };
 
@@ -338,7 +338,7 @@ export const MasterOrders: React.FC = () => {
     const count = selectedOrderIds.length;
     const ok = await confirm({
       title: t('permanentDeleteOrderConfirmTitle') || (isAr ? 'حذف نهائي للطلبات المحددة' : 'Permanently Delete Selected Orders'),
-      message: isAr ? `هل أنت متأكد من حذف ${count} طلبات محددة نهائياً؟ هذا الإجراء لا يمكن التراجع عنه!` : `Are you sure you want to permanently delete ${count} selected orders? This cannot be undone!`,
+      message: isAr ? `هل أنت متأكد من حذف${count}طلبات محددة نهائياً؟ هذا الإجراء لا يمكن التراجع عنه!` : `Are you sure you want to permanently delete ${count} selected orders? This cannot be undone!`,
       confirmLabel: t('bulkPermanentDeleteOrders') || (isAr ? 'حذف نهائي للمحدد' : 'Permanently Delete Selected'),
       cancelLabel: isAr ? 'إلغاء' : 'Cancel',
       danger: true,
@@ -349,7 +349,7 @@ export const MasterOrders: React.FC = () => {
         permanentDeleteOrder(id, ord?.storeId);
       });
       setSelectedOrderIds([]);
-      toast(isAr ? `تم الحذف النهائي لـ ${count} طلبات` : `${count} orders permanently deleted`, 'success');
+      toast(isAr ? `تم الحذف النهائي لـ${count}طلبات` : `${count} orders permanently deleted`, 'success');
     }
   };
 
@@ -649,7 +649,7 @@ export const MasterOrders: React.FC = () => {
 
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
-                {isAr ? `طلب رقم ${o.orderNumber}` : `Order ${o.orderNumber}`}
+                {isAr ? `طلب رقم${o.orderNumber}` : `Order ${o.orderNumber}`}
               </h1>
               {getStatusBadge(o.status)}
               {o.isArchived && (
@@ -669,7 +669,7 @@ export const MasterOrders: React.FC = () => {
             </div>
             <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
               {isAr
-                ? `تم الطلب في ${o.date || '31 يناير 2024'} الساعة ${o.time || '02:32 م'}`
+                ? `تم الطلب في${o.date || '31 يناير 2024'}الساعة${o.time || '02:32 م'}`
                 : `Placed on ${o.date || 'Jan 31, 2024'} at ${o.time || '02:32 PM'}`}
             </p>
           </div>
@@ -908,29 +908,55 @@ export const MasterOrders: React.FC = () => {
 
                 <div className="text-end text-xs">
                   <span className="text-[10px] block" style={{ color: 'var(--muted)' }}>{t('totalOrders')}</span>
-                  <span className="font-bold font-mono text-sm" style={{ color: 'var(--text)' }}>12</span>
+                  <span className="font-bold font-mono text-sm" style={{ color: 'var(--text)' }}>
+                    {(() => {
+                      const phone = String(o.customerPhone || '').trim();
+                      const email = String(o.customerEmail || '').trim();
+                      if (!phone && !email) return '—';
+                      const n = flatOrders.filter(
+                        (ord) =>
+                          (phone && ord.customerPhone === phone) || (email && ord.customerEmail === email),
+                      ).length;
+                      return n > 0 ? String(n) : '1';
+                    })()}
+                  </span>
                 </div>
               </div>
 
               <div className="space-y-2.5 text-xs">
                 <div className="flex items-center gap-2" style={{ color: 'var(--text)' }}>
                   <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="font-mono">{o.customerPhone}</span>
+                  <span className="font-mono">{o.customerPhone || '—'}</span>
                 </div>
                 <div className="flex items-center gap-2" style={{ color: 'var(--text)' }}>
                   <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>{o.customerEmail || 'ahmed@example.com'}</span>
+                  <span>{o.customerEmail || '—'}</span>
                 </div>
                 <div className="flex items-start gap-2 pt-1" style={{ color: 'var(--muted)' }}>
                   <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                  <span>{o.deliveryLocation || 'Riyadh, Al Olaya District, King Fahd Road, Building 123'}</span>
+                  <span>{o.deliveryLocation || (isAr ? 'غير متوفر' : 'Not provided')}</span>
                 </div>
               </div>
             </div>
 
             <div className="pt-4 border-t mt-4 text-[11px] flex justify-between border-slate-100 dark:border-slate-800" style={{ color: 'var(--muted)' }}>
               <span>{t('customerSince')}</span>
-              <span className="font-bold" style={{ color: 'var(--text)' }}>{o.customerSince || 'Jan 2023'}</span>
+              <span className="font-bold" style={{ color: 'var(--text)' }}>
+                {o.customerSince ||
+                  (() => {
+                    const phone = String(o.customerPhone || '').trim();
+                    const email = String(o.customerEmail || '').trim();
+                    const matches = flatOrders.filter(
+                      (ord) =>
+                        (phone && ord.customerPhone === phone) || (email && ord.customerEmail === email),
+                    );
+                    const dates = matches
+                      .map((ord) => String(ord.createdAt || ord.date || '').trim())
+                      .filter(Boolean)
+                      .sort();
+                    return dates[0] || '—';
+                  })()}
+              </span>
             </div>
           </div>
 
@@ -1326,7 +1352,7 @@ export const MasterOrders: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setInternalNotesDraft(o.internalNotes || (isAr ? 'عميل مميز (VIP) - يرجى العناية الخاصة بالطلب.' : 'VIP customer. Handle with care.'));
+                  setInternalNotesDraft(o.internalNotes || (isAr ? 'عميل مميز - يرجى العناية الخاصة بالطلب.' : 'VIP customer. Handle with care.'));
                   setIsEditingInternalNotes(!isEditingInternalNotes);
                 }}
                 className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1 cursor-pointer"
@@ -1363,7 +1389,7 @@ export const MasterOrders: React.FC = () => {
                 className="p-3.5 rounded-xl text-xs leading-relaxed bg-slate-50 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-800"
                 style={{ color: 'var(--text)' }}
               >
-                {o.internalNotes || (isAr ? 'عميل مميز (VIP) - يرجى العناية الخاصة بالطلب.' : 'VIP customer. Handle with care.')}
+                {o.internalNotes || (isAr ? 'عميل مميز - يرجى العناية الخاصة بالطلب.' : 'VIP customer. Handle with care.')}
               </div>
             )}
           </div>
@@ -1686,7 +1712,7 @@ export const MasterOrders: React.FC = () => {
                 {selectedOrderIds.length}
               </span>
               <span>
-                {isAr ? `تم تحديد ${selectedOrderIds.length} طلبات` : `${selectedOrderIds.length} orders selected`}
+                {isAr ? `تم تحديد${selectedOrderIds.length}طلبات` : `${selectedOrderIds.length} orders selected`}
               </span>
             </div>
             <div className="flex items-center gap-2">

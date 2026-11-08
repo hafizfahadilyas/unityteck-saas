@@ -111,7 +111,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
     id: '05_advanced_slider',
     num: '05',
     titleEn: 'Advanced Slider / Hero Banner',
-    titleAr: 'سلايدر الواجهة المتقدم (Hero)',
+    titleAr: 'سلايدر الواجهة المتقدم',
     descEn: 'Hero slider with animations, slide manager, video/image slides, custom buttons',
     descAr: 'سلايدر الواجهة بالصور والفيديوهات والأزرار المتحركة والتحكم بالسرعة',
     icon: SlidersHorizontal,

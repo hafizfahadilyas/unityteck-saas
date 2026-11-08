@@ -106,7 +106,7 @@ export const ExportTemplateModal: React.FC<ExportTemplateModalProps> = ({
     setSavedCount(list.length);
 
     toast(
-      isAr ? `تم حفظ قالب التصدير "${templateName.trim()}" بنجاح` : `Export template "${templateName.trim()}" saved`,
+      isAr ? `تم حفظ قالب التصدير "${templateName.trim}" بنجاح` : `Export template "${templateName.trim()}" saved`,
       'success',
     );
     if (onExport) {
@@ -159,7 +159,7 @@ export const ExportTemplateModal: React.FC<ExportTemplateModalProps> = ({
             {savedCount > 0 ? (
               <p className="mt-1.5 text-[10px] text-slate-500">
                 {isAr
-                  ? `${savedCount} قالب محفوظ لهذا المتجر`
+                  ? `${savedCount}قالب محفوظ لهذا المتجر`
                   : `${savedCount} saved template(s) for this store`}
               </p>
             ) : null}

@@ -253,7 +253,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
     selectedIds.forEach((id) => updateCustomer(id, { group: bulkGroupValue }));
     toast(
       isAr
-        ? `تم تعيين ${selectedIds.length} عميل للمجموعة`
+        ? `تم تعيين${selectedIds.length}عميل للمجموعة`
         : `Assigned ${selectedIds.length} customer(s) to group`,
       'success',
     );
@@ -490,7 +490,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
         toast(isAr ? 'لم يُستورد أي عميل (يتطلب الاسم والهاتف)' : 'No customers imported (name + phone required)', 'warning');
       } else {
         toast(
-          isAr ? `تم استيراد ${imported} عميل` : `Imported ${imported} customer(s)`,
+          isAr ? `تم استيراد${imported}عميل` : `Imported ${imported} customer(s)`,
           'success',
         );
         setShowImportModal(false);
@@ -788,7 +788,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
           <div className="p-4 bg-purple-50/70 hover:bg-purple-50/90 dark:bg-purple-950/40 rounded-2xl border border-purple-200/80 dark:border-purple-900/60 shadow-xs flex flex-col justify-between transition-all">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                {isAr ? 'عملاء VIP' : 'VIP Customers'}
+                {isAr ? 'كبار العملاء' : 'VIP Customers'}
               </span>
               <div className="p-2 bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 rounded-xl shadow-2xs">
                 <Award className="w-4 h-4" />
@@ -975,7 +975,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
 
           <div className="text-xs text-slate-500">
             {isAr
-              ? `عرض ${fromRow} – ${toRow} من ${filteredCustomers.length.toLocaleString()} عميل${
+              ? `عرض${fromRow}–${toRow}من${filteredCustomers.length.toLocaleString()}عميل${
                   filteredCustomers.length !== totalCount
                     ? ` (من ${totalCount.toLocaleString()} إجمالاً)`
                     : ''
@@ -1428,7 +1428,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                   downloadCustomersCsv(filteredCustomers, activeStore.name);
                   toast(
                     isAr
-                      ? `تم تنزيل ${filteredCustomers.length} عميل`
+                      ? `تم تنزيل${filteredCustomers.length}عميل`
                       : `Downloaded ${filteredCustomers.length} customer(s)`,
                     'success',
                   );
@@ -1631,7 +1631,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
             </h3>
             <p className="text-[11px] text-slate-500 mb-3">
               {isAr
-                ? `${selectedIds.length} عميل محدد`
+                ? `${selectedIds.length}عميل محدد`
                 : `${selectedIds.length} customer(s) selected`}
             </p>
             <select

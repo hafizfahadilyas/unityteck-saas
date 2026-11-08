@@ -41,6 +41,8 @@ import { UnderConstructionPage } from '../../components/storefront/UnderConstruc
 import { readAllThemeSettings } from '../settings/themeSettingsStore';
 import { MECCA_LOGO } from '../../data/hadayaMeccaData';
 import { getLiveOrStoredBlocks, ThemeBlockElement } from '../../services/liveThemeSyncService';
+import { captureTrafficSource } from '../../utils/trafficSource';
+import { trackStorefrontEvent } from '../../utils/storefrontAnalytics';
 
 interface MeccaGiftsThemeViewProps {
   initialPage?: string;
@@ -67,6 +69,14 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
   const { activeStore } = useTenant();
   const [isAdminBypass, setIsAdminBypass] = useState(false);
   const [blocksTick, setBlocksTick] = useState(0);
+
+  useEffect(() => {
+    if (isAdmin || !activeStore?.id) return;
+    captureTrafficSource();
+    trackStorefrontEvent(activeStore.id, 'page_view', {
+      path: typeof window !== 'undefined' ? `${window.location.pathname}#${currentPage || 'home'}` : `/${currentPage || 'home'}`,
+    });
+  }, [activeStore?.id, currentPage, isAdmin]);
 
   // Live reactivity: listen to page builder publishes and storage sync
   useEffect(() => {

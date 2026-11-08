@@ -60,7 +60,7 @@ export const OFFER_TEMPLATES: OfferTemplate[] = [
     badgeEn: 'VIP',
     badgeAr: 'كبار الشخصيات',
     titleEn: 'VIP Welcome · 12% OFF',
-    titleAr: 'ترحيب VIP · خصم 12%',
+    titleAr: 'ترحيب كبار العملاء · خصم 12%',
     bodyEn: 'Use code VIP12 on your first luxury arrangement',
     bodyAr: 'استخدم كود VIP12 على أول تنسيق فاخر',
     code: 'VIP12',

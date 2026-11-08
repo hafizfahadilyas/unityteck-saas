@@ -75,6 +75,61 @@ class StoreSettingsController extends Controller
     }
 
     /**
+     * Public storefront contact / lead form (per store_id). No fake success without persist.
+     */
+    public function submitContact(Request $request): JsonResponse
+    {
+        $key = trim((string) ($request->input('store_id') ?? $request->header('X-Store-Id') ?? ''));
+        $store = $key !== '' ? Store::query()->where('id', $key)->orWhere('slug', $key)->first() : null;
+        if (! $store) {
+            return response()->json(['message' => 'Store not found.'], 404);
+        }
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'phone' => ['nullable', 'string', 'max:40'],
+            'email' => ['nullable', 'email', 'max:190'],
+            'message' => ['required', 'string', 'max:4000'],
+        ]);
+
+        if (empty($data['phone']) && empty($data['email'])) {
+            return response()->json(['message' => 'Phone or email is required.'], 422);
+        }
+
+        $row = StoreSetting::withoutGlobalScope('store')->where('store_id', $store->id)->first();
+        $settings = is_array($row?->settings) ? $row->settings : [];
+        $list = is_array($settings['contact_leads'] ?? null) ? $settings['contact_leads'] : [];
+        $list[] = [
+            'id' => $this->newId('lead'),
+            'name' => $data['name'],
+            'phone' => (string) ($data['phone'] ?? ''),
+            'email' => (string) ($data['email'] ?? ''),
+            'message' => $data['message'],
+            'created_at' => now()->toIso8601String(),
+        ];
+        // Cap growth on shared hosting settings JSON
+        if (count($list) > 500) {
+            $list = array_slice($list, -500);
+        }
+        $settings['contact_leads'] = $list;
+        if ($row) {
+            $row->settings = $settings;
+            $row->save();
+        } else {
+            StoreSetting::withoutGlobalScope('store')->create([
+                'id' => $this->newId('set'),
+                'store_id' => $store->id,
+                'settings' => $settings,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'store_id' => $store->id,
+        ], 201);
+    }
+
+    /**
      * Update store settings.
      */
     public function update(Request $request, ?string $storeId = null): JsonResponse

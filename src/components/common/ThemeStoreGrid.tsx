@@ -72,7 +72,7 @@ export const ThemeStoreGrid: React.FC<Props> = ({
     const themeDisplayName = isAr ? (theme.nameAr || theme.name) : (theme.nameEn || theme.name);
     toast(
       isAr
-        ? `تم تثبيت ثيم "${themeDisplayName}" على متجر ${store.name} بنجاح`
+        ? `تم تثبيت ثيم "${themeDisplayName}" على متجر${store.name}بنجاح`
         : `Theme "${themeDisplayName}" installed on ${store.name} successfully`,
       'success',
     );
@@ -100,7 +100,7 @@ export const ThemeStoreGrid: React.FC<Props> = ({
     a.click();
     URL.revokeObjectURL(url);
     toast(
-      isAr ? 'تم تصدير ملف إعدادات الثيم بنجاح (JSON)' : 'Theme configuration exported successfully (JSON)',
+      isAr ? 'تم تصدير ملف إعدادات الثيم بنجاح' : 'Theme configuration exported successfully (JSON)',
       'success',
     );
   };
@@ -115,7 +115,7 @@ export const ThemeStoreGrid: React.FC<Props> = ({
         if (json.themeId) {
           onInstall(json.themeId, 'Modern Bento');
           toast(
-            isAr ? `تم استيراد وتطبيق الثيم: ${json.themeId}` : `Imported and applied theme: ${json.themeId}`,
+            isAr ? `تم استيراد وتطبيق الثيم:${json.themeId}` : `Imported and applied theme: ${json.themeId}`,
             'success',
           );
         } else {
@@ -134,11 +134,11 @@ export const ThemeStoreGrid: React.FC<Props> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <p className="text-xs font-bold" style={{ color: 'var(--text)' }}>
-            {isAr ? 'متجر ثيمات يونيتك (Unityteck Theme Store)' : 'Unityteck Theme Store'}
+            {isAr ? 'متجر ثيمات يونيتك متجر ثيمات يونيتيك' : 'Unityteck Theme Store'}
           </p>
           <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? `سوق الثيمات المعتمدة · الباقة الحالية: ${plan.name} (${full ? 'كاملة المميزات' : 'أساسية'})`
+              ? `سوق الثيمات المعتمدة · الباقة الحالية:${plan.name}(${full ? 'كاملة المميزات': 'أساسية'})`
               : `Official Theme Marketplace · Current Plan: ${plan.name} (${full ? 'Full' : 'Basic'})`}
           </p>
         </div>

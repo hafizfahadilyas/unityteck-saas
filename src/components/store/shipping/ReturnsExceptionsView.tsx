@@ -86,22 +86,25 @@ export const ReturnsExceptionsView: React.FC = () => {
           day: 'numeric',
           year: 'numeric',
         });
+        const realTrk = String(ord.trackingNumber || '').trim();
         storeReturns.push({
           id: `ret-store-${ord.id}`,
           orderNumber: ord.orderNumber || (ord.id.startsWith('#') ? ord.id : `#${ord.id.slice(-8)}`),
-          trackingNumber: ord.trackingNumber || `5081${ord.id.replace(/\D/g, '').padEnd(8, '0').slice(-8)}`,
-          customerName: ord.customerName || 'Customer',
-          customerPhone: ord.customerPhone || '+966 512 345 678',
-          courier: (ord.courierCode?.toLowerCase() || ord.shippingCompany?.toLowerCase() || 'spl') as any,
+          trackingNumber: realTrk || (isAr ? 'بانتظار رقم التتبع' : 'Awaiting tracking number'),
+          customerName: ord.customerName || (isAr ? 'عميل المتجر' : 'Store Customer'),
+          customerPhone: ord.customerPhone || '—',
+          courier: (ord.courierCode?.toLowerCase() || ord.shippingCompany?.toLowerCase() || 'unknown') as any,
           type: isFailed ? 'Failed Delivery' : 'Return',
-          reason: ord.returnReason || (isFailed ? 'Customer not available' : 'Customer request'),
+          reason: ord.returnReason || (isFailed
+            ? (isAr ? 'تعذر التسليم' : 'Delivery failed')
+            : (isAr ? 'طلب العميل' : 'Customer request')),
           status: ord.status === 'returned' ? 'Completed' : 'Processing',
           date: orderDateStr,
           refundAmount: Number(ord.refundAmount || ord.total || 0),
           packageImages: ord.items?.[0]?.image ? [ord.items[0].image] : [],
           timeline: [
             { title: isAr ? 'تم طلب الإرجاع' : 'Return requested', date: displayDate, isCompleted: true },
-            { title: isAr ? 'فحص ومتابعة الطلب' : 'Request reviewed', date: displayDate, isCompleted: true },
+            { title: isAr ? 'فحص ومتابعة الطلب' : 'Request reviewed', date: displayDate, isCompleted: Boolean(realTrk) },
           ],
         });
       }

@@ -172,7 +172,7 @@ export const StoreCartInterceptTab: React.FC = () => {
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-bold text-sm">
               {isAr
-                ? 'ميزة نوافذ الالتقاط بالنقرة الأولى (1st-Click Smart Cart Intercept)'
+                ? 'ميزة نوافذ الالتقاط بالنقرة الأولى'
                 : '1st-Click Smart Cart Intercept System'}
             </h3>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-slate-900 border border-current shadow-2xs">
@@ -249,7 +249,7 @@ export const StoreCartInterceptTab: React.FC = () => {
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
                 {isAr
-                  ? `"Don't Lose Your Points!" — تشجيع العميل على تسجيل الدخول لكسب ${config.loyalty_points || 25} نقطة على سلة الطلب.`
+                  ? `"Don't Lose Your Points!" — تشجيع العميل على تسجيل الدخول لكسب${config.loyalty_points || 25}نقطة على سلة الطلب.`
                   : `"Don't Lose Your Points!" — Prompts visitors to log in to earn ${config.loyalty_points || 25} reward points.`}
               </p>
             </div>
@@ -285,7 +285,7 @@ export const StoreCartInterceptTab: React.FC = () => {
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
                 {isAr
-                  ? `"Your Gift is Ready!" — شريط زينة احتفالي مع منح كود خصم ${config.discount_percent || 10}% يطبق تلقائياً على السلة.`
+                  ? `"Your Gift is Ready!" — شريط زينة احتفالي مع منح كود خصم${config.discount_percent || 10}% يطبق تلقائياً على السلة.`
                   : `"Your Gift is Ready!" — Festive ribbons offering ${config.discount_percent || 10}% OFF auto applied.`}
               </p>
             </div>
@@ -365,7 +365,7 @@ export const StoreCartInterceptTab: React.FC = () => {
                   />
                   <span className="text-xs text-amber-700 dark:text-amber-300">
                     {isAr
-                      ? `تعادل ${(Number(config.loyalty_points || 25) * 0.1).toFixed(1)} ر.س خصم نقدي متاح للعميل`
+                      ? `تعادل${(Number(config.loyalty_points || 25) * 0.1).toFixed(1)}ر.س خصم نقدي متاح للعميل`
                       : `Worth ${(Number(config.loyalty_points || 25) * 0.1).toFixed(1)} SAR cash discount`}
                   </span>
                 </div>
@@ -672,7 +672,7 @@ export const StoreCartInterceptTab: React.FC = () => {
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {isAr
-                ? 'تتبع حقيقي ومباشر من قاعدة بيانات Hostinger MySQL يوضح هوية من ضغط، النافذة المعروضة، والمنتج المتفاعل معه.'
+                ? 'تتبع حقيقي ومباشر من قاعدة بيانات هوستنجر MySQL يوضح هوية من ضغط، النافذة المعروضة، والمنتج المتفاعل معه.'
                 : 'Real-time telemetry from Hostinger MySQL recording which visitor clicked which modal option.'}
             </p>
           </div>
@@ -832,7 +832,7 @@ export const StoreCartInterceptTab: React.FC = () => {
                             : log.action === 'later'
                             ? (isAr ? 'الضغط على لاحقاً' : 'Clicked Later')
                             : log.action === 'dismissed'
-                            ? (isAr ? 'إغلاق النافذة (X)' : 'Dismissed (X)')
+                            ? (isAr ? 'إغلاق النافذة' : 'Dismissed (X)')
                             : (isAr ? 'مشاهدة النافذة' : 'Impression')}
                         </span>
                       </td>

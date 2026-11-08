@@ -119,7 +119,7 @@ export const MasterSEO: React.FC = () => {
   const handleCopyPayload = async () => {
     try {
       await navigator.clipboard.writeText(INDEXING_PAYLOAD);
-      toast(isAr ? 'تم نسخ طلب Indexing API' : 'Indexing API payload copied', 'success');
+      toast(isAr ? 'تم نسخ طلب واجهة الفهرسة' : 'Indexing API payload copied', 'success');
     } catch {
       toast(isAr ? 'تعذّر النسخ إلى الحافظة' : 'Could not copy to clipboard', 'error');
     }
@@ -150,7 +150,7 @@ export const MasterSEO: React.FC = () => {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    toast(isAr ? 'تم تنزيل تقرير SEO بصيغة CSV' : 'SEO report downloaded as CSV', 'success');
+    toast(isAr ? 'تم تنزيل تقرير تحسين محركات البحث بصيغة جداول البيانات' : 'SEO report downloaded as CSV', 'success');
   };
 
   return (
@@ -163,7 +163,7 @@ export const MasterSEO: React.FC = () => {
               <Search className="w-5 h-5" />
             </span>
             <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2 flex-wrap" style={{ color: '#ffffff' }}>
-              {isAr ? 'إدارة SEO المركزية والتحكم في فهرسة Google' : 'Master SEO & Central Google Indexing Control'}
+              {isAr ? 'إدارة تحسين محركات البحث المركزية والتحكم في فهرسة جوجل' : 'Master SEO & Central Google Indexing Control'}
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30">
                 {isAr ? 'مُجمِّع متعدد المستأجرين' : 'Multi-Tenant Aggregator'}
               </span>
@@ -171,7 +171,7 @@ export const MasterSEO: React.FC = () => {
           </div>
           <p className="text-xs text-teal-200/80 max-w-2xl leading-relaxed">
             {isAr
-              ? 'لوحة مركزية لمراقبة حسابات Google لجميع متاجر التجار، ومعدلات الفهرسة في Google Search Console، وحركة أحداث GA4، وسلامة خرائط XML. عند ربط العملاء لحسابات Google الخاصة بهم، يتجمّع أداء البحث هنا لحظيًا.'
+              ? 'لوحة مركزية لمراقبة حسابات جوجل لجميع متاجر التجار، ومعدلات الفهرسة في وحدة بحث جوجل، وحركة أحداث GA4، وسلامة خرائط XML. عند ربط العملاء لحسابات جوجل الخاصة بهم، يتجمّع أداء البحث هنا لحظيًا.'
               : "Central dashboard monitoring all merchant stores' Google accounts, Google Search Console indexing rates, GA4 event traffic, and XML sitemap health. When clients connect their Google accounts, their search performance aggregates here in real-time."}
           </p>
         </div>
@@ -186,7 +186,7 @@ export const MasterSEO: React.FC = () => {
             <span>
               {isSyncingAll
                 ? isAr ? 'جارٍ مزامنة بيانات جميع المتاجر...' : 'Syncing All Store Data...'
-                : isAr ? 'مزامنة جميع حسابات Google' : 'Sync All Google Accounts'}
+                : isAr ? 'مزامنة جميع حسابات جوجل' : 'Sync All Google Accounts'}
             </span>
           </button>
         </div>
@@ -197,7 +197,7 @@ export const MasterSEO: React.FC = () => {
           <CheckCircle2 className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
           <span>
             {isAr
-              ? `تم تحديث بيانات Google Search Console و Indexing API المركزية عبر جميع متاجر التجار (${stores.length})!`
+              ? `تم تحديث بيانات وحدة بحث جوجل و واجهة الفهرسة المركزية عبر جميع متاجر التجار (${stores.length})!`
               : `Central Google Search Console & Indexing API data refreshed across all ${stores.length} merchant stores!`}
           </span>
         </div>
@@ -235,7 +235,7 @@ export const MasterSEO: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
             <label className="text-[11px] font-bold text-slate-500 block mb-1">
-              {isAr ? 'بادئة حاوية مدير العلامات (GTM)' : 'Master GTM Container Prefix'}
+              {isAr ? 'بادئة حاوية مدير العلامات مدير العلامات' : 'Master GTM Container Prefix'}
             </label>
             <input
               type="text"
@@ -246,7 +246,7 @@ export const MasterSEO: React.FC = () => {
           </div>
           <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
             <label className="text-[11px] font-bold text-slate-500 block mb-1">
-              {isAr ? 'بادئة معرف التحليلات (GA4)' : 'Master GA4 Stream Prefix'}
+              {isAr ? 'بادئة معرف التحليلات تحليلات جوجل' : 'Master GA4 Stream Prefix'}
             </label>
             <input
               type="text"
@@ -275,13 +275,13 @@ export const MasterSEO: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs space-y-2">
           <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-            <span>{isAr ? 'حسابات Google المرتبطة' : 'Connected Google Accounts'}</span>
+            <span>{isAr ? 'حسابات جوجل المرتبطة' : 'Connected Google Accounts'}</span>
             <span className="text-[10px] text-teal-700 font-bold bg-teal-50 dark:bg-teal-500/10 dark:text-teal-300 px-2 py-0.5 rounded-full">
-              {isAr ? `${connectedCount} من ${stores.length} متاجر` : `${connectedCount} of ${stores.length} Stores`}
+              {isAr ? `${connectedCount}من${stores.length}متاجر` : `${connectedCount} of ${stores.length} Stores`}
             </span>
           </div>
           <div className="text-2xl font-black text-slate-900 tabular-nums">
-            {isAr ? `${connectedCount} مرتبط` : `${connectedCount} Connected`}
+            {isAr ? `${connectedCount}مرتبط` : `${connectedCount} Connected`}
           </div>
           <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
             <div 
@@ -290,7 +290,7 @@ export const MasterSEO: React.FC = () => {
             />
           </div>
           <span className="text-[10px] text-slate-400 block">
-            {isAr ? 'عملاء متزامنون عبر حسابات Google الخاصة بهم' : 'Clients synced via their own Google accounts'}
+            {isAr ? 'عملاء متزامنون عبر حسابات جوجل الخاصة بهم' : 'Clients synced via their own Google accounts'}
           </span>
         </div>
 
@@ -315,7 +315,7 @@ export const MasterSEO: React.FC = () => {
             />
           </div>
           <span className="text-[10px] text-slate-400 block">
-            {isAr ? 'إجمالي مرات الظهور في بحث Google بالسعودية' : 'Total KSA Google search impressions'}
+            {isAr ? 'إجمالي مرات الظهور في بحث جوجل بالسعودية' : 'Total KSA Google search impressions'}
           </span>
         </div>
 
@@ -348,18 +348,18 @@ export const MasterSEO: React.FC = () => {
           <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
             <span>{isAr ? 'إجمالي الروابط المفهرسة' : 'Total URLs Indexed'}</span>
             <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-300 px-1.5 py-0.5 rounded-full">
-              {isAr ? `متوسط CTR: ${avgCtrGlobal}%` : `Avg CTR: ${avgCtrGlobal}%`}
+              {isAr ? `متوسط CTR:${avgCtrGlobal}%` : `Avg CTR: ${avgCtrGlobal}%`}
             </span>
           </div>
           <div className="text-2xl font-black text-teal-800 dark:text-teal-300 tabular-nums">
-            {isAr ? `${totalIndexedUrlsAcrossStores} رابط` : `${totalIndexedUrlsAcrossStores} URLs`}
+            {isAr ? `${totalIndexedUrlsAcrossStores}رابط` : `${totalIndexedUrlsAcrossStores} URLs`}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-slate-600 pt-2">
             <CheckCircle2 className="w-3.5 h-3.5 text-teal-500" />
-            <span>{isAr ? 'فهرسة تلقائية عبر Next.js 15 SSR' : 'Automated Next.js 15 SSR Indexing'}</span>
+            <span>{isAr ? 'فهرسة تلقائية عبر العرض من الخادم' : 'Automated Next.js 15 SSR Indexing'}</span>
           </div>
           <span className="text-[10px] text-slate-400 block">
-            {isAr ? 'مفهرسة على Google و Bing و Yandex' : 'Indexed across Google, Bing & Yandex'}
+            {isAr ? 'مفهرسة على جوجل و بينج و ياندكس' : 'Indexed across Google, Bing & Yandex'}
           </span>
         </div>
       </div>
@@ -369,11 +369,11 @@ export const MasterSEO: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div>
             <h3 className="text-sm font-bold text-slate-900">
-              {isAr ? 'حالة SEO وحسابات Google لمتاجر التجار' : 'Merchant Store SEO & Google Account Status'}
+              {isAr ? 'حالة تحسين محركات البحث وحسابات جوجل لمتاجر التجار' : 'Merchant Store SEO & Google Account Status'}
             </h3>
             <p className="text-xs text-slate-500">
               {isAr
-                ? 'تفصيل لكل متجر يشمل ربط حساب Google، ومعرّفات GA4، ووسوم Google Search Console، وترتيب البحث.'
+                ? 'تفصيل لكل متجر يشمل ربط حساب جوجل، ومعرّفات GA4، ووسوم وحدة بحث جوجل، وترتيب البحث.'
                 : 'Per-store breakdown of Google account connection, GA4 IDs, Google Search Console tags, and search rankings.'}
             </p>
           </div>
@@ -402,12 +402,12 @@ export const MasterSEO: React.FC = () => {
             <button
               type="button"
               onClick={handleExportCsv}
-              title={isAr ? 'تصدير الجدول بصيغة CSV' : 'Export table as CSV'}
-              aria-label={isAr ? 'تصدير الجدول بصيغة CSV' : 'Export table as CSV'}
+              title={isAr ? 'تصدير الجدول بصيغة جداول البيانات' : 'Export table as CSV'}
+              aria-label={isAr ? 'تصدير الجدول بصيغة جداول البيانات' : 'Export table as CSV'}
               className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>{isAr ? 'تصدير CSV' : 'Export CSV'}</span>
+              <span>{isAr ? 'تصدير جداول البيانات' : 'Export CSV'}</span>
             </button>
           </div>
         </div>
@@ -417,11 +417,11 @@ export const MasterSEO: React.FC = () => {
             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
               <tr>
                 <th className="py-3 px-4 text-start">{isAr ? 'متجر التاجر' : 'Store'}</th>
-                <th className="py-3 px-3 text-start">{isAr ? 'حساب Google' : 'Google Account'}</th>
-                <th className="py-3 px-3 text-start">{isAr ? 'Analytics (GA4)' : 'Analytics (GA4)'}</th>
-                <th className="py-3 px-3 text-start">{isAr ? 'حاوية GTM' : 'GTM Container'}</th>
+                <th className="py-3 px-3 text-start">{isAr ? 'حساب جوجل' : 'Google Account'}</th>
+                <th className="py-3 px-3 text-start">{isAr ? 'تحليلات جوجل' : 'Analytics (GA4)'}</th>
+                <th className="py-3 px-3 text-start">{isAr ? 'حاوية مدير العلامات' : 'GTM Container'}</th>
                 <th className="py-3 px-3 text-start">{isAr ? 'Search Console' : 'Search Console'}</th>
-                <th className="py-3 px-3 text-start">{isAr ? 'Google Ads' : 'Google Ads'}</th>
+                <th className="py-3 px-3 text-start">{isAr ? 'جوجل Ads' : 'Google Ads'}</th>
                 <th className="py-3 px-3 text-center">{isAr ? 'حالة المزامنة' : 'Sync Status'}</th>
                 <th className="py-3 px-4 text-center">{isAr ? 'الإجراءات' : 'Actions'}</th>
               </tr>
@@ -523,7 +523,7 @@ export const MasterSEO: React.FC = () => {
           <div className="flex items-center justify-between gap-2">
             <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
               <Zap className="w-4 h-4 text-amber-500" />
-              <span>{isAr ? 'بنية الدفع المركزية لـ Google Indexing API' : 'Master Google Indexing API Push Architecture'}</span>
+              <span>{isAr ? 'بنية الدفع المركزية لـ جوجل واجهة الفهرسة' : 'Master Google Indexing API Push Architecture'}</span>
             </h4>
             <button
               type="button"
@@ -538,7 +538,7 @@ export const MasterSEO: React.FC = () => {
           </div>
           <p className="text-xs text-slate-600 leading-relaxed">
             {isAr
-              ? 'عندما يُنشئ أي تاجر منتجًا أو يحدّثه أو ينشره في منصتنا متعددة المستأجرين، تُطلق واجهة Laravel 11 API على Hostinger مهمة في طابور الخلفية، تقوم فورًا بإرسال طلب JSON-RPC إلى Webmaster Indexing API من Google:'
+              ? 'عندما يُنشئ أي تاجر منتجًا أو يحدّثه أو ينشره في منصتنا متعددة المستأجرين، تُطلق واجهة Laravel 11 API على هوستنجر مهمة في طابور الخلفية، تقوم فورًا بإرسال طلب JSON-RPC إلى Webmaster واجهة الفهرسة من جوجل:'
               : "When any merchant creates, updates, or publishes a product in our multi-tenant SaaS, our Laravel 11 API on Hostinger triggers a background queue job. The job pushes an instant JSON-RPC payload to Google's Webmaster Indexing API:"}
           </p>
           <div className="p-3 bg-slate-900 dark:bg-black/40 text-teal-400 font-mono text-[11px] rounded-xl overflow-x-auto text-left" dir="ltr">

@@ -151,40 +151,53 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
     };
   }, []);
 
-  const effectiveStoreId = explicitUrlStoreId || storeId || (activeStore?.id ? activeStore.id : '') || 'store-coffee';
+  // Never invent store-coffee when tenant is unknown — that leaks HiBrew into other contexts.
+  const effectiveStoreId = explicitUrlStoreId || storeId || (activeStore?.id ? activeStore.id : '');
   const effectiveThemeId =
-    themeId || urlThemeParam || (storeActiveTheme && storeActiveTheme[effectiveStoreId]) || (activeStore as any)?.theme_id;
-  const effectiveCategory = category || activeStore?.category || (effectiveStoreId === 'store-coffee' ? 'قهوة' : '');
+    themeId || urlThemeParam || (effectiveStoreId && storeActiveTheme && storeActiveTheme[effectiveStoreId]) || (activeStore as any)?.theme_id;
+  const effectiveCategory = category || activeStore?.category || '';
 
   const manifest = useMemo(
-    () => resolveStoreTheme(effectiveStoreId, effectiveThemeId, effectiveCategory),
+    () => (effectiveStoreId ? resolveStoreTheme(effectiveStoreId, effectiveThemeId, effectiveCategory) : null),
     [effectiveStoreId, effectiveThemeId, effectiveCategory, syncTick],
   );
 
-  const ThemeComponent = manifest.ViewComponent;
+  const ThemeComponent = manifest?.ViewComponent;
 
   // Resolve initial page key mapping per theme conventions
   const resolvedInitialPage = useMemo(() => {
     const raw = (initialPage || urlPageParam || fallbackPage || 'home').toLowerCase().trim();
+    const mid = manifest?.id || '';
     if (raw === 'shop' || raw === 'catalog' || raw === 'products') {
-      if (manifest.id === 'theme-transport' || manifest.id === 'theme-saudia-transport') return 'catalog';
-      if (manifest.id === 'theme-coffee-artisan' || manifest.id === 'theme-coffee') return 'products';
+      if (mid === 'theme-transport' || mid === 'theme-saudia-transport') return 'catalog';
+      if (mid === 'theme-coffee-artisan' || mid === 'theme-coffee') return 'products';
       return 'catalog';
     }
     if (raw === 'product' || raw === 'product-detail' || raw === 'detail') {
-      if (manifest.id === 'theme-coffee-artisan' || manifest.id === 'theme-coffee') return 'product-detail';
+      if (mid === 'theme-coffee-artisan' || mid === 'theme-coffee') return 'product-detail';
       return 'product';
     }
     if (raw === 'profile' || raw === 'crm' || raw === 'account' || raw === 'login') {
-      if (manifest.id.includes('gift') || manifest.id.includes('flower')) return 'crm';
+      if (mid.includes('gift') || mid.includes('flower')) return 'crm';
       return 'profile';
     }
     return raw;
-  }, [initialPage, fallbackPage, manifest.id, isAdmin]);
+  }, [initialPage, fallbackPage, manifest?.id, isAdmin, urlPageParam]);
+
+  const isPreviewEmbed =
+    typeof window !== 'undefined' &&
+    (() => {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        return q.get('preview') === '1' || q.get('embed') === '1';
+      } catch {
+        return false;
+      }
+    })();
 
   // Golden Rule: Automatic Store-wise Public SEO computation with strict Tenant Isolation & Bilingual Switching
   useEffect(() => {
-    if (isAdmin) return;
+    if (isAdmin || isPreviewEmbed || !effectiveStoreId) return;
     captureTrafficSource();
     const currentStoreObj = stores?.find((s: any) => s.id === effectiveStoreId) || activeStore;
     const storeProducts = (allProducts && allProducts[effectiveStoreId]) || currentProducts || [];
@@ -200,10 +213,11 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
     trackStorefrontEvent(effectiveStoreId, 'page_view', {
       path: typeof location !== 'undefined' ? location.pathname : `/${resolvedInitialPage || ''}`,
     });
-  }, [effectiveStoreId, activeStore, stores, currentSEOConfig, allProducts, currentProducts, locale, category, resolvedInitialPage, isAdmin]);
+  }, [effectiveStoreId, activeStore, stores, currentSEOConfig, allProducts, currentProducts, locale, category, resolvedInitialPage, isAdmin, isPreviewEmbed]);
 
   // Live inject custom CSS if configured for the active store
   useEffect(() => {
+    if (!effectiveStoreId) return;
     try {
       const raw = localStorage.getItem(`unityteck_custom_code_${effectiveStoreId}`);
       if (raw) {
@@ -224,27 +238,18 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
   // CSS variables for isolated theme scoping
   const scopeStyles = useMemo(
     () =>
-      ({
-        '--theme-primary': manifest.defaultColors.primary,
-        '--theme-secondary': manifest.defaultColors.secondary,
-        '--theme-accent': manifest.defaultColors.accent,
-        '--theme-surface': manifest.defaultColors.surface,
-        '--theme-bg': manifest.defaultColors.background,
-        '--theme-text': manifest.defaultColors.text,
-      } as React.CSSProperties),
+      !manifest
+        ? ({} as React.CSSProperties)
+        : ({
+            '--theme-primary': manifest.defaultColors.primary,
+            '--theme-secondary': manifest.defaultColors.secondary,
+            '--theme-accent': manifest.defaultColors.accent,
+            '--theme-surface': manifest.defaultColors.surface,
+            '--theme-bg': manifest.defaultColors.background,
+            '--theme-text': manifest.defaultColors.text,
+          } as React.CSSProperties),
     [manifest],
   );
-
-  const isPreviewEmbed =
-    typeof window !== 'undefined' &&
-    (() => {
-      try {
-        const q = new URLSearchParams(window.location.search);
-        return q.get('preview') === '1' || q.get('embed') === '1';
-      } catch {
-        return false;
-      }
-    })();
 
   // Preview iframe / admin embed: skip heavy brand splash — paint theme ASAP
   const suspenseFallback = isPreviewEmbed ? (
@@ -252,6 +257,15 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
   ) : (
     <DashboardLoader storeId={effectiveStoreId} storeName={activeStore?.name} />
   );
+
+  if (!effectiveStoreId || !manifest || !ThemeComponent) {
+    const isAr = locale === 'ar';
+    return (
+      <div className="w-full min-h-[40vh] flex items-center justify-center bg-white text-neutral-500 text-sm px-4 text-center">
+        {isAr ? 'بانتظار بيانات المتجر' : 'Waiting for store data'}
+      </div>
+    );
+  }
 
   return (
     <div

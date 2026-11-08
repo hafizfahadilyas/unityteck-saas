@@ -414,7 +414,7 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
 
       toast(
         isAr
-          ? 'تم استيراد الوسائط من Google Drive وحفظها في المكتبة بنجاح'
+          ? 'تم استيراد الوسائط من جوجل Drive وحفظها في المكتبة بنجاح'
           : 'Google Drive asset imported & saved to Media Library',
         'success',
       );
@@ -457,7 +457,7 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
               </div>
               <p className="text-[10px] sm:text-[11px] truncate" style={{ color: 'var(--muted)' }}>
                 {isAr
-                  ? 'اختر من الملفات السابقة، ارفع ملف جديد، أو استورد من Google Drive'
+                  ? 'اختر من الملفات السابقة، ارفع ملف جديد، أو استورد من جوجل Drive'
                   : 'Select existing media, upload optimized assets, or import from Google Drive'}
               </p>
             </div>
@@ -777,7 +777,7 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
                           className="px-5 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shadow-2xs"
                         >
                           {isAr
-                            ? `عرض المزيد (${filteredMedia.length - displayLimit} متبقي)`
+                            ? `عرض المزيد (${filteredMedia.length - displayLimit}متبقي)`
                             : `Load More (${filteredMedia.length - displayLimit} remaining)`}
                         </button>
                       </div>
@@ -896,11 +896,11 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
                 </div>
                 <div className="space-y-1">
                   <h3 className="font-extrabold text-sm text-emerald-400">
-                    {isAr ? 'استيراد مباشر وسريع من Google Drive' : 'Direct Google Drive Import'}
+                    {isAr ? 'استيراد مباشر وسريع من جوجل Drive' : 'Direct Google Drive Import'}
                   </h3>
                   <p className="text-xs text-muted leading-relaxed">
                     {isAr
-                      ? 'انسخ رابط المشاركة لأي صورة أو فيديو من Google Drive والصقه هنا. سيقوم النظام بحفظها وتحسينها لتكون متاحة لجميع أقسام متجرك.'
+                      ? 'انسخ رابط المشاركة لأي صورة أو فيديو من جوجل Drive والصقه هنا. سيقوم النظام بحفظها وتحسينها لتكون متاحة لجميع أقسام متجرك.'
                       : 'Paste any public or shared Google Drive file link. The system extracts the media, optimizes dimensions, and saves it permanently in your store library.'}
                   </p>
                 </div>
@@ -910,7 +910,7 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
               <form onSubmit={handleGoogleDriveImport} className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold block" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'رابط مشاركة Google Drive' : 'Google Drive Share Link'} *
+                    {isAr ? 'رابط مشاركة جوجل Drive' : 'Google Drive Share Link'} *
                   </label>
                   <input
                     type="url"

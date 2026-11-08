@@ -112,7 +112,7 @@ export const ReportsChannels: React.FC<ReportsChannelsProps> = ({
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {isAr
-                ? 'مقارنة دقيقة بين القنوات الإعلانية، العائد على الإنفاق (ROAS)، ونسب الإسناد للطلبات'
+                ? 'مقارنة دقيقة بين القنوات الإعلانية، العائد على الإنفاق ، ونسب الإسناد للطلبات'
                 : 'Direct channel comparison across ROAS, CPA, conversion rates, and revenue'}
             </p>
           </div>
@@ -132,7 +132,7 @@ export const ReportsChannels: React.FC<ReportsChannelsProps> = ({
         </div>
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{isAr ? 'متوسط عائد الإعلانات (Blended ROAS)' : 'Blended ROAS'}</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{isAr ? 'متوسط عائد الإعلانات المدمج' : 'Blended ROAS'}</span>
           <div className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-2">
             {kpis?.blended_roas ?? (channels.length > 0 ? (channels.reduce((s: number, c: any) => s + (c.roas || 0), 0) / channels.length).toFixed(2) : '0.00')}x
           </div>

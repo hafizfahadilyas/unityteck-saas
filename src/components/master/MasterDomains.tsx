@@ -102,7 +102,7 @@ export const MasterDomains: React.FC = () => {
 
     toast(
       isAr
-        ? `تم تسجيل طلب الدومين والاستضافة المشتركة لـ ${newDomain}`
+        ? `تم تسجيل طلب الدومين والاستضافة المشتركة لـ${newDomain}`
         : `Registered Shared Hosting purchase order for ${newDomain}!`,
       'success',
     );
@@ -130,7 +130,7 @@ export const MasterDomains: React.FC = () => {
       });
       toast(
         isAr
-          ? `تم ربط استضافة Hostinger المشتركة للمتجر بنجاح!`
+          ? `تم ربط استضافة هوستنجر المشتركة للمتجر بنجاح!`
           : `Hostinger Shared Hosting connected successfully!`,
         'success',
       );
@@ -155,7 +155,7 @@ export const MasterDomains: React.FC = () => {
       });
       toast(
         isAr
-          ? `تم التحقق من سجلات DNS وتوجيهها إلى خادم Hostinger!`
+          ? `تم التحقق من سجلات النطاق وتوجيهها إلى خادم هوستنجر!`
           : `DNS Verified! Pointing to Hostinger Shared IP 185.199.108.153`,
         'success',
       );
@@ -204,7 +204,7 @@ export const MasterDomains: React.FC = () => {
       });
       toast(
         isAr
-          ? 'تمت مزامنة حالة خوادم Hostinger المشتركة وشهادات الأمان بنجاح'
+          ? 'تمت مزامنة حالة خوادم هوستنجر المشتركة وشهادات الأمان بنجاح'
           : 'Hostinger Shared Hosting API & DNS synchronized successfully.',
         'success',
       );
@@ -226,7 +226,7 @@ export const MasterDomains: React.FC = () => {
               </h1>
               <p className="text-xs text-slate-500 mt-0.5">
                 {isAr
-                  ? 'قاعدة صارمة: استضافة Hostinger المشتركة فقط · لا يوجد خوادم VPS أو Dedicated · تحكم مركزي كامل وتتبع أمني'
+                  ? 'قاعدة صارمة: استضافة هوستنجر المشتركة فقط · لا يوجد خوادم VPS أو Dedicated · تحكم مركزي كامل وتتبع أمني'
                   : 'Strict Architecture: Hostinger Shared Hosting Only · Zero VPS / Zero Dedicated · Central DNS, SSL & Live Deployment'}
               </p>
             </div>
@@ -241,7 +241,7 @@ export const MasterDomains: React.FC = () => {
             className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncingHostinger ? 'animate-spin text-emerald-600' : ''}`} />
-            <span>{isSyncingHostinger ? (isAr ? 'جاري المزامنة…' : 'Syncing API…') : (isAr ? 'مزامنة Hostinger' : 'Sync Hostinger')}</span>
+            <span>{isSyncingHostinger ? (isAr ? 'جاري المزامنة…' : 'Syncing API…') : (isAr ? 'مزامنة هوستنجر' : 'Sync Hostinger')}</span>
           </button>
 
           <button
@@ -269,7 +269,7 @@ export const MasterDomains: React.FC = () => {
         </div>
 
         <div className="p-4 bg-white rounded-2xl border border-slate-200/90 shadow-2xs">
-          <span className="text-xs text-slate-500">{isAr ? 'خادم Hostinger المشترك' : 'Hostinger Shared Server'}</span>
+          <span className="text-xs text-slate-500">{isAr ? 'خادم هوستنجر المشترك' : 'Hostinger Shared Server'}</span>
           <div className="text-sm font-black text-slate-900 mt-1 font-mono flex items-center gap-1.5">
             <Server className="w-4 h-4 text-emerald-600" />
             <span>185.199.108.153</span>
@@ -290,7 +290,7 @@ export const MasterDomains: React.FC = () => {
         </div>
 
         <div className="p-4 bg-white rounded-2xl border border-slate-200/90 shadow-2xs">
-          <span className="text-xs text-slate-500">{isAr ? 'عائد الاستضافة الشهري (MRR)' : 'Monthly Hosting MRR'}</span>
+          <span className="text-xs text-slate-500">{isAr ? 'عائد الاستضافة الشهري الإيراد الشهري' : 'Monthly Hosting MRR'}</span>
           <div className="text-2xl font-black text-slate-900 mt-0.5 tabular-nums">
             {money(domains.reduce((acc, d) => acc + d.monthlyFee, 0))}
           </div>
@@ -341,7 +341,7 @@ export const MasterDomains: React.FC = () => {
           }`}
         >
           <Server className="w-3.5 h-3.5 text-emerald-600" />
-          <span>{isAr ? 'بيانات ربط Hostinger API' : 'Hostinger API & Server'}</span>
+          <span>{isAr ? 'بيانات ربط واجهة هوستنجر' : 'Hostinger API & Server'}</span>
         </button>
 
         <button
@@ -354,7 +354,7 @@ export const MasterDomains: React.FC = () => {
           }`}
         >
           <FileText className="w-3.5 h-3.5 text-indigo-600" />
-          <span>{isAr ? 'سجل العمليات والأمان (Audit Logs)' : 'Security Audit Logs'} ({auditLogs.length})</span>
+          <span>{isAr ? 'سجل العمليات والأمان' : 'Security Audit Logs'} ({auditLogs.length})</span>
         </button>
       </div>
 
@@ -384,8 +384,8 @@ export const MasterDomains: React.FC = () => {
                 className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none"
               >
                 <option value="all">{isAr ? 'جميع النطاقات' : 'All Types'}</option>
-                <option value="custom">{isAr ? 'دومين خاص (Custom)' : 'Custom Domains'}</option>
-                <option value="demo">{isAr ? 'دومين تجريبي (Demo)' : 'Demo Subdomains'}</option>
+                <option value="custom">{isAr ? 'دومين خاص مخصص' : 'Custom Domains'}</option>
+                <option value="demo">{isAr ? 'دومين تجريبي تجريبي' : 'Demo Subdomains'}</option>
               </select>
 
               <span className="text-xs text-slate-400 ms-2">
@@ -402,8 +402,8 @@ export const MasterDomains: React.FC = () => {
                   <th className="py-3 px-3">{isAr ? 'المتجر المرتبط' : 'Associated Store'}</th>
                   <th className="py-3 px-3">{isAr ? 'باقة الاستضافة المشتركة' : 'Shared Hosting Tier'}</th>
                   <th className="py-3 px-3">{isAr ? 'معرف الاستضافة' : 'Hostinger ID'}</th>
-                  <th className="py-3 px-3 text-center">{isAr ? 'التحقق من DNS' : 'DNS Status'}</th>
-                  <th className="py-3 px-3 text-center">{isAr ? 'شهادة SSL' : 'SSL Certificate'}</th>
+                  <th className="py-3 px-3 text-center">{isAr ? 'التحقق من النطاق' : 'DNS Status'}</th>
+                  <th className="py-3 px-3 text-center">{isAr ? 'شهادة الأمان' : 'SSL Certificate'}</th>
                   <th className="py-3 px-3 text-center">{isAr ? 'الحالة العامة' : 'Store Live Status'}</th>
                   <th className="py-3 px-4 text-right">{isAr ? 'إجراءات التحكم' : 'Master Controls'}</th>
                 </tr>

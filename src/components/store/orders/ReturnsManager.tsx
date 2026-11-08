@@ -75,7 +75,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({
 
       toast(
         isAr
-          ? `تم قبول طلب الإرجاع بنجاح${withRestock ? ' وإعادة المنتجات للمخزون تلقائياً ✓' : ' ✓'}`
+          ? `تم قبول طلب الإرجاع بنجاح${withRestock ? ' وإعادة المنتجات للمخزون تلقائياً ✓': ' ✓'}`
           : `Return approved successfully${withRestock ? ' and items restocked to inventory ✓' : ' ✓'}`,
         'success'
       );
@@ -272,7 +272,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({
                 </div>
                 <p className="text-[11px] text-teal-800 dark:text-teal-400 mt-0.5 leading-relaxed">
                   {isAr
-                    ? `عند تفعيل هذا الخيار، ستتم إضافة (+${totalItemsCount} قطع) فوراً إلى رصيد المخزون وسيتم إلغاء علامة «نفد المخزون» إن وجدت.`
+                    ? `عند تفعيل هذا الخيار، ستتم إضافة (+${totalItemsCount}قطع) فوراً إلى رصيد المخزون وسيتم إلغاء علامة «نفد المخزون» إن وجدت.`
                     : `When checked, (+${totalItemsCount} units) will be immediately credited back to store product inventory in MySQL, and out-of-stock badges cleared.`}
                 </p>
               </div>

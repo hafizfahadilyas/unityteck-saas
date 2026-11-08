@@ -145,7 +145,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
       setProfile(updated);
       toast(
         isAr
-          ? `تم تفعيل الموقع والإشعارات في ملفك الشخصي (+${bonus} عملة مكافأة)!`
+          ? `تم تفعيل الموقع والإشعارات في ملفك الشخصي (+${bonus}عملة مكافأة)!`
           : `Location & Notifications enabled (+${bonus} Bonus Coins)!`,
         'success',
       );
@@ -175,7 +175,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
       );
       toast(
         isAr
-          ? `لقد حصلت على عملات اليوم بالفعل! السحبة التالية متاحة بعد ~${hrs} ساعة.`
+          ? `لقد حصلت على عملات اليوم بالفعل! السحبة التالية متاحة بعد ~${hrs}ساعة.`
           : `You already claimed today! Next spin available in ~${hrs}h.`,
         'info',
       );
@@ -198,7 +198,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
       setIsSpinning(false);
       toast(
         isAr
-          ? `مبروك! ربحت +${won} عملة يمكنك استخدامها كخصم مباشر عند الدفع!`
+          ? `مبروك! ربحت +${won}عملة يمكنك استخدامها كخصم مباشر عند الدفع!`
           : `Congratulations! You won +${won} Coins to use as instant discount at checkout!`,
         'success',
       );
@@ -224,7 +224,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
             </h3>
             <p className="text-xs text-slate-500">
               {isAr
-                ? `اجمع العملات مع كل عملية شراء واستبدلها بخصم نقدي فوري في ${activeStore.name}`
+                ? `اجمع العملات مع كل عملية شراء واستبدلها بخصم نقدي فوري في${activeStore.name}`
                 : `Earn coins with every order and redeem instant SAR discounts at ${activeStore.name}`}
             </p>
           </div>
@@ -326,7 +326,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
             className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black cursor-pointer shrink-0 transition-colors shadow-xs"
           >
             {isAr
-              ? `تفعيل (+${loyaltySettings.signupLocationBonusCoins} عملة)`
+              ? `تفعيل (+${loyaltySettings.signupLocationBonusCoins}عملة)`
               : `Enable (+${loyaltySettings.signupLocationBonusCoins} Coins)`}
           </button>
         </div>
@@ -382,7 +382,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
             </h4>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
               {isAr
-                ? `العب يومياً لربح ما بين ${loyaltySettings.minSpinCoins} إلى ${loyaltySettings.maxSpinCoins} عملة تُضاف فوراً لرصيدك للتسوق بها في متجر ${activeStore.name}!`
+                ? `العب يومياً لربح ما بين${loyaltySettings.minSpinCoins}إلى${loyaltySettings.maxSpinCoins}عملة تُضاف فوراً لرصيدك للتسوق بها في متجر${activeStore.name}!`
                 : `Play every 24 hours to win between ${loyaltySettings.minSpinCoins} and ${loyaltySettings.maxSpinCoins} Coins to use as instant discount at checkout!`}
             </p>
           </div>
@@ -445,7 +445,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
                     setProfile(updated);
                     toast(
                       isAr
-                        ? `تم تفعيل مكافأة البطاقة وإضافة +${c.bonusCoinsPerUse} عملة بنجاح!`
+                        ? `تم تفعيل مكافأة البطاقة وإضافة +${c.bonusCoinsPerUse}عملة بنجاح!`
                         : `Saved card bonus activated: +${c.bonusCoinsPerUse} Bonus Coins!`,
                       'success',
                     );
@@ -520,7 +520,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
             } space-y-2`}
           >
             <div className="flex items-center justify-between font-black text-indigo-600 dark:text-indigo-400">
-              <span>{isAr ? 'الفئة البلاتينية VIP' : 'Platinum VIP'}</span>
+              <span>{isAr ? 'الفئة البلاتينية كبار العملاء' : 'Platinum VIP'}</span>
               <span className="text-[10px] text-slate-500">+1000 {isAr ? 'عملة' : 'Coins'}</span>
             </div>
             <ul className="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400">
@@ -530,7 +530,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
               </li>
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3 h-3 text-indigo-500 shrink-0" />
-                <span>{isAr ? 'أولوية التجهيز وخدمة عملاء VIP' : 'VIP Priority Support & Fulfilment'}</span>
+                <span>{isAr ? 'أولوية التجهيز وخدمة كبار العملاء' : 'VIP Priority Support & Fulfilment'}</span>
               </li>
             </ul>
           </div>

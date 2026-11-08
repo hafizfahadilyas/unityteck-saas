@@ -1299,12 +1299,17 @@ export async function logoutPortal(): Promise<void> {
     }
   } finally {
     // Clear Clerk browser session too — otherwise next OTP login hits "You're already signed in."
+    // Explicit redirectUrl prevents ClerkProvider afterSignOutUrl from dumping onto public "/".
     try {
       const clerkApi = (typeof window !== 'undefined'
-        ? (window as Window & { Clerk?: { signOut?: () => Promise<void> } }).Clerk
+        ? (window as Window & {
+            Clerk?: { signOut?: (opts?: { redirectUrl?: string }) => Promise<void> };
+          }).Clerk
         : undefined);
       if (clerkApi?.signOut) {
-        await clerkApi.signOut();
+        const path = typeof window !== 'undefined' ? window.location.pathname : '';
+        const redirectUrl = path.includes('/master') ? '/master/login' : '/store/login';
+        await clerkApi.signOut({ redirectUrl });
       }
     } catch {
       // ignore Clerk sign-out failures

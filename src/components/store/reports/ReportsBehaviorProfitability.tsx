@@ -277,7 +277,7 @@ export const ReportsBehaviorProfitability: React.FC<ReportsBehaviorProfitability
               </div>
 
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-                <span>{isAr ? 'مدعوم بـ Microsoft Clarity API' : 'Powered by Microsoft Clarity'}</span>
+                <span>{isAr ? 'مدعوم بمايكروسوفت كلاريتي' : 'Powered by Microsoft Clarity'}</span>
                 <span className="font-semibold text-purple-600 dark:text-purple-400">100% Real Tracking</span>
               </div>
             </div>
@@ -339,7 +339,7 @@ export const ReportsBehaviorProfitability: React.FC<ReportsBehaviorProfitability
               <div className="flex items-center gap-2">
                 <Video className="w-4 h-4 text-purple-500" />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {isAr ? 'تسجيلات الجلسات الحديثة (Session Replays)' : 'Recent Session Recordings'}
+                  {isAr ? 'تسجيلات الجلسات الحديثة' : 'Recent Session Recordings'}
                 </h3>
               </div>
               <button
@@ -382,7 +382,7 @@ export const ReportsBehaviorProfitability: React.FC<ReportsBehaviorProfitability
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] text-slate-400">{rec.time}</span>
                       <button
-                        onClick={() => toast(isAr ? `تشغيل تسجيل ${rec.id}` : `Replaying ${rec.id}`, 'info')}
+                        onClick={() => toast(isAr ? `تشغيل تسجيل${rec.id}` : `Replaying ${rec.id}`, 'info')}
                         className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-purple-600 hover:text-white text-xs font-semibold transition-all"
                       >
                         {isAr ? 'تشغيل' : 'Watch'}

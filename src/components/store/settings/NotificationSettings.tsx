@@ -193,10 +193,10 @@ export const NotificationSettings: React.FC = () => {
       toast(
         anySent
           ? isAr
-            ? `تم الإرسال الحقيقي: ${channelStatuses.join(' · ')}`
+            ? `تم الإرسال الحقيقي:${channelStatuses.join(' · ')}`
             : `Real dispatch: ${channelStatuses.join(' · ')}`
           : isAr
-            ? `لم يُرسل (تحقق من اتصال القنوات): ${channelStatuses.join(' · ') || 'skipped'}`
+            ? `لم يُرسل (تحقق من اتصال القنوات):${channelStatuses.join(' · ') || 'skipped'}`
             : `Nothing sent (connect channels): ${channelStatuses.join(' · ') || 'skipped'}`,
         anySent ? 'success' : 'error',
       );
@@ -220,14 +220,14 @@ export const NotificationSettings: React.FC = () => {
           </div>
           <div>
             <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
-              <span>{isAr ? 'إشعارات الطلب (إيميل · واتساب · SMS)' : 'Order alerts (Email · WhatsApp · SMS)'}</span>
+              <span>{isAr ? 'إشعارات الطلب (إيميل · واتساب · الرسائل النصية)' : 'Order alerts (Email · WhatsApp · SMS)'}</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
                 +966 · Real dispatch
               </span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {isAr
-                ? 'تنبيهات حقيقية للعميل عند الطلب، الشحن، الإلغاء، والإرجاع — عبر الإيميل وواتساب وSMS.'
+                ? 'تنبيهات حقيقية للعميل عند الطلب، الشحن، الإلغاء، والإرجاع — عبر الإيميل وواتساب والرسائل النصية.'
                 : 'Real customer alerts on place, ship, cancel, and return — via Email, WhatsApp, and SMS.'}
             </p>
           </div>
@@ -341,7 +341,7 @@ export const NotificationSettings: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-sm font-black text-slate-900 dark:text-white">
-                  {isAr ? 'بوابة الرسائل النصية (Saudi SMS Gateway)' : 'Saudi SMS Gateway (Unifonic / Taqnyat)'}
+                  {isAr ? 'بوابة الرسائل النصية' : 'Saudi SMS Gateway (Unifonic / Taqnyat)'}
                 </h4>
                 <span className="text-[10px] text-slate-400 font-mono">
                   Sender ID: {settings.channels.sms.sender_id || 'MakkahGifts'}
@@ -374,7 +374,7 @@ export const NotificationSettings: React.FC = () => {
           <div className="space-y-2 text-xs">
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40">
               <span className="text-slate-700 dark:text-slate-300 font-bold">
-                {isAr ? 'إرسال رسائل SMS للأرقام السعودية (+966)' : 'Send SMS to verified KSA numbers (+966)'}
+                {isAr ? 'إرسال رسائل الرسائل النصية للأرقام السعودية (+966)' : 'Send SMS to verified KSA numbers (+966)'}
               </span>
               <input
                 type="checkbox"
@@ -397,7 +397,7 @@ export const NotificationSettings: React.FC = () => {
 
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40">
               <span className="text-slate-700 dark:text-slate-300 font-bold">
-                {isAr ? 'اسم المرسل المعتمد من هيئة الاتصالات (Sender ID)' : 'Official CITC Sender ID'}
+                {isAr ? 'اسم المرسل المعتمد من هيئة الاتصالات' : 'Official CITC Sender ID'}
               </span>
               <input
                 type="text"
@@ -430,7 +430,7 @@ export const NotificationSettings: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-sm font-black text-slate-900 dark:text-white">
-                  {isAr ? 'قناة البريد الإلكتروني (SMTP)' : 'Email SMTP Channel'}
+                  {isAr ? 'قناة البريد الإلكتروني' : 'Email SMTP Channel'}
                 </h4>
                 <span className="text-[10px] text-slate-400 font-mono">
                   {settings.channels.email?.connected
@@ -616,7 +616,7 @@ export const NotificationSettings: React.FC = () => {
             <div className="flex items-center justify-between text-xs">
               <label className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                 <Smartphone className="w-3.5 h-3.5 text-blue-600" />
-                <span>{isAr ? 'نص رسالة SMS' : 'SMS Text Message'}</span>
+                <span>{isAr ? 'نص رسالة الرسائل النصية' : 'SMS Text Message'}</span>
               </label>
               <span className="text-[10px] text-slate-400 font-mono">Standard 70/160 chars</span>
             </div>

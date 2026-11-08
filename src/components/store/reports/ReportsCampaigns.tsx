@@ -322,7 +322,7 @@ export const ReportsCampaigns: React.FC<ReportsCampaignsProps> = ({
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              {isAr ? 'عائد الإنفاق الإعلاني (ROAS)' : 'Return on Ad Spend (ROAS)'}
+              {isAr ? 'عائد الإنفاق الإعلاني' : 'Return on Ad Spend (ROAS)'}
             </span>
             <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <Target className="w-4 h-4" />
@@ -543,7 +543,7 @@ export const ReportsCampaigns: React.FC<ReportsCampaignsProps> = ({
                   return isAr ? 'لا توجد قنوات منسوبة بعد' : 'No attributed channels yet';
                 }
                 return isAr
-                  ? `${top.name} يمثل ${top.share}% من إيرادات الحملات`
+                  ? `${top.name}يمثل${top.share}% من إيرادات الحملات`
                   : `${top.name} drives ${top.share}% of campaign revenue`;
               })()}
             </span>
@@ -555,7 +555,7 @@ export const ReportsCampaigns: React.FC<ReportsCampaignsProps> = ({
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {isAr ? 'عائد الإنفاق ROAS بالقناة' : 'ROAS by Channel'}
+                {isAr ? 'عائد الإنفاق الإعلاني بالقناة' : 'ROAS by Channel'}
               </h3>
               <Target className="w-4 h-4 text-slate-400" />
             </div>
@@ -589,7 +589,7 @@ export const ReportsCampaigns: React.FC<ReportsCampaignsProps> = ({
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span className="text-[11px] font-semibold text-emerald-900 dark:text-emerald-200">
-                {isAr ? 'Email & SMS يحقق أعلى ROAS بنسبة 6.12x' : 'Email & SMS leads highest ROAS at 6.12x'}
+                {isAr ? 'البريد والرسائل يحققان أعلى عائد إنفاق بنسبة 6.12x' : 'Email & SMS leads highest ROAS at 6.12x'}
               </span>
             </div>
           </div>

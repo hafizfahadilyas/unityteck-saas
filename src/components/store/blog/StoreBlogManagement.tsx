@@ -202,7 +202,7 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
     if (bulkAction === 'delete') {
       const confirmed = window.confirm(
         isAr
-          ? `هل أنت متأكد من حذف ${selectedIds.length} مقالات نهائياً؟`
+          ? `هل أنت متأكد من حذف${selectedIds.length}مقالات نهائياً؟`
           : `Are you sure you want to delete ${selectedIds.length} articles?`
       );
       if (!confirmed) return;
@@ -213,7 +213,7 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
       await bulkBlogArticlesActionApi(storeId, bulkAction, selectedIds);
       toast(
         isAr
-          ? `تم تطبيق الإجراء المجمع على ${selectedIds.length} مقال بنجاح.`
+          ? `تم تطبيق الإجراء المجمع على${selectedIds.length}مقال بنجاح.`
           : `Bulk action applied to ${selectedIds.length} articles successfully.`,
         'success'
       );
@@ -337,7 +337,7 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {isAr
-              ? 'إنشاء وإدارة مقالات المدونة لجذب جمهورك وتعزيز نتائج محركات البحث (SEO).'
+              ? 'إنشاء وإدارة مقالات المدونة لجذب جمهورك وتعزيز نتائج محركات البحث.'
               : 'Create and manage your blog posts to engage your audience and boost your SEO.'}
           </p>
         </div>
@@ -511,8 +511,8 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
                   className="w-full appearance-none ps-3 pe-8 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer shadow-2xs truncate"
                 >
                   <option value="All Statuses">{isAr ? 'جميع الحالات' : 'All Statuses'}</option>
-                  <option value="Published">{isAr ? 'منشور (Published)' : 'Published'}</option>
-                  <option value="Draft">{isAr ? 'مسودة (Draft)' : 'Draft'}</option>
+                  <option value="Published">{isAr ? 'منشور' : 'Published'}</option>
+                  <option value="Draft">{isAr ? 'مسودة' : 'Draft'}</option>
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute end-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -803,7 +803,7 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
               <div className="px-4 py-3 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
                 <div>
                   {isAr
-                    ? `عرض 1 إلى ${filteredArticles.length} من ${filteredArticles.length} مقالات`
+                    ? `عرض 1 إلى${filteredArticles.length}من${filteredArticles.length}مقالات`
                     : `Showing 1 to ${filteredArticles.length} of ${filteredArticles.length} articles`}
                 </div>
                 <div className="flex items-center gap-1">
@@ -1067,7 +1067,7 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
               {/* Meta Title */}
               <div className="space-y-1">
                 <label className="font-semibold text-slate-700 dark:text-slate-300">
-                  {isAr ? 'عنوان السيو (Meta Title)' : 'Meta Title'}
+                  {isAr ? 'عنوان تحسين البحث' : 'Meta Title'}
                 </label>
                 <input
                   type="text"
@@ -1082,7 +1082,7 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
               {/* Meta Description */}
               <div className="space-y-1">
                 <label className="font-semibold text-slate-700 dark:text-slate-300">
-                  {isAr ? 'وصف السيو (Meta Description)' : 'Meta Description'}
+                  {isAr ? 'وصف تحسين البحث' : 'Meta Description'}
                 </label>
                 <textarea
                   rows={3}

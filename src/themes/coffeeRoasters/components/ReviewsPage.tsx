@@ -127,7 +127,7 @@ export const ReviewsPage: React.FC = () => {
           <p className="text-xs sm:text-sm text-neutral-600">
             {avgRating != null
               ? isAr
-                ? `تجارب حقيقية من مشترين معتمدين. متوسط التقييم ${avgRating} من 5.`
+                ? `تجارب حقيقية من مشترين معتمدين. متوسط التقييم${avgRating}من 5.`
                 : `Real feedback from verified buyers. Average rating ${avgRating} / 5.`
               : isAr
                 ? 'لا تقييمات معتمدة بعد. كن أول من يشارك تجربته.'

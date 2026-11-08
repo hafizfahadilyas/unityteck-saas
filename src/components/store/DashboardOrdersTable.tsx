@@ -38,6 +38,7 @@ import {
   TamaraIcon,
 } from '../../themes/coffeeRoasters/components/PaymentIcons';
 import { getCustomerDisplayName, getLocalizedItemName } from '../../utils/storeLocalization';
+import { formatOrderRef } from '../../utils/orderDisplay';
 import {
   localizeOrderStatus,
   localizePaymentMethod,
@@ -657,7 +658,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
                         onClick={() => onNavigateTab('orders')}
                         className="font-mono text-xs font-black text-teal-700 hover:text-teal-900 dark:text-teal-400 hover:underline cursor-pointer text-start"
                       >
-                        #{ord.orderNumber || ord.id.slice(0, 8)}
+                        {formatOrderRef(ord.orderNumber, ord.id)}
                       </button>
                     </td>
 

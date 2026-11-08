@@ -35,6 +35,7 @@ import { ProductDynamicPurchase } from '../../../components/storefront/ProductDy
 import { customFieldsExtra, missingRequiredField, purchaseNotes, type FieldValueMap } from '../../../utils/storefrontPurchase';
 import type { Product as CatalogProduct, ProductVariation } from '../../../types';
 import { isVariantPurchasable } from '../../../utils/productVariants';
+import { fetchStoreReviews, submitStoreReviewApi } from '../../../api/tenantApi';
 
 interface CustomerReview {
   id: string;
@@ -56,12 +57,13 @@ export const ProductDetailPage: React.FC = () => {
     toggleWishlist,
     setCurrentPage,
     setIsCartOpen,
-    products
+    products,
+    showToast,
   } = useApp();
 
   const { activeStore } = useTenant();
   const isAr = language === 'ar';
-  const storeId = activeStore?.id || 'store-1';
+  const storeId = activeStore?.id || '';
 
   // Read URL query parameter for product identification
   const urlProductId = typeof window !== 'undefined'
@@ -142,7 +144,7 @@ export const ProductDetailPage: React.FC = () => {
     },
     {
       id: 'vip',
-      name: isAr ? 'حجم النخبة VIP الكبير جداً' : 'VIP Grand Edition',
+      name: isAr ? 'حجم النخبة كبار العملاء الكبير جداً' : 'VIP Grand Edition',
       stems: isAr ? '45 وردة نادرة مع تطريز لؤلؤ' : '45 Stems Rare Pearls & Silk',
       extra: 150,
     },
@@ -247,37 +249,54 @@ export const ProductDetailPage: React.FC = () => {
   // Delivery countdown estimation
   const [minutesLeft] = useState<number>(45);
 
-  // Real Customer Reviews with Strict Store & Product Tenant Isolation (Zero Fake Data)
-  const reviewsStorageKey = `unityteck_reviews_${storeId}_${product?.id || 'prod'}`;
+  const [reviews, setReviews] = useState<CustomerReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
-  const [reviews, setReviews] = useState<CustomerReview[]>(() => {
-    try {
-      if (typeof window !== 'undefined' && product?.id) {
-        const saved = localStorage.getItem(reviewsStorageKey);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed;
-        }
-      }
-    } catch {}
-    return [];
-  });
-
-  // Re-sync reviews when product changes
   useEffect(() => {
-    if (!product?.id) return;
-    try {
-      const saved = localStorage.getItem(reviewsStorageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setReviews(parsed);
-          return;
-        }
-      }
-    } catch {}
-    setReviews([]);
-  }, [reviewsStorageKey, product?.id]);
+    if (!storeId || !product?.id) {
+      setReviews([]);
+      return;
+    }
+    let cancelled = false;
+    setReviewsLoading(true);
+    void fetchStoreReviews(storeId)
+      .then((rows) => {
+        if (cancelled) return;
+        const mapped: CustomerReview[] = (rows || [])
+          .filter((r) => (r as { active?: boolean }).active !== false)
+          .filter((r) => {
+            const prod = String((r as { product?: string }).product || '');
+            const prodAr = String((r as { productAr?: string }).productAr || '');
+            return (
+              prod.includes(product.id) ||
+              prod.includes(product.name || '') ||
+              (!!product.nameAr && prodAr.includes(product.nameAr))
+            );
+          })
+          .map((r) => ({
+            id: String((r as { id?: string }).id || `rev-${Math.random()}`),
+            name: String((r as { author?: string }).author || '—'),
+            location: String((r as { city?: string }).city || ''),
+            rating: Number((r as { rating?: number }).rating) || 5,
+            date: String((r as { date?: string }).date || ''),
+            verified: Boolean((r as { verified?: boolean }).verified),
+            comment: isAr
+              ? String((r as { commentAr?: string }).commentAr || (r as { comment?: string }).comment || '')
+              : String((r as { comment?: string }).comment || (r as { commentAr?: string }).commentAr || ''),
+            helpfulCount: Number((r as { likes?: number }).likes) || 0,
+          }));
+        setReviews(mapped);
+      })
+      .catch(() => {
+        if (!cancelled) setReviews([]);
+      })
+      .finally(() => {
+        if (!cancelled) setReviewsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId, product?.id, product?.name, product?.nameAr, isAr]);
 
   // Review submission state
   const [newReviewRating, setNewReviewRating] = useState<number>(5);
@@ -287,56 +306,50 @@ export const ProductDetailPage: React.FC = () => {
   const [showReviewSuccess, setShowReviewSuccess] = useState<boolean>(false);
   const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
 
-  const handleAddReview = (e: React.FormEvent) => {
+  const handleAddReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newReviewName.trim() || !newReviewComment.trim() || !product?.id) return;
-
+    if (!storeId) {
+      showToast(isAr ? 'المتجر غير جاهز' : 'Store is not ready');
+      return;
+    }
     setIsSubmittingReview(true);
-    setTimeout(() => {
-      const added: CustomerReview = {
-        id: `rev-${Date.now()}`,
-        name: newReviewName.trim(),
-        location: newReviewLocation.trim() || (isAr ? 'مكة المكرمة' : 'Mecca'),
+    try {
+      await submitStoreReviewApi(storeId, {
+        author: newReviewName.trim(),
+        city: newReviewLocation.trim() || undefined,
+        product: product.name || product.id,
+        productAr: product.nameAr || product.name,
         rating: newReviewRating,
-        date: isAr ? 'الآن' : 'Just now',
-        verified: true,
         comment: newReviewComment.trim(),
-        helpfulCount: 1,
-      };
-
-      const updated = [added, ...reviews];
-      setReviews(updated);
-      try {
-        localStorage.setItem(reviewsStorageKey, JSON.stringify(updated));
-      } catch {}
-
+        commentAr: newReviewComment.trim(),
+      } as never);
       setNewReviewName('');
       setNewReviewLocation('');
       setNewReviewComment('');
       setNewReviewRating(5);
-      setIsSubmittingReview(false);
       setShowReviewSuccess(true);
+      showToast(
+        isAr ? 'تم إرسال التقييم للمراجعة — يظهر بعد الموافقة' : 'Review submitted — appears after approval',
+      );
       setTimeout(() => setShowReviewSuccess(false), 5000);
-    }, 350);
+    } catch {
+      showToast(isAr ? 'تعذر إرسال التقييم' : 'Could not submit review');
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
   const handleHelpful = (id: string) => {
-    setReviews((prev) => {
-      const next = prev.map((r) => (r.id === id ? { ...r, helpfulCount: r.helpfulCount + 1 } : r));
-      try {
-        localStorage.setItem(reviewsStorageKey, JSON.stringify(next));
-      } catch {}
-      return next;
-    });
+    setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, helpfulCount: r.helpfulCount + 1 } : r)));
   };
 
-  // Genuine average rating calculation
   const computedRating = useMemo(() => {
     if (reviews.length > 0) {
       const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
       return (sum / reviews.length).toFixed(1);
     }
-    return product?.rating ? Number(product.rating).toFixed(1) : '5.0';
+    return product?.rating != null ? Number(product.rating).toFixed(1) : '—';
   }, [reviews, product?.rating]);
 
   // Related products strictly from real store catalog (Exactly 4 in 1 row on desktop)
@@ -526,7 +539,7 @@ export const ProductDetailPage: React.FC = () => {
                       : product.originalPrice || 0;
                     const sell = activeVariant?.price != null ? activeVariant.price : product.price;
                     const pct = mrp > sell ? Math.round(((mrp - sell) / mrp) * 100) : 0;
-                    return isAr ? `خصم ${pct}٪` : `${pct}% off`;
+                    return isAr ? `خصم${pct}٪` : `${pct}% off`;
                   })()}
                 </span>
               )}
@@ -734,7 +747,7 @@ export const ProductDetailPage: React.FC = () => {
                 <CreditCard className="w-3.5 h-3.5 text-[#102a1c] dark:text-emerald-400 shrink-0" />
                 <span>
                   {isAr
-                    ? `قسّمها على 4 دفعات بقيمة ${tabbyInstallment} ر.س بدون فوائد`
+                    ? `قسّمها على 4 دفعات بقيمة${tabbyInstallment}ر.س بدون فوائد`
                     : `Split into 4 payments of ${tabbyInstallment} SAR interest-free`}
                 </span>
               </div>
@@ -1091,7 +1104,7 @@ export const ProductDetailPage: React.FC = () => {
                         ? 'غير متوفر'
                         : 'Out of stock'
                       : isAr
-                        ? `أضف للسلة (${grandTotal} ر.س)`
+                        ? `أضف للسلة (${grandTotal}ر.س)`
                         : `Add to Bag (${grandTotal} SAR)`}
                   </span>
                 </button>
@@ -1169,7 +1182,7 @@ export const ProductDetailPage: React.FC = () => {
               {isAr ? 'تقييمات وآراء العملاء' : 'Customer Reviews & Feedback'}
             </h2>
             <p className="text-xs text-[#8c8275] dark:text-slate-400 mt-0.5">
-              {isAr ? `تجارب حقيقية مسجلة لهذا المنتج (${reviews.length} تقييم)` : `Verified client feedback (${reviews.length} reviews)`}
+              {isAr ? `تجارب حقيقية مسجلة لهذا المنتج (${reviews.length}تقييم)` : `Verified client feedback (${reviews.length} reviews)`}
             </p>
           </div>
 

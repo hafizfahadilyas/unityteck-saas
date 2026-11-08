@@ -104,7 +104,7 @@ export const PortalGate: React.FC<PortalGateProps> = ({
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                   {locale === 'ar'
-                    ? 'تصفح باقات الورد، الشوكولاتة، إضافة للسلة، تسجيل دخول جوجل أو OTP، وإتمام الطلب مباشرة'
+                    ? 'تصفح باقات الورد، الشوكولاتة، إضافة للسلة، تسجيل دخول جوجل أو رمز التحقق، وإتمام الطلب مباشرة'
                     : 'Browse bouquets, vases, combos, Google/OTP login and test full checkout & invoice'}
                 </p>
               </div>

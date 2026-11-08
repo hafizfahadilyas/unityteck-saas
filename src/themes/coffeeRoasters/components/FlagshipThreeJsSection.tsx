@@ -85,7 +85,9 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
   isReversed = false,
 }) => {
   const { navigateTo, language, addToCart, triggerFlyToCart, products } = useCart();
-  const product = products.find((p) => p.id === id) || PRODUCTS.find((p) => p.id === id);
+  // Prefer live store catalog; seed PRODUCTS only as image/metadata match for the same id — never PRODUCTS[0].
+  const product =
+    products.find((p) => p.id === id) || PRODUCTS.find((p) => p.id === id) || undefined;
   const rowRef = useRef<HTMLDivElement | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
@@ -214,9 +216,8 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
             </button>
 
             {/* Add to Cart Button with Flying Animation */}
-            {(() => {
-              const currentProduct = product || products.find((p) => p.id === id) || PRODUCTS.find((p) => p.id === id) || PRODUCTS[0];
-              const flyImg = imgLeft || currentProduct.images?.[0] || currentProduct.colors[0]?.image;
+            {product ? (() => {
+              const flyImg = imgLeft || product.images?.[0] || product.colors?.[0]?.image;
               return (
                 <button
                   type="button"
@@ -224,7 +225,7 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
                     e.stopPropagation();
                     const rect = e.currentTarget.getBoundingClientRect();
                     triggerFlyToCart(rect, flyImg);
-                    addToCart(currentProduct, undefined, undefined, undefined, undefined, false);
+                    addToCart(product, undefined, undefined, undefined, undefined, false);
                   }}
                   className="group/addcart px-4 sm:px-5 py-2 sm:py-2.5 rounded-full border border-black bg-transparent hover:bg-black/5 text-black font-medium text-xs sm:text-sm transition-all duration-200 active:scale-95 cursor-pointer inline-flex items-center gap-2 shadow-none"
                   title={language === 'AR' ? 'أضف للسلة' : 'Add to Cart'}
@@ -233,7 +234,7 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
                   <span>{language === 'AR' ? 'أضف للسلة' : 'Add to Cart'}</span>
                 </button>
               );
-            })()}
+            })() : null}
           </div>
         </div>
 

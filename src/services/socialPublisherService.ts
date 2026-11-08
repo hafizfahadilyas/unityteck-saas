@@ -8,6 +8,13 @@ import { apiFetch } from '../api/client';
 
 export type SocialPlatform = 'instagram' | 'facebook' | 'tiktok' | 'snapchat' | 'x';
 
+/** Live Meta Graph only — TikTok / Snap / X stay Coming Soon until real APIs ship. */
+export const LIVE_SOCIAL_PLATFORMS: readonly SocialPlatform[] = ['instagram', 'facebook'];
+
+export function isLiveSocialPlatform(platform: string): boolean {
+  return (LIVE_SOCIAL_PLATFORMS as readonly string[]).includes(platform);
+}
+
 export type SocialAccountPublic = {
   platform: SocialPlatform;
   supported: boolean;
@@ -44,87 +51,65 @@ export type SocialPostRow = {
   reach_count?: number;
 };
 
-// Isolated storage keys per store (v3 to purge any leftover mock cache)
-const STORAGE_VER = 'v3';
+// Isolated storage keys per store (v4: force Coming Soon for non-Meta platforms)
+const STORAGE_VER = 'v4';
 const getAccountsStorageKey = (storeId: string) => `unityteck_social_accounts_${STORAGE_VER}_${storeId}`;
 const getPostsStorageKey = (storeId: string) => `unityteck_social_posts_${STORAGE_VER}_${storeId}`;
 
-/** Default clean state for any store: All channels disconnected, 0 fake followers */
+function accountShell(
+  platform: SocialPlatform,
+  live: boolean,
+): SocialAccountPublic {
+  return {
+    platform,
+    supported: live,
+    is_connected: false,
+    account_name: null,
+    handle: null,
+    avatar_url: null,
+    followers_count: null,
+    is_verified: false,
+    has_token: false,
+    last_tested_at: null,
+    status: live ? 'not_connected' : 'not_available',
+  };
+}
+
+/** Sanitize: never keep fake Connected on Coming Soon platforms. */
+export function sanitizeSocialAccounts(list: SocialAccountPublic[]): SocialAccountPublic[] {
+  const byPlatform = new Map(list.map((a) => [a.platform, a]));
+  return (['instagram', 'facebook', 'tiktok', 'x', 'snapchat'] as SocialPlatform[]).map((platform) => {
+    const live = isLiveSocialPlatform(platform);
+    const row = byPlatform.get(platform);
+    if (!live) {
+      return accountShell(platform, false);
+    }
+    if (!row) return accountShell(platform, true);
+    return {
+      ...row,
+      platform,
+      supported: true,
+      status: row.is_connected ? 'connected' : 'not_connected',
+      followers_count:
+        typeof row.followers_count === 'string' && String(row.followers_count).includes('K')
+          ? 0
+          : row.followers_count ?? null,
+    };
+  });
+}
+
+/** Default clean state for any store: Meta live slots + Coming Soon for the rest */
 export function getInitialAccountsForStore(): SocialAccountPublic[] {
-  return [
-    {
-      platform: 'instagram',
-      supported: true,
-      is_connected: false,
-      account_name: null,
-      handle: null,
-      avatar_url: null,
-      followers_count: null,
-      is_verified: false,
-      has_token: false,
-      last_tested_at: null,
-      status: 'not_connected',
-    },
-    {
-      platform: 'facebook',
-      supported: true,
-      is_connected: false,
-      account_name: null,
-      handle: null,
-      avatar_url: null,
-      followers_count: null,
-      is_verified: false,
-      has_token: false,
-      last_tested_at: null,
-      status: 'not_connected',
-    },
-    {
-      platform: 'tiktok',
-      supported: true,
-      is_connected: false,
-      account_name: null,
-      handle: null,
-      avatar_url: null,
-      followers_count: null,
-      is_verified: false,
-      has_token: false,
-      last_tested_at: null,
-      status: 'not_connected',
-    },
-    {
-      platform: 'x',
-      supported: true,
-      is_connected: false,
-      account_name: null,
-      handle: null,
-      avatar_url: null,
-      followers_count: null,
-      is_verified: false,
-      has_token: false,
-      last_tested_at: null,
-      status: 'not_connected',
-    },
-    {
-      platform: 'snapchat',
-      supported: true,
-      is_connected: false,
-      account_name: null,
-      handle: null,
-      avatar_url: null,
-      followers_count: null,
-      is_verified: false,
-      has_token: false,
-      last_tested_at: null,
-      status: 'not_connected',
-    },
-  ];
+  return sanitizeSocialAccounts([]);
 }
 
 function cleanupLegacyMockKeys(storeId: string) {
   try {
     const legacyKeys = [
+      `unityteck_social_accounts_v3_${storeId}`,
       `unityteck_social_accounts_v2_${storeId}`,
       `unityteck_social_accounts_v1_${storeId}`,
+      `unityteck_social_posts_v3_${storeId}`,
       `unityteck_social_posts_v2_${storeId}`,
       `unityteck_mock_social_${storeId}`,
     ];
@@ -141,16 +126,8 @@ function loadLocalAccounts(storeId: string): SocialAccountPublic[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Sanitize: verify no hardcoded dummy followers (28.4K, 19.2K, etc.) exist
-        const sanitized = parsed.map((a: SocialAccountPublic) => {
-          if (typeof a.followers_count === 'string' && a.followers_count.includes('K')) {
-            return {
-              ...a,
-              followers_count: 0,
-            };
-          }
-          return a;
-        });
+        const sanitized = sanitizeSocialAccounts(parsed);
+        saveLocalAccounts(storeId, sanitized);
         return sanitized;
       }
     }
@@ -195,8 +172,9 @@ export async function fetchSocialAccounts(storeId: string): Promise<SocialAccoun
   try {
     const res = await apiFetch<{ data: SocialAccountPublic[] }>('/social/accounts', { storeId });
     if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-      saveLocalAccounts(storeId, res.data);
-      return res.data;
+      const sanitized = sanitizeSocialAccounts(res.data);
+      saveLocalAccounts(storeId, sanitized);
+      return sanitized;
     }
   } catch {
     // isolated local storage fallback
@@ -217,46 +195,28 @@ export async function upsertSocialAccount(
     test?: boolean;
   },
 ): Promise<SocialAccountPublic> {
-  try {
-    const res = await apiFetch<{ data: SocialAccountPublic }>('/social/accounts', {
-      method: 'PUT',
-      storeId,
-      body: payload,
-    });
-    if (res.data) {
-      const all = loadLocalAccounts(storeId);
-      const updated = all.map((a) => (a.platform === payload.platform ? res.data : a));
-      saveLocalAccounts(storeId, updated);
-      return res.data;
-    }
-  } catch {
-    // fallback
+  if (!isLiveSocialPlatform(payload.platform)) {
+    throw new Error(
+      `${payload.platform} is Coming Soon — only Instagram and Facebook support live connect right now.`,
+    );
+  }
+  const token = String(payload.access_token || '').trim();
+  if (token.length < 20) {
+    throw new Error('A valid Meta Graph access token is required to connect.');
   }
 
+  const res = await apiFetch<{ data: SocialAccountPublic; message?: string }>('/social/accounts', {
+    method: 'PUT',
+    storeId,
+    body: { ...payload, access_token: token, test: payload.test !== false },
+  });
+  if (!res.data) {
+    throw new Error('Connection failed — empty API response.');
+  }
   const all = loadLocalAccounts(storeId);
-  const existing = all.find((a) => a.platform === payload.platform);
-  const account: SocialAccountPublic = {
-    platform: payload.platform,
-    supported: true,
-    is_connected: true,
-    account_name: payload.account_name || existing?.account_name || `${payload.platform.toUpperCase()} Account`,
-    handle: payload.handle || existing?.handle || `@${payload.platform}_account`,
-    avatar_url: existing?.avatar_url || '',
-    followers_count: payload.followers_count !== undefined ? payload.followers_count : (existing?.followers_count ?? 0),
-    is_verified: true,
-    page_id: payload.page_id || existing?.page_id || 'real_meta_page_id',
-    ig_user_id: payload.ig_user_id || existing?.ig_user_id || 'real_ig_user_id',
-    has_token: Boolean(payload.access_token && payload.access_token.trim()),
-    last_tested_at: new Date().toISOString(),
-    status: 'connected',
-  };
-
-  const updated = all.some((a) => a.platform === payload.platform)
-    ? all.map((a) => (a.platform === payload.platform ? account : a))
-    : [...all, account];
-
-  saveLocalAccounts(storeId, updated);
-  return account;
+  const updated = all.map((a) => (a.platform === payload.platform ? { ...res.data, supported: true } : a));
+  saveLocalAccounts(storeId, sanitizeSocialAccounts(updated));
+  return { ...res.data, supported: true };
 }
 
 export async function testSocialAccount(
@@ -350,51 +310,33 @@ export async function scheduleSocialPost(
     image_url: string;
     caption?: string;
     scheduled_for?: string;
+    publish_now?: boolean;
   },
 ): Promise<SocialPostRow> {
-  const isNow = !payload.scheduled_for;
-  const newPost: SocialPostRow = {
-    id: `post_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-    store_id: storeId,
-    platform: payload.platform,
-    media_id: payload.media_id,
-    image_url: payload.image_url,
-    caption: payload.caption || '',
-    scheduled_for: payload.scheduled_for || null,
-    status: isNow ? 'published' : 'scheduled',
-    external_post_id: isNow ? `ext_${Date.now()}` : undefined,
-    published_at: isNow ? new Date().toISOString() : null,
-    created_at: new Date().toISOString(),
-    likes_count: 0,
-    comments_count: 0,
-    reach_count: 0,
-  };
-
-  try {
-    const res = await apiFetch<{ data: SocialPostRow }>('/social/posts', {
-      method: 'POST',
-      storeId,
-      body: {
-        platform: payload.platform,
-        media_id: payload.media_id,
-        image_url: payload.image_url,
-        caption: payload.caption,
-        scheduled_for: payload.scheduled_for,
-      },
-    });
-    if (res.data) {
-      const posts = loadLocalPosts(storeId);
-      saveLocalPosts(storeId, [res.data, ...posts]);
-      return res.data;
-    }
-  } catch {
-    // offline/isolated fallback
+  if (!isLiveSocialPlatform(payload.platform)) {
+    throw new Error(
+      `${payload.platform} publishing is Coming Soon — use Instagram or Facebook.`,
+    );
   }
 
+  const res = await apiFetch<{ data: SocialPostRow }>('/social/posts', {
+    method: 'POST',
+    storeId,
+    body: {
+      platform: payload.platform,
+      media_id: payload.media_id,
+      image_url: payload.image_url,
+      caption: payload.caption,
+      scheduled_for: payload.publish_now ? undefined : payload.scheduled_for,
+      publish_now: payload.publish_now === true,
+    },
+  });
+  if (!res.data) {
+    throw new Error('Failed to schedule social post.');
+  }
   const posts = loadLocalPosts(storeId);
-  const updated = [newPost, ...posts];
-  saveLocalPosts(storeId, updated);
-  return newPost;
+  saveLocalPosts(storeId, [res.data, ...posts]);
+  return res.data;
 }
 
 export async function cancelSocialPost(storeId: string, postId: string): Promise<void> {

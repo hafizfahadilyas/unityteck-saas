@@ -143,7 +143,7 @@ export const ThresholdSettings: React.FC = () => {
         {/* 3. Google Ads Target CPA */}
         <div className="p-4 rounded-xl border space-y-1.5" style={{ borderColor: 'var(--border)' }}>
           <label className="font-bold block opacity-90">
-            {isAr ? 'الحد المستهدف لتكلفة إعلانات جوجل (SAR)' : 'Google Ads Target CPA Ceiling (SAR)'}
+            {isAr ? 'الحد المستهدف لتكلفة إعلانات جوجل ر.س' : 'Google Ads Target CPA Ceiling (SAR)'}
           </label>
           <input
             type="number"

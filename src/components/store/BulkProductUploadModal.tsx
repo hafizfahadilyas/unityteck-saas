@@ -325,7 +325,7 @@ for (let i = 21; i <= 50; i++) {
   const disc = price - 30;
   SAMPLE_50_FLOWER_ITEMS.push({
     name: `Premium Florist Edition Bouquet #${i} (${cat})`,
-    nameAr: `باقة الزهور الفاخرة رقم ${i} (${cat})`,
+    nameAr: `باقة الزهور الفاخرة رقم${i}(${cat})`,
     category: cat,
     sku: `FLW-${String(i).padStart(3, '0')}`,
     price: price,
@@ -478,7 +478,7 @@ for (let i = 11; i <= 50; i++) {
   const price = 65 + i * 11;
   SAMPLE_50_COFFEE_ITEMS.push({
     name: `Specialty Coffee Edition #${i} (${cat})`,
-    nameAr: `إصدار القهوة المختصة رقم ${i} (${cat})`,
+    nameAr: `إصدار القهوة المختصة رقم${i}(${cat})`,
     category: cat,
     sku: `COF-${String(i).padStart(3, '0')}`,
     price,
@@ -512,7 +512,7 @@ for (let i = 2; i <= 50; i++) {
   const price = 50 + i * 9;
   SAMPLE_50_GENERIC_ITEMS.push({
     name: `Premium Store Product Sample ${String(i).padStart(2, '0')}`,
-    nameAr: `منتج تجريبي للمتجر رقم ${String(i).padStart(2, '0')}`,
+    nameAr: `منتج تجريبي للمتجر رقم${String.padStart(2, '0')}`,
     category: 'Store Products',
     sku: `PRD-${String(i).padStart(3, '0')}`,
     price,
@@ -794,7 +794,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
         setParsedRows(rows);
         toast(
           locale === 'ar'
-            ? `تم تحليل ${rows.length} منتج بنجاح من الملف`
+            ? `تم تحليل${rows.length}منتج بنجاح من الملف`
             : `Successfully parsed ${rows.length} products from ${file.name}`,
           'success'
         );
@@ -837,7 +837,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
     onImportProducts(newProducts);
     toast(
       locale === 'ar'
-        ? `🎉 تم بنجاح رفع واستيراد ${newProducts.length} منتج إلى المتجر!`
+        ? `🎉 تم بنجاح رفع واستيراد${newProducts.length}منتج إلى المتجر!`
         : `🎉 Successfully imported ${newProducts.length} products to ${storeName}!`,
       'success'
     );
@@ -895,7 +895,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
 
     toast(
       locale === 'ar'
-        ? `تم تصدير ${currentProducts.length} منتج بنجاح إلى ملف CSV`
+        ? `تم تصدير${currentProducts.length}منتج بنجاح إلى ملف جداول البيانات`
         : `Exported ${currentProducts.length} products to CSV file!`,
       'success'
     );
@@ -1085,7 +1085,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                       <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                         {locale === 'ar'
-                          ? `جاهز للرفع: ${parsedRows.length} منتج مصنف`
+                          ? `جاهز للرفع:${parsedRows.length}منتج مصنف`
                           : `Ready for Import: ${parsedRows.length} Products Parsed`}
                       </span>
                     </div>
@@ -1180,7 +1180,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
                 </h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
                   {locale === 'ar'
-                    ? `سيتم تصدير جميع منتجات متجر ${storeName} البالغ عددها ${currentProducts.length} منتج إلى ملف CSV يحتوي على الأسعار، الخصومات، كود العرض، روابط الصور، والمخزون.`
+                    ? `سيتم تصدير جميع منتجات متجر${storeName}البالغ عددها${currentProducts.length}منتج إلى ملف جداول البيانات يحتوي على الأسعار، الخصومات، كود العرض، روابط الصور، والمخزون.`
                     : `Export all ${currentProducts.length} products currently active in ${storeName} to a CSV file ready for Google Sheets or Excel.`}
                 </p>
               </div>
@@ -1209,7 +1209,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
                   <Download className="w-4 h-4" />
                   <span>
                     {locale === 'ar'
-                      ? `تحميل ملف CSV (${currentProducts.length} منتج)`
+                      ? `تحميل ملف جداول البيانات (${currentProducts.length}منتج)`
                       : `Download CSV Catalog (${currentProducts.length} Items)`}
                   </span>
                 </button>
@@ -1224,7 +1224,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
             {activeTab === 'import' && parsedRows.length > 0 && (
               <span>
                 {locale === 'ar'
-                  ? `سيتم إضافة ${parsedRows.length} منتج إلى المتجر الحالي (${storeName})`
+                  ? `سيتم إضافة${parsedRows.length}منتج إلى المتجر الحالي (${storeName})`
                   : `Adding ${parsedRows.length} products to active store catalog`}
               </span>
             )}
@@ -1247,7 +1247,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
                 <Check className="w-4 h-4" />
                 <span>
                   {locale === 'ar'
-                    ? `تأكيد ورفع ${parsedRows.length} منتج إلى المتجر`
+                    ? `تأكيد ورفع${parsedRows.length}منتج إلى المتجر`
                     : `Confirm & Import ${parsedRows.length} Products`}
                 </span>
               </button>

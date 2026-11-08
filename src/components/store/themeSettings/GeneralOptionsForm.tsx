@@ -515,22 +515,22 @@ export const GeneralOptionsForm: React.FC = () => {
                   className="px-2 py-1 rounded-lg border text-xs outline-none cursor-pointer"
                   style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
                 >
-                  <option value="home">Home (الرئيسية)</option>
-                  <option value="shop">Shop / Catalog (المتجر)</option>
-                  <option value="categories">Categories (الأقسام)</option>
-                  <option value="product">Single Product (صفحة منتج)</option>
-                  <option value="cart">Cart (السلة)</option>
-                  <option value="checkout">Checkout (إتمام الطلب)</option>
-                  <option value="thankyou">Thank You (تأكيد الطلب)</option>
-                  <option value="account">Account (حسابي)</option>
-                  <option value="track-order">Track Order (تتبع الطلب)</option>
-                  <option value="blog">Blog (المدونة)</option>
-                  <option value="about">About (من نحن)</option>
-                  <option value="contact">Contact (تواصل)</option>
-                  <option value="location">Location (الفروع)</option>
-                  <option value="privacy">Privacy (الخصوصية)</option>
-                  <option value="return">Returns (الإرجاع)</option>
-                  <option value="custom-page">Custom Page (صفحة مخصصة)</option>
+                  <option value="home">{isAr ? 'الرئيسية' : 'Home'}</option>
+                  <option value="shop">{isAr ? 'المتجر' : 'Shop / Catalog'}</option>
+                  <option value="categories">{isAr ? 'الأقسام' : 'Categories'}</option>
+                  <option value="product">{isAr ? 'صفحة منتج' : 'Single Product'}</option>
+                  <option value="cart">{isAr ? 'السلة' : 'Cart'}</option>
+                  <option value="checkout">{isAr ? 'إتمام الطلب' : 'Checkout'}</option>
+                  <option value="thankyou">{isAr ? 'تأكيد الطلب' : 'Thank You'}</option>
+                  <option value="account">{isAr ? 'حسابي' : 'Account'}</option>
+                  <option value="track-order">{isAr ? 'تتبع الطلب' : 'Track Order'}</option>
+                  <option value="blog">{isAr ? 'المدونة' : 'Blog'}</option>
+                  <option value="about">{isAr ? 'من نحن' : 'About'}</option>
+                  <option value="contact">{isAr ? 'تواصل' : 'Contact'}</option>
+                  <option value="location">{isAr ? 'الفروع' : 'Location'}</option>
+                  <option value="privacy">{isAr ? 'الخصوصية' : 'Privacy'}</option>
+                  <option value="return">{isAr ? 'الإرجاع' : 'Returns'}</option>
+                  <option value="custom-page">{isAr ? 'صفحة مخصصة' : 'Custom Page'}</option>
                 </select>
 
                 {/* Mega Menu Toggle */}

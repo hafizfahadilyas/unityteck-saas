@@ -1417,7 +1417,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                         {colIdx + 1}
                       </span>
                       <span className="text-[11px] font-bold text-slate-700">
-                        {isAr ? `العمود ${insertIndex}` : `Column ${insertIndex}`}
+                        {isAr ? `العمود${insertIndex}` : `Column ${insertIndex}`}
                       </span>
                     </div>
 
@@ -1460,7 +1460,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                           onAddColumnWidgetClick?.(b.id, colIdx);
                         }}
                         className="w-8 h-8 rounded-full bg-pink-600 hover:bg-pink-700 text-white flex items-center justify-center shadow-md transition-all hover:scale-115 cursor-pointer"
-                        title={isAr ? `إضافة ويدجت في العمود ${ + 1} (+)` : `Add widget to Column ${colIdx + 1} (+)`}
+                        title={isAr ? `إضافة ويدجت في العمود${ + 1}(+)` : `Add widget to Column ${colIdx + 1} (+)`}
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -1550,7 +1550,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                   {colIdx + 1}
                 </span>
                 <span className="text-xs font-bold text-indigo-900">
-                  {isAr ? `عمود ${insertIndex}` : `Column ${insertIndex}`}
+                  {isAr ? `عمود${insertIndex}` : `Column ${insertIndex}`}
                 </span>
                 <span className="text-[10px] text-slate-500 mt-0.5">
                   {isAr ? 'عنصر / محتوى قابل للتحرير' : 'Editable Widget Container'}
@@ -2857,7 +2857,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         }),
       );
       setHasUnsavedChanges(true);
-      toast(isAr ? `تم إضافة العنصر للعمود ${ + 1}` : `Widget added to Column ${colIdx + 1}`, 'success');
+      toast(isAr ? `تم إضافة العنصر للعمود${ + 1}` : `Widget added to Column ${colIdx + 1}`, 'success');
     },
     [isAr, toast],
   );
@@ -2890,7 +2890,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       );
       setHasUnsavedChanges(true);
       setColumnPickerTarget(null);
-      toast(isAr ? `تمت إضافة العنصر في العمود ${ + 1}` : `Widget added to Column ${colIdx + 1}`, 'success');
+      toast(isAr ? `تمت إضافة العنصر في العمود${ + 1}` : `Widget added to Column ${colIdx + 1}`, 'success');
     },
     [isAr, toast],
   );
@@ -3041,7 +3041,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       }),
     );
     toast(
-      isAr ? `تم تطبيق قالبك المخصص: ${tpl.nameAr || tpl.nameEn}` : `Applied custom template: ${tpl.nameEn}`,
+      isAr ? `تم تطبيق قالبك المخصص:${tpl.nameAr || tpl.nameEn}` : `Applied custom template: ${tpl.nameEn}`,
       'success',
     );
   };
@@ -3272,7 +3272,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     setActiveTab('content');
     setRightSidebarVisible(true);
     toast(
-      isAr ? `تمت إضافة قسم ${payload.titleAr || payload.titleEn} بنجاح` : `Added ${payload.titleEn} successfully`,
+      isAr ? `تمت إضافة قسم${payload.titleAr || payload.titleEn}بنجاح` : `Added ${payload.titleEn} successfully`,
       'success',
     );
   };
@@ -3302,7 +3302,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     );
 
     toast(
-      isAr ? `تم تفعيل قالب الموسم: ${season === 'Ramadan' ? 'رمضان كريم' : season === 'Eid' ? 'العيد المبارك' : season === 'Valentine' ? 'باقات الحب' : 'الافتراضي العصري'}` : `Switched seasonal style to: ${season} Edition!`,
+      isAr ? `تم تفعيل قالب الموسم:${season === 'Ramadan' ? 'رمضان كريم': season === 'Eid' ? 'العيد المبارك': season === 'Valentine' ? 'باقات الحب': 'الافتراضي العصري'}` : `Switched seasonal style to: ${season} Edition!`,
       'success',
     );
   };
@@ -3483,7 +3483,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       if (onPublishSuccess) onPublishSuccess();
     } catch (err: any) {
       toast(
-        isAr ? `تعذر النشر المباشر: ${err?.message || 'خطأ غير معروف'}` : `Publish failed: ${err?.message || 'Unknown error'}`,
+        isAr ? `تعذر النشر المباشر:${err?.message || 'خطأ غير معروف'}` : `Publish failed: ${err?.message || 'Unknown error'}`,
         'error',
       );
     } finally {
@@ -3529,7 +3529,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       );
     } catch (err: any) {
       toast(
-        isAr ? `تعذر حفظ المسودة: ${err?.message || 'خطأ غير معروف'}` : `Draft save failed: ${err?.message || 'Unknown error'}`,
+        isAr ? `تعذر حفظ المسودة:${err?.message || 'خطأ غير معروف'}` : `Draft save failed: ${err?.message || 'Unknown error'}`,
         'error',
       );
     } finally {
@@ -3572,7 +3572,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       toast(isAr ? 'تمت استعادة النسخة' : 'Revision restored', 'success');
     } catch (err: any) {
       toast(
-        isAr ? `تعذرت الاستعادة: ${err?.message || 'خطأ غير معروف'}` : `Restore failed: ${err?.message || 'Unknown error'}`,
+        isAr ? `تعذرت الاستعادة:${err?.message || 'خطأ غير معروف'}` : `Restore failed: ${err?.message || 'Unknown error'}`,
         'error',
       );
     } finally {
@@ -4158,7 +4158,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 {lastSavedTime && (
                   <div className="text-[10px] text-slate-400 text-center font-mono pt-1 flex items-center justify-center gap-1 border-t border-slate-100">
                     <Check className="w-3 h-3 text-emerald-500" />
-                    <span>{isAr ? `حفظ تلقائي: ${lastSavedTime}` : `Auto-saved: ${lastSavedTime}`}</span>
+                    <span>{isAr ? `حفظ تلقائي:${lastSavedTime}` : `Auto-saved: ${lastSavedTime}`}</span>
                   </div>
                 )}
               </div>
@@ -4538,7 +4538,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
                       <span>
-                        {isAr ? `يوجد حالياً ${visibleBlocks.length} أقسام فقط. هل ترغب في إظهار كافة أقسام المتجر وتفعيل التمرير الكامل؟` : `Only ${visibleBlocks.length} sections loaded. Would you like to restore all 24 storefront sections with full scrolling?`}
+                        {isAr ? `يوجد حالياً${visibleBlocks.length}أقسام فقط. هل ترغب في إظهار كافة أقسام المتجر وتفعيل التمرير الكامل؟` : `Only ${visibleBlocks.length} sections loaded. Would you like to restore all 24 storefront sections with full scrolling?`}
                       </span>
                     </div>
                     <button
@@ -5204,7 +5204,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                               }
                               className="text-[9px] font-bold text-pink-700 hover:text-pink-900 underline cursor-pointer"
                             >
-                              {isAr ? 'استخدام صورة تجريبية (1600px)' : 'Use Demo 1600px Image'}
+                              {isAr ? 'استخدام صورة تجريبية' : 'Use Demo 1600px Image'}
                             </button>
                             {selectedBlock.settings.bgImage && (
                               <button
@@ -5357,8 +5357,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
 
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { id: 'boxed', labelAr: 'محدد (Boxed)', labelEn: 'Boxed' },
-                        { id: 'full', labelAr: 'عرض كامل (Full Width)', labelEn: 'Full Width' },
+                        { id: 'boxed', labelAr: 'محدد', labelEn: 'Boxed' },
+                        { id: 'full', labelAr: 'عرض كامل', labelEn: 'Full Width' },
                       ].map((cw) => {
                         const isAct = (selectedBlock.settings.contentWidth || 'boxed') === cw.id;
                         return (
@@ -5392,12 +5392,12 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
 
                     <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold">
                       {[
-                        { labelAr: 'بدون (0px)', labelEn: 'No Gap', val: 0 },
-                        { labelAr: 'ضيق (8px)', labelEn: 'Narrow', val: 8 },
-                        { labelAr: 'افتراضي (16px)', labelEn: 'Default', val: 16 },
-                        { labelAr: 'ممتد (24px)', labelEn: 'Extended', val: 24 },
-                        { labelAr: 'عريض (32px)', labelEn: 'Wide (32px)', val: 32 },
-                        { labelAr: 'أعرض (48px)', labelEn: 'Wider (48px)', val: 48 },
+                        { labelAr: 'بدون', labelEn: 'No Gap', val: 0 },
+                        { labelAr: 'ضيق', labelEn: 'Narrow', val: 8 },
+                        { labelAr: 'افتراضي', labelEn: 'Default', val: 16 },
+                        { labelAr: 'ممتد', labelEn: 'Extended', val: 24 },
+                        { labelAr: 'عريض', labelEn: 'Wide (32px)', val: 32 },
+                        { labelAr: 'أعرض', labelEn: 'Wider (48px)', val: 48 },
                       ].map((gap) => {
                         const isCurrent = (selectedBlock.settings.columnGap ?? 16) === gap.val;
                         return (
@@ -5509,7 +5509,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                         { key: '8', labelAr: '٨ أعمدة (١٢٪)', labelEn: '8 Cols (12%)' },
                         { key: '2-asym-left', labelAr: '٦٦٪ / ٣٣٪', labelEn: 'Asym-L (66/33)' },
                         { key: '2-asym-right', labelAr: '٣٣٪ / ٦٦٪', labelEn: 'Asym-R (33/66)' },
-                        { key: 'bento', labelAr: 'بينتو (Bento)', labelEn: 'Bento Grid' },
+                        { key: 'bento', labelAr: 'بينتو', labelEn: 'Bento Grid' },
                       ].map((col) => {
                         const isCurrent = (selectedBlock.settings.layoutColumns || '1') === col.key;
                         return (

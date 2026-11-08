@@ -189,7 +189,7 @@ export const PaginatedNotifications: React.FC<PaginatedNotificationsProps> = ({
               </div>
               <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                 {isAr
-                  ? `عرض 4 إشعارات لكل صفحة لمنع التمرير الطويل (${tabFilteredItems.length} إشعار)`
+                  ? `عرض 4 إشعارات لكل صفحة لمنع التمرير الطويل (${tabFilteredItems.length}إشعار)`
                   : `Showing max 4 items per page (${tabFilteredItems.length} active)`}
               </p>
             </div>
@@ -290,7 +290,7 @@ export const PaginatedNotifications: React.FC<PaginatedNotificationsProps> = ({
         >
           <div className="text-[11px] text-slate-500 dark:text-slate-400">
             {isAr
-              ? `الصفحة ${validPage} من ${totalPages}`
+              ? `الصفحة${validPage}من${totalPages}`
               : `Page ${validPage} of ${totalPages}`}
           </div>
 

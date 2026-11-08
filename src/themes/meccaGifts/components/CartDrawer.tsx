@@ -104,7 +104,7 @@ export const CartDrawer: React.FC = () => {
                 {freeShippingRemaining > 0 ? (
                   <span>
                     {isAr
-                      ? `تبقّى ${freeShippingRemaining} ر.س للحصول على شحن مجاني`
+                      ? `تبقّى${freeShippingRemaining}ر.س للحصول على شحن مجاني`
                       : `Add ${freeShippingRemaining} SAR more for free delivery`}
                   </span>
                 ) : (
@@ -336,8 +336,7 @@ export const CartDrawer: React.FC = () => {
               <a
                 href={`https://wa.me/966581617712?text=${encodeURIComponent(
                   isAr
-                    ? `مرحباً متجر هدايا مكة، أود طلب محتويات السلة:\n${cart
-                        .map((i) => `• ${i.product.name} (عدد: ${i.quantity}) - ${i.selectedSize}`)
+                    ? `مرحباً متجر هدايا مكة، أود طلب محتويات السلة:\n${cart.map((i) =>`• ${i.product.name} (عدد: ${i.quantity}) - ${i.selectedSize}`)
                         .join('\n')}\nالمجموع الإجمالي: ${finalTotal} ر.س. أرجو التنسيق للتوصيل المبرد في مكة.`
                     : `Hello Hadaya Mecca, I want to order my bag items for ${finalTotal} SAR.`
                 )}`}

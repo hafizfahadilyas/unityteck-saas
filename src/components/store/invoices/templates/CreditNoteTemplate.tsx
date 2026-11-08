@@ -148,7 +148,7 @@ export const CreditNoteTemplate: React.FC<TemplateProps> = ({ document, config, 
               <tr className="border-b-2 text-[11px] font-black uppercase text-slate-700" style={{ borderColor: '#cbd5e1' }}>
                 <th className="py-2.5 px-2 text-start">#</th>
                 <th className="py-2.5 px-2 text-start">{isAr ? 'البند المعدل' : 'Adjusted Line Description'}</th>
-                {config.columns.sku && <th className="py-2.5 px-2 text-start">{isAr ? 'الرمز SKU' : 'SKU'}</th>}
+                {config.columns.sku && <th className="py-2.5 px-2 text-start">{isAr ? 'رمز المنتج' : 'SKU'}</th>}
                 <th className="py-2.5 px-2 text-center">{isAr ? 'الكمية' : 'Qty'}</th>
                 <th className="py-2.5 px-2 text-end">{isAr ? 'المبلغ الدائن الصافي' : 'Net Credited'}</th>
                 <th className="py-2.5 px-2 text-end">{isAr ? 'الضريبة المعدلة' : 'Credited VAT'}</th>

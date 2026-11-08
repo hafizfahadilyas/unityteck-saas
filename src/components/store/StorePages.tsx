@@ -150,7 +150,7 @@ export const StorePages: React.FC = () => {
   const handleSaveForm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.titleAr.trim() || !formData.titleEn.trim() || !formData.slug.trim()) {
-      showNotification(isAr ? 'يرجى تعبئة العنوان والاسم اللطيف (Slug)' : 'Please fill title and URL slug');
+      showNotification(isAr ? 'يرجى تعبئة العنوان والاسم اللطيف' : 'Please fill title and URL slug');
       return;
     }
 
@@ -414,7 +414,7 @@ export const StorePages: React.FC = () => {
             {/* Bottom actions */}
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
               <span className="text-[11px] text-slate-400">
-                {isAr ? `تحديث: ${page.updatedAt}` : `Updated: ${page.updatedAt}`}
+                {isAr ? `تحديث:${page.updatedAt}` : `Updated: ${page.updatedAt}`}
               </span>
 
               <div className="flex items-center gap-1.5">
@@ -487,7 +487,7 @@ export const StorePages: React.FC = () => {
                 ? 'بناء وإنشاء صفحة جديدة'
                 : 'Build & Create New Page'
               : isAr
-                ? `تعديل الصفحة: ${editingPage?.titleAr}`
+                ? `تعديل الصفحة:${editingPage?.titleAr}`
                 : `Edit Page: ${editingPage?.titleEn}`
           }
         >
@@ -499,7 +499,7 @@ export const StorePages: React.FC = () => {
                 <h3 className="font-black text-slate-900 text-base">
                   {isCreating
                     ? isAr ? 'بناء وإنشاء صفحة جديدة' : 'Build & Create New Page'
-                    : isAr ? `تعديل الصفحة: ${editingPage?.titleAr}` : `Edit Page: ${editingPage?.titleEn}`}
+                    : isAr ? `تعديل الصفحة:${editingPage?.titleAr}` : `Edit Page: ${editingPage?.titleEn}`}
                 </h3>
               </div>
               <button
@@ -549,7 +549,7 @@ export const StorePages: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isAr ? 'الاسم اللطيف للرابط (Slug) *' : 'URL Slug *'}
+                    {isAr ? 'الاسم اللطيف للرابط *' : 'URL Slug *'}
                   </label>
                   <div className="relative">
                     <span className="absolute start-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 font-mono">/page/</span>
@@ -604,7 +604,7 @@ export const StorePages: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isAr ? 'وصف SEO مختصر بالعربية' : 'Arabic Meta Description'}
+                    {isAr ? 'وصف تحسين محركات البحث مختصر بالعربية' : 'Arabic Meta Description'}
                   </label>
                   <input
                     type="text"
@@ -617,7 +617,7 @@ export const StorePages: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isAr ? 'وصف SEO مختصر بالإنجليزية' : 'English Meta Description'}
+                    {isAr ? 'وصف تحسين محركات البحث مختصر بالإنجليزية' : 'English Meta Description'}
                   </label>
                   <input
                     type="text"
@@ -634,7 +634,7 @@ export const StorePages: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                      <span>🇸🇦 {isAr ? 'محتوى الصفحة بالعربية (Markdown / نصوص)' : 'Arabic Content (Markdown)'}</span>
+                      <span>🇸🇦 {isAr ? 'محتوى الصفحة بالعربية' : 'Arabic Content (Markdown)'}</span>
                     </label>
                     <span className="text-[11px] text-slate-400">
                       {isAr ? 'يمكنك استخدام عناوين مثل ### ونقاط وقوائم' : 'Supports Markdown headings and lists'}
@@ -653,7 +653,7 @@ export const StorePages: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                      <span>🌐 {isAr ? 'محتوى الصفحة بالإنجليزية (Markdown)' : 'English Content (Markdown)'}</span>
+                      <span>🌐 {isAr ? 'محتوى الصفحة بالإنجليزية' : 'English Content (Markdown)'}</span>
                     </label>
                   </div>
                   <textarea

@@ -59,7 +59,7 @@ const PartShowcaseBanner: React.FC<PartShowcaseBannerProps> = ({ part, index, la
         <div className="inline-block text-xs font-bold uppercase tracking-widest bg-white/10 text-neutral-300 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
           <span>
             {language === 'AR'
-              ? `الميزة 0${index + 1} · ${part.tagAr}`
+              ? `الميزة 0${index + 1}·${part.tagAr}`
               : `FEATURE 0${index + 1} · ${part.tagEn}`}
           </span>
         </div>

@@ -39,7 +39,7 @@ const BRAND_TABS = [
   { id: 'honda', labelAr: 'هوندا (أكورد / سيفيك)', labelEn: 'Honda', icon: '🏎️' },
   { id: 'gmc', labelAr: 'جمس وشفروليه (يوكن / تاهو)', labelEn: 'GMC & Chevy', icon: '🚙' },
   { id: 'lexus-ford', labelAr: 'لكزس وفورد', labelEn: 'Lexus & Ford', icon: '💎' },
-  { id: 'custom', labelAr: 'تفصيل VIP حسب الطلب', labelEn: 'Bespoke Custom', icon: '👑' },
+  { id: 'custom', labelAr: 'تفصيل كبار العملاء حسب الطلب', labelEn: 'Bespoke Custom', icon: '👑' },
 ];
 
 const MATERIAL_TABS = [
@@ -169,7 +169,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
                 <Wind className="w-3.5 h-3.5 text-sky-400" />
-                <span>{isAr ? 'آمن 100% مع الوسائد الهوائية (Airbag)' : 'Airbag Safe'}</span>
+                <span>{isAr ? 'آمن 100% مع الوسائد الهوائية الوسائد الهوائية' : 'Airbag Safe'}</span>
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
                 <Flame className="w-3.5 h-3.5 text-amber-400" />
@@ -338,7 +338,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                       </span>
                       {hasDiscount && (
                         <span className="bg-rose-600/95 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs border border-rose-400/40">
-                          {isAr ? `وفر ${discountAmt} ر.س` : `Save ${discountAmt} SAR`}
+                          {isAr ? `وفر${discountAmt}ر.س` : `Save ${discountAmt} SAR`}
                         </span>
                       )}
                     </div>
@@ -388,7 +388,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                     {/* Interactive 3 Color Swatches with Authentic Arabic Label */}
                     <div className="pt-2 border-t border-white/10 flex items-center justify-between">
                       <span className="text-[11px] text-amber-200 font-bold line-clamp-1">
-                        {isAr ? `اللون: ${activeColor.nameAr}` : `Color: ${activeColor.nameEn}`}
+                        {isAr ? `اللون:${activeColor.nameAr}` : `Color: ${activeColor.nameEn}`}
                       </span>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {productColors.map(c => {
@@ -415,7 +415,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                       <span className="text-amber-200 font-bold flex items-center gap-1">
                         <span>💳</span>
                         <span>
-                          {isAr ? `أو 4 دفعات بقيمة ${monthlyTabby} ر.س` : `Or 4 payments of ${monthlyTabby} SAR`}
+                          {isAr ? `أو 4 دفعات بقيمة${monthlyTabby}ر.س` : `Or 4 payments of ${monthlyTabby} SAR`}
                         </span>
                       </span>
                       <span className="text-[#f6c344] font-black text-[9px] bg-white/10 px-1.5 py-0.5 rounded-md border border-[#f6c344]/30 shadow-2xs">
@@ -443,7 +443,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                           {liveProduct.originalPrice} {isAr ? 'ر.س' : 'SAR'}
                         </span>
                         <span className="text-[9.5px] font-bold text-rose-300 bg-rose-950/80 px-1 py-0.2 rounded border border-rose-500/30">
-                          {isAr ? `خصم ${discountPct}%` : `-${discountPct}%`}
+                          {isAr ? `خصم${discountPct}%` : `-${discountPct}%`}
                         </span>
                       </div>
                     )}
@@ -465,7 +465,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                     <button 
                       onClick={() => {
                         const customMsg = isAr
-                          ? `مرحباً متجر السعيدي، أود الاستفسار والطلب عن تلبيسة المقاعد:\n*المنتج:* ${liveProduct.nameAr || liveProduct.name}\n*اللون المختار:* ${activeColor.nameAr}\n*السعر:* ${finalPrice} ر.س\n*المطلوب:* تفصيل ليزري لموديل سيارتي.`
+                          ? `مرحباً متجر السعيدي، أود الاستفسار والطلب عن تلبيسة المقاعد:\n*المنتج:*${liveProduct.nameAr || liveProduct.name}\n*اللون المختار:*${activeColor.nameAr}\n*السعر:*${finalPrice}ر.س\n*المطلوب:* تفصيل ليزري لموديل سيارتي.`
                           : `Hello Al-Saeedi Car Services, I want to order Seat Covers:\n*Product:* ${liveProduct.nameEn || liveProduct.name}\n*Color:* ${activeColor.nameEn}\n*Price:* ${finalPrice} SAR\n*Request:* Laser tailored for my vehicle model.`;
                         onOpenWhatsApp(liveProduct, activeColor, finalPrice, customMsg);
                       }}

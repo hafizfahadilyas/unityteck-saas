@@ -131,7 +131,7 @@ export const StoreMediaLibrary: React.FC = () => {
     const name = newFolderName.trim();
     if (!name) return;
     if (!isApiEnabled()) {
-      toast(isAr ? 'يتطلب اتصال API' : 'API connection required', 'error');
+      toast(isAr ? 'يتطلب اتصال واجهة البرمجة' : 'API connection required', 'error');
       return;
     }
     setFolderSaving(true);
@@ -547,7 +547,7 @@ export const StoreMediaLibrary: React.FC = () => {
 
       toast(
         isAr
-          ? 'تم استيراد الملف من Google Drive وحفظه في المكتبة'
+          ? 'تم استيراد الملف من جوجل Drive وحفظه في المكتبة'
           : 'File imported from Google Drive & ready for use across store',
         'success',
       );
@@ -561,7 +561,7 @@ export const StoreMediaLibrary: React.FC = () => {
       setIsSyncing(false);
       toast(
         isAr
-          ? `تم فحص ومزامنة صور المنتجات بنجاح (${added > 0 ? `تم إضافة ${added} صورة جديدة للمكتبة` : 'جميع صور منتجات المتجر محدثة وموجودة بالمكتبة'})`
+          ? `تم فحص ومزامنة صور المنتجات بنجاح (${added > 0 ?`تم إضافة ${added} صورة جديدة للمكتبة` : 'جميع صور منتجات المتجر محدثة وموجودة بالمكتبة'})`
           : `Catalog images synchronized successfully (${added > 0 ? `${added} new images indexed` : 'All product images are already in library'})`,
         'success',
       );
@@ -726,7 +726,7 @@ export const StoreMediaLibrary: React.FC = () => {
           </div>
           <p className="text-xs sm:text-sm" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? `إدارة مركزية لجميع صور، بانرات، شعار، وفيديوهات متجر ${activeStore.nameAr || activeStore.name} مع تحسين تلقائي للسرعة وحماية من الحذف.`
+              ? `إدارة مركزية لجميع صور، بانرات، شعار، وفيديوهات متجر${activeStore.nameAr || activeStore.name}مع تحسين تلقائي للسرعة وحماية من الحذف.`
               : `Centralized media management for ${activeStore.nameEn || activeStore.name} — WebP optimization, Google Drive import, used-by tracking, and zero-stale cache.`}
           </p>
         </div>
@@ -982,7 +982,7 @@ export const StoreMediaLibrary: React.FC = () => {
             <div className="font-extrabold text-sm flex items-center justify-center sm:justify-start gap-2" style={{ color: 'var(--text)' }}>
               <span>{isAr ? 'اسحب الصور والفيديوهات هنا للرفع الفوري والتحسين التلقائي' : 'Drag & drop images, GIFs or videos here to upload and optimize'}</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400">
-                {isAr ? 'مضغوط تلقائياً بالكيلوبايت KB' : 'Auto AI KB Optimized'}
+                {isAr ? 'مضغوط تلقائياً بالكيلوبايت' : 'Auto AI KB Optimized'}
               </span>
             </div>
             <p className="text-[11px] text-muted mt-0.5">
@@ -1565,7 +1565,7 @@ export const StoreMediaLibrary: React.FC = () => {
               {/* Editable SEO Fields */}
               <div className="space-y-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
                 <span className="text-[10px] font-bold uppercase text-muted block">
-                  {isAr ? 'تحسين محركات البحث SEO والنص البديل' : 'SEO Metadata & Alt Text'}
+                  {isAr ? 'تحسين محركات البحث والنص البديل' : 'SEO Metadata & Alt Text'}
                 </span>
 
                 <div className="space-y-1">
@@ -1580,7 +1580,7 @@ export const StoreMediaLibrary: React.FC = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold block">{isAr ? 'النص البديل (Alt Text للـ SEO)' : 'Alt Text (SEO)'}</label>
+                  <label className="text-xs font-bold block">{isAr ? 'النص البديل (للمحركات)' : 'Alt Text (SEO)'}</label>
                   <input
                     type="text"
                     value={selectedAsset.altText || ''}
@@ -1624,7 +1624,7 @@ export const StoreMediaLibrary: React.FC = () => {
               {/* "Used By" Tracking List */}
               <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
                 <span className="text-[10px] font-bold uppercase text-muted block">
-                  {isAr ? 'مواضع الاستخدام في المتجر (Used By)' : 'Active Store References (Used By)'}
+                  {isAr ? 'مواضع الاستخدام في المتجر' : 'Active Store References (Used By)'}
                 </span>
 
                 {(() => {
@@ -1729,7 +1729,7 @@ export const StoreMediaLibrary: React.FC = () => {
             title,
             altText: `${title} - ${activeStore.name}`,
             caption: isAr
-              ? `تصميم من استوديو المنصة — ${activeStore.name}`
+              ? `تصميم من استوديو المنصة —${activeStore.name}`
               : `Created in platform design studio — ${activeStore.name}`,
             folder: 'marketing',
             tags: ['ksa-template', 'studio', activeStore.slug],
@@ -1952,7 +1952,7 @@ export const StoreMediaLibrary: React.FC = () => {
                   <ShieldAlert className="w-4 h-4" />
                   <span>
                     {isAr
-                      ? `تنبيه: هذا الملف مستخدم حالياً في ${deleteUsages.length} موضع في متجرك!`
+                      ? `تنبيه: هذا الملف مستخدم حالياً في${deleteUsages.length}موضع في متجرك!`
                       : `Warning: This media is currently in use by ${deleteUsages.length} item(s)!`}
                   </span>
                 </div>

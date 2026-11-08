@@ -172,7 +172,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
   const handleSelectTemplate = (tpl: WhatsAppTemplateItem) => {
     setSelectedTemplateId(tpl.id);
     setMessageContent(tpl.content);
-    toast(isAr ? `تم اختيار قالب: ${tpl.name_ar || tpl.name}` : `Selected template: ${tpl.name}`, 'info');
+    toast(isAr ? `تم اختيار قالب:${tpl.name_ar || tpl.name}` : `Selected template: ${tpl.name}`, 'info');
   };
 
   // Filtered Templates
@@ -214,7 +214,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
   const handleCopyVar = (variableStr: string) => {
     navigator.clipboard.writeText(variableStr);
     setCopiedVar(variableStr);
-    toast(isAr ? `تم نسخ ${variableStr}` : `Copied ${variableStr}`, 'success');
+    toast(isAr ? `تم نسخ${variableStr}` : `Copied ${variableStr}`, 'success');
     setTimeout(() => setCopiedVar(null), 2000);
   };
 
@@ -319,7 +319,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
         phone: found.phone,
       });
       toast(
-        isAr ? `تم ربط الطلب #${cleanNum} بالعميل ${found.name}` : `Linked order #${cleanNum} to ${found.name}`,
+        isAr ? `تم ربط الطلب #${cleanNum}بالعميل${found.name}` : `Linked order #${cleanNum} to ${found.name}`,
         'success',
       );
     } else {
@@ -460,7 +460,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
 
         <button
           type="button"
-          onClick={() => toast(isAr ? 'دليل إعداد القوالب وتراخيص Meta' : 'WhatsApp Template approval guide', 'info')}
+          onClick={() => toast(isAr ? 'دليل إعداد القوالب وتراخيص ميتا' : 'WhatsApp Template approval guide', 'info')}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm self-start sm:self-auto"
         >
           <HelpCircle className="w-4 h-4 text-sky-500" />
@@ -784,7 +784,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
               <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
                 <span className="font-bold block">
-                  {isAr ? 'نظام الحماية من حظر الرقم (Anti-Ban Protection Active)' : 'WhatsApp Anti-Ban Protection Active'}
+                  {isAr ? 'نظام الحماية من حظر الرقم' : 'WhatsApp Anti-Ban Protection Active'}
                 </span>
                 <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-normal">
                   {isAr
@@ -913,7 +913,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
                 type="button"
                 onClick={() => {
                   setAttachedMedia('pdf');
-                  toast(isAr ? 'تم تحديد إرفاق ملف PDF' : 'PDF attached', 'info');
+                  toast(isAr ? 'تم تحديد إرفاق ملف ملف محمول' : 'PDF attached', 'info');
                 }}
                 className={`py-2 px-1 rounded-lg border text-center flex flex-col items-center gap-1 transition-all ${
                   attachedMedia === 'pdf'
@@ -922,7 +922,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
                 }`}
               >
                 <FileText className="w-4 h-4" />
-                <span className="text-[10px] font-semibold">{isAr ? 'مستند (PDF)' : 'Document (PDF)'}</span>
+                <span className="text-[10px] font-semibold">{isAr ? 'مستند' : 'Document (PDF)'}</span>
               </button>
 
               <button
@@ -998,10 +998,10 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
                 disabled={sending}
                 onClick={handleSendMessage}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 text-slate-800 dark:text-slate-200 text-xs font-bold shadow-xs transition-colors cursor-pointer"
-                title={isAr ? 'إرسال تلقائي عبر Meta Cloud API (يستهلك من رصيد المتجر)' : 'Automated dispatch via Meta Cloud API'}
+                title={isAr ? 'إرسال تلقائي عبر واجهة ميتا كلاود (يستهلك من رصيد المتجر)' : 'Automated dispatch via Meta Cloud API'}
               >
                 <Send className="w-3.5 h-3.5 text-emerald-600" />
-                <span>{sending ? (isAr ? 'جارِ الإرسال...' : 'Sending...') : (isAr ? 'إرسال تلقائي (API)' : 'Automated API Send')}</span>
+                <span>{sending ? (isAr ? 'جارِ الإرسال...' : 'Sending...') : (isAr ? 'إرسال تلقائي' : 'Automated API Send')}</span>
               </button>
             </div>
           </div>
@@ -1124,7 +1124,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
           {/* Template Variables List with Copy Buttons (Matching Reference Image 2) */}
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm space-y-2.5">
             <h3 className="text-xs font-bold text-slate-900 dark:text-white pb-1 border-b border-slate-100 dark:border-slate-800">
-              {isAr ? 'متغيرات القوالب (Template Variables)' : 'Template Variables'}
+              {isAr ? 'متغيرات القوالب' : 'Template Variables'}
             </h3>
 
             <div className="space-y-1.5 text-xs">
@@ -1232,7 +1232,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  {isAr ? 'فئة القالب (Category)' : 'Template Category'}
+                  {isAr ? 'فئة القالب' : 'Template Category'}
                 </label>
                 <select
                   value={newTplCategory}
@@ -1261,7 +1261,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    {isAr ? 'نص الرسالة (Content)' : 'Message Content'} *
+                    {isAr ? 'نص الرسالة' : 'Message Content'} *
                   </label>
                   <div className="flex items-center gap-1">
                     {['{{customer_name}}', '{{order_id}}', '{{tracking_link}}'].map((v) => (

@@ -177,7 +177,7 @@ export const PAYMENT_CATEGORIES: PaymentCategory[] = [
   {
     groupNum: 3,
     titleEn: '3. Buy Now, Pay Later (BNPL) and Installment Payments',
-    titleAr: '٣. الدفع الآجل والأقساط الشهرية (BNPL)',
+    titleAr: '٣. الدفع الآجل والأقساط الشهرية',
     items: [
       {
         id: 'tabby',

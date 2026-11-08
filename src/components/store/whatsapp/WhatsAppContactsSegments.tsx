@@ -413,7 +413,7 @@ export const WhatsAppContactsSegments: React.FC<Props> = ({ onNavigateSubView })
             className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 focus:outline-none"
           >
             <option value="all">{isAr ? 'كافة الشرائح' : 'All Segments'}</option>
-            <option value="vip">{isAr ? 'عملاء VIP' : 'VIP Customers'}</option>
+            <option value="vip">{isAr ? 'كبار العملاء' : 'VIP Customers'}</option>
             <option value="recent">{isAr ? 'العملاء الجدد' : 'Recent Customers'}</option>
           </select>
 
@@ -595,7 +595,7 @@ export const WhatsAppContactsSegments: React.FC<Props> = ({ onNavigateSubView })
           <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
             <span>
               {isAr
-                ? `عرض 1 إلى ${contacts.length} من إجمالي ${pagination.total.toLocaleString()} جهة اتصال`
+                ? `عرض 1 إلى${contacts.length}من إجمالي${pagination.total.toLocaleString()}جهة اتصال`
                 : `Showing 1 to ${contacts.length} of ${pagination.total.toLocaleString()} contacts`}
             </span>
 
@@ -650,7 +650,7 @@ export const WhatsAppContactsSegments: React.FC<Props> = ({ onNavigateSubView })
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-400 mt-0.5">
-                    {isAr ? 'تاريخ التسجيل: ' : 'Customer since: '}
+                    {isAr ? 'تاريخ التسجيل:' : 'Customer since: '}
                     {selectedContact.created_at ? new Date(selectedContact.created_at).toLocaleDateString() : '-'}
                   </p>
                 </div>

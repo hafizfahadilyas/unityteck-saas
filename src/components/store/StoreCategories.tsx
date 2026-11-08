@@ -961,7 +961,7 @@ export const StoreCategories: React.FC = () => {
     },
     {
       key: 'slug',
-      header: isAr ? 'المعرّف (Slug)' : 'Slug',
+      header: isAr ? 'المعرّف' : 'Slug',
       sortable: true,
       render: (c) => <span className="font-mono text-slate-500 dark:text-slate-400">{c.slug}</span>,
     },
@@ -1178,7 +1178,7 @@ export const StoreCategories: React.FC = () => {
               <option value="roots">{isAr ? 'الرئيسية فقط' : 'Roots only'}</option>
               {roots.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {isAr ? `تحت: ${r.nameAr || r.name}` : `Under: ${r.name}`}
+                  {isAr ? `تحت:${r.nameAr || r.name}` : `Under: ${r.name}`}
                 </option>
               ))}
             </select>
@@ -1340,7 +1340,7 @@ export const StoreCategories: React.FC = () => {
                               prev.map((x, i) => (i === idx ? { ...x, nameEn: e.target.value } : x)),
                             )
                           }
-                          placeholder={isAr ? 'الاسم (EN)' : 'Name (EN)'}
+                          placeholder={isAr ? 'الاسم بالإنجليزية' : 'Name (EN)'}
                           className="px-2 py-1.5 text-xs border rounded-lg dark:bg-slate-900"
                         />
                         <input
@@ -1350,7 +1350,7 @@ export const StoreCategories: React.FC = () => {
                               prev.map((x, i) => (i === idx ? { ...x, nameAr: e.target.value } : x)),
                             )
                           }
-                          placeholder={isAr ? 'الاسم (AR)' : 'Name (AR)'}
+                          placeholder={isAr ? 'الاسم بالعربية' : 'Name (AR)'}
                           className="px-2 py-1.5 text-xs border rounded-lg dark:bg-slate-900"
                         />
                       </div>

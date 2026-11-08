@@ -76,7 +76,7 @@ export const ThankYouPage: React.FC = () => {
 
     const message =
       language === 'AR'
-        ? `☕ *فاتورة ${storeName} الرسمية* 🇸🇦\n\n` +
+        ? `☕ *فاتورة${storeName}الرسمية* 🇸🇦\n\n` +
           `📦 *رقم الطلب:* ${shownNumber}\n` +
           `📅 *التاريخ:* ${order.date}\n` +
           `👤 *العميل:* ${order.shippingAddress.name}\n` +

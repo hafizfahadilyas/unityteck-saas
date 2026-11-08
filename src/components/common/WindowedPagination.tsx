@@ -82,7 +82,7 @@ export const WindowedPagination: React.FC<WindowedPaginationProps> = ({
         </div>
         <span>
           {isAr
-            ? `عرض ${fromRecord}–${toRecord} من أصل ${totalCount.toLocaleString()} ${label}`
+            ? `عرض${fromRecord}–${toRecord}من أصل${totalCount.toLocaleString()}${label}`
             : `Showing ${fromRecord}–${toRecord} of ${totalCount.toLocaleString()} ${label}`}
         </span>
       </div>

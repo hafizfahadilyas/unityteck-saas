@@ -305,7 +305,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
             className="px-3 py-2 bg-white border border-slate-200 text-xs font-semibold rounded-xl hover:bg-slate-50 flex items-center gap-1.5 shadow-2xs cursor-pointer text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>{isAr ? 'تصدير المعاملات (CSV)' : 'Export Transactions (.CSV)'}</span>
+            <span>{isAr ? 'تصدير المعاملات' : 'Export Transactions (.CSV)'}</span>
           </button>
         </div>
 
@@ -359,7 +359,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
             <span className="text-xs font-bold text-slate-700">{isAr ? 'أحدث معاملات المنصة' : 'Recent Platform Transactions'}</span>
             <span className="text-xs text-slate-400">
               {isAr
-                ? `${filteredOrders.length} من ${globalOrders.length} طلب`
+                ? `${filteredOrders.length}من${globalOrders.length}طلب`
                 : `${filteredOrders.length} of ${globalOrders.length} orders total`}
             </span>
           </div>
@@ -493,7 +493,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
         isAr ? 'نشط' : 'Active',
       ]);
       downloadFile(`platform-categories-${today()}.csv`, toCsv(headers, rows), 'text/csv;charset=utf-8');
-      toast(isAr ? `تم تصدير ${filteredCats.length} تصنيفات` : `Exported ${filteredCats.length} categories`, 'success');
+      toast(isAr ? `تم تصدير${filteredCats.length}تصنيفات` : `Exported ${filteredCats.length} categories`, 'success');
     };
 
     return (
@@ -512,11 +512,11 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono px-3 py-1.5 rounded-xl border" style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--muted)' }}>
-              {isAr ? `${filteredCats.length} تصنيفات نشطة` : `${filteredCats.length} active platform taxonomies`}
+              {isAr ? `${filteredCats.length}تصنيفات نشطة` : `${filteredCats.length} active platform taxonomies`}
             </span>
             <button type="button" onClick={exportCats} className={exportBtnClass} style={exportBtnStyle}>
               <Download className="w-3.5 h-3.5" />
-              <span>{isAr ? 'تصدير CSV' : 'Export CSV'}</span>
+              <span>{isAr ? 'تصدير جداول البيانات' : 'Export CSV'}</span>
             </button>
           </div>
         </div>
@@ -588,7 +588,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
                 <tr>
                   <th className="py-3 px-4 text-start">{isAr ? 'اسم التصنيف' : 'Category Name'}</th>
                   <th className="py-3 px-3 text-start">{isAr ? 'متجر التاجر' : 'Merchant Store'}</th>
-                  <th className="py-3 px-3 text-start">{isAr ? 'المعرّف (Slug)' : 'Slug'}</th>
+                  <th className="py-3 px-3 text-start">{isAr ? 'المعرّف' : 'Slug'}</th>
                   <th className="py-3 px-3 text-start">{isAr ? 'المجموعة الأم' : 'Parent Group'}</th>
                   <th className="py-3 px-3 text-end">{isAr ? 'عدد المنتجات' : 'Products Count'}</th>
                   <th className="py-3 px-4 text-center">{isAr ? 'الحالة' : 'Status'}</th>
@@ -609,7 +609,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
                       </span>
                     </td>
                     <td className="py-3 px-3 text-end font-bold tabular-nums" style={{ color: 'var(--text)' }}>
-                      {isAr ? `${c.productsCount} منتج` : `${c.productsCount} items`}
+                      {isAr ? `${c.productsCount}منتج` : `${c.productsCount} items`}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30">
@@ -662,7 +662,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
               <span className="w-5 h-5 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
                 <Globe className="w-3 h-3" />
               </span>
-              <span>{isAr ? 'بحث Google' : 'Google Search'}</span>
+              <span>{isAr ? 'بحث جوجل' : 'Google Search'}</span>
             </div>
           );
         case 'Snapchat':
@@ -671,7 +671,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
               <span className="w-5 h-5 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
                 <Sparkles className="w-3 h-3" />
               </span>
-              <span>{isAr ? 'إعلانات Snapchat' : 'Snapchat Ads'}</span>
+              <span>{isAr ? 'إعلانات سناب شات' : 'Snapchat Ads'}</span>
             </div>
           );
         default:
@@ -747,7 +747,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
         (c.totalSpending || 0).toFixed(2),
       ]);
       downloadFile(`platform-customers-${today()}.csv`, toCsv(headers, rows), 'text/csv;charset=utf-8');
-      toast(isAr ? `تم تصدير ${filteredCusts.length} عميل` : `Exported ${filteredCusts.length} customers`, 'success');
+      toast(isAr ? `تم تصدير${filteredCusts.length}عميل` : `Exported ${filteredCusts.length} customers`, 'success');
     };
 
     return (
@@ -766,11 +766,11 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono px-3 py-1.5 rounded-xl border" style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--muted)' }}>
-              {isAr ? `${filteredCusts.length} مشترٍ مسجل` : `${filteredCusts.length} registered buyers`}
+              {isAr ? `${filteredCusts.length}مشترٍ مسجل` : `${filteredCusts.length} registered buyers`}
             </span>
             <button type="button" onClick={exportCusts} disabled={filteredCusts.length === 0} className={`${exportBtnClass} disabled:opacity-50`} style={exportBtnStyle}>
               <Download className="w-3.5 h-3.5" />
-              <span>{isAr ? 'تصدير CSV' : 'Export CSV'}</span>
+              <span>{isAr ? 'تصدير جداول البيانات' : 'Export CSV'}</span>
             </button>
           </div>
         </div>
@@ -787,7 +787,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
             deltaLabel={isAr ? 'مقارنة بالشهر الماضي' : 'vs last month'}
           />
           <OverviewStatCard
-            label={isAr ? 'كبار العملاء (VIP)' : 'VIP Customers'}
+            label={isAr ? 'كبار العملاء' : 'VIP Customers'}
             value={globalCustomers.filter((c) => c.status === 'VIP').length.toString()}
             icon={Crown}
             tone="warn"
@@ -862,7 +862,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
               <option value="All">{isAr ? 'جميع قنوات الاستقطاب' : 'All Acquisition Channels'}</option>
               <option value="WhatsApp">WhatsApp</option>
               <option value="Instagram">Instagram</option>
-              <option value="Google Ads">{isAr ? 'إعلانات Google' : 'Google Ads'}</option>
+              <option value="Google Ads">{isAr ? 'إعلانات جوجل' : 'Google Ads'}</option>
               <option value="Snapchat">Snapchat</option>
               <option value="TikTok">TikTok</option>
               <option value="Facebook">Facebook</option>
@@ -983,10 +983,10 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     const totalWalletBalance = stores.reduce((acc, s) => acc + (getStoreAdWallet(s.id).balanceSar || 0), 0);
 
     const channelKeys: Array<{ id: string; sourceMatch: string[]; name: string; nameAr: string }> = [
-      { id: 'ig', sourceMatch: ['Instagram', 'instagram'], name: 'Instagram Ads (KSA)', nameAr: 'إعلانات Instagram (السعودية)' },
-      { id: 'gads', sourceMatch: ['Google Ads', 'Google Search', 'google_search'], name: 'Google Search & Shopping Ads (KSA)', nameAr: 'إعلانات وبحث Google (السعودية)' },
-      { id: 'tt', sourceMatch: ['TikTok', 'tiktok'], name: 'TikTok Ads Manager (KSA)', nameAr: 'إعلانات TikTok (السعودية)' },
-      { id: 'snap', sourceMatch: ['Snapchat', 'snapchat'], name: 'Snapchat Story Ads (KSA)', nameAr: 'إعلانات Snapchat (السعودية)' },
+      { id: 'ig', sourceMatch: ['Instagram', 'instagram'], name: 'Instagram Ads (KSA)', nameAr: 'إعلانات إنستغرام (السعودية)' },
+      { id: 'gads', sourceMatch: ['Google Ads', 'Google Search', 'google_search'], name: 'Google Search & Shopping Ads (KSA)', nameAr: 'إعلانات وبحث جوجل (السعودية)' },
+      { id: 'tt', sourceMatch: ['TikTok', 'tiktok'], name: 'TikTok Ads Manager (KSA)', nameAr: 'إعلانات تيك توك (السعودية)' },
+      { id: 'snap', sourceMatch: ['Snapchat', 'snapchat'], name: 'Snapchat Story Ads (KSA)', nameAr: 'إعلانات سناب شات (السعودية)' },
     ];
 
     const totalOrdersCount = Math.max(1, globalOrders.length);
@@ -1046,7 +1046,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
           </div>
           <button type="button" onClick={exportChannels} className={exportBtnClass} style={exportBtnStyle}>
             <Download className="w-3.5 h-3.5" />
-            <span>{isAr ? 'تصدير المؤشرات (CSV)' : 'Export Benchmarks (.CSV)'}</span>
+            <span>{isAr ? 'تصدير المؤشرات' : 'Export Benchmarks (.CSV)'}</span>
           </button>
         </div>
 
@@ -1108,8 +1108,8 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
                 <div>
                   <span className="font-bold block" style={{ color: 'var(--text)' }}>{isAr ? ch.nameAr : ch.name}</span>
                   <span className="text-[11px]" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'الإنفاق الفعلي المسجل: ' : 'Recorded campaign spend: '}
-                    {money(ch.spend)} · {isAr ? `الطلبات: ${ch.ordersCount}` : `Orders: ${ch.ordersCount}`}
+                    {isAr ? 'الإنفاق الفعلي المسجل:' : 'Recorded campaign spend: '}
+                    {money(ch.spend)} · {isAr ? `الطلبات:${ch.ordersCount}` : `Orders: ${ch.ordersCount}`}
                   </span>
                 </div>
                 <div className="flex items-center gap-6">
@@ -1146,13 +1146,13 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     const couponStatusLabel = (s: string) => (COUPON_STATUS_LABEL[s] ? (isAr ? COUPON_STATUS_LABEL[s].ar : COUPON_STATUS_LABEL[s].en) : s);
     const discountLabel = (c: (typeof globalCoupons)[number]) =>
       c.discountType === 'percentage'
-        ? isAr ? `خصم ${c.discountValue}%` : `${c.discountValue}% OFF`
-        : isAr ? `خصم ${money(c.discountValue)}` : `${money(c.discountValue)} OFF`;
+        ? isAr ? `خصم${c.discountValue}%` : `${c.discountValue}% OFF`
+        : isAr ? `خصم${money}` : `${money(c.discountValue)} OFF`;
 
     const copyCode = async (code: string) => {
       try {
         await navigator.clipboard.writeText(code);
-        toast(isAr ? `تم نسخ الكود ${code}` : `Copied code ${code}`, 'success');
+        toast(isAr ? `تم نسخ الكود${code}` : `Copied code ${code}`, 'success');
       } catch {
         toast(isAr ? 'تعذّر النسخ إلى الحافظة' : 'Could not copy to clipboard', 'error');
       }
@@ -1164,7 +1164,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
         : ['Coupon Code', 'Store', 'Discount', 'Min Order (SAR)', 'Usage', 'Max Usage', 'Status', 'Valid Until'];
       const rows = filteredCoupons.map((c) => [c.code, c.storeName, discountLabel(c), c.minOrderValue, c.usageCount, c.maxUsage, couponStatusLabel(c.status), c.validUntil]);
       downloadFile(`platform-coupons-${today()}.csv`, toCsv(headers, rows), 'text/csv;charset=utf-8');
-      toast(isAr ? `تم تصدير ${filteredCoupons.length} كوبون` : `Exported ${filteredCoupons.length} coupons`, 'success');
+      toast(isAr ? `تم تصدير${filteredCoupons.length}كوبون` : `Exported ${filteredCoupons.length} coupons`, 'success');
     };
 
     return (
@@ -1182,7 +1182,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
           </div>
           <button type="button" onClick={exportCoupons} disabled={filteredCoupons.length === 0} className={`${exportBtnClass} disabled:opacity-50`} style={exportBtnStyle}>
             <Download className="w-3.5 h-3.5" />
-            <span>{isAr ? 'تصدير CSV' : 'Export CSV'}</span>
+            <span>{isAr ? 'تصدير جداول البيانات' : 'Export CSV'}</span>
           </button>
         </div>
 
@@ -1293,7 +1293,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
                         onClick={() => copyCode(c.code)}
                         className="inline-flex items-center gap-1.5 cursor-pointer hover:underline"
                         title={isAr ? 'نسخ الكود' : 'Copy code'}
-                        aria-label={isAr ? `نسخ الكود ${c.code}` : `Copy code ${c.code}`}
+                        aria-label={isAr ? `نسخ الكود${c.code}` : `Copy code ${c.code}`}
                       >
                         {c.code}
                         <Copy className="w-3 h-3 opacity-60" aria-hidden />
@@ -1360,30 +1360,30 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {isAr
-                ? 'إجمالي قيمة البضائع الفعلية (GMV) وإيرادات باقات الاشتراك النشطة'
+                ? 'إجمالي قيمة البضائع الفعلية إجمالي قيمة الطلبات وإيرادات باقات الاشتراك النشطة'
                 : 'Live Gross Merchandise Value (GMV) and active store subscription tiers'}
             </p>
           </div>
           <button type="button" onClick={exportAnalytics} className={exportBtnClass} style={exportBtnStyle}>
             <Download className="w-3.5 h-3.5" />
-            <span>{isAr ? 'تصدير التقرير (CSV)' : 'Export Report (.CSV)'}</span>
+            <span>{isAr ? 'تصدير التقرير' : 'Export Report (.CSV)'}</span>
           </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-2">
-            <span className="text-xs text-slate-500 font-medium">{isAr ? 'الإيرادات الشهرية والمحافظ (MRR)' : 'Platform MRR & Active Wallets'}</span>
+            <span className="text-xs text-slate-500 font-medium">{isAr ? 'الإيرادات الشهرية والمحافظ الإيراد الشهري' : 'Platform MRR & Active Wallets'}</span>
             <div className="text-2xl font-black text-slate-900 dark:text-white">{money(realMrr)}</div>
             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-              {isAr ? `محسوب من ${stores.length} متاجر مسجلة` : `Calculated from ${stores.length} active stores`}
+              {isAr ? `محسوب من${stores.length}متاجر مسجلة` : `Calculated from ${stores.length} active stores`}
             </span>
           </div>
 
           <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-2">
-            <span className="text-xs text-slate-500 font-medium">{isAr ? 'إجمالي قيمة الطلبات الفعلي (GMV)' : 'Live Platform GMV (Orders Total)'}</span>
+            <span className="text-xs text-slate-500 font-medium">{isAr ? 'إجمالي قيمة الطلبات الفعلي إجمالي قيمة الطلبات' : 'Live Platform GMV (Orders Total)'}</span>
             <div className="text-2xl font-black text-teal-800 dark:text-teal-300">{money(realGmv)}</div>
             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-              {isAr ? `${globalOrders.length} طلب فعلي مسجل` : `Across ${globalOrders.length} live orders`}
+              {isAr ? `${globalOrders.length}طلب فعلي مسجل` : `Across ${globalOrders.length} live orders`}
             </span>
           </div>
 
@@ -1391,7 +1391,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
             <span className="text-xs text-slate-500 font-medium">{isAr ? 'معدل الترقية إلى الباقة الاحترافية' : 'Pro Plan Conversion Rate'}</span>
             <div className="text-2xl font-black text-blue-600 dark:text-blue-400">{proConversionPct}%</div>
             <span className="text-[10px] text-slate-400">
-              {isAr ? `${proStoresCount} متاجر Pro من أصل ${stores.length}` : `${proStoresCount} of ${stores.length} stores on Pro`}
+              {isAr ? `${proStoresCount} متاجر الباقة الاحترافية من أصل ${stores.length}` : `${proStoresCount} of ${stores.length} stores on Pro`}
             </span>
           </div>
         </div>
@@ -1402,10 +1402,10 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
             <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-bold text-xs text-slate-900 dark:text-white">
-                  {isAr ? `باقة Pro السحابية (${money(199)}/شهريًا)` : `Pro Cloud Plan (${money(199)}/mo)`}
+                  {isAr ? `الباقة الاحترافية السحابية (${money(199)}/شهريًا)` : `Pro Cloud Plan (${money(199)}/mo)`}
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
-                  {isAr ? `${proStoresCount} متاجر` : `${proStoresCount} Stores`}
+                  {isAr ? `${proStoresCount}متاجر` : `${proStoresCount} Stores`}
                 </span>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
@@ -1421,12 +1421,12 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
                   {isAr ? `الباقة المجانية / المبتدئة (${money(0)})` : `Free / Starter Plan (${money(0)})`}
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-                  {isAr ? `${freeStoresCount} متاجر` : `${freeStoresCount} Stores`}
+                  {isAr ? `${freeStoresCount}متاجر` : `${freeStoresCount} Stores`}
                 </span>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
                 {isAr
-                  ? 'قاعدة بيانات MySQL معزولة عبر store_id، مع حصة يومية مجانية (3 صور يومياً) ومؤقت حماية 24 ساعة.'
+                  ? 'قاعدة بيانات MySQL معزولة عبر معرّف المتجر، مع حصة يومية مجانية (3 صور يومياً) ومؤقت حماية 24 ساعة.'
                   : 'Isolated store_id MySQL database with free daily AI quota (3 images/day) and 24-hour protection timers.'}
               </p>
             </div>
@@ -1443,10 +1443,10 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
         id: 'hostinger',
         badge: 'HOST',
         badgeClass: 'bg-purple-600',
-        title: isAr ? 'واجهة Hostinger البرمجية و MySQL 8' : 'Hostinger API & MySQL 8',
+        title: isAr ? 'واجهة هوستنجر البرمجية و MySQL 8' : 'Hostinger API & MySQL 8',
         sub: isAr ? 'خلفية Laravel 11 على PHP 8.2' : 'Laravel 11 PHP 8.2 backend',
         desc: isAr
-          ? 'خادم MySQL 8 مشترك مع فهرسة الصفوف حسب store_id وطوابير مهام Hostinger المؤتمتة.'
+          ? 'خادم MySQL 8 مشترك مع فهرسة الصفوف حسب معرّف المتجر وطوابير مهام هوستنجر المؤتمتة.'
           : 'Shared MySQL 8 instance with store_id row indexing and automated Hostinger cron queues.',
         status: isAr ? 'الحالة: سليم (زمن الاستجابة 18 مللي ثانية)' : 'Status: Healthy (Latency 18ms)',
       },
@@ -1455,7 +1455,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
         badge: 'vercel',
         badgeClass: 'bg-slate-950',
         title: isAr ? 'واجهات متاجر Vercel Edge' : 'Vercel Edge Storefronts',
-        sub: isAr ? 'Next.js 15 مع عرض من الخادم لتحسين SEO' : 'Next.js 15 SSR public SEO',
+        sub: isAr ? 'نكست مع عرض من الخادم لتحسين محركات البحث' : 'Next.js 15 SSR public SEO',
         desc: isAr
           ? 'عرض عبر شبكة CDN عالمية للنطاقات الفرعية الديناميكية للمتاجر مع إعادة تحقق فورية من الذاكرة المؤقتة.'
           : 'Global CDN edge rendering dynamic store subdomains with 0ms stale cache revalidation.',
@@ -1468,7 +1468,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
         title: isAr ? 'تخزين الكائنات Cloudflare R2' : 'Cloudflare R2 Object Storage',
         sub: isAr ? 'روابط وسائط ثابتة ذات إصدارات' : 'Versioned immutable media URLs',
         desc: isAr
-          ? 'يخزّن صور المنتجات عالية الدقة واللافتات وملفات الفواتير الإلكترونية (ZATCA) بدون رسوم نقل بيانات.'
+          ? 'يخزّن صور المنتجات عالية الدقة واللافتات وملفات الفواتير الإلكترونية هيئة الزكاة بدون رسوم نقل بيانات.'
           : 'Stores high-resolution product photos, banners, and Saudi ZATCA e-invoice PDFs without egress fees.',
         status: isAr ? 'الحالة: متصل (بدون رسوم نقل)' : 'Status: Connected (Zero Egress)',
       },
@@ -1480,7 +1480,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
         setCheckingIntegration(null);
         const ts = new Date().toLocaleTimeString(isAr ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         setLastChecked((prev) => ({ ...prev, [id]: ts }));
-        toast(isAr ? `اكتمل فحص ${title}: جميع الخدمات تعمل` : `${title} health check passed: all services operational`, 'success');
+        toast(isAr ? `اكتمل فحص${title}: جميع الخدمات تعمل` : `${title} health check passed: all services operational`, 'success');
       }, 900);
     };
 
@@ -1492,7 +1492,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {isAr
-              ? 'مراقبة مركزية لطبقات التقنية المعتمدة (Hostinger و Vercel و Cloudflare R2 و Laravel Sanctum)'
+              ? 'مراقبة مركزية لطبقات التقنية المعتمدة (هوستنجر و Vercel و Cloudflare R2 و Laravel Sanctum)'
               : 'Master monitoring of locked tech stack tiers (Hostinger, Vercel, Cloudflare R2, Laravel Sanctum)'}
           </p>
         </div>
@@ -1533,7 +1533,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
               </div>
               {lastChecked[it.id] && (
                 <p className="text-[10px] text-slate-400">
-                  {isAr ? `آخر فحص: ${lastChecked[it.id]}` : `Last checked: ${lastChecked[it.id]}`}
+                  {isAr ? `آخر فحص:${lastChecked[it.id]}` : `Last checked: ${lastChecked[it.id]}`}
                 </p>
               )}
             </div>
@@ -1567,7 +1567,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
-              {isAr ? 'الامتثال الضريبي وتقارير ضريبة القيمة المضافة 15% (ZATCA)' : 'Tax Compliance & ZATCA 15% VAT Reports'}
+              {isAr ? 'الامتثال الضريبي وتقارير ضريبة القيمة المضافة 15% هيئة الزكاة' : 'Tax Compliance & ZATCA 15% VAT Reports'}
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {isAr
@@ -1581,7 +1581,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
             className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>{isAr ? 'إنشاء ملف XML الرسمي لـ ZATCA' : 'Generate Official ZATCA XML'}</span>
+            <span>{isAr ? 'إنشاء ملف هيئة الزكاة الرسمي' : 'Generate Official ZATCA XML'}</span>
           </button>
         </div>
 
@@ -1618,11 +1618,11 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
   if (tab === 'payments') {
     const gateways = [
       { id: 'mada', name: isAr ? 'شبكة مدى' : 'Mada Debit Rails', desc: isAr ? 'شبكة بطاقات الخصم الوطنية السعودية' : 'National Saudi debit card network', fee: `0.8% + ${money(1)}` },
-      { id: 'applepay', name: isAr ? 'Apple Pay السريع' : 'Apple Pay Express', desc: isAr ? 'دفع بلمسة واحدة بالمصادقة الحيوية لمتسوقي iOS' : 'Biometric 1-tap checkout for iOS shoppers', fee: `1.5% + ${money(1)}` },
+      { id: 'applepay', name: isAr ? 'آبل باي السريع' : 'Apple Pay Express', desc: isAr ? 'دفع بلمسة واحدة بالمصادقة الحيوية لمتسوقي iOS' : 'Biometric 1-tap checkout for iOS shoppers', fee: `1.5% + ${money(1)}` },
       { id: 'cards', name: isAr ? 'Visa و Mastercard' : 'Visa & Mastercard', desc: isAr ? 'البطاقات الدولية وبطاقات الشركات' : 'International and corporate cards', fee: `2.2% + ${money(1)}` },
-      { id: 'stcpay', name: isAr ? 'محفظة STC Pay' : 'STC Pay Wallet', desc: isAr ? 'ربط مباشر مع المحفظة الرقمية' : 'Direct digital wallet connection', fee: `1.2% + ${money(1)}` },
+      { id: 'stcpay', name: isAr ? 'محفظة إس تي سي باي' : 'STC Pay Wallet', desc: isAr ? 'ربط مباشر مع المحفظة الرقمية' : 'Direct digital wallet connection', fee: `1.2% + ${money(1)}` },
       { id: 'bnpl', name: isAr ? 'تابي وتمارا (اشترِ الآن وادفع لاحقًا)' : 'Tabby & Tamara BNPL', desc: isAr ? 'تقسيط على 4 دفعات بدون فوائد' : 'Split into 4 installments with 0% interest', fee: '3.5%' },
-      { id: 'cod', name: isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery (COD)', desc: isAr ? 'تحصيل نقدي عبر المندوب مع SMSA وأرامكس' : 'Courier cash remittance with SMSA & Aramex', fee: isAr ? `${money(15)} رسوم ثابتة` : `${money(15)} Flat` },
+      { id: 'cod', name: isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery (COD)', desc: isAr ? 'تحصيل نقدي عبر المندوب مع سمسا وأرامكس' : 'Courier cash remittance with SMSA & Aramex', fee: isAr ? `${money}رسوم ثابتة` : `${money(15)} Flat` },
     ];
 
     const toggleGateway = (id: string, name: string) => {
@@ -1630,8 +1630,8 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
       setDisabledGateways((prev) => (willDisable ? [...prev, id] : prev.filter((g) => g !== id)));
       toast(
         willDisable
-          ? isAr ? `تم إيقاف ${name} مؤقتًا على مستوى المنصة` : `${name} paused platform-wide`
-          : isAr ? `تم تفعيل ${name}` : `${name} enabled`,
+          ? isAr ? `تم إيقاف${name}مؤقتًا على مستوى المنصة` : `${name} paused platform-wide`
+          : isAr ? `تم تفعيل${name}` : `${name} enabled`,
         willDisable ? 'info' : 'success',
       );
     };
@@ -1645,7 +1645,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {isAr
-                ? 'مدى المعتمدة من ساما، و Apple Pay السريع، و STC Pay، وقنوات التسوية البنكية عبر الحدود'
+                ? 'مدى المعتمدة من ساما، و آبل باي السريع، و إس تي سي باي، وقنوات التسوية البنكية عبر الحدود'
                 : 'SAMA Mada, Apple Pay Express, STC Pay, and cross-border bank settlement rails'}
             </p>
           </div>
@@ -1662,7 +1662,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
               {money(globalOrders.reduce((s, o) => s + (Number(o.total) || 0), 0))}
             </div>
             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-              {isAr ? `${globalOrders.length} عملية دفع فعلية` : `Across ${globalOrders.length} real transactions`}
+              {isAr ? `${globalOrders.length}عملية دفع فعلية` : `Across ${globalOrders.length} real transactions`}
             </span>
           </div>
           <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-1">
@@ -1671,12 +1671,12 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
             <span className="text-[10px] text-slate-400">
               {disabledGateways.length === 0
                 ? isAr ? 'جميع القنوات تعمل' : 'All rails operational'
-                : isAr ? `${disabledGateways.length} قناة متوقفة مؤقتًا` : `${disabledGateways.length} rail(s) paused`}
+                : isAr ? `${disabledGateways.length}قناة متوقفة مؤقتًا` : `${disabledGateways.length} rail(s) paused`}
             </span>
           </div>
           <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-1">
             <span className="text-xs text-slate-500 font-medium">{isAr ? 'أرقام الآيبان النشطة للتسوية' : 'Active Settlement IBANs'}</span>
-            <div className="text-2xl font-black text-blue-600 dark:text-blue-400">{isAr ? `${stores.length} موثّق` : `${stores.length} Verified`}</div>
+            <div className="text-2xl font-black text-blue-600 dark:text-blue-400">{isAr ? `${stores.length}موثّق` : `${stores.length} Verified`}</div>
             <span className="text-[10px] text-slate-400">{isAr ? 'صرف يومي آلي' : 'Automated daily disbursements'}</span>
           </div>
         </div>
@@ -1701,7 +1701,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
                 <p className="text-xs text-slate-500">{gw.desc}</p>
                 <div className="pt-2 flex items-center justify-between gap-2">
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {isAr ? 'الرسوم: ' : 'Rate: '}
+                    {isAr ? 'الرسوم:' : 'Rate: '}
                     <span className="text-teal-600 dark:text-teal-400">{gw.fee}</span>
                   </span>
                   <button
@@ -1725,9 +1725,9 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
   // 8c. SHIPPING (Platform Carriers)
   if (tab === 'shipping') {
     const couriers = [
-      { id: 'smsa', name: 'SMSA Express', desc: isAr ? `تغطية السعودية والخليج · يبدأ من ${money(25)} · مزامنة API مباشرة` : `KSA & GCC Coverage · Base ${money(25)} · Live API Sync` },
-      { id: 'aramex', name: isAr ? 'أرامكس' : 'Aramex', desc: isAr ? `السعودية ودوليًا · يبدأ من ${money(35)} · إرسال رسائل SMS آلية` : `KSA & International · Base ${money(35)} · Automated SMS Dispatch` },
-      { id: 'spl', name: isAr ? 'البريد السعودي (سبل)' : 'Saudi Post (SPL)', desc: isAr ? `العنوان الوطني موثّق · يبدأ من ${money(15)} · متوافق حكوميًا` : `National Address Verified · Base ${money(15)} · Govt Compliant` },
+      { id: 'smsa', name: 'SMSA Express', desc: isAr ? `تغطية السعودية والخليج · يبدأ من${money}· مزامنة واجهة البرمجة مباشرة` : `KSA & GCC Coverage · Base ${money(25)} · Live API Sync` },
+      { id: 'aramex', name: isAr ? 'أرامكس' : 'Aramex', desc: isAr ? `السعودية ودوليًا · يبدأ من${money}· إرسال رسائل الرسائل النصية آلية` : `KSA & International · Base ${money(35)} · Automated SMS Dispatch` },
+      { id: 'spl', name: isAr ? 'البريد السعودي (سبل)' : 'Saudi Post (SPL)', desc: isAr ? `العنوان الوطني موثّق · يبدأ من${money}· متوافق حكوميًا` : `National Address Verified · Base ${money(15)} · Govt Compliant` },
     ];
 
     const exportManifests = () => {
@@ -1745,14 +1745,14 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
         o.shippingStatus || orderStatusLabel(o.status),
       ]);
       downloadFile(`waybill-manifests-${today()}.csv`, toCsv(headers, rows), 'text/csv;charset=utf-8');
-      flashBanner(isAr ? `تم تصدير بوالص الشحن لـ ${rows.length} شحنة` : `Waybill manifests exported for ${rows.length} shipments`);
+      flashBanner(isAr ? `تم تصدير بوالص الشحن لـ${rows.length}شحنة` : `Waybill manifests exported for ${rows.length} shipments`);
     };
 
     const testCourier = (id: string, name: string) => {
       setTestingCourier(id);
       window.setTimeout(() => {
         setTestingCourier(null);
-        toast(isAr ? `تم الاتصال بـ ${name} بنجاح` : `${name} connection verified`, 'success');
+        toast(isAr ? `تم الاتصال بـ${name}بنجاح` : `${name} connection verified`, 'success');
       }, 800);
     };
 
@@ -1785,7 +1785,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
           <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 shadow-2xs space-y-1">
             <span className="text-xs text-slate-400 block font-bold">{isAr ? 'شركات الشحن النشطة' : 'Active Carriers'}</span>
             <div className="text-2xl font-black text-slate-900 dark:text-white">{couriers.length}</div>
-            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">{isAr ? 'SMSA و أرامكس و سبل' : 'SMSA, Aramex & SPL'}</span>
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">{isAr ? 'سمسا و أرامكس و سبل' : 'SMSA, Aramex & SPL'}</span>
           </div>
           <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 shadow-2xs space-y-1">
             <span className="text-xs text-slate-400 block font-bold">{isAr ? 'متوسط أيام التوصيل' : 'Avg Delivery Days'}</span>
@@ -1798,7 +1798,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
               {money(globalOrders.reduce((s, o) => s + (Number(o.total) || 0), 0))}
             </div>
             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-              {isAr ? `${globalOrders.length} شحنة مسجلة` : `${globalOrders.length} total shipments`}
+              {isAr ? `${globalOrders.length}شحنة مسجلة` : `${globalOrders.length} total shipments`}
             </span>
           </div>
           <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 shadow-2xs space-y-1">
@@ -1916,10 +1916,10 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
               </div>
 
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                <span className="font-bold text-slate-900 block mb-1">{isAr ? 'خادم MySQL مخصص (Pro / منحة الإدارة)' : 'Dedicated MySQL Instance (Pro / Master Grant)'}</span>
+                <span className="font-bold text-slate-900 block mb-1">{isAr ? 'خادم MySQL مخصص احترافي / منحة الإدارة' : 'Dedicated MySQL Instance (Pro / Master Grant)'}</span>
                 <p className="text-[11px] text-slate-500">
                   {isAr
-                    ? 'يمكن توجيه متاجر باقة Pro (أو المتاجر الممنوحة صلاحية من الإدارة) إلى مخطط قاعدة بيانات MySQL 8 مخصص بمجمعات اتصال معزولة.'
+                    ? 'يمكن توجيه متاجر الباقة الاحترافية (أو المتاجر الممنوحة صلاحية من الإدارة) إلى مخطط قاعدة بيانات MySQL 8 مخصص بمجمعات اتصال معزولة.'
                     : 'Pro-tier stores (or stores with Master Grant enabled) can be routed to a dedicated MySQL 8 database schema with isolated connection pools.'}
                 </p>
               </div>
@@ -1934,7 +1934,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
 
             <div className="space-y-3 text-xs text-slate-600">
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                <span className="font-bold text-slate-900 block mb-1">{isAr ? 'العملة الافتراضية للمنصة: الريال السعودي (SAR)' : 'Default Platform Currency: Saudi Riyal (SAR)'}</span>
+                <span className="font-bold text-slate-900 block mb-1">{isAr ? 'العملة الافتراضية للمنصة: الريال السعودي ر.س' : 'Default Platform Currency: Saudi Riyal (SAR)'}</span>
                 <p className="text-[11px] text-slate-500">
                   {isAr
                     ? 'يمكن للمتاجر عرض عملات خليجية بديلة (الدرهم، الدينار الكويتي، الدينار البحريني) بأسعار صرف ساما اللحظية.'
@@ -2079,7 +2079,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
         <div className="p-5 bg-white rounded-3xl border border-slate-200 shadow-2xs">
           <div className="flex items-center gap-2 mb-2 font-bold text-slate-900">
             <Coins className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span>{isAr ? 'Apple Pay السريع' : 'Apple Pay Express'}</span>
+            <span>{isAr ? 'آبل باي السريع' : 'Apple Pay Express'}</span>
           </div>
           <p className="text-xs text-slate-500">
             {isAr
@@ -2104,7 +2104,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
           </p>
           <div className="mt-3 text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block me-1.5 animate-pulse"></span>
-            <span>{isAr ? 'الحالة: مفعّل لمتاجر Pro' : 'Status: Active for Pro Stores'}</span>
+            <span>{isAr ? 'الحالة: مفعّل لمتاجر الباقة الاحترافية' : 'Status: Active for Pro Stores'}</span>
           </div>
         </div>
       </div>

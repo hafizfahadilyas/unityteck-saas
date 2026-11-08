@@ -89,7 +89,7 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
               </div>
 
               <h4 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                {isAr ? 'تلابيس مقاعد VIP ملكية' : 'VIP Bespoke Seat Covers'}
+                {isAr ? 'تلابيس مقاعد كبار العملاء ملكية' : 'VIP Bespoke Seat Covers'}
               </h4>
             </div>
 

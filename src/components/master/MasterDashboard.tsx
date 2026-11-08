@@ -390,10 +390,10 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
       return locale === 'ar' ? 'جميع الفترات (شامل)' : 'All Time (Full Data)';
     }
     if (dateRange === 'today') {
-      return locale === 'ar' ? `اليوم · ${fmt(bounds.start)}` : `Today · ${fmt(bounds.start)}`;
+      return locale === 'ar' ? `اليوم ·${fmt}` : `Today · ${fmt(bounds.start)}`;
     }
     if (dateRange === 'yesterday') {
-      return locale === 'ar' ? `أمس · ${fmt(bounds.start)}` : `Yesterday · ${fmt(bounds.start)}`;
+      return locale === 'ar' ? `أمس ·${fmt}` : `Yesterday · ${fmt(bounds.start)}`;
     }
     return `${fmt(bounds.start)} – ${fmt(bounds.end)}`;
   }, [dateRange, locale]);
@@ -1229,7 +1229,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                             onClick={() => toggleMasterGrant(s.id)}
                             className="p-1 rounded-lg cursor-pointer"
                             style={{ color: s.masterGrantedPro ? '#d97706' : 'var(--muted)' }}
-                            title={s.masterGrantedPro ? (isAr ? 'إلغاء المنحة' : 'Revoke grant') : (isAr ? 'منح Pro' : 'Grant Pro')}
+                            title={s.masterGrantedPro ? (isAr ? 'إلغاء المنحة' : 'Revoke grant') : (isAr ? 'منح الباقة الاحترافية' : 'Grant Pro')}
                           >
                             <MoreHorizontal className="w-3.5 h-3.5" />
                           </button>
@@ -1245,7 +1245,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
               <p className="text-xs" style={{ color: 'var(--muted)' }}>
                 {isAr
-                  ? `عرض ${showFrom}–${showTo} من إجمالي ${filteredStores.length} متجر`
+                  ? `عرض${showFrom}–${showTo}من إجمالي${filteredStores.length}متجر`
                   : `Showing ${showFrom}–${showTo} of ${filteredStores.length} stores`}
               </p>
               <div className="flex items-center gap-1">

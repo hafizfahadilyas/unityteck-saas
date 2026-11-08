@@ -631,19 +631,19 @@ export const StoreProducts: React.FC = () => {
       selectedProductIds.forEach((id) => {
         updateProduct(id, { status: 'published', isActive: true }, activeStore.id);
       });
-      toast(isAr ? `تم نشر ${selectedProductIds.length} منتج بنجاح` : `Published ${selectedProductIds.length} products successfully`, 'success');
+      toast(isAr ? `تم نشر${selectedProductIds.length}منتج بنجاح` : `Published ${selectedProductIds.length} products successfully`, 'success');
       setSelectedProductIds([]);
     } else if (bulkAction === 'draft') {
       selectedProductIds.forEach((id) => {
         updateProduct(id, { status: 'draft', isActive: false }, activeStore.id);
       });
-      toast(isAr ? `تم تحويل ${selectedProductIds.length} منتج إلى مسودة` : `Moved ${selectedProductIds.length} products to draft`, 'success');
+      toast(isAr ? `تم تحويل${selectedProductIds.length}منتج إلى مسودة` : `Moved ${selectedProductIds.length} products to draft`, 'success');
       setSelectedProductIds([]);
     } else if (bulkAction === 'delete') {
       const ok = await confirm({
         title: isAr ? 'حذف المنتجات المحددة' : 'Delete Selected Products',
         message: isAr
-          ? `هل أنت متأكد من حذف ${selectedProductIds.length} منتج محدد نهائياً؟`
+          ? `هل أنت متأكد من حذف${selectedProductIds.length}منتج محدد نهائياً؟`
           : `Are you sure you want to permanently delete ${selectedProductIds.length} selected products?`,
         confirmLabel: isAr ? 'حذف المنتجات' : 'Delete Products',
         danger: true,
@@ -652,7 +652,7 @@ export const StoreProducts: React.FC = () => {
         selectedProductIds.forEach((id) => {
           deleteProduct(id, activeStore.id);
         });
-        toast(isAr ? `تم حذف ${selectedProductIds.length} منتج` : `Deleted ${selectedProductIds.length} products`, 'success');
+        toast(isAr ? `تم حذف${selectedProductIds.length}منتج` : `Deleted ${selectedProductIds.length} products`, 'success');
         setSelectedProductIds([]);
       }
     }
@@ -804,7 +804,7 @@ export const StoreProducts: React.FC = () => {
     const dup: Product = {
       ...product,
       id: `prod-${Date.now()}`,
-      name: isAr ? `${product.name} (نسخة)` : `${product.name} (Copy)`,
+      name: isAr ? `${product.name}(نسخة)` : `${product.name} (Copy)`,
       sku: `${product.sku}-COPY`,
       salesCount: 0,
       status: 'draft',
@@ -914,7 +914,7 @@ export const StoreProducts: React.FC = () => {
                   ...prod,
                   id: duplicateId,
                   storeId: activeStore.id,
-                  name: isAr ? `${prod.name} (نسخة)` : `${prod.name} (Copy)`,
+                  name: isAr ? `${prod.name}(نسخة)` : `${prod.name} (Copy)`,
                   sku: `${prod.sku}-COPY`,
                   publishedAt: new Date().toISOString(),
                   isStale: false,
@@ -970,7 +970,7 @@ export const StoreProducts: React.FC = () => {
           isActive: true,
           image: item.image,
           galleryUrls: [item.image],
-          description: isAr ? `منتج مستعاد: ${item.name}` : `Restored product: ${item.name}`,
+          description: isAr ? `منتج مستعاد:${item.name}` : `Restored product: ${item.name}`,
         }, activeStore.id);
       }
       setDeletedProducts((prev) => prev.filter((p) => p.id !== item.id));
@@ -997,7 +997,7 @@ export const StoreProducts: React.FC = () => {
               isActive: true,
               image: item.image,
               galleryUrls: [item.image],
-              description: isAr ? `منتج مستعاد: ${item.name}` : `Restored product: ${item.name}`,
+              description: isAr ? `منتج مستعاد:${item.name}` : `Restored product: ${item.name}`,
             }, activeStore.id);
           }
         }
@@ -1220,7 +1220,7 @@ export const StoreProducts: React.FC = () => {
             <div className="flex items-center gap-2">
               <span>
                 {isAr
-                  ? `عرض ١ – ${pagedDeleted.length} من ${deletedProducts.length} منتج محذوف`
+                  ? `عرض ١ –${pagedDeleted.length}من${deletedProducts.length}منتج محذوف`
                   : `Showing 1 – ${pagedDeleted.length} of ${deletedProducts.length} deleted products`}
               </span>
               <button

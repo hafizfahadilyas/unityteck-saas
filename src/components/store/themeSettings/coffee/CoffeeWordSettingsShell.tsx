@@ -58,7 +58,7 @@ function DeviceFrame({
     <section ref={rootRef} className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       <header className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-slate-100">
         <h3 className="text-[13px] font-semibold text-slate-800 truncate">
-          {isAr ? `معاينة مباشرة - ${meta.ar}` : `Live Preview - ${meta.en}`}
+          {isAr ? `معاينة مباشرة -${meta.ar}` : `Live Preview - ${meta.en}`}
         </h3>
         <div className="flex items-center gap-1 shrink-0">
           {DEVICES.map((d) => {

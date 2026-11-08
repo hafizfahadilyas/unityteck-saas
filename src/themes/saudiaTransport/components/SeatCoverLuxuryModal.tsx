@@ -324,9 +324,9 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
   const handleWhatsApp = () => {
     const brandName = brandObj ? (isAr ? brandObj.nameAr : brandObj.nameEn) : selectedBrand.toUpperCase();
     const carFull = `${brandName} ${selectedModel} ${selectedYear}`.trim();
-    const bundleText = includeBundle ? (isAr ? ' + بكج ملمع بلاكو المخفض' : ' + Bleco Polish Bundle') : '';
+    const bundleText = includeBundle ? (isAr ? '+ بكج ملمع بلاكو المخفض' : ' + Bleco Polish Bundle') : '';
     const customMsg = isAr
-      ? `مرحباً متجر السعيدي لتنجيد السيارات بمكة، أرغب بطلب "${patternNameAr} - ${product.nameAr || product.name}" لسيارة (${carFull}) باللون (${selectedColor.nameAr})، عدد المقاعد (${seatsLabelAr})، خامة (${materialLabelAr})${bundleText}، الكمية (${quantity})، بسعر (${totalPrice} ر.س شامل الضريبة والضمان). يرجى تأكيد توافر المقاسات وموعد التفصيل والشحن.`
+      ? `مرحباً متجر السعيدي لتنجيد السيارات بمكة، أرغب بطلب "${patternNameAr}-${product.nameAr || product.name}" لسيارة (${carFull}) باللون (${selectedColor.nameAr})، عدد المقاعد (${seatsLabelAr})، خامة (${materialLabelAr})${bundleText}، الكمية (${quantity})، بسعر (${totalPrice}ر.س شامل الضريبة والضمان). يرجى تأكيد توافر المقاسات وموعد التفصيل والشحن.`
       : `Hello Al-Saeedi Car Upholstery Makkah, I would like to order "${patternLabels[selectedPattern].en} - ${product.nameEn || product.name}" for vehicle (${carFull}) in color (${selectedColor.nameEn}), (${seatsLabelEn}), material (${materialLabelEn})${bundleText}, quantity (${quantity}), at total (${totalPrice} SAR). Please confirm fitment and delivery.`;
     
     onWhatsAppOrder(product, selectedColor, unitPrice, customMsg);
@@ -468,7 +468,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
               <div className="flex items-center justify-between pb-2 border-b border-amber-200/60">
                 <h5 className="font-black text-slate-900 text-xs flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-[#d5a027]" />
-                  <span>{isAr ? 'مواصفات الجودة المعتمدة SASO:' : 'SASO Certified Specifications:'}</span>
+                  <span>{isAr ? 'مواصفات الجودة المعتمدة ساسو:' : 'SASO Certified Specifications:'}</span>
                 </h5>
                 <span className="text-[10px] font-bold text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300">
                   {isAr ? 'منتج وطني 🇸🇦' : 'Saudi National'}
@@ -502,7 +502,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600 font-black shrink-0 mt-0.5">●</span>
-                  <span>{isAr ? 'مطابقة لمواصفات الهيئة السعودية للمواصفات والمقاييس والجودة SASO' : 'Fully compliant with SASO Saudi Standards'}</span>
+                  <span>{isAr ? 'مطابقة لمواصفات الهيئة السعودية للمواصفات والمقاييس والجودة ساسو' : 'Fully compliant with SASO Saudi Standards'}</span>
                 </li>
               </ul>
             </div>
@@ -765,7 +765,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-bold text-slate-900 text-xs">{isAr ? '💎 جلد دايموند VIP' : '💎 VIP Diamond'}</span>
+                    <span className="font-bold text-slate-900 text-xs">{isAr ? '💎 جلد دايموند كبار العملاء' : '💎 VIP Diamond'}</span>
                     <span className="text-[9px] text-[#d5a027] font-bold">(+120 {isAr ? 'ر.س' : 'SAR'})</span>
                   </div>
                   <p className="text-[10px] text-slate-500 leading-tight">
@@ -923,7 +923,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   <Sparkles className="w-3.5 h-3.5 text-[#d5a027]" />
                   <span>
                     {isAr 
-                      ? `أو قسّمها على 4 دفعات بقيمة ${tabbyInstallment} ر.س بدون فوائد`
+                      ? `أو قسّمها على 4 دفعات بقيمة${tabbyInstallment}ر.س بدون فوائد`
                       : `Or 4 interest-free payments of ${tabbyInstallment} SAR`}
                   </span>
                 </div>

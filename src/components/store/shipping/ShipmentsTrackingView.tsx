@@ -97,14 +97,15 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
       };
     });
 
-    // 2. If store has orders without shipment records yet, bridge them for real operations
+    // 2. Bridge orders that already have a REAL tracking/AWB only — never invent numbers (zero-mock)
     const shipmentOrderIds = new Set(list.map((s) => s.orderId));
     (currentOrders || []).forEach((ord) => {
       if (!shipmentOrderIds.has(ord.id) && ord.status !== 'cancelled') {
         const anyOrd = ord as any;
-        const provider = (anyOrd.courierCode || ord.shippingCompany || 'spl').toLowerCase();
-        const trk = ord.trackingNumber || `${provider.toUpperCase()}${ord.id.replace(/\D/g, '').padEnd(9, '0').slice(-9)}`;
-        const awb = anyOrd.awbNumber || ord.shippingLabelNumber || trk;
+        const trk = String(ord.trackingNumber || anyOrd.awbNumber || ord.shippingLabelNumber || '').trim();
+        if (!trk) return; // Waiting for courier connect + real AWB
+        const provider = String(anyOrd.courierCode || ord.shippingCompany || 'unknown').toLowerCase() || 'unknown';
+        const awb = String(anyOrd.awbNumber || ord.shippingLabelNumber || trk).trim();
         const rawShippingStatus = (ord.shippingStatus || '').toLowerCase();
         const normStatus: ShipmentItem['status'] =
           ord.status === 'delivered' || rawShippingStatus === 'delivered'
@@ -129,7 +130,7 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
           awbNumber: awb,
           trackingNumber: trk,
           status: normStatus,
-          shippingCost: Number(ord.shippingFee ?? anyOrd.shippingCost ?? 24),
+          shippingCost: Number(ord.shippingFee ?? anyOrd.shippingCost ?? 0),
           codAmount: ord.paymentMethod === 'COD' ? orderTotal : 0,
           destinationAddress: {
             location: addressText,
@@ -922,10 +923,7 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-500 dark:text-slate-400">
           <div>
             {isAr
-              ? `عرض ${Math.min(filteredShipments.length, (currentPage - 1) * pageSize + 1)} إلى ${Math.min(
-                  filteredShipments.length,
-                  currentPage * pageSize
-                )} من أصل ${filteredShipments.length} شحنة`
+              ? `عرض${Math.min(filteredShipments.length, (currentPage - 1) * pageSize + 1)}إلى${Math.min( filteredShipments.length, currentPage * pageSize )}من أصل${filteredShipments.length}شحنة`
               : `Showing ${
                   filteredShipments.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
                 } to ${Math.min(filteredShipments.length, currentPage * pageSize)} of ${
@@ -1200,7 +1198,7 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
                       {isAr ? 'وصل إلى مركز الوجهة' : 'Arrived at Destination'}
                     </h4>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      {isAr ? `وصل إلى مستودع ${activeShipment.city}` : `Arrived at ${activeShipment.city} hub`}
+                      {isAr ? `وصل إلى مستودع${activeShipment.city}` : `Arrived at ${activeShipment.city} hub`}
                     </p>
                     <p className="text-[10px] text-slate-400 mt-0.5 font-mono">
                       {new Date(new Date(activeShipment.orderDate).getTime() + 1.5 * 86400000).toLocaleDateString(

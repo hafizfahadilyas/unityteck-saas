@@ -187,7 +187,7 @@ export const CustomCodeForm: React.FC = () => {
     },
     {
       id: 'snip-pixel',
-      titleAr: 'قالب كود بكسل التتبع (Meta / Snap)',
+      titleAr: 'قالب كود بكسل التتبع',
       titleEn: 'Ad Tracking Pixel Template',
       tab: 'head' as const,
       code: `<!-- Ad Pixel Tracking Template -->

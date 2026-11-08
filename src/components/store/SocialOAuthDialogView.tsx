@@ -1,23 +1,13 @@
 import React, { useState } from 'react';
 import {
-  ShieldCheck,
   CheckCircle2,
   Lock,
-  ExternalLink,
   Info,
-  AlertCircle,
   X,
-  Share2,
 } from 'lucide-react';
-import type { SocialPlatform } from '../../services/socialPublisherService';
+import { isLiveSocialPlatform, type SocialPlatform } from '../../services/socialPublisherService';
 
 // Official SVG Brand Logos
-const MetaLogo: React.FC<{ className?: string }> = ({ className = 'w-6 h-6' }) => (
-  <svg className={className} viewBox="0 0 448 512" fill="#0081FB">
-    <path d="M400 32H48A48 48 0 0 0 0 80v352a48 48 0 0 0 48 48h352a48 48 0 0 0 48-48V80a48 48 0 0 0-48-48zM242.3 358.8c-20.9 0-39.7-8.3-53.5-21.7-13.8 13.4-32.6 21.7-53.5 21.7-41.9 0-75.9-34-75.9-75.9s34-75.9 75.9-75.9c20.9 0 39.7 8.3 53.5 21.7 13.8-13.4 32.6-21.7 53.5-21.7 41.9 0 75.9 34 75.9 75.9s-34 75.9-75.9 75.9zm0-117.8c-23.1 0-41.9 18.8-41.9 41.9s18.8 41.9 41.9 41.9 41.9-18.8 41.9-41.9-18.8-41.9-41.9-41.9zm-107 0c-23.1 0-41.9 18.8-41.9 41.9s18.8 41.9 41.9 41.9 41.9-18.8 41.9-41.9-18.8-41.9-41.9-41.9z" />
-  </svg>
-);
-
 const InstagramGradientLogo: React.FC<{ className?: string }> = ({ className = 'w-8 h-8' }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none">
     <rect width="24" height="24" rx="6" fill="url(#ig-grad-popup)" />
@@ -79,30 +69,22 @@ const XLogo: React.FC<{ className?: string }> = ({ className = 'w-8 h-8' }) => (
 export const SocialOAuthDialogView: React.FC = () => {
   const params = new URLSearchParams(window.location.search);
   const platform = (params.get('platform') || 'instagram') as SocialPlatform;
-  const storeId = params.get('storeId') || 'store-1';
-  const storeName = params.get('storeName') || 'Store Official';
+  const storeId = params.get('storeId') || '';
+  const storeName = params.get('storeName') || 'Store';
   const storeSlug = params.get('storeSlug') || storeId;
 
-  const isCoffee = storeId.includes('coffee') || storeSlug.includes('coffee');
   const defaultHandle =
     platform === 'instagram'
-      ? isCoffee
-        ? '@hibrew_ksa'
-        : `@${storeSlug.replace(/[^a-zA-Z0-9_]/g, '')}_ksa`
-      : isCoffee
-      ? 'HiBrew KSA Coffee Store'
+      ? `@${String(storeSlug || 'store').replace(/[^a-zA-Z0-9_]/g, '') || 'store'}`
       : storeName;
 
-  const [accountHandle, setAccountHandle] = useState(defaultHandle);
-  const [accountName, setAccountName] = useState(storeName);
-  const [followers, setFollowers] = useState<string>('0');
-  const [submitting, setSubmitting] = useState(false);
-  const [approved, setApproved] = useState(false);
+  const [accountHandle] = useState(defaultHandle);
+  const [accountName] = useState(storeName);
 
   // Platform configs
-  const isMeta = platform === 'instagram' || platform === 'facebook';
+  const isMeta = isLiveSocialPlatform(platform);
   const isTikTok = platform === 'tiktok';
-  const isX = platform === 'x';
+  const comingSoon = !isMeta;
 
   const platformTitle =
     platform === 'instagram'
@@ -178,49 +160,6 @@ export const SocialOAuthDialogView: React.FC = () => {
         },
       ];
 
-  const handleAuthorize = () => {
-    setSubmitting(true);
-    const cleanHandle = accountHandle.trim() || defaultHandle;
-    const cleanName = accountName.trim() || storeName;
-    const cleanFollowers = parseInt(followers.replace(/[^0-9]/g, ''), 10) || 0;
-
-    const dummyToken =
-      platform === 'tiktok'
-        ? `act.tiktok_live_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-        : platform === 'x'
-        ? `oauth2_x_live_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-        : `EAAG_meta_live_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-    const payload = {
-      platform,
-      storeId,
-      account_name: cleanName,
-      handle: cleanHandle,
-      followers_count: cleanFollowers,
-      access_token: dummyToken,
-      page_id: `page_${storeSlug}_${Date.now().toString(36)}`,
-      ig_user_id: `ig_${storeSlug}_${Date.now().toString(36)}`,
-      permissions_granted: permissionsList.map((p) => p.code),
-    };
-
-    setApproved(true);
-
-    // Send back to opener window via postMessage
-    if (window.opener && !window.opener.closed) {
-      window.opener.postMessage(
-        {
-          type: 'UNITYTECK_SOCIAL_OAUTH_SUCCESS',
-          payload,
-        },
-        window.location.origin,
-      );
-    }
-
-    setTimeout(() => {
-      window.close();
-    }, 700);
-  };
-
   const handleCancel = () => {
     window.close();
   };
@@ -270,25 +209,31 @@ export const SocialOAuthDialogView: React.FC = () => {
 
           {/* Body */}
           <div className="p-6 space-y-5">
-            {approved ? (
-              <div className="py-8 text-center space-y-3">
-                <div className="w-14 h-14 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center animate-bounce">
-                  <CheckCircle2 className="w-8 h-8" />
+            {comingSoon ? (
+              <div className="py-6 text-center space-y-4">
+                <div className="w-14 h-14 mx-auto rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <Lock className="w-7 h-7" />
                 </div>
-                <h3 className="text-base font-black text-slate-900">
-                  تم منح الصلاحيات بنجاح! / Permissions Granted!
-                </h3>
-                <p className="text-xs text-slate-500">
-                  جاري إغلاق النافذة وتحديث حالة المتجر فوراً...
+                <h3 className="text-base font-black text-slate-900">Coming Soon</h3>
+                <p className="text-xs text-slate-600 leading-relaxed px-2">
+                  {platformTitle} API is not wired yet. Live connect works for Instagram and Facebook only via Meta Graph token in Social Hub.
                 </p>
+                <p className="text-xs text-slate-500 font-mono">{accountHandle || accountName}</p>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="w-full py-3 rounded-2xl text-xs font-black text-white cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
+                >
+                  Close
+                </button>
               </div>
             ) : (
               <>
-                {/* Store Profile Highlight */}
                 <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">
-                      Active Store Account
+                      Active Store
                     </span>
                     <h3 className="text-sm font-black text-slate-900">{storeName}</h3>
                     <p className="text-xs font-mono text-emerald-800 font-bold mt-0.5">{storeId}</p>
@@ -298,114 +243,41 @@ export const SocialOAuthDialogView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Account Details & Handle Setup (Protected against browser autofill) */}
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      {platform === 'instagram'
-                        ? 'Instagram Username / Handle (@username):'
-                        : platform === 'facebook'
-                        ? 'Facebook Page Name:'
-                        : 'Account Username (@handle):'}
-                    </label>
-                    <input
-                      type="text"
-                      name="social_auth_handle_input_isolated"
-                      autoComplete="new-password"
-                      autoCorrect="off"
-                      spellCheck="false"
-                      value={accountHandle}
-                      onChange={(e) => setAccountHandle(e.target.value)}
-                      placeholder={defaultHandle}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs font-mono font-bold focus:outline-none focus:border-emerald-500 bg-white"
-                    />
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-2 text-xs text-amber-900">
+                  <div className="flex items-center gap-1.5 font-black">
+                    <Info className="w-4 h-4" />
+                    <span>Real Meta Graph token required</span>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-1">
-                        Display Account Name:
-                      </label>
-                      <input
-                        type="text"
-                        name="social_auth_name_isolated"
-                        autoComplete="new-password"
-                        value={accountName}
-                        onChange={(e) => setAccountName(e.target.value)}
-                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-slate-900 text-xs font-medium focus:outline-none focus:border-emerald-500 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-1">
-                        Current Followers (Real):
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        name="social_auth_followers_isolated"
-                        autoComplete="new-password"
-                        value={followers}
-                        onChange={(e) => setFollowers(e.target.value)}
-                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-slate-900 text-xs font-mono font-bold focus:outline-none focus:border-emerald-500 bg-white"
-                      />
-                    </div>
-                  </div>
+                  <p className="leading-relaxed">
+                    Instant OAuth tokens are disabled. Close this window and paste your Page / Instagram Business token in Social Publishing Hub, then run Live Test.
+                  </p>
+                  <p className="font-mono text-[10px] text-emerald-800">
+                    {platform === 'instagram'
+                      ? 'scopes: instagram_basic, instagram_content_publish'
+                      : 'scopes: pages_show_list, pages_manage_posts, pages_read_engagement'}
+                  </p>
                 </div>
 
-                {/* Permissions Scope Card */}
-                <div className="space-y-2">
-                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <span>Permissions Requested by UnityTeck Suite:</span>
-                  </span>
-
-                  <div className="rounded-2xl border border-slate-200 divide-y divide-slate-100 bg-slate-50/60 max-h-48 overflow-y-auto">
-                    {permissionsList.map((perm) => (
-                      <div key={perm.code} className="p-3 flex items-start gap-2.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                        <div className="space-y-0.5">
-                          <div className="text-xs font-bold text-slate-900">{perm.titleEn}</div>
-                          <div className="text-[11px] text-slate-500 leading-snug">{perm.descEn}</div>
-                          <span className="inline-block text-[9.5px] font-mono text-emerald-800 bg-emerald-100/80 px-1.5 py-0.2 rounded font-semibold">
-                            scope: {perm.code}
-                          </span>
-                        </div>
+                <div className="rounded-2xl border border-slate-200 divide-y divide-slate-100 bg-slate-50/60 max-h-40 overflow-y-auto">
+                  {permissionsList.map((perm) => (
+                    <div key={perm.code} className="p-3 flex items-start gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-bold text-slate-900">{perm.titleEn}</div>
+                        <div className="text-[11px] text-slate-500 leading-snug">{perm.descEn}</div>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
 
-                {/* Buttons */}
-                <div className="pt-2 space-y-2">
-                  <button
-                    type="button"
-                    disabled={submitting}
-                    onClick={handleAuthorize}
-                    className="w-full py-3.5 rounded-2xl text-xs font-black text-white shadow-lg cursor-pointer hover:brightness-105 active:scale-[0.99] transition-all flex items-center justify-center gap-2"
-                    style={{
-                      background: isMeta
-                        ? 'linear-gradient(135deg, #1877F2, #0064e0)'
-                        : isTikTok
-                        ? 'linear-gradient(135deg, #010101, #1a1a1a)'
-                        : 'linear-gradient(135deg, #059669, #0d9488)',
-                    }}
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>
-                      {submitting
-                        ? 'Authorizing Permissions...'
-                        : `Continue as ${accountName} (منح الصلاحيات والربط)`}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    className="w-full py-2.5 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer transition-colors"
-                  >
-                    Cancel & Close / إلغاء
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="w-full py-3 rounded-2xl text-xs font-black text-white cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, #1877F2, #0064e0)' }}
+                >
+                  Close & use Social Hub token form
+                </button>
               </>
             )}
           </div>

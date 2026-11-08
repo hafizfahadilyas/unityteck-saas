@@ -95,7 +95,7 @@ export const OfferDisplaySettingsPanel: React.FC<Props> = ({
       ) : (
         <form onSubmit={onSave} className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t mt-3" style={{ borderColor: 'var(--border)' }}>
           <div>
-            <label className="text-[11px] font-bold block mb-1">{isAr ? 'العنوان (EN)' : 'Title (EN)'}</label>
+            <label className="text-[11px] font-bold block mb-1">{isAr ? 'العنوان بالإنجليزية' : 'Title (EN)'}</label>
             <input
               value={config.titleEn}
               onChange={(e) => setConfig({ ...config, titleEn: e.target.value })}
@@ -104,7 +104,7 @@ export const OfferDisplaySettingsPanel: React.FC<Props> = ({
             />
           </div>
           <div>
-            <label className="text-[11px] font-bold block mb-1">{isAr ? 'العنوان (AR)' : 'Title (AR)'}</label>
+            <label className="text-[11px] font-bold block mb-1">{isAr ? 'العنوان بالعربية' : 'Title (AR)'}</label>
             <input
               dir="rtl"
               value={config.titleAr}
@@ -114,7 +114,7 @@ export const OfferDisplaySettingsPanel: React.FC<Props> = ({
             />
           </div>
           <div>
-            <label className="text-[11px] font-bold block mb-1">{isAr ? 'النص (EN)' : 'Body (EN)'}</label>
+            <label className="text-[11px] font-bold block mb-1">{isAr ? 'النص بالإنجليزية' : 'Body (EN)'}</label>
             <textarea
               rows={2}
               value={config.bodyEn}
@@ -124,7 +124,7 @@ export const OfferDisplaySettingsPanel: React.FC<Props> = ({
             />
           </div>
           <div>
-            <label className="text-[11px] font-bold block mb-1">{isAr ? 'النص (AR)' : 'Body (AR)'}</label>
+            <label className="text-[11px] font-bold block mb-1">{isAr ? 'النص بالعربية' : 'Body (AR)'}</label>
             <textarea
               dir="rtl"
               rows={2}

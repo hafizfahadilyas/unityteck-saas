@@ -404,8 +404,8 @@ export const Footer: React.FC<FooterCustomProps> = ({
                 <span className="text-[11px]">{emailAddress}</span>
               </div>
               <div className="pt-2 text-[10px] space-y-1 text-slate-300 border-t border-white/10 font-mono">
-                <div>{isAr ? `الرقم الضريبي: ${vatNumber}` : `VAT: ${vatNumber}`}</div>
-                <div>{isAr ? `السجل التجاري: ${crNumber}` : `CR: ${crNumber}`}</div>
+                <div>{isAr ? `الرقم الضريبي:${vatNumber}` : `VAT: ${vatNumber}`}</div>
+                <div>{isAr ? `السجل التجاري:${crNumber}` : `CR: ${crNumber}`}</div>
               </div>
             </div>
           </div>

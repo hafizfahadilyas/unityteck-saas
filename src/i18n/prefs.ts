@@ -54,7 +54,7 @@ export const CURRENCIES: Record<DisplayCurrency, CurrencyMeta> = {
     symbolAr: 'ر.ب',
     rate: 74.20,
     label: 'Pakistani Rupee (PKR)',
-    labelAr: 'روبية باكستانية (PKR)',
+    labelAr: 'روبية باكستانية',
   },
   EUR: {
     code: 'EUR',

@@ -19,6 +19,8 @@ class ShippingMethodController extends Controller
             return $storeId;
         }
 
+        $this->ensureFreeShippingDefaults($storeId);
+
         $methods = ShippingMethod::query()
             ->forStore($storeId)
             ->orderBy('sort_order')
@@ -192,5 +194,68 @@ class ShippingMethodController extends Controller
         $method->delete();
 
         return response()->json(['message' => 'Shipping method deleted successfully.']);
+    }
+
+    /**
+     * Free defaults (no courier API): flat rate + local pickup with COD allowed.
+     */
+    private function ensureFreeShippingDefaults(string $storeId): void
+    {
+        $count = ShippingMethod::query()->forStore($storeId)->count();
+        if ($count > 0) {
+            return;
+        }
+
+        ShippingMethod::query()->create([
+            'id' => $this->newId('shipm'),
+            'store_id' => $storeId,
+            'name' => 'Standard Delivery',
+            'name_ar' => 'توصيل عادي',
+            'type' => 'flat_rate',
+            'fulfillment_mode' => 'own_delivery',
+            'base_rate' => 25,
+            'per_kg_rate' => 0,
+            'per_km_rate' => 0,
+            'min_order_amount' => 0,
+            'free_shipping_threshold' => 250,
+            'estimated_delivery' => '2-4 Days',
+            'eta_type' => 'days',
+            'eta_value' => 3,
+            'tracking_enabled' => false,
+            'is_cod_allowed' => true,
+            'allow_online' => true,
+            'allow_bank_transfer' => true,
+            'payment_options' => ['cod', 'online', 'bank_transfer'],
+            'cod_fee' => 0,
+            'is_active' => true,
+            'sort_order' => 1,
+            'description' => 'Store own delivery — no courier API required',
+        ]);
+
+        ShippingMethod::query()->create([
+            'id' => $this->newId('shipm'),
+            'store_id' => $storeId,
+            'name' => 'Store Pickup',
+            'name_ar' => 'استلام من المتجر',
+            'type' => 'local_pickup',
+            'fulfillment_mode' => 'own_delivery',
+            'base_rate' => 0,
+            'per_kg_rate' => 0,
+            'per_km_rate' => 0,
+            'min_order_amount' => 0,
+            'free_shipping_threshold' => null,
+            'estimated_delivery' => 'Same Day',
+            'eta_type' => 'same_day',
+            'eta_value' => 0,
+            'tracking_enabled' => false,
+            'is_cod_allowed' => true,
+            'allow_online' => true,
+            'allow_bank_transfer' => true,
+            'payment_options' => ['cod', 'online', 'bank_transfer'],
+            'cod_fee' => 0,
+            'is_active' => true,
+            'sort_order' => 2,
+            'description' => 'Customer collects from store',
+        ]);
     }
 }

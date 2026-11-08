@@ -314,7 +314,7 @@ export const WhatsAppAutomations: React.FC<Props> = ({ onNavigateSubView }) => {
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mt-1">
-            {isAr ? 'مطابق لسياسات Meta' : 'Meta API standard'}
+            {isAr ? 'مطابق لسياسات ميتا' : 'Meta API standard'}
           </p>
         </div>
       </div>

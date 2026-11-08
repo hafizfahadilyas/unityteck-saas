@@ -179,7 +179,7 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
     }
     return {
       id: 'prod-def',
-      name: isAr ? `${activeStore.name} باقة مميزة` : `${activeStore.name} Signature Product`,
+      name: isAr ? `${activeStore.name}باقة مميزة` : `${activeStore.name} Signature Product`,
       price: 180,
       image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60',
     };
@@ -192,7 +192,7 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
       return isAr ? 'القهوة المختصة • المحامص • الهدايا' : 'Specialty Coffee • Roastery • Hampers';
     }
     if (s.includes('bleco') || s.includes('car')) {
-      return isAr ? 'العناية بالسيارات • نانو سيراميك • خدمات VIP' : 'Automotive Detailing • Ceramic Shield • VIP Care';
+      return isAr ? 'العناية بالسيارات • نانو سيراميك • خدمات كبار العملاء' : 'Automotive Detailing • Ceramic Shield • VIP Care';
     }
     return isAr ? 'الزهور • الهدايا الفاخرة • التغليف' : 'Flowers • Gifts • Luxury Packaging';
   }, [activeStore.slug, isAr]);
@@ -352,7 +352,7 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
                     type="text"
                     value={newCardTitleEn}
                     onChange={(e) => setNewCardTitleEn(e.target.value)}
-                    placeholder={isAr ? 'عنوان الكرت (English)' : 'Title (English)'}
+                    placeholder={isAr ? 'عنوان الكرت بالإنجليزية' : 'Title (English)'}
                     className="px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
                   />
                   <input
@@ -371,7 +371,7 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
                   >
                     <option value="Celebration">{isAr ? 'مناسبات عامة' : 'Celebration'}</option>
                     <option value="Special Moments">{isAr ? 'لحظات خاصة' : 'Special Moments'}</option>
-                    <option value="VIP">{isAr ? 'VIP فاخر' : 'VIP'}</option>
+                    <option value="VIP">{isAr ? 'كبار العملاء فاخر' : 'VIP'}</option>
                     <option value="Romantic">{isAr ? 'مشاعر ومحبة' : 'Romantic'}</option>
                   </select>
                   <div className="flex items-center gap-1.5">
@@ -419,7 +419,7 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
 
                     <div className="flex items-center justify-between mt-2 text-[10px]">
                       <span className="font-bold text-slate-700 dark:text-slate-300">
-                        {isAr ? `تصميم ${idx + 1}` : `Card Design ${idx + 1}`}
+                        {isAr ? `تصميم${idx + 1}` : `Card Design ${idx + 1}`}
                       </span>
                       <button
                         type="button"
@@ -575,7 +575,7 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
                 </span>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   {isAr
-                    ? `مفعل تلقائياً لجميع منتجات متجر ${activeStore.name} (${currentProducts?.length || 0} منتج).`
+                    ? `مفعل تلقائياً لجميع منتجات متجر${activeStore.name}(${currentProducts?.length || 0}منتج).`
                     : `Active across all catalog items for ${activeStore.name} (${currentProducts?.length || 0} products).`}
                 </p>
               </div>
@@ -798,7 +798,7 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
               onClick={() => {
                 toast(
                   isAr
-                    ? `تمت محاكاة إضافة هدية ${previewProduct.name} إلى السلة بنجاح!`
+                    ? `تمت محاكاة إضافة هدية${previewProduct.name}إلى السلة بنجاح!`
                     : `Simulated adding ${previewProduct.name} gift to cart!`,
                   'success'
                 );
@@ -976,7 +976,7 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
               <Gift className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
               <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
                 {isAr
-                  ? `لا توجد طلبات إهداء مسجلة حتى الآن لمتجر ${activeStore.name}`
+                  ? `لا توجد طلبات إهداء مسجلة حتى الآن لمتجر${activeStore.name}`
                   : `No gift orders recorded yet for ${activeStore.name}`}
               </div>
               <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
@@ -1000,7 +1000,7 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
             <span>{isAr ? 'متطلبات قاعدة البيانات' : 'Database Requirements'}</span>
           </div>
           <ul className="text-[11px] text-slate-500 dark:text-slate-400 space-y-1 list-disc list-inside">
-            <li>{isAr ? 'حفظ إعدادات الهدايا في Hostinger MySQL' : 'Store gift settings (cards, boxes, prices).'}</li>
+            <li>{isAr ? 'حفظ إعدادات الهدايا في هوستنجر MySQL' : 'Store gift settings (cards, boxes, prices).'}</li>
             <li>{isAr ? 'ربط المنتجات بخيارات الإهداء' : 'Store product-gift relationships.'}</li>
             <li>{isAr ? 'حفظ بيانات المستلم وعناوين الشحن' : 'Save recipient data with orders.'}</li>
             <li>{isAr ? 'تتبع حالة وتاريخ تجهيز الهدية' : 'Keep gift order details & timestamps.'}</li>
@@ -1031,7 +1031,7 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
             <li>{isAr ? 'إخفاء اسم المرسل عن المستلم في الهدايا المجهولة' : 'Hide sender name in anonymous gifting mode.'}</li>
             <li>{isAr ? 'حماية بيانات المستلم وفق المعايير السعودية' : 'Protect recipient contact & address data.'}</li>
             <li>{isAr ? 'سجلات تدقيق للوصول لمعلومات الطلبات' : 'Secure audit logging for store staff access.'}</li>
-            <li>{isAr ? 'عزل تام لكل متجر عبر store_id' : 'Strict multi-tenant store_id isolation.'}</li>
+            <li>{isAr ? 'عزل تام لكل متجر عبر معرّف المتجر' : 'Strict multi-tenant store_id isolation.'}</li>
           </ul>
         </div>
 

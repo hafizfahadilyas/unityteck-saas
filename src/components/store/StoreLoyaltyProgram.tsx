@@ -320,7 +320,7 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             {isAr
-              ? `مكافأة عملاء متجر ${activeStore.name} بالنقاط لكل عملية شراء وتحويلها إلى قسائم شراء وخصومات.`
+              ? `مكافأة عملاء متجر${activeStore.name}بالنقاط لكل عملية شراء وتحويلها إلى قسائم شراء وخصومات.`
               : `Engage your customers and reward them with points for repeat purchases at ${activeStore.name}.`}
           </p>
         </div>
@@ -431,13 +431,13 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
               <Sparkles className="w-4 h-4 text-amber-500" />
               <span>
                 {isAr
-                  ? 'لعبة العملات اليومية (Spin & Win Coins) + بطاقة الولاء والبطاقات المحفوظة'
+                  ? 'لعبة العملات اليومية + بطاقة الولاء والبطاقات المحفوظة'
                   : 'Daily Spin & Win Coin Game + Digital Loyalty Card & Saved Cards Bonus'}
               </span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               {isAr
-                ? 'يلعب العميل مرة كل 24 ساعة ليربح عملات يتسوق بها في الدفع، بالإضافة إلى عملات إضافية عند الدفع بالبطاقات المحفوظة (مدى / فيزا / Apple Pay).'
+                ? 'يلعب العميل مرة كل 24 ساعة ليربح عملات يتسوق بها في الدفع، بالإضافة إلى عملات إضافية عند الدفع بالبطاقات المحفوظة (مدى / فيزا / آبل باي).'
                 : 'Customers play once every 24h to win shopping coins, plus earn bonus coins from Saved Cards (Mada/Visa/Apple Pay) — 100% controlled by Store Admin.'}
             </p>
           </div>
@@ -465,7 +465,7 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
                 );
                 toast(
                   isAr
-                    ? `مؤقت اللعبة نشط: لعب هذا العميل اليوم بالفعل. يمكنه اللعب مجدداً بعد ${hrsLeft} ساعة!`
+                    ? `مؤقت اللعبة نشط: لعب هذا العميل اليوم بالفعل. يمكنه اللعب مجدداً بعد${hrsLeft}ساعة!`
                     : `24h Game Cooldown Active: Customer already played today. Next spin in ~${hrsLeft}h!`,
                   'info',
                 );
@@ -489,7 +489,7 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
                 setCoinTick((t) => t + 1);
                 toast(
                   isAr
-                    ? `مبروك! ربح العميل +${won} عملة من لعبة المتجر وتمت إضافتها لمحفظته للتسوق بها!`
+                    ? `مبروك! ربح العميل +${won}عملة من لعبة المتجر وتمت إضافتها لمحفظته للتسوق بها!`
                     : `Customer won +${won} Coins from the Daily Game! Added to their wallet for checkout shopping.`,
                   'success',
                 );
@@ -511,7 +511,7 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
           <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-black flex items-center justify-between">
             <span>
               {isAr
-                ? `آخر جائزة من اللعبة: +${lastWonCoins} عملة (تعادل ${(lastWonCoins / (gameSettings.coinsPerSar || 10)).toFixed(1)} ر.س خصم مباشر في السلة!)`
+                ? `آخر جائزة من اللعبة: +${lastWonCoins}عملة (تعادل${(lastWonCoins / (gameSettings.coinsPerSar || 10)).toFixed(1)}ر.س خصم مباشر في السلة!)`
                 : `Latest Game Spin Reward: +${lastWonCoins} Coins (Worth ${(lastWonCoins / (gameSettings.coinsPerSar || 10)).toFixed(1)} SAR at Checkout!)`}
             </span>
           </div>

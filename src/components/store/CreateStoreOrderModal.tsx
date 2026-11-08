@@ -731,7 +731,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                                   </span>
                                 ) : isLowStock ? (
                                   <span className="text-amber-500 font-sans font-bold">
-                                    {isAr ? `متبقي ${stockCount} فقط` : `${stockCount} left`}
+                                    {isAr ? `متبقي${stockCount}فقط` : `${stockCount} left`}
                                   </span>
                                 ) : (
                                   <span className="text-emerald-600 dark:text-emerald-400 font-sans font-bold">
@@ -1178,7 +1178,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                         {bankAccounts.map((b) => (
                           <option key={b.id} value={b.id}>
                             {(isAr && b.bank_name_ar) || b.bank_name} — {b.iban}
-                            {b.is_default ? (isAr ? ' (افتراضي)' : ' (default)') : ''}
+                            {b.is_default ? (isAr ? '(افتراضي)' : ' (default)') : ''}
                           </option>
                         ))}
                       </select>
@@ -1454,16 +1454,16 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                               const feeBit =
                                 perKg > 0
                                   ? isAr
-                                    ? `${fee} ر.س + ${perKg}/كجم`
+                                    ? `${fee}ر.س +${perKg}/كجم`
                                     : `${fee} SAR + ${perKg}/kg`
                                   : isAr
-                                    ? `${fee} ر.س`
+                                    ? `${fee}ر.س`
                                     : `${fee} SAR`;
                               return (
                                 <option key={m.id} value={m.id}>
                                   {label} · {feeBit}
                                   {eta ? ` · ${eta}` : ''}
-                                  {m.trackingEnabled ? (isAr ? ' · تتبع' : ' · Track') : ''}
+                                  {m.trackingEnabled ? (isAr ? '· تتبع' : ' · Track') : ''}
                                 </option>
                               );
                             })}

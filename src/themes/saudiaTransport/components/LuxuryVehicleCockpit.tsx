@@ -199,7 +199,7 @@ export const LuxuryVehicleCockpit: React.FC<LuxuryVehicleCockpitProps> = ({
                 }}
                 className="w-full h-11 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-300 focus:border-[#3e0f77] rounded-xl px-3 font-extrabold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#d5a027]/40 cursor-pointer text-xs transition-all shadow-xs appearance-none"
               >
-                <option value="all">{isAr ? 'جميع الماركات (18+)' : 'All Makes (18+)'}</option>
+                <option value="all">{isAr ? 'جميع الماركات' : 'All Makes (18+)'}</option>
                 {CAR_BRANDS.map(b => (
                   <option key={b.id} value={b.nameEn.toLowerCase()}>
                     {isAr ? b.nameAr : b.nameEn}
@@ -258,7 +258,7 @@ export const LuxuryVehicleCockpit: React.FC<LuxuryVehicleCockpitProps> = ({
                 onChange={e => setFormYear(e.target.value)}
                 className="w-full h-11 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-300 focus:border-[#3e0f77] rounded-xl px-3 font-extrabold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#d5a027]/40 cursor-pointer text-xs transition-all shadow-xs appearance-none"
               >
-                <option value="all">{isAr ? 'جميع السنوات (2012-2026)' : 'All Years (2012-2026)'}</option>
+                <option value="all">{isAr ? 'جميع السنوات' : 'All Years (2012-2026)'}</option>
                 {availableYears.map(yr => (
                   <option key={yr} value={yr}>{yr}</option>
                 ))}
@@ -289,7 +289,7 @@ export const LuxuryVehicleCockpit: React.FC<LuxuryVehicleCockpitProps> = ({
                 onChange={e => setFormColor(e.target.value)}
                 className="w-full h-11 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-300 focus:border-[#3e0f77] rounded-xl px-3 font-extrabold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#d5a027]/40 cursor-pointer text-xs transition-all shadow-xs appearance-none"
               >
-                <option value="all">{isAr ? 'جميع ألوان الوكالة (6)' : 'All OEM Colors (6)'}</option>
+                <option value="all">{isAr ? 'جميع ألوان الوكالة' : 'All OEM Colors (6)'}</option>
                 {SEAT_COLORS.map(c => (
                   <option key={c.id} value={c.nameAr}>
                     {isAr ? c.nameAr : c.nameEn}
@@ -359,7 +359,7 @@ export const LuxuryVehicleCockpit: React.FC<LuxuryVehicleCockpitProps> = ({
               </span>
               <div className="min-w-0">
                 <p className="font-black text-slate-900 truncate">
-                  {isAr ? `تطابق ليزري 100% مؤكد لـ: ${fullSelectedTitle}` : `100% OEM Laser Fit Verified for: ${fullSelectedTitle}`}
+                  {isAr ? `تطابق ليزري 100% مؤكد لـ:${fullSelectedTitle}` : `100% OEM Laser Fit Verified for: ${fullSelectedTitle}`}
                 </p>
                 <p className="text-[10px] text-emerald-800 font-semibold truncate hidden sm:block">
                   {isAr ? 'يشمل تلابيس المقاعد الملكية + طقم أرضيات 5D عازلة · ضمان سنتين ذهبي' : 'Includes VIP Bespoke Covers + 5D All-Weather Armor Mats · 2-Yr Warranty'}

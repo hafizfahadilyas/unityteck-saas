@@ -4,7 +4,12 @@
  * Strictly isolated per store. No fake mock followers or pre-populated dummy credentials.
  */
 
-import { type SocialPlatform, type SocialAccountPublic, upsertSocialAccount } from './socialPublisherService';
+import {
+  type SocialPlatform,
+  type SocialAccountPublic,
+  upsertSocialAccount,
+  isLiveSocialPlatform,
+} from './socialPublisherService';
 
 export interface SocialOAuthOptions {
   platform: SocialPlatform;
@@ -27,9 +32,18 @@ export interface SocialOAuthSuccessPayload {
   permissions_granted: string[];
 }
 
-/** Open real browser OAuth authorization popup centered on the screen */
+/** Open Meta Graph connect popup (Instagram / Facebook only). */
 export function openSocialOAuthPopup(options: SocialOAuthOptions): Promise<SocialAccountPublic> {
   return new Promise((resolve, reject) => {
+    if (!isLiveSocialPlatform(options.platform)) {
+      reject(
+        new Error(
+          `${options.platform} is Coming Soon — only Instagram and Facebook can be connected now.`,
+        ),
+      );
+      return;
+    }
+
     const width = 620;
     const height = 750;
     const left = window.screenX + (window.outerWidth - width) / 2;

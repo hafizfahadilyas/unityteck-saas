@@ -284,8 +284,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
     };
   }, [activeStore.id, activeStore.name, activeStore.accentColor]);
 
-  const themeId = storeActiveTheme[activeStore.id] || FLOWERS_THEME_ID;
-  const currentTheme = themes.find(t => t.id === themeId) || themes[0];
+  const mappedTheme = storeActiveTheme[activeStore.id];
   const homepageStyle = resolveFlowersHomepage(storeActiveHomepage[activeStore.id]);
 
   // Direct inspection of URL search parameters and path for instant bulletproof theme routing
@@ -322,7 +321,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
       activeStore.id === 'store-coffee' ||
       activeStore.slug === 'coffee-store' ||
       (activeStore.id !== 'store-bleco' && activeStore.id !== 'store-1' &&
-       (activeStore.slug?.includes('coffee') || activeStore.category?.includes('قهوة') || themeId?.includes('coffee')))
+       (activeStore.slug?.includes('coffee') || activeStore.category?.includes('قهوة') || mappedTheme?.includes('coffee')))
     ));
 
   const isCarStore =
@@ -332,9 +331,14 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
       activeStore.slug === 'bleco-sa' ||
       activeStore.slug === 'alsaeedi-cars' ||
       (activeStore.id !== 'store-1' &&
-       (activeStore.slug?.includes('car') || activeStore.slug?.includes('transport') || themeId === 'theme-saudia-transport'))
+       (activeStore.slug?.includes('car') || activeStore.slug?.includes('transport') || mappedTheme === 'theme-saudia-transport'))
     ));
 
+  // Never default a coffee/car tenant onto flowers theme id.
+  const themeId =
+    mappedTheme ||
+    (isCoffeeStore ? 'theme-coffee-artisan' : isCarStore ? 'theme-saudia-transport' : FLOWERS_THEME_ID);
+  const currentTheme = themes.find(t => t.id === themeId) || themes[0];
   const isFlowersStore = !isCarStore && !isCoffeeStore;
   const isFlowersPremium = isFlowersStore;
   const storeIdentity = useMemo(
@@ -767,12 +771,14 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
   const sfBorder = isDark ? '#10606f' : '#cbd5e1';
 
   if (!isAdmin) {
+    // Keep pack selection by industry, but never remap another tenant onto store-coffee / store-bleco.
     const effectiveTheme = isCoffeeStore ? 'theme-coffee-artisan' : isCarStore ? 'theme-saudia-transport' : themeId;
-    const effectiveId = isCoffeeStore ? 'store-coffee' : isCarStore ? 'store-bleco' : activeStore.id;
-    const effectiveCat = isCoffeeStore ? 'مكائن ومستلزمات القهوة' : isCarStore ? 'خدمات سيارات' : activeStore.category;
+    const effectiveCat =
+      activeStore.category ||
+      (isCoffeeStore ? 'مكائن ومستلزمات القهوة' : isCarStore ? 'خدمات سيارات' : activeStore.category);
     return (
       <DynamicThemeRenderer
-        storeId={effectiveId}
+        storeId={activeStore.id}
         themeId={effectiveTheme}
         category={effectiveCat}
         initialPage={sfPage}
@@ -813,7 +819,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
                   isCoffeeStore ? 'bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800' :
                   'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
                 }`}>
-                  Live Storefront
+                  {lang === 'ar' ? 'واجهة المتجر المباشرة' : 'Live Storefront'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -993,9 +999,12 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
       >
         {true ? (
           <DynamicThemeRenderer
-            storeId={isCoffeeStore ? 'store-coffee' : isCarStore ? 'store-bleco' : activeStore.id}
+            storeId={activeStore.id}
             themeId={isCoffeeStore ? 'theme-coffee-artisan' : isCarStore ? 'theme-saudia-transport' : themeId}
-            category={isCoffeeStore ? 'مكائن ومستلزمات القهوة' : isCarStore ? 'خدمات سيارات' : activeStore.category}
+            category={
+              activeStore.category ||
+              (isCoffeeStore ? 'مكائن ومستلزمات القهوة' : isCarStore ? 'خدمات سيارات' : activeStore.category)
+            }
             initialPage={sfPage}
             isAdmin={isAdmin}
           />

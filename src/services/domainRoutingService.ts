@@ -94,7 +94,7 @@ export function buildLiveStoreDomains(
         domain: customDom,
         expectedStoreId: st.id,
         expectedThemeId: resolveStoreActiveTheme(st),
-        labelAr: `${st.name} (نطاق رسمي مخصص)`,
+        labelAr: `${st.name}(نطاق رسمي مخصص)`,
         labelEn: `${st.name} (Official Custom Domain)`,
         type: 'custom',
       });
@@ -111,7 +111,7 @@ export function buildLiveStoreDomains(
         domain: subDom,
         expectedStoreId: st.id,
         expectedThemeId: resolveStoreActiveTheme(st),
-        labelAr: `${st.name} (نطاق سحابي فرعي)`,
+        labelAr: `${st.name}(نطاق سحابي فرعي)`,
         labelEn: `${st.name} (Cloud Subdomain)`,
         type: 'subdomain',
       });

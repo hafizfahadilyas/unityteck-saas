@@ -38,7 +38,6 @@ import { MediaUploadField } from '../common/MediaUploadField';
 import { ThresholdSettings } from '../../notification-system/components/ThresholdSettings';
 import { NotificationSettings } from './settings/NotificationSettings';
 import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
-import { COFFEE_STORE_WORKSPACE_PATH } from '../../data/coffeeStoreData';
 
 import { readAllThemeSettings, writeAllThemeSettings } from '../../themes/settings/themeSettingsStore';
 import { readStoreIdentity, splitStoreName, writeStoreIdentity, type StoreIdentitySettings } from '../../themes/settings/storeIdentity';
@@ -189,7 +188,7 @@ export const StoreSettings: React.FC = () => {
   const [faviconUrl, setFaviconUrl] = useState('/favicon.svg');
   const [customDomain, setCustomDomain] = useState(`${activeStore.slug}.saudi-stores.com`);
   const [workspacePath, setWorkspacePath] = useState(
-    activeStore.workspacePath || (isCoffee ? COFFEE_STORE_WORKSPACE_PATH : '')
+    String((activeStore as { workspacePath?: string }).workspacePath || '').trim(),
   );
 
   // Regional Settings State
@@ -292,7 +291,7 @@ export const StoreSettings: React.FC = () => {
     },
     {
       id: 'maintenance',
-      label: isAr ? 'صفحة تحت الصيانة (Under Construction)' : 'Maintenance & Launch',
+      label: isAr ? 'صفحة تحت الصيانة' : 'Maintenance & Launch',
       icon: Clock,
     },
     {
@@ -307,7 +306,7 @@ export const StoreSettings: React.FC = () => {
     },
     {
       id: 'notifications',
-      label: isAr ? 'إشعارات الواتساب وSMS (+966)' : 'WhatsApp & SMS (+966)',
+      label: isAr ? 'إشعارات الواتساب والرسائل النصية (+966)' : 'WhatsApp & SMS (+966)',
       icon: Smartphone,
     },
     {
@@ -347,10 +346,10 @@ export const StoreSettings: React.FC = () => {
               borderColor: 'var(--border)',
               color: 'var(--text)',
             }}
-            title={isAr ? 'Switch Language to English' : 'تحويل اللغة إلى العربية'}
+            title={isAr ? 'التبديل إلى الإنجليزية' : 'تحويل اللغة إلى العربية'}
           >
             <Globe className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span className="font-bold">{isAr ? 'English (EN)' : 'العربية (AR)'}</span>
+            <span className="font-bold">{isAr ? 'الإنجليزية' : 'العربية'}</span>
           </button>
 
           <button
@@ -595,22 +594,42 @@ export const StoreSettings: React.FC = () => {
                         style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                       />
                     </div>
-                    <span className="px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5" style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)', color: 'var(--accent)' }}>
-                      <Check className="w-3.5 h-3.5" />
-                      <span>SSL Active</span>
+                    <span className="px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5" style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)', color: customDomain?.trim() ? 'var(--accent)' : 'var(--muted)' }}>
+                      {customDomain?.trim() ? <Check className="w-3.5 h-3.5" /> : null}
+                      <span>
+                        {customDomain?.trim()
+                          ? isAr
+                            ? 'شهادة الأمان نشطة'
+                            : 'SSL Active'
+                          : isAr
+                            ? 'بانتظار النطاق'
+                            : 'Waiting for Domain'}
+                      </span>
                     </span>
                   </div>
                 </div>
 
-                {/* Connected Local Workspace Path Setting */}
+                {/* Optional local workspace path — only when this store has a real value */}
                 <div className="sm:col-span-2 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-bold flex items-center gap-1.5" style={{ color: 'var(--text)' }}>
                       <HardDrive className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
-                      <span>{isAr ? 'مسار مجلد المشروع المحلي المرتبط (Local Workspace Path)' : 'Connected Local Workspace Path'}</span>
+                      <span>{isAr ? 'مسار مجلد المشروع المحلي المرتبط' : 'Connected Local Workspace Path'}</span>
                     </label>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                      {isAr ? 'متصل ونشط' : 'Connected & Active'}
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                        workspacePath.trim()
+                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                          : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+                      }`}
+                    >
+                      {workspacePath.trim()
+                        ? isAr
+                          ? 'متصل'
+                          : 'Connected'
+                        : isAr
+                          ? 'غير متصل'
+                          : 'Not Connected'}
                     </span>
                   </div>
                   <div className="flex gap-2">
@@ -619,13 +638,14 @@ export const StoreSettings: React.FC = () => {
                         type="text"
                         value={workspacePath}
                         onChange={(e) => setWorkspacePath(e.target.value)}
-                        placeholder="E:\GOGLE\hibrew-ksa-_-official-coffee-store-متجر-مكائن-ومستلزمات-القهوة"
+                        placeholder={isAr ? 'اختياري — مسار محلي لهذا المتجر فقط' : 'Optional — local path for this store only'}
                         className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border focus:outline-none"
                         style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                       />
                     </div>
                     <button
                       type="button"
+                      disabled={!workspacePath.trim()}
                       onClick={() => {
                         try {
                           navigator.clipboard.writeText(workspacePath);
@@ -634,26 +654,17 @@ export const StoreSettings: React.FC = () => {
                           toast(isAr ? 'تعذر النسخ' : 'Copy failed', 'error');
                         }
                       }}
-                      className="px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800"
+                      className="px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
                       style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
                     >
                       <Copy className="w-3.5 h-3.5" />
                       <span>{isAr ? 'نسخ' : 'Copy'}</span>
                     </button>
-                    <a
-                      href={`file:///${workspacePath.replace(/\\/g, '/')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-800 hover:bg-amber-900 text-white flex items-center gap-1.5 shadow-2xs"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>{isAr ? 'فتح' : 'Open'}</span>
-                    </a>
                   </div>
                   <p className="text-[11px] mt-1 text-slate-500 dark:text-slate-400">
                     {isAr
-                      ? 'مجلد المتجر المحلي الذي يتم ربط ومزامنة المنتجات، الوسائط، الأقسام، ومنشئ الصفحات معه: E:\\GOGLE\\hibrew-ksa-_-official-coffee-store-متجر-مكائن-ومستلزمات-القهوة'
-                      : 'Connected local folder holding live products, media assets, categories and builder data: E:\\GOGLE\\hibrew-ksa-_-official-coffee-store-متجر-مكائن-ومستلزمات-القهوة'}
+                      ? 'يُعرض فقط إن وُجد مسار محفوظ لهذا المتجر. لا تُستخدم مسارات متاجر أخرى.'
+                      : 'Shown only when this store has a saved path. Never borrow another store’s folder.'}
                   </p>
                 </div>
 
@@ -662,7 +673,7 @@ export const StoreSettings: React.FC = () => {
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-bold flex items-center gap-1.5" style={{ color: 'var(--text)' }}>
                       <Globe className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>{isAr ? 'لغة واجهة المتجر ولوحة التحكم (Language Option)' : 'Store & Dashboard Display Language'}</span>
+                      <span>{isAr ? 'لغة واجهة المتجر ولوحة التحكم' : 'Store & Dashboard Display Language'}</span>
                     </label>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                       {locale === 'ar' ? 'العربية نشطة' : 'English Active'}
@@ -859,7 +870,7 @@ export const StoreSettings: React.FC = () => {
               </div>
               <p className="text-[11px] opacity-70 mt-1">
                 {isAr
-                  ? 'اللغات المتاحة لهذا المتجر يتم التحكم بها مركزياً بواسطة المشرف العام (Super Admin).'
+                  ? 'اللغات المتاحة لهذا المتجر يتم التحكم بها مركزياً بواسطة المشرف العام.'
                   : 'Available languages for this store are controlled centrally by Super Admin.'}
               </p>
             </div>
@@ -1203,7 +1214,7 @@ export const StoreSettings: React.FC = () => {
               <div>
                 <h3 className="font-extrabold text-base flex items-center gap-2">
                   <Clock className="w-5 h-5 text-amber-500" />
-                  <span>{isAr ? 'وضع تحت الصيانة والافتتاح القريب (Under Construction)' : 'Maintenance & Grand Launch Mode'}</span>
+                  <span>{isAr ? 'وضع تحت الصيانة والافتتاح القريب' : 'Maintenance & Grand Launch Mode'}</span>
                 </h3>
                 <p className="text-xs mt-1 leading-relaxed opacity-75 max-w-2xl">
                   {isAr
@@ -1229,7 +1240,7 @@ export const StoreSettings: React.FC = () => {
                       ? 'وضع الصيانة مُفعّل (نشط)'
                       : 'Maintenance ACTIVE'
                     : isAr
-                    ? 'المتجر متاح للجمهور (LIVE)'
+                    ? 'المتجر متاح للجمهور'
                     : 'Store is LIVE'}
                 </span>
               </button>

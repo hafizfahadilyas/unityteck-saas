@@ -262,7 +262,7 @@ export const StoreOrders: React.FC = () => {
     const created = resolveOrderCreatedAt(order);
     if (!created) return null;
     const relative = formatRelativeTime(created.toISOString(), locale);
-    return isAr ? `بدون معالجة · ${relative}` : `Untouched · ${relative}`;
+    return isAr ? `بدون معالجة ·${relative}` : `Untouched · ${relative}`;
   };
 
   const productThumbnailMap = useMemo(() => {
@@ -467,7 +467,7 @@ export const StoreOrders: React.FC = () => {
       if (oldest) {
         const relative = formatRelativeTime(oldest.toISOString(), locale);
         oldestPendingLabel = isAr
-          ? `أقدم بدون معالجة · ${relative}`
+          ? `أقدم بدون معالجة ·${relative}`
           : `Oldest untouched · ${relative}`;
       }
     }
@@ -724,7 +724,7 @@ export const StoreOrders: React.FC = () => {
     const count = selectedOrderIds.length;
     const ok = await confirm({
       title: t('archiveOrderConfirmTitle') || (isAr ? 'أرشفة الطلبات المحددة' : 'Archive Selected Orders'),
-      message: isAr ? `هل أنت متأكد من نقل ${count} طلبات محددة إلى الأرشيف؟` : `Are you sure you want to move ${count} selected orders to the archive?`,
+      message: isAr ? `هل أنت متأكد من نقل${count}طلبات محددة إلى الأرشيف؟` : `Are you sure you want to move ${count} selected orders to the archive?`,
       confirmLabel: t('bulkArchiveOrders') || (isAr ? 'أرشفة المحدد' : 'Archive Selected'),
       cancelLabel: isAr ? 'إلغاء' : 'Cancel',
       danger: false,
@@ -732,7 +732,7 @@ export const StoreOrders: React.FC = () => {
     if (ok) {
       selectedOrderIds.forEach((id) => archiveOrder(id, activeStore.id));
       setSelectedOrderIds([]);
-      toast(isAr ? `تم نقل ${count} طلبات إلى الأرشيف بنجاح` : `${count} orders moved to archive`, 'success');
+      toast(isAr ? `تم نقل${count}طلبات إلى الأرشيف بنجاح` : `${count} orders moved to archive`, 'success');
     }
   };
 
@@ -741,7 +741,7 @@ export const StoreOrders: React.FC = () => {
     const count = selectedOrderIds.length;
     const ok = await confirm({
       title: t('restoreOrderConfirmTitle') || (isAr ? 'استعادة الطلبات المحددة' : 'Restore Selected Orders'),
-      message: isAr ? `هل أنت متأكد من استعادة ${count} طلبات محددة إلى القائمة النشطة؟` : `Are you sure you want to restore ${count} selected orders?`,
+      message: isAr ? `هل أنت متأكد من استعادة${count}طلبات محددة إلى القائمة النشطة؟` : `Are you sure you want to restore ${count} selected orders?`,
       confirmLabel: t('bulkRestoreOrders') || (isAr ? 'استعادة المحدد' : 'Restore Selected'),
       cancelLabel: isAr ? 'إلغاء' : 'Cancel',
       danger: false,
@@ -749,7 +749,7 @@ export const StoreOrders: React.FC = () => {
     if (ok) {
       selectedOrderIds.forEach((id) => restoreOrder(id, activeStore.id));
       setSelectedOrderIds([]);
-      toast(isAr ? `تمت استعادة ${count} طلبات بنجاح` : `${count} orders restored successfully`, 'success');
+      toast(isAr ? `تمت استعادة${count}طلبات بنجاح` : `${count} orders restored successfully`, 'success');
     }
   };
 
@@ -758,7 +758,7 @@ export const StoreOrders: React.FC = () => {
     const count = selectedOrderIds.length;
     const ok = await confirm({
       title: t('permanentDeleteOrderConfirmTitle') || (isAr ? 'حذف نهائي للطلبات المحددة' : 'Permanently Delete Selected Orders'),
-      message: isAr ? `هل أنت متأكد من حذف ${count} طلبات محددة نهائياً؟ هذا الإجراء لا يمكن التراجع عنه!` : `Are you sure you want to permanently delete ${count} selected orders? This cannot be undone!`,
+      message: isAr ? `هل أنت متأكد من حذف${count}طلبات محددة نهائياً؟ هذا الإجراء لا يمكن التراجع عنه!` : `Are you sure you want to permanently delete ${count} selected orders? This cannot be undone!`,
       confirmLabel: t('bulkPermanentDeleteOrders') || (isAr ? 'حذف نهائي للمحدد' : 'Permanently Delete Selected'),
       cancelLabel: isAr ? 'إلغاء' : 'Cancel',
       danger: true,
@@ -766,7 +766,7 @@ export const StoreOrders: React.FC = () => {
     if (ok) {
       selectedOrderIds.forEach((id) => permanentDeleteOrder(id, activeStore.id));
       setSelectedOrderIds([]);
-      toast(isAr ? `تم الحذف النهائي لـ ${count} طلبات` : `${count} orders permanently deleted`, 'success');
+      toast(isAr ? `تم الحذف النهائي لـ${count}طلبات` : `${count} orders permanently deleted`, 'success');
     }
   };
 
@@ -775,7 +775,7 @@ export const StoreOrders: React.FC = () => {
     selectedOrderIds.forEach((id) => updateOrderStatus(id, newStatus, activeStore.id));
     toast(
       isAr
-        ? `تم تحديث حالة ${selectedOrderIds.length} طلبات إلى "${newStatus}" بنجاح`
+        ? `تم تحديث حالة${selectedOrderIds.length}طلبات إلى "${newStatus}" بنجاح`
         : `Updated status for ${selectedOrderIds.length} orders to ${newStatus}`,
       'success'
     );
@@ -1076,27 +1076,27 @@ export const StoreOrders: React.FC = () => {
     return (
       <AdminPageShell className="pb-16 max-w-[1600px] mx-auto space-y-5">
         {/* ── BREADCRUMBS & TOP HEADER ROW ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
+        <div className="relative z-0 flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 min-w-0">
+          <div className="min-w-0 flex-1">
             {/* Breadcrumb matching mockup: < Orders < #10284 */}
-            <div className="flex items-center gap-2 text-xs mb-1 font-semibold" style={{ color: 'var(--muted)' }}>
+            <div className="flex items-center gap-2 text-xs mb-1 font-semibold min-w-0" style={{ color: 'var(--muted)' }}>
               <button
                 type="button"
                 onClick={() => setSelectedOrder(null)}
-                className="hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                className="hover:underline flex items-center gap-1 cursor-pointer transition-colors shrink-0"
                 style={{ color: 'var(--accent)' }}
               >
                 <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
                 <span>{t('navOrders')}</span>
               </button>
-              <span>/</span>
-              <span className="font-mono font-bold" style={{ color: 'var(--text)' }}>
+              <span className="shrink-0">/</span>
+              <span className="font-mono font-bold truncate" style={{ color: 'var(--text)' }}>
                 {o.orderNumber}
               </span>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+              <h1 className="text-xl sm:text-3xl font-black tracking-tight truncate" style={{ color: 'var(--text)' }}>
                 {t('orderTitle')} {o.orderNumber}
               </h1>
               {getStatusBadge(o.status)}
@@ -1115,12 +1115,12 @@ export const StoreOrders: React.FC = () => {
             </p>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Action buttons — wrap cleanly on mobile; never overlap topbar */}
+          <div className="flex items-center gap-2 flex-wrap max-w-full sm:max-w-none">
             <button
               type="button"
               onClick={() => copyToClipboard(o.orderNumber, 'ord-top')}
-              className="p-2.5 rounded-xl border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors"
+              className="p-2.5 rounded-xl border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors shrink-0"
               style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
               title="Copy Order ID"
             >
@@ -1133,10 +1133,10 @@ export const StoreOrders: React.FC = () => {
                 setInvoiceOrder(o);
                 setShowInvoiceModal(true);
               }}
-              className="px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 flex items-center gap-2 cursor-pointer shadow-xs transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+              className="px-3 sm:px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 flex items-center gap-2 cursor-pointer shadow-xs transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 shrink-0"
             >
-              <Printer className="w-4 h-4 text-slate-500" />
-              <span>{t('printInvoice')}</span>
+              <Printer className="w-4 h-4 text-slate-500 shrink-0" />
+              <span className="truncate">{t('printInvoice')}</span>
             </button>
 
             <button
@@ -1150,7 +1150,7 @@ export const StoreOrders: React.FC = () => {
                 setShowShippingLabelModal(true);
               }}
               className="px-4 py-2.5 rounded-xl text-xs font-bold border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 flex items-center gap-2 cursor-pointer shadow-xs transition-colors hover:bg-sky-100 dark:hover:bg-sky-900/50"
-              title={isAr ? 'طباعة بوليصة الشحن اللوجستية بالباركود الحراري (SMSA/SPL/Aramex)' : 'Print Courier Shipping Label (Code 128 Barcode)'}
+              title={isAr ? 'طباعة بوليصة الشحن اللوجستية بالباركود الحراري سمسا/سبل/أرامكس' : 'Print Courier Shipping Label (Code 128 Barcode)'}
             >
               <Truck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
               <span>{isAr ? 'بوليصة الشحن' : 'Courier Waybill'}</span>
@@ -1340,7 +1340,12 @@ export const StoreOrders: React.FC = () => {
               </span>
               {(o.medium || o.campaign) && (
                 <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold truncate block">
-                  {o.medium ? `Medium: ${o.medium}` : ''} {o.campaign ? `· Campaign: ${o.campaign}` : ''}
+                  {o.medium
+                    ? `${isAr ? 'الوسيط' : 'Medium'}: ${localizeSalesChannel(o.medium, locale)}`
+                    : ''}
+                  {o.campaign
+                    ? ` · ${isAr ? 'الحملة' : 'Campaign'}: ${o.campaign}`
+                    : ''}
                 </span>
               )}
             </div>
@@ -1350,7 +1355,7 @@ export const StoreOrders: React.FC = () => {
         {/* ── Real Ecommerce Attribution Breadcrumb (Requirement 5) ── */}
         <div className="p-3.5 bg-gradient-to-r from-teal-50/80 via-blue-50/50 to-indigo-50/80 dark:from-teal-950/30 dark:via-blue-950/20 dark:to-indigo-950/30 rounded-2xl border border-teal-200/60 dark:border-teal-900/40 flex items-center gap-2 overflow-x-auto text-xs">
           <span className="font-black text-teal-800 dark:text-teal-300 shrink-0 text-[11px] uppercase tracking-wider">
-            {isAr ? 'مسار التحويل (Attribution):' : 'Order Attribution:'}
+            {isAr ? 'مسار التحويل الإسناد:' : 'Order Attribution:'}
           </span>
           <div className="flex items-center gap-1.5 shrink-0 font-medium">
             <span className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 shadow-2xs font-bold text-slate-900 dark:text-white">
@@ -1414,43 +1419,54 @@ export const StoreOrders: React.FC = () => {
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-full bg-teal-100 text-teal-900 dark:bg-teal-950 dark:text-teal-200 font-black flex items-center justify-center text-sm border border-teal-200">
-                    {o.customerAvatar || (o.customerName ? o.customerName.slice(0, 2).toUpperCase() : 'AQ')}
+                    {o.customerAvatar ||
+                      (o.customerName ? o.customerName.slice(0, 2).toUpperCase() : '—')}
                   </div>
                   <div>
                     <h3 className="font-black text-sm text-slate-950 dark:text-white leading-tight">
-                      {getCustomerDisplayName(o.customerName, locale)}
+                      {getCustomerDisplayName(o.customerName, locale) || (isAr ? 'عميل' : 'Customer')}
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 mt-1 inline-block">
-                      {o.customerType ? (o.customerType.toLowerCase().includes('return') ? t('returningCustomer') : o.customerType) : t('returningCustomer')}
-                    </span>
+                    {o.customerType ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 mt-1 inline-block">
+                        {o.customerType.toLowerCase().includes('return')
+                          ? t('returningCustomer')
+                          : o.customerType}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 
                 <div className="text-end text-xs">
                   <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">{t('totalOrders')}</span>
-                  <span className="font-black font-mono text-sm text-slate-950 dark:text-white">12</span>
+                  <span className="font-black font-mono text-sm text-slate-950 dark:text-white">
+                    {typeof (o as { customerOrderCount?: number }).customerOrderCount === 'number'
+                      ? (o as { customerOrderCount?: number }).customerOrderCount
+                      : '—'}
+                  </span>
                 </div>
               </div>
 
               <div className="space-y-2.5 text-xs">
                 <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
                   <Phone className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0" />
-                  <span className="font-mono">{o.customerPhone}</span>
+                  <span className="font-mono">{o.customerPhone || '—'}</span>
                 </div>
                 <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
                   <Mail className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0" />
-                  <span>{o.customerEmail || 'ahmed@example.com'}</span>
+                  <span>{o.customerEmail || '—'}</span>
                 </div>
                 <div className="flex items-start gap-2 pt-1 font-semibold text-slate-800 dark:text-slate-200">
                   <MapPin className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0 mt-0.5" />
-                  <span>{getLocalizedAddress(o.deliveryLocation, locale) || (isAr ? 'الرياض، حي العليا، طريق الملك فهد، مبنى 123' : 'Riyadh, Al Olaya District, King Fahd Road, Building 123')}</span>
+                  <span>{getLocalizedAddress(o.deliveryLocation, locale) || '—'}</span>
                 </div>
               </div>
             </div>
 
             <div className="pt-4 border-t mt-4 text-[11px] flex justify-between border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold">
               <span>{t('customerSince')}</span>
-              <span className="font-black text-slate-950 dark:text-white">{formatDisplayDate(o.customerSince || 'Jan 2023', locale)}</span>
+              <span className="font-black text-slate-950 dark:text-white">
+                {o.customerSince ? formatDisplayDate(o.customerSince, locale) : '—'}
+              </span>
             </div>
           </div>
 
@@ -1913,7 +1929,7 @@ export const StoreOrders: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setInternalNotesDraft(o.internalNotes || (isAr ? 'عميل مميز (VIP) - يرجى العناية الخاصة بالطلب.' : 'VIP customer. Handle with care.'));
+                  setInternalNotesDraft(o.internalNotes || (isAr ? 'عميل مميز - يرجى العناية الخاصة بالطلب.' : 'VIP customer. Handle with care.'));
                   setIsEditingInternalNotes(!isEditingInternalNotes);
                 }}
                 className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1 cursor-pointer"
@@ -1950,7 +1966,7 @@ export const StoreOrders: React.FC = () => {
                 className="p-3.5 rounded-xl text-xs leading-relaxed bg-slate-50 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-800"
                 style={{ color: 'var(--text)' }}
               >
-                {o.internalNotes || (isAr ? 'عميل مميز (VIP) - يرجى العناية الخاصة بالطلب.' : 'VIP customer. Handle with care.')}
+                {o.internalNotes || (isAr ? 'عميل مميز - يرجى العناية الخاصة بالطلب.' : 'VIP customer. Handle with care.')}
               </div>
             )}
           </div>
@@ -1988,33 +2004,35 @@ export const StoreOrders: React.FC = () => {
   return (
     <AdminPageShell className="pb-16 max-w-[1600px] mx-auto space-y-5">
       {/* ── TOP HEADER — Title & Subtitle + New Order Button ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight" style={{ color: 'var(--text)' }}>
+      <div className="relative z-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 min-w-0">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-3xl font-black tracking-tight leading-tight truncate" style={{ color: 'var(--text)' }}>
             {t('orderManagement')}
           </h1>
-          <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs sm:text-sm mt-0.5 line-clamp-2" style={{ color: 'var(--muted)' }}>
             {t('orderManagementSub')}
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
-          {/* COD Cash Ledger Button */}
+        <div className="flex items-center gap-2 flex-wrap self-stretch sm:self-auto min-w-0">
+          {/* COD Cash Ledger — compact on phone to avoid header collision */}
           <button
             type="button"
             onClick={() => setShowCodLedgerModal(true)}
-            className="py-2.5 px-3.5 rounded-xl text-xs font-bold border border-amber-300 dark:border-amber-700/60 bg-amber-50/80 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 flex items-center gap-2 shadow-2xs cursor-pointer transition-all shrink-0"
+            className="py-2.5 px-2.5 sm:px-3.5 rounded-xl text-xs font-bold border border-amber-300 dark:border-amber-700/60 bg-amber-50/80 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 flex items-center gap-2 shadow-2xs cursor-pointer transition-all shrink-0 max-w-full"
             aria-label={isAr ? 'سجل تحصيل الدفع عند الاستلام' : 'COD Cash Ledger'}
           >
             <Banknote className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-            <span>{isAr ? 'سجل تحصيل الدفع عند الاستلام' : 'COD Cash Ledger'}</span>
+            <span className="truncate max-w-[9.5rem] sm:max-w-none">
+              {isAr ? 'سجل التحصيل' : 'COD Ledger'}
+            </span>
           </button>
 
           {/* + New Order Primary CTA Button */}
           <button
             type="button"
             onClick={() => setShowNewOrderModal(true)}
-            className="py-2.5 px-4 rounded-xl text-xs font-bold text-white flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:opacity-95 shrink-0"
+            className="py-2.5 px-3 sm:px-4 rounded-xl text-xs font-bold text-white flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:opacity-95 shrink-0"
             style={{ background: 'var(--portal-cta, #0284c7)' }}
             aria-label={isAr ? 'إنشاء طلب جديد' : 'Create new order'}
           >
@@ -2540,7 +2558,7 @@ export const StoreOrders: React.FC = () => {
                 <span className="w-5 h-5 rounded-md bg-teal-600 text-white flex items-center justify-center text-[10px]">
                   {selectedOrderIds.length}
                 </span>
-                <span>{isAr ? `إجراءات جماعية (${selectedOrderIds.length} محدد)` : `Bulk Actions (${selectedOrderIds.length} selected)`}</span>
+                <span>{isAr ? `إجراءات جماعية (${selectedOrderIds.length}محدد)` : `Bulk Actions (${selectedOrderIds.length} selected)`}</span>
               </span>
 
               {/* Update Status Dropdown */}
@@ -2624,7 +2642,7 @@ export const StoreOrders: React.FC = () => {
                 className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-bold flex items-center gap-1.5 hover:bg-slate-50 cursor-pointer shadow-2xs"
               >
                 <Download className="w-3.5 h-3.5 text-teal-600" />
-                <span>{isAr ? 'تصدير CSV' : 'Export CSV'}</span>
+                <span>{isAr ? 'تصدير جداول البيانات' : 'Export CSV'}</span>
               </button>
 
               {/* Archive */}

@@ -21,109 +21,6 @@ const FlagshipThreeJsSection = lazy(() =>
   import('./FlagshipThreeJsSection').then((m) => ({ default: m.FlagshipThreeJsSection })),
 );
 
-// Authentic, high-resolution original coffee category images
-import flagshipFullMachine from '../assets/images/hibrew_flagship_full_machine.jpg';
-import heroHibrewEspresso from '../assets/images/hero_hibrew_espresso_1791217182679.jpg';
-import grinderMillBanner from '../assets/images/coffee_grinder_mill_banner_1791218928342.jpg';
-import saudiNationalDayHero from '../assets/images/saudi_national_day_coffee_hero_1791364192381.jpg';
-import coffeeCornerCabinet from '../assets/images/hero_coffee_corner_cabinet_1791217199146.jpg';
-import baristaAccessoriesSet from '../assets/images/coffee_barista_accessories_set_1791219198302.jpg';
-
-interface CategoryShowcase {
-  featured: {
-    productId: string;
-    image: string;
-    titleEn: string;
-    titleAr: string;
-    taglineEn: string;
-    taglineAr: string;
-    price: number;
-    originalPrice?: number;
-  };
-  companionIds: string[];
-}
-
-const CATEGORY_SHOWCASE_MAP: Record<string, CategoryShowcase> = {
-  all: {
-    featured: {
-      productId: 'hb-h10a-dualboiler',
-      image: flagshipFullMachine,
-      titleEn: 'HiBrew Barista Pro™ H7A',
-      titleAr: 'هايبرو بارستا برو H7A دبل بويلر',
-      taglineEn: 'AI✦ | Smarter, Slimmer & Stronger',
-      taglineAr: 'ذكاء اصطناعي ✦ | استخلاص إلكتروني ذكي وضغط 20 بار',
-      price: 1899,
-      originalPrice: 2299,
-    },
-    companionIds: ['hb-mill-g5-pro', 'hb-barista-silver-pro', 'hb-h4a-portable-travel', 'hb-classic-duo-espresso'],
-  },
-  machines: {
-    featured: {
-      productId: 'hb-h10a-dualboiler',
-      image: heroHibrewEspresso,
-      titleEn: 'HiBrew Barista Pro™ H7A Dual-Boiler',
-      titleAr: 'هايبرو بارستا برو H7A دبل بويلر ٢٠ بار',
-      taglineEn: 'AI✦ | Dual Independent PID & 20-Bar Commercial Group',
-      taglineAr: 'ذكاء اصطناعي ✦ | دبل بويلر مستقل ونظام استخلاص تجاري ٥٨مم',
-      price: 1899,
-      originalPrice: 2299,
-    },
-    companionIds: ['hb-barista-silver-pro', 'hb-smart-capsule-compact', 'hb-thermal-drip-brewer', 'hb-classic-duo-espresso'],
-  },
-  mills: {
-    featured: {
-      productId: 'hb-mill-g5-pro',
-      image: grinderMillBanner,
-      titleEn: 'HiBrew Conical Burr Coffee Mill G5',
-      titleAr: 'مطحنة هايبرو المخروطية G5 الاحترافية',
-      taglineEn: 'AI✦ | Titanium CNC 40mm Burrs & Stepless Dial',
-      taglineAr: 'ذكاء اصطناعي ✦ | تروس تيتانيوم ٤٠مم وضبط دقيق للميكرون',
-      price: 749,
-      originalPrice: 899,
-    },
-    companionIds: ['hb-smart-scale-timer', 'hb-v60-complete-kit', 'hb-barista-accessories-kit', 'hb-boltfilter-58-naked'],
-  },
-  offers: {
-    featured: {
-      productId: 'hb-h4a-portable-travel',
-      image: saudiNationalDayHero,
-      titleEn: 'HiBrew H4A 4-in-1 Portable Espresso Maker',
-      titleAr: 'هايبرو H4A ماكينة الإسبريسو المتنقلة 4 في 1',
-      taglineEn: 'AI✦ | 15-Bar Rich Crema · Car, USB & AC Triple Power',
-      taglineAr: 'ذكاء اصطناعي ✦ | كريمة غنية ١٥ بار وثلاثة خيارات تشغيل للسيارة والرحلات',
-      price: 329,
-      originalPrice: 429,
-    },
-    companionIds: ['hb-v60-complete-kit', 'hb-barista-silver-pro', 'hb-smart-capsule-compact', 'hb-mill-g5-pro'],
-  },
-  cabinets: {
-    featured: {
-      productId: 'hb-nordic-cabinet',
-      image: coffeeCornerCabinet,
-      titleEn: 'HiBrew Nordic Fluted Oak Coffee Cabinet',
-      titleAr: 'دولاب ركن القهوة نورديك خشب البلوط المضلع',
-      taglineEn: 'AI✦ | Built-in Cable Routing & Sintered Stone Top',
-      taglineAr: 'ذكاء اصطناعي ✦ | تمديدات كابلات مدمجة وسطح حجر إيطالي فاخر',
-      price: 1599,
-      originalPrice: 1899,
-    },
-    companionIds: ['hb-luxury-corner-station', 'hb-ceramic-artisan-cups', 'hb-doublewall-paper-cups', 'hb-barista-accessories-kit'],
-  },
-  accessories: {
-    featured: {
-      productId: 'hb-barista-accessories-kit',
-      image: baristaAccessoriesSet,
-      titleEn: 'HiBrew Master Barista 58mm Tool Kit (7 Pcs)',
-      titleAr: 'طقم أدوات باريستا الاحترافي 58مم (7 قطع)',
-      taglineEn: 'AI✦ | Calibrated Constant-Force Tamper & WDT 0.4mm',
-      taglineAr: 'ذكاء اصطناعي ✦ | مكبس معاير بضغط ثابت وموزع إبري دقيق',
-      price: 349,
-      originalPrice: 429,
-    },
-    companionIds: ['hb-boltfilter-58-naked', 'hb-ceramic-artisan-cups', 'hb-smart-scale-timer', 'hb-doublewall-paper-cups'],
-  },
-};
-
 export const HomePage: React.FC = () => {
   const { navigateTo, language, products, storeIdentity } = useCart();
   const { activeStore } = useTenant();
@@ -249,34 +146,32 @@ export const HomePage: React.FC = () => {
     return list;
   }, [products, activeCategoryTab]);
 
-  const defaultShowcase = CATEGORY_SHOWCASE_MAP[activeCategoryTab] || CATEGORY_SHOWCASE_MAP.all;
-
+  // Live catalog only — never paint CATEGORY_SHOWCASE_MAP seed products when this store has none.
   const currentShowcase = useMemo(() => {
-    if (filteredCategoryProducts.length > 0) {
-      const first = filteredCategoryProducts[0];
-      return {
-        featured: {
-          productId: first.id,
-          image: first.colors?.[0]?.image || first.images?.[0] || (first as any).image || defaultShowcase.featured.image,
-          titleEn: first.name,
-          titleAr: first.nameAr || first.name,
-          taglineEn: first.tagline || 'Specialty Coffee Gear',
-          taglineAr: first.taglineAr || 'معدات القهوة المختصة والتحضير الاحترافي',
-          price: first.basePrice,
-          originalPrice: first.originalPrice,
-        },
-        companionIds: filteredCategoryProducts.slice(1).map(p => p.id),
-      };
-    }
-    return defaultShowcase;
-  }, [filteredCategoryProducts, defaultShowcase]);
+    if (filteredCategoryProducts.length === 0) return null;
+    const first = filteredCategoryProducts[0];
+    return {
+      featured: {
+        productId: first.id,
+        image: first.colors?.[0]?.image || first.images?.[0] || (first as any).image || '',
+        titleEn: first.name,
+        titleAr: first.nameAr || first.name,
+        taglineEn: first.tagline || 'Specialty Coffee Gear',
+        taglineAr: first.taglineAr || 'معدات القهوة المختصة والتحضير الاحترافي',
+        price: first.basePrice,
+        originalPrice: first.originalPrice,
+      },
+      companionIds: filteredCategoryProducts.slice(1).map((p) => p.id),
+    };
+  }, [filteredCategoryProducts]);
 
   const companionProducts = useMemo(() => {
     if (filteredCategoryProducts.length > 1) {
       return filteredCategoryProducts.slice(1);
     }
+    if (!currentShowcase) return [];
     return currentShowcase.companionIds
-      .map(id => (products && products.length > 0 ? products.find(p => p.id === id) : undefined))
+      .map((id) => (products && products.length > 0 ? products.find((p) => p.id === id) : undefined))
       .filter(Boolean) as typeof PRODUCTS;
   }, [filteredCategoryProducts, currentShowcase, products]);
 
@@ -427,6 +322,12 @@ export const HomePage: React.FC = () => {
             </div>
           </div>
 
+          {!currentShowcase ? (
+            <div className="w-full py-10 text-center text-sm text-neutral-500 border border-dashed border-neutral-200 rounded-2xl bg-white">
+              {language === 'AR' ? 'لا توجد منتجات في هذا القسم' : 'No products found in this section'}
+            </div>
+          ) : (
+          <>
           {/* Desktop Layout: Unified Honor Architecture 1+4 Layout */}
           <div className="hidden lg:grid lg:grid-cols-12 gap-5 sm:gap-6 items-start w-full max-w-full">
             {/* Left Large Featured Card (Full width & height image with bottom gradient shade, Honor-style) */}
@@ -571,7 +472,7 @@ export const HomePage: React.FC = () => {
             <div className="flex items-center justify-between px-2 mb-3">
               <span className="text-xs font-semibold text-neutral-600 bg-white border border-neutral-200/80 px-3.5 py-1 rounded-full shadow-2xs">
                 {language === 'AR'
-                  ? `المنتج ${safeActiveSlide + 1} من ${totalMobileSlides}`
+                  ? `المنتج${safeActiveSlide + 1}من${totalMobileSlides}`
                   : `Item ${safeActiveSlide + 1} of ${totalMobileSlides}`}
               </span>
 
@@ -806,6 +707,8 @@ export const HomePage: React.FC = () => {
               ))}
             </div>
           </div>
+          </>
+          )}
         </div>
       </section>
       ) : null}

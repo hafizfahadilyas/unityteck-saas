@@ -321,28 +321,83 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
     }, 500);
   };
 
-  // Warranty serial number search
+  // Warranty serial — search real order/product metadata for this store only (no fake hits)
   const handleWarrantyCheck = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!serialInput.trim()) return;
+    const serial = serialInput.trim().toUpperCase();
+    if (!serial) return;
 
     setIsCheckingWarranty(true);
-    setTimeout(() => {
+    window.setTimeout(() => {
+      const needle = serial.toLowerCase();
+      const hit = (currentOrders || []).find((o) => {
+        const blob = JSON.stringify(o).toLowerCase();
+        return blob.includes(needle);
+      });
       setIsCheckingWarranty(false);
-      setWarrantyResult({ notFound: true, serial: serialInput.trim().toUpperCase() });
-      showToast(isAr ? 'لا يوجد سجل ضمان لهذا الرقم' : 'No warranty record for this serial');
-    }, 600);
+      if (!hit) {
+        setWarrantyResult({ notFound: true, serial });
+        showToast(isAr ? 'لا يوجد سجل ضمان محفوظ لهذا الرقم' : 'No saved warranty record for this serial');
+        return;
+      }
+      const item = Array.isArray((hit as { items?: Array<{ name?: string; nameAr?: string }> }).items)
+        ? (hit as { items: Array<{ name?: string; nameAr?: string }> }).items[0]
+        : null;
+      const orderDate = hit.date ? new Date(hit.date) : null;
+      const validUntil =
+        orderDate && !Number.isNaN(orderDate.getTime())
+          ? new Date(orderDate.getFullYear() + 2, orderDate.getMonth(), orderDate.getDate())
+              .toISOString()
+              .slice(0, 10)
+          : '—';
+      setWarrantyResult({
+        notFound: false,
+        serial,
+        status: isAr ? 'مسجّل مع الطلب' : 'Linked to order',
+        productName: isAr
+          ? item?.nameAr || item?.name || hit.orderNumber || hit.id
+          : item?.name || hit.orderNumber || hit.id,
+        validUntil,
+        center: storeIdentity?.city || (isAr ? 'مركز الخدمة المعتمد' : 'Authorized service center'),
+        coverage: isAr ? 'حسب سياسة ضمان المتجر للطلب المرتبط' : 'Per store warranty policy for the linked order',
+      });
+      showToast(isAr ? 'تم العثور على طلب مرتبط بهذا الرقم' : 'Found an order linked to this serial');
+    }, 200);
   };
 
-  // Contact form submission
-  const handleContactSubmit = (e: React.FormEvent) => {
+  // Contact form — persist per store_id (no fake success)
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setContactSent(true);
-    showToast(isAr ? 'تم استلام رسالتك وسيتم التواصل معك خلال ساعتين ✓' : 'Message received! Our team will contact you shortly ✓');
-    setTimeout(() => {
-      setContactSent(false);
-      setContactForm({ name: '', phone: '', email: '', message: '' });
-    }, 4000);
+    const storeId = activeStore?.id;
+    if (!storeId) {
+      showToast(isAr ? 'المتجر غير جاهز حالياً' : 'Store is not ready yet');
+      return;
+    }
+    if (!contactForm.name.trim() || !contactForm.message.trim()) {
+      showToast(isAr ? 'الاسم والرسالة مطلوبان' : 'Name and message are required');
+      return;
+    }
+    if (!contactForm.phone.trim() && !contactForm.email.trim()) {
+      showToast(isAr ? 'أدخل الجوال أو البريد الإلكتروني' : 'Enter phone or email');
+      return;
+    }
+    try {
+      const { submitStorefrontContact } = await import('../../../api/tenantApi');
+      await submitStorefrontContact(storeId, {
+        name: contactForm.name.trim(),
+        phone: contactForm.phone.trim() || undefined,
+        email: contactForm.email.trim() || undefined,
+        message: contactForm.message.trim(),
+      });
+      setContactSent(true);
+      showToast(isAr ? 'تم استلام رسالتك بنجاح' : 'Your message was received successfully');
+      setTimeout(() => {
+        setContactSent(false);
+        setContactForm({ name: '', phone: '', email: '', message: '' });
+      }, 4000);
+    } catch {
+      showToast(isAr ? 'تعذر إرسال الرسالة. حاول مرة أخرى.' : 'Could not send the message. Please try again.');
+    }
   };
 
   // Preset policy quick tabs
@@ -568,7 +623,9 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
                     </div>
 
                     <div className="p-3 bg-white rounded-xl border border-neutral-200 text-xs text-neutral-600 flex items-center justify-between">
-                      <span className="font-mono text-[11px]">AWB: {trackingResult.trackingNumber} ({trackingResult.courier})</span>
+                      <span className="font-mono text-[11px]">
+                        {isAr ? 'رقم التتبع:' : 'Tracking:'} {trackingResult.trackingNumber} ({trackingResult.courier})
+                      </span>
                       <a
                         href={`https://www.smsaexpress.com`}
                         target="_blank"
@@ -622,7 +679,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
                 {warrantyResult?.notFound ? (
                   <div className="p-5 rounded-2xl bg-neutral-50 border border-neutral-200 text-xs text-neutral-700">
                     {isAr
-                      ? `لا يوجد ضمان محفوظ للرقم ${warrantyResult.serial}.`
+                      ? `لا يوجد ضمان محفوظ للرقم${warrantyResult.serial}.`
                       : `No saved warranty for serial ${warrantyResult.serial}.`}
                   </div>
                 ) : warrantyResult ? (
@@ -635,7 +692,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
                         </h4>
                       </div>
                       <span className="text-xs font-mono font-bold text-emerald-800">
-                        S/N: {warrantyResult.serial}
+                        {isAr ? 'الرقم التسلسلي:' : 'S/N:'} {warrantyResult.serial}
                       </span>
                     </div>
 
@@ -650,34 +707,54 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
               </div>
             )}
 
-            {/* Interactive Feature: STORE LOCATOR SHOWROOMS */}
+            {/* Interactive Feature: STORE LOCATOR — real store identity only */}
             {effectiveSlug === 'store-locator' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white rounded-3xl p-6 border border-neutral-200/80 shadow-xs space-y-4">
+                <div className="bg-white rounded-3xl p-6 border border-neutral-200/80 shadow-xs space-y-4 md:col-span-2">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-black text-white flex items-center justify-center shrink-0">
                       <Building className="w-5 h-5 text-amber-400" />
                     </div>
                     <div>
                       <h3 className="font-extrabold text-neutral-900 text-sm">
-                        {isAr ? 'معرض الرياض الرئيسي · حي النرجس' : 'Riyadh Flagship Showroom'}
+                        {isAr
+                          ? storeIdentity?.storeNameAr || storeIdentity?.storeName || activeStore?.name || 'المتجر'
+                          : storeIdentity?.storeNameEn || storeIdentity?.storeName || activeStore?.name || 'Store'}
                       </h3>
                       <span className="text-[11px] text-emerald-600 font-bold block">
-                        {isAr ? 'مفتوح الآن · تجربة إسبريسو حية' : 'Open Now · Live Espresso Bar'}
+                        {storeIdentity?.city
+                          ? storeIdentity.city
+                          : isAr
+                            ? 'المدينة غير محفوظة'
+                            : 'City not saved'}
                       </span>
                     </div>
                   </div>
 
                   <p className="text-xs text-neutral-600 leading-relaxed">
-                    {isAr
-                      ? 'طريق أنس بن مالك، حي النرجس، الرياض 13324. يضم صالة تجربة المكائن بالكامل واستوديو تفصيل أركان القهوة.'
-                      : 'Anas Ibn Malik Road, Al-Narjis, Riyadh 13324. Features full machine lineup and custom corner studio.'}
+                    {(isAr ? storeIdentity?.addressAr : storeIdentity?.addressEn) ||
+                      (isAr ? 'لا يوجد عنوان محفوظ لهذا المتجر' : 'No address saved for this store')}
                   </p>
 
                   <div className="text-[11px] text-neutral-500 font-mono space-y-1">
-                    <div>🕒 {isAr ? 'السبت - الخميس: ٩:٠٠ ص - ١١:٠٠ م' : 'Sat - Thu: 9:00 AM - 11:00 PM'}</div>
-                    <div>🕒 {isAr ? 'الجمعة: ٢:٠٠ م - ١١:٠٠ م' : 'Friday: 2:00 PM - 11:00 PM'}</div>
-                    <div>📞 {isAr ? 'هاتف مباشر:' : 'Direct:'} 0501234567</div>
+                    {storeIdentity?.phone ? (
+                      <div>
+                        {isAr ? 'هاتف:' : 'Phone:'} {storeIdentity.phone}
+                      </div>
+                    ) : null}
+                    {storeIdentity?.whatsapp ? (
+                      <div>
+                        {isAr ? 'واتساب:' : 'WhatsApp:'} {storeIdentity.whatsapp}
+                      </div>
+                    ) : null}
+                    {storeIdentity?.email ? (
+                      <div>
+                        {isAr ? 'البريد:' : 'Email:'} {storeIdentity.email}
+                      </div>
+                    ) : null}
+                    {!storeIdentity?.phone && !storeIdentity?.whatsapp && !storeIdentity?.email ? (
+                      <div>{isAr ? 'لا توجد بيانات اتصال محفوظة' : 'No contact details saved'}</div>
+                    ) : null}
                   </div>
 
                   <a
@@ -687,45 +764,7 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
                     className="w-full py-2.5 rounded-xl bg-black hover:bg-neutral-800 text-white font-bold text-xs inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
                     <Navigation className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{isAr ? 'الموقع عبر Google Maps ↗' : 'Directions on Google Maps ↗'}</span>
-                  </a>
-                </div>
-
-                <div className="bg-white rounded-3xl p-6 border border-neutral-200/80 shadow-xs space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-black text-white flex items-center justify-center shrink-0">
-                      <Building className="w-5 h-5 text-amber-400" />
-                    </div>
-                    <div>
-                      <h3 className="font-extrabold text-neutral-900 text-sm">
-                        {isAr ? 'معرض جدة الرئيسي · حي الزهراء' : 'Jeddah Flagship Showroom'}
-                      </h3>
-                      <span className="text-[11px] text-emerald-600 font-bold block">
-                        {isAr ? 'مفتوح الآن · صالة التذوق' : 'Open Now · Tasting Lounge'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-neutral-600 leading-relaxed">
-                    {isAr
-                      ? 'طريق الملك عبدالعزيز، حي الزهراء، جدة 23424. مركز تجربة المكائن التجارية والمحمولة مع قسم استشارات باريستا.'
-                      : 'King Abdulaziz Road, Al-Zahra, Jeddah 23424. Demos for commercial and portable makers.'}
-                  </p>
-
-                  <div className="text-[11px] text-neutral-500 font-mono space-y-1">
-                    <div>🕒 {isAr ? 'السبت - الخميس: ١٠:٠٠ ص - ١١:٠٠ م' : 'Sat - Thu: 10:00 AM - 11:00 PM'}</div>
-                    <div>🕒 {isAr ? 'الجمعة: ٣:٠٠ م - ١١:٠٠ م' : 'Friday: 3:00 PM - 11:00 PM'}</div>
-                    <div>📞 {isAr ? 'هاتف مباشر:' : 'Direct:'} 0501234567</div>
-                  </div>
-
-                  <a
-                    href="https://maps.google.com"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full py-2.5 rounded-xl bg-black hover:bg-neutral-800 text-white font-bold text-xs inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <Navigation className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{isAr ? 'الموقع عبر Google Maps ↗' : 'Directions on Google Maps ↗'}</span>
+                    <span>{isAr ? 'الاتجاهات على الخرائط ↗' : 'Directions on Maps ↗'}</span>
                   </a>
                 </div>
               </div>

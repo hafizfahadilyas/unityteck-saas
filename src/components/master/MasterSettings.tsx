@@ -151,10 +151,10 @@ export const MasterSettings: React.FC = () => {
               borderColor: 'var(--border)',
               color: 'var(--text)',
             }}
-            title={isAr ? 'Switch Language to English' : 'تحويل اللغة إلى العربية'}
+            title={isAr ? 'التبديل إلى الإنجليزية' : 'تحويل اللغة إلى العربية'}
           >
             <Globe className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-            <span className="font-bold">{isAr ? 'English (EN)' : 'العربية (AR)'}</span>
+            <span className="font-bold">{isAr ? 'الإنجليزية' : 'العربية'}</span>
           </button>
 
           <button

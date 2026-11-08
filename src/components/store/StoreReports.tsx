@@ -674,7 +674,7 @@ export const StoreReports: React.FC = () => {
     const mktKpis = [
       { label: isAr ? 'إجمالي مبيعات التسويق' : 'Total Marketing Sales', value: computedTotalSales, change: computedTotalSales > 0 ? '+18%' : '0%', isMoney: true, icon: Megaphone, color: 'emerald' },
       { label: isAr ? 'إجمالي الإنفاق الإعلاني' : 'Total Ad Spend', value: Math.round(computedTotalSales * 0.22), change: computedTotalSales > 0 ? '+6%' : '0%', isMoney: true, icon: Target, color: 'rose' },
-      { label: isAr ? 'العائد على الإنفاق ROAS' : 'ROAS', value: computedTotalSales > 0 ? '4.5x' : '0.0x', change: computedTotalSales > 0 ? '+22%' : '0%', isMoney: false, icon: TrendingUp, color: 'blue' },
+      { label: isAr ? 'العائد على الإنفاق الإعلاني' : 'ROAS', value: computedTotalSales > 0 ? '4.5x' : '0.0x', change: computedTotalSales > 0 ? '+22%' : '0%', isMoney: false, icon: TrendingUp, color: 'blue' },
       { label: isAr ? 'عملاء جدد من الحملات' : 'New Customers from Marketing', value: computedCustomersCount, change: computedCustomersCount > 0 ? '+24%' : '0%', isMoney: false, icon: Users, color: 'purple' },
       { label: isAr ? 'معدل التحويل' : 'Conversion Rate', value: computedTotalOrders > 0 ? `${((computedTotalOrders / Math.max(1, computedVisits)) * 100).toFixed(1)}%` : '0%', change: computedTotalOrders > 0 ? '+14%' : '0%', isMoney: false, icon: ShoppingCart, color: 'amber' },
     ];
@@ -873,7 +873,7 @@ export const StoreReports: React.FC = () => {
           <div className="lg:col-span-4 p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                {isAr ? 'مسار التحويل (Funnel)' : 'Conversion Funnel'}
+                {isAr ? 'مسار التحويل مسار التحويل' : 'Conversion Funnel'}
               </h3>
               <span className="text-[11px] font-mono text-emerald-600 font-bold">2.8% Conversion</span>
             </div>
@@ -1308,7 +1308,7 @@ export const StoreReports: React.FC = () => {
     const customerSegmentsDonut = totalCustCount > 0 ? [
       { label: isAr ? 'عملاء جدد' : 'New Customers', value: Math.round((newCustomers / totalCustCount) * 100), color: '#3b82f6', formattedValue: `${newCustomers} (${Math.round((newCustomers / totalCustCount) * 100)}%)` },
       { label: isAr ? 'عملاء عائدون' : 'Returning', value: Math.round((returningCustomers / totalCustCount) * 100), color: '#10b981', formattedValue: `${returningCustomers} (${Math.round((returningCustomers / totalCustCount) * 100)}%)` },
-      ...(vipCustomers > 0 ? [{ label: isAr ? 'عملاء VIP' : 'VIP Customers', value: Math.round((vipCustomers / totalCustCount) * 100), color: '#a855f7', formattedValue: `${vipCustomers} (${Math.round((vipCustomers / totalCustCount) * 100)}%)` }] : []),
+      ...(vipCustomers > 0 ? [{ label: isAr ? 'كبار العملاء' : 'VIP Customers', value: Math.round((vipCustomers / totalCustCount) * 100), color: '#a855f7', formattedValue: `${vipCustomers} (${Math.round((vipCustomers / totalCustCount) * 100)}%)` }] : []),
       ...(atRiskCustomers > 0 ? [{ label: isAr ? 'معرضون للخسارة' : 'At Risk', value: Math.round((atRiskCustomers / totalCustCount) * 100), color: '#f59e0b', formattedValue: `${atRiskCustomers} (${Math.round((atRiskCustomers / totalCustCount) * 100)}%)` }] : []),
     ] : [];
 
@@ -1334,7 +1334,7 @@ export const StoreReports: React.FC = () => {
               {isAr ? 'تقرير وسلوك العملاء' : 'Customer & Cohorts Report'}
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {isAr ? 'تحليل القيمة الدائمة للعملاء (LTV)، معدلات الاحتفاظ والشرائح النشطة.' : 'Customer lifetime value cohorts, retention rates, and active segmentation.'}
+              {isAr ? 'تحليل القيمة الدائمة للعملاء القيمة الدائمة، معدلات الاحتفاظ والشرائح النشطة.' : 'Customer lifetime value cohorts, retention rates, and active segmentation.'}
             </p>
           </div>
 
@@ -1386,7 +1386,7 @@ export const StoreReports: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           <div className="lg:col-span-8 p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">{isAr ? 'تحليل مجموعات العملاء (Cohort Retention)' : 'Customer Retention Cohorts'}</h3>
+              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">{isAr ? 'تحليل مجموعات العملاء' : 'Customer Retention Cohorts'}</h3>
               <span className="text-xs font-bold text-emerald-600">{totalCustCount > 0 ? `${totalCustCount} Customers` : (isAr ? 'بيانات حقيقية' : 'Live Data')}</span>
             </div>
             <div className="overflow-x-auto">
@@ -1714,7 +1714,7 @@ export const StoreReports: React.FC = () => {
           { name: 'Apple Pay', orders: 0, sales: 0, fee: 0, share: '0%' },
           { name: 'mada (مدى)', orders: 0, sales: 0, fee: 0, share: '0%' },
           { name: 'Visa / MasterCard', orders: 0, sales: 0, fee: 0, share: '0%' },
-          { name: isAr ? 'الدفع عند الاستلام (COD)' : 'Cash on Delivery', orders: 0, sales: 0, fee: 0, share: '0%' },
+          { name: isAr ? 'الدفع عند الاستلام الدفع عند الاستلام' : 'Cash on Delivery', orders: 0, sales: 0, fee: 0, share: '0%' },
         ];
 
     return (
@@ -2359,7 +2359,7 @@ export const StoreReports: React.FC = () => {
                     shipping: 'channels',
                   };
                   handleTabSwitch(tabMap[cat.id] || 'overview');
-                  toast(isAr ? `فتح ${cat.title}...` : `Opening ${cat.title}...`, 'info');
+                  toast(isAr ? `فتح${cat.title}...` : `Opening ${cat.title}...`, 'info');
                 }}
                 className="p-5 bg-white dark:bg-slate-900 hover:bg-slate-50/80 dark:hover:bg-slate-800/60 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
               >

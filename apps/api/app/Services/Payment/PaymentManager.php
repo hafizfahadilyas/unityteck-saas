@@ -17,6 +17,7 @@ class PaymentManager
             'tabby' => new TabbyGatewayService(),
             'tamara' => new TamaraGatewayService(),
             'cod' => new CodPaymentService(),
+            'bank_transfer' => new BankTransferGatewayService(),
             default => throw new InvalidArgumentException("Unsupported payment provider: {$provider}"),
         };
     }

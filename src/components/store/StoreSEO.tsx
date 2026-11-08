@@ -132,6 +132,28 @@ export const StoreSEO: React.FC = () => {
   const [isSubmittingIndex, setIsSubmittingIndex] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  /** Sidebar deep-link: Search Console / Tag Manager */
+  useEffect(() => {
+    const applySeoView = (view: unknown) => {
+      if (view === 'search-console') setActiveSubTab('console');
+      else if (view === 'gtm') setActiveSubTab('google_tags');
+    };
+    const onSeoView = (e: Event) => {
+      applySeoView((e as CustomEvent).detail);
+    };
+    window.addEventListener('unityteck-seo-view', onSeoView);
+    try {
+      const saved = sessionStorage.getItem('unityteck-seo-view');
+      if (saved) {
+        applySeoView(saved);
+        sessionStorage.removeItem('unityteck-seo-view');
+      }
+    } catch {
+      /* storage may be unavailable */
+    }
+    return () => window.removeEventListener('unityteck-seo-view', onSeoView);
+  }, []);
+
   // ⚡ Zero-Touch Auto-Pilot Engine State
   const [isAutoPilotSyncing, setIsAutoPilotSyncing] = useState(false);
   const [autoPilotLastSync, setAutoPilotLastSync] = useState<string>(() => {
@@ -203,7 +225,7 @@ export const StoreSEO: React.FC = () => {
           if (!silent) {
             toast(
               isAr
-                ? `تمت أرشفة وتحديث (${urlsToSubmit.length}) رابط تلقائياً بنجاح في Google Indexing API`
+                ? `تمت أرشفة وتحديث (${urlsToSubmit.length}) رابط تلقائياً بنجاح في جوجل واجهة الفهرسة`
                 : `Successfully auto-indexed (${urlsToSubmit.length}) store URLs with Google Indexing API`,
               'success'
             );
@@ -363,7 +385,7 @@ export const StoreSEO: React.FC = () => {
           indexingApiEnabled: Boolean(res?.site_kit?.indexing_homepage_pinged),
         });
         toast(
-          isAr ? `تم ربط جوجل لهذا المتجر: ${savedEmail}` : `Google connected for this store: ${savedEmail}`,
+          isAr ? `تم ربط جوجل لهذا المتجر:${savedEmail}` : `Google connected for this store: ${savedEmail}`,
           'success',
         );
       },
@@ -664,10 +686,10 @@ export const StoreSEO: React.FC = () => {
               ? 'بريد دخول هذا المتجر غير محفوظ. بعد حفظه يربط المالك حسابه بنفسه.'
               : 'This store has no login email yet. After it is saved, the owner connects their own account.')}
             {seoSetupStep(activeStore) === 'need_domain' && (isAr
-              ? `البريد ${storeGoogleEmail(activeStore)} جاهز. النطاق العام غير مربوط، لذلك تبقى هذه الخطوة معلقة. بعد إضافة النطاق يفتح المالك بريده من زر الربط. لا حاجة لتكرار ذلك من الإدارة لكل متجر.`
+              ? `البريد${storeGoogleEmail}جاهز. النطاق العام غير مربوط، لذلك تبقى هذه الخطوة معلقة. بعد إضافة النطاق يفتح المالك بريده من زر الربط. لا حاجة لتكرار ذلك من الإدارة لكل متجر.`
               : `Email ${storeGoogleEmail(activeStore)} is ready. The public domain is not linked yet, so this step waits. After the domain is added, the owner signs in from the connect button. Master does not repeat this for every store.`)}
             {seoSetupStep(activeStore) === 'ready' && (isAr
-              ? `النطاق ${storePublicHost(activeStore)} والبريد ${storeGoogleEmail(activeStore)} جاهزان. المالك يسجّل الدخول ببريده مرة واحدة. الأرقام تأتي من جوجل بعد ذلك، ولا تُخترع هنا.`
+              ? `النطاق${storePublicHost}والبريد${storeGoogleEmail}جاهزان. المالك يسجّل الدخول ببريده مرة واحدة. الأرقام تأتي من جوجل بعد ذلك، ولا تُخترع هنا.`
               : `Domain ${storePublicHost(activeStore)} and email ${storeGoogleEmail(activeStore)} are ready. The owner signs in with that email once. Numbers come from Google after that, and are not invented here.`)}
           </div>
           {/* Services Matrix (4 Google Services: GA4, GSC, GTM, Indexing) */}
@@ -735,7 +757,7 @@ export const StoreSEO: React.FC = () => {
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                 <span className="font-mono text-[11px] text-slate-600 dark:text-slate-400">
                   {currentSEOConfig.googleConnected
-                    ? (isAr ? `${currentSEOConfig.totalSearchClicks || 0} نقرة` : `${currentSEOConfig.totalSearchClicks || 0} clicks`)
+                    ? (isAr ? `${currentSEOConfig.totalSearchClicks || 0}نقرة` : `${currentSEOConfig.totalSearchClicks || 0} clicks`)
                     : '—'}
                 </span>
                 <button
@@ -811,7 +833,7 @@ export const StoreSEO: React.FC = () => {
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                 <span className="font-mono text-[11px] text-slate-600 dark:text-slate-400">
                   {currentSEOConfig.googleConnected
-                    ? (isAr ? `${currentSEOConfig.indexedUrlsCount || 0} صفحة` : `${currentSEOConfig.indexedUrlsCount || 0} pages`)
+                    ? (isAr ? `${currentSEOConfig.indexedUrlsCount || 0}صفحة` : `${currentSEOConfig.indexedUrlsCount || 0} pages`)
                     : '—'}
                 </span>
                 <button
@@ -910,7 +932,7 @@ export const StoreSEO: React.FC = () => {
               <p className="text-xs text-slate-500 max-w-md mx-auto">
                 {pageSpeedError ||
                   (isAr
-                    ? `اضغط على زر الفحص لقياس أداء ومؤشرات الويب الحقيقية لمتجر ${activeStore.nameAr || activeStore.name} عبر واجهة Google الرسمية.`
+                    ? `اضغط على زر الفحص لقياس أداء ومؤشرات الويب الحقيقية لمتجر${activeStore.nameAr || activeStore.name}عبر واجهة جوجل الرسمية.`
                     : `Click Run Audit to measure genuine performance, SEO, accessibility, and Core Web Vitals via the official Google PageSpeed API.`)}
               </p>
               <button
@@ -1014,7 +1036,7 @@ export const StoreSEO: React.FC = () => {
                   </div>
                   {pageSpeedData.auditedAt && (
                     <span className="text-[10px] text-slate-400 font-medium">
-                      {isAr ? `آخر فحص: ${pageSpeedData.auditedAt}` : `Last audit: ${pageSpeedData.auditedAt}`}
+                      {isAr ? `آخر فحص:${pageSpeedData.auditedAt}` : `Last audit: ${pageSpeedData.auditedAt}`}
                     </span>
                   )}
                 </div>
@@ -1071,7 +1093,7 @@ export const StoreSEO: React.FC = () => {
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>
                       {isAr
-                        ? `لا توجد فرص فاشلة ضمن أعلى التشخيصات. اجتاز ${pageSpeedData.passedAuditsCount || 0} فحصاً.`
+                        ? `لا توجد فرص فاشلة ضمن أعلى التشخيصات. اجتاز${pageSpeedData.passedAuditsCount || 0}فحصاً.`
                         : `No failing opportunities in the top diagnostics. ${pageSpeedData.passedAuditsCount || 0} audits passed.`}
                     </span>
                   </div>
@@ -1257,7 +1279,7 @@ export const StoreSEO: React.FC = () => {
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-300 max-w-3xl leading-relaxed">
                   {isAr
-                    ? 'لا تحتاج إلى كتابة أو إرسال أي رابط يدوياً! محرك الأتمتة يفحص متجرك باستمرار ويرسل روابط المتجر الرئيسية وصفحات المنتجات وخرائط sitemap.xml تلقائياً إلى خوارزميات Googlebot فور توفرها.'
+                    ? 'لا تحتاج إلى كتابة أو إرسال أي رابط يدوياً! محرك الأتمتة يفحص متجرك باستمرار ويرسل روابط المتجر الرئيسية وصفحات المنتجات وخرائط ملف خريطة الموقع تلقائياً إلى خوارزميات Googlebot فور توفرها.'
                     : 'Zero manual submissions required! The autonomous auto-pilot continuously indexes your store routes, catalog pages, and new product URLs directly with Googlebot.'}
                 </p>
               </div>
@@ -1585,7 +1607,7 @@ export const StoreSEO: React.FC = () => {
                     className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer"
                   >
                     {copiedKey === 'gtm' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedKey === 'gtm' ? 'Copied' : 'Copy'}</span>
+                    <span>{copiedKey === 'gtm' ? (isAr ? 'تم النسخ' : 'Copied') : (isAr ? 'نسخ' : 'Copy')}</span>
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
@@ -1787,7 +1809,7 @@ export const StoreSEO: React.FC = () => {
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {isAr
-                  ? `مرتبط تلقائياً بمعرف الماستر (${gtmId} / ${ga4Id}) دون الحاجة لإعداد يدوي.`
+                  ? `مرتبط تلقائياً بمعرف الماستر (${gtmId}/${ga4Id}) دون الحاجة لإعداد يدوي.`
                   : `Automatically connected via Master Zero-Touch Umbrella (${gtmId} / ${ga4Id}) — zero manual setup required.`}
               </p>
             </div>
@@ -1804,7 +1826,7 @@ export const StoreSEO: React.FC = () => {
                 });
                 toast(
                   isAr
-                    ? 'تم إصلاح جميع الروابط المعطلة (301)، وترويسات H1/H2، ونصوص Alt، وتفعيل الفهرسة التلقائية بنجاح!'
+                    ? 'تم إصلاح جميع الروابط المعطلة ، وترويسات H1/H2، ونصوص Alt، وتفعيل الفهرسة التلقائية بنجاح!'
                     : 'All Broken Links (301), H1/H2 headings, Image Alt tags, Backlinks & Auto-Indexing fixed 100%!',
                   'success',
                 );
@@ -1815,7 +1837,7 @@ export const StoreSEO: React.FC = () => {
               <Sparkles className="w-4 h-4" />
               <span>
                 {isAr
-                  ? 'إصلاح الكل تلقائياً بالذكاء الاصطناعي (1-Click Fix All)'
+                  ? 'إصلاح الكل تلقائياً بالذكاء الاصطناعي'
                   : '1-Click Auto-Fix All SEO & Broken Links'}
               </span>
             </button>

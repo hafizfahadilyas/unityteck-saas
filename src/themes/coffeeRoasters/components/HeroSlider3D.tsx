@@ -239,8 +239,9 @@ export interface HeroSlider3DProps {
 }
 
 export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', banners = null }) => {
-  const { navigateTo, language, addToCart, triggerFlyToCart } = useCart();
+  const { navigateTo, language, addToCart, triggerFlyToCart, products } = useCart();
   const { activeStore } = useTenant();
+  const catalogProducts = Array.isArray(products) ? products : [];
 
   const [settingsVersion, setSettingsVersion] = useState(0);
 
@@ -436,10 +437,13 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                 <button
                   type="button"
                   onClick={(e) => {
+                    const prod =
+                      catalogProducts.find((p) => p.id === activeShopSlide.productId) ||
+                      PRODUCTS.find((p) => p.id === activeShopSlide.productId);
+                    if (!prod) return;
                     const rect = e.currentTarget.getBoundingClientRect();
-                    triggerFlyToCart(rect, activeShopSlide.image);
-                    const prod = PRODUCTS.find((p) => p.id === activeShopSlide.productId) || PRODUCTS[0];
                     addToCart(prod, undefined, undefined, undefined, undefined, false);
+                    triggerFlyToCart(rect, activeShopSlide.image);
                   }}
                   className="px-5 py-2.5 rounded-full border border-black text-black font-bold text-xs sm:text-sm hover:bg-black/5 active:scale-95 transition-transform inline-flex items-center gap-1.5"
                 >
@@ -632,7 +636,9 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
   const currentTitle = language === 'AR' ? activeSlide.titleAr : activeSlide.titleEn;
   const { boldPart, lightPart } = splitBannerHeading(currentTitle, language);
 
-  const matchedProduct = PRODUCTS.find((p) => p.id === activeSlide.productId) || PRODUCTS[0];
+  const matchedProduct =
+    catalogProducts.find((p) => p.id === activeSlide.productId) ||
+    PRODUCTS.find((p) => p.id === activeSlide.productId);
   const activeTagline =
     language === 'AR'
       ? activeSlide.taglineAr || matchedProduct?.taglineAr
@@ -781,6 +787,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                       </button>
 
                       {/* Add to Cart button */}
+                      {matchedProduct ? (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -795,6 +802,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                         <ShoppingBag className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4 sm:h-4 text-black stroke-[2.2] shrink-0 transition-transform duration-200 group-hover/addcart:scale-110" />
                         <span className="text-black font-bold">{language === 'AR' ? 'أضف للسلة' : 'Add to Cart'}</span>
                       </button>
+                      ) : null}
 
                       {/* Desktop Learn More button */}
                       <button
@@ -923,7 +931,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                   e.preventDefault();
                   goToSlide(idx);
                 }}
-                aria-label={language === 'AR' ? `الانتقال إلى الشريحة ${idx + 1}` : `Go to slide ${idx + 1}`}
+                aria-label={language === 'AR' ? `الانتقال إلى الشريحة${idx + 1}` : `Go to slide ${idx + 1}`}
                 className="group relative flex items-center justify-center min-w-9 min-h-9 cursor-pointer"
               >
                 <span

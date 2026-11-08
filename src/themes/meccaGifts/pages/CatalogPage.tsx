@@ -351,7 +351,7 @@ export const CatalogPage: React.FC = () => {
                   ? (isAr ? 'محاصيل وتحميص المحمصة الحرفية' : 'Artisan Roastery Special Edits')
                   : isCar
                   ? (isAr ? 'خدمات تنجيد ودعاسات السيارات الفاخرة' : 'Luxury Auto Upholstery')
-                  : (isAr ? `${activeStore?.nameAr || 'هدايا مكة'} الفاخرة` : `${activeStore?.nameEn || 'Mecca Gifts'} Luxury Edits`)}
+                  : (isAr ? `${activeStore?.nameAr || 'هدايا مكة'}الفاخرة` : `${activeStore?.nameEn || 'Mecca Gifts'} Luxury Edits`)}
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold font-serif">
@@ -824,7 +824,7 @@ export const CatalogPage: React.FC = () => {
                                     const sNameEn = activeStore?.nameEn || activeStore?.name || (isCoffee ? 'Specialty Coffee Roasters' : 'Hadaya Mecca');
                                     const sPhone = (activeStore?.contactPhone || '966567115867').replace(/[^0-9]/g, '');
                                     const text = isAr
-                                      ? `مرحباً ${sNameAr}، أود طلب المنتج: *${pName}* بسعر ${product.price} ر.س.`
+                                      ? `مرحباً${sNameAr}، أود طلب المنتج: *${pName}* بسعر${product.price}ر.س.`
                                       : `Hello ${sNameEn}, I want to order *${pName}* for ${product.price} SAR.`;
                                     window.open(`https://wa.me/${sPhone}?text=${encodeURIComponent(text)}`, '_blank');
                                   }}

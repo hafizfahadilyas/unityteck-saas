@@ -78,7 +78,25 @@ import {
   getDefaultBlankTemplate,
   getDefaultNicheStarterTemplate,
   type CanvaDesignTemplate,
+  type CanvaTemplateCategory,
 } from '../../data/ksaCanvaTemplates';
+import {
+  CANVA_UPLOAD_CATEGORIES,
+  importDesignFile,
+  type ImportedStudioDesign,
+  type ImportedStudioLayer,
+} from '../../services/canvaPsdImport';
+import {
+  deleteMyCanvaTemplate,
+  listMyCanvaTemplates,
+  myTemplateToDesignPayload,
+  saveMyCanvaTemplate,
+  type CanvaMyTemplate,
+} from '../../services/canvaMyTemplates';
+import {
+  ensureReadableTextStyle,
+  resolveCanvasApproxColor,
+} from '../../services/canvaTextContrast';
 import { CanvaTemplatesPanel } from './CanvaTemplatesPanel';
 import { CanvaSocialPostModal } from './CanvaSocialPostModal';
 import '../../styles/canva-studio-light.css';
@@ -311,6 +329,13 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
   // Selected Template ID — blank by default (no consulting clutter)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>('blank-square');
+
+  // PSD / image design upload → layers + My Templates (store_id)
+  const [uploadCategory, setUploadCategory] = useState<CanvaTemplateCategory>('banner');
+  const [isImportingDesign, setIsImportingDesign] = useState(false);
+  const [myTemplates, setMyTemplates] = useState<CanvaMyTemplate[]>([]);
+  const [lastImported, setLastImported] = useState<ImportedStudioDesign | null>(null);
+  const designFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Undo / Redo History Stack
   const [history, setHistory] = useState<StudioHistorySnapshot[]>([]);
@@ -785,7 +810,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
           ctx.beginPath();
           ctx.moveTo(el.x - w / 2, el.y);
           ctx.lineTo(el.x + w / 2, el.y);
-          ctx.strokeStyle = el.strokeColor || el.bgColor || '#ffffff';
+          ctx.strokeStyle = el.strokeColor || el.bgColor || '#0f172a';
           ctx.lineWidth = el.strokeWidth || 3;
           ctx.stroke();
         } else {
@@ -867,6 +892,17 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         return;
       }
 
+      const canvasApprox = resolveCanvasApproxColor(
+        selectedBackdrop,
+        customSolidColor,
+        gradientColor2,
+      );
+      const readable = ensureReadableTextStyle(el.fontColor, el.bgColor, canvasApprox, {
+        preferPill: el.type === 'headline' || el.type === 'subtitle' || el.type === 'custom_text',
+      });
+      const drawFontColor = readable.fontColor;
+      const drawBgColor = readable.bgColor;
+
       const family = el.fontFamily || (isAr ? 'Tajawal' : 'Outfit');
       const weightMap: Record<NonNullable<CanvasElement['fontWeight']>, number> = {
         light: 300,
@@ -909,14 +945,14 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       const boxY = el.y - boxH / 2;
 
       // Draw Element Background Box
-      if (el.bgColor && el.bgColor !== 'transparent') {
+      if (drawBgColor && drawBgColor !== 'transparent') {
         if (el.shadowEnabled) {
           ctx.shadowColor = el.shadowColor || 'rgba(0,0,0,0.35)';
           ctx.shadowBlur = el.shadowBlur ?? 10;
           ctx.shadowOffsetX = el.shadowOffsetX ?? 0;
           ctx.shadowOffsetY = el.shadowOffsetY ?? 3;
         }
-        ctx.fillStyle = el.bgColor;
+        ctx.fillStyle = drawBgColor;
         ctx.beginPath();
         ctx.roundRect(boxX, boxY, boxW, boxH, rad);
         ctx.fill();
@@ -934,7 +970,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       }
 
       // Text border (stroke) + optional text shadow
-      if (el.shadowEnabled && (!el.bgColor || el.bgColor === 'transparent')) {
+      if (el.shadowEnabled && (!drawBgColor || drawBgColor === 'transparent')) {
         ctx.shadowColor = el.shadowColor || 'rgba(0,0,0,0.4)';
         ctx.shadowBlur = el.shadowBlur ?? 8;
         ctx.shadowOffsetX = el.shadowOffsetX ?? 1;
@@ -950,7 +986,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
           ctx.lineJoin = 'round';
           ctx.strokeText(line, el.x, ly);
         }
-        ctx.fillStyle = el.fontColor || '#0f172a';
+        ctx.fillStyle = drawFontColor;
         ctx.fillText(line, el.x, ly);
 
         const metrics = ctx.measureText(line);
@@ -961,7 +997,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
         if (el.underline) {
           ctx.beginPath();
-          ctx.strokeStyle = el.fontColor || '#0f172a';
+          ctx.strokeStyle = drawFontColor;
           ctx.lineWidth = Math.max(1, el.fontSize * 0.06);
           const uy = ly + el.fontSize * 0.45;
           ctx.moveTo(lineLeft, uy);
@@ -970,7 +1006,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         }
         if (el.strikethrough) {
           ctx.beginPath();
-          ctx.strokeStyle = el.fontColor || '#0f172a';
+          ctx.strokeStyle = drawFontColor;
           ctx.lineWidth = Math.max(1, el.fontSize * 0.06);
           ctx.moveTo(lineLeft, ly);
           ctx.lineTo(lineRight, ly);
@@ -983,8 +1019,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       if (
         el.strokeColor &&
         (el.strokeWidth || 0) > 0 &&
-        el.bgColor &&
-        el.bgColor !== 'transparent' &&
+        drawBgColor &&
+        drawBgColor !== 'transparent' &&
         !el.badgeStyle
       ) {
         ctx.strokeStyle = el.strokeColor;
@@ -1056,7 +1092,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     if (!res.allowed) {
       toast(
         isAr
-          ? `انتهت الحصة الحالية (${quota.slotUsed}/${quota.slotLimit}). تفتح الحصة التالية بعد: ${slotCountdownText || 'قريباً'}!`
+          ? `انتهت الحصة الحالية (${quota.slotUsed}/${quota.slotLimit}). تفتح الحصة التالية بعد:${slotCountdownText || 'قريباً'}!`
           : `Current batch limit reached (${quota.slotUsed}/${quota.slotLimit}). Next slot opens in: ${slotCountdownText || 'soon'}!`,
         'error',
       );
@@ -1078,6 +1114,32 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     }, 600);
   };
 
+  const formatStudioPrice = (price: number | string | undefined | null): string => {
+    if (price == null || price === '') return '';
+    return `${price} ${isAr ? 'ر.س' : 'SAR'}`;
+  };
+
+  const resolveDynamicLayerText = (
+    layer: { type: string; textEn?: string; textAr?: string },
+    idx: number,
+  ): string => {
+    const fallback = (isAr ? layer.textAr || layer.textEn : layer.textEn) || '';
+    const product = currentProducts[0];
+    const storeLabel = (isAr ? activeStore.nameAr || activeStore.name : activeStore.name) || '';
+
+    if (layer.type === 'headline' && product) {
+      const pname = isAr ? product.nameAr || product.name : product.name;
+      if (pname) return pname;
+    }
+    if (layer.type === 'price' && product?.price != null && product.price !== '') {
+      return formatStudioPrice(product.price);
+    }
+    if ((layer.type === 'badge' || layer.type === 'subtitle') && idx === 0 && storeLabel && !fallback.trim()) {
+      return storeLabel;
+    }
+    return fallback;
+  };
+
   // Apply Template
   const applyCanvaTemplate = (template: CanvaDesignTemplate) => {
     setSelectedTemplateId(template.id);
@@ -1091,40 +1153,225 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     setProductPosY(Math.round(template.productPosPct.y * template.height));
     setProductScale(template.productPosPct.scale);
 
-    const mapped: CanvasElement[] = template.elements.map((layer, idx) => ({
-      id: `el-${Date.now()}-${idx}`,
-      type: layer.type,
-      text: (isAr ? layer.textAr || layer.textEn : layer.textEn) || '',
-      x: Math.round(layer.xPct * template.width),
-      y: Math.round(layer.yPct * template.height),
-      width: layer.widthPct ? Math.round(layer.widthPct * template.width) : 120,
-      height: layer.heightPct ? Math.round(layer.heightPct * template.height) : 120,
-      fontSize: layer.fontSize || 24,
-      fontColor: layer.fontColor || '#0f172a',
-      bgColor: layer.bgColor || 'transparent',
-      bgPadding: layer.bgPadding ?? 14,
-      borderRadius: layer.borderRadius ?? 16,
-      isBold: layer.isBold ?? true,
-      isItalic: layer.isItalic ?? false,
-      textAlign: layer.textAlign || 'center',
-      badgeStyle: layer.badgeStyle,
-      fontFamily: layer.fontFamily || (isAr ? 'Tajawal' : 'Outfit'),
-      shapeType: layer.shapeType,
-      strokeColor: layer.strokeColor,
-      strokeWidth: layer.strokeWidth,
-      opacity: layer.opacity,
-      icon: layer.icon,
-      imageUrl: layer.imageUrl,
-    }));
+    const canvasApprox = resolveCanvasApproxColor(
+      template.backdropId,
+      template.customSolidColor || customSolidColor,
+      gradientColor2,
+    );
+
+    const mapped: CanvasElement[] = template.elements.map((layer, idx) => {
+      const readable = ensureReadableTextStyle(
+        layer.fontColor || '#0f172a',
+        layer.bgColor || 'transparent',
+        canvasApprox,
+        { preferPill: layer.type === 'headline' || layer.type === 'subtitle' },
+      );
+      return {
+        id: `el-${Date.now()}-${idx}`,
+        type: layer.type,
+        text: resolveDynamicLayerText(layer, idx),
+        x: Math.round(layer.xPct * template.width),
+        y: Math.round(layer.yPct * template.height),
+        width: layer.widthPct ? Math.round(layer.widthPct * template.width) : 120,
+        height: layer.heightPct ? Math.round(layer.heightPct * template.height) : 120,
+        fontSize: layer.fontSize || 24,
+        fontColor: readable.fontColor,
+        bgColor: readable.bgColor,
+        bgPadding: layer.bgPadding ?? 14,
+        borderRadius: layer.borderRadius ?? 16,
+        isBold: layer.isBold ?? true,
+        isItalic: layer.isItalic ?? false,
+        textAlign: layer.textAlign || 'center',
+        badgeStyle: layer.badgeStyle,
+        fontFamily: layer.fontFamily || (isAr ? 'Tajawal' : 'Outfit'),
+        shapeType: layer.shapeType,
+        strokeColor: layer.strokeColor,
+        strokeWidth: layer.strokeWidth,
+        opacity: layer.opacity,
+        icon: layer.icon,
+        imageUrl: layer.imageUrl,
+      };
+    });
 
     setElements(mapped);
     setSelectedElementId(mapped[0]?.id || null);
     setDocTitle(isAr ? template.nameAr || template.nameEn : template.nameEn);
-    pushHistorySnapshot();
+    pushHistorySnapshot(mapped);
     toast(
       isAr ? `تم تطبيق القالب: ${template.nameAr}` : `Template applied: ${template.nameEn}`,
       'success',
     );
+  };
+
+  const mapImportedLayers = (layers: ImportedStudioLayer[]): CanvasElement[] => {
+    const canvasApprox = '#ffffff';
+    return layers.map((layer, idx) => {
+      const isTextLayer =
+        layer.type !== 'image' &&
+        layer.type !== 'shape' &&
+        layer.type !== 'icon' &&
+        Boolean(layer.text?.trim());
+      const readable = isTextLayer
+        ? ensureReadableTextStyle(layer.fontColor, layer.bgColor, canvasApprox, {
+            preferPill: true,
+          })
+        : {
+            fontColor: layer.fontColor || '#0f172a',
+            bgColor: layer.bgColor || 'transparent',
+          };
+      return {
+        id: layer.id || `el-${Date.now()}-${idx}`,
+        type: layer.type,
+        text: layer.text || '',
+        x: layer.x,
+        y: layer.y,
+        width: layer.width,
+        height: layer.height,
+        fontSize: layer.fontSize || 24,
+        fontColor: readable.fontColor,
+        bgColor: readable.bgColor,
+        isBold: layer.isBold ?? true,
+        isItalic: layer.isItalic ?? false,
+        textAlign: layer.textAlign || 'center',
+        opacity: layer.opacity ?? 1,
+        imageUrl: layer.imageUrl,
+        locked: layer.locked,
+        fontFamily: isAr ? 'Tajawal' : 'Outfit',
+        borderRadius: 0,
+        bgPadding: 14,
+      };
+    });
+  };
+
+  const preloadLayerImages = (layers: CanvasElement[]): Promise<void> => {
+    const urls = layers.map((l) => l.imageUrl).filter((u): u is string => Boolean(u));
+    if (!urls.length) return Promise.resolve();
+    return Promise.all(
+      urls.map(
+        (url) =>
+          new Promise<void>((resolve) => {
+            const existing = imageCacheRef.current[url];
+            if (existing?.complete && existing.naturalWidth > 0) {
+              resolve();
+              return;
+            }
+            const img = new Image();
+            img.onload = () => {
+              imageCacheRef.current[url] = img;
+              resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = url;
+            imageCacheRef.current[url] = img;
+          }),
+      ),
+    ).then(() => undefined);
+  };
+
+  const applyImportedDesign = (
+    design: ImportedStudioDesign,
+    opts?: { templateId?: string; keepCategory?: boolean },
+  ) => {
+    setCanvasW(design.width);
+    setCanvasH(design.height);
+    setSelectedBackdrop('custom');
+    setCustomSolidColor('#ffffff');
+    setProductScale(0);
+    setProductPosX(Math.round(design.width / 2));
+    setProductPosY(Math.round(design.height / 2));
+
+    const mapped = mapImportedLayers(design.layers);
+    setElements(mapped);
+    setSelectedElementId(mapped[0]?.id || null);
+    setDocTitle(design.name);
+    setSelectedTemplateId(opts?.templateId || `import-${design.source}`);
+    setLastImported(design);
+    if (design.categoryHint && !opts?.keepCategory) {
+      setUploadCategory(design.categoryHint);
+    }
+    pushHistorySnapshot(mapped);
+    void preloadLayerImages(mapped).then(() => {
+      setElements((prev) => [...prev]);
+    });
+    toast(
+      isAr
+        ? `تم فتح التصميم · ${mapped.length} طبقة قابلة للتعديل`
+        : `Design loaded · ${mapped.length} editable layer(s)`,
+      'success',
+    );
+  };
+
+  const refreshMyTemplates = useCallback(async () => {
+    if (!activeStore?.id) {
+      setMyTemplates([]);
+      return;
+    }
+    const rows = await listMyCanvaTemplates(activeStore.id);
+    setMyTemplates(rows);
+  }, [activeStore?.id]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    void refreshMyTemplates();
+  }, [isOpen, refreshMyTemplates]);
+
+  const handleSaveAsMyTemplate = async () => {
+    if (!activeStore?.id) return;
+    if (elements.length === 0) {
+      toast(isAr ? 'أضف طبقات قبل الحفظ.' : 'Add layers before saving.', 'error');
+      return;
+    }
+    try {
+      const preview =
+        canvasRef.current?.toDataURL('image/webp', 0.9) || lastImported?.previewDataUrl;
+      const layers: ImportedStudioLayer[] = elements.map((el) => ({
+        id: el.id,
+        type: el.type,
+        text: el.text,
+        x: el.x,
+        y: el.y,
+        width: el.width || 120,
+        height: el.height || 120,
+        fontSize: el.fontSize,
+        fontColor: el.fontColor,
+        bgColor: el.bgColor,
+        isBold: el.isBold,
+        isItalic: el.isItalic,
+        textAlign: el.textAlign,
+        opacity: el.opacity,
+        imageUrl: el.imageUrl,
+        locked: el.locked,
+      }));
+      const saved = await saveMyCanvaTemplate({
+        storeId: activeStore.id,
+        category: uploadCategory,
+        nameEn: docTitle || 'My template',
+        nameAr: docTitle || 'قالبي',
+        width: canvasW,
+        height: canvasH,
+        source: lastImported?.source || 'studio',
+        layers,
+        previewDataUrl: preview,
+      });
+      await refreshMyTemplates();
+      setSelectedTemplateId(saved.id);
+      toast(
+        isAr ? 'تم حفظ القالب في قوالبي لهذا المتجر.' : 'Saved to My Templates for this store.',
+        'success',
+      );
+    } catch (err) {
+      const code = err instanceof Error ? err.message : '';
+      toast(
+        code === 'TEMPLATE_LIMIT'
+          ? isAr
+            ? 'وصلت للحد الأقصى من القوالب المرفوعة.'
+            : 'Upload template limit reached.'
+          : isAr
+            ? 'تعذر حفظ القالب.'
+            : 'Could not save template.',
+        'error',
+      );
+    }
   };
 
   // Add Shape to Canvas
@@ -1175,6 +1422,10 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   // Quick Add Text Element — black text on light canvas (Canva default)
   const handleAddTextElement = (type: CanvasElement['type'], defaultText: string) => {
     const isFilled = type === 'price' || type === 'badge';
+    const canvasApprox = resolveCanvasApproxColor(selectedBackdrop, customSolidColor, gradientColor2);
+    const baseFont = isFilled ? '#ffffff' : '#0f172a';
+    const baseBg = type === 'price' ? '#059669' : type === 'badge' ? '#e11d48' : 'transparent';
+    const readable = ensureReadableTextStyle(baseFont, baseBg, canvasApprox);
     const newEl: CanvasElement = {
       id: `el-${Date.now()}`,
       type,
@@ -1182,17 +1433,20 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       x: Math.round(canvasW / 2),
       y: Math.round(canvasH / 2) + (elements.length % 5) * 35,
       fontSize: type === 'headline' ? 38 : type === 'price' ? 30 : 20,
-      fontColor: isFilled ? '#ffffff' : '#0f172a',
-      bgColor: type === 'price' ? '#059669' : type === 'badge' ? '#e11d48' : 'transparent',
+      fontColor: readable.fontColor,
+      bgColor: readable.bgColor,
       bgPadding: 16,
       borderRadius: 20,
       isBold: true,
       textAlign: 'center',
       fontFamily: isAr ? 'Tajawal' : 'Outfit',
     };
-    setElements((prev) => [...prev, newEl]);
+    setElements((prev) => {
+      const next = [...prev, newEl];
+      queueMicrotask(() => pushHistorySnapshot(next));
+      return next;
+    });
     setSelectedElementId(newEl.id);
-    pushHistorySnapshot();
     toast(isAr ? 'تمت إضافة النص إلى التصميم!' : 'Text added to design!', 'info');
   };
 
@@ -1214,18 +1468,24 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       textAlign: 'center',
       fontFamily: isAr ? 'Tajawal' : 'Outfit',
     };
-    setElements((prev) => [...prev, newBadge]);
+    setElements((prev) => {
+      const next = [...prev, newBadge];
+      queueMicrotask(() => pushHistorySnapshot(next));
+      return next;
+    });
     setSelectedElementId(newBadge.id);
-    pushHistorySnapshot();
     toast(isAr ? 'تمت إضافة الشارة!' : 'Badge sticker added!', 'info');
   };
 
   // Delete Selected Element
   const handleDeleteSelected = () => {
     if (!selectedElementId) return;
-    setElements((prev) => prev.filter((el) => el.id !== selectedElementId));
+    setElements((prev) => {
+      const next = prev.filter((el) => el.id !== selectedElementId);
+      queueMicrotask(() => pushHistorySnapshot(next));
+      return next;
+    });
     setSelectedElementId(null);
-    pushHistorySnapshot();
   };
 
   // Duplicate Selected Element
@@ -1239,9 +1499,12 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       x: Math.min(target.x + 35, canvasW - 50),
       y: Math.min(target.y + 35, canvasH - 50),
     };
-    setElements((prev) => [...prev, dup]);
+    setElements((prev) => {
+      const next = [...prev, dup];
+      queueMicrotask(() => pushHistorySnapshot(next));
+      return next;
+    });
     setSelectedElementId(dup.id);
-    pushHistorySnapshot();
   };
 
   // Update selected element — commit=true pushes undo snapshot
@@ -1443,7 +1706,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     }
   };
 
-  // Upload PNG/JPG/WebP as a selectable image layer (Canva-style)
+  // Upload PNG/JPG/WebP as one extra image layer on current canvas
   const handleUploadLocalFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1486,6 +1749,40 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     };
     reader.readAsDataURL(file);
     e.target.value = '';
+  };
+
+  /** Full design import: Canva PSD / PNG → replace canvas with editable layers */
+  const handleImportDesignFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setIsImportingDesign(true);
+    try {
+      const design = await importDesignFile(file);
+      applyImportedDesign(design);
+      setActiveTab('layers');
+    } catch (err) {
+      const code = err instanceof Error ? err.message : '';
+      const msg =
+        code === 'PSD_TOO_LARGE' || code === 'IMAGE_TOO_LARGE'
+          ? isAr
+            ? 'الملف كبير جداً.'
+            : 'File is too large.'
+          : code === 'PSD_NO_LAYERS'
+            ? isAr
+              ? 'لا توجد طبقات قابلة للقراءة في الملف.'
+              : 'No readable layers in that file.'
+            : code === 'UNSUPPORTED_FILE'
+              ? isAr
+                ? 'الصيغ المدعومة: بي إس دي، بي إن جي، جيه بي جيه، ويب بي.'
+                : 'Supported: PSD, PNG, JPG, WebP.'
+              : isAr
+                ? 'تعذر استيراد التصميم.'
+                : 'Could not import that design.';
+      toast(msg, 'error');
+    } finally {
+      setIsImportingDesign(false);
+    }
   };
 
   // Export Canvas as High-Res Data URL
@@ -1539,7 +1836,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
   const layerLabel = (el: CanvasElement) => {
     if (el.type === 'image') return el.text || (isAr ? 'صورة' : 'Image');
-    if (el.type === 'shape') return isAr ? `شكل · ${el.shapeType || ''}` : `Shape · ${el.shapeType || ''}`;
+    if (el.type === 'shape') return isAr ? `شكل ·${el.shapeType || ''}` : `Shape · ${el.shapeType || ''}`;
     if (el.type === 'icon') return isAr ? 'أيقونة' : 'Icon';
     return (el.text || el.type).split('\n')[0].slice(0, 28) || el.type;
   };
@@ -1598,7 +1895,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                         setCanvasW(preset.w);
                         setCanvasH(preset.h);
                         setShowResizeMenu(false);
-                        toast(isAr ? `تم تغيير المقاس إلى ${preset.w}×${preset.h}` : `Resized to ${preset.w}×${preset.h}`, 'info');
+                        toast(isAr ? `تم تغيير المقاس إلى${preset.w}×${preset.h}` : `Resized to ${preset.w}×${preset.h}`, 'info');
                       }}
                       className="w-full px-2.5 py-1.5 rounded-lg text-start text-xs font-bold hover:bg-slate-100 flex items-center justify-between cursor-pointer text-slate-800"
                     >
@@ -1646,7 +1943,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               onClick={handleUndo}
               disabled={historyIndex <= 0}
               className="p-1.5 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 cursor-pointer"
-              title={isAr ? 'تراجع (Ctrl+Z)' : 'Undo (Ctrl+Z)'}
+              title={isAr ? 'تراجع' : 'Undo (Ctrl+Z)'}
             >
               <Undo2 className="w-4 h-4" />
             </button>
@@ -1655,7 +1952,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               onClick={handleRedo}
               disabled={historyIndex >= history.length - 1}
               className="p-1.5 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 cursor-pointer"
-              title={isAr ? 'إعادة (Ctrl+Y)' : 'Redo (Ctrl+Y)'}
+              title={isAr ? 'إعادة' : 'Redo (Ctrl+Y)'}
             >
               <Redo2 className="w-4 h-4" />
             </button>
@@ -1745,7 +2042,30 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                   isAr={isAr}
                   selectedTemplateId={selectedTemplateId}
                   activeImageUrl={activeImageUrl}
+                  myTemplates={myTemplates}
                   onApply={applyCanvaTemplate}
+                  onApplyMyTemplate={(tpl) => {
+                    const payload = myTemplateToDesignPayload(tpl);
+                    applyImportedDesign(
+                      {
+                        width: payload.width,
+                        height: payload.height,
+                        name: isAr ? tpl.nameAr || tpl.nameEn : tpl.nameEn,
+                        source: tpl.source === 'studio' ? 'image' : tpl.source,
+                        layers: payload.layers,
+                        previewDataUrl: payload.previewDataUrl,
+                        categoryHint: tpl.category,
+                      },
+                      { templateId: tpl.id, keepCategory: true },
+                    );
+                    setUploadCategory(tpl.category);
+                  }}
+                  onDeleteMyTemplate={async (tplId) => {
+                    await deleteMyCanvaTemplate(activeStore.id, tplId);
+                    await refreshMyTemplates();
+                    toast(isAr ? 'تم حذف القالب.' : 'Template deleted.', 'info');
+                  }}
+                  onOpenUploadTab={() => setActiveTab('media')}
                   onRequestPro={() => {
                     toast(
                       isAr ? 'القوالب الإضافية متاحة مع باقة برو.' : 'Extra templates unlock with Pro.',
@@ -1755,7 +2075,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                   onSelectFormatPreset={(w, h, label) => {
                     setCanvasW(w);
                     setCanvasH(h);
-                    toast(isAr ? `المقاس: ${label}` : `Design size: ${label}`, 'info');
+                    toast(isAr ? `المقاس:${label}` : `Design size: ${label}`, 'info');
                   }}
                 />
               </div>
@@ -2024,85 +2344,118 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               <div className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black uppercase text-slate-400">
+                    <span className="text-xs font-black uppercase text-slate-500">
                       {isAr ? 'منتجات المتجر (نقرة واحدة للإدراج)' : 'Store Products'}
                     </span>
-                    <span className="text-[10px] text-emerald-400">{currentProducts.length}</span>
+                    <span className="text-[10px] text-emerald-700 font-bold">{currentProducts.length}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pe-1">
-                    {currentProducts.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => {
-                          loadStudioImage(p.image);
-                          handleAddTextElement('headline', p.name);
-                          if (p.price) {
-                            handleAddTextElement('price', `${p.price} SAR`);
-                          }
-                          toast(isAr ? `تم إدراج منتج: ${p.name}` : `Product loaded: ${p.name}`, 'success');
-                        }}
-                        className="p-2 rounded-xl border border-slate-800 bg-slate-800/60 hover:border-emerald-500 text-start flex flex-col justify-between cursor-pointer transition-all group"
-                      >
-                        <div className="aspect-square rounded-lg bg-black/40 overflow-hidden mb-1.5 flex items-center justify-center p-1">
-                          <img src={p.image} alt={p.name} className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform" />
-                        </div>
-                        <span className="text-[10px] font-bold text-white truncate w-full">{p.name}</span>
-                        <span className="text-[9px] text-emerald-400 font-mono font-bold">{p.price} SAR</span>
-                      </button>
-                    ))}
-                  </div>
+                  {currentProducts.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-500 border border-dashed border-slate-200 rounded-xl bg-slate-50">
+                      {isAr ? 'لا توجد منتجات في هذا المتجر' : 'No products in this store'}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pe-1">
+                      {currentProducts.map((p) => {
+                        const label = isAr ? p.nameAr || p.name : p.name;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              loadStudioImage(p.image);
+                              handleAddTextElement('headline', label);
+                              if (p.price != null && p.price !== '') {
+                                handleAddTextElement('price', formatStudioPrice(p.price));
+                              }
+                              toast(
+                                isAr ? `تم إدراج منتج: ${label}` : `Product loaded: ${label}`,
+                                'success',
+                              );
+                            }}
+                            className="p-2 rounded-xl border border-slate-200 bg-white hover:border-emerald-500 text-start flex flex-col justify-between cursor-pointer transition-all group"
+                          >
+                            <div className="aspect-square rounded-lg bg-slate-100 overflow-hidden mb-1.5 flex items-center justify-center p-1">
+                              <img
+                                src={p.image}
+                                alt={label}
+                                className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform"
+                              />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-900 truncate w-full">{label}</span>
+                            <span className="text-[9px] text-emerald-700 font-mono font-bold">
+                              {formatStudioPrice(p.price)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Categories */}
-                <div className="space-y-2 pt-2 border-t border-slate-800">
-                  <span className="text-xs font-black uppercase text-slate-400">
+                <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <span className="text-xs font-black uppercase text-slate-500">
                     {isAr ? 'تصنيفات المتجر' : 'Store Categories'}
                   </span>
                   <div className="space-y-1.5">
-                    {activeStore.categories?.map((cat, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => {
-                          handleAddTextElement('headline', cat);
-                          handleAddTextElement('subtitle', isAr ? 'تسوق تشكيلة التصنيف كاملة' : 'Browse full collection');
-                          toast(isAr ? `تم إدراج تصنيف: ${cat}` : `Category added: ${cat}`, 'info');
-                        }}
-                        className="w-full p-2.5 rounded-xl border border-slate-800 bg-slate-800/60 hover:bg-slate-800 text-xs font-bold text-start flex items-center justify-between cursor-pointer"
-                      >
-                        <span>{cat}</span>
-                        <Plus className="w-3.5 h-3.5 text-purple-400" />
-                      </button>
-                    ))}
+                    {(activeStore.categories?.length ?? 0) === 0 ? (
+                      <div className="py-4 text-center text-xs text-slate-500">
+                        {isAr ? 'لا توجد تصنيفات' : 'No categories'}
+                      </div>
+                    ) : (
+                      activeStore.categories?.map((cat, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            handleAddTextElement('headline', cat);
+                            handleAddTextElement(
+                              'subtitle',
+                              isAr ? 'تسوق تشكيلة التصنيف كاملة' : 'Browse full collection',
+                            );
+                            toast(
+                              isAr ? `تم إدراج تصنيف: ${cat}` : `Category added: ${cat}`,
+                              'info',
+                            );
+                          }}
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-500 text-xs font-bold text-slate-800 text-start flex items-center justify-between cursor-pointer"
+                        >
+                          <span>{cat}</span>
+                          <Plus className="w-3.5 h-3.5 text-emerald-600" />
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
 
                 {/* Store Logo */}
                 {activeStore.logo && (
-                  <div className="pt-2 border-t border-slate-800">
+                  <div className="pt-2 border-t border-slate-200">
                     <button
                       type="button"
                       onClick={() => {
                         const newLogoEl: CanvasElement = {
                           id: `logo-${Date.now()}`,
                           type: 'image',
-                          text: activeStore.name,
+                          text: isAr ? activeStore.nameAr || activeStore.name : activeStore.name,
                           imageUrl: activeStore.logo,
                           x: Math.round(canvasW * 0.15),
                           y: Math.round(canvasH * 0.12),
                           width: 120,
                           height: 120,
                           fontSize: 16,
-                          fontColor: '#ffffff',
+                          fontColor: '#0f172a',
                           borderRadius: 16,
                         };
-                        setElements((prev) => [...prev, newLogoEl]);
+                        setElements((prev) => {
+                          const next = [...prev, newLogoEl];
+                          queueMicrotask(() => pushHistorySnapshot(next));
+                          return next;
+                        });
                         setSelectedElementId(newLogoEl.id);
-                        pushHistorySnapshot();
                         toast(isAr ? 'تمت إضافة شعار المتجر!' : 'Store logo added to canvas!', 'info');
                       }}
-                      className="w-full p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-950/20 text-emerald-300 hover:bg-emerald-900/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full p-2.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <ImageIcon className="w-4 h-4" />
                       <span>{isAr ? 'إدراج شعار المتجر على التصميم' : 'Insert store logo'}</span>
@@ -2198,7 +2551,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                   {/* 3 Color Pickers */}
                   <div className="grid grid-cols-3 gap-2">
                     <div className="flex flex-col items-center gap-1">
-                      <span className="text-[9px] text-slate-400">Color 1</span>
+                      <span className="text-[9px] text-slate-400">{isAr ? 'اللون 1' : 'Color 1'}</span>
                       <input
                         type="color"
                         value={gradientColor1}
@@ -2210,7 +2563,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                       />
                     </div>
                     <div className="flex flex-col items-center gap-1">
-                      <span className="text-[9px] text-slate-400">Color 2</span>
+                      <span className="text-[9px] text-slate-400">{isAr ? 'اللون 2' : 'Color 2'}</span>
                       <input
                         type="color"
                         value={gradientColor2}
@@ -2222,7 +2575,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                       />
                     </div>
                     <div className="flex flex-col items-center gap-1">
-                      <span className="text-[9px] text-slate-400">Color 3</span>
+                      <span className="text-[9px] text-slate-400">{isAr ? 'اللون 3' : 'Color 3'}</span>
                       <input
                         type="color"
                         value={gradientColor3}
@@ -2241,6 +2594,77 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
             {/* 6. MEDIA & UPLOADS */}
             {activeTab === 'media' && (
               <div className="space-y-4">
+                <div className="space-y-2 p-3 rounded-xl border border-emerald-200 bg-emerald-50/60">
+                  <div className="text-[11px] font-black text-slate-900">
+                    {isAr
+                      ? 'رفع تصميم من كانفا أو فوتوشوب'
+                      : 'Upload from Canva / Photoshop'}
+                  </div>
+                  <p className="text-[10px] text-slate-600 leading-relaxed">
+                    {isAr
+                      ? 'من كانفا: نزّل كملف بي إس دي أو صورة، ثم ارفعه هنا. الطبقات تُفتح للتعديل (بنر، إعلان، منشور، شعار، منتج…).'
+                      : 'From Canva: download as PSD or image, then upload here. Layers open editable (banner, ads, post, logo, product…).'}
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {CANVA_UPLOAD_CATEGORIES.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setUploadCategory(c.id)}
+                        className={`px-2 py-1 rounded-lg text-[9px] font-black border cursor-pointer ${
+                          uploadCategory === c.id
+                            ? 'text-white border-transparent'
+                            : 'border-slate-200 bg-white text-slate-700'
+                        }`}
+                        style={
+                          uploadCategory === c.id
+                            ? { background: 'var(--accent, #1d8b94)' }
+                            : undefined
+                        }
+                      >
+                        {isAr ? c.labelAr : c.labelEn}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isImportingDesign}
+                    onClick={() => designFileInputRef.current?.click()}
+                    className="w-full p-3 rounded-xl border-2 border-dashed border-emerald-400 hover:border-emerald-600 bg-white flex flex-col items-center justify-center text-center cursor-pointer transition-colors disabled:opacity-60"
+                  >
+                    <input
+                      ref={designFileInputRef}
+                      type="file"
+                      accept=".psd,image/vnd.adobe.photoshop,image/png,image/jpeg,image/webp,image/*"
+                      className="hidden"
+                      onChange={handleImportDesignFile}
+                    />
+                    <Upload className="w-6 h-6 text-emerald-700 mb-1.5" />
+                    <span className="text-xs font-bold text-slate-900">
+                      {isImportingDesign
+                        ? isAr
+                          ? 'جاري الاستيراد…'
+                          : 'Importing…'
+                        : isAr
+                          ? 'رفع بي إس دي أو صورة كاملة كطبقات'
+                          : 'Upload PSD / full image as layers'}
+                    </span>
+                    <span className="text-[10px] text-slate-500 mt-0.5">
+                      {isAr
+                        ? 'يستبدل اللوحة الحالية بطبقات قابلة للتعديل'
+                        : 'Replaces canvas with editable layers'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveAsMyTemplate()}
+                    className="w-full py-2 rounded-lg text-[11px] font-black text-white cursor-pointer"
+                    style={{ background: 'var(--accent, #1d8b94)' }}
+                  >
+                    {isAr ? 'حفظ كقالب في قوالبي' : 'Save as My Template'}
+                  </button>
+                </div>
+
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   className="p-4 rounded-xl border-2 border-dashed border-slate-300 hover:border-violet-500 bg-slate-50 hover:bg-violet-50 flex flex-col items-center justify-center text-center cursor-pointer transition-colors"
@@ -2254,10 +2678,10 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                   />
                   <Upload className="w-6 h-6 text-violet-600 mb-1.5" />
                   <span className="text-xs font-bold text-slate-900">
-                    {isAr ? 'رفع صورة أو ملف بي إن جي' : 'Upload PNG / JPG / WebP'}
+                    {isAr ? 'إضافة صورة كطبقة إضافية' : 'Add image as extra layer'}
                   </span>
                   <span className="text-[10px] text-slate-500 mt-0.5">
-                    {isAr ? 'تُضاف كطبقة قابلة للسحب والتعديل' : 'Adds as a draggable editable layer'}
+                    {isAr ? 'تُضاف فوق التصميم الحالي' : 'Adds on top of the current design'}
                   </span>
                 </div>
 
@@ -3167,7 +3591,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         imageUrl={socialExportDataUrl}
         defaultCaption={
           isAr
-            ? `عروض مميزة وحصرية من متجر ${activeStore.name}! ✨ توصيل سريع لكافة مدن المملكة ودفع عند الاستلام. اطلب الآن!\n\n#متجر_سعودي #عروض_السعودية #الرياض`
+            ? `عروض مميزة وحصرية من متجر${activeStore.name}! ✨ توصيل سريع لكافة مدن المملكة ودفع عند الاستلام. اطلب الآن!\n\n#متجر_سعودي #عروض_السعودية #الرياض`
             : `Exclusive special offer from ${activeStore.name}! ✨ Express shipping across KSA. Order now!\n\n#SaudiMade #KSAShop #Deals`
         }
         onOpenSocialHub={onOpenSocialHub}

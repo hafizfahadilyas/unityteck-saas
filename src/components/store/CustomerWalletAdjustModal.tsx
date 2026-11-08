@@ -314,7 +314,7 @@ export const CustomerWalletAdjustModal: React.FC<Props> = ({
                   {opt.label}
                   {!opt.enabled && opt.value !== 'none'
                     ? isAr
-                      ? ' (غير متصل)'
+                      ? '(غير متصل)'
                       : ' (Not connected)'
                     : ''}
                 </option>

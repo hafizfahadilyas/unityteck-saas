@@ -208,7 +208,7 @@ export const MasterControlCenter: React.FC = () => {
 
     toast(
       isAr
-        ? `تم ${nextVal ? 'تفعيل' : 'تعطيل'} "${item.nameAr}" لـ ${currentTargetName}`
+        ? `تم${nextVal ? 'تفعيل': 'تعطيل'}"${item.nameAr}" لـ${currentTargetName}`
         : `${nextVal ? 'Enabled' : 'Disabled'} "${item.nameEn}" for ${currentTargetName}`,
       nextVal ? 'success' : 'info'
     );
@@ -240,7 +240,7 @@ export const MasterControlCenter: React.FC = () => {
     setControls(updated);
     toast(
       isAr
-        ? `تم تعطيل كافة الصفحات والمكونات لـ ${currentTargetName}`
+        ? `تم تعطيل كافة الصفحات والمكونات لـ${currentTargetName}`
         : `All pages & components disabled for ${currentTargetName}`,
       'warning'
     );
@@ -282,7 +282,7 @@ export const MasterControlCenter: React.FC = () => {
     setControls(updated);
     toast(
       isAr
-        ? `تم ${enable ? 'تفعيل' : 'تعطيل'} جميع عناصر هذه الفئة`
+        ? `تم${enable ? 'تفعيل': 'تعطيل'}جميع عناصر هذه الفئة`
         : `Category items ${enable ? 'enabled' : 'disabled'}`,
       'success'
     );
@@ -725,7 +725,7 @@ export const MasterControlCenter: React.FC = () => {
               </h2>
               <p className="text-xs" style={{ color: 'var(--muted)' }}>
                 {isAr
-                  ? 'زيادة الحدود اليومية وتصفير المؤقتات فوراً عند الدفع: (1) توليد الصور Canva AI (2) رسائل واتساب 24h (3) إعلانات السعودية (4) جدولة السوشيال ميديا (5) SEO و GTM4.'
+                  ? 'زيادة الحدود اليومية وتصفير المؤقتات فوراً عند الدفع: توليد الصور Canva AI رسائل واتساب 24h إعلانات السعودية جدولة السوشيال ميديا SEO و GTM4.'
                   : 'Increase daily limits, boost speed & reset timers per store: (1) AI Image Studio (2) WhatsApp 24h Msg (3) KSA Ads Wallet (4) Social Auto-Scheduler (5) SEO & GTM4.'}
               </p>
             </div>
@@ -815,7 +815,7 @@ export const MasterControlCenter: React.FC = () => {
                           setQuotaRefreshTick((t) => t + 1);
                           toast(
                             isAr
-                              ? `تم ترقية كافة الخدمات الـ 5 وزيادة الحدود والسرعة لمتجر ${displayName}!`
+                              ? `تم ترقية كافة الخدمات الـ 5 وزيادة الحدود والسرعة لمتجر${displayName}!`
                               : `All 5 services upgraded, limits boosted & timers unlocked for ${displayName}!`,
                             'success',
                           );
@@ -886,11 +886,11 @@ export const MasterControlCenter: React.FC = () => {
                           onClick={() => {
                             masterApproveStudioPro(st.id, Math.max(stQuota.dailyLimit, 50));
                             setQuotaRefreshTick((t) => t + 1);
-                            toast(isAr ? 'تم تفعيل Pro وتصفير المؤقت' : 'Unlocked AI Pro & Reset 24h Timer', 'success');
+                            toast(isAr ? 'تم تفعيل الباقة الاحترافية وتصفير المؤقت' : 'Unlocked AI Pro & Reset 24h Timer', 'success');
                           }}
                           className="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-black text-white bg-amber-600 hover:bg-amber-700 cursor-pointer"
                         >
-                          {isAr ? 'تفعيل Pro (50/يوم)' : 'Unlock Pro (50/Day)'}
+                          {isAr ? 'تفعيل الباقة الاحترافية (50/يوم)' : 'Unlock Pro (50/Day)'}
                         </button>
                         <button
                           type="button"
@@ -1056,7 +1056,7 @@ export const MasterControlCenter: React.FC = () => {
                           className="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-black text-white bg-cyan-600 hover:bg-cyan-700 cursor-pointer"
                         >
                           {stWallet.pendingTopUpSar > 0
-                            ? isAr ? `اعتماد +${stWallet.pendingTopUpSar} ر.س` : `Approve +${stWallet.pendingTopUpSar} SAR`
+                            ? isAr ? `اعتماد +${stWallet.pendingTopUpSar}ر.س` : `Approve +${stWallet.pendingTopUpSar} SAR`
                             : isAr ? '+1,000 ر.س للمحفظة' : '+1,000 SAR Wallet'}
                         </button>
                       </div>
@@ -1152,7 +1152,7 @@ export const MasterControlCenter: React.FC = () => {
                         <div className="flex items-center justify-between">
                           <span className="font-black text-teal-500 flex items-center gap-1">
                             <Globe className="w-3.5 h-3.5" />
-                            {isAr ? '5. الأرشفة و GTM4 و SEO' : '5. SEO, GTM4 & Indexing'}
+                            {isAr ? '٥. الأرشفة ومدير العلامات وتحسين محركات البحث' : '5. SEO, GTM4 & Indexing'}
                           </span>
                           <span className="font-mono font-black text-emerald-500">
                             {stSeoScore}/100
@@ -1198,7 +1198,7 @@ export const MasterControlCenter: React.FC = () => {
                           }}
                           className="w-full py-1.5 px-2 rounded-xl text-[11px] font-black text-white bg-teal-600 hover:bg-teal-700 cursor-pointer"
                         >
-                          {isAr ? 'ربط GTM4 + إصلاح شامل لـ SEO' : 'Auto-Connect GTM4 & Fix All SEO'}
+                          {isAr ? 'ربط مدير العلامات وإصلاح شامل لتحسين محركات البحث' : 'Auto-Connect GTM4 & Fix All SEO'}
                         </button>
                       </div>
                     </div>
@@ -1407,15 +1407,7 @@ export const MasterControlCenter: React.FC = () => {
                 <Info className="w-4 h-4 text-cyan-500" />
                 <span>
                   {isAr
-                    ? `إجراءات جماعية لكافة عناصر "${
-                        activeCategory === 'store_admin_pages'
-                          ? 'صفحات لوحة التحكم'
-                          : activeCategory === 'store_admin_subpages'
-                          ? 'الصفحات الفرعية'
-                          : activeCategory === 'storefront_pages'
-                          ? 'صفحات المتجر'
-                          : 'المكونات المباشرة'
-                      }"`
+                    ? `إجراءات جماعية لكافة عناصر "${ activeCategory === 'store_admin_pages' ? 'صفحات لوحة التحكم': activeCategory === 'store_admin_subpages' ? 'الصفحات الفرعية': activeCategory === 'storefront_pages' ? 'صفحات المتجر': 'المكونات المباشرة' }"`
                     : `Bulk actions for this category (${filteredItems.length} items)`}
                 </span>
               </div>
@@ -1586,7 +1578,7 @@ export const MasterControlCenter: React.FC = () => {
               </h3>
               <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
                 {isAr
-                  ? `أنت على وشك تعميم هذه الإعدادات الحالية (${activeCount} مفعل / ${disabledCount} معطل) على جميع المتاجر النشطة (${stores.length} متاجر). سيتم تحديث صلاحيات وظهور الصفحات لكافة العملاء فوراً.`
+                  ? `أنت على وشك تعميم هذه الإعدادات الحالية (${activeCount}مفعل /${disabledCount}معطل) على جميع المتاجر النشطة (${stores.length}متاجر). سيتم تحديث صلاحيات وظهور الصفحات لكافة العملاء فوراً.`
                   : `You are about to publish the current control settings (${activeCount} active / ${disabledCount} disabled) across all ${stores.length} active merchant stores immediately.`}
               </p>
             </div>

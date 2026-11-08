@@ -207,10 +207,10 @@ export const BestSellersSection: React.FC<BestSellersSectionProps> = ({
             const discountPct = hasDiscount
               ? Math.round(((origPrice - item.price) / origPrice) * 100)
               : 20;
-            const discountBadge = isAr ? `خصم ${discountPct}%` : `${discountPct}% OFF`;
+            const discountBadge = isAr ? `خصم${discountPct}%` : `${discountPct}% OFF`;
 
             const waText = isAr
-              ? `السلام عليكم، أود طلب المنتج: *${name}* بسعر ${item.price} ر.س من متجر ${activeStore?.name || 'الزهور'}`
+              ? `السلام عليكم، أود طلب المنتج: *${name}* بسعر${item.price}ر.س من متجر${activeStore?.name || 'الزهور'}`
               : `Hello, I would like to order: *${name}* for SAR ${item.price} from ${activeStore?.name || 'Flowers Store'}`;
             const waUrl = `https://wa.me/${cleanPhone || '966500000000'}?text=${encodeURIComponent(waText)}`;
 
@@ -288,11 +288,11 @@ export const BestSellersSection: React.FC<BestSellersSectionProps> = ({
                   {/* Price Row: Emerald bold price + strikethrough compare price */}
                   <div className="flex items-baseline gap-2 pt-0.5">
                     <span className="text-xl sm:text-2xl font-extrabold text-[#0e4e3e] dark:text-emerald-400 font-mono tracking-tight">
-                      {isAr ? `${item.price} ر.س` : `SAR ${item.price}`}
+                      {isAr ? `${item.price}ر.س` : `SAR ${item.price}`}
                     </span>
                     {hasDiscount && (
                       <span className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 line-through font-semibold font-mono">
-                        {isAr ? `${origPrice} ر.س` : `SAR ${origPrice}`}
+                        {isAr ? `${origPrice}ر.س` : `SAR ${origPrice}`}
                       </span>
                     )}
                   </div>

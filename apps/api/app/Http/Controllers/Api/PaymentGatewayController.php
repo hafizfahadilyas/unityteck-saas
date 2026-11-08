@@ -23,6 +23,8 @@ class PaymentGatewayController extends Controller
             return $storeId;
         }
 
+        $this->ensureFreePaymentDefaults($storeId);
+
         $gateways = PaymentGateway::query()->forStore($storeId)->get();
 
         $data = $gateways->map(function ($g) {
@@ -98,9 +100,37 @@ class PaymentGatewayController extends Controller
         if (isset($data['transaction_fee_percent'])) $gateway->transaction_fee_percent = $data['transaction_fee_percent'];
         if (isset($data['transaction_fee_fixed'])) $gateway->transaction_fee_fixed = $data['transaction_fee_fixed'];
 
-        $gateway->status = 'connected';
-        $gateway->last_tested_at = now();
-        $gateway->save();
+        // Zero-mock: COD / bank transfer need no keys. Card/BNPL only "connected" after live test.
+        $keyless = in_array($gateway->provider, ['cod', 'bank_transfer'], true);
+        if ($keyless) {
+            $gateway->status = 'connected';
+            $gateway->last_tested_at = now();
+            $gateway->save();
+        } else {
+            $hasSecret = !empty($gateway->secret_key) || !empty($gateway->api_key);
+            if (!$hasSecret) {
+                $gateway->status = 'disconnected';
+                $gateway->save();
+
+                return response()->json([
+                    'message' => 'API secret key is required before this gateway can connect.',
+                ], 422);
+            }
+            $gateway->status = 'pending';
+            $gateway->save();
+
+            try {
+                $service = PaymentManager::resolve($gateway->provider);
+                $result = $service->testConnection($gateway);
+                $gateway->last_tested_at = now();
+                $gateway->status = ($result['success'] ?? false) ? 'connected' : 'error';
+                $gateway->save();
+            } catch (\Throwable $e) {
+                $gateway->status = 'error';
+                $gateway->last_tested_at = now();
+                $gateway->save();
+            }
+        }
 
         return response()->json([
             'data' => [
@@ -109,12 +139,14 @@ class PaymentGatewayController extends Controller
                 'title' => $gateway->title,
                 'is_enabled' => $gateway->is_enabled,
                 'is_sandbox' => $gateway->is_sandbox,
-                'status' => 'connected',
+                'status' => $gateway->status,
                 'webhook_url' => url("/api/webhooks/payments/{$gateway->provider}?store_id={$gateway->store_id}"),
-                'last_tested_at' => $gateway->last_tested_at->toIso8601String(),
+                'last_tested_at' => $gateway->last_tested_at?->toIso8601String(),
             ],
-            'message' => 'Payment gateway connection saved securely.',
-        ]);
+            'message' => $gateway->status === 'connected'
+                ? 'Payment gateway connection saved securely.'
+                : 'Credentials saved but connection test failed. Fix keys and test again.',
+        ], $gateway->status === 'connected' ? 200 : 422);
     }
 
     public function test(Request $request, string $id): JsonResponse
@@ -305,6 +337,7 @@ class PaymentGatewayController extends Controller
 
     /**
      * Public Storefront: Available payment methods for active store
+     * Zero-mock: only methods whose provider is enabled + connected in DB.
      */
     public function storefrontMethods(Request $request): JsonResponse
     {
@@ -319,13 +352,16 @@ class PaymentGatewayController extends Controller
         }
         $storeId = $this->canonicalStoreId($rawStore);
 
+        $this->ensureFreePaymentDefaults($storeId);
+
         $dbGateways = PaymentGateway::query()
             ->forStore($storeId)
             ->where('is_enabled', true)
-            ->get();
+            ->where('status', 'connected')
+            ->get()
+            ->keyBy('provider');
 
-        // Baseline Saudi payment catalog
-        $defaultMethods = [
+        $catalog = [
             [
                 'id' => 'mada',
                 'provider' => 'moyasar',
@@ -333,7 +369,6 @@ class PaymentGatewayController extends Controller
                 'name_en' => 'Mada Debit Card',
                 'badge_ar' => 'الدفع الفوري الوطني',
                 'badge_en' => 'National Instant Debit',
-                'is_enabled' => true,
                 'is_instant' => true,
                 'type' => 'card',
                 'icon' => 'mada',
@@ -341,11 +376,10 @@ class PaymentGatewayController extends Controller
             [
                 'id' => 'apple_pay',
                 'provider' => 'moyasar',
-                'name_ar' => 'آبل باي (Apple Pay)',
+                'name_ar' => 'آبل باي',
                 'name_en' => 'Apple Pay',
                 'badge_ar' => 'نقرة واحدة سريعة',
                 'badge_en' => 'One-Tap Checkout',
-                'is_enabled' => true,
                 'is_instant' => true,
                 'type' => 'digital_wallet',
                 'icon' => 'apple_pay',
@@ -357,7 +391,6 @@ class PaymentGatewayController extends Controller
                 'name_en' => 'Credit / Debit Card',
                 'badge_ar' => 'دولي ومحلي',
                 'badge_en' => 'Visa / Mastercard',
-                'is_enabled' => true,
                 'is_instant' => true,
                 'type' => 'card',
                 'icon' => 'card',
@@ -367,9 +400,8 @@ class PaymentGatewayController extends Controller
                 'provider' => 'tabby',
                 'name_ar' => 'تابي - قسّمها على 4 دفعات بدون فوائد',
                 'name_en' => 'Tabby - Split in 4 Interest-Free',
-                'badge_ar' => '0% فوائد ورسوم',
+                'badge_ar' => 'بدون فوائد ورسوم',
                 'badge_en' => '0% Interest',
-                'is_enabled' => true,
                 'is_instant' => false,
                 'type' => 'bnpl',
                 'icon' => 'tabby',
@@ -382,7 +414,6 @@ class PaymentGatewayController extends Controller
                 'name_en' => 'Tamara - Split in 4 Easy Payments',
                 'badge_ar' => 'متوافقة مع الشريعة',
                 'badge_en' => 'Sharia Compliant',
-                'is_enabled' => true,
                 'is_instant' => false,
                 'type' => 'bnpl',
                 'icon' => 'tamara',
@@ -392,27 +423,46 @@ class PaymentGatewayController extends Controller
                 'id' => 'cod',
                 'provider' => 'cod',
                 'name_ar' => 'الدفع نقداً عند الاستلام',
-                'name_en' => 'Cash on Delivery (COD)',
+                'name_en' => 'Cash on Delivery',
                 'badge_ar' => 'عند باب منزلك',
                 'badge_en' => 'Pay on Arrival',
-                'is_enabled' => true,
                 'is_instant' => false,
                 'type' => 'cod',
                 'icon' => 'cod',
             ],
+            [
+                'id' => 'bank_transfer',
+                'provider' => 'bank_transfer',
+                'name_ar' => 'تحويل بنكي',
+                'name_en' => 'Bank Transfer',
+                'badge_ar' => 'تحويل محلي',
+                'badge_en' => 'Local Transfer',
+                'is_instant' => false,
+                'type' => 'bank_transfer',
+                'icon' => 'bank_transfer',
+            ],
         ];
+
+        $methods = [];
+        foreach ($catalog as $row) {
+            if (!$dbGateways->has($row['provider'])) {
+                continue;
+            }
+            $methods[] = array_merge($row, ['is_enabled' => true]);
+        }
 
         return response()->json([
             'success' => true,
             'store_id' => $storeId,
             'currency' => 'SAR',
-            'methods' => $defaultMethods,
+            'methods' => $methods,
             'gateways_configured' => $dbGateways->count(),
         ]);
     }
 
     /**
      * Public Storefront: Initiate checkout payment session / token
+     * Zero-mock: requires a connected gateway row; no invented paid sessions.
      */
     public function storefrontInitiate(Request $request): JsonResponse
     {
@@ -425,39 +475,85 @@ class PaymentGatewayController extends Controller
             'customer_phone' => ['nullable', 'string'],
         ]);
 
-        $storeId = $validated['store_id'];
+        $storeId = $this->canonicalStoreId($validated['store_id']);
+        $this->ensureFreePaymentDefaults($storeId);
+
         $method = $validated['payment_method'];
         $amount = (float) $validated['amount'];
-        $orderId = $validated['order_id'] ?? ('ORD-' . rand(100000, 999999));
+        $orderId = $validated['order_id'] ?? null;
 
         $provider = match ($method) {
             'tabby' => 'tabby',
             'tamara' => 'tamara',
             'cod' => 'cod',
+            'bank_transfer' => 'bank_transfer',
             default => 'moyasar',
         };
 
-        $reference = strtoupper($provider) . '-' . Str::random(10);
+        $gateway = PaymentGateway::query()
+            ->forStore($storeId)
+            ->where('provider', $provider)
+            ->where('is_enabled', true)
+            ->where('status', 'connected')
+            ->first();
+
+        if (!$gateway) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment method is not connected for this store.',
+                'checkout_ready' => false,
+            ], 422);
+        }
+
+        $order = null;
+        if (is_string($orderId) && $orderId !== '') {
+            $order = Order::query()->forStore($storeId)->where('id', $orderId)->first();
+        }
+
+        $service = PaymentManager::resolve($provider);
+        $sessionOrder = $order ?? new Order([
+            'id' => $orderId ?: ('tmp_' . Str::random(8)),
+            'store_id' => $storeId,
+            'total_amount' => $amount,
+            'currency' => 'SAR',
+            'customer_name' => $validated['customer_name'] ?? null,
+            'customer_phone' => $validated['customer_phone'] ?? null,
+        ]);
+
+        $session = $service->createPaymentSession($gateway, $sessionOrder, [
+            'payment_method' => $method,
+            'amount' => $amount,
+        ]);
+
+        if (!($session['success'] ?? false)) {
+            return response()->json([
+                'success' => false,
+                'message' => $session['message'] ?? 'Unable to start payment session.',
+                'checkout_ready' => false,
+            ], 422);
+        }
+
         $installmentAmount = round($amount / 4, 2);
 
         return response()->json([
             'success' => true,
             'store_id' => $storeId,
-            'order_id' => $orderId,
+            'order_id' => $order?->id,
             'payment_method' => $method,
             'provider' => $provider,
-            'transaction_reference' => $reference,
+            'transaction_reference' => $session['transaction_reference'] ?? null,
+            'publishable_key' => $session['publishable_key'] ?? $gateway->public_key,
             'amount' => $amount,
             'currency' => 'SAR',
             'installments' => ($method === 'tabby' || $method === 'tamara') ? [
                 'count' => 4,
                 'per_month' => $installmentAmount,
                 'schedule' => [
-                    ['due' => 'today', 'amount' => $installmentAmount, 'label' => 'اليوم'],
-                    ['due' => '1_month', 'amount' => $installmentAmount, 'label' => 'الشهر القادم'],
-                    ['due' => '2_months', 'amount' => $installmentAmount, 'label' => 'بعد شهرين'],
-                    ['due' => '3_months', 'amount' => $installmentAmount, 'label' => 'بعد 3 أشهر'],
-                ]
+                    ['due' => 'today', 'amount' => $installmentAmount, 'label_ar' => 'اليوم', 'label_en' => 'Today'],
+                    ['due' => '1_month', 'amount' => $installmentAmount, 'label_ar' => 'الشهر القادم', 'label_en' => 'Next month'],
+                    ['due' => '2_months', 'amount' => $installmentAmount, 'label_ar' => 'بعد شهرين', 'label_en' => 'In 2 months'],
+                    ['due' => '3_months', 'amount' => $installmentAmount, 'label_ar' => 'بعد 3 أشهر', 'label_en' => 'In 3 months'],
+                ],
             ] : null,
             'checkout_ready' => true,
             'timestamp' => now()->toIso8601String(),
@@ -479,27 +575,33 @@ class PaymentGatewayController extends Controller
             'payload' => ['nullable', 'array'],
         ]);
 
-        $storeId = $validated['store_id'];
+        $storeId = $this->canonicalStoreId($validated['store_id']);
         $order = Order::query()->forStore($storeId)->where('id', $validated['order_id'])->first();
 
         $provider = strtolower($validated['gateway_provider']);
-        $service = null;
+        $gateway = PaymentGateway::query()
+            ->forStore($storeId)
+            ->where('provider', $provider)
+            ->where('is_enabled', true)
+            ->where('status', 'connected')
+            ->first();
+
+        if (!$gateway) {
+            return response()->json([
+                'verified' => false,
+                'status' => 'failed',
+                'message' => 'Payment gateway is not connected for this store.',
+            ], 422);
+        }
+
         try {
             $service = PaymentManager::resolve($provider);
         } catch (\Throwable $e) {
-            $service = PaymentManager::resolve('moyasar');
-        }
-
-        $gateway = PaymentGateway::query()->forStore($storeId)->where('provider', $provider)->first();
-        if (!$gateway) {
-            $gateway = new PaymentGateway([
-                'id' => 'gw_' . $provider . '_' . $storeId,
-                'store_id' => $storeId,
-                'provider' => $provider,
-                'title' => ucfirst($provider),
-                'is_enabled' => true,
-                'is_sandbox' => true,
-            ]);
+            return response()->json([
+                'verified' => false,
+                'status' => 'failed',
+                'message' => 'Unsupported payment provider.',
+            ], 422);
         }
 
         $verifyResult = $service->verifyPayment($gateway, $validated['transaction_reference'], [
@@ -508,7 +610,11 @@ class PaymentGatewayController extends Controller
             'gateway_transaction_id' => $validated['payload']['gateway_transaction_id'] ?? null,
         ]);
 
-        // Record real payment transaction in DB
+        $status = $verifyResult['status'] ?? 'failed';
+        if (!($verifyResult['success'] ?? false)) {
+            $status = 'failed';
+        }
+
         $txId = $this->newId('tx');
         $transaction = PaymentTransaction::create([
             'id' => $txId,
@@ -522,9 +628,9 @@ class PaymentGatewayController extends Controller
             'currency' => 'SAR',
             'fee_amount' => (float) ($verifyResult['fee'] ?? 0),
             'net_amount' => max(0, (float) $validated['amount'] - (float) ($verifyResult['fee'] ?? 0)),
-            'status' => $verifyResult['status'] === 'failed' ? 'failed' : 'paid',
+            'status' => $status === 'paid' ? 'paid' : ($status === 'pending' ? 'pending' : 'failed'),
             'card_brand' => $verifyResult['card_brand'] ?? ucfirst($validated['payment_method']),
-            'card_last_four' => $verifyResult['card_last_four'] ?? '****',
+            'card_last_four' => $verifyResult['card_last_four'] ?? '',
             'payer_email' => $order?->customer_email,
             'payer_name' => $order?->customer_name,
             'raw_response' => $verifyResult['raw'] ?? [],
@@ -546,9 +652,55 @@ class PaymentGatewayController extends Controller
             'amount' => $transaction->amount,
             'currency' => 'SAR',
             'message' => $transaction->status === 'paid'
-                ? 'تم التحقق من الدفع وتأكيد العملية بنجاح'
-                : 'فشلت عملية الدفع، يرجى المحاولة مرة أخرى',
+                ? 'Payment verified successfully.'
+                : 'Payment verification failed or is still pending.',
         ]);
+    }
+
+    /**
+     * Free / keyless defaults: COD + bank transfer per store (no fake card gateways).
+     */
+    private function ensureFreePaymentDefaults(string $storeId): void
+    {
+        $defaults = [
+            [
+                'provider' => 'cod',
+                'title' => 'Cash on Delivery',
+                'title_ar' => 'الدفع عند الاستلام',
+                'supported_methods' => ['cod'],
+            ],
+            [
+                'provider' => 'bank_transfer',
+                'title' => 'Bank Transfer',
+                'title_ar' => 'تحويل بنكي',
+                'supported_methods' => ['bank_transfer'],
+            ],
+        ];
+
+        foreach ($defaults as $row) {
+            $exists = PaymentGateway::query()
+                ->forStore($storeId)
+                ->where('provider', $row['provider'])
+                ->exists();
+            if ($exists) {
+                continue;
+            }
+
+            PaymentGateway::query()->create([
+                'id' => $this->newId('gw'),
+                'store_id' => $storeId,
+                'provider' => $row['provider'],
+                'title' => $row['title'],
+                'title_ar' => $row['title_ar'],
+                'is_enabled' => true,
+                'is_sandbox' => false,
+                'supported_methods' => $row['supported_methods'],
+                'transaction_fee_percent' => 0,
+                'transaction_fee_fixed' => 0,
+                'status' => 'connected',
+                'last_tested_at' => now(),
+            ]);
+        }
     }
 }
 

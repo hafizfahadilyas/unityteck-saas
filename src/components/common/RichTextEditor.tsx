@@ -382,7 +382,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                     disabled={isSourceMode}
                     onChange={(e) => applyBlockFormat(e.target.value)}
                     onMouseDown={(e) => e.stopPropagation()}
-                    title={isAr ? 'نمط الفقرة / العناوين (SEO)' : 'Paragraph / Heading (SEO)'}
+                    title={isAr ? 'نمط الفقرة / العناوين' : 'Paragraph / Heading (SEO)'}
                     className="h-7 max-w-[7.5rem] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-bold px-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-teal-500"
                     style={{ color: 'var(--input-fg)' }}
                   >
@@ -399,7 +399,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
             <button
               type="button"
-              title={isAr ? 'عريض (Ctrl+B)' : 'Bold (Ctrl+B)'}
+              title={isAr ? 'عريض' : 'Bold (Ctrl+B)'}
               onMouseDown={(e) => {
                 e.preventDefault();
                 execCmd('bold');
@@ -411,7 +411,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
             <button
               type="button"
-              title={isAr ? 'مائل (Ctrl+I)' : 'Italic (Ctrl+I)'}
+              title={isAr ? 'مائل' : 'Italic (Ctrl+I)'}
               onMouseDown={(e) => {
                 e.preventDefault();
                 execCmd('italic');
@@ -423,7 +423,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
             <button
               type="button"
-              title={isAr ? 'تسطير (Ctrl+U)' : 'Underline (Ctrl+U)'}
+              title={isAr ? 'تسطير' : 'Underline (Ctrl+U)'}
               onMouseDown={(e) => {
                 e.preventDefault();
                 execCmd('underline');

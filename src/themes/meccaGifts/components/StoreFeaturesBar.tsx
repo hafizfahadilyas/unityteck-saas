@@ -22,7 +22,7 @@ export const StoreFeaturesBar: React.FC = () => {
     {
       icon: 'https://cdn.salla.sa/form-builder/MaDGzkP6DK84Tlix9d7EgX5gw9Kf5088TYHqQKu6.gif',
       title: isAr ? 'تسوق ودفع آمن 100%' : '100% Secure Checkout',
-      desc: isAr ? 'مدى، Apple Pay، وبطاقات الائتمان' : 'Mada, Apple Pay & encrypted gateways'
+      desc: isAr ? 'مدى، آبل باي، وبطاقات الائتمان' : 'Mada, Apple Pay & encrypted gateways'
     },
     {
       icon: 'https://cdn.salla.sa/form-builder/lA1WGskWYRFLzIMfJdipVN4zuYxSxFTXc2uQDyJp.gif',
@@ -45,7 +45,7 @@ export const StoreFeaturesBar: React.FC = () => {
     {
       icon: 'https://cdn.salla.sa/form-builder/MaDGzkP6DK84Tlix9d7EgX5gw9Kf5088TYHqQKu6.gif',
       title: isAr ? 'تسوق ودفع آمن 100%' : '100% Secure Checkout',
-      desc: isAr ? 'مدى، Apple Pay، وبطاقات الائتمان' : 'Mada, Apple Pay & encrypted gateways'
+      desc: isAr ? 'مدى، آبل باي، وبطاقات الائتمان' : 'Mada, Apple Pay & encrypted gateways'
     },
     {
       icon: 'https://cdn.salla.sa/form-builder/lA1WGskWYRFLzIMfJdipVN4zuYxSxFTXc2uQDyJp.gif',

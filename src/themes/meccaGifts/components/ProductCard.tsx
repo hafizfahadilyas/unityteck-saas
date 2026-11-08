@@ -51,7 +51,7 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product }) 
   const discountPct = hasDiscount
     ? Math.round(((origPrice - product.price) / origPrice) * 100)
     : 20;
-  const discountBadge = isAr ? `خصم ${discountPct}%` : `${discountPct}% OFF`;
+  const discountBadge = isAr ? `خصم${discountPct}%` : `${discountPct}% OFF`;
 
   const handleCardClick = () => {
     navigateToProduct(product);
@@ -73,7 +73,7 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product }) 
   const handleWhatsAppOrder = (e: React.MouseEvent) => {
     e.stopPropagation();
     const text = isAr
-      ? `السلام عليكم، أود طلب المنتج: *${productName}* بسعر ${product.price} ر.س من متجر ${activeStore?.name || 'الزهور'}`
+      ? `السلام عليكم، أود طلب المنتج: *${productName}* بسعر${product.price}ر.س من متجر${activeStore?.name || 'الزهور'}`
       : `Hello, I would like to order: *${productName}* for SAR ${product.price} from ${activeStore?.name || 'Flowers Store'}`;
     const url = `https://wa.me/${cleanPhone || '966500000000'}?text=${encodeURIComponent(text)}`;
     if (typeof window !== 'undefined') {
@@ -161,11 +161,11 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product }) 
           {/* Price Row: SAR 199 in deep emerald/teal + Strikethrough SAR 249 */}
           <div className="flex items-baseline gap-2 pt-0.5" itemProp="offers" itemScope itemType="https://schema.org/Offer">
             <span className="text-xl sm:text-2xl font-extrabold text-[#0e4e3e] dark:text-emerald-400 font-mono tracking-tight" itemProp="price">
-              {isAr ? `${product.price} ر.س` : `SAR ${product.price}`}
+              {isAr ? `${product.price}ر.س` : `SAR ${product.price}`}
             </span>
             {hasDiscount && (
               <span className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 line-through font-semibold font-mono">
-                {isAr ? `${origPrice} ر.س` : `SAR ${origPrice}`}
+                {isAr ? `${origPrice}ر.س` : `SAR ${origPrice}`}
               </span>
             )}
           </div>
@@ -281,11 +281,11 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product }) 
 
         <div className="flex items-baseline gap-2">
           <span className="text-lg sm:text-xl font-extrabold text-[#f3e5c8] font-mono tracking-tight">
-            {isAr ? `${product.price} ر.س` : `SAR ${product.price}`}
+            {isAr ? `${product.price}ر.س` : `SAR ${product.price}`}
           </span>
           {hasDiscount && (
             <span className="text-xs text-white/60 line-through font-mono">
-              {isAr ? `${origPrice} ر.س` : `SAR ${origPrice}`}
+              {isAr ? `${origPrice}ر.س` : `SAR ${origPrice}`}
             </span>
           )}
         </div>

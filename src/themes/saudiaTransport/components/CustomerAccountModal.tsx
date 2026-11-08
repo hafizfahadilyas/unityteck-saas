@@ -375,7 +375,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
               <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
                 <span>{customer ? customer.name : (isAr ? 'بوابة العميل المتميز' : 'VIP Customer Portal')}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#d5a027]/20 text-[#f6c344] font-black border border-[#d5a027]/40">
-                  {isAr ? 'بليكو VIP' : 'BLECO VIP'}
+                  {isAr ? 'بليكو كبار العملاء' : 'BLECO VIP'}
                 </span>
               </h2>
               <p className="text-[11px] text-slate-300">
@@ -745,7 +745,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                     {/* Brand Selector */}
                     <div>
                       <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                        {isAr ? 'الشركة المصنعة (Brand)' : 'Brand'}
+                        {isAr ? 'الشركة المصنعة العلامة' : 'Brand'}
                       </label>
                       <select
                         value={editBrand}
@@ -767,7 +767,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                     {/* Model Selector */}
                     <div>
                       <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                        {isAr ? 'الموديل (Model)' : 'Model'}
+                        {isAr ? 'الموديل الموديل' : 'Model'}
                       </label>
                       <select
                         value={editModel}
@@ -785,7 +785,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                     {/* Year Selector */}
                     <div>
                       <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                        {isAr ? 'سنة الصنع (Year)' : 'Year'}
+                        {isAr ? 'سنة الصنع السنة' : 'Year'}
                       </label>
                       <select
                         value={editYear}

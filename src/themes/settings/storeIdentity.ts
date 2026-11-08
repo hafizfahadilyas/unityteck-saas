@@ -6,7 +6,7 @@
 import { bumpStore } from '../../api/cacheTags';
 
 /** Default portal login left-panel image (replaceable per store in Theme Settings → Identity). */
-export const DEFAULT_LOGIN_SIDE_IMAGE = '/images/login-side-general.svg';
+export const DEFAULT_LOGIN_SIDE_IMAGE = '/images/login-side-saudi-sheikh-laptop.jpg';
 
 export type StoreIdentitySettings = {
   storeName: string;

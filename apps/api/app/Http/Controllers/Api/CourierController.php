@@ -93,11 +93,28 @@ class CourierController extends Controller
         }
         $connection->is_sandbox = $data['is_sandbox'] ?? true;
         $connection->settings = $data['settings'] ?? [];
-        $connection->is_connected = true;
-        $connection->status = 'connected';
-        $connection->last_tested_at = now();
-        $connection->last_sync_at = now();
+        // Zero-mock: credentials saved → pending until live courier test passes.
+        $connection->is_connected = false;
+        $connection->status = 'pending';
         $connection->save();
+
+        try {
+            $service = CourierManager::resolve($connection->provider);
+            $result = $service->testConnection($connection);
+            $connection->last_tested_at = now();
+            if ($result['success'] ?? false) {
+                $connection->is_connected = true;
+                $connection->status = 'connected';
+                $connection->last_sync_at = now();
+            } else {
+                $connection->status = 'error';
+            }
+            $connection->save();
+        } catch (\Throwable $e) {
+            $connection->status = 'error';
+            $connection->last_tested_at = now();
+            $connection->save();
+        }
 
         return response()->json([
             'data' => [
@@ -107,12 +124,14 @@ class CourierController extends Controller
                 'account_number' => $connection->account_number,
                 'masked_api_key' => $connection->masked_api_key,
                 'is_sandbox' => $connection->is_sandbox,
-                'is_connected' => true,
-                'status' => 'connected',
-                'last_tested_at' => $connection->last_tested_at->toIso8601String(),
+                'is_connected' => (bool) $connection->is_connected,
+                'status' => $connection->status,
+                'last_tested_at' => $connection->last_tested_at?->toIso8601String(),
             ],
-            'message' => 'Courier credentials securely saved and connected.',
-        ], 200);
+            'message' => $connection->is_connected
+                ? 'Courier credentials verified and connected.'
+                : 'Credentials saved but courier API test failed. Check keys and retry.',
+        ], $connection->is_connected ? 200 : 422);
     }
 
     /**

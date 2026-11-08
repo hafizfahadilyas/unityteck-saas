@@ -12,7 +12,7 @@ export const MarqueeBanner: React.FC = () => {
   const flowerMessages = [
     {
       icon: CreditCard,
-      text: isAr ? 'خيار دفع ولا بالأحلام .. قسّط فاتورتك على أربع دفعات مع تابي وتمارا بدون فوائد' : 'Split your bill into 4 interest-free payments with Tabby & Tamara',
+      text: isAr ? 'خيار دفع ولا بالأحلام.. قسّط فاتورتك على أربع دفعات مع تابي وتمارا بدون فوائد' : 'Split your bill into 4 interest-free payments with Tabby & Tamara',
       code: '0% INTEREST'
     },
     {

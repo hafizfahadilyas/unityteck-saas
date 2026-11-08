@@ -305,7 +305,7 @@ const HANDLE_OPTIONS = [
   {
     id: 'knurled-brass',
     name: 'Knurled Brushed Brass',
-    nameAr: 'مقبض نحاسي مخرش فاخر Barista Pro',
+    nameAr: 'مقبض نحاسي مخرش فاخر Barista الاحترافية',
     image: 'https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?w=400&q=80',
     descriptionAr: 'معدن صلب بملمس ماسي مانع للانزلاق'
   },
@@ -797,7 +797,7 @@ export const CustomOrderPage: React.FC = () => {
     setRfqSubmitted(true);
     showToast(
       language === 'AR'
-        ? `تم رفع طلب عرض السعر برقم مرجعي: ${quoteId}`
+        ? `تم رفع طلب عرض السعر برقم مرجعي:${quoteId}`
         : `Quotation Request submitted: Ref #${quoteId}`
     );
     // Directly launch WhatsApp with the quotation request sent to the store owner's WhatsApp!
@@ -1053,7 +1053,7 @@ Please contact me to confirm the details. Thank you!`;
                 <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200/70 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-neutral-800">
-                      {language === 'AR' ? 'العرض (Width)' : 'Width (cm)'}
+                      {language === 'AR' ? 'العرض' : 'Width (cm)'}
                     </span>
                     <span className="text-xs font-mono font-bold text-neutral-900 bg-white px-2 py-0.5 rounded border border-neutral-200">
                       {width} سم
@@ -1094,7 +1094,7 @@ Please contact me to confirm the details. Thank you!`;
                 <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200/70 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-neutral-800">
-                      {language === 'AR' ? 'العمق (Depth)' : 'Depth (cm)'}
+                      {language === 'AR' ? 'العمق' : 'Depth (cm)'}
                     </span>
                     <span className="text-xs font-mono font-bold text-neutral-900 bg-white px-2 py-0.5 rounded border border-neutral-200">
                       {depth} سم
@@ -1135,7 +1135,7 @@ Please contact me to confirm the details. Thank you!`;
                 <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200/70 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-neutral-800">
-                      {language === 'AR' ? 'الارتفاع (Height)' : 'Height (cm)'}
+                      {language === 'AR' ? 'الارتفاع' : 'Height (cm)'}
                     </span>
                     <span className="text-xs font-mono font-bold text-neutral-900 bg-white px-2 py-0.5 rounded border border-neutral-200">
                       {height} سم
@@ -1232,7 +1232,7 @@ Please contact me to confirm the details. Thank you!`;
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm sm:text-base">
-                        {language === 'AR' ? 'خشب إم دي إف (MDF Wood)' : 'MDF Wood'}
+                        {language === 'AR' ? 'خشب إم دي إف' : 'MDF Wood'}
                       </span>
                       <div
                         className={`w-5 h-5 rounded-full border flex items-center justify-center ${
@@ -1278,7 +1278,7 @@ Please contact me to confirm the details. Thank you!`;
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm sm:text-base">
-                        {language === 'AR' ? 'خشب شيب بورد (Chipboard Wood)' : 'Chipboard Wood'}
+                        {language === 'AR' ? 'خشب شيب بورد' : 'Chipboard Wood'}
                       </span>
                       <div
                         className={`w-5 h-5 rounded-full border flex items-center justify-center ${
@@ -1316,7 +1316,7 @@ Please contact me to confirm the details. Thank you!`;
               <div className="space-y-3 pt-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-neutral-800">
-                    {language === 'AR' ? '2. تشطيب الحواف (Edge Finishing):' : '2. Edge Finishing:'}
+                    {language === 'AR' ? '2. تشطيب الحواف:' : '2. Edge Finishing:'}
                   </label>
                   {woodType === 'chipboard' && (
                     <span className="text-[11px] text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full font-semibold border border-amber-200/60">
@@ -1407,7 +1407,7 @@ Please contact me to confirm the details. Thank you!`;
               <div className="space-y-3 pt-2">
                 <label className="text-xs font-bold text-neutral-800 block">
                   {language === 'AR'
-                    ? `3. ألوان الهيكل (${woodType === 'mdf' ? '5 ألوان لخشب MDF' : '5 خيارات لخشب الشيب بورد'}):`
+                    ? `3. ألوان الهيكل (${woodType === 'mdf' ? '5 ألوان لخشب MDF': '5 خيارات لخشب الشيب بورد'}):`
                     : `3. Structure Colors (${woodType === 'mdf' ? '5 MDF Colors' : '5 Chipboard Colors'}):`}
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -1505,7 +1505,7 @@ Please contact me to confirm the details. Thank you!`;
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm sm:text-base">
-                        {language === 'AR' ? 'بديل الرخام (Sintered Stone / PVC)' : 'Marble Alternative (Sintered Stone)'}
+                        {language === 'AR' ? 'بديل الرخام' : 'Marble Alternative (Sintered Stone)'}
                       </span>
                       <div
                         className={`w-5 h-5 rounded-full border flex items-center justify-center ${
@@ -1547,7 +1547,7 @@ Please contact me to confirm the details. Thank you!`;
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm sm:text-base">
-                        {language === 'AR' ? 'رخام طبيعي أصلي (Natural Marble)' : 'Natural Marble'}
+                        {language === 'AR' ? 'رخام طبيعي أصلي' : 'Natural Marble'}
                       </span>
                       <div
                         className={`w-5 h-5 rounded-full border flex items-center justify-center ${
@@ -1709,7 +1709,7 @@ Please contact me to confirm the details. Thank you!`;
                       >
                         <div>
                           <div className="font-bold text-xs sm:text-sm">
-                            {language === 'AR' ? 'رخام مصبوب (Cast Marble)' : 'Cast Marble'}
+                            {language === 'AR' ? 'رخام مصبوب' : 'Cast Marble'}
                           </div>
                           <div
                             className={`text-[11px] mt-0.5 ${
@@ -1735,7 +1735,7 @@ Please contact me to confirm the details. Thank you!`;
                       >
                         <div>
                           <div className="font-bold text-xs sm:text-sm">
-                            {language === 'AR' ? 'رخام ألواح طبيعي (Slab Marble)' : 'Slab Marble Slabs'}
+                            {language === 'AR' ? 'رخام ألواح طبيعي' : 'Slab Marble Slabs'}
                           </div>
                           <div
                             className={`text-[11px] mt-0.5 ${
@@ -1756,7 +1756,7 @@ Please contact me to confirm the details. Thank you!`;
                   <div className="space-y-3">
                     <label className="text-xs font-bold text-neutral-800 block">
                       {language === 'AR'
-                        ? `ألوان ${naturalKind === 'cast' ? 'الرخام المصبوب (5 خيارات)' : 'الرخام الألواح الطبيعي (5 خيارات)'}:`
+                        ? `ألوان${naturalKind === 'cast' ? 'الرخام المصبوب (5 خيارات)': 'الرخام الألواح الطبيعي (5 خيارات)'}:`
                         : `${naturalKind === 'cast' ? 'Cast Marble' : 'Slab Marble'} Colors (5 Options):`}
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -2013,7 +2013,7 @@ Please contact me to confirm the details. Thank you!`;
                             {acc.descriptionAr}
                           </p>
                           <div className="text-xs font-mono font-bold text-neutral-950 pt-1">
-                            {language === 'AR' ? `${acc.unitPrice.toLocaleString()} ر.س` : `SAR ${acc.unitPrice.toLocaleString()}`}
+                            {language === 'AR' ? `${acc.unitPrice.toLocaleString()}ر.س` : `SAR ${acc.unitPrice.toLocaleString()}`}
                           </div>
                         </div>
                       </div>

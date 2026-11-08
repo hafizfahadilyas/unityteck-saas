@@ -388,6 +388,8 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `returned_at` DATETIME NULL DEFAULT NULL,
   `restocked_at` DATETIME NULL DEFAULT NULL,
   `order_date` DATETIME NOT NULL,
+  `is_archived` TINYINT(1) NOT NULL DEFAULT 0,
+  `archived_at` DATETIME NULL DEFAULT NULL,
   `created_at` TIMESTAMP NULL DEFAULT NULL,
   `updated_at` TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -398,6 +400,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   KEY `orders_store_id_status_created_at_index` (`store_id`,`status`,`created_at`),
   KEY `orders_store_id_created_at_index` (`store_id`,`created_at`),
   KEY `orders_store_id_cod_status_index` (`store_id`,`cod_status`),
+  KEY `orders_store_id_is_archived_index` (`store_id`,`is_archived`),
   CONSTRAINT `orders_store_id_foreign` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE,
   CONSTRAINT `orders_customer_id_foreign` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

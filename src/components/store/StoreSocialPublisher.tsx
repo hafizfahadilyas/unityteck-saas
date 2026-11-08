@@ -20,7 +20,6 @@ import {
   Eye,
   Plus,
   ArrowRight,
-  ExternalLink,
   Layers,
   Copy,
   ShieldCheck,
@@ -30,12 +29,12 @@ import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
-import { openSocialOAuthPopup } from '../../services/socialOAuthService';
 import {
   cancelSocialPost,
   disconnectSocialAccount,
   fetchSocialAccounts,
   fetchSocialPosts,
+  isLiveSocialPlatform,
   scheduleSocialPost,
   testSocialAccount,
   upsertSocialAccount,
@@ -204,47 +203,33 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
     void load();
   }, [load]);
 
-  const handleOAuthConnect = async (targetPlatform: SocialPlatform) => {
-    setBusy(true);
-    try {
-      await openSocialOAuthPopup({
-        platform: targetPlatform,
-        storeId: activeStore.id,
-        storeName: activeStore.name,
-        storeSlug: activeStore.slug,
-      });
-      setIsConnectModalOpen(false);
-      toast(
-        isAr
-          ? `تم ربط حساب ${platformLabel(targetPlatform, true)} بنجاح بعد منح الصلاحيات!`
-          : `${platformLabel(targetPlatform, false)} connected successfully via OAuth!`,
-        'success',
-      );
-      await load();
-    } catch (err) {
-      if (err instanceof Error && (err.message.includes('closed') || err.message.includes('cancelled'))) {
-        toast(isAr ? 'تم إغلاق نافذة المصادقة دون منح الصلاحيات' : 'OAuth window was closed without authorization', 'info');
-      } else {
-        toast(err instanceof Error ? err.message : isAr ? 'فشل الاتصال' : 'Connection failed', 'error');
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const handleConnectAccount = async () => {
+    if (!isLiveSocialPlatform(formPlatform)) {
+      toast(
+        isAr ? 'قريباً — الربط متاح لإنستغرام وفيسبوك فقط' : 'Coming Soon — only Instagram and Facebook can connect now',
+        'info',
+      );
+      return;
+    }
+    if (token.trim().length < 20) {
+      toast(isAr ? 'أدخل رمز وصول ميتا غراف صالحاً' : 'Enter a valid Meta Graph access token', 'error');
+      return;
+    }
+    if (formPlatform === 'instagram' && !igUserId.trim()) {
+      toast(isAr ? 'معرّف حساب إنستغرام التجاري مطلوب' : 'Instagram Business Account ID is required', 'error');
+      return;
+    }
+    if (formPlatform === 'facebook' && !pageId.trim()) {
+      toast(isAr ? 'معرّف صفحة فيسبوك مطلوب' : 'Facebook Page ID is required', 'error');
+      return;
+    }
     setBusy(true);
     try {
-      const isCoffee = activeStore.id.includes('coffee');
-      const fallbackHandle = formPlatform === 'instagram'
-        ? (isCoffee ? '@hibrew_ksa' : `@${activeStore.slug}_ksa`)
-        : (isCoffee ? 'HiBrew KSA Coffee Store' : activeStore.name);
-
       await upsertSocialAccount(activeStore.id, {
         platform: formPlatform,
-        access_token: token.trim() || 'mock_live_meta_graph_token_' + Date.now(),
-        handle: accountHandle.trim() || fallbackHandle,
-        account_name: accountName.trim() || (isCoffee ? 'HiBrew KSA Coffee Store' : activeStore.name),
+        access_token: token.trim(),
+        handle: accountHandle.trim() || undefined,
+        account_name: accountName.trim() || activeStore.name,
         page_id: pageId.trim() || undefined,
         ig_user_id: igUserId.trim() || undefined,
         test: true,
@@ -254,9 +239,11 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
       setToken('');
       setAccountHandle('');
       setAccountName('');
+      setPageId('');
+      setIgUserId('');
       toast(
         isAr
-          ? `تم ربط حساب ${platformLabel(formPlatform, true)} بنجاح بعد التحقق المباشر!`
+          ? `تم ربط حساب${platformLabel}بنجاح بعد التحقق المباشر!`
           : `${platformLabel(formPlatform, false)} connected successfully!`,
         'success',
       );
@@ -275,7 +262,7 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
       toast(
         res.ok
           ? isAr
-            ? `الاتصال سليم مع منصة ${platformLabel(platform, true)}`
+            ? `الاتصال سليم مع منصة${platformLabel}`
             : `Connection OK for ${platformLabel(platform, false)}`
           : res.message || (isAr ? 'فشل الاختبار' : 'Test failed'),
         res.ok ? 'success' : 'error',
@@ -386,8 +373,8 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 font-medium">
               {isAr
-                ? 'ربط حسابات إنستغرام وفيسبوك وتيك توك، نشر فوري، جدولة ذكية، وتكامل مباشر مع استوديو كانفا'
-                : 'Connect Instagram, Facebook & TikTok, publish live, smart schedule, and Canva Studio integration'}
+                ? 'الربط المباشر متاح لإنستغرام وفيسبوك عبر ميتا غراف. تيك توك وسناب وإكس قريباً'
+                : 'Live connect: Instagram & Facebook via Meta Graph. TikTok, Snapchat & X Coming Soon'}
             </p>
           </div>
         </div>
@@ -506,10 +493,12 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {accounts.map((acc) => (
+            {accounts.map((acc) => {
+              const comingSoon = !isLiveSocialPlatform(acc.platform) || acc.status === 'not_available' || acc.supported === false;
+              return (
               <div
                 key={acc.platform}
-                className="p-5 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition-all space-y-4"
+                className={`p-5 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition-all space-y-4 ${comingSoon ? 'opacity-90' : ''}`}
               >
                 {/* Channel Header with Official Branded Logo */}
                 <div className="flex items-center justify-between">
@@ -520,17 +509,26 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                     <div>
                       <div className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
                         <span>{platformLabel(acc.platform, isAr)}</span>
-                        {acc.is_connected && acc.is_verified && (
+                        {!comingSoon && acc.is_connected && acc.is_verified && (
                           <CheckCircle2 className="w-4 h-4 text-sky-500 fill-sky-500" />
                         )}
                       </div>
                       <div className="text-xs font-bold text-slate-500 dark:text-slate-400 font-mono">
-                        {acc.is_connected ? (acc.handle || '@store') : (isAr ? 'غير متصل' : 'Not Connected')}
+                        {comingSoon
+                          ? (isAr ? 'قريباً' : 'Coming Soon')
+                          : acc.is_connected
+                          ? (acc.handle || '@store')
+                          : (isAr ? 'غير متصل' : 'Not Connected')}
                       </div>
                     </div>
                   </div>
 
-                  {acc.status === 'connected' ? (
+                  {comingSoon ? (
+                    <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center gap-1.5 shadow-xs">
+                      <Lock className="w-3 h-3" />
+                      {isAr ? 'قريباً' : 'Coming Soon'}
+                    </span>
+                  ) : acc.status === 'connected' ? (
                     <span className="px-3 py-1 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 flex items-center gap-1.5 shadow-xs">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                       {isAr ? 'متصل ونشط' : 'Active'}
@@ -544,6 +542,14 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
 
                 {/* Account Details Box - 100% Readable High-Contrast */}
                 <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 space-y-2 text-xs">
+                  {comingSoon ? (
+                    <p className="text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
+                      {isAr
+                        ? 'واجهة البرمجة الحقيقية لهذه المنصة غير مفعّلة بعد. الربط المباشر متاح حالياً لإنستغرام وفيسبوك فقط.'
+                        : 'Real API for this platform is not wired yet. Live connect is available for Instagram and Facebook only.'}
+                    </p>
+                  ) : (
+                    <>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-600 dark:text-slate-400 font-medium">
                       {isAr ? 'اسم الحساب:' : 'Account Name:'}
@@ -568,14 +574,29 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                     </span>
                     <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300">
                       <ShieldCheck className={`w-3.5 h-3.5 ${acc.is_connected ? 'text-emerald-500' : 'text-slate-400'}`} />
-                      {acc.is_connected ? (acc.last_tested_at ? 'Live Meta Graph' : 'Connected') : (isAr ? 'بدون اتصال' : 'No Token')}
+                      {acc.is_connected
+                        ? (acc.last_tested_at
+                          ? (isAr ? 'ميتا غراف مباشر' : 'Live Meta Graph')
+                          : (isAr ? 'متصل' : 'Connected'))
+                        : (isAr ? 'بدون اتصال' : 'No Token')}
                     </span>
                   </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 pt-1">
-                  {acc.is_connected ? (
+                  {comingSoon ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full py-2.5 px-3 rounded-xl text-xs font-black text-slate-500 dark:text-slate-400 border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center gap-2 cursor-not-allowed"
+                    >
+                      <Lock className="w-4 h-4" />
+                      <span>{isAr ? 'قريباً' : 'Coming Soon'}</span>
+                    </button>
+                  ) : acc.is_connected ? (
                     <>
                       <button
                         type="button"
@@ -599,17 +620,21 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => void handleOAuthConnect(acc.platform)}
+                      onClick={() => {
+                        setFormPlatform(acc.platform);
+                        setIsConnectModalOpen(true);
+                      }}
                       className="w-full py-2.5 px-3 rounded-xl text-xs font-black text-white shadow-md flex items-center justify-center gap-2 cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all"
                       style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
                     >
-                      <ExternalLink className="w-4 h-4" />
-                      <span>{isAr ? 'فتح نافذة الصلاحيات في المتصفح' : 'Connect via Browser OAuth'}</span>
+                      <Plug className="w-4 h-4" />
+                      <span>{isAr ? 'ربط عبر ميتا غراف' : 'Connect via Meta Graph'}</span>
                     </button>
                   )}
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       )}
@@ -982,8 +1007,8 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
                   {isAr ? 'اختر المنصة للربط الحقيقي:' : 'Select Social Platform:'}
                 </label>
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                  {(['instagram', 'facebook', 'tiktok', 'x', 'snapchat'] as const).map((p) => (
+                <div className="grid grid-cols-2 gap-2">
+                  {(['instagram', 'facebook'] as const).map((p) => (
                     <button
                       key={p}
                       type="button"
@@ -999,74 +1024,93 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                     </button>
                   ))}
                 </div>
+                <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    {isAr
+                      ? 'تيك توك · سناب شات · إكس — قريباً'
+                      : 'TikTok · Snapchat · X — Coming Soon'}
+                  </span>
+                </p>
               </div>
 
-              {/* Primary Action: Real Browser OAuth Popup */}
-              <div className="pt-1">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void handleOAuthConnect(formPlatform)}
-                  className="w-full py-3.5 rounded-2xl text-xs font-black text-white shadow-lg flex items-center justify-center gap-2 cursor-pointer hover:brightness-110 active:scale-[0.99] transition-all"
-                  style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>{busy ? (isAr ? 'جاري فتح نافذة الصلاحيات...' : 'Opening OAuth Window...') : (isAr ? `فتح نافذة صلاحيات ${platformLabel(formPlatform, isAr)} بالمتصفح` : `Authorize via ${platformLabel(formPlatform, false)} Browser OAuth`)}</span>
-                </button>
-              </div>
-
-              {/* Advanced Manual Setup Accordion */}
-              <details className="rounded-2xl border border-slate-200 dark:border-slate-800 p-3 space-y-3 bg-slate-50 dark:bg-slate-950/40 text-xs">
-                <summary className="font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none">
-                  {isAr ? 'خيارات متقدمة: إدخال يدوي مخصص (اختياري)' : 'Advanced: Custom Developer Token (Optional)'}
-                </summary>
-                <div className="space-y-2.5 pt-2">
+              <div className="space-y-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-950/40 text-xs">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'اسم العرض / المعرّف:' : 'Display name / handle:'}
+                  </label>
+                  <input
+                    type="text"
+                    name="social_manual_handle_prevent_autofill"
+                    autoComplete="new-password"
+                    value={accountHandle}
+                    onChange={(e) => setAccountHandle(e.target.value)}
+                    placeholder={formPlatform === 'instagram' ? '@store_handle' : 'Store Official'}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'رمز وصول ميتا غراف:' : 'Meta Graph access token:'}
+                  </label>
+                  <input
+                    type="password"
+                    name="social_manual_token_prevent_autofill"
+                    autoComplete="new-password"
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
+                    placeholder="EAAG..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                {formPlatform === 'instagram' ? (
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      {isAr ? 'يوزرنيم الحساب / الاسم:' : 'Custom Handle / Name:'}
+                      {isAr ? 'معرّف حساب إنستغرام التجاري:' : 'Instagram Business Account ID:'}
                     </label>
                     <input
                       type="text"
-                      name="social_manual_handle_prevent_autofill"
-                      autoComplete="new-password"
-                      value={accountHandle}
-                      onChange={(e) => setAccountHandle(e.target.value)}
-                      placeholder={formPlatform === 'instagram' ? '@store_handle' : 'Store Official'}
+                      value={igUserId}
+                      onChange={(e) => setIgUserId(e.target.value)}
+                      placeholder="17841..."
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-emerald-500"
                     />
                   </div>
+                ) : (
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      {isAr ? 'رمز الوصول (Graph Access Token):' : 'Custom Access Token:'}
+                      {isAr ? 'معرّف صفحة فيسبوك:' : 'Facebook Page ID:'}
                     </label>
                     <input
-                      type="password"
-                      name="social_manual_token_prevent_autofill"
-                      autoComplete="new-password"
-                      value={token}
-                      onChange={(e) => setToken(e.target.value)}
-                      placeholder="EAAG..."
+                      type="text"
+                      value={pageId}
+                      onChange={(e) => setPageId(e.target.value)}
+                      placeholder="10234..."
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-emerald-500"
                     />
                   </div>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={handleConnectAccount}
-                    className="w-full py-2 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-100 cursor-pointer"
-                  >
-                    {isAr ? 'حفظ الرمز المخصص' : 'Save Custom Token'}
-                  </button>
-                </div>
-              </details>
+                )}
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void handleConnectAccount()}
+                  className="w-full py-3 rounded-2xl text-xs font-black text-white shadow-lg flex items-center justify-center gap-2 cursor-pointer hover:brightness-110"
+                  style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>{busy ? (isAr ? 'جارٍ التحقق...' : 'Verifying...') : (isAr ? 'ربط واختبار مباشر' : 'Connect & Live Test')}</span>
+                </button>
+              </div>
 
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400">
                 <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>{isAr ? 'أذونات الربط الرسمية:' : 'Requested OAuth Scopes:'}</span>
+                  <span>{isAr ? 'أذونات الربط المطلوبة:' : 'Required Meta scopes:'}</span>
                 </div>
                 <div className="font-mono text-[10px] text-emerald-700 dark:text-emerald-400">
-                  {formPlatform === 'instagram' ? 'instagram_basic, instagram_content_publish' : formPlatform === 'facebook' ? 'pages_show_list, pages_manage_posts, pages_read_engagement' : formPlatform === 'tiktok' ? 'user.info.basic, video.publish' : 'tweet.read, tweet.write, users.read'}
+                  {formPlatform === 'instagram'
+                    ? 'instagram_basic, instagram_content_publish'
+                    : 'pages_show_list, pages_manage_posts, pages_read_engagement'}
                 </div>
               </div>
             </div>

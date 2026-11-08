@@ -35,7 +35,6 @@ import {
   type KsaAdCampaign,
   type StoreAdWalletState,
   type StoreSocialScheduleState,
-  type ScheduledSocialPost,
   getStoreAdWallet,
   saveStoreAdWallet,
   requestAdWalletTopUp,
@@ -43,7 +42,6 @@ import {
   getStoreAdCampaigns,
   saveStoreAdCampaigns,
   getStoreSocialSchedule,
-  saveStoreSocialSchedule,
   requestStudioProUpgrade,
 } from '../../services/ksaAutomationEngine';
 import { AdvanceFeatureComingSoonModal } from '../common/AdvanceFeatureComingSoonModal';
@@ -51,6 +49,14 @@ import {
   useAdvanceFeatures,
   type AdvanceFeatureConfig,
 } from '../../services/advanceFeaturesService';
+import { isApiEnabled } from '../../api/client';
+import {
+  createGoogleAdsCampaignApi,
+  fetchGoogleAdsOverview,
+  syncGoogleAdsApi,
+  updateGoogleAdsCampaignApi,
+  type GoogleAdsOverviewResponse,
+} from '../../api/tenantApi';
 
 const AD_PLATFORMS: Array<{
   id: KsaAdPlatform;
@@ -61,7 +67,7 @@ const AD_PLATFORMS: Array<{
   { id: 'snapchat', nameEn: 'Snapchat Ads KSA', nameAr: 'إعلانات سناب شات السعودية', badgeColor: 'bg-amber-400 text-slate-950' },
   { id: 'tiktok', nameEn: 'TikTok Ads KSA', nameAr: 'إعلانات تيك توك السعودية', badgeColor: 'bg-pink-600 text-white' },
   { id: 'instagram', nameEn: 'Instagram / Meta Ads', nameAr: 'إعلانات إنستغرام وميتا', badgeColor: 'bg-purple-600 text-white' },
-  { id: 'google', nameEn: 'Google Search & Shopping', nameAr: 'إعلانات بحث وتسوق Google', badgeColor: 'bg-blue-600 text-white' },
+  { id: 'google', nameEn: 'Google Search & Shopping', nameAr: 'إعلانات بحث وتسوق جوجل', badgeColor: 'bg-blue-600 text-white' },
   { id: 'youtube', nameEn: 'YouTube Shorts & Video', nameAr: 'إعلانات يوتيوب شورتس', badgeColor: 'bg-rose-600 text-white' },
 ];
 
@@ -76,6 +82,8 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
   const [activeTab, setActiveTab] = useState<'ads' | 'scheduler'>(initialTab);
   const [wallet, setWallet] = useState<StoreAdWalletState>(() => getStoreAdWallet(activeStore.id));
   const [campaigns, setCampaigns] = useState<KsaAdCampaign[]>(() => getStoreAdCampaigns(activeStore.id));
+  const [adsOverview, setAdsOverview] = useState<GoogleAdsOverviewResponse | null>(null);
+  const [adsLoading, setAdsLoading] = useState(false);
   const [socialState, setSocialState] = useState<StoreSocialScheduleState>(() =>
     getStoreSocialSchedule(activeStore.id, activeStore.slug),
   );
@@ -129,10 +137,34 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
   // Reload isolated state when switching stores
   useEffect(() => {
     setWallet(getStoreAdWallet(activeStore.id));
-    setCampaigns(getStoreAdCampaigns(activeStore.id));
+    setCampaigns(getStoreAdCampaigns(activeStore.id).filter((c) => c.mode !== 'ai_auto'));
     setSocialState(getStoreSocialSchedule(activeStore.id, activeStore.slug));
     setPostProductId(currentProducts[0]?.id || '');
+    setAdsOverview(null);
   }, [activeStore.id, activeStore.slug, currentProducts]);
+
+  // Real Google Ads snapshot only — never invent impressions/ROAS
+  useEffect(() => {
+    if (!isApiEnabled() || !activeStore?.id) return;
+    let cancelled = false;
+    setAdsLoading(true);
+    void fetchGoogleAdsOverview(activeStore.id, false)
+      .then((data) => {
+        if (!cancelled) setAdsOverview(data);
+      })
+      .catch(() => {
+        if (!cancelled) setAdsOverview(null);
+      })
+      .finally(() => {
+        if (!cancelled) setAdsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore.id]);
+
+  const googleCampaigns = adsOverview?.snapshot?.campaigns || [];
+  const adsKpis = adsOverview?.snapshot?.kpis || null;
 
   // 3h Social Cooldown Ticker
   useEffect(() => {
@@ -156,15 +188,27 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
     return () => clearInterval(id);
   }, [socialState.nextAllowedPostAt]);
 
-  // Aggregate Ad Metrics
+  // Aggregate metrics — Google Ads KPIs from API only; local campaigns never invent ROAS
   const adSummary = useMemo(() => {
-    const totalVisitors = campaigns.reduce((s, c) => s + c.visitors, 0);
-    const totalCarts = campaigns.reduce((s, c) => s + c.addToCarts, 0);
-    const totalOrders = campaigns.reduce((s, c) => s + c.orders, 0);
-    const totalRev = campaigns.reduce((s, c) => s + c.revenueSar, 0);
-    const roas = wallet.totalSpentSar > 0 ? (totalRev / wallet.totalSpentSar).toFixed(1) : '0.0';
-    return { totalVisitors, totalCarts, totalOrders, totalRev, roas };
-  }, [campaigns, wallet.totalSpentSar]);
+    if (adsKpis) {
+      return {
+        totalVisitors: Number(adsKpis.impressions) || 0,
+        totalCarts: 0,
+        totalOrders: Math.round(Number(adsKpis.conversions) || 0),
+        totalRev: Number(adsKpis.conversions_value) || 0,
+        roas: adsKpis.roas != null ? String(adsKpis.roas) : '—',
+        spend: Number(adsKpis.cost) || 0,
+      };
+    }
+    return {
+      totalVisitors: 0,
+      totalCarts: 0,
+      totalOrders: 0,
+      totalRev: 0,
+      roas: '—',
+      spend: 0,
+    };
+  }, [adsKpis]);
 
   const baseUrl = useMemo(() => {
     return activeStore.custom_domain
@@ -179,7 +223,7 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
     setWallet(next);
     toast(
       isAr
-        ? `تم إرسال طلب شحن المحفظة بمبلغ ${topUpAmount} ر.س إلى الإدارة العليا (Master Admin) للاعتماد!`
+        ? `تم إرسال طلب شحن المحفظة بمبلغ${topUpAmount}ر.س إلى الإدارة العليا للاعتماد!`
         : `Sent ${topUpAmount} SAR Ad Wallet top-up request to Master Admin for approval!`,
       'success',
     );
@@ -192,223 +236,99 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
     setWallet(next);
     toast(
       isAr
-        ? `تم اعتماد وإيداع ${amount} ر.س في محفظة إعلانات المتجر فوراً!`
+        ? `تم اعتماد وإيداع${amount}ر.س في محفظة إعلانات المتجر فوراً!`
         : `Master Admin approved & deposited ${amount} SAR into Store Ad Wallet!`,
       'success',
     );
   };
 
-  // 1-Click AI Auto-Pilot Ad Generator (KSA All-in-One)
-  const handleLaunchAiAutoAds = () => {
-    if (wallet.balanceSar < 25) {
+  // Real Google Ads Search/PMax draft only — zero fake Snap/TikTok metrics
+  const handleLaunchAiAutoAds = async () => {
+    if (!isApiEnabled()) {
       toast(
         isAr
-          ? 'رصيد محفظة الإعلانات غير كافٍ. يرجى شحن المحفظة (مثلاً 1,000 ر.س) واعتمادها أولاً!'
-          : 'Insufficient Ad Wallet balance. Please top up your wallet (e.g., 1,000 SAR) first!',
+          ? 'واجهة برمجة التطبيقات غير مفعّلة. اربط المتجر بـ جوجل أولاً.'
+          : 'API is off. Connect Google for this store first.',
         'error',
       );
       return;
     }
-
     setIsAiLaunching(true);
-    setTimeout(() => {
-      const topProduct = currentProducts[0];
-      const prodName = topProduct?.name || activeStore.name;
-      const prodPrice = topProduct?.price || 149;
-      const prodImg = topProduct?.image || activeStore.logo || '';
-      const deductSar = Math.min(wallet.dailySpendCapSar, wallet.balanceSar, 100);
-
-      const newAiCampaigns: KsaAdCampaign[] = [
-        {
-          id: `ksa-ad-${Date.now()}-snap`,
-          storeId: activeStore.id,
-          nameEn: `AI KSA Snapchat — ${prodName}`,
-          nameAr: `حملة سناب شات الذكية — ${prodName}`,
-          platform: 'snapchat',
-          mode: 'ai_auto',
-          targetCities: ['Riyadh', 'Jeddah', 'Makkah', 'Dammam'],
-          dailyBudgetSar: Math.round(deductSar * 0.4),
-          spentSar: Math.round(deductSar * 0.4),
-          status: 'active',
-          scheduleStart: new Date().toISOString().slice(0, 10),
-          nextPacingTickAt: Date.now() + 24 * 3600 * 1000,
-          utmUrl: `${baseUrl}/?utm_source=snapchat&utm_medium=ksa_ai_ad&utm_campaign=${activeStore.slug}_snap`,
-          creativeImageUrl: prodImg,
-          headlineEn: `Order ${prodName} — Express KSA Delivery`,
-          headlineAr: `اطلب الآن ${prodName} — توصيل فوري لجميع مدن المملكة`,
-          impressions: 4820,
-          clicks: 310,
-          visitors: 265,
-          addToCarts: 34,
-          orders: 9,
-          revenueSar: 9 * prodPrice,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: `ksa-ad-${Date.now()}-tiktok`,
-          storeId: activeStore.id,
-          nameEn: `AI KSA TikTok & Instagram — ${prodName}`,
-          nameAr: `حملة تيك توك وإنستغرام الذكية — ${prodName}`,
-          platform: 'tiktok',
-          mode: 'ai_auto',
-          targetCities: ['Riyadh', 'Jeddah', 'Madinah', 'Khobar'],
-          dailyBudgetSar: Math.round(deductSar * 0.35),
-          spentSar: Math.round(deductSar * 0.35),
-          status: 'active',
-          scheduleStart: new Date().toISOString().slice(0, 10),
-          nextPacingTickAt: Date.now() + 24 * 3600 * 1000,
-          utmUrl: `${baseUrl}/?utm_source=tiktok&utm_medium=ksa_ai_ad&utm_campaign=${activeStore.slug}_tiktok`,
-          creativeImageUrl: prodImg,
-          headlineEn: `Trending in Saudi Arabia: ${prodName}`,
-          headlineAr: `الأكثر طلباً في السعودية: ${prodName}`,
-          impressions: 6150,
-          clicks: 420,
-          visitors: 340,
-          addToCarts: 41,
-          orders: 11,
-          revenueSar: 11 * prodPrice,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: `ksa-ad-${Date.now()}-google`,
-          storeId: activeStore.id,
-          nameEn: `AI Google & YouTube KSA — ${activeStore.name}`,
-          nameAr: `حملة بحث Google ويوتيوب السعودية — ${activeStore.name}`,
-          platform: 'google',
-          mode: 'ai_auto',
-          targetCities: ['Riyadh', 'Jeddah', 'Makkah', 'Qassim', 'Abha'],
-          dailyBudgetSar: Math.round(deductSar * 0.25),
-          spentSar: Math.round(deductSar * 0.25),
-          status: 'active',
-          scheduleStart: new Date().toISOString().slice(0, 10),
-          nextPacingTickAt: Date.now() + 24 * 3600 * 1000,
-          utmUrl: `${baseUrl}/?utm_source=google&utm_medium=ksa_cpc&utm_campaign=${activeStore.slug}_search`,
-          creativeImageUrl: prodImg,
-          headlineEn: `Official ${activeStore.name} Store — Shop Online KSA`,
-          headlineAr: `المتجر الرسمي ${activeStore.name} — تسوق أونلاين في السعودية`,
-          impressions: 3290,
-          clicks: 245,
-          visitors: 210,
-          addToCarts: 28,
-          orders: 7,
-          revenueSar: 7 * prodPrice,
-          createdAt: new Date().toISOString(),
-        },
-      ];
-
-      const updatedCampaigns = [...newAiCampaigns, ...campaigns];
-      saveStoreAdCampaigns(activeStore.id, updatedCampaigns);
-      setCampaigns(updatedCampaigns);
-
-      // Deduct today's paced spend from Store Ad Wallet
-      const nextWallet: StoreAdWalletState = {
-        ...wallet,
-        balanceSar: Math.max(0, wallet.balanceSar - deductSar),
-        spentTodaySar: wallet.spentTodaySar + deductSar,
-        totalSpentSar: wallet.totalSpentSar + deductSar,
-        lastPacingTimerAt: Date.now() + 24 * 3600 * 1000,
-        transactions: [
-          {
-            id: `tx-deduct-${Date.now()}`,
-            type: 'ad_deduction',
-            amountSar: deductSar,
-            noteEn: `Daily AI Auto-Ads Spend across Snapchat, TikTok & Google KSA (-${deductSar} SAR)`,
-            noteAr: `خصم الميزانية اليومية لحملات الذكاء الاصطناعي في السعودية (-${deductSar} ر.س)`,
-            createdAt: new Date().toISOString(),
-            status: 'completed',
-          },
-          ...wallet.transactions,
-        ],
-      };
-      saveStoreAdWallet(activeStore.id, nextWallet);
-      setWallet(nextWallet);
-      setIsAiLaunching(false);
-
+    try {
+      const name = `Souq Search — ${activeStore.name} — ${new Date().toISOString().slice(0, 10)}`;
+      const res = await createGoogleAdsCampaignApi(activeStore.id, {
+        name,
+        daily_budget_sar: Math.max(50, Math.min(wallet.dailySpendCapSar || 50, 200)),
+        status: 'PAUSED',
+        cities: ['Riyadh', 'Jeddah', 'Makkah'],
+        channel: 'SEARCH',
+        final_url: baseUrl,
+      });
+      if (!res.ok) {
+        throw new Error(res.error || (isAr ? 'تعذر إنشاء الحملة' : 'Could not create campaign'));
+      }
+      const refreshed = await syncGoogleAdsApi(activeStore.id);
+      setAdsOverview(refreshed);
       toast(
         isAr
-          ? `تم إطلاق حملات الذكاء الاصطناعي للسعودية وخصم الميزانية اليومية (${deductSar} ر.س) مع تتبع UTM تلقائي!`
-          : `AI KSA Campaigns launched across Snapchat, TikTok & Google! Deducted ${deductSar} SAR daily budget with live UTM tracking.`,
+          ? `تم إنشاء حملة بحث جوجل (متوقفة). أكمل الإعلانات في حساب إعلانات جوجل. رقم:${res.campaign_id || '—'}`
+          : `Google Search campaign created (PAUSED). Finish ads in Google Ads. ID: ${res.campaign_id || '—'}`,
         'success',
       );
-    }, 700);
-  };
-
-  // Manual Ad Campaign Creation
-  const handleCreateManualCampaign = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (wallet.balanceSar < manualDailyBudget) {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
       toast(
         isAr
-          ? 'رصيد المحفظة أقل من الميزانية اليومية المحددة. يرجى شحن المحفظة أولاً!'
-          : 'Wallet balance is lower than the daily budget. Please top up wallet first!',
+          ? `فشل إنشاء حملة إعلانات جوجل:${msg}. تأكد من ربط الحساب وصلاحية رمز المطوّر.`
+          : `Google Ads create failed: ${msg}. Link Ads account + check developer token.`,
+        'error',
+      );
+    } finally {
+      setIsAiLaunching(false);
+    }
+  };
+
+  // Manual: Google → real API; other platforms → no invented metrics (waiting for API)
+  const handleCreateManualCampaign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (manualPlatform !== 'google') {
+      toast(
+        isAr
+          ? 'إنشاء الحملات المباشرة متاح حالياً لـ إعلانات جوجل فقط. سناب/تيك توك غير مربوطين بعد.'
+          : 'Live campaign create is Google Ads only for now. Snap/TikTok APIs are not wired yet.',
         'error',
       );
       return;
     }
+    if (!isApiEnabled()) {
+      toast(isAr ? 'فعّل واجهة البرمجة أولاً' : 'Enable the API first', 'error');
+      return;
+    }
 
-    const topProduct = currentProducts[0];
-    const prodPrice = topProduct?.price || 120;
-    const estVisitors = Math.round(manualDailyBudget * 5.2);
-    const estCarts = Math.max(2, Math.round(estVisitors * 0.12));
-    const estOrders = Math.max(1, Math.round(estCarts * 0.28));
-
-    const created: KsaAdCampaign = {
-      id: `ksa-manual-${Date.now()}`,
-      storeId: activeStore.id,
-      nameEn: manualName.trim() || `${manualPlatform.toUpperCase()} KSA Campaign`,
-      nameAr: manualName.trim() || `حملة ${manualPlatform} السعودية`,
-      platform: manualPlatform,
-      mode: 'manual',
-      targetCities: manualCities.length > 0 ? manualCities : ['Riyadh'],
-      dailyBudgetSar: manualDailyBudget,
-      spentSar: manualDailyBudget,
-      status: 'active',
-      scheduleStart: new Date().toISOString().slice(0, 10),
-      nextPacingTickAt: Date.now() + 24 * 3600 * 1000,
-      utmUrl: `${baseUrl}/?utm_source=${manualPlatform}&utm_medium=manual_ksa_ad&utm_campaign=${encodeURIComponent(manualName.trim() || activeStore.slug)}`,
-      creativeImageUrl: topProduct?.image || activeStore.logo || '',
-      headlineEn: manualHeadline.trim() || `Shop at ${activeStore.name} KSA`,
-      headlineAr: manualHeadline.trim() || `تسوق الآن من ${activeStore.name}`,
-      impressions: estVisitors * 14,
-      clicks: Math.round(estVisitors * 1.15),
-      visitors: estVisitors,
-      addToCarts: estCarts,
-      orders: estOrders,
-      revenueSar: estOrders * prodPrice,
-      createdAt: new Date().toISOString(),
-    };
-
-    const nextCampaigns = [created, ...campaigns];
-    saveStoreAdCampaigns(activeStore.id, nextCampaigns);
-    setCampaigns(nextCampaigns);
-
-    const nextWallet: StoreAdWalletState = {
-      ...wallet,
-      balanceSar: Math.max(0, wallet.balanceSar - manualDailyBudget),
-      spentTodaySar: wallet.spentTodaySar + manualDailyBudget,
-      totalSpentSar: wallet.totalSpentSar + manualDailyBudget,
-      transactions: [
-        {
-          id: `tx-man-${Date.now()}`,
-          type: 'ad_deduction',
-          amountSar: manualDailyBudget,
-          noteEn: `Manual ${manualPlatform.toUpperCase()} KSA Campaign Spend (-${manualDailyBudget} SAR)`,
-          noteAr: `خصم حملة ${manualPlatform} اليدوية في السعودية (-${manualDailyBudget} ر.س)`,
-          createdAt: new Date().toISOString(),
-          status: 'completed',
-        },
-        ...wallet.transactions,
-      ],
-    };
-    saveStoreAdWallet(activeStore.id, nextWallet);
-    setWallet(nextWallet);
-    setShowManualModal(false);
-    setManualName('');
-    setManualHeadline('');
-    toast(
-      isAr ? 'تم إطلاق الحملة اليدوية وتفعيل تتبع UTM بنجاح!' : 'Manual KSA Ad Campaign launched with live UTM tracking!',
-      'success',
-    );
+    const createdName = manualName.trim() || `Google KSA — ${activeStore.name}`;
+    setIsAiLaunching(true);
+    try {
+      const res = await createGoogleAdsCampaignApi(activeStore.id, {
+        name: createdName,
+        daily_budget_sar: manualDailyBudget,
+        status: 'PAUSED',
+        cities: manualCities.length ? manualCities : ['Riyadh'],
+        channel: 'SEARCH',
+        final_url: baseUrl,
+      });
+      if (!res.ok) throw new Error(res.error || 'Create failed');
+      const refreshed = await syncGoogleAdsApi(activeStore.id);
+      setAdsOverview(refreshed);
+      setShowManualModal(false);
+      toast(
+        isAr ? 'تم إنشاء حملة جوجل (متوقفة) بدون أرقام وهمية' : 'Google campaign created (PAUSED) — no fake metrics',
+        'success',
+      );
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : String(err), 'error');
+    } finally {
+      setIsAiLaunching(false);
+    }
   };
 
   // Convert Ad Leads into a Real Store Order & Open WhatsApp Conversation
@@ -418,7 +338,7 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
     const orderTotal = prod?.price || 145;
 
     addOrder({
-      customerName: isAr ? `عميل إعلان (${camp.platform}) - ${city}` : `${camp.platform.toUpperCase()} Ad Lead (${city})`,
+      customerName: isAr ? `عميل إعلان (${camp.platform}) -${city}` : `${camp.platform.toUpperCase()} Ad Lead (${city})`,
       customerEmail: `lead.${camp.platform}@ksa-customer.sa`,
       customerPhone: '+966 50 842 9910',
       total: orderTotal,
@@ -454,68 +374,29 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
 
     toast(
       isAr
-        ? `تم تحويل زائر إعلان (${camp.platform}) من مدينة ${city} إلى طلب حقيقي بقيمة ${orderTotal} ر.س!`
+        ? `تم تحويل زائر إعلان (${camp.platform}) من مدينة${city}إلى طلب حقيقي بقيمة${orderTotal}ر.س!`
         : `Converted ${camp.platform.toUpperCase()} Ad visitor from ${city} into a real order (${orderTotal} SAR)!`,
       'success',
     );
   };
 
-  // Generate AI Caption & Schedule Social Post (with 3h Anti-Ban Timer)
+  // Live schedule is Instagram/Facebook via Social Publishing Hub only — no fake local metrics.
   const handleScheduleSocialPost = (e: React.FormEvent) => {
     e.preventDefault();
-    if (socialState.postsUsedToday >= socialState.dailyPostLimit) {
+    if (postPlatform !== 'instagram') {
       toast(
         isAr
-          ? 'وصلت للحد اليومي للجدولة المجانية. اضغط على ترقية Pro لزيادة السرعة والحد اليومي!'
-          : 'Daily free scheduling limit reached! Click Upgrade to Pro so Master Admin can boost your speed.',
-        'error',
+          ? 'قريباً — الجدولة المباشرة لهذه المنصة غير مفعّلة. إنستغرام وفيسبوك عبر مركز النشر الاجتماعي.'
+          : 'Coming Soon — live scheduling for this platform is not wired. Use Social Hub for Instagram & Facebook.',
+        'info',
       );
       return;
     }
-
-    const selectedProd = currentProducts.find((p) => p.id === postProductId) || currentProducts[0];
-    const prodName = selectedProd?.name || activeStore.name;
-    const prodImg = selectedProd?.image || activeStore.logo || '';
-    const autoCaptionEn =
-      postCaption.trim() ||
-      `Discover ${prodName} at ${activeStore.name}! Fast shipping across Riyadh, Jeddah, Makkah & all Saudi Arabia. Order now! #KSA #SaudiArabia`;
-    const autoCaptionAr =
-      postCaption.trim() ||
-      `تسوّق الآن ${prodName} من متجر ${activeStore.name}! شحن سريع للرياض وجدة ومكة وكافة مدن المملكة 🇸🇦 #السعودية`;
-
-    const newPost: ScheduledSocialPost = {
-      id: `post-${Date.now()}`,
-      storeId: activeStore.id,
-      platform: postPlatform,
-      captionEn: autoCaptionEn,
-      captionAr: autoCaptionAr,
-      imageUrl: prodImg,
-      productId: selectedProd?.id,
-      scheduledFor: postScheduleTime,
-      status: 'scheduled',
-      views: 120,
-      likes: 18,
-      clicks: 9,
-      conversions: 1,
-      utmUrl: `${baseUrl}/?utm_source=${postPlatform}&utm_medium=social_auto&utm_campaign=post_${Date.now().toString().slice(-4)}`,
-      createdAt: new Date().toISOString(),
-    };
-
-    const nextState: StoreSocialScheduleState = {
-      ...socialState,
-      postsUsedToday: socialState.postsUsedToday + 1,
-      nextAllowedPostAt: Date.now() + socialState.cooldownHours * 3600 * 1000,
-      posts: [newPost, ...socialState.posts],
-    };
-    saveStoreSocialSchedule(activeStore.id, nextState);
-    setSocialState(nextState);
-    setPostCaption('');
-
     toast(
       isAr
-        ? `تمت جدولة المنشور التلقائي على ${postPlatform} مع تفعيل مؤقت الحماية (${socialState.cooldownHours} ساعات)!`
-        : `Scheduled automatic post on ${postPlatform} with ${socialState.cooldownHours}h anti-ban timer!`,
-      'success',
+        ? 'للنشر والجدولة الحقيقية افتح مركز النشر الاجتماعي واربط إنستغرام أو فيسبوك عبر ميتا غراف.'
+        : 'For real publish & schedule, open Social Publishing Hub and connect Instagram or Facebook via Meta Graph.',
+      'info',
     );
   };
 
@@ -535,7 +416,7 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
             <Megaphone className="w-4 h-4" />
             <span>
               {isAr
-                ? 'مدير إعلانات السعودية الموحد (Snap / TikTok / IG / Google / YT)'
+                ? 'مدير إعلانات السعودية الموحد'
                 : 'All-in-One Saudi Ad Manager & Wallet (Snap / TikTok / IG / Google / YT)'}
             </span>
           </button>
@@ -576,7 +457,7 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
             requestStudioProUpgrade(activeStore.id, 299);
             toast(
               isAr
-                ? 'تم إرسال طلب ترقية باقة Pro للإدارة العليا لزيادة سرعة النشر والإعلانات اليومية!'
+                ? 'تم إرسال طلب ترقية الباقة الاحترافية للإدارة العليا لزيادة سرعة النشر والإعلانات اليومية!'
                 : 'Pro Speed Upgrade request sent to Master Admin!',
               'success',
             );
@@ -585,7 +466,7 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
           style={{ background: 'linear-gradient(135deg, #d97706, #ea580c)' }}
         >
           <Sparkles className="w-4 h-4" />
-          <span>{isAr ? 'ترقية لـ Pro (زيادة السرعة والحد اليومي)' : 'Upgrade to Pro (Boost Speed & Quota)'}</span>
+          <span>{isAr ? 'ترقية للباقة الاحترافية (زيادة السرعة والحد اليومي)' : 'Upgrade to Pro (Boost Speed & Quota)'}</span>
         </button>
       </div>
 
@@ -632,7 +513,7 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
                     <div className="font-black font-mono text-rose-500">-{wallet.spentTodaySar} SAR</div>
                   </div>
                   <div className="p-2.5 rounded-xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-                    <div className="text-[10px] text-muted">{isAr ? 'العائد (ROAS)' : 'Ad Return (ROAS)'}</div>
+                    <div className="text-[10px] text-muted">{isAr ? 'العائد' : 'Ad Return (ROAS)'}</div>
                     <div className="font-black font-mono text-emerald-500">{adSummary.roas}x</div>
                   </div>
                 </div>
@@ -655,7 +536,7 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
                     onClick={handleRequestTopUp}
                     className="flex-1 py-2 px-3 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 cursor-pointer"
                   >
-                    {isAr ? `طلب شحن (${topUpAmount} ر.س)` : `Deposit ${topUpAmount} SAR`}
+                    {isAr ? `طلب شحن (${topUpAmount}ر.س)` : `Deposit ${topUpAmount} SAR`}
                   </button>
                   <button
                     type="button"
@@ -697,42 +578,46 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
                 <div className="p-3.5 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
                   <div className="text-[11px] text-muted font-bold">{isAr ? 'الزوار من الإعلانات' : 'Ad Visitors (UTM)'}</div>
                   <div className="text-2xl font-black mt-1">{adSummary.totalVisitors}</div>
-                  <div className="text-[10px] text-emerald-500 font-semibold">{isAr ? 'زوار حقيقيون من السعودية' : 'Verified KSA Traffic'}</div>
+                  <div className="text-[10px] text-muted font-semibold">
+                    {adsLoading
+                      ? (isAr ? 'جاري المزامنة…' : 'Syncing…')
+                      : (isAr ? 'مرات الظهور من إعلانات جوجل' : 'Impressions from Google Ads')}
+                  </div>
                 </div>
 
                 <div className="p-3.5 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-                  <div className="text-[11px] text-muted font-bold">{isAr ? 'إضافة للسلة' : 'Add to Carts'}</div>
-                  <div className="text-2xl font-black mt-1 text-blue-500">{adSummary.totalCarts}</div>
-                  <div className="text-[10px] text-muted">{isAr ? 'جاهزون للتحويل' : 'Ready for retargeting'}</div>
+                  <div className="text-[11px] text-muted font-bold">{isAr ? 'الإنفاق' : 'Ad Spend'}</div>
+                  <div className="text-2xl font-black mt-1 text-blue-500">{money(adSummary.spend || 0)}</div>
+                  <div className="text-[10px] text-muted">{isAr ? 'تكلفة حقيقية من جوجل' : 'Real Google Ads cost'}</div>
                 </div>
 
                 <div className="p-3.5 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-                  <div className="text-[11px] text-muted font-bold">{isAr ? 'الطلبات المحولة' : 'Converted Orders'}</div>
+                  <div className="text-[11px] text-muted font-bold">{isAr ? 'التحويلات' : 'Conversions'}</div>
                   <div className="text-2xl font-black mt-1 text-emerald-500">{adSummary.totalOrders}</div>
-                  <div className="text-[10px] text-emerald-500 font-semibold">{isAr ? 'مبيعات مباشرة' : 'Direct Ad Orders'}</div>
+                  <div className="text-[10px] text-emerald-500 font-semibold">{isAr ? 'من تقارير الإعلانات' : 'From Ads reports'}</div>
                 </div>
 
                 <div className="p-3.5 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-                  <div className="text-[11px] text-muted font-bold">{isAr ? 'إيرادات الإعلانات' : 'Ad Revenue Earned'}</div>
+                  <div className="text-[11px] text-muted font-bold">{isAr ? 'قيمة التحويل' : 'Conversion Value'}</div>
                   <div className="text-xl font-black mt-1 font-mono text-emerald-500">{money(adSummary.totalRev)}</div>
-                  <div className="text-[10px] text-muted">{isAr ? 'صافي مبيعات الحملات' : 'Gross UTM Sales'}</div>
+                  <div className="text-[10px] text-muted">ROAS: {adSummary.roas}</div>
                 </div>
               </div>
 
-              {/* Dual Action Buttons: 1-Click AI Auto-Pilot vs Manual Builder */}
+              {/* Dual Action Buttons: Google Search draft vs Manual Builder */}
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <button
                   type="button"
                   onClick={handleLaunchAiAutoAds}
-                  disabled={isAiLaunching}
+                  disabled={isAiLaunching || adsLoading}
                   className="flex-1 py-3 px-5 rounded-2xl text-xs sm:text-sm font-black text-white shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all hover:opacity-95 disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
                 >
                   {isAiLaunching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                   <span>
                     {isAr
-                      ? 'إطلاق تلقائي بالذكاء الاصطناعي (Snap + TikTok + IG + Google + YouTube)'
-                      : '1-Click AI Auto-Launch KSA Ads (Snap + TikTok + IG + Google + YouTube)'}
+                      ? 'إنشاء حملة بحث جوجل (متوقفة) — بيانات حقيقية فقط'
+                      : 'Create Google Search campaign (PAUSED) — real Ads API only'}
                   </span>
                 </button>
 
@@ -754,26 +639,43 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
             <div className="p-4 sm:p-5 border-b flex items-center justify-between flex-wrap gap-2" style={{ borderColor: 'var(--border)' }}>
               <div>
                 <h3 className="font-black text-sm sm:text-base">
-                  {isAr ? 'حملات السعودية النشطة وتحويل الزوار إلى طلبات' : 'Active Saudi Campaigns & Visitor-to-Order Conversion Hub'}
+                  {isAr ? 'حملات إعلانات جوجل لهذا المتجر' : 'Google Ads campaigns for this store'}
                 </h3>
                 <p className="text-xs text-muted">
                   {isAr
-                    ? 'شاهد من أين يأتي العملاء في السعودية وحوّلهم فوراً إلى طلبات مؤكدة بضغطة زر.'
-                    : 'Track exact Saudi cities & UTM channels and convert visitors into orders in 1 click.'}
+                    ? 'بيانات حقيقية فقط بعد ربط حساب إعلانات جوجل. لا أرقام وهمية.'
+                    : 'Real data only after Google Ads is linked. No invented metrics.'}
                 </p>
               </div>
+              <button
+                type="button"
+                disabled={adsLoading}
+                onClick={() => {
+                  setAdsLoading(true);
+                  void syncGoogleAdsApi(activeStore.id)
+                    .then((d) => setAdsOverview(d))
+                    .catch(() => undefined)
+                    .finally(() => setAdsLoading(false));
+                }}
+                className="px-3 py-1.5 rounded-xl border text-[11px] font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                style={{ borderColor: 'var(--border)' }}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${adsLoading ? 'animate-spin' : ''}`} />
+                {isAr ? 'مزامنة الإعلانات' : 'Sync Ads'}
+              </button>
             </div>
 
-            {campaigns.length === 0 ? (
+            {googleCampaigns.length === 0 ? (
               <div className="p-10 text-center space-y-2">
                 <Megaphone className="w-8 h-8 text-muted mx-auto" />
                 <div className="font-black text-sm">
-                  {isAr ? 'لا توجد حملات إعلانية نشطة حالياً' : 'No active KSA ad campaigns yet'}
+                  {isAr ? 'لا توجد حملات إعلانات جوجل بعد' : 'No Google Ads campaigns yet'}
                 </div>
-                <p className="text-xs text-muted">
-                  {isAr
-                    ? 'اشحن المحفظة واضغط على زر "إطلاق تلقائي بالذكاء الاصطناعي" لبدء جلب الزوار والطلبات من السعودية.'
-                    : 'Top up your Ad Wallet and click "1-Click AI Auto-Launch KSA Ads" to start receiving visitors and orders.'}
+                <p className="text-xs text-muted max-w-md mx-auto">
+                  {adsOverview?.message
+                    || (isAr
+                      ? 'اربط جوجل من إعدادات تحسين محركات البحث، اختر حساب الإعلانات، ثم أنشئ حملة أو انتظر المزامنة.'
+                      : 'Connect Google in SEO settings, pick an Ads customer, then create a campaign or wait for sync.')}
                 </p>
               </div>
             ) : (
@@ -781,62 +683,48 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
                 <table className="w-full text-start text-xs border-collapse">
                   <thead>
                     <tr className="border-b text-muted font-bold" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-                      <th className="py-3 px-4 text-start">{isAr ? 'الحملة والمنصة' : 'Campaign & Platform'}</th>
-                      <th className="py-3 px-4 text-start">{isAr ? 'مدن السعودية (+966)' : 'KSA Target Cities'}</th>
-                      <th className="py-3 px-4 text-start">{isAr ? 'الميزانية والمخصوم' : 'Daily Spend'}</th>
-                      <th className="py-3 px-4 text-start">{isAr ? 'الزوار / السلات / الطلبات' : 'Visitors / Carts / Orders'}</th>
-                      <th className="py-3 px-4 text-start">{isAr ? 'المبيعات (ر.س)' : 'Revenue (SAR)'}</th>
-                      <th className="py-3 px-4 text-end">{isAr ? 'تحويل الزائر لطلب' : 'Convert Lead to Order'}</th>
+                      <th className="py-3 px-4 text-start">{isAr ? 'الحملة' : 'Campaign'}</th>
+                      <th className="py-3 px-4 text-start">{isAr ? 'الحالة' : 'Status'}</th>
+                      <th className="py-3 px-4 text-start">{isAr ? 'الميزانية اليومية' : 'Daily budget'}</th>
+                      <th className="py-3 px-4 text-start">{isAr ? 'الظهور / النقرات' : 'Impr. / Clicks'}</th>
+                      <th className="py-3 px-4 text-start">{isAr ? 'التكلفة / العائد' : 'Cost / ROAS'}</th>
+                      <th className="py-3 px-4 text-end">{isAr ? 'إجراءات' : 'Actions'}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {campaigns.map((camp) => {
-                      const plat = AD_PLATFORMS.find((p) => p.id === camp.platform);
+                    {googleCampaigns.map((camp) => {
                       return (
                         <tr key={camp.id} className="border-b hover:bg-slate-500/5" style={{ borderColor: 'var(--border)' }}>
                           <td className="py-3 px-4">
-                            <div className="font-black">{isAr ? camp.nameAr : camp.nameEn}</div>
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${plat?.badgeColor || 'bg-slate-700 text-white'}`}>
-                                {camp.platform}
-                              </span>
-                              <span className="text-[10px] text-muted font-mono truncate max-w-[180px]" title={camp.utmUrl}>
-                                {camp.mode === 'ai_auto' ? 'AI Auto-UTM' : 'Manual UTM'}
-                              </span>
-                            </div>
+                            <div className="font-black">{camp.name}</div>
+                            <div className="text-[10px] text-muted font-mono mt-0.5">{camp.channel || 'SEARCH'} · #{camp.id}</div>
                           </td>
-                          <td className="py-3 px-4">
-                            <div className="flex flex-wrap gap-1">
-                              {camp.targetCities.map((city) => (
-                                <span key={city} className="px-2 py-0.5 rounded-md text-[10px] font-semibold border" style={{ borderColor: 'var(--border)' }}>
-                                  {city}
-                                </span>
-                              ))}
-                            </div>
+                          <td className="py-3 px-4 font-bold">{camp.status}</td>
+                          <td className="py-3 px-4 font-mono font-bold">
+                            {camp.daily_budget != null ? `${camp.daily_budget} SAR` : '—'}
                           </td>
-                          <td className="py-3 px-4 font-mono font-bold text-rose-500">
-                            -{camp.dailyBudgetSar} SAR/{isAr ? 'يوم' : 'day'}
+                          <td className="py-3 px-4 font-mono font-bold">
+                            {camp.impressions ?? 0} / {camp.clicks ?? 0}
                           </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2 font-mono font-bold">
-                              <span>{camp.visitors} {isAr ? 'زائر' : 'vis'}</span>
-                              <span>•</span>
-                              <span className="text-blue-500">{camp.addToCarts} {isAr ? 'سلة' : 'cart'}</span>
-                              <span>•</span>
-                              <span className="text-emerald-500">{camp.orders} {isAr ? 'طلب' : 'ord'}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 font-mono font-black text-emerald-500">
-                            {money(camp.revenueSar)}
+                          <td className="py-3 px-4 font-mono font-black">
+                            {money(camp.cost || 0)} · ROAS {camp.roas ?? '—'}
                           </td>
                           <td className="py-3 px-4 text-end">
                             <button
                               type="button"
-                              onClick={() => handleConvertAdLeadToOrder(camp)}
+                              onClick={() => {
+                                void updateGoogleAdsCampaignApi(activeStore.id, camp.id, {
+                                  status: camp.status === 'ENABLED' ? 'PAUSED' : 'ENABLED',
+                                }).then(() => syncGoogleAdsApi(activeStore.id).then(setAdsOverview));
+                              }}
                               className="px-3 py-1.5 rounded-xl text-[11px] font-black text-white bg-emerald-600 hover:bg-emerald-700 cursor-pointer inline-flex items-center gap-1.5"
                             >
-                              <ShoppingCart className="w-3.5 h-3.5" />
-                              <span>{isAr ? 'تحويل لطلب + محادثة' : 'Convert to Order'}</span>
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>
+                                {camp.status === 'ENABLED'
+                                  ? (isAr ? 'إيقاف' : 'Pause')
+                                  : (isAr ? 'تفعيل' : 'Enable')}
+                              </span>
                             </button>
                           </td>
                         </tr>
@@ -882,19 +770,34 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
             )}
 
             <div className="space-y-1">
-              <label className="text-xs font-bold block">{isAr ? 'منصة التواصل المتصلة' : 'Connected Social Platform'}</label>
+              <label className="text-xs font-bold block">{isAr ? 'منصة التواصل' : 'Social Platform'}</label>
               <select
                 value={postPlatform}
                 onChange={(e) => setPostPlatform(e.target.value as any)}
                 className="w-full px-3 py-2.5 rounded-xl border text-xs font-bold cursor-pointer"
                 style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
               >
-                <option value="instagram">Instagram Business ({socialState.connectedAccounts.instagram.handle})</option>
-                <option value="tiktok">TikTok KSA ({socialState.connectedAccounts.tiktok.handle})</option>
-                <option value="snapchat">Snapchat Public Profile ({socialState.connectedAccounts.snapchat.handle})</option>
-                <option value="telegram">Telegram Channel ({socialState.connectedAccounts.telegram.handle})</option>
-                <option value="x">X / Twitter ({socialState.connectedAccounts.x.handle})</option>
+                <option value="instagram">
+                  {isAr ? 'إنستغرام — عبر مركز النشر (ميتا غراف)' : 'Instagram — via Social Hub (Meta Graph)'}
+                </option>
+                <option value="tiktok" disabled>
+                  {isAr ? 'تيك توك — قريباً' : 'TikTok — Coming Soon'}
+                </option>
+                <option value="snapchat" disabled>
+                  {isAr ? 'سناب شات — قريباً' : 'Snapchat — Coming Soon'}
+                </option>
+                <option value="telegram" disabled>
+                  {isAr ? 'تيليجرام — قريباً' : 'Telegram — Coming Soon'}
+                </option>
+                <option value="x" disabled>
+                  {isAr ? 'إكس — قريباً' : 'X — Coming Soon'}
+                </option>
               </select>
+              <p className="text-[11px] text-muted pt-1">
+                {isAr
+                  ? 'الربط والنشر الحقيقي: إنستغرام + فيسبوك فقط. باقي المنصات قريباً.'
+                  : 'Live connect & publish: Instagram + Facebook only. Other platforms Coming Soon.'}
+              </p>
             </div>
 
             <div className="space-y-1">
@@ -942,7 +845,7 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
               style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
             >
               <Send className="w-4 h-4" />
-              <span>{isAr ? 'جدولة النشر التلقائي مع تتبع المشاهدات' : 'Schedule Automatic Post & Track Views'}</span>
+              <span>{isAr ? 'الانتقال إلى مركز النشر الحقيقي' : 'Go to Live Social Publishing Hub'}</span>
             </button>
           </form>
 

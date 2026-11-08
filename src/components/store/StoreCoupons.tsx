@@ -76,7 +76,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
   const [discountValue, setDiscountValue] = useState('50');
   const [description, setDescription] = useState(
     isAr
-      ? `خصم 50% على جميع المنتجات المؤهلة في ${activeStore.name}`
+      ? `خصم 50% على جميع المنتجات المؤهلة في${activeStore.name}`
       : `Get 50% off on eligible products at ${activeStore.name}.`
   );
 
@@ -328,7 +328,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
 
     toast(
       isAr
-        ? `تم حفظ الكوبون ${cleanCode} بنجاح`
+        ? `تم حفظ الكوبون${cleanCode}بنجاح`
         : `Coupon ${cleanCode} saved successfully`,
       'success'
     );
@@ -369,7 +369,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
     a.download = `coupons-${activeStore.id}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast(isAr ? `تم تصدير ${filtered.length} كوبون` : `Exported ${filtered.length} coupons`, 'success');
+    toast(isAr ? `تم تصدير${filtered.length}كوبون` : `Exported ${filtered.length} coupons`, 'success');
   };
 
   const exportXlsx = () => {
@@ -378,7 +378,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
       return;
     }
     downloadXlsx(`coupons-${activeStore.id}.xlsx`, 'Coupons', exportRows());
-    toast(isAr ? `تم تصدير ${filtered.length} كوبون (Excel)` : `Exported ${filtered.length} coupons (Excel)`, 'success');
+    toast(isAr ? `تم تصدير${filtered.length}كوبون` : `Exported ${filtered.length} coupons (Excel)`, 'success');
   };
 
   // Color Swatches
@@ -1025,7 +1025,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                       : 'border-transparent text-slate-400 hover:text-slate-600'
                   }`}
                 >
-                  {isAr ? 'شفاف (PNG)' : 'Transparent (PNG)'}
+                  {isAr ? 'شفاف' : 'Transparent (PNG)'}
                 </button>
               </div>
 
@@ -1088,7 +1088,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                     <div className="text-end">
                       <div className="text-3xl font-black tracking-tight leading-none text-white drop-shadow-sm tabular-nums">
                         {discountValue || '50'}
-                        {couponType === 'percentage' ? '%' : (isAr ? ' ر.س' : ' SAR')}
+                        {couponType === 'percentage' ? '%' : (isAr ? 'ر.س' : ' SAR')}
                       </div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-white/80">
                         {isAr ? 'خصم فوري' : 'OFF'}
@@ -1407,7 +1407,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
             className="px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Download className="w-4 h-4" />
-            <span>{isAr ? 'تصدير CSV' : 'Export CSV'}</span>
+            <span>{isAr ? 'تصدير جداول البيانات' : 'Export CSV'}</span>
           </button>
           <button
             type="button"
@@ -1415,7 +1415,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
             className="px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Download className="w-4 h-4" />
-            <span>{isAr ? 'تصدير Excel' : 'Export Excel'}</span>
+            <span>{isAr ? 'تصدير جداول البيانات' : 'Export Excel'}</span>
           </button>
           <button
             type="button"
@@ -1624,7 +1624,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                             toggleCouponStatus(c.id);
                             toast(
                               isAr
-                                ? `تم تحديث حالة الكوبون ${c.code}`
+                                ? `تم تحديث حالة الكوبون${c.code}`
                                 : `Coupon ${c.code} status updated`,
                               'info'
                             );
@@ -1639,9 +1639,9 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                           type="button"
                           onClick={() => {
                             deleteCoupon(c.id);
-                            toast(isAr ? `تم حذف الكوبون ${c.code}` : `Coupon ${c.code} deleted`, 'info');
+                            toast(isAr ? `تم حذف الكوبون${c.code}` : `Coupon ${c.code} deleted`, 'info');
                           }}
-                          title={isAr ? `حذف الكوبون ${c.code}` : `Delete coupon ${c.code}`}
+                          title={isAr ? `حذف الكوبون${c.code}` : `Delete coupon ${c.code}`}
                           className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1674,7 +1674,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
           <div className="flex items-center gap-1">
             <span className="me-3">
               {isAr
-                ? `عرض ${fromRow} – ${toRow} من ${filtered.length}`
+                ? `عرض${fromRow}–${toRow}من${filtered.length}`
                 : `Showing ${fromRow} – ${toRow} of ${filtered.length}`}
             </span>
             <button

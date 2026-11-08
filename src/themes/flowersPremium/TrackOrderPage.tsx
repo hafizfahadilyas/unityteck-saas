@@ -323,7 +323,7 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({
         <div className="flex items-center justify-between">
           <h3 className="text-base font-black flex items-center gap-2" style={{ color: 'var(--sf-text)' }}>
             <Sparkles className="w-4 h-4 text-emerald-600" />
-            <span>{isAr ? 'المراحل الخمس لتنفيذ وتسليم الطلب (5-Step Timeline)' : '5-Step Order Execution & Delivery Timeline'}</span>
+            <span>{isAr ? 'المراحل الخمس لتنفيذ وتسليم الطلب' : '5-Step Order Execution & Delivery Timeline'}</span>
           </h3>
           <span className="text-[11px] font-bold text-emerald-600">
             {isAr ? 'المرحلة 4 من 5 مكتملة' : 'Step 4 of 5 Active'}

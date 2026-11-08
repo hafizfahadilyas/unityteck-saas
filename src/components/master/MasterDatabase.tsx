@@ -69,10 +69,10 @@ export const MasterDatabase: React.FC = () => {
         latency,
         message: ok
           ? (isAr
-              ? `تم التحقق عبر API /health بنجاح (${latency}ms) — ${dbConfig.host}/${dbConfig.database}`
+              ? `تم التحقق عبر API /health بنجاح (${latency}ms) —${dbConfig.host}/${dbConfig.database}`
               : `API /health OK (${latency}ms). Config target: ${dbConfig.host}/${dbConfig.database}`)
           : (isAr
-              ? `فشل التحقق: ${String(health?.error || health?.message || 'unknown')}`
+              ? `فشل التحقق:${String(health?.error || health?.message || 'unknown')}`
               : `Health check failed: ${String(health?.error || health?.message || 'unknown')}`),
       });
     } catch (err) {
@@ -81,7 +81,7 @@ export const MasterDatabase: React.FC = () => {
         success: false,
         latency,
         message: isAr
-          ? `تعذر الاتصال بالـ API: ${err instanceof Error ? err.message : 'error'}`
+          ? `تعذر الاتصال بالـ API:${err instanceof Error ? err.message: 'error'}`
           : `API unreachable: ${err instanceof Error ? err.message : 'error'}`,
       });
     } finally {

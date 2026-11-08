@@ -138,7 +138,7 @@ export function AdvancedDataTable<T>({
                     <button
                       type="button"
                       onClick={() => onSort(col.key)}
-                      title={isAr ? `ترتيب حسب ${col.header}` : `Sort by ${col.header}`}
+                      title={isAr ? `ترتيب حسب${col.header}` : `Sort by ${col.header}`}
                       className={`inline-flex items-center gap-1 hover:text-slate-700 transition-colors ${
                         col.align === 'right' ? 'ms-auto' : col.align === 'center' ? 'mx-auto' : ''
                       }`}
@@ -195,7 +195,7 @@ export function AdvancedDataTable<T>({
               ? '0 نتيجة'
               : '0 results'
             : isAr
-              ? `عرض ${from}–${to} من ${total}`
+              ? `عرض${from}–${to}من${total}`
               : `Showing ${from}–${to} of ${total}`}
         </span>
         <div className="flex items-center gap-1.5">

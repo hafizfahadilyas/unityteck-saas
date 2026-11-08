@@ -106,7 +106,7 @@ export const UtmCampaignBuilder: React.FC = () => {
       },
       {
         id: 'camp-4',
-        name: isAr ? 'واتساب ستاند فنادق الحرم (QR Code)' : 'Haram Hotels Concierge WhatsApp QR',
+        name: isAr ? 'واتساب ستاند فنادق الحرم رمز الاستجابة' : 'Haram Hotels Concierge WhatsApp QR',
         url: `${baseUrl}/?utm_source=whatsapp&utm_medium=qr_stand&utm_campaign=hotel-concierge-reception&utm_content=qr-card-stand`,
         source: 'whatsapp',
         medium: 'qr_stand',
@@ -213,7 +213,7 @@ export const UtmCampaignBuilder: React.FC = () => {
               <Link2 className="w-5 h-5" />
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'مولد ومتبع روابط الحملات الإعلانية (UTM Campaign Tracking)' : 'UTM Campaign URL Builder & Tracker'}
+              {isAr ? 'مولد ومتبع روابط الحملات الإعلانية' : 'UTM Campaign URL Builder & Tracker'}
             </h2>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
               GA4 & GTM Sync
@@ -221,7 +221,7 @@ export const UtmCampaignBuilder: React.FC = () => {
           </div>
           <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
             {isAr
-              ? 'قم بإنشاء روابط مخصصة لإعلانات جوجل، سناب شات، تيك توك، واتساب، وإنستغرام لتتبع مصادر الزوار والمبيعات بدقة ١٠٠٪ داخل Google Analytics 4 ولوحة تحكم المتجر.'
+              ? 'قم بإنشاء روابط مخصصة لإعلانات جوجل، سناب شات، تيك توك، واتساب، وإنستغرام لتتبع مصادر الزوار والمبيعات بدقة ١٠٠٪ داخل تحليلات جوجل ٤ ولوحة تحكم المتجر.'
               : 'Generate custom campaign tracking links for Google Ads, TikTok, Snapchat, Instagram, and WhatsApp to track traffic sources, orders, and ROI in GA4.'}
           </p>
         </div>
@@ -242,7 +242,7 @@ export const UtmCampaignBuilder: React.FC = () => {
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-3">
         <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
           <Sparkles className="w-4 h-4 text-amber-500" />
-          <span>{isAr ? 'قوالب سريعة بنقرة واحدة (1-Click Presets):' : '1-Click Quick Campaign Presets:'}</span>
+          <span>{isAr ? 'قوالب سريعة بنقرة واحدة:' : '1-Click Quick Campaign Presets:'}</span>
         </span>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
           {[
@@ -328,7 +328,7 @@ export const UtmCampaignBuilder: React.FC = () => {
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
             <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
               <Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <span>{isAr ? 'إعداد معاملات الرابط (UTM Parameters)' : 'Configure UTM Parameters'}</span>
+              <span>{isAr ? 'إعداد معاملات الرابط' : 'Configure UTM Parameters'}</span>
             </h3>
             <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
               {activeStore.slug || 'store'}
@@ -338,7 +338,7 @@ export const UtmCampaignBuilder: React.FC = () => {
           {/* 1. Destination URL / Store Page Selector */}
           <div className="space-y-1.5">
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-              {isAr ? '١. صفحة الهبوط المستهدفة (Destination URL):' : '1. Target Landing Page URL:'}
+              {isAr ? '١. صفحة الهبوط المستهدفة رابط الوجهة:' : '1. Target Landing Page URL:'}
             </label>
             <div className="flex gap-2">
               <select
@@ -349,13 +349,13 @@ export const UtmCampaignBuilder: React.FC = () => {
                 }}
                 className="w-1/2 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               >
-                <option value="/">{isAr ? 'الرئيسية (Home Page)' : 'Homepage (/)'}</option>
-                <option value="/catalog">{isAr ? 'كتالوج المنتجات الكامل (Catalog)' : 'Catalog (/catalog)'}</option>
+                <option value="/">{isAr ? 'الرئيسية' : 'Homepage (/)'}</option>
+                <option value="/catalog">{isAr ? 'كتالوج المنتجات الكامل' : 'Catalog (/catalog)'}</option>
                 <option value="/catalog?category=natural-bouquets">{isAr ? 'باقات الورد الطبيعي' : 'Natural Bouquets'}</option>
                 <option value="/catalog?category=roses-patchi">{isAr ? 'ورد وشوكليت باتشي' : 'Patchi & Roses'}</option>
                 <option value="/catalog?category=roses-cake">{isAr ? 'ورد وكيك المناسبات' : 'Cakes & Blooms'}</option>
                 <option value="/catalog?category=mawajeeb">{isAr ? 'لوحات مواجيب وتراث' : 'Mawajeeb Heritage'}</option>
-                <option value="/cart">{isAr ? 'سلة المشتريات (Cart)' : 'Cart (/cart)'}</option>
+                <option value="/cart">{isAr ? 'سلة المشتريات' : 'Cart (/cart)'}</option>
               </select>
               <input
                 type="text"
@@ -371,7 +371,7 @@ export const UtmCampaignBuilder: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                {isAr ? '٢. مصدر الحملة (Campaign Source - utm_source):' : '2. Campaign Source (utm_source):'}
+                {isAr ? '٢. مصدر الحملة مصدر الحملة:' : '2. Campaign Source (utm_source):'}
                 <span className="text-rose-500 ms-1">*</span>
               </label>
               <input
@@ -382,13 +382,13 @@ export const UtmCampaignBuilder: React.FC = () => {
                 className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
               <span className="text-[10px] text-slate-400 dark:text-slate-500 block">
-                {isAr ? 'المنصة التي تعرض الإعلان (Google, TikTok, Snapchat)' : 'Platform referrer (google, facebook, etc.)'}
+                {isAr ? 'المنصة التي تعرض الإعلان جوجل وتيك توك وسناب شات' : 'Platform referrer (google, facebook, etc.)'}
               </span>
             </div>
 
             <div className="space-y-1">
               <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                {isAr ? '٣. نوع الإعلان (Campaign Medium - utm_medium):' : '3. Campaign Medium (utm_medium):'}
+                {isAr ? '٣. نوع الإعلان وسيط الحملة:' : '3. Campaign Medium (utm_medium):'}
                 <span className="text-rose-500 ms-1">*</span>
               </label>
               <input
@@ -399,7 +399,7 @@ export const UtmCampaignBuilder: React.FC = () => {
                 className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
               <span className="text-[10px] text-slate-400 dark:text-slate-500 block">
-                {isAr ? 'نوع الوسيط الإعلاني (cpc, stories, reels, bio_link)' : 'Marketing medium (cpc, banner, email)'}
+                {isAr ? 'نوع الوسيط الإعلاني نقرات أو قصص أو ريلز أو رابط' : 'Marketing medium (cpc, banner, email)'}
               </span>
             </div>
           </div>
@@ -408,7 +408,7 @@ export const UtmCampaignBuilder: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                {isAr ? '٤. اسم الحملة (Campaign Name - utm_campaign):' : '4. Campaign Name (utm_campaign):'}
+                {isAr ? '٤. اسم الحملة اسم الحملة:' : '4. Campaign Name (utm_campaign):'}
                 <span className="text-rose-500 ms-1">*</span>
               </label>
               <input
@@ -422,7 +422,7 @@ export const UtmCampaignBuilder: React.FC = () => {
 
             <div className="space-y-1">
               <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                {isAr ? '٥. محتوى الإعلان (Ad Content - utm_content):' : '5. Ad Content (utm_content):'}
+                {isAr ? '٥. محتوى الإعلان محتوى الإعلان:' : '5. Ad Content (utm_content):'}
               </label>
               <input
                 type="text"
@@ -437,7 +437,7 @@ export const UtmCampaignBuilder: React.FC = () => {
           {/* 4. Campaign Term (Keywords) */}
           <div className="space-y-1">
             <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
-              {isAr ? '٦. الكلمات المفتاحية (Campaign Term - utm_term):' : '6. Campaign Keyword Term (utm_term):'}
+              {isAr ? '٦. الكلمات المفتاحية كلمة الحملة:' : '6. Campaign Keyword Term (utm_term):'}
             </label>
             <input
               type="text"
@@ -550,7 +550,7 @@ export const UtmCampaignBuilder: React.FC = () => {
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 font-bold">
                 <th className="p-3 text-start">{isAr ? 'اسم الحملة والمنصة' : 'Campaign & Source'}</th>
-                <th className="p-3 text-start">{isAr ? 'الوسيط (Medium)' : 'Medium'}</th>
+                <th className="p-3 text-start">{isAr ? 'الوسيط الوسيط' : 'Medium'}</th>
                 <th className="p-3 text-start">{isAr ? 'الرابط المتبع' : 'Tracking Link'}</th>
                 <th className="p-3 text-center">{isAr ? 'النقرات' : 'Clicks'}</th>
                 <th className="p-3 text-center">{isAr ? 'الطلبات' : 'Conversions'}</th>

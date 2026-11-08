@@ -579,7 +579,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                     className="hover:text-[#f6c344] transition-colors cursor-pointer flex items-center gap-1.5"
                   >
                     <span>•</span>
-                    <span>{isAr ? 'الأسئلة الشائعة (FAQ)' : 'FAQ & Help'}</span>
+                    <span>{isAr ? 'الأسئلة الشائعة' : 'FAQ & Help'}</span>
                   </a>
                 </li>
               </ul>
@@ -675,7 +675,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
             <div className="lg:col-span-2 space-y-3">
               <h4 className="text-xs sm:text-sm font-black text-[#f6c344] uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-[#d5a027]" />
-                <span>{isAr ? 'نادي النخبة VIP' : 'VIP Club'}</span>
+                <span>{isAr ? 'نادي النخبة كبار العملاء' : 'VIP Club'}</span>
               </h4>
               
               <p className="text-[11px] text-slate-300 leading-relaxed">

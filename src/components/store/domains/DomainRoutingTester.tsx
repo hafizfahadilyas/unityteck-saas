@@ -70,14 +70,14 @@ export const DomainRoutingTester: React.FC<DomainRoutingTesterProps> = ({ embedd
       if (res.resolved) {
         toast(
           isAr
-            ? `تم التحقق من توجيه النطاق بنجاح إلى: ${res.storeName || res.storeId}`
+            ? `تم التحقق من توجيه النطاق بنجاح إلى:${res.storeName || res.storeId}`
             : `Domain successfully routed to: ${res.storeName || res.storeId}`,
           'success'
         );
       } else {
         toast(
           isAr
-            ? `النطاق غير مقترن بأي متجر مسجل: ${clean}`
+            ? `النطاق غير مقترن بأي متجر مسجل:${clean}`
             : `Domain not bound to any registered store: ${clean}`,
           'info'
         );
@@ -94,7 +94,7 @@ export const DomainRoutingTester: React.FC<DomainRoutingTesterProps> = ({ embedd
     switchToStore(result.storeId);
     toast(
       isAr
-        ? `تم تعيين المتجر النشط إلى ${result.storeName || result.storeId} مع الثيم المخصص`
+        ? `تم تعيين المتجر النشط إلى${result.storeName || result.storeId}مع الثيم المخصص`
         : `Active store switched to ${result.storeName || result.storeId} with custom theme`,
       'success'
     );
@@ -310,7 +310,7 @@ export const DomainRoutingTester: React.FC<DomainRoutingTesterProps> = ({ embedd
                 </h4>
                 {latencyMs !== null && (
                   <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? `زمن استجابة التوجيه السحابي: ${latencyMs} مللي ثانية` : `Cloud routing response time: ${latencyMs}ms`}
+                    {isAr ? `زمن استجابة التوجيه السحابي:${latencyMs}مللي ثانية` : `Cloud routing response time: ${latencyMs}ms`}
                   </p>
                 )}
               </div>
@@ -371,7 +371,7 @@ export const DomainRoutingTester: React.FC<DomainRoutingTesterProps> = ({ embedd
 
               <div className="p-2.5 rounded-lg border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
                 <span className="block text-[10px] mb-0.5" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'شهادة SSL التلقائية:' : 'SSL Status:'}
+                  {isAr ? 'شهادة الأمان التلقائية:' : 'SSL Status:'}
                 </span>
                 <span className="font-bold text-emerald-600 flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5" />

@@ -59,7 +59,7 @@ export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(
             {isAr ? 'لا توجد بيانات ديموغرافية بعد' : 'No demographic data available'}
           </p>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-[240px]">
-            {isAr ? 'ستتوفر إحصائيات الأعمار عند ربط Google Analytics أو تسجيل العملاء' : 'Demographic insights will appear when customers register with birthday or Google Analytics is connected'}
+            {isAr ? 'ستتوفر إحصائيات الأعمار عند ربط تحليلات جوجل أو تسجيل العملاء' : 'Demographic insights will appear when customers register with birthday or Google Analytics is connected'}
           </p>
         </div>
       ) : (

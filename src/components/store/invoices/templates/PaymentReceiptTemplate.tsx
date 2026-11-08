@@ -129,8 +129,8 @@ export const PaymentReceiptTemplate: React.FC<TemplateProps> = ({ document, conf
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
               {isAr ? 'رقم العملية البنكية' : 'Transaction ID'}
             </span>
-            <p className="font-mono font-bold text-slate-800 mt-0.5 truncate" title={document.paymentTransactionId}>
-              {document.paymentTransactionId || 'txn_moyasar_auth_9842'}
+            <p className="font-mono font-bold text-slate-800 mt-0.5 truncate" title={document.paymentTransactionId || undefined}>
+              {document.paymentTransactionId || (isAr ? 'غير متوفر' : 'Not available')}
             </p>
           </div>
 

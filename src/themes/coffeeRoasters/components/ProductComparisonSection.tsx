@@ -125,7 +125,7 @@ export const ProductComparisonSection: React.FC<ProductComparisonSectionProps> =
 
         <p className="text-xs sm:text-sm text-neutral-500 max-w-2xl mx-auto leading-relaxed">
           {isAr
-            ? `مخطط مقارنة شامل ومعتمد يوضح الفروقات الهندسية والمواصفات الدقيقة لـ ${currentProduct.nameAr || currentProduct.name} بالمقارنة مع موديلات الفئة الرسمية.`
+            ? `مخطط مقارنة شامل ومعتمد يوضح الفروقات الهندسية والمواصفات الدقيقة لـ${currentProduct.nameAr || currentProduct.name}بالمقارنة مع موديلات الفئة الرسمية.`
             : `Comprehensive certified comparison chart comparing engineering specifications and architecture of ${currentProduct.name} across companion models in the certified official lineup.`}
         </p>
       </div>
@@ -167,7 +167,7 @@ export const ProductComparisonSection: React.FC<ProductComparisonSectionProps> =
         >
           <img
             src={primaryImgUrl}
-            alt={isAr ? `${currentProduct.nameAr || currentProduct.name} - مخطط المقارنة الفنية المعتمد` : `${currentProduct.name} Hardware Comparison Specifications Chart`}
+            alt={isAr ? `${currentProduct.nameAr || currentProduct.name}- مخطط المقارنة الفنية المعتمد` : `${currentProduct.name} Hardware Comparison Specifications Chart`}
             className="w-full max-w-[1140px] h-auto object-contain select-none transition-transform duration-300 group-hover:scale-[1.01]"
             onError={() => setImageError(true)}
           />
@@ -208,7 +208,7 @@ export const ProductComparisonSection: React.FC<ProductComparisonSectionProps> =
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-400" />
               <h3 className="text-sm font-bold truncate">
-                {isAr ? `${currentProduct.nameAr || currentProduct.name} - مخطط المقارنة الفنية` : `${currentProduct.name} - Technical Comparison Chart`}
+                {isAr ? `${currentProduct.nameAr || currentProduct.name}- مخطط المقارنة الفنية` : `${currentProduct.name} - Technical Comparison Chart`}
               </h3>
             </div>
 

@@ -194,10 +194,10 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({ isOpen, onCl
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-900 bg-white"
               >
                 <option value="pro">
-                  {isAr ? `الباقة الاحترافية (${money(300)} / شهرياً)` : `Pro (${money(300)} / month)`}
+                  {isAr ? `الباقة الاحترافية (${money(300)}/ شهرياً)` : `Pro (${money(300)} / month)`}
                 </option>
                 <option value="premium">
-                  {isAr ? `الباقة المميزة (${money(500)} / شهرياً)` : `Premium (${money(500)} / month)`}
+                  {isAr ? `الباقة المميزة (${money(500)}/ شهرياً)` : `Premium (${money(500)} / month)`}
                 </option>
                 <option value="free">{isAr ? 'الباقة المجانية' : 'Free'}</option>
               </select>
@@ -260,7 +260,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({ isOpen, onCl
                 />
                 <div>
                   <span className="font-medium text-slate-900 block">
-                    {isAr ? 'store_id مشترك' : 'Shared store_id'}
+                    {isAr ? 'معرّف المتجر مشترك' : 'Shared store_id'}
                   </span>
                   <span className="text-[10px] text-slate-500 leading-tight block">
                     {isAr ? 'بدون أعباء إضافية، تجهيز فوري للمستأجر' : 'Zero overhead, instant tenant setup'}
@@ -352,7 +352,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({ isOpen, onCl
             <div>
               <span className="text-xs font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-300" />
-                {isAr ? 'تطبيق منحة الإدارة (باقة Pro مجانية)' : 'Apply Master Grant (Complimentary Pro Tier)'}
+                {isAr ? 'تطبيق منحة الإدارة (الباقة الاحترافية مجانية)' : 'Apply Master Grant (Complimentary Pro Tier)'}
               </span>
               <span className="text-[11px] text-amber-700 dark:text-amber-300/90 block">
                 {isAr

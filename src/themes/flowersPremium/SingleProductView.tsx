@@ -345,7 +345,7 @@ export const SingleProductView: React.FC<Props> = ({
                 onClick={() => setImageDisplayMode(imageDisplayMode === 'cover' ? 'contain' : 'cover')}
                 className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-700 hover:text-emerald-600 transition-colors cursor-pointer"
               >
-                {imageDisplayMode === 'cover' ? (isAr ? 'قص الهوامش (Cover)' : 'Cover') : (isAr ? 'كامل بدون قص (Contain)' : 'Contain')}
+                {imageDisplayMode === 'cover' ? (isAr ? 'قص الهوامش تغطية' : 'Cover') : (isAr ? 'كامل بدون قص احتواء كامل' : 'Contain')}
               </button>
             </div>
           </div>
@@ -570,7 +570,7 @@ export const SingleProductView: React.FC<Props> = ({
                 className="py-3.5 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 transition-all active:scale-95 cursor-pointer"
               >
                 <Zap className="w-4 h-4" />
-                <span>{isAr ? 'شراء فوري الآن (Buy Now)' : 'Buy Now'}</span>
+                <span>{isAr ? 'شراء فوري الآن' : 'Buy Now'}</span>
               </button>
             </div>
 
@@ -607,7 +607,7 @@ export const SingleProductView: React.FC<Props> = ({
             [
               ['desc', isAr ? 'الوصف والتفاصيل' : 'Description'],
               ['specs', isAr ? 'المواصفات الفنية' : 'Specifications'],
-              ['reviews', isAr ? 'تقييمات العملاء (120)' : 'Customer Reviews (120)'],
+              ['reviews', isAr ? 'تقييمات العملاء' : 'Customer Reviews (120)'],
               ['shipping', isAr ? 'التوصيل والإرجاع' : 'Shipping & Returns'],
             ] as const
           ).map(([tab, label]) => (

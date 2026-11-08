@@ -87,7 +87,7 @@ export const CheckoutPage: React.FC = () => {
   const bankCard = useMemo(
     () =>
       resolveBankCardDiscount(
-        activeStore?.id || 'store-1',
+        activeStore?.id || '',
         cartSubtotal,
         cartItemCount,
         paymentMethod === 'card' ? 'Credit Cards' : paymentMethod,
@@ -152,7 +152,7 @@ export const CheckoutPage: React.FC = () => {
             </h2>
             <p className="text-xs text-[#8c8275] mt-2 leading-relaxed">
               {isAr
-                ? 'سجّل دخولك السريع بحساب Google لحفظ وتتبع طلبك وجمع نقاط المكافآت، أو تابع كزائر لإتمام الطلب فوراً'
+                ? 'سجّل دخولك السريع بحساب جوجل لحفظ وتتبع طلبك وجمع نقاط المكافآت، أو تابع كزائر لإتمام الطلب فوراً'
                 : 'Sign in with Google to save & track your order, or continue directly as a guest.'}
             </p>
           </div>
@@ -169,7 +169,7 @@ export const CheckoutPage: React.FC = () => {
               <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.26 2.64 1.27 6.61l4 3.15c.95-2.85 3.6-4.96 6.73-4.96z" />
             </svg>
             <span className="text-[#333] font-bold">
-              {isAr ? 'الدخول السريع بحساب Google' : 'Continue with Google'}
+              {isAr ? 'الدخول السريع بحساب جوجل' : 'Continue with Google'}
             </span>
           </button>
 
@@ -350,7 +350,7 @@ export const CheckoutPage: React.FC = () => {
           {/* Section 3: Saudi Authorized Payment Gateways */}
           <div className="bg-[#FAF9F5] border border-[#e8e4dc] rounded-3xl p-6 sm:p-7 shadow-sm">
             <PaymentGatewaySelector
-              storeId="store-1"
+              storeId={activeStore?.id || ''}
               totalAmount={total}
               selectedMethod={paymentMethod}
               onMethodChange={(m) => setPaymentMethod(m)}
@@ -494,7 +494,7 @@ export const CheckoutPage: React.FC = () => {
                 <span>{isAr ? 'جاري تأكيد وتجهيز الطلب...' : 'Processing your order...'}</span>
               ) : (
                 <>
-                  <span>{isAr ? `تأكيد الطلب والدفع (${total} ر.س)` : `Confirm & Place Order (${total} SAR)`}</span>
+                  <span>{isAr ? `تأكيد الطلب والدفع (${total}ر.س)` : `Confirm & Place Order (${total} SAR)`}</span>
                   {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
                 </>
               )}
@@ -502,7 +502,7 @@ export const CheckoutPage: React.FC = () => {
 
             {/* Peace of Mind */}
             <div className="p-3 bg-[#efebe1] rounded-2xl text-[11px] text-[#555] space-y-1">
-              <p className="font-bold text-[#102a1c]">{isAr ? 'خدمة عملاء VIP فورية:' : 'VIP Florist Assistance:'}</p>
+              <p className="font-bold text-[#102a1c]">{isAr ? 'خدمة كبار العملاء فورية:' : 'VIP Florist Assistance:'}</p>
               <p>{isAr ? 'سيصلك إشعار عبر الواتساب فور استلام الباقة وخروج مندوبنا الملكي.' : 'WhatsApp notifications will update you as soon as the bouquet departs.'}</p>
             </div>
           </div>

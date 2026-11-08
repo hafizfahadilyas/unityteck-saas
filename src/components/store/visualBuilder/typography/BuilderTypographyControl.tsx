@@ -33,28 +33,28 @@ interface TypographyControlProps {
 
 export const POPULAR_GOOGLE_FONTS = [
   // Arabic Fonts
-  { name: 'Cairo', category: 'Arabic', labelAr: 'القاهرة (Cairo) - افتراضي عصري' },
-  { name: 'Tajawal', category: 'Arabic', labelAr: 'تجوال (Tajawal) - حديث وأنيق' },
-  { name: 'Almarai', category: 'Arabic', labelAr: 'المراعي (Almarai) - رسمي فاخر' },
-  { name: 'Readex Pro', category: 'Arabic', labelAr: 'ريدكس برو (Readex Pro) - تقني متطور' },
-  { name: 'Alexandria', category: 'Arabic', labelAr: 'الإسكندرية (Alexandria) - هندسي مميز' },
-  { name: 'Amiri', category: 'Arabic', labelAr: 'أميري (Amiri) - كلاسيكي نسخ شريف' },
-  { name: 'Changa', category: 'Arabic', labelAr: 'شانغا (Changa) - عريض للعناوين' },
-  { name: 'IBM Plex Sans Arabic', category: 'Arabic', labelAr: 'آي بي إم بليكس (IBM Arabic)' },
-  { name: 'Noto Sans Arabic', category: 'Arabic', labelAr: 'نوتو سانس (Noto Sans Arabic)' },
-  { name: 'Rubik', category: 'Arabic', labelAr: 'روبيك (Rubik Arabic) - مدور ناعم' },
-  { name: 'El Messiri', category: 'Arabic', labelAr: 'المسيري (El Messiri) - متموج راقي' },
-  { name: 'Marhey', category: 'Arabic', labelAr: 'مرحي (Marhey) - مرح وجذاب' },
+  { name: 'Cairo', category: 'Arabic', labelAr: 'القاهرة - افتراضي عصري' },
+  { name: 'Tajawal', category: 'Arabic', labelAr: 'تجوال - حديث وأنيق' },
+  { name: 'Almarai', category: 'Arabic', labelAr: 'المراعي - رسمي فاخر' },
+  { name: 'Readex Pro', category: 'Arabic', labelAr: 'ريدكس برو - تقني متطور' },
+  { name: 'Alexandria', category: 'Arabic', labelAr: 'الإسكندرية - هندسي مميز' },
+  { name: 'Amiri', category: 'Arabic', labelAr: 'أميري - كلاسيكي نسخ شريف' },
+  { name: 'Changa', category: 'Arabic', labelAr: 'شانغا - عريض للعناوين' },
+  { name: 'IBM Plex Sans Arabic', category: 'Arabic', labelAr: 'آي بي إم بليكس' },
+  { name: 'Noto Sans Arabic', category: 'Arabic', labelAr: 'نوتو سانس' },
+  { name: 'Rubik', category: 'Arabic', labelAr: 'روبيك - مدور ناعم' },
+  { name: 'El Messiri', category: 'Arabic', labelAr: 'المسيري - متموج راقي' },
+  { name: 'Marhey', category: 'Arabic', labelAr: 'مرحي - مرح وجذاب' },
 
   // English & Modern Fonts
-  { name: 'Inter', category: 'Latin', labelAr: 'إنتر (Inter) - المعيار العالمي' },
-  { name: 'Roboto', category: 'Latin', labelAr: 'روبوتو (Roboto) - جوهرة جوجل' },
-  { name: 'Poppins', category: 'Latin', labelAr: 'بوبينز (Poppins) - هندسي جميل' },
-  { name: 'Montserrat', category: 'Latin', labelAr: 'مونتسيرات (Montserrat) - فخم' },
-  { name: 'Plus Jakarta Sans', category: 'Latin', labelAr: 'بلاس جاكرتا (Plus Jakarta)' },
-  { name: 'Outfit', category: 'Latin', labelAr: 'أوتفت (Outfit) - مودرن ساس' },
-  { name: 'Playfair Display', category: 'Latin', labelAr: 'بلاي فير (Playfair) - ملكي كلاسيك' },
-  { name: 'Cinzel', category: 'Latin', labelAr: 'سينزل (Cinzel) - فخامة ذهبية' },
+  { name: 'Inter', category: 'Latin', labelAr: 'إنتر - المعيار العالمي' },
+  { name: 'Roboto', category: 'Latin', labelAr: 'روبوتو - جوهرة جوجل' },
+  { name: 'Poppins', category: 'Latin', labelAr: 'بوبينز - هندسي جميل' },
+  { name: 'Montserrat', category: 'Latin', labelAr: 'مونتسيرات - فخم' },
+  { name: 'Plus Jakarta Sans', category: 'Latin', labelAr: 'بلاس جاكرتا' },
+  { name: 'Outfit', category: 'Latin', labelAr: 'أوتفت - مودرن ساس' },
+  { name: 'Playfair Display', category: 'Latin', labelAr: 'بلاي فير - ملكي كلاسيك' },
+  { name: 'Cinzel', category: 'Latin', labelAr: 'سينزل - فخامة ذهبية' },
 ];
 
 export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({

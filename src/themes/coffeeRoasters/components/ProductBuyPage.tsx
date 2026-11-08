@@ -45,9 +45,28 @@ import {
   type FieldValueMap,
 } from '../../../utils/storefrontPurchase';
 import { optionValuesList } from '../../../utils/productVariants';
+import { useTenant } from '../../../context/TenantContext';
+import { fetchStoreReviews, submitStoreReviewApi } from '../../../api/tenantApi';
 import baristaKitImg from '../assets/images/hibrew_barista_kit_isolated.jpg';
 import scaleImg from '../assets/images/hibrew_scale_isolated.jpg';
 import specInfographicImg from '../assets/images/hibrew_specs_comparison_infographic.png';
+
+type StorefrontReviewRow = {
+  id: string;
+  author: string;
+  city: string;
+  cityEn: string;
+  verified: boolean;
+  rating: number;
+  date: string;
+  modelBought: string;
+  modelBoughtAr: string;
+  contentAr: string;
+  contentEn: string;
+  hasImage: boolean;
+  likes: number;
+  liked: boolean;
+};
 
 interface ProductBuyPageProps {
   isAdmin?: boolean;
@@ -55,6 +74,7 @@ interface ProductBuyPageProps {
 
 export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false }) => {
   const { selectedProduct, addToCart, triggerFlyToCart, navigateTo, goBack, language, showToast } = useCart();
+  const { activeStore } = useTenant();
   const product = selectedProduct;
 
   type BuyTabType = 'configure' | 'bundles' | 'features' | 'specs' | 'reviews' | 'faq';
@@ -109,72 +129,81 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   const [newComment, setNewComment] = useState('');
   const [showReviewSuccess, setShowReviewSuccess] = useState(false);
 
-  const [reviewsList, setReviewsList] = useState([
-    {
-      id: 'rev-1',
-      author: 'س***د',
-      city: 'الرياض',
-      cityEn: 'Riyadh',
-      verified: true,
-      rating: 5,
-      date: '2026-03-28',
-      modelBought: 'HiBrew Barista Pro H7A / Silver Chrome',
-      modelBoughtAr: 'هايبرو بارستا برو H7A / فضي كروم',
-      contentAr: 'ما شاء الله تبارك الله، ماكينة جبارة استخلاص متوازن جداً وضغط الـ 20 بار مع دبل بويلر يعطيك تبخير حليب احترافي مثل أرقى مقاهي الرياض المختصة. شكراً هايبرو السعودية على التوصيل السريع خلال 24 ساعة.',
-      contentEn: 'Spectacular coffee machine! Dual-boiler architecture gives instant microfoam steaming and balanced 20-bar extraction just like high-end specialty cafes. Express delivery in Riyadh took less than 24 hours.',
-      hasImage: true,
-      likes: 34,
-      liked: false
-    },
-    {
-      id: 'rev-2',
-      author: 'ع***ي',
-      city: 'جدة',
-      cityEn: 'Jeddah',
-      verified: true,
-      rating: 5,
-      date: '2026-03-22',
-      modelBought: 'HiBrew Barista Pro H7A / Matte Black',
-      modelBoughtAr: 'هايبرو بارستا برو H7A / أسود مطفي',
-      contentAr: 'التحكم بالحرارة الرقمي PID دقيق للغاية، والبورتافلتر التجاري 58 ملم يغير تجربة القهوة 180 درجة. الهدايا المرفقة والتامبر الموزون وفرت علي شراء أدوات إضافية.',
-      contentEn: 'The digital PID temperature control is razor-sharp. 58mm commercial portafilter changes the espresso game completely. The bundled precision tamper and mat saved me extra costs.',
-      hasImage: true,
-      likes: 28,
-      liked: false
-    },
-    {
-      id: 'rev-3',
-      author: 'ف***د',
-      city: 'الدمام',
-      cityEn: 'Dammam',
-      verified: true,
-      rating: 5,
-      date: '2026-03-15',
-      modelBought: 'HiBrew Barista Pro H7A / Walnut Wood',
-      modelBoughtAr: 'هايبرو بارستا برو H7A / خشب الجوز',
-      contentAr: 'إصدار خشب الجوز تحفة فنية على بار القهوة. تسخين سريع جداً وخامة الفولاذ ثقيلة ومتينة. خدمة العملاء والضمان المعتمد سنتين يعطيك راحة بال تامة.',
-      contentEn: 'The walnut wood finish is a centerpiece on my coffee station. Rapid thermo heat-up and heavy-duty stainless steel build. 2-year authorized agency warranty gives peace of mind.',
-      hasImage: false,
-      likes: 19,
-      liked: false
-    },
-    {
-      id: 'rev-4',
-      author: 'م***ل',
-      city: 'الخبر',
-      cityEn: 'Khobar',
-      verified: true,
-      rating: 5,
-      date: '2026-03-10',
-      modelBought: 'HiBrew Barista Pro H7A / Platinum White',
-      modelBoughtAr: 'هايبرو بارستا برو H7A / أبيض بلاتينيوم',
-      contentAr: 'أفضل ماكينة منزلية بدون منازع في فئتها السعرية. خاصية الترطيب المسبق المنخفض الضغط تصنع طبقة كريمة ذهبية لا تصدق.',
-      contentEn: 'Unrivaled home espresso machine in its class. Low-pressure pre-infusion produces unbelievable golden crema consistency every single morning.',
-      hasImage: true,
-      likes: 15,
-      liked: false
+  const [reviewsList, setReviewsList] = useState<StorefrontReviewRow[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  useEffect(() => {
+    const storeId = activeStore?.id;
+    if (!storeId) {
+      setReviewsList([]);
+      return;
     }
-  ]);
+    let cancelled = false;
+    setReviewsLoading(true);
+    void fetchStoreReviews(storeId)
+      .then((rows) => {
+        if (cancelled) return;
+        const mapped: StorefrontReviewRow[] = (rows || [])
+          .filter((r) => (r as { active?: boolean }).active === true)
+          .filter((r) => {
+            if (!product?.id && !product?.name) return true;
+            const prod = String((r as { product?: string }).product || '');
+            const prodAr = String((r as { productAr?: string }).productAr || '');
+            return (
+              prod.includes(product.id) ||
+              prod.includes(product.name || '') ||
+              (!!product.nameAr && prodAr.includes(product.nameAr))
+            );
+          })
+          .map((r) => ({
+            id: String(r.id || `rev-${Math.random()}`),
+            author: String(r.author || '—'),
+            city: String((r as { city?: string }).city || ''),
+            cityEn: String((r as { city?: string }).city || ''),
+            verified: Boolean((r as { verified?: boolean }).verified),
+            rating: Number(r.rating) || 5,
+            date: String((r as { date?: string }).date || ''),
+            modelBought: String((r as { product?: string }).product || ''),
+            modelBoughtAr: String((r as { productAr?: string }).productAr || (r as { product?: string }).product || ''),
+            contentAr: String(r.commentAr || r.comment || ''),
+            contentEn: String(r.comment || r.commentAr || ''),
+            hasImage: false,
+            likes: Number((r as { likes?: number }).likes) || 0,
+            liked: false,
+          }));
+        setReviewsList(mapped);
+      })
+      .catch(() => {
+        if (!cancelled) setReviewsList([]);
+      })
+      .finally(() => {
+        if (!cancelled) setReviewsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore?.id, product?.id, product?.name, product?.nameAr]);
+
+  const reviewStats = useMemo(() => {
+    const list = reviewsList;
+    const total = list.length;
+    if (total === 0) {
+      return {
+        avgDisplay: product?.rating != null ? Number(product.rating).toFixed(1) : '—',
+        total: 0,
+        breakdown: [5, 4, 3, 2, 1].map((star) => ({ star, count: 0, pct: 0 })),
+        satisfaction: null as number | null,
+      };
+    }
+    const sum = list.reduce((acc, r) => acc + r.rating, 0);
+    const avg = sum / total;
+    const breakdown = [5, 4, 3, 2, 1].map((star) => {
+      const count = list.filter((r) => r.rating === star).length;
+      return { star, count, pct: total ? Math.round((count / total) * 100) : 0 };
+    });
+    const satisfaction = Math.round((list.filter((r) => r.rating >= 4).length / total) * 1000) / 10;
+    return { avgDisplay: avg.toFixed(1), total, breakdown, satisfaction };
+  }, [reviewsList, product?.rating]);
 
   // Stable gallery images: all product colors first in fixed order, followed by product images
   const productColors = product?.colors || [];
@@ -517,34 +546,39 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     );
   };
 
-  const handleSubmitReview = (e: React.FormEvent) => {
+  const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim()) return;
-
-    const newRev = {
-      id: `rev-${Date.now()}`,
-      author: newAuthor.trim() ? newAuthor.slice(0, 1) + '***' + newAuthor.slice(-1) : (language === 'AR' ? 'م***ك' : 'u***r'),
-      city: newCity.trim() || (language === 'AR' ? 'المملكة' : 'KSA'),
-      cityEn: newCity.trim() || 'Saudi Arabia',
-      verified: true,
-      rating: newRating,
-      date: new Date().toISOString().split('T')[0],
-      modelBought: `${product.name} / ${selectedColor?.name || 'Default'}`,
-      modelBoughtAr: `${product.nameAr || product.name} / ${selectedColor?.nameAr || selectedColor?.name || 'الافتراضي'}`,
-      contentAr: newComment,
-      contentEn: newComment,
-      hasImage: false,
-      likes: 1,
-      liked: true
-    };
-
-    setReviewsList([newRev, ...reviewsList]);
-    setIsWritingReview(false);
-    setNewComment('');
-    setNewAuthor('');
-    setNewCity('');
-    setShowReviewSuccess(true);
-    setTimeout(() => setShowReviewSuccess(false), 5000);
+    if (!newComment.trim() || !product) return;
+    const storeId = activeStore?.id;
+    if (!storeId) {
+      showToast(language === 'AR' ? 'المتجر غير جاهز' : 'Store is not ready');
+      return;
+    }
+    const author = newAuthor.trim() || (language === 'AR' ? 'عميل' : 'Customer');
+    try {
+      await submitStoreReviewApi(storeId, {
+        author,
+        city: newCity.trim() || undefined,
+        product: `${product.name} / ${selectedColor?.name || 'Default'}`,
+        productAr: `${product.nameAr || product.name} / ${selectedColor?.nameAr || selectedColor?.name || 'الافتراضي'}`,
+        rating: newRating,
+        comment: newComment.trim(),
+        commentAr: newComment.trim(),
+      } as never);
+      setIsWritingReview(false);
+      setNewComment('');
+      setNewAuthor('');
+      setNewCity('');
+      setShowReviewSuccess(true);
+      showToast(
+        language === 'AR'
+          ? 'تم إرسال التقييم للمراجعة — يظهر بعد الموافقة'
+          : 'Review submitted for approval — it appears after merchant approval',
+      );
+      setTimeout(() => setShowReviewSuccess(false), 5000);
+    } catch {
+      showToast(language === 'AR' ? 'تعذر إرسال التقييم' : 'Could not submit review');
+    }
   };
 
   const scrollToSection = (id: string, tab?: BuyTabType) => {
@@ -751,7 +785,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
         <div className="flex items-baseline justify-end gap-3 pb-6 border-b border-[#E5E5E5] flex-wrap">
           {savingsSAR > 0 && (
             <span className="text-red-600 font-bold text-sm sm:text-base">
-              {language === 'AR' ? `وفر ${savingsSAR.toLocaleString()}.00 ر.س` : `Save SAR ${savingsSAR.toLocaleString()}.00`}
+              {language === 'AR' ? `وفر${savingsSAR.toLocaleString()}.00 ر.س` : `Save SAR ${savingsSAR.toLocaleString()}.00`}
             </span>
           )}
           {originalPrice && (
@@ -913,7 +947,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               <div className="relative pl-3 xs:pl-4 sm:pl-6 text-white text-left flex flex-col justify-center z-10 shrink-0">
                 <span className="text-[9.5px] xs:text-[11px] sm:text-xs font-semibold leading-tight text-white drop-shadow-2xs">
                   {language === 'AR'
-                    ? `أو يبدأ من ${(totalPrice / 12).toFixed(2)} ر.س شهرياً`
+                    ? `أو يبدأ من${(totalPrice / 12).toFixed(2)}ر.س شهرياً`
                     : `or starts from SAR ${(totalPrice / 12).toFixed(2)}/mo`}
                 </span>
                 <span className="text-[8.5px] xs:text-[10px] sm:text-[11px] text-white/95 font-medium leading-tight mt-0.5">
@@ -932,7 +966,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               {/* Right Side: Price Content + Dual Sparkles (Matches Image 1) */}
               <div className="relative pr-3 xs:pr-4 sm:pr-6 flex items-center gap-1 sm:gap-1.5 z-10 shrink-0">
                 <span className="text-base xs:text-lg sm:text-2xl font-black text-white font-sans tracking-wide">
-                  {language === 'AR' ? `${totalPrice.toLocaleString()} ر.س` : `SAR ${totalPrice.toLocaleString()}`}
+                  {language === 'AR' ? `${totalPrice.toLocaleString()}ر.س` : `SAR ${totalPrice.toLocaleString()}`}
                 </span>
                 <div className="relative ml-0.5 sm:ml-1 shrink-0">
                   <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white fill-white drop-shadow-2xs" viewBox="0 0 24 24">
@@ -1042,7 +1076,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
                   {/* Rating Number */}
                   <span className="font-bold text-xs text-neutral-900">
-                    {(product.rating || 5.0).toFixed(1)}
+                    {reviewStats.avgDisplay}
                   </span>
 
                   {/* Brown Clickable Reviews Link with Chevron */}
@@ -1053,8 +1087,8 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                   >
                     <span>
                       {language === 'AR'
-                        ? `${product.reviewCount || 362} تقييم إجمالي`
-                        : `${product.reviewCount || 362} reviews in total`}
+                        ? `${product.reviewCount ?? reviewStats.total} تقييم إجمالي`
+                        : `${product.reviewCount ?? reviewStats.total} reviews in total`}
                     </span>
                     <ChevronRight className="w-3.5 h-3.5 stroke-[2] rtl:rotate-180" />
                   </button>
@@ -1098,7 +1132,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                   </h3>
                   <div className="text-xs sm:text-sm font-bold text-white/95 font-sans">
                     {language === 'AR'
-                      ? `خصم SAR ${displayDiscount.toLocaleString()}`
+                      ? `خصم${displayDiscount.toLocaleString()}ر.س`
                       : `SAR ${displayDiscount.toLocaleString()} OFF`}
                   </div>
                 </div>
@@ -1307,7 +1341,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                           </div>
                         </div>
                         <span className="font-sans text-xs font-bold text-neutral-900">
-                          {language === 'AR' ? `+${bundle.price} ر.س` : `+SAR ${bundle.price}`}
+                          {language === 'AR' ? `+${bundle.price}ر.س` : `+SAR ${bundle.price}`}
                         </span>
                       </button>
                     );
@@ -1387,7 +1421,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                     {savingsSAR > 0 && (
                     <div className="flex items-center justify-end gap-2 mt-0.5">
                       <span className="text-xs font-semibold text-red-600 font-sans">
-                        {language === 'AR' ? `وفرت ${savingsSAR.toLocaleString()}.00 ر.س` : `Save SAR ${savingsSAR.toLocaleString()}.00`}
+                        {language === 'AR' ? `وفرت${savingsSAR.toLocaleString()}.00 ر.س` : `Save SAR ${savingsSAR.toLocaleString()}.00`}
                       </span>
                       <span className="text-xs text-neutral-400 line-through font-sans">
                         {language === 'AR' ? `${originalPrice.toLocaleString()}.00 ر.س` : `SAR ${originalPrice.toLocaleString()}.00`}
@@ -1523,7 +1557,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               {language === 'AR' ? 'الهندسة والابتكار' : 'Flagship Architecture'}
             </span>
             <h2 className="text-2xl sm:text-4xl font-extrabold text-neutral-900 tracking-tight text-center">
-              {language === 'AR' ? `هندسة متطورة لتجربة باريستا حقيقية مع ${product.nameAr || product.name}` : `Engineered for Specialty Coffee Masters · ${product.name}`}
+              {language === 'AR' ? `هندسة متطورة لتجربة باريستا حقيقية مع${product.nameAr || product.name}` : `Engineered for Specialty Coffee Masters · ${product.name}`}
             </h2>
             <p className="text-xs sm:text-sm text-neutral-500 max-w-2xl mx-auto">
               {language === 'AR'
@@ -1635,31 +1669,44 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
             {/* Score & Stars */}
             <div className="md:col-span-4 text-center md:text-start flex flex-col items-center md:items-start justify-center border-b md:border-b-0 md:border-r rtl:md:border-r-0 rtl:md:border-l border-neutral-200/70 pb-6 md:pb-0 md:pr-8 rtl:md:pl-8">
               <div className="text-5xl sm:text-6xl font-black text-neutral-950 font-mono tracking-tight">
-                5.0
+                {reviewStats.avgDisplay}
               </div>
               <div className="flex items-center gap-1 my-2">
                 {[1, 2, 3, 4, 5].map(s => (
-                  <Star key={s} className="w-5 h-5 fill-amber-400 text-amber-400" />
+                  <Star
+                    key={s}
+                    className={`w-5 h-5 ${
+                      reviewStats.total > 0 && s <= Math.round(Number(reviewStats.avgDisplay) || 0)
+                        ? 'fill-amber-400 text-amber-400'
+                        : 'fill-neutral-200 text-neutral-200'
+                    }`}
+                  />
                 ))}
               </div>
               <div className="text-xs sm:text-sm text-neutral-500 font-medium">
-                {language === 'AR' ? 'بناءً على 531 تقييم موثق بالمملكة' : 'Based on 531 verified reviews in KSA'}
+                {reviewStats.total > 0
+                  ? language === 'AR'
+                    ? `بناءً على ${reviewStats.total} تقييم معتمد`
+                    : `Based on ${reviewStats.total} approved reviews`
+                  : language === 'AR'
+                    ? 'لا توجد تقييمات معتمدة بعد'
+                    : 'No approved reviews yet'}
               </div>
-              <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-emerald-700 font-semibold bg-emerald-50 px-3 py-1 rounded-full">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>{language === 'AR' ? 'نسبة رضا 99.4%' : '99.4% Satisfaction Rate'}</span>
-              </div>
+              {reviewStats.satisfaction != null && reviewStats.total > 0 ? (
+                <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-emerald-700 font-semibold bg-emerald-50 px-3 py-1 rounded-full">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>
+                    {language === 'AR'
+                      ? `نسبة رضا ${reviewStats.satisfaction}%`
+                      : `${reviewStats.satisfaction}% satisfaction`}
+                  </span>
+                </div>
+              ) : null}
             </div>
 
             {/* Breakdown Bars */}
             <div className="md:col-span-8 space-y-2">
-              {[
-                { star: 5, pct: '98%', count: '520' },
-                { star: 4, pct: '2%', count: '11' },
-                { star: 3, pct: '0%', count: '0' },
-                { star: 2, pct: '0%', count: '0' },
-                { star: 1, pct: '0%', count: '0' }
-              ].map(row => (
+              {reviewStats.breakdown.map(row => (
                 <div key={row.star} className="flex items-center gap-3 text-xs">
                   <div className="flex items-center gap-1 w-12 shrink-0 font-medium text-neutral-600">
                     <span>{row.star}</span>
@@ -1668,11 +1715,11 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                   <div className="flex-1 h-2 bg-neutral-200 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-neutral-900 rounded-full transition-all duration-500"
-                      style={{ width: row.pct }}
+                      style={{ width: `${row.pct}%` }}
                     />
                   </div>
                   <span className="w-10 text-neutral-400 text-end font-mono text-[11px] shrink-0">
-                    {row.pct}
+                    {row.pct}%
                   </span>
                 </div>
               ))}
@@ -1702,7 +1749,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                   {language === 'AR' ? 'شارك رأيك في هذا المنتج' : 'Write Your Review'}
                 </span>
                 <span className="text-xs text-neutral-400">
-                  {language === 'AR' ? 'تقييم فوري موثق' : 'Instant Verified Review'}
+                  {language === 'AR' ? 'يُنشر بعد موافقة المتجر' : 'Published after store approval'}
                 </span>
               </div>
 
@@ -1789,12 +1836,25 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                   : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
             >
-              {language === 'AR' ? 'مع صور للمنتج (3)' : 'With Photos (3)'}
+              {language === 'AR'
+                ? `مع صور للمنتج (${reviewsList.filter((r) => r.hasImage).length})`
+                : `With Photos (${reviewsList.filter((r) => r.hasImage).length})`}
             </button>
           </div>
 
-          {/* Review Cards (Screenshot 4) */}
+          {/* Review Cards — real approved reviews only */}
           <div className="space-y-4">
+            {reviewsLoading ? (
+              <p className="text-sm text-neutral-500 py-6 text-center">
+                {language === 'AR' ? 'جاري تحميل التقييمات…' : 'Loading reviews…'}
+              </p>
+            ) : null}
+            {!reviewsLoading &&
+            reviewsList.filter((r) => (activeReviewTab === 'images' ? r.hasImage : true)).length === 0 ? (
+              <p className="text-sm text-neutral-500 py-8 text-center">
+                {language === 'AR' ? 'لا توجد تقييمات معتمدة بعد' : 'No approved reviews yet'}
+              </p>
+            ) : null}
             {reviewsList
               .filter(r => (activeReviewTab === 'images' ? r.hasImage : true))
               .map(rev => (
@@ -1917,11 +1977,11 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
             </span>
             <div className="flex items-baseline gap-1.5">
               <span className="text-base font-black text-neutral-900 font-sans tracking-tight">
-                {language === 'AR' ? `${totalPrice.toLocaleString()} ر.س` : `SAR ${totalPrice.toLocaleString()}`}
+                {language === 'AR' ? `${totalPrice.toLocaleString()}ر.س` : `SAR ${totalPrice.toLocaleString()}`}
               </span>
               {savingsSAR > 0 && (
                 <span className="text-[10px] text-red-600 font-bold font-sans">
-                  {language === 'AR' ? `وفر ${savingsSAR} ر.س` : `Save SAR ${savingsSAR}`}
+                  {language === 'AR' ? `وفر${savingsSAR}ر.س` : `Save SAR ${savingsSAR}`}
                 </span>
               )}
             </div>

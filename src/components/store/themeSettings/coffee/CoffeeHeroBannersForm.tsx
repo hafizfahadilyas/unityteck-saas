@@ -59,7 +59,7 @@ function HeroPreviewCard({
   const promo = bi(isAr ? 'ar' : 'en', slide.promoEn, slide.promoAr);
   const title = bi(isAr ? 'ar' : 'en', slide.titleEn, slide.titleAr);
   const description = bi(isAr ? 'ar' : 'en', slide.descriptionEn, slide.descriptionAr);
-  const price = slide.showPrice && slide.price ? (isAr ? `${slide.price} ر.س` : `${slide.currency || 'SAR'} ${slide.price}`) : '';
+  const price = slide.showPrice && slide.price ? (isAr ? `${slide.price}ر.س` : `${slide.currency || 'SAR'} ${slide.price}`) : '';
   const height = device === 'mobile' ? 220 : device === 'tablet' ? 200 : 240;
 
   return (

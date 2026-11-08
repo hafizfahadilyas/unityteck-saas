@@ -63,6 +63,8 @@ class Order extends Model
         'returned_at',
         'restocked_at',
         'order_date',
+        'is_archived',
+        'archived_at',
     ];
 
     protected function casts(): array
@@ -80,6 +82,8 @@ class Order extends Model
             'cod_remitted_at' => 'datetime',
             'returned_at' => 'datetime',
             'restocked_at' => 'datetime',
+            'is_archived' => 'boolean',
+            'archived_at' => 'datetime',
         ];
     }
 

@@ -171,7 +171,7 @@ export const NotificationCard: React.FC<NotificationCardProps> = memo(({
             {notification.dataSource && (
               <span className="block mt-1 text-[10px] text-slate-400 dark:text-slate-500">
                 {isAr
-                  ? `آخر مزامنة مع ${notification.dataSource.source_name}: ${formatRelativeTime(notification.dataSource.last_synced_at, locale)}`
+                  ? `آخر مزامنة مع${notification.dataSource.source_name}:${formatRelativeTime}`
                   : `Last synced via ${notification.dataSource.source_name}: ${formatRelativeTime(notification.dataSource.last_synced_at, locale)}`}
               </span>
             )}

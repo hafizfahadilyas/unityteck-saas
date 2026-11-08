@@ -164,7 +164,7 @@ export const CoffeeAnnouncementsForm: React.FC<CoffeeFormChromeProps> = ({ onBac
                   <span>{isAr ? 'نشط' : 'Active'}</span>
                 </label>
                 <span className="text-[11px] font-bold text-slate-500">
-                  {isAr ? `إعلان ${index + 1}` : `Announcement ${index + 1}`}
+                  {isAr ? `إعلان${index + 1}` : `Announcement ${index + 1}`}
                 </span>
               </div>
 

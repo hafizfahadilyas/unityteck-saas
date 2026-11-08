@@ -148,7 +148,7 @@ export const LOGO_TEMPLATES: HeaderElementTemplate[] = [
   },
   {
     key: 'gold-calligraphy',
-    nameAr: 'الخط الذهبي البراق (Gold Emblem)',
+    nameAr: 'الخط الذهبي البراق',
     nameEn: 'Gold Calligraphic Emblem',
     badge: 'Luxury',
     descAr: 'نصوص باللون الذهبي اللامع مع خط كلاسيكي فاخر',
@@ -171,7 +171,7 @@ export const LOGO_TEMPLATES: HeaderElementTemplate[] = [
   },
   {
     key: 'modern-minimal',
-    nameAr: 'العصري البسيط (Clean Sans)',
+    nameAr: 'العصري البسيط',
     nameEn: 'Modern Sans Minimal',
     badge: 'Modern',
     descAr: 'خط عصري مستقيم مع هوية جريئة وبسيطة',
@@ -194,7 +194,7 @@ export const LOGO_TEMPLATES: HeaderElementTemplate[] = [
   },
   {
     key: 'image-crest-only',
-    nameAr: 'شعار أيقوني منفرد (Logo Icon Only)',
+    nameAr: 'شعار أيقوني منفرد',
     nameEn: 'Icon Only Crest',
     badge: 'Iconic',
     descAr: 'عرض صورة الشعار بحجم مكبر وأنيق بدون نصوص جانبية',
@@ -245,7 +245,7 @@ export const NAVIGATION_TEMPLATES: HeaderElementTemplate[] = [
   },
   {
     key: 'golden-vip-ribbon',
-    nameAr: 'الشريط الذهبي الملكي (Gold Ribbon)',
+    nameAr: 'الشريط الذهبي الملكي',
     nameEn: 'Royal Gold Ribbon',
     badge: 'VIP',
     descAr: 'خلفية ذهبية رقيقة مع أيقونات ذهبية لامعة',
@@ -272,7 +272,7 @@ export const NAVIGATION_TEMPLATES: HeaderElementTemplate[] = [
   },
   {
     key: 'dark-noir-velvet',
-    nameAr: 'المخمل الأسود الفخم (Dark Velvet)',
+    nameAr: 'المخمل الأسود الفخم',
     nameEn: 'Dark Velvet Night',
     badge: 'Dark',
     descAr: 'شريط داكن بالكامل مع نصوص بيضاء وأيقونات ذهبية',
@@ -299,7 +299,7 @@ export const NAVIGATION_TEMPLATES: HeaderElementTemplate[] = [
   },
   {
     key: 'minimal-underline',
-    nameAr: 'العصري البسيط (Clean Minimal)',
+    nameAr: 'العصري البسيط',
     nameEn: 'Clean Borderless Minimal',
     badge: 'Clean',
     descAr: 'تصميم أبيض نقي بدون حدود ثقيلة وخفيف جداً',
@@ -330,7 +330,7 @@ export const NAVIGATION_TEMPLATES: HeaderElementTemplate[] = [
 export const ACTIONS_TEMPLATES: HeaderElementTemplate[] = [
   {
     key: 'pill-luxury',
-    nameAr: 'كبسولات الزمرّد الكلاسيكية (Luxury Pills)',
+    nameAr: 'كبسولات الزمرّد الكلاسيكية',
     nameEn: 'Emerald Glass Pills',
     badge: 'Default',
     descAr: 'أزرار دائرية مع شارة سلة بلون العقيق الأحمر وعرض السعر',
@@ -368,7 +368,7 @@ export const ACTIONS_TEMPLATES: HeaderElementTemplate[] = [
   },
   {
     key: 'pure-gold-actions',
-    nameAr: 'اللمسات الذهبية الملكية (Royal Gold)',
+    nameAr: 'اللمسات الذهبية الملكية',
     nameEn: 'Royal Gilded Badges',
     badge: 'VIP',
     descAr: 'أيقونات وأزرار بلون الذهب اللامع مع خلفية متناسقة',
@@ -406,7 +406,7 @@ export const ACTIONS_TEMPLATES: HeaderElementTemplate[] = [
   },
   {
     key: 'minimal-icons-only',
-    nameAr: 'الأيقونات البسيطة بدون نص (Minimal Icons)',
+    nameAr: 'الأيقونات البسيطة بدون نص',
     nameEn: 'Compact Icon Buttons',
     badge: 'Minimal',
     descAr: 'أيقونات دائرية أنيقة ومضغوطة مناسبة للشاشات السريعة',

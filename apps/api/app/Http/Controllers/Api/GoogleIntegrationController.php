@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\SeoConfig;
 use App\Models\Store;
 use App\Models\StoreGoogleIntegration;
+use App\Services\GoogleAdsService;
 use App\Services\GoogleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,8 @@ class GoogleIntegrationController extends Controller
     use ResolvesStoreId;
 
     public function __construct(
-        protected GoogleService $googleService
+        protected GoogleService $googleService,
+        protected GoogleAdsService $googleAdsService,
     ) {}
 
     /**
@@ -400,7 +402,7 @@ class GoogleIntegrationController extends Controller
                 'analytics' => false,
                 'search_console' => false,
                 'pagespeed' => false,
-                'ads' => !empty($integration->google_ads_customer_id),
+                'ads' => false,
                 'sitemap' => false,
             ];
 
@@ -449,6 +451,16 @@ class GoogleIntegrationController extends Controller
                 $modules['pagespeed'] = true;
             }
 
+            $adsSnapshot = $integration->google_ads_snapshot;
+            if ($token && ! empty($integration->google_ads_customer_id)) {
+                $adsSync = $this->googleAdsService->syncIntegrationSnapshot($integration);
+                if ($adsSync['ok'] ?? false) {
+                    $modules['ads'] = true;
+                    $adsSnapshot = $adsSync['snapshot'] ?? $adsSnapshot;
+                    $integration->refresh();
+                }
+            }
+
             $integration->update([
                 'sync_status' => 'synced',
                 'last_synced_at' => now(),
@@ -457,6 +469,7 @@ class GoogleIntegrationController extends Controller
                 'search_console_snapshot' => $searchConsoleSnapshot ?: $integration->search_console_snapshot,
                 'pagespeed_mobile_snapshot' => $psiMobile ?: $integration->pagespeed_mobile_snapshot,
                 'pagespeed_desktop_snapshot' => $psiDesktop ?: $integration->pagespeed_desktop_snapshot,
+                'google_ads_snapshot' => $adsSnapshot ?: $integration->google_ads_snapshot,
             ]);
 
             if ($searchConsoleSnapshot && !empty($searchConsoleSnapshot['dates'])) {
@@ -738,8 +751,16 @@ class GoogleIntegrationController extends Controller
                 'gtm_id' => $int ? $int->gtm_container_id : ($seo ? $seo->gtm_container_id : null),
                 'search_console_connected' => !empty($int ? $int->gsc_site_url : ($seo ? $seo->search_console_connected : false)),
                 'gsc_site' => $int ? $int->gsc_site_url : null,
-                'google_ads_connected' => !empty($int ? $int->google_ads_customer_id : null),
+                'google_ads_connected' => ! empty($int ? $int->google_ads_customer_id : null),
                 'ads_customer_id' => $int ? $int->google_ads_customer_id : null,
+                'ads_account_name' => $int ? $int->google_ads_account_name : null,
+                'ads_kpis' => is_array($int?->google_ads_snapshot) ? ($int->google_ads_snapshot['kpis'] ?? null) : null,
+                'ads_campaigns_count' => is_array($int?->google_ads_snapshot)
+                    ? count($int->google_ads_snapshot['campaigns'] ?? [])
+                    : 0,
+                'ads_last_error' => is_array($int?->google_ads_snapshot)
+                    ? (($int->google_ads_snapshot['errors'][0] ?? null))
+                    : null,
                 'sync_status' => $int ? $int->sync_status : 'not_connected',
                 'last_synced_at' => $int ? $int->last_synced_at : null,
             ];
@@ -748,7 +769,8 @@ class GoogleIntegrationController extends Controller
         return response()->json([
             'data' => $rows,
             'total_stores' => $stores->count(),
-            'total_connected' => $rows->filter(fn($r) => $r['is_connected'])->count(),
+            'total_connected' => $rows->filter(fn ($r) => $r['is_connected'])->count(),
+            'total_ads_linked' => $rows->filter(fn ($r) => $r['google_ads_connected'])->count(),
         ]);
     }
 }

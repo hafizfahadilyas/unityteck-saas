@@ -263,7 +263,7 @@ export const DEFAULT_HEADER_SETTINGS: HeaderCustomSettings = {
     account: {
       enabled: true,
       showText: true,
-      labelAr: 'دخول / Google',
+      labelAr: 'دخول / جوجل',
       labelEn: 'Sign In',
       iconColor: '#343a40',
       textColor: '#343a40',
@@ -811,7 +811,7 @@ export function getDefaultHeaderSettings(store?: any, themeId?: string): HeaderC
         {
           id: 'gen-msg-1',
           icon: 'Sparkles',
-          textAr: `أهلاً بكم في متجر ${storeDisplayNameAr} — منتجات أصلية ومضمونة 100%`,
+          textAr: `أهلاً بكم في متجر${storeDisplayNameAr}— منتجات أصلية ومضمونة 100%`,
           textEn: `Welcome to ${storeDisplayNameEn} — 100% Authentic Guaranteed Products`,
           active: true,
         },
@@ -857,7 +857,7 @@ export function getDefaultHeaderSettings(store?: any, themeId?: string): HeaderC
         iconColor: '#334155',
         hoverColor: accent,
         hoverBg: '#f1f5f9',
-        placeholderAr: `ابحث في منتجات ${storeDisplayNameAr}...`,
+        placeholderAr: `ابحث في منتجات${storeDisplayNameAr}...`,
         placeholderEn: `Search ${storeDisplayNameEn} products...`,
       },
       account: {

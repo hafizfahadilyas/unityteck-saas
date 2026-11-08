@@ -105,7 +105,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
     });
     toast(
       isAr
-        ? `تم تحديث لغات المتجر «${storeDisplayName}» (الإنجليزية: ${next.english ? 'مفعلة' : 'معطلة'}، العربية: ${next.arabic ? 'مفعلة' : 'معطلة'})`
+        ? `تم تحديث لغات المتجر «${storeDisplayName}» (الإنجليزية:${next.english ? 'مفعلة': 'معطلة'}، العربية:${next.arabic ? 'مفعلة': 'معطلة'})`
         : `Language updated for ${storeDisplayName}: English ${next.english ? 'ON' : 'OFF'}, Arabic ${next.arabic ? 'ON' : 'OFF'}`,
       'success',
     );
@@ -221,7 +221,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
       });
       toast(
         isAr
-          ? `تم تغيير بريد الدخول لـ «${storeDisplayName}» إلى ${saved}`
+          ? `تم تغيير بريد الدخول لـ «${storeDisplayName}» إلى${saved}`
           : `Login email for ${storeDisplayName} changed to ${saved}`,
         'success',
       );
@@ -450,7 +450,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
               className="px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none"
             >
               <option value="All">{isAr ? 'جميع الباقات' : 'All Plans'}</option>
-              <option value="pro">{isAr ? 'تاجر برو Pro' : 'Pro Merchant'}</option>
+              <option value="pro">{isAr ? 'تاجر الباقة الاحترافية' : 'Pro Merchant'}</option>
               <option value="free">{isAr ? 'باقة مجانية' : 'Free Tier'}</option>
             </select>
           </div>
@@ -633,7 +633,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                         toast(isAr ? 'تم نسخ النطاق' : 'Domain copied', 'success');
                       }}
                       className="font-mono text-slate-700 dark:text-slate-200 font-bold truncate text-end select-all max-w-[210px] cursor-pointer hover:text-teal-700 dark:hover:text-teal-300"
-                      title={isAr ? `نسخ ${displayDomain}` : `Copy ${displayDomain}`}
+                      title={isAr ? `نسخ${displayDomain}` : `Copy ${displayDomain}`}
                       dir="ltr"
                     >
                       {displayDomain}
@@ -668,7 +668,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                       <CheckCircle className="w-3 h-3 text-emerald-500" /> {isAr ? 'النشر:' : 'Deployment:'}
                     </span>
                     <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30 px-2 py-0.5 rounded">
-                      {deploymentLabel(store.deployment_status)} ({isAr ? 'SSL مفعّل' : 'SSL Active'})
+                      {deploymentLabel(store.deployment_status)} ({isAr ? 'شهادة الأمان مفعّلة' : 'SSL Active'})
                     </span>
                   </div>
 
@@ -834,10 +834,10 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                       toast(
                         store.masterGrantedPro
                           ? isAr
-                            ? `تم إلغاء منحة Pro لـ «${storeDisplayName}»`
+                            ? `تم إلغاء منحة الباقة الاحترافية لـ «${storeDisplayName}»`
                             : `Pro grant revoked for ${storeDisplayName}`
                           : isAr
-                            ? `تم منح باقة Pro لـ «${storeDisplayName}»`
+                            ? `تم منح الباقة الاحترافية لـ «${storeDisplayName}»`
                             : `Pro granted to ${storeDisplayName}`,
                         'success',
                       );
@@ -847,11 +847,11 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                         ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30 dark:hover:bg-amber-500/20'
                         : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                     }`}
-                    title={isAr ? 'تبديل منحة Pro المجانية من الإدارة' : 'Toggle Complimentary Master Grant'}
+                    title={isAr ? 'تبديل منحة الباقة الاحترافية المجانية من الإدارة' : 'Toggle Complimentary Master Grant'}
                   >
                     {store.masterGrantedPro
                       ? isAr ? 'إلغاء المنحة' : 'Revoke Grant'
-                      : isAr ? 'منح Pro' : 'Grant Pro'}
+                      : isAr ? 'منح الباقة الاحترافية' : 'Grant Pro'}
                   </button>
 
                   <label
@@ -1037,7 +1037,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                             <span>{isAr ? q.store_name_ar || q.store_name : q.store_name}</span>
                             {q.is_connected ? (
                               <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">
-                                {isAr ? 'متصل بـ Meta' : 'Connected'}
+                                {isAr ? 'متصل بـ ميتا' : 'Connected'}
                               </span>
                             ) : (
                               <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-md bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">

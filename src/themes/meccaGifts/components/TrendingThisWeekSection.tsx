@@ -308,7 +308,7 @@ export const TrendingThisWeekSection: React.FC<TrendingThisWeekSectionProps> = (
                   <div className="flex items-center justify-between pt-1">
                     {displayPrice ? (
                       <span className="text-sm sm:text-base font-bold text-[#102a1c] dark:text-[#f3e5c8] font-sans tracking-tight">
-                        {isAr ? `${item.price} ر.س` : `SAR ${item.price}`}
+                        {isAr ? `${item.price}ر.س` : `SAR ${item.price}`}
                       </span>
                     ) : (
                       <div />

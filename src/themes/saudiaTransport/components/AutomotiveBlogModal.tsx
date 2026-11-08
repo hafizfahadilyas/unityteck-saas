@@ -286,7 +286,7 @@ export const AutomotiveBlogModal: React.FC<AutomotiveBlogModalProps> = ({
                 onClick={() => {
                   if (openWhatsAppOrder) {
                     const msg = isAr
-                      ? `السلام عليكم، أود استشارة ${post.author.nameAr} بخصوص مقال "${post.titleAr}"`
+                      ? `السلام عليكم، أود استشارة${post.author.nameAr}بخصوص مقال "${post.titleAr}"`
                       : `Hello, I'd like to consult ${post.author.nameEn} regarding the guide: "${post.titleEn}"`;
                     openWhatsAppOrder(msg);
                   }
@@ -487,7 +487,7 @@ export const AutomotiveBlogModal: React.FC<AutomotiveBlogModalProps> = ({
                             const pName = isAr ? prod.nameAr : prod.nameEn || prod.name;
                             openWhatsAppOrder(
                               isAr
-                                ? `السلام عليكم، أود طلب: "${pName}" المذكور في مقال المدونة بسعر ${prod.discountedPrice || prod.price} ر.س`
+                                ? `السلام عليكم، أود طلب: "${pName}" المذكور في مقال المدونة بسعر${prod.discountedPrice || prod.price}ر.س`
                                 : `Hello, I'd like to order: "${pName}" mentioned in the blog post for ${prod.discountedPrice || prod.price} SAR`
                             );
                           }

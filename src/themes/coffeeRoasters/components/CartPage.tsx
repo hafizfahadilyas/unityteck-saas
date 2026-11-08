@@ -123,31 +123,31 @@ export const CartPage: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-neutral-600">
                           <div>
-                            <span className="font-semibold text-neutral-800">{language === 'AR' ? 'الهيكل: ' : 'Structure: '}</span>
+                            <span className="font-semibold text-neutral-800">{language === 'AR' ? 'الهيكل:' : 'Structure: '}</span>
                             {language === 'AR' ? item.customCornerSpecs.woodTypeNameAr : item.customCornerSpecs.woodTypeName} · {language === 'AR' ? item.customCornerSpecs.edgeFinishingAr : item.customCornerSpecs.edgeFinishing} ({language === 'AR' ? item.customCornerSpecs.structureColor.nameAr : item.customCornerSpecs.structureColor.name})
                           </div>
                           <div>
-                            <span className="font-semibold text-neutral-800">{language === 'AR' ? 'السطح: ' : 'Top: '}</span>
+                            <span className="font-semibold text-neutral-800">{language === 'AR' ? 'السطح:' : 'Top: '}</span>
                             {language === 'AR' ? item.customCornerSpecs.surfaceTypeNameAr : item.customCornerSpecs.surfaceTypeName} ({language === 'AR' ? item.customCornerSpecs.surfaceColor.nameAr : item.customCornerSpecs.surfaceColor.name})
                           </div>
                           <div>
-                            <span className="font-semibold text-neutral-800">{language === 'AR' ? 'التقسيم: ' : 'Division: '}</span>
+                            <span className="font-semibold text-neutral-800">{language === 'AR' ? 'التقسيم:' : 'Division: '}</span>
                             {language === 'AR' ? item.customCornerSpecs.internalDivision.nameAr : item.customCornerSpecs.internalDivision.name}
                           </div>
                           <div>
-                            <span className="font-semibold text-neutral-800">{language === 'AR' ? 'المقبض: ' : 'Handle: '}</span>
+                            <span className="font-semibold text-neutral-800">{language === 'AR' ? 'المقبض:' : 'Handle: '}</span>
                             {language === 'AR' ? item.customCornerSpecs.handleType.nameAr : item.customCornerSpecs.handleType.name}
                           </div>
                         </div>
                         {item.customCornerSpecs.accessories.length > 0 && (
                           <div className="text-[10.5px] text-amber-900 bg-amber-50/90 px-2 py-1 rounded-md font-medium">
-                            <span className="font-bold">{language === 'AR' ? 'الإضافات: ' : 'Add-ons: '}</span>
+                            <span className="font-bold">{language === 'AR' ? 'الإضافات:' : 'Add-ons: '}</span>
                             {item.customCornerSpecs.accessories.map(a => `${language === 'AR' ? a.nameAr : a.name} (×${a.quantity})`).join(' · ')}
                           </div>
                         )}
                         {item.customCornerSpecs.divisionNotes && (
                           <div className="text-[10px] text-neutral-500 italic">
-                            <span className="font-bold not-italic">{language === 'AR' ? 'ملاحظات التقسيم: ' : 'Division Note: '}</span>
+                            <span className="font-bold not-italic">{language === 'AR' ? 'ملاحظات التقسيم:' : 'Division Note: '}</span>
                             {item.customCornerSpecs.divisionNotes}
                           </div>
                         )}

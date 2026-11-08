@@ -342,7 +342,7 @@ export const AdvancedSliderForm: React.FC = () => {
       <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-bold overflow-x-auto no-scrollbar">
         {[
           { id: 'content', labelAr: 'النصوص والعناوين', labelEn: 'Texts & Badge', icon: Type },
-          { id: 'button', labelAr: 'زر الإجراء (CTA)', labelEn: 'Button (CTA)', icon: MousePointerClick },
+          { id: 'button', labelAr: 'زر الإجراء', labelEn: 'Button (CTA)', icon: MousePointerClick },
           { id: 'media', labelAr: 'الصورة والوسائط', labelEn: 'Image & Media', icon: ImageIcon },
           { id: 'animation', labelAr: 'الحركة والسرعة', labelEn: 'Animation & Speed', icon: SlidersHorizontal },
         ].map((tab) => {

@@ -217,17 +217,30 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+const coffeeCartKey = (storeId: string) => `unityteck_coffee_cart_${storeId}`;
+const coffeeCustomerKey = (storeId: string) => `unityteck_coffee_customer_${storeId}`;
+
+function readScopedJson<T>(storeId: string, scopedKey: string, legacyKey: string, fallback: T): T {
+  try {
+    if (typeof window === 'undefined') return fallback;
+    const scoped = localStorage.getItem(scopedKey);
+    if (scoped) return JSON.parse(scoped) as T;
+    const legacy = localStorage.getItem(legacyKey);
+    if (legacy) {
+      localStorage.setItem(scopedKey, legacy);
+      localStorage.removeItem(legacyKey);
+      return JSON.parse(legacy) as T;
+    }
+  } catch {}
+  return fallback;
+}
+
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const storeIdRef = useRef<string | undefined>(undefined);
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('unityteck_coffee_cart');
-        return saved ? JSON.parse(saved) : [];
-      }
-    } catch {}
-    return [];
-  });
+  const skipCartPersistRef = useRef(true);
+  const skipUserPersistRef = useRef(true);
+  // Start empty until activeStore.id is known — never share one global coffee cart across tenants.
+  const [cart, setCart] = useState<CartItem[]>([]);
 
   const [isMiniCartOpen, setIsMiniCartOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -316,36 +329,37 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [lastOrder, setLastOrder] = useState<OrderItemRecord | null>(null);
 
-  const [user, setUser] = useState<UserState>(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('unityteck_coffee_customer');
-        if (saved) return JSON.parse(saved);
-      }
-    } catch {}
-    return {
-      isLoggedIn: false,
-      name: '',
-      email: '',
-      phone: '',
-      points: 0,
-      orders: [],
-    };
-  });
+  const emptyUser: UserState = {
+    isLoggedIn: false,
+    name: '',
+    email: '',
+    phone: '',
+    points: 0,
+    orders: [],
+  };
+  const [user, setUser] = useState<UserState>(emptyUser);
 
   useEffect(() => {
+    if (skipCartPersistRef.current) {
+      skipCartPersistRef.current = false;
+      return;
+    }
+    const storeId = storeIdRef.current;
+    if (!storeId || typeof window === 'undefined') return;
     try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('unityteck_coffee_cart', JSON.stringify(cart));
-      }
+      localStorage.setItem(coffeeCartKey(storeId), JSON.stringify(cart));
     } catch {}
   }, [cart]);
 
   useEffect(() => {
+    if (skipUserPersistRef.current) {
+      skipUserPersistRef.current = false;
+      return;
+    }
+    const storeId = storeIdRef.current;
+    if (!storeId || typeof window === 'undefined') return;
     try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('unityteck_coffee_customer', JSON.stringify(user));
-      }
+      localStorage.setItem(coffeeCustomerKey(storeId), JSON.stringify(user));
     } catch {}
   }, [user]);
 
@@ -608,7 +622,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       city: city || prev.city || '',
       points: typeof points === 'number' ? points : prev.points || 0
     }));
-    showToast(language === 'AR' ? `مرحباً ${label}` : `Welcome, ${label}`);
+    showToast(language === 'AR' ? `مرحباً${label}` : `Welcome, ${label}`);
   };
 
   const updateSignedInContact = (name: string, phone: string, city: string, order?: OrderItemRecord) => {
@@ -683,11 +697,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
   storeIdRef.current = tenant?.activeStore?.id || undefined;
 
+  // Reload cart/customer whenever the active store changes (per-store isolation).
+  useEffect(() => {
+    const storeId = tenant?.activeStore?.id;
+    storeIdRef.current = storeId;
+    skipCartPersistRef.current = true;
+    skipUserPersistRef.current = true;
+    if (!storeId) {
+      setCart([]);
+      setUser(emptyUser);
+      return;
+    }
+    setCart(readScopedJson<CartItem[]>(storeId, coffeeCartKey(storeId), 'unityteck_coffee_cart', []));
+    setUser(
+      readScopedJson<UserState>(storeId, coffeeCustomerKey(storeId), 'unityteck_coffee_customer', emptyUser),
+    );
+  }, [tenant?.activeStore?.id]);
+
   useEffect(() => {
     const onReady = (event: Event) => {
       const detail = (event as CustomEvent<{ storeId?: string; name?: string; email?: string; phone?: string; city?: string }>).detail;
       if (!detail?.email) return;
-      const storeId = tenant?.activeStore?.id || 'store-coffee';
+      const storeId = tenant?.activeStore?.id;
+      if (!storeId) return;
       if (detail.storeId && detail.storeId !== storeId) return;
       loginUser(detail.name || '', detail.email, detail.phone, detail.city);
     };
@@ -724,11 +756,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (found.minOrderValue && cartTotal < found.minOrderValue) {
       return {
         success: false,
-        message: isAr ? `الحد الأدنى للطلب ${found.minOrderValue} ر.س` : `Minimum order is SAR ${found.minOrderValue}`
+        message: isAr ? `الحد الأدنى للطلب${found.minOrderValue}ر.س` : `Minimum order is SAR ${found.minOrderValue}`
       };
     }
     setAppliedCoupon(found);
-    return { success: true, message: isAr ? `تم تطبيق الكود ${found.code}` : `Coupon ${found.code} applied` };
+    return { success: true, message: isAr ? `تم تطبيق الكود${found.code}` : `Coupon ${found.code} applied` };
   };
 
   const removeCoupon = () => setAppliedCoupon(null);

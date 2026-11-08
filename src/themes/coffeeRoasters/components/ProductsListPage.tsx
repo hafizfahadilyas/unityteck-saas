@@ -121,8 +121,22 @@ export const ProductsListPage: React.FC = () => {
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(shopSettings?.perPage || 24);
+  /** Header mega-menu hint: filter by category/name keywords when exact cat id is missing */
+  const [catHint, setCatHint] = useState<string | null>(null);
 
   const carouselRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      const hint = sessionStorage.getItem('unityteck-shop-cat-hint');
+      if (hint) {
+        sessionStorage.removeItem('unityteck-shop-cat-hint');
+        setCatHint(hint);
+      }
+    } catch {
+      /* storage may be unavailable */
+    }
+  }, []);
 
   // Dynamic Categories derived from catalog with localized names & counts
   const dynamicCategories = useMemo(() => {
@@ -164,6 +178,19 @@ export const ProductsListPage: React.FC = () => {
     // Category Filter
     if (selectedCat !== 'all') {
       result = result.filter(p => String(p.category || '').toLowerCase() === String(selectedCat).toLowerCase());
+    } else if (catHint) {
+      const hints: Record<string, string[]> = {
+        machines: ['machine', 'espresso', 'barista', 'مكائن', 'إسبريسو', 'اسبريسو'],
+        mills: ['mill', 'grinder', 'مطاحن', 'مطحنة'],
+        cabinets: ['cabinet', 'station', 'oak', 'دواليب', 'أركان', 'ركن'],
+        accessories: ['accessory', 'cup', 'مستلزمات', 'أكواب', 'كوب'],
+        offers: ['offer', 'sale', 'عروض', 'خصم'],
+      };
+      const keys = hints[catHint] || [catHint];
+      result = result.filter((p) => {
+        const blob = `${p.category || ''} ${p.categoryAr || ''} ${p.name || ''} ${p.nameAr || ''}`.toLowerCase();
+        return keys.some((k) => blob.includes(k.toLowerCase()));
+      });
     }
 
     // Search Query Filter
@@ -197,7 +224,7 @@ export const ProductsListPage: React.FC = () => {
     }
 
     return result;
-  }, [masterProducts, selectedCat, searchQuery, priceRange, onlyInStock, sortBy]);
+  }, [masterProducts, selectedCat, catHint, searchQuery, priceRange, onlyInStock, sortBy]);
 
   useEffect(() => {
     setVisibleCount(shopSettings?.perPage || 24);
@@ -399,7 +426,7 @@ export const ProductsListPage: React.FC = () => {
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
             <span>
               {isAr
-                ? `${filteredProducts.length} منتج متاح للشحن الفوري`
+                ? `${filteredProducts.length}منتج متاح للشحن الفوري`
                 : `${filteredProducts.length} Products Available for Express Dispatch`}
             </span>
           </div>
@@ -531,7 +558,10 @@ export const ProductsListPage: React.FC = () => {
                 <button
                   key={cat.id}
                   type="button"
-                  onClick={() => setSelectedCat(cat.id)}
+                  onClick={() => {
+                    setCatHint(null);
+                    setSelectedCat(cat.id);
+                  }}
                   className={`px-4 py-2 rounded-full text-xs transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
                     isSelected
                       ? 'bg-black text-white font-bold shadow-md shadow-black/10'
@@ -630,7 +660,7 @@ export const ProductsListPage: React.FC = () => {
               <span className="text-neutral-300">|</span>
 
               <span className="text-xs text-neutral-500 font-sans">
-                {isAr ? `عرض ${filteredProducts.length} من ${masterProducts.length}` : `Showing ${filteredProducts.length} of ${masterProducts.length}`}
+                {isAr ? `عرض${filteredProducts.length}من${masterProducts.length}` : `Showing ${filteredProducts.length} of ${masterProducts.length}`}
               </span>
             </div>
 
@@ -649,7 +679,14 @@ export const ProductsListPage: React.FC = () => {
                   <span className="font-semibold">
                     {dynamicCategories.find(c => c.id === selectedCat)?.[isAr ? 'nameAr' : 'name'] || selectedCat}
                   </span>
-                  <button type="button" onClick={() => setSelectedCat('all')} className="hover:text-black">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCatHint(null);
+                      setSelectedCat('all');
+                    }}
+                    className="hover:text-black"
+                  >
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -739,7 +776,7 @@ export const ProductsListPage: React.FC = () => {
             <div className="flex items-center justify-between px-2 mb-3">
               <span className="text-xs font-semibold text-neutral-600 bg-neutral-100 px-3.5 py-1 rounded-full">
                 {isAr
-                  ? `المنتج ${activeMobileSlide + 1} من ${visibleProducts.length}`
+                  ? `المنتج${activeMobileSlide + 1}من${visibleProducts.length}`
                   : `Product ${activeMobileSlide + 1} of ${visibleProducts.length}`}
               </span>
 
@@ -1016,7 +1053,7 @@ export const ProductsListPage: React.FC = () => {
                       {cardFlags.showStock && typeof (product as Product & { stock?: number }).stock === 'number' ? (
                         <p className="text-[11px] text-neutral-500">
                           {(product as Product & { stock?: number }).stock! > 0
-                            ? (isAr ? `المتوفر ${(product as Product & { stock?: number }).stock}` : `In stock ${(product as Product & { stock?: number }).stock}`)
+                            ? (isAr ? `المتوفر${(product as Product & { stock?: number }).stock}` : `In stock ${(product as Product & { stock?: number }).stock}`)
                             : (isAr ? 'نفد المخزون' : 'Out of stock')}
                         </p>
                       ) : null}

@@ -4,6 +4,7 @@ import { usePrefs } from '../../../i18n/PrefsContext';
 import { Order, Customer, Product } from '../../../types';
 import { getCustomerDisplayName } from '../../../utils/storeLocalization';
 import { formatRelativeTime } from '../../../notification-system/utils/dateFilters';
+import { formatOrderRef } from '../../../utils/orderDisplay';
 
 interface ActivityItem {
   id: string;
@@ -55,9 +56,7 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = React.memo(
     // 1. Real store orders
     if (Array.isArray(orders) && orders.length > 0) {
       orders.forEach((ord) => {
-        const cleanNum = ord.orderNumber
-          ? (ord.orderNumber.startsWith('#') ? ord.orderNumber : `#${ord.orderNumber}`)
-          : `#${ord.id ? ord.id.slice(0, 8) : 'ORD'}`;
+        const cleanNum = formatOrderRef(ord.orderNumber, ord.id);
 
         const cName = getCustomerDisplayName(ord.customerName, locale) || (isAr ? 'عميل' : 'Customer');
 

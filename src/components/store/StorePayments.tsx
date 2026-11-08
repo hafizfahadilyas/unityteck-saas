@@ -346,7 +346,7 @@ export const StorePayments: React.FC = () => {
         </div>
       ),
       desc: isAr
-        ? 'تواصل مع أكثر من 8 ملايين مستخدم نشط لـ STC Pay في المملكة. دفع فوري عبر رمز QR أو رمز التحقق.'
+        ? 'تواصل مع أكثر من 8 ملايين مستخدم نشط لـ إس تي سي باي في المملكة. دفع فوري عبر رمز QR أو رمز التحقق.'
         : 'Connect to 8+ million active Saudi STC Pay users. Instant direct QR and OTP mobile checkout.',
       badge: isAr ? 'معرّف التاجر مرتبط' : 'Merchant ID Linked',
       badgeCls: 'text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-500/10',
@@ -472,7 +472,7 @@ export const StorePayments: React.FC = () => {
       setShowGatewayModal(false);
       toast(
         isAr
-          ? `تم ربط وتفعيل إعدادات ${gatewayTitle} ومفاتيح الربط بنجاح!`
+          ? `تم ربط وتفعيل إعدادات${gatewayTitle}ومفاتيح الربط بنجاح!`
           : `Payment Provider ${gatewayTitle} API credentials saved & connected!`,
         'success'
       );
@@ -492,14 +492,14 @@ export const StorePayments: React.FC = () => {
       if (res && res.success) {
         toast(
           isAr
-            ? `اتصال بوابة ${name} سليم بنجاح! وقت الاستجابة: 98ms ✓`
+            ? `اتصال بوابة${name}سليم بنجاح! وقت الاستجابة: 98ms ✓`
             : `${name} API verified successfully! Latency: 98ms ✓`,
           'success'
         );
       } else {
         toast(
           isAr
-            ? `اتصال بوابة ${name} سليم وموثّق مع ساما وسيرفر البنك ✓`
+            ? `اتصال بوابة${name}سليم وموثّق مع ساما وسيرفر البنك ✓`
             : `${name} API verified with SAMA merchant rail ✓`,
           'success'
         );
@@ -507,7 +507,7 @@ export const StorePayments: React.FC = () => {
     } catch {
       toast(
         isAr
-          ? `اتصال بوابة ${name} موثّق وفعّال على سيرفر المتجر ✓`
+          ? `اتصال بوابة${name}موثّق وفعّال على سيرفر المتجر ✓`
           : `${name} API verified and operational ✓`,
         'success'
       );
@@ -522,7 +522,7 @@ export const StorePayments: React.FC = () => {
     setIsSyncingWebhooks(false);
     toast(
       isAr
-        ? `تمت مزامنة روابط Webhook والرسوم الآلية لـ ${name} بنجاح!`
+        ? `تمت مزامنة روابط Webhook والرسوم الآلية لـ${name}بنجاح!`
         : `Instant webhooks & real-time IPN synced for ${name}!`,
       'success'
     );
@@ -553,10 +553,10 @@ export const StorePayments: React.FC = () => {
     toast(
       next
         ? isAr
-          ? `تم تفعيل ${label} في صفحة الدفع`
+          ? `تم تفعيل${label}في صفحة الدفع`
           : `${label} enabled at checkout`
         : isAr
-          ? `تم إيقاف ${label} في صفحة الدفع`
+          ? `تم إيقاف${label}في صفحة الدفع`
           : `${label} disabled at checkout`,
       next ? 'success' : 'info',
     );
@@ -607,7 +607,7 @@ export const StorePayments: React.FC = () => {
 <script>window.onload=function(){window.print();}</script>
 </body></html>`);
     win.document.close();
-    toast(isAr ? `جارٍ طباعة الفاتورة الضريبية لـ ${p.id}...` : `Printing ZATCA invoice for ${p.id}...`, 'success');
+    toast(isAr ? `جارٍ طباعة الفاتورة الضريبية لـ${p.id}...` : `Printing ZATCA invoice for ${p.id}...`, 'success');
   };
 
   const inputCls =
@@ -726,7 +726,7 @@ export const StorePayments: React.FC = () => {
 
                       <label
                         className="relative inline-flex items-center cursor-pointer"
-                        aria-label={isAr ? `تفعيل ${m.name}` : `Enable ${m.name}`}
+                        aria-label={isAr ? `تفعيل${m.name}` : `Enable ${m.name}`}
                       >
                         <input
                           type="checkbox"
@@ -1232,7 +1232,7 @@ export const StorePayments: React.FC = () => {
         <GlobalModal
           onClose={() => setShowGatewayModal(false)}
           dir={isAr ? 'rtl' : 'ltr'}
-          aria-label={isAr ? `إعدادات بوابة ${gatewayTitle}` : `Configure ${gatewayTitle} API`}
+          aria-label={isAr ? `إعدادات بوابة${gatewayTitle}` : `Configure ${gatewayTitle} API`}
         >
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
@@ -1242,7 +1242,7 @@ export const StorePayments: React.FC = () => {
                 </span>
                 <div>
                   <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
-                    {isAr ? `إعدادات بوابة ${gatewayTitle}` : `Configure ${gatewayTitle} API`}
+                    {isAr ? `إعدادات بوابة${gatewayTitle}` : `Configure ${gatewayTitle} API`}
                   </h3>
                   <p className="text-xs text-slate-500">
                     {isAr

@@ -97,12 +97,12 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
   // Progress animation steps
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(-1);
   const [steps, setSteps] = useState<ConnectionStep[]>([
-    { id: 'connect', label: 'Connecting Google Account', labelAr: 'الاتصال بحساب Google', status: 'pending' },
+    { id: 'connect', label: 'Connecting Google Account', labelAr: 'الاتصال بحساب جوجل', status: 'pending' },
     { id: 'auth', label: 'Authorizing Google Permissions', labelAr: 'التحقق ومنح الصلاحيات الرسمية', status: 'pending' },
-    { id: 'ga4', label: 'Finding Analytics Properties', labelAr: 'البحث عن خصائص Google Analytics 4', status: 'pending' },
-    { id: 'gsc', label: 'Finding Search Console Properties', labelAr: 'البحث عن مواقع Google Search Console', status: 'pending' },
-    { id: 'gtm', label: 'Finding Tag Manager Containers', labelAr: 'البحث عن حاويات Google Tag Manager', status: 'pending' },
-    { id: 'ads', label: 'Checking Google Ads Access', labelAr: 'فحص صلاحيات حساب إعلانات Google Ads', status: 'pending' },
+    { id: 'ga4', label: 'Finding Analytics Properties', labelAr: 'البحث عن خصائص تحليلات جوجل ٤', status: 'pending' },
+    { id: 'gsc', label: 'Finding Search Console Properties', labelAr: 'البحث عن مواقع وحدة بحث جوجل', status: 'pending' },
+    { id: 'gtm', label: 'Finding Tag Manager Containers', labelAr: 'البحث عن حاويات مدير علامات جوجل', status: 'pending' },
+    { id: 'ads', label: 'Checking Google Ads Access', labelAr: 'فحص صلاحيات حساب إعلانات إعلانات جوجل', status: 'pending' },
     { id: 'sync', label: 'Syncing Real Store Data', labelAr: 'مزامنة البيانات الحقيقية للمتجر', status: 'pending' },
   ]);
 
@@ -314,7 +314,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
           setIsLoading(false);
           toast(
             isAr
-              ? `تم ربط جوجل لهذا المتجر: ${userProfile.email}`
+              ? `تم ربط جوجل لهذا المتجر:${userProfile.email}`
               : `Google connected for this store: ${userProfile.email}`,
             'success',
           );
@@ -361,7 +361,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
 
         toast(
           isAr
-            ? `تم ربط ومزامنة خدمات Google لـ (${userProfile.email}) بنجاح ✓`
+            ? `تم ربط ومزامنة خدمات جوجل لـ (${userProfile.email}) بنجاح ✓`
             : `Google Services connected & synced for ${userProfile.email} ✓`,
           'success'
         );
@@ -432,7 +432,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
         setIsSyncing(false);
         setErrorMessage(
           isAr
-            ? 'اختر أو أدخل معرّفات GA4 / GTM / Search Console الحقيقية.'
+            ? 'اختر أو أدخل معرّفات GA4 / مدير العلامات / وحدة البحث الحقيقية.'
             : 'Select or enter real GA4 / GTM / Search Console IDs.',
         );
         return;
@@ -506,7 +506,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
       setIsSyncing(false);
 
       toast(
-        isAr ? 'تم حفظ التغييرات ومزامنة البيانات الحقيقية من Google بنجاح ✓' : 'Google properties saved & real data synced successfully ✓',
+        isAr ? 'تم حفظ التغييرات ومزامنة البيانات الحقيقية من جوجل بنجاح ✓' : 'Google properties saved & real data synced successfully ✓',
         'success'
       );
 
@@ -524,7 +524,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
    * Disconnect Google Account
    */
   const handleDisconnect = async () => {
-    if (!window.confirm(isAr ? 'هل أنت متأكد من رغبتك في فصل حساب Google؟' : 'Are you sure you want to disconnect your Google Account?')) {
+    if (!window.confirm(isAr ? 'هل أنت متأكد من رغبتك في فصل حساب جوجل؟' : 'Are you sure you want to disconnect your Google Account?')) {
       return;
     }
     try {
@@ -536,7 +536,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
     setIsConnected(false);
     setAccountEmail(null);
     setAccountName(null);
-    toast(isAr ? 'تم فصل حساب Google بنجاح' : 'Google Account disconnected', 'info');
+    toast(isAr ? 'تم فصل حساب جوجل بنجاح' : 'Google Account disconnected', 'info');
   };
 
   if (!isOpen) return null;
@@ -563,7 +563,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black tracking-tight text-white">
-                  {isAr ? 'ربط خدمات Google الرسمية' : 'Connect Google Services'}
+                  {isAr ? 'ربط خدمات جوجل الرسمية' : 'Connect Google Services'}
                 </h2>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
                   {isAr ? 'الإصدار ٢' : 'Site Kit 2.0'}
@@ -664,7 +664,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
                           {accountEmail}
                         </span>
                         <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold block mt-0.5">
-                          {isAr ? 'حساب Google متصل وموثّق رسميًا' : 'Official Google Account Active & Authorized'}
+                          {isAr ? 'حساب جوجل متصل وموثّق رسميًا' : 'Official Google Account Active & Authorized'}
                         </span>
                       </div>
                     </div>
@@ -734,7 +734,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
 
                     <div className="space-y-1">
                       <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
-                        {isAr ? 'ربط متجرك بـ Google Site Kit' : 'Connect Your Store to Google Site Kit'}
+                        {isAr ? 'ربط متجرك بـ جوجل Site Kit' : 'Connect Your Store to Google Site Kit'}
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                         {isAr
@@ -747,7 +747,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
                   {/* Account Email Input Field */}
                   <div className="space-y-2 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                      {isAr ? 'البريد الإلكتروني لحساب Google للمتجر:' : 'Google Account Email for Store:'}
+                      {isAr ? 'البريد الإلكتروني لحساب جوجل للمتجر:' : 'Google Account Email for Store:'}
                     </label>
                     <div className="flex flex-col sm:flex-row items-center gap-2.5">
                       <input
@@ -788,7 +788,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
                       className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5 cursor-pointer"
                     >
                       <Sliders className="w-3.5 h-3.5" />
-                      <span>{isAr ? 'إعدادات متقدمة (معرف عميل Google Cloud مخصص)' : 'Advanced (Custom Google Cloud Client ID)'}</span>
+                      <span>{isAr ? 'إعدادات متقدمة (معرف عميل سحابة جوجل مخصص)' : 'Advanced (Custom Google Cloud Client ID)'}</span>
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAdvancedOAuth ? 'rotate-180' : ''}`} />
                     </button>
 
@@ -888,7 +888,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
               <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs">
                 <p className="text-slate-600 dark:text-slate-300">
                   {isAr
-                    ? 'يمكنك تعديل وتخصيص معرفات Google Analytics و Tag Manager و Search Console المرتبطة بالمتجر.'
+                    ? 'يمكنك تعديل وتخصيص معرفات تحليلات جوجل و Tag Manager و وحدة البحث المرتبطة بالمتجر.'
                     : 'Configure your Google Analytics, Tag Manager, and Search Console property mapping.'}
                 </p>
               </div>
@@ -982,11 +982,11 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
               <div className="p-4 bg-blue-50/70 dark:bg-blue-950/30 rounded-2xl border border-blue-200 dark:border-blue-800 space-y-2">
                 <h4 className="font-bold text-sm text-blue-900 dark:text-blue-200 flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-blue-600" />
-                  <span>{isAr ? 'كيف يعمل ربط Google Site Kit؟' : 'How does Google Site Kit integration work?'}</span>
+                  <span>{isAr ? 'كيف يعمل ربط جوجل Site Kit؟' : 'How does Google Site Kit integration work?'}</span>
                 </h4>
                 <p className="text-blue-800 dark:text-blue-300 leading-relaxed">
                   {isAr
-                    ? 'يتم دمج خدمات Google الرسمية مباشرة مع متجرك عبر بروتوكول OAuth 2.0 المعتمد، مما يمكن محرك بحث Google من أرشفة منتجاتك فور نشرها، وتوليد خرائط المواقع Sitemap.xml آلياً، وقياس مؤشرات الأداء الحقيقية Core Web Vitals لحظة بلحظة.'
+                    ? 'يتم دمج خدمات جوجل الرسمية مباشرة مع متجرك عبر بروتوكول OAuth 2.0 المعتمد، مما يمكن محرك بحث جوجل من أرشفة منتجاتك فور نشرها، وتوليد خرائط المواقع خريطة الموقع.xml آلياً، وقياس مؤشرات الأداء الحقيقية Core Web Vitals لحظة بلحظة.'
                     : 'Direct REST integration with Google Search Console, GA4, and Google PageSpeed Insights API, automatically pushing updated sitemaps and monitoring Core Web Vitals.'}
                 </p>
               </div>

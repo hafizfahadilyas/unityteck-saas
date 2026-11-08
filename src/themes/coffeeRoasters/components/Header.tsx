@@ -164,22 +164,22 @@ export const Header: React.FC = () => {
     products
   } = useCart();
 
-  // Dynamic Mega Catalog computed from live products (100% PNG & auto-updating from Dashboard)
+  // Dynamic Mega Catalog from live products (AR/EN category + name matching)
   const dynamicMegaCatalog = useMemo(() => {
     const catalog: Record<string, Record<string, MegaProductItem[]>> = {
-      machines: { latest: [], pro: [], compact: [] },
-      mills: { latest: [], electric: [], manual: [] },
-      cabinets: { latest: [], modern: [], luxury: [] },
-      accessories: { latest: [], tools: [], cups: [] },
+      machines: { latest: [], pro: [], compact: [], commercial: [] },
+      mills: { latest: [], electric: [], manual: [], conical: [], flat: [] },
+      cabinets: { latest: [], modern: [], luxury: [], cabinets: [], corners: [] },
+      accessories: { latest: [], tools: [], cups: [], boltfilters: [] },
       offers: { latest: [], bundles: [], flash: [] },
     };
 
     (products || []).forEach((prod) => {
-      const catKey = (prod.category || 'machines').toLowerCase();
+      const catKey = `${prod.category || ''} ${(prod as { categoryAr?: string }).categoryAr || ''} ${prod.name || ''} ${prod.nameAr || ''}`.toLowerCase();
       const primaryImg =
         prod.colors?.[0]?.image ||
         prod.images?.[0] ||
-        (prod as any).image ||
+        (prod as { image?: string }).image ||
         '/src/assets/images/hibrew_h7a_flagship_machine.png';
 
       const item: MegaProductItem = {
@@ -190,27 +190,49 @@ export const Header: React.FC = () => {
         isNew: Boolean(prod.badge || (prod.originalPrice && prod.originalPrice > prod.basePrice)),
       };
 
-      if (catKey.includes('machine') || catKey === 'machines') {
+      const isMachine =
+        /machine|espresso|barista|مكائن|إسبريسو|اسبريسو|قهوة/.test(catKey) &&
+        !/mill|grind|مطح|cabinet|دواليب|ركن|cup|كوب|access|مستلزم/.test(catKey);
+      const isMill = /mill|grind|مطح/.test(catKey);
+      const isCabinet = /cabinet|corner|station|oak|دواليب|أركان|ركن/.test(catKey);
+      const isAccessory = /access|cup|tool|portafilter|مستلزم|أكواب|كوب|فلتر/.test(catKey);
+
+      if (isMachine || (!isMill && !isCabinet && !isAccessory)) {
         catalog.machines.latest.push(item);
-        if (prod.basePrice > 1000) {
+        if (prod.basePrice > 1000 || /pro|h7a|commercial|تجار|58/.test(catKey)) {
           catalog.machines.pro.push(item);
+          catalog.machines.commercial.push(item);
         } else {
           catalog.machines.compact.push(item);
         }
-      } else if (catKey.includes('mill') || catKey.includes('grind') || catKey === 'mills') {
+      }
+      if (isMill) {
         catalog.mills.latest.push(item);
         catalog.mills.electric.push(item);
-      } else if (catKey.includes('cabinet') || catKey.includes('corner') || catKey === 'cabinets') {
+        if (/conical|مخروط/.test(catKey)) catalog.mills.conical.push(item);
+        else if (/flat|مسطح/.test(catKey)) catalog.mills.flat.push(item);
+        else {
+          catalog.mills.conical.push(item);
+          catalog.mills.flat.push(item);
+        }
+      }
+      if (isCabinet) {
         catalog.cabinets.latest.push(item);
         catalog.cabinets.luxury.push(item);
-      } else if (catKey.includes('access') || catKey.includes('cup') || catKey === 'accessories') {
+        catalog.cabinets.cabinets.push(item);
+        catalog.cabinets.corners.push(item);
+      }
+      if (isAccessory) {
         catalog.accessories.latest.push(item);
-        catalog.accessories.tools.push(item);
+        if (/cup|كوب/.test(catKey)) catalog.accessories.cups.push(item);
+        else if (/filter|فلتر|porta/.test(catKey)) catalog.accessories.boltfilters.push(item);
+        else catalog.accessories.tools.push(item);
       }
 
       if (prod.originalPrice && prod.originalPrice > prod.basePrice) {
         catalog.offers.latest.push(item);
         catalog.offers.flash.push(item);
+        catalog.offers.bundles.push(item);
       }
     });
 
@@ -365,6 +387,17 @@ export const Header: React.FC = () => {
     .filter((link) => link.active !== false && navLabel(link));
   const customMobile = (headerSettings?.navigation?.mobileLinks || [])
     .filter((link) => link.active !== false && navLabel(link));
+  const openShopWithHint = (hint: string) => {
+    try {
+      sessionStorage.setItem('unityteck-shop-cat-hint', hint);
+    } catch {
+      /* storage may be unavailable */
+    }
+    closeMenuImmediately();
+    setMobileMenuOpen(false);
+    navigateTo('products');
+  };
+
   const followHeaderLink = (url?: string) => {
     closeMenuImmediately();
     setMobileMenuOpen(false);
@@ -383,6 +416,12 @@ export const Header: React.FC = () => {
     }
     if (/^https?:\/\//i.test(value)) {
       window.open(value, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    // Relative / slug paths → known storefront routes
+    const slug = value.replace(/^\//, '').split('?')[0].toLowerCase();
+    if (slug) {
+      navigateTo(slug === 'shop' ? 'products' : slug);
     }
   };
 
@@ -452,7 +491,6 @@ export const Header: React.FC = () => {
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <div className="hidden sm:flex items-center gap-1.5 bg-white px-3 py-0.5 rounded-full border border-neutral-300/80 text-[11px] font-medium text-neutral-800 shadow-2xs">
                 <span>{language === 'AR' ? 'المملكة العربية السعودية / العربية' : 'Saudi Arabia / English'}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-neutral-500" />
               </div>
 
               <button
@@ -604,10 +642,7 @@ export const Header: React.FC = () => {
               onMouseEnter={() => handleNavMouseEnter('machines')}
             >
               <button
-                onClick={() => {
-                  closeMenuImmediately();
-                  navigateTo('products');
-                }}
+                onClick={() => openShopWithHint('machines')}
                 className={`py-2 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'machines' && isMegaMenuOpen
                     ? 'text-black font-semibold'
@@ -627,10 +662,7 @@ export const Header: React.FC = () => {
               onMouseEnter={() => handleNavMouseEnter('mills')}
             >
               <button
-                onClick={() => {
-                  closeMenuImmediately();
-                  navigateTo('products');
-                }}
+                onClick={() => openShopWithHint('mills')}
                 className={`py-2 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'mills' && isMegaMenuOpen
                     ? 'text-black font-semibold'
@@ -650,10 +682,7 @@ export const Header: React.FC = () => {
               onMouseEnter={() => handleNavMouseEnter('cabinets')}
             >
               <button
-                onClick={() => {
-                  closeMenuImmediately();
-                  navigateTo('products');
-                }}
+                onClick={() => openShopWithHint('cabinets')}
                 className={`py-2 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'cabinets' && isMegaMenuOpen
                     ? 'text-black font-semibold'
@@ -673,10 +702,7 @@ export const Header: React.FC = () => {
               onMouseEnter={() => handleNavMouseEnter('accessories')}
             >
               <button
-                onClick={() => {
-                  closeMenuImmediately();
-                  navigateTo('products');
-                }}
+                onClick={() => openShopWithHint('accessories')}
                 className={`py-2 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'accessories' && isMegaMenuOpen
                     ? 'text-black font-semibold'
@@ -696,10 +722,7 @@ export const Header: React.FC = () => {
               onMouseEnter={() => handleNavMouseEnter('offers')}
             >
               <button
-                onClick={() => {
-                  closeMenuImmediately();
-                  navigateTo('products');
-                }}
+                onClick={() => openShopWithHint('offers')}
                 className={`py-2 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'offers' && isMegaMenuOpen
                     ? 'text-black font-semibold'
@@ -777,15 +800,11 @@ export const Header: React.FC = () => {
               </button>
             )}
 
-            {/* Wishlist Heart Icon */}
-            {headerSettings?.actions?.wishlist?.enabled !== false && (
+            {/* Wishlist — hidden until real wishlist API exists (no fake navigate-to-shop) */}
+            {false && headerSettings?.actions?.wishlist?.enabled !== false && (
               <button
                 type="button"
-                onClick={() => {
-                  setActiveMegaMenu(null);
-                  setMobileMenuOpen(false);
-                  navigateTo('products');
-                }}
+                onClick={() => undefined}
                 className="p-1.5 text-neutral-800 hover:text-red-500 transition-colors cursor-pointer"
                 title={language === 'AR' ? 'قائمة الرغبات والمفضلة' : 'Wishlist'}
                 aria-label={language === 'AR' ? 'المفضلة' : 'Wishlist'}
@@ -807,8 +826,8 @@ export const Header: React.FC = () => {
                 className={`relative p-1.5 text-neutral-800 hover:text-black transition-all duration-300 cursor-pointer ${
                   cartBump ? 'scale-135 text-black' : 'scale-100'
                 }`}
-                title="Cart"
-                aria-label={language === 'AR' ? 'السلة' : 'Cart'}
+                title={language === 'AR' ? 'سلة التسوق' : 'Cart'}
+                aria-label={language === 'AR' ? 'سلة التسوق' : 'Cart'}
               >
                 <ShoppingBag
                   className={`w-5 h-5 stroke-[1.8] transition-transform duration-300 ${
@@ -915,11 +934,11 @@ export const Header: React.FC = () => {
             {/* Language Toggle on Mobile */}
             <button
               type="button"
-              onClick={() => setLanguage(language === 'AR' ? 'EN' : 'AR')}
+              onClick={() => setLanguage(language === 'AR' ? 'إنجليزي' : 'AR')}
               className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-neutral-200 bg-neutral-50 text-neutral-800 cursor-pointer active:scale-95"
               title="Toggle Language"
             >
-              {language === 'AR' ? 'EN' : 'عربي'}
+              {language === 'AR' ? 'إنجليزي' : 'عربي'}
             </button>
 
             {/* Mobile Brand Logo */}
@@ -1145,6 +1164,7 @@ export const Header: React.FC = () => {
                       >
                         {language === 'AR' ? 'سلسلة المكائن المدمجة' : 'HiBrew Compact Series'}
                       </button>
+                      {(dynamicMegaCatalog.machines.commercial?.length || 0) > 0 ? (
                       <button
                         role="tab"
                         aria-selected={activeSubFilter === 'commercial'}
@@ -1157,11 +1177,13 @@ export const Header: React.FC = () => {
                       >
                         {language === 'AR' ? 'سلسلة 58 مم التجارية' : 'HiBrew Commercial 58mm Series'}
                       </button>
+                      ) : null}
                     </>
                   )}
 
                   {currentMenu === 'mills' && (
                     <>
+                      {(dynamicMegaCatalog.mills.conical?.length || 0) > 0 ? (
                       <button
                         role="tab"
                         aria-selected={activeSubFilter === 'conical'}
@@ -1174,6 +1196,8 @@ export const Header: React.FC = () => {
                       >
                         {language === 'AR' ? 'مطاحن التروس المخروطية' : 'Conical Burr Series'}
                       </button>
+                      ) : null}
+                      {(dynamicMegaCatalog.mills.flat?.length || 0) > 0 ? (
                       <button
                         role="tab"
                         aria-selected={activeSubFilter === 'flat'}
@@ -1186,11 +1210,13 @@ export const Header: React.FC = () => {
                       >
                         {language === 'AR' ? 'مطاحن التروس المسطحة' : 'Flat Burr Series'}
                       </button>
+                      ) : null}
                     </>
                   )}
 
                   {currentMenu === 'cabinets' && (
                     <>
+                      {(dynamicMegaCatalog.cabinets.cabinets?.length || 0) > 0 ? (
                       <button
                         role="tab"
                         aria-selected={activeSubFilter === 'cabinets'}
@@ -1203,6 +1229,8 @@ export const Header: React.FC = () => {
                       >
                         {language === 'AR' ? 'سلسلة دواليب القهوة الفاخرة' : 'Artisan Cabinet Series'}
                       </button>
+                      ) : null}
+                      {(dynamicMegaCatalog.cabinets.corners?.length || 0) > 0 ? (
                       <button
                         role="tab"
                         aria-selected={activeSubFilter === 'corners'}
@@ -1215,11 +1243,13 @@ export const Header: React.FC = () => {
                       >
                         {language === 'AR' ? 'سلسلة محطات وأركان الباريستا' : 'Barista Station Series'}
                       </button>
+                      ) : null}
                     </>
                   )}
 
                   {currentMenu === 'accessories' && (
                     <>
+                      {(dynamicMegaCatalog.accessories.boltfilters?.length || 0) > 0 ? (
                       <button
                         role="tab"
                         aria-selected={activeSubFilter === 'boltfilters'}
@@ -1232,6 +1262,8 @@ export const Header: React.FC = () => {
                       >
                         {language === 'AR' ? 'سلسلة البورتافلتر 58مم' : 'Boltfilter 58mm Series'}
                       </button>
+                      ) : null}
+                      {(dynamicMegaCatalog.accessories.cups?.length || 0) > 0 ? (
                       <button
                         role="tab"
                         aria-selected={activeSubFilter === 'cups'}
@@ -1244,6 +1276,8 @@ export const Header: React.FC = () => {
                       >
                         {language === 'AR' ? 'سلسلة الأكواب السيراميك' : 'Ceramic Cup Series'}
                       </button>
+                      ) : null}
+                      {(dynamicMegaCatalog.accessories.tools?.length || 0) > 0 ? (
                       <button
                         role="tab"
                         aria-selected={activeSubFilter === 'tools'}
@@ -1256,10 +1290,11 @@ export const Header: React.FC = () => {
                       >
                         {language === 'AR' ? 'سلسلة أدوات الباريستا' : 'Barista Tools Series'}
                       </button>
+                      ) : null}
                     </>
                   )}
 
-                  {currentMenu === 'offers' && (
+                  {currentMenu === 'offers' && (dynamicMegaCatalog.offers.bundles?.length || 0) > 0 ? (
                     <button
                       role="tab"
                       aria-selected={activeSubFilter === 'bundles'}
@@ -1272,7 +1307,7 @@ export const Header: React.FC = () => {
                     >
                       {language === 'AR' ? 'باقات المحطة المتكاملة' : 'Complete Kit Bundles'}
                     </button>
-                  )}
+                  ) : null}
                 </div>
 
                 {/* 5 Columns Product Cards Grid (Compact & Sleek Sizing with Bottom Gap) */}
@@ -1341,8 +1376,13 @@ export const Header: React.FC = () => {
                   <button
                     onClick={() => {
                       closeMenuImmediately();
-                      const el = document.getElementById('machine-story-section');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      const el = document.getElementById('specs-comparison-section');
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth' });
+                        return;
+                      }
+                      const first = activeProducts[0] || dynamicMegaCatalog.machines.latest[0];
+                      if (first?.id) navigateTo('product-buy', first.id);
                       else navigateTo('products');
                     }}
                     className="flex items-center gap-2 px-6 py-2 rounded-full border border-[#D2D2D7] hover:border-black text-[12.5px] font-normal text-[#111111] bg-white transition-all duration-200 cursor-pointer shadow-none hover:shadow-2xs"
@@ -1547,7 +1587,7 @@ export const Header: React.FC = () => {
                     onClick={toggleLanguage}
                     className="px-4 py-1.5 rounded-full bg-black text-white font-bold text-xs shadow-md active:scale-95 cursor-pointer"
                   >
-                    {language === 'AR' ? 'English' : 'العربية'}
+                    {language === 'AR' ? 'الإنجليزية' : 'العربية'}
                   </button>
                 </div>
               </div>

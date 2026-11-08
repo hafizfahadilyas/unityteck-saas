@@ -806,33 +806,74 @@ class AnalyticsReportController extends Controller
             ];
         }
 
+        // Real Google Ads spend / ROAS from store-scoped snapshot only (never invent).
+        $adsIntegration = StoreGoogleIntegration::query()->forStore($storeId)->first();
+        $adsSnap = is_array($adsIntegration?->google_ads_snapshot) ? $adsIntegration->google_ads_snapshot : [];
+        $adsKpis = is_array($adsSnap['kpis'] ?? null) ? $adsSnap['kpis'] : [];
+        $adSpend = (float) ($adsKpis['cost'] ?? 0);
+        $adsRoas = $adsKpis['roas'] ?? null;
+        if ($adsRoas === null && $adSpend > 0 && $campaignRevenue > 0) {
+            $adsRoas = round($campaignRevenue / $adSpend, 2);
+        }
+        $adsCampaigns = [];
+        foreach (($adsSnap['campaigns'] ?? []) as $ac) {
+            if (! is_array($ac)) {
+                continue;
+            }
+            $spend = (float) ($ac['cost'] ?? 0);
+            $adsCampaigns[] = [
+                'name' => (string) ($ac['name'] ?? 'Campaign'),
+                'channel' => 'Google Ads',
+                'spend' => $spend,
+                'revenue' => (float) ($ac['conversions_value'] ?? 0),
+                'roas' => $ac['roas'] ?? ($spend > 0 ? round(((float) ($ac['conversions_value'] ?? 0)) / $spend, 2) : null),
+                'orders' => (int) round((float) ($ac['conversions'] ?? 0)),
+                'cpa' => ((float) ($ac['conversions'] ?? 0)) > 0
+                    ? round($spend / (float) $ac['conversions'], 2)
+                    : null,
+                'status' => (string) ($ac['status'] ?? ''),
+            ];
+        }
+        $mergedCampaigns = count($adsCampaigns) > 0 ? $adsCampaigns : $campaignsTable;
+        $adsRecommendations = array_values(array_filter(array_map(function ($r) {
+            if (! is_array($r)) {
+                return null;
+            }
+
+            return [
+                'type' => $r['type'] ?? 'recommendation',
+                'resource' => $r['resource_name'] ?? null,
+            ];
+        }, $adsSnap['recommendations'] ?? [])));
+
         return response()->json([
             'store_id' => $storeId,
             'kpis' => [
-                'total_ad_spend' => 0,
-                'spend_growth' => '0%',
-                'prev_spend' => 0,
+                'total_ad_spend' => $adSpend,
+                'spend_growth' => null,
+                'prev_spend' => null,
                 'campaign_revenue' => $campaignRevenue,
                 'revenue_growth' => ($revenueGrowth >= 0 ? '+' : '')."{$revenueGrowth}%",
                 'prev_campaign_revenue' => $prevRevenue,
-                'roas' => 0,
-                'roas_growth' => '0%',
-                'prev_roas' => 0,
+                'roas' => $adsRoas,
+                'roas_growth' => null,
+                'prev_roas' => null,
                 'campaign_orders' => $campaignOrders,
                 'orders_growth' => ($ordersGrowth >= 0 ? '+' : '')."{$ordersGrowth}%",
                 'prev_orders' => $prevOrders,
-                'cost_per_order' => 0,
-                'cpo_growth' => '0%',
-                'prev_cpo' => 0,
+                'cost_per_order' => ($adSpend > 0 && $campaignOrders > 0) ? round($adSpend / $campaignOrders, 2) : null,
+                'cpo_growth' => null,
+                'prev_cpo' => null,
             ],
             'trend' => $dailyTrend,
             'channels' => $channels,
-            'campaigns' => $campaignsTable,
+            'campaigns' => $mergedCampaigns,
             'creatives' => [],
             'conversion_journey' => $conversionJourney,
             'utm_tracking' => $utmTracking,
             'influencers' => [],
-            'recommendations' => [],
+            'recommendations' => $adsRecommendations,
+            'ads_source' => $adSpend > 0 || count($adsCampaigns) > 0 ? 'google_ads_snapshot' : 'orders_utm_only',
         ]);
     }
 
@@ -1298,6 +1339,96 @@ class AnalyticsReportController extends Controller
                 'clicks_growth' => null,
             ],
             'queries' => $queries,
+        ]);
+    }
+
+    /**
+     * Store home dashboard: live visitors_count + weekday visit distribution from storefront events.
+     */
+    public function dashboardHome(Request $request): JsonResponse
+    {
+        $storeId = $this->requireStoreId($request);
+        if ($storeId instanceof JsonResponse) {
+            return $storeId;
+        }
+
+        $store = Store::query()->find($storeId);
+        $visitorsCount = $store ? max(0, (int) ($store->visitors_count ?? 0)) : 0;
+
+        $now = Carbon::now();
+        $start30 = (clone $now)->subDays(30)->startOfDay();
+        $prevStart = (clone $start30)->subDays(30);
+
+        $visitsGrowth = null;
+        $visitsByWeekday = [];
+
+        if (Schema::hasTable('storefront_analytics_events')) {
+            $sessionCount = static function (Carbon $from, Carbon $to) use ($storeId): int {
+                return (int) StorefrontAnalyticsEvent::query()
+                    ->forStore($storeId)
+                    ->where('event_name', 'page_view')
+                    ->whereBetween('created_at', [$from, $to])
+                    ->whereNotNull('session_key')
+                    ->where('session_key', '!=', '')
+                    ->distinct()
+                    ->count('session_key');
+            };
+
+            $currentSessions = $sessionCount($start30, $now);
+            $prevSessions = $sessionCount($prevStart, $start30);
+
+            if ($prevSessions > 0) {
+                $visitsGrowth = round((($currentSessions - $prevSessions) / $prevSessions) * 100, 1);
+            } elseif ($currentSessions > 0) {
+                $visitsGrowth = null;
+            } else {
+                $visitsGrowth = 0;
+            }
+
+            $rawCounts = StorefrontAnalyticsEvent::query()
+                ->forStore($storeId)
+                ->where('event_name', 'page_view')
+                ->whereBetween('created_at', [$start30, $now])
+                ->select(DB::raw('DAYOFWEEK(created_at) as dow'), DB::raw('COUNT(*) as c'))
+                ->groupBy(DB::raw('DAYOFWEEK(created_at)'))
+                ->pluck('c', 'dow')
+                ->map(fn ($c) => (int) $c)
+                ->all();
+
+            // MySQL DAYOFWEEK: 1=Sunday … 7=Saturday — match chart order Sun→Sat
+            $labels = [
+                1 => ['dayEn' => 'Sun', 'dayAr' => 'الأحد'],
+                2 => ['dayEn' => 'Mon', 'dayAr' => 'الإثنين'],
+                3 => ['dayEn' => 'Tue', 'dayAr' => 'الثلاثاء'],
+                4 => ['dayEn' => 'Wed', 'dayAr' => 'الأربعاء'],
+                5 => ['dayEn' => 'Thu', 'dayAr' => 'الخميس'],
+                6 => ['dayEn' => 'Fri', 'dayAr' => 'الجمعة'],
+                7 => ['dayEn' => 'Sat', 'dayAr' => 'السبت'],
+            ];
+
+            $counts = [];
+            foreach (range(1, 7) as $dow) {
+                $counts[$dow] = (int) ($rawCounts[$dow] ?? 0);
+            }
+            $total = array_sum($counts);
+            $maxCount = $total > 0 ? max($counts) : 0;
+
+            foreach (range(1, 7) as $dow) {
+                $pct = $total > 0 ? (int) round(($counts[$dow] / $total) * 100) : 0;
+                $visitsByWeekday[] = [
+                    'dayEn' => $labels[$dow]['dayEn'],
+                    'dayAr' => $labels[$dow]['dayAr'],
+                    'percentage' => $pct,
+                    'highlighted' => $maxCount > 0 && $counts[$dow] === $maxCount,
+                ];
+            }
+        }
+
+        return response()->json([
+            'store_id' => $storeId,
+            'visitors_count' => $visitorsCount,
+            'visits_growth' => $visitsGrowth,
+            'visits_by_weekday' => $visitsByWeekday,
         ]);
     }
 

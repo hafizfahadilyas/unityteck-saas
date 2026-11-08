@@ -112,6 +112,9 @@ const StoreMediaLibrary = lazy(() =>
 const StoreCanvaStudio = lazy(() =>
   import('./components/store/StoreCanvaStudio').then((m) => ({ default: m.StoreCanvaStudio })),
 );
+const StoreAiMediaGenerator = lazy(() =>
+  import('./components/store/StoreAiMediaGenerator').then((m) => ({ default: m.StoreAiMediaGenerator })),
+);
 const StoreCategories = lazy(() =>
   import('./components/store/StoreCategories').then((m) => ({ default: m.StoreCategories })),
 );
@@ -582,8 +585,56 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     } catch {}
   }, []);
 
+  const STORE_KNOWN_TABS = React.useMemo(
+    () =>
+      new Set([
+        'dashboard',
+        'notifications',
+        'customers',
+        'marketing',
+        'analytics',
+        'reports',
+        'whatsapp',
+        'social',
+        'seo',
+        'products',
+        'media',
+        'canva',
+        'ai-media',
+        'categories',
+        'brands',
+        'orders',
+        'invoices',
+        'shipping',
+        'hosting',
+        'backup',
+        'restore',
+        'coupons',
+        'abandoned-carts',
+        'promotions',
+        'campaigns',
+        'cart-offers',
+        'bank-offers',
+        'cashback',
+        'gifting',
+        'loyalty',
+        'repurchase-reminders',
+        'affiliate',
+        'direct-orders',
+        'themes',
+        'pages',
+        'blog',
+        'commerce-tools',
+        'appstore',
+        'payments',
+        'settings',
+      ]),
+    [],
+  );
+
   const setStoreTab = React.useCallback((tab: string) => {
-    const targetTab = tab === 'inventory' || tab === 'storefront' || tab === 'builder' ? 'dashboard' : tab;
+    let targetTab = tab === 'inventory' || tab === 'storefront' || tab === 'builder' ? 'dashboard' : tab;
+    if (!STORE_KNOWN_TABS.has(targetTab)) targetTab = 'dashboard';
     setStoreTabState(targetTab);
     try {
       localStorage.setItem('unityteck_store_tab', targetTab);
@@ -593,7 +644,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         window.history.replaceState({}, '', url.toString());
       }
     } catch {}
-  }, []);
+  }, [STORE_KNOWN_TABS]);
 
   const builderExitRef = React.useRef(false);
   useEffect(() => {
@@ -950,6 +1001,24 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     }
   }, [session, isMasterLogin, isStoreLogin, isAdminLogin, isStoreRegister, isPasswordFlow, navigate]);
 
+  // Clerk afterSignOutUrl used to dump onto "/" mid-login. If a real admin session
+  // exists on bare "/" (not fullscreen storefront preview), recover to the dashboard.
+  useEffect(() => {
+    if (!session) return;
+    if (isFullscreenParam || isTabStorefrontParam) return;
+    if (path !== '/' && path !== '') return;
+    if (session.portal === 'master') {
+      navigate('/master', { replace: true });
+      return;
+    }
+    if (session.portal === 'store') {
+      const sid = session.storeId || '';
+      const slug =
+        sid === 'store-coffee' ? 'coffee' : sid === 'store-bleco' ? 'car' : sid === 'store-1' ? 'flowers' : '';
+      navigate(slug ? `/admin?store=${slug}` : '/admin', { replace: true });
+    }
+  }, [session, path, isFullscreenParam, isTabStorefrontParam, navigate]);
+
   // Phase 2.4 — soft SPA: if current tab denied by role, jump to first allowed (no reload)
   // Uses refs for canTab/firstAllowedTab so background data refreshes don't re-trigger this guard
   const canTabRef = React.useRef(canTab);
@@ -1074,21 +1143,34 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   }, [isThemeCustomizerOpen]);
 
   const handleLoginSuccess = useCallback(
-    (portal: AuthPortal, storeId?: string | null) => {
-      const next = readAuthSession();
+    (portal: AuthPortal, storeId?: string | null, liveSession?: AuthSession | null) => {
+      const next = liveSession || readAuthSession();
+      if (!next?.token || next.portal !== portal) {
+        // Never bounce to "/" / storefront when session did not land yet.
+        return;
+      }
+      writeAuthSession(next);
       setSession(next);
       document.documentElement.setAttribute('data-portal', portal);
       if (portal === 'master') {
         switchToMaster();
-        navigate('/master');
-      } else {
-        if (storeId) {
-          switchToStore(storeId);
-        } else {
-          setMode('store');
-        }
-        navigate('/admin');
+        navigate('/master', { replace: true });
+        return;
       }
+      if (storeId) {
+        switchToStore(storeId);
+      } else {
+        setMode('store');
+      }
+      const slug =
+        storeId === 'store-coffee'
+          ? 'coffee'
+          : storeId === 'store-bleco'
+            ? 'car'
+            : storeId === 'store-1'
+              ? 'flowers'
+              : '';
+      navigate(slug ? `/admin?store=${slug}` : '/admin', { replace: true });
     },
     [navigate, setMode, switchToMaster, switchToStore],
   );
@@ -1106,7 +1188,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
 
   const handleSwitchLoginPortal = useCallback(
     (portal: AuthPortal) => {
-      navigate(portal === 'master' ? '/master/login' : '/admin');
+      navigate(portal === 'master' ? '/master/login' : '/store/login');
     },
     [navigate],
   );
@@ -1322,7 +1404,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
           path.startsWith('/flowers') ||
           path.startsWith('/hadaya')
         ? 'store-1'
-        : activeStore?.id || (urlStoreSlug ? urlStoreSlug : 'store-coffee');
+        : activeStore?.id || urlStoreSlug || '';
 
     const googleReturn =
       isClerkConfigured() &&
@@ -1510,6 +1592,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {storeTab === 'products' && <StoreProducts />}
                   {storeTab === 'media' && <StoreMediaLibrary />}
                   {storeTab === 'canva' && <StoreCanvaStudio onNavigateTab={setStoreTab} />}
+                  {storeTab === 'ai-media' && <StoreAiMediaGenerator onNavigateTab={setStoreTab} />}
                   {storeTab === 'categories' && <StoreCategories />}
                   {storeTab === 'brands' && <StoreBrandsView onBackToProducts={() => setStoreTab('products')} />}
                   {storeTab === 'orders' && <StoreOrders />}

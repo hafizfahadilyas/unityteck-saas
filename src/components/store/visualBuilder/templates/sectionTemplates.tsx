@@ -89,7 +89,7 @@ export function getTemplatesForSection(blockType: string, isAr: boolean): Sectio
         {
           key: 'header-glassmorphic',
           nameEn: 'Floating Glassmorphism Blur',
-          nameAr: 'الزجاجي العائم الشفاف (Glass UI)',
+          nameAr: 'الزجاجي العائم الشفاف',
           badge: 'Glassmorphism',
           descEn: 'Translucent floating header with frosted backdrop and floating pill menu',
           descAr: 'تصميم زجاجي فاخر مع خلفية ضبابية شفافة وقوائم عائمة',
@@ -186,7 +186,7 @@ export function getTemplatesForSection(blockType: string, isAr: boolean): Sectio
         {
           key: 'hero-split-asymmetric',
           nameEn: 'Split Dual Highlight Hero',
-          nameAr: 'الهيرو المزدوج المنقسم (Dual Promo)',
+          nameAr: 'الهيرو المزدوج المنقسم',
           badge: 'Split View',
           descEn: 'Left feature showcase with right promotional dual card stack',
           descAr: 'عرض منقسم: البانر الرئيسي على اليمين مع كرتين ترويجيين على اليسار',
@@ -1179,7 +1179,7 @@ export function getTemplatesForSection(blockType: string, isAr: boolean): Sectio
         {
           key: 'cart-royal-drawer',
           nameEn: 'Royal Gold Luxury Slide Drawer',
-          nameAr: 'الدرج الجانبي الملكي المنزلق (Slide Drawer)',
+          nameAr: 'الدرج الجانبي الملكي المنزلق',
           badge: 'Royal Drawer',
           descEn: 'Side drawer with free shipping progress bar, gift card note, and express Apple Pay',
           descAr: 'درج جانبي فاخر مع شريط التوصيل المجاني، كتابة كرت الإهداء، والدفع السريع',

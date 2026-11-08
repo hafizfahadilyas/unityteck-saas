@@ -304,7 +304,7 @@ export const ProductVariationsPanel: React.FC<Props> = ({
                 <div className="tabular-nums text-slate-800 dark:text-slate-200">
                   {v.price != null ? money(v.price) : '—'} · {v.stock}{' '}
                   {isAr ? 'وحدة' : 'units'}
-                  {!v.isActive ? (isAr ? ' · مخفي' : ' · hidden') : ''}
+                  {!v.isActive ? (isAr ? '· مخفي' : ' · hidden') : ''}
                 </div>
               </div>
               <div className="flex items-center gap-0.5 shrink-0">

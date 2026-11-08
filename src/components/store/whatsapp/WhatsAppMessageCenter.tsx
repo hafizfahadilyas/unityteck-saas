@@ -339,7 +339,7 @@ export const WhatsAppMessageCenter: React.FC<Props> = ({ onNavigateSubView }) =>
             onClick={() =>
               toast(
                 isAr
-                  ? 'دليل استخدام WhatsApp Business API وربط الحسابات'
+                  ? 'دليل استخدام واتساب للأعمال وربط الحسابات'
                   : 'WhatsApp Business API documentation & connection guide',
                 'info',
               )
@@ -387,7 +387,7 @@ export const WhatsAppMessageCenter: React.FC<Props> = ({ onNavigateSubView }) =>
           </div>
 
           <div className="mt-3.5 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300 gap-2 flex-wrap">
-            <span className="truncate">{overview?.connection.provider || (isAr ? 'واجهة Meta Cloud Business API' : 'Meta Cloud Business API')}</span>
+            <span className="truncate">{overview?.connection.provider || (isAr ? 'واجهة ميتا كلاود للأعمال' : 'Meta Cloud Business API')}</span>
             <span className="shrink-0 font-medium text-slate-600 dark:text-slate-400">
               {isAr ? 'آخر مزامنة:' : 'Last synced:'}{' '}
               {overview?.connection.last_synced_at
@@ -680,10 +680,10 @@ export const WhatsAppMessageCenter: React.FC<Props> = ({ onNavigateSubView }) =>
             className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer shadow-xs"
           >
             <option value="all">{isAr ? 'كافة الموظفين' : 'All Agents'}</option>
-            <option value="SA">{isAr ? 'SA - مدير المتجر' : 'SA - Store Admin'}</option>
-            <option value="MA">{isAr ? 'MA - مسؤول التسويق' : 'MA - Marketing Agent'}</option>
-            <option value="FA">{isAr ? 'FA - مسؤول التوصيل' : 'FA - Fulfillment Agent'}</option>
-            <option value="TM">{isAr ? 'TM - طارق المكي' : 'TM - Tariq Al-Makki'}</option>
+            <option value="SA">{isAr ? 'مدير المتجر — مدير المتجر' : 'SA - Store Admin'}</option>
+            <option value="MA">{isAr ? 'مسؤول التسويق — مسؤول التسويق' : 'MA - Marketing Agent'}</option>
+            <option value="FA">{isAr ? 'مسؤول التوصيل — مسؤول التوصيل' : 'FA - Fulfillment Agent'}</option>
+            <option value="TM">{isAr ? 'طارق المكي' : 'TM - Tariq Al-Makki'}</option>
           </select>
 
           {/* Reset Filters */}
@@ -1032,10 +1032,7 @@ export const WhatsAppMessageCenter: React.FC<Props> = ({ onNavigateSubView }) =>
           <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
             <span>
               {isAr
-                ? `عرض ${(pagination.current_page - 1) * pagination.per_page + 1} إلى ${Math.min(
-                    pagination.current_page * pagination.per_page,
-                    pagination.total,
-                  )} من إجمالي ${pagination.total.toLocaleString()} رسالة`
+                ? `عرض${(pagination.current_page - 1) * pagination.per_page + 1}إلى${Math.min( pagination.current_page * pagination.per_page, pagination.total, )}من إجمالي${pagination.total.toLocaleString()}رسالة`
                 : `Showing ${(pagination.current_page - 1) * pagination.per_page + 1} to ${Math.min(
                     pagination.current_page * pagination.per_page,
                     pagination.total,

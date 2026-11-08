@@ -477,7 +477,7 @@ export const RoundShapes3DMotionCarousel: React.FC<RoundShapes3DMotionCarouselPr
             }}
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#102a1c] via-[#1f4a32] to-[#102a1c] text-[#f3e5ab] hover:text-white border border-[#d4af37]/60 shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer text-xs sm:text-sm font-medium"
           >
-            <span>{isAr ? `تصفح كل ${currentItem.name}` : `View all in ${currentItem.nameEn}`}</span>
+            <span>{isAr ? `تصفح كل${currentItem.name}` : `View all in ${currentItem.nameEn}`}</span>
             {isAr ? <ArrowLeft className="w-3.5 h-3.5 text-[#d4af37]" /> : <ArrowRight className="w-3.5 h-3.5 text-[#d4af37]" />}
           </button>
         </div>

@@ -176,7 +176,7 @@ export const CancellationRecordTemplate: React.FC<TemplateProps> = ({ document, 
               <tr className="border-b-2 text-[11px] font-black uppercase text-slate-700" style={{ borderColor: '#cbd5e1' }}>
                 <th className="py-2.5 px-2 text-start">#</th>
                 <th className="py-2.5 px-2 text-start">{isAr ? 'المنتج الملغي' : 'Cancelled Item'}</th>
-                <th className="py-2.5 px-2 text-start">{isAr ? 'الرمز SKU' : 'SKU'}</th>
+                <th className="py-2.5 px-2 text-start">{isAr ? 'رمز المنتج' : 'SKU'}</th>
                 <th className="py-2.5 px-2 text-center">{isAr ? 'الكمية الملغاة' : 'Cancelled Qty'}</th>
                 <th className="py-2.5 px-2 text-end">{isAr ? 'القيمة الأصلية' : 'Original Value'}</th>
               </tr>

@@ -177,8 +177,8 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
                 onChange={(e) => setStatus(e.target.value as 'published' | 'draft')}
                 className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/30"
               >
-                <option value="published">{isAr ? 'منشور (Published)' : 'Published'}</option>
-                <option value="draft">{isAr ? 'مسودة (Draft)' : 'Draft'}</option>
+                <option value="published">{isAr ? 'منشور' : 'Published'}</option>
+                <option value="draft">{isAr ? 'مسودة' : 'Draft'}</option>
               </select>
             </div>
           </div>
@@ -186,7 +186,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
           {/* Excerpt */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              {isAr ? 'المقتطف القصير (Excerpt)' : 'Short Excerpt / Summary'}
+              {isAr ? 'المقتطف القصير' : 'Short Excerpt / Summary'}
             </label>
             <textarea
               rows={2}
@@ -200,7 +200,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
           {/* Content Body */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              {isAr ? 'محتوى المقال (Markdown / Text)' : 'Article Body Content'}
+              {isAr ? 'محتوى المقال' : 'Article Body Content'}
             </label>
             <textarea
               rows={7}
@@ -215,7 +215,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                {isAr ? 'التصنيف (Category)' : 'Category'}
+                {isAr ? 'التصنيف' : 'Category'}
               </label>
               <select
                 value={category}
@@ -272,7 +272,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
           {/* Thumbnail URL with Preview */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              {isAr ? 'رابط الصورة البارزة (Thumbnail URL)' : 'Featured Image / Thumbnail URL'}
+              {isAr ? 'رابط الصورة البارزة' : 'Featured Image / Thumbnail URL'}
             </label>
             <div className="flex gap-3 items-center">
               <input
@@ -294,12 +294,12 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
           <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 space-y-3">
             <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-teal-500" />
-              <span>{isAr ? 'إعدادات تحسين محركات البحث (SEO)' : 'SEO Metadata'}</span>
+              <span>{isAr ? 'إعدادات تحسين محركات البحث' : 'SEO Metadata'}</span>
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
-                  {isAr ? 'عنوان السيو (Meta Title)' : 'Meta Title'}
+                  {isAr ? 'عنوان تحسين البحث' : 'Meta Title'}
                 </label>
                 <input
                   type="text"
@@ -324,7 +324,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
             </div>
             <div className="space-y-1">
               <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
-                {isAr ? 'وصف السيو (Meta Description)' : 'Meta Description'}
+                {isAr ? 'وصف تحسين البحث' : 'Meta Description'}
               </label>
               <textarea
                 rows={2}

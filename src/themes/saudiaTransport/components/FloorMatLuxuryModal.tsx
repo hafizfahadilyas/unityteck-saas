@@ -286,13 +286,13 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
     const coverageText = coverageLabels[selectedCoverage][isAr ? 'ar' : 'en'];
     const colorText = isAr ? selectedColor.nameAr : selectedColor.nameEn;
     const fuelText = fuelLabels[selectedFuelType][isAr ? 'ar' : 'en'];
-    const bundleText = includeBundle ? (isAr ? ' + بكج ملمع بلاكو المخفض' : ' + Bleco Polish Bundle') : '';
-    const heelPadText = includeMetalHeelPad ? (isAr ? ' + كعبية حديد لدواسة السائق' : ' + Driver Metal Heel Pad') : '';
-    const doubleLayerText = includeDoubleLayer ? (isAr ? ' + طبقة سجاد شعر قابلة للفك' : ' + Removable Curly Carpet Layer') : '';
-    const logoText = includeLogoEmbroidery ? (isAr ? ' + تطريز شعار السيارة مجاناً' : ' + Free Embroidered Logo') : '';
+    const bundleText = includeBundle ? (isAr ? '+ بكج ملمع بلاكو المخفض' : ' + Bleco Polish Bundle') : '';
+    const heelPadText = includeMetalHeelPad ? (isAr ? '+ كعبية حديد لدواسة السائق' : ' + Driver Metal Heel Pad') : '';
+    const doubleLayerText = includeDoubleLayer ? (isAr ? '+ طبقة سجاد شعر قابلة للفك' : ' + Removable Curly Carpet Layer') : '';
+    const logoText = includeLogoEmbroidery ? (isAr ? '+ تطريز شعار السيارة مجاناً' : ' + Free Embroidered Logo') : '';
 
     let msg = isAr
-      ? `السلام عليكم ورحمة الله وبركاته،\nأرغب بطلب منتج: *${patternLabels[selectedPattern].ar} - ${title}*${bundleText}\n\n`
+      ? `السلام عليكم ورحمة الله وبركاته،\nأرغب بطلب منتج: *${patternLabels[selectedPattern].ar}-${title}*${bundleText}\n\n`
       : `Hello, I would like to order: *${patternLabels[selectedPattern].en} - ${title}*${bundleText}\n\n`;
 
     msg += isAr
@@ -324,17 +324,17 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
       ? `• الكمية: *${quantity}*\n`
       : `• Quantity: *${quantity}*\n`;
     msg += isAr
-      ? `• إجمالي السعر: *${totalPrice} ر.س*\n`
+      ? `• إجمالي السعر: *${totalPrice}ر.س*\n`
       : `• Total Price: *${totalPrice} SAR*\n`;
 
     if (customerNote.trim()) {
       msg += isAr
-        ? `• ملاحظات خاصة: ${customerNote.trim()}\n`
+        ? `• ملاحظات خاصة:${customerNote.trim}\n`
         : `• Notes: ${customerNote.trim()}\n`;
     }
     if (attachedFile) {
       msg += isAr
-        ? `• (مرفق صورة لسيارتي: ${attachedFile.name})\n`
+        ? `• (مرفق صورة لسيارتي:${attachedFile.name})\n`
         : `• (Car photo attached: ${attachedFile.name})\n`;
     }
 
@@ -536,7 +536,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
 
                   <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                     {isAr 
-                      ? 'هل تبحث عن لمسة جمالية مميزة لسيارتك؟ هل ترغب في حماية أرضية سيارتك من الأوساخ والخدوش؟ إليك حلك المثالي مع أرضيات مكة الفاخرة المقاومة للماء والمطابقة لمواصفات SASO.'
+                      ? 'هل تبحث عن لمسة جمالية مميزة لسيارتك؟ هل ترغب في حماية أرضية سيارتك من الأوساخ والخدوش؟ إليك حلك المثالي مع أرضيات مكة الفاخرة المقاومة للماء والمطابقة لمواصفات ساسو.'
                       : 'Eco-friendly synthetic leather luxury floor mats tailored with precision fit and maximum protection against spills and dirt.'}
                   </p>
 
@@ -862,7 +862,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                           : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                     >
-                      {isAr ? 'كهربائي (EV)' : 'Electric'}
+                      {isAr ? 'كهربائي كهربائي' : 'Electric'}
                     </button>
                   </div>
                 </div>
@@ -959,7 +959,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                   </div>
                   <div className="text-xs">
                     <p className="font-extrabold text-emerald-950">
-                      {isAr ? 'ضمان تطابق ليزري 100% ومطابقة مواصفات ساسو (SASO)' : '100% Laser-Fit & SASO Verified Guarantee'}
+                      {isAr ? 'ضمان تطابق ليزري 100% ومطابقة مواصفات ساسو ساسو' : '100% Laser-Fit & SASO Verified Guarantee'}
                     </p>
                     <p className="text-[10px] text-emerald-800 leading-tight mt-0.5">
                       {isAr ? 'تفصيل مخصص بالمللي لأرضية سيارتك مع كلبسات التثبيت الأصلية لمنع انزلاق الدواسة تحت الفرامل.' : 'Laser cut to exact vehicle contours with OEM lock clips preventing pedal obstruction.'}
@@ -1208,7 +1208,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                     </span>
                     <span className="flex items-center gap-1 text-slate-700 font-semibold">
                       <CheckCircle className="w-3.5 h-3.5 text-[#d5a027]" />
-                      <span>{isAr ? 'مطابق لمواصفات SASO' : 'SASO Compliant'}</span>
+                      <span>{isAr ? 'مطابق لمواصفات ساسو' : 'SASO Compliant'}</span>
                     </span>
                   </div>
                 </div>
@@ -1241,7 +1241,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
-                  {isAr ? 'تقييمات العملاء (168)' : 'Customer Reviews'}
+                  {isAr ? 'تقييمات العملاء' : 'Customer Reviews'}
                 </button>
 
                 <button
@@ -1293,7 +1293,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                         <span className="w-2 h-2 rounded-full bg-[#d5a027] mt-1.5 shrink-0" />
                         <div>
                           <strong className="text-slate-900 block">{isAr ? 'الأمان والسلامة:' : 'Safety & Pedal Clearance:'}</strong>
-                          <span>{isAr ? 'مصممة خصيصاً بحيث لا تؤثر على دواسة الفرامل ومكابس البنزين إطلاقاً، ومطابقة لمواصفات الهيئة السعودية للمواصفات والمقاييس SASO.' : 'Engineered not to obstruct brake or accelerator pedals.'}</span>
+                          <span>{isAr ? 'مصممة خصيصاً بحيث لا تؤثر على دواسة الفرامل ومكابس البنزين إطلاقاً، ومطابقة لمواصفات الهيئة السعودية للمواصفات والمقاييس ساسو.' : 'Engineered not to obstruct brake or accelerator pedals.'}</span>
                         </div>
                       </li>
                     </ul>

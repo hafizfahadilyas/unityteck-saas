@@ -681,6 +681,8 @@ class OrderController extends Controller
             'return_reason' => ['nullable', 'string', 'max:255'],
             'return_notes' => ['nullable', 'string'],
             'restock' => ['nullable', 'boolean'],
+            'is_archived' => ['nullable', 'boolean'],
+            'archived_at' => ['nullable', 'date'],
         ]);
 
         $prevStatus = $order->status;
@@ -759,6 +761,19 @@ class OrderController extends Controller
             if (isset($data['refund_amount'])) $order->refund_amount = $data['refund_amount'];
             if (isset($data['return_reason'])) $order->return_reason = $data['return_reason'];
             if (isset($data['return_notes'])) $order->return_notes = $data['return_notes'];
+
+            if (array_key_exists('is_archived', $data)) {
+                $archived = (bool) $data['is_archived'];
+                $order->is_archived = $archived;
+                if ($archived) {
+                    $order->archived_at = $data['archived_at'] ?? ($order->archived_at ?: now());
+                } else {
+                    $order->archived_at = null;
+                }
+            } elseif (array_key_exists('archived_at', $data)) {
+                $order->archived_at = $data['archived_at'];
+                $order->is_archived = ! empty($data['archived_at']);
+            }
 
             if ($newStatus === 'returned' && !$order->returned_at) {
                 $order->returned_at = now();

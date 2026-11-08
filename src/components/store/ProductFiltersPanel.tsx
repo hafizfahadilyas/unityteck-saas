@@ -745,7 +745,7 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                       </div>
                       <div className="text-[10px] text-slate-400">
                         {isAr
-                          ? `الحالة: ${p.criteria.status} • القسم: ${p.criteria.category}`
+                          ? `الحالة:${p.criteria.status}• القسم:${p.criteria.category}`
                           : `Status: ${p.criteria.status} • Category: ${p.criteria.category}`}
                       </div>
                     </div>
@@ -782,7 +782,7 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                         </div>
                         <div className="text-[10px] text-slate-400">
                           {isAr
-                            ? `القناة: ${p.criteria.channel} • العلامة: ${p.criteria.brand} • الحالة: ${p.criteria.status}`
+                            ? `القناة:${p.criteria.channel}• العلامة:${p.criteria.brand}• الحالة:${p.criteria.status}`
                             : `Channel: ${p.criteria.channel} • Brand: ${p.criteria.brand} • Status: ${p.criteria.status}`}
                         </div>
                       </div>

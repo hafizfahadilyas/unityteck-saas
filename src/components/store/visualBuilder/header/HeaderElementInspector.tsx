@@ -1116,7 +1116,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
             <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
             <div className="text-[11px] text-indigo-950">
               <span className="font-bold">
-                {isAr ? 'نماذج جاهزة خاصة بـ: ' : 'Ready-to-use Presets for: '}
+                {isAr ? 'نماذج جاهزة خاصة بـ:' : 'Ready-to-use Presets for: '}
               </span>
               <span className="font-extrabold text-indigo-700 underline">
                 {activeSubElement}
@@ -1693,9 +1693,9 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                 </label>
                 <div className="grid grid-cols-3 gap-1.5">
                   {[
-                    { id: 'center' as const, labelAr: 'توسيط (Center)', labelEn: 'Center' },
-                    { id: 'start' as const, labelAr: 'بداية (Start)', labelEn: 'Start' },
-                    { id: 'space-between' as const, labelAr: 'متباعد (Spread)', labelEn: 'Spread' },
+                    { id: 'center' as const, labelAr: 'توسيط', labelEn: 'Center' },
+                    { id: 'start' as const, labelAr: 'بداية', labelEn: 'Start' },
+                    { id: 'space-between' as const, labelAr: 'متباعد', labelEn: 'Spread' },
                   ].map((al) => (
                     <button
                       key={al.id}

@@ -102,7 +102,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
 
   // WhatsApp Combo text
   const comboMessage = isAr 
-    ? `مرحباً متجر السعيدي لتنجيد السيارات، أرغب بحجز البكج الشامل (تلابيس مقاعد + طقم أرضيات 5D ليزر) لسيارة ${fullCarTitle} باللون ${colorDisplayName} بسعر العرض الخاص (وفر 100 ر.س). يرجى تأكيد الحجز وموعد التوصيل.`
+    ? `مرحباً متجر السعيدي لتنجيد السيارات، أرغب بحجز البكج الشامل (تلابيس مقاعد + طقم أرضيات 5D ليزر) لسيارة${fullCarTitle}باللون${colorDisplayName}بسعر العرض الخاص (وفر 100 ر.س). يرجى تأكيد الحجز وموعد التوصيل.`
     : `Hello Al-Saeedi Car Upholstery, I would like to book the VIP Full Combo Package (Seat Covers + 5D Floor Mats) for ${fullCarTitle} in ${colorDisplayName} with the 100 SAR bundle discount.`;
 
   // IF NO BRAND CHOSEN: SHOW QUICK PICK ALERT MODAL
@@ -296,11 +296,11 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
 
                   <div>
                     <h6 className="font-black text-xs sm:text-sm text-slate-900 group-hover:text-[#3e0f77] transition-colors">
-                      {isAr ? `تلبيسة مقاعد كاملة لـ ${brandDisplayName} ${modelDisplayName}` : `Full Seat Covers for ${brandDisplayName} ${modelDisplayName}`}
+                      {isAr ? `تلبيسة مقاعد كاملة لـ${brandDisplayName}${modelDisplayName}` : `Full Seat Covers for ${brandDisplayName} ${modelDisplayName}`}
                     </h6>
                     <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
                       {isAr 
-                        ? `تفصيل ليزري بالمليمتر، جلد ألماني نابا مع ميموري فوم عازل للحرارة بلون ${colorDisplayName}.` 
+                        ? `تفصيل ليزري بالمليمتر، جلد ألماني نابا مع ميموري فوم عازل للحرارة بلون${colorDisplayName}.` 
                         : `Laser tailored German leather with heat insulation foam in ${colorDisplayName}.`}
                     </p>
                   </div>
@@ -332,7 +332,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
                     <button
                       onClick={() => {
                         const msg = isAr 
-                          ? `مرحباً متجر السعيدي، أرغب بطلب تلبيسة مقاعد لسيارة ${fullCarTitle} باللون ${colorDisplayName} بسعر 490 ر.س.`
+                          ? `مرحباً متجر السعيدي، أرغب بطلب تلبيسة مقاعد لسيارة${fullCarTitle}باللون${colorDisplayName}بسعر 490 ر.س.`
                           : `Hello Al-Saeedi, I want to order custom seat covers for ${fullCarTitle} in ${colorDisplayName}.`;
                         onWhatsAppOrder(matchingSeatCover, resolvedColor, msg);
                         onClose();
@@ -362,7 +362,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
 
                   <div>
                     <h6 className="font-black text-xs sm:text-sm text-slate-900 group-hover:text-[#3e0f77] transition-colors">
-                      {isAr ? `أرضيات ودعاسات 5D ليزر لـ ${brandDisplayName} ${modelDisplayName}` : `5D Floor Mats for ${brandDisplayName} ${modelDisplayName}`}
+                      {isAr ? `أرضيات ودعاسات 5D ليزر لـ${brandDisplayName}${modelDisplayName}` : `5D Floor Mats for ${brandDisplayName} ${modelDisplayName}`}
                     </h6>
                     <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
                       {isAr 
@@ -398,7 +398,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
                     <button
                       onClick={() => {
                         const msg = isAr 
-                          ? `مرحباً متجر السعيدي، أرغب بطلب طقم أرضيات ودعاسات 5D ليزر لسيارة ${fullCarTitle} بسعر 290 ر.س.`
+                          ? `مرحباً متجر السعيدي، أرغب بطلب طقم أرضيات ودعاسات 5D ليزر لسيارة${fullCarTitle}بسعر 290 ر.س.`
                           : `Hello Al-Saeedi, I want to order 5D laser floor mats for ${fullCarTitle}.`;
                         onWhatsAppOrder(matchingFloorMat, undefined, msg);
                         onClose();
@@ -424,7 +424,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
                   <span>{isAr ? 'عرض البكج الشامل (وفر 100 ر.س)' : 'VIP Combo: Save 100 SAR'}</span>
                 </div>
                 <h5 className="font-black text-sm text-[#f6c344]">
-                  {isAr ? `بكج الفخامة لـ ${fullCarTitle}: تلابيس مقاعد + طقم أرضيات 5D` : `VIP Full Kit for ${fullCarTitle}: Seats + 5D Mats`}
+                  {isAr ? `بكج الفخامة لـ${fullCarTitle}: تلابيس مقاعد + طقم أرضيات 5D` : `VIP Full Kit for ${fullCarTitle}: Seats + 5D Mats`}
                 </h5>
                 <p className="text-[11px] text-slate-300">
                   {isAr ? 'احصل على طقم التلابيس وطقم الأرضيات كاملين بنفس اللون والتطريز بسعر مخفّض.' : 'Get both full seat covers and precision 5D mats matching perfectly.'}

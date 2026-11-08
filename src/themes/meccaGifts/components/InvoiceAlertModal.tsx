@@ -15,7 +15,7 @@ export const InvoiceAlertModal: React.FC = () => {
 
   const handleWhatsAppShare = () => {
     const text = isAr
-      ? `فاتورة طلب هدايا مكة رقم: *${lastOrder.orderId}*\nالمستلم: ${lastOrder.recipientName}\nالمدينة: ${lastOrder.city}\nالمبلغ الإجمالي: ${lastOrder.total} ر.س شامل الضريبة.\nشكراً لاختياركم هدايا مكة.`
+      ? `فاتورة طلب هدايا مكة رقم: *${lastOrder.orderId}*\nالمستلم:${lastOrder.recipientName}\nالمدينة:${lastOrder.city}\nالمبلغ الإجمالي:${lastOrder.total}ر.س شامل الضريبة.\nشكراً لاختياركم هدايا مكة.`
       : `Hadaya Mecca Invoice #${lastOrder.orderId} - Total: ${lastOrder.total} SAR.`;
     window.open(`https://wa.me/${MECCA_WHATSAPP.replace('+', '')}?text=${encodeURIComponent(text)}`, '_blank');
   };

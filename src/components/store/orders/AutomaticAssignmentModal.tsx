@@ -112,7 +112,7 @@ export const AutomaticAssignmentModal: React.FC<AutomaticAssignmentModalProps> =
 
     toast(
       isAr
-        ? `تم حفظ القاعدة وتعيين ${assigned} طلب(ات) لـ ${rule.employeeName}`
+        ? `تم حفظ القاعدة وتعيين${assigned}طلب(ات) لـ${rule.employeeName}`
         : `Rule saved — assigned ${assigned} order(s) to ${rule.employeeName}`,
       'success',
     );

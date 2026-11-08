@@ -83,7 +83,7 @@ export const StoreHealthAlertBanner: React.FC<StoreHealthAlertBannerProps> = ({
           keywords: [activeStore.name, 'Saudi Arabia', 'Online Store', 'Fast Delivery'],
         });
         toast(
-          isAr ? 'تم توليد وتطبيق بيانات SEO الافتراضية بنجاح' : 'Default SEO metadata generated & applied',
+          isAr ? 'تم توليد وتطبيق بيانات تحسين محركات البحث الافتراضية بنجاح' : 'Default SEO metadata generated & applied',
           'success'
         );
       } else if (issue.category === 'shipping' && issue.id.includes('no-shipping-zones')) {
@@ -151,7 +151,7 @@ export const StoreHealthAlertBanner: React.FC<StoreHealthAlertBannerProps> = ({
       btn: 'bg-sky-100 hover:bg-sky-200 dark:bg-sky-900/40 dark:hover:bg-sky-900/60 text-sky-950 dark:text-sky-100 border border-sky-300 dark:border-sky-700',
       dismiss: 'text-sky-800 hover:text-sky-950 dark:text-sky-300 dark:hover:text-white',
       icon: Sparkles,
-      title: isAr ? '🟡 توصيات تحسين المتجر وGoogle' : '🟡 Recommended Optimizations',
+      title: isAr ? '🟡 توصيات تحسين المتجر وجوجل' : '🟡 Recommended Optimizations',
     },
     healthy: {
       container: 'bg-emerald-50/95 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-500/50 text-emerald-950 dark:text-emerald-100',
@@ -221,11 +221,11 @@ export const StoreHealthAlertBanner: React.FC<StoreHealthAlertBannerProps> = ({
           <div className="p-3.5 rounded-xl bg-white/80 dark:bg-black/40 border border-slate-200 dark:border-white/10 text-xs text-slate-800 dark:text-slate-100 shadow-2xs">
             <p className="font-bold text-amber-800 dark:text-amber-300 mb-1 flex items-center gap-1.5">
               <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              <span>{isAr ? 'تنبيه المصادقة والبيانات الحقيقية (No Dummy Data Policy):' : 'Authentic Data & Live Integration Notice:'}</span>
+              <span>{isAr ? 'تنبيه المصادقة والبيانات الحقيقية:' : 'Authentic Data & Live Integration Notice:'}</span>
             </p>
             <p className="leading-relaxed opacity-90">
               {isAr
-                ? 'وفقاً لمعايير الإنتاج الحقيقية، لا يتم توليد أرقام عشوائية أو وهمية. إذا كانت أداة Google أو بوابة الدفع أو شركة الشحن غير مهيأة، ستظهر الحالة كـ "بانتظار البيانات" أو "غير متصل" حتى تكتمل المدخلات المطلوبة أدناه.'
+                ? 'وفقاً لمعايير الإنتاج الحقيقية، لا يتم توليد أرقام عشوائية أو وهمية. إذا كانت أداة جوجل أو بوابة الدفع أو شركة الشحن غير مهيأة، ستظهر الحالة كـ "بانتظار البيانات" أو "غير متصل" حتى تكتمل المدخلات المطلوبة أدناه.'
                 : 'Under live production standards, zero mock or randomized data is generated. If Google suite, payments, or logistics are missing configuration, stats will display "Waiting for Data" or "Not Connected" until required credentials are supplied below.'}
             </p>
           </div>

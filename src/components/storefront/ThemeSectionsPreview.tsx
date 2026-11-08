@@ -1432,7 +1432,7 @@ export const SfDetailedProductSpotlight: React.FC<{
                   className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                 >
                   <Zap className="w-4 h-4" />
-                  <span>{isAr ? 'شراء فوري (Buy Now)' : 'Buy Now'}</span>
+                  <span>{isAr ? 'شراء فوري' : 'Buy Now'}</span>
                 </button>
               )}
             </div>
@@ -1440,7 +1440,7 @@ export const SfDetailedProductSpotlight: React.FC<{
             {/* WhatsApp CTA */}
             <a
               href={`https://wa.me/966504428819?text=${encodeURIComponent(
-                (isAr ? 'السلام عليكم أرغب بطلب باقة الأسبوع الفاخرة: ' : 'Hello, I want to order the Spotlight luxury bloom: ') +
+                (isAr ? 'السلام عليكم أرغب بطلب باقة الأسبوع الفاخرة:' : 'Hello, I want to order the Spotlight luxury bloom: ') +
                 `${product.name} (${isAr ? demoVariations[selectedVariationIdx].labelAr : demoVariations[selectedVariationIdx].labelEn}) x${qty} · ${money(currentPrice * qty)} · توصيل مكة`
               )}`}
               target="_blank"

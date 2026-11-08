@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS } from '../data/products';
 import { Search, X, ChevronRight } from 'lucide-react';
 
 export const SearchModal: React.FC = () => {
@@ -9,7 +8,8 @@ export const SearchModal: React.FC = () => {
 
   if (!isSearchOpen) return null;
 
-  const sourceProducts = products && products.length > 0 ? products : PRODUCTS;
+  // Store catalog only — never invent seed products when this store has none.
+  const sourceProducts = Array.isArray(products) ? products : [];
   const results = query.trim() === '' ? [] : sourceProducts.filter(p => {
     const q = query.toLowerCase();
     return (

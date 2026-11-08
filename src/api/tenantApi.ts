@@ -1514,6 +1514,98 @@ export async function fetchGoogleSearchConsoleData(storeId: string): Promise<any
   return apiFetch('/google/search-console', { storeId });
 }
 
+export type GoogleAdsOverviewResponse = {
+  store_id?: string;
+  customer_id?: string;
+  account_name?: string | null;
+  connected?: boolean;
+  ads_linked?: boolean;
+  message?: string;
+  geo_presets?: Array<{ id: string; name: string; name_ar: string }>;
+  snapshot?: {
+    kpis?: {
+      cost?: number;
+      impressions?: number;
+      clicks?: number;
+      conversions?: number;
+      conversions_value?: number;
+      roas?: number | null;
+      currency?: string;
+    };
+    campaigns?: Array<{
+      id: string;
+      name: string;
+      status: string;
+      channel?: string;
+      budget_id?: string | null;
+      daily_budget?: number | null;
+      impressions?: number;
+      clicks?: number;
+      cost?: number;
+      conversions?: number;
+      conversions_value?: number;
+      roas?: number | null;
+    }>;
+    recommendations?: Array<{ type?: string; resource_name?: string }>;
+    errors?: string[];
+    synced_at?: string;
+  } | null;
+};
+
+export async function fetchGoogleAdsOverview(
+  storeId: string,
+  refresh = false,
+): Promise<GoogleAdsOverviewResponse> {
+  const q = refresh ? '?refresh=1' : '';
+  return apiFetch<GoogleAdsOverviewResponse>(`/google/ads/overview${q}`, { storeId });
+}
+
+export async function syncGoogleAdsApi(storeId: string): Promise<GoogleAdsOverviewResponse> {
+  return apiFetch('/google/ads/sync', { method: 'POST', storeId });
+}
+
+export async function createGoogleAdsCampaignApi(
+  storeId: string,
+  body: {
+    name: string;
+    daily_budget_sar: number;
+    status?: 'ENABLED' | 'PAUSED';
+    cities?: string[];
+    channel?: 'SEARCH' | 'PERFORMANCE_MAX';
+    final_url?: string;
+  },
+): Promise<{ ok: boolean; campaign_id?: string; error?: string; note?: string }> {
+  return apiFetch('/google/ads/campaigns', { method: 'POST', storeId, body });
+}
+
+export async function updateGoogleAdsCampaignApi(
+  storeId: string,
+  campaignId: string,
+  body: {
+    status?: 'ENABLED' | 'PAUSED';
+    daily_budget_sar?: number;
+    budget_id?: string;
+    cities?: string[];
+  },
+): Promise<{ ok: boolean; results?: unknown; message?: string }> {
+  return apiFetch(`/google/ads/campaigns/${encodeURIComponent(campaignId)}`, {
+    method: 'PATCH',
+    storeId,
+    body,
+  });
+}
+
+export async function uploadGoogleAdsConversionsApi(
+  storeId: string,
+  conversionAction: string,
+): Promise<{ ok: boolean; uploaded?: number; skipped?: number; error?: string }> {
+  return apiFetch('/google/ads/conversions/upload', {
+    method: 'POST',
+    storeId,
+    body: { conversion_action: conversionAction },
+  });
+}
+
 export async function fetchGooglePageSpeedData(
   storeId: string,
   strategy: 'mobile' | 'desktop' = 'mobile',
@@ -2188,6 +2280,22 @@ export async function verifyStorefrontPaymentApi(payload: {
 
 // ── Real Analytics Reports (Database Aggregated) ──
 
+export type DashboardHomeAnalytics = {
+  store_id: string;
+  visitors_count: number;
+  visits_growth: number | null;
+  visits_by_weekday: Array<{
+    dayEn: string;
+    dayAr: string;
+    percentage: number;
+    highlighted?: boolean;
+  }>;
+};
+
+export async function fetchDashboardHomeAnalytics(storeId: string): Promise<DashboardHomeAnalytics> {
+  return apiFetch<DashboardHomeAnalytics>('/analytics/dashboard-home', { storeId });
+}
+
 export async function fetchOverviewReportsApi(
   storeId: string,
   params?: { range?: string; from?: string; to?: string },
@@ -2328,9 +2436,21 @@ export async function submitStoreReviewApi(
 ): Promise<StoreReviewRecord> {
   const res = await apiFetch<{ success: boolean; data: StoreReviewRecord }>(
     `/stores/${storeId}/reviews`,
-    { method: 'POST', storeId, body: payload },
+    { method: 'POST', storeId, skipAuth: true, body: payload },
   );
   return res.data;
+}
+
+export async function submitStorefrontContact(
+  storeId: string,
+  payload: { name: string; phone?: string; email?: string; message: string },
+): Promise<void> {
+  await apiFetch('/storefront/contact', {
+    method: 'POST',
+    storeId,
+    skipAuth: true,
+    body: { store_id: storeId, ...payload },
+  });
 }
 
 export async function saveStoreReviewsApi(

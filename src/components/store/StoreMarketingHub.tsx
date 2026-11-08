@@ -169,7 +169,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
     },
     {
       id: 'seo',
-      title: isAr ? 'تهيئة محركات البحث (SEO)' : 'SEO',
+      title: isAr ? 'تهيئة محركات البحث' : 'SEO',
       desc: isAr ? 'تحسين ظهور المتجر في محركات البحث.' : 'Optimize site visibility.',
       icon: Search,
       color: 'blue',
@@ -210,13 +210,13 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
   // ─────────────────────────────────────────────────────────────
   const [cartMsgSubject, setCartMsgSubject] = useState(
     isAr
-      ? `لديك منتجات بانتظارك في سلة ${activeStore.name}!`
+      ? `لديك منتجات بانتظارك في سلة${activeStore.name}!`
       : `You have items waiting in your ${activeStore.name} cart!`
   );
 
   const [cartMsgContent, setCartMsgContent] = useState(
     isAr
-      ? `مرحباً {name}،\nلاحظنا أنك تركت منتجات في سلتك لدى متجر ${activeStore.name} ولم تكمل عملية الشراء بعد. أكمل طلبك الآن واحصل على خصم 10% باستخدام كود {discount_code}!\n{checkout_link}`
+      ? `مرحباً {name}،\nلاحظنا أنك تركت منتجات في سلتك لدى متجر${activeStore.name}ولم تكمل عملية الشراء بعد. أكمل طلبك الآن واحصل على خصم 10% باستخدام كود {discount_code}!\n{checkout_link}`
       : `Hello {name},\nWe noticed you left items in your cart at ${activeStore.name} and haven't completed your order. Complete your purchase now and get a 10% discount with code {discount_code}!\n{checkout_link}`
   );
 
@@ -224,12 +224,12 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
   useEffect(() => {
     setCartMsgSubject(
       isAr
-        ? `لديك منتجات بانتظارك في سلة ${activeStore.name}!`
+        ? `لديك منتجات بانتظارك في سلة${activeStore.name}!`
         : `You have items waiting in your ${activeStore.name} cart!`
     );
     setCartMsgContent(
       isAr
-        ? `مرحباً {name}،\nلاحظنا أنك تركت منتجات في سلتك لدى متجر ${activeStore.name} ولم تكمل عملية الشراء بعد. أكمل طلبك الآن واحصل على خصم 10% باستخدام كود {discount_code}!\n{checkout_link}`
+        ? `مرحباً {name}،\nلاحظنا أنك تركت منتجات في سلتك لدى متجر${activeStore.name}ولم تكمل عملية الشراء بعد. أكمل طلبك الآن واحصل على خصم 10% باستخدام كود {discount_code}!\n{checkout_link}`
         : `Hello {name},\nWe noticed you left items in your cart at ${activeStore.name} and haven't completed your order. Complete your purchase now and get a 10% discount with code {discount_code}!\n{checkout_link}`
     );
   }, [activeStore.name, isAr]);
@@ -310,7 +310,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
     URL.revokeObjectURL(url);
     toast(
       isAr
-        ? `تم تصدير ${pendingOrders.length} سلة بنجاح`
+        ? `تم تصدير${pendingOrders.length}سلة بنجاح`
         : `Exported ${pendingOrders.length} abandoned carts successfully`,
       'success'
     );
@@ -322,11 +322,11 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
   const [offerStep, setOfferStep] = useState(1);
   const [offerType, setOfferType] = useState('Buy X Get Y');
   const [offerName, setOfferName] = useState(
-    isAr ? `عرض خاص من ${activeStore.name}` : `Special Offer - ${activeStore.name}`
+    isAr ? `عرض خاص من${activeStore.name}` : `Special Offer - ${activeStore.name}`
   );
   const [offerDesc, setOfferDesc] = useState(
     isAr
-      ? `احصل على خصم مميز أو منتج مجاني عند الشراء من ${activeStore.name}.`
+      ? `احصل على خصم مميز أو منتج مجاني عند الشراء من${activeStore.name}.`
       : `Get a special discount or free gift with your purchase from ${activeStore.name}.`
   );
   const [offerLang, setOfferLang] = useState<'English' | 'Arabic'>(isAr ? 'Arabic' : 'English');
@@ -359,13 +359,13 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       {
         title: isAr ? 'تأكيد الطلب' : 'Order Confirmation',
         text: isAr
-          ? `شكراً لتسوقك من متجر ${activeStore.name}! تم تأكيد طلبك #{order} وجاري تجهيزه بكل عناية.`
+          ? `شكراً لتسوقك من متجر${activeStore.name}! تم تأكيد طلبك #{order} وجاري تجهيزه بكل عناية.`
           : `Thank you for shopping at ${activeStore.name}! Your order #{order} has been confirmed and is being prepared.`,
       },
       {
         title: isAr ? 'تم شحن الطلب' : 'Order Shipped',
         text: isAr
-          ? `خبر سار! تم شحن طلبك #{order} من متجر ${activeStore.name}. رقم التتبع: {tracking_number}.`
+          ? `خبر سار! تم شحن طلبك #{order} من متجر${activeStore.name}. رقم التتبع: {tracking_number}.`
           : `Great news! Your order #{order} from ${activeStore.name} has been shipped. Tracking: {tracking_number}.`,
       },
       {
@@ -377,13 +377,13 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       {
         title: isAr ? 'تم تسليم الطلب' : 'Order Delivered',
         text: isAr
-          ? `تم تسليم طلبك #{order} بنجاح! شكراً لاختيارك ${activeStore.name}. نسعد دائماً بخدمتك.`
+          ? `تم تسليم طلبك #{order} بنجاح! شكراً لاختيارك${activeStore.name}. نسعد دائماً بخدمتك.`
           : `Your order #{order} from ${activeStore.name} has been delivered! Thank you for choosing us.`,
       },
       {
         title: isAr ? 'توفر المنتج مجدداً' : 'Back in Stock',
         text: isAr
-          ? `بشرى سارة! المنتجات التي كنت بانتظارها متوفرة مجدداً في متجر ${activeStore.name}. تسوق الآن قبل نفاد الكمية!`
+          ? `بشرى سارة! المنتجات التي كنت بانتظارها متوفرة مجدداً في متجر${activeStore.name}. تسوق الآن قبل نفاد الكمية!`
           : `Good news! Products you were waiting for are now back in stock at ${activeStore.name}. Shop before stock runs out!`,
       },
     ],
@@ -393,42 +393,14 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
   const handleSendWhatsApp = (e: React.FormEvent) => {
     e.preventDefault();
     if (!waMessage.trim()) return;
-
-    const custName = waCustomer.split('(')[0]?.trim() || (isAr ? 'عميل المتجر' : 'Store Customer');
-    const custPhone =
-      waCustomer.split('(')[1]?.replace(')', '') || activeStore.phone || '+966 50 000 0000';
-
-    const newLog = {
-      id: `wa-${Date.now()}`,
-      time: new Date().toLocaleTimeString(isAr ? 'ar-SA' : 'en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      status: isAr ? 'تم الإرسال' : 'Sent',
-      type: waAttachment
-        ? isAr
-          ? 'مرفق وسائط'
-          : 'Media Attachment'
-        : isAr
-          ? 'رسالة مخصصة'
-          : 'Custom Message',
-      typeColor: waAttachment ? 'emerald' : 'purple',
-      content: waMessage.trim() + (waAttachmentName ? ` [📎 ${waAttachmentName}]` : ''),
-      phone: custPhone,
-      customer: custName,
-    };
-
-    setWaLogs((prev) => [newLog, ...prev]);
-    setWaSentCount((prev) => prev + 1);
-    setWaMessage('');
-    setWaAttachment(null);
-    setWaAttachmentName(null);
+    // No fake "Sent" — Cloud send lives in WhatsApp Message Center (per store_id).
     toast(
       isAr
-        ? 'تم إرسال رسالة الواتساب إلى العميل بنجاح!'
-        : 'WhatsApp message sent directly to customer!',
-      'success'
+        ? 'الإرسال المباشر من هنا غير مفعّل. افتح مركز رسائل واتساب بعد ربط القناة لهذا المتجر.'
+        : 'Direct send from this hub is not enabled. Open WhatsApp Message Center after connecting this store’s channel.',
+      'info',
     );
+    onNavigateTab?.('whatsapp');
   };
 
   const filteredWaLogs = useMemo(() => {
@@ -599,7 +571,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
               <MessageCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span className="text-xs font-bold text-emerald-800 dark:text-emerald-200">
                 {isAr
-                  ? `رسائل واتساب نشطة · تم استخدام ${waSentCount} من 20 رسالة اليوم`
+                  ? `رسائل واتساب نشطة · تم استخدام${waSentCount}من 20 رسالة اليوم`
                   : `WhatsApp Messaging Active · ${waSentCount} / 20 messages used today`}
               </span>
             </div>
@@ -905,7 +877,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                         <td className="py-3 flex items-center gap-2">
                           <Phone className="w-4 h-4 text-purple-600" />
                           <span className="font-bold text-slate-900 dark:text-white">
-                            {isAr ? 'رسائل SMS' : 'SMS'}
+                            {isAr ? 'رسائل الرسائل النصية' : 'SMS'}
                           </span>
                         </td>
                         <td className="py-3 text-center tabular-nums">0</td>
@@ -957,7 +929,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     </h3>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       {isAr
-                        ? `تصدير بيانات ${pendingOrders.length} سلة متروكة لمتجر ${activeStore.name} للمتابعة المباشرة.`
+                        ? `تصدير بيانات${pendingOrders.length}سلة متروكة لمتجر${activeStore.name}للمتابعة المباشرة.`
                         : `Export data for ${pendingOrders.length} abandoned carts for ${activeStore.name}.`}
                     </p>
                   </div>
@@ -967,7 +939,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     className="px-3.5 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-teal-600/20 transition-all cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'تصدير البيانات (.CSV)' : 'Export Data (.CSV)'}</span>
+                    <span>{isAr ? 'تصدير البيانات (.جداول البيانات)' : 'Export Data (.CSV)'}</span>
                   </button>
                 </div>
               </div>
@@ -1042,7 +1014,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     onClick={() => {
                       toast(
                         isAr
-                          ? `تم إرسال رسالة تذكير تجريبية لمدير متجر ${activeStore.name}!`
+                          ? `تم إرسال رسالة تذكير تجريبية لمدير متجر${activeStore.name}!`
                           : `Test reminder sent to ${activeStore.name} manager!`,
                         'success'
                       );
@@ -1154,7 +1126,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {isAr
-                    ? `اختر نوع العرض الترويجي الذي ترغب بإنشائه لمتجر ${activeStore.name}.`
+                    ? `اختر نوع العرض الترويجي الذي ترغب بإنشائه لمتجر${activeStore.name}.`
                     : `Choose the type of promotional offer you want to create for ${activeStore.name}.`}
                 </p>
 
@@ -1332,7 +1304,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     </h4>
                     <p className="text-[10px] text-slate-400">
                       {isAr
-                        ? `حدد المنتجات من كتالوج ${activeStore.name} التي يجب شراؤها.`
+                        ? `حدد المنتجات من كتالوج${activeStore.name}التي يجب شراؤها.`
                         : `Select products from ${activeStore.name} catalog that customers must purchase.`}
                     </p>
                   </div>
@@ -1512,13 +1484,13 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   <div className="flex items-center justify-between pt-1 text-slate-600 dark:text-slate-400">
                     <span>{isAr ? 'منتجات الشراء' : 'Purchase Products'}</span>
                     <span className="font-bold text-slate-900 dark:text-white">
-                      {isAr ? `الكمية: ${reqQty}` : `Qty: ${reqQty}`}
+                      {isAr ? `الكمية:${reqQty}` : `Qty: ${reqQty}`}
                     </span>
                   </div>
                   <div className="flex items-center justify-between pt-1 text-slate-600 dark:text-slate-400">
                     <span>{isAr ? 'منتجات المكافأة' : 'Reward Products'}</span>
                     <span className="font-bold text-emerald-600">
-                      {isAr ? `الهدية: ${rewardQty}` : `Gift Qty: ${rewardQty}`}
+                      {isAr ? `الهدية:${rewardQty}` : `Gift Qty: ${rewardQty}`}
                     </span>
                   </div>
                 </div>
@@ -1623,7 +1595,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   {isAr ? 'الاستخدام اليومي' : 'Daily Usage'}
                 </span>
                 <span className="text-sm font-black text-slate-900 dark:text-white">
-                  {isAr ? `${waSentCount} من 20 رسالة` : `${waSentCount} of 20 Messages`}
+                  {isAr ? `${waSentCount}من 20 رسالة` : `${waSentCount} of 20 Messages`}
                 </span>
                 <p className="text-[11px] text-slate-500 mt-0.5">
                   {isAr ? 'مستخدم اليوم · يتجدد الساعة 12:00 ص' : 'Used today · Resets at 12:00 AM'}
@@ -1668,7 +1640,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     {(activeStore as any).phone || (activeStore as any).ownerPhone || '+966 50 000 0000'}
                   </span>
                   <span className="text-[10px] text-slate-400">
-                    {isAr ? 'واجهة Meta Cloud Business API' : 'Meta Cloud Business API'}
+                    {isAr ? 'واجهة ميتا كلاود للأعمال' : 'Meta Cloud Business API'}
                   </span>
                 </div>
               </div>
@@ -1677,7 +1649,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                 onClick={() =>
                   toast(
                     isAr
-                      ? 'تم التحقق من اتصال جلسة Meta Cloud بنجاح'
+                      ? 'تم التحقق من اتصال جلسة ميتا Cloud بنجاح'
                       : 'Meta WhatsApp Cloud session verified successfully',
                     'info'
                   )
@@ -1731,7 +1703,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
 
               <span className="text-xs text-slate-400">
                 {isAr
-                  ? `عرض ${filteredWaLogs.length} رسائل معاملات مباشرة`
+                  ? `عرض${filteredWaLogs.length}رسائل معاملات مباشرة`
                   : `Showing ${filteredWaLogs.length} live transaction messages`}
               </span>
             </div>
@@ -1811,7 +1783,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
               </h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 {isAr
-                  ? `اختر قالباً معتمداً بنقرة واحدة لمتجر ${activeStore.name}.`
+                  ? `اختر قالباً معتمداً بنقرة واحدة لمتجر${activeStore.name}.`
                   : `Pick a pre-approved template for 1-click dispatch for ${activeStore.name}.`}
               </p>
 

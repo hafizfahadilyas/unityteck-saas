@@ -182,7 +182,7 @@ export const OrderInvoiceTemplate: React.FC<TemplateProps> = ({ document, config
               <tr className="border-b-2 text-[11px] font-black uppercase text-slate-700" style={{ borderColor: '#cbd5e1' }}>
                 <th className="py-3 px-2 text-start">#</th>
                 <th className="py-3 px-2 text-start">{isAr ? 'المنتج / الوصف' : 'Item Description'}</th>
-                {config.columns.sku && <th className="py-3 px-2 text-start">{isAr ? 'رمز SKU' : 'SKU'}</th>}
+                {config.columns.sku && <th className="py-3 px-2 text-start">{isAr ? 'رمز المنتج' : 'SKU'}</th>}
                 <th className="py-3 px-2 text-center">{isAr ? 'الكمية' : 'Qty'}</th>
                 {config.columns.unitPrice && <th className="py-3 px-2 text-end">{isAr ? 'سعر الوحدة' : 'Unit Price'}</th>}
                 {config.columns.taxRate && <th className="py-3 px-2 text-end">{isAr ? 'الضريبة' : 'VAT'}</th>}

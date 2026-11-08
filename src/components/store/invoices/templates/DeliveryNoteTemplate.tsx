@@ -80,7 +80,7 @@ export const DeliveryNoteTemplate: React.FC<TemplateProps> = ({ document, config
             <span className="text-[10px] font-bold text-sky-800 uppercase tracking-wider block">
               {isAr ? 'رقم التتبع' : 'Tracking Number (AWB)'}
             </span>
-            <p className="font-mono font-bold text-sky-800 mt-0.5">{document.trackingNumber || 'MKH-VIP-TRK-8849'}</p>
+            <p className="font-mono font-bold text-sky-800 mt-0.5">{document.trackingNumber || '—'}</p>
           </div>
 
           <div>
@@ -110,7 +110,7 @@ export const DeliveryNoteTemplate: React.FC<TemplateProps> = ({ document, config
         <div className="mb-6 p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-start">
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
-              {isAr ? 'رمز الباركود اللوجستي (Code 128 Barcode)' : 'Logistics Carrier Barcode (Code 128)'}
+              {isAr ? 'رمز الباركود اللوجستي' : 'Logistics Carrier Barcode (Code 128)'}
             </span>
             <p className="text-xs font-mono font-bold text-slate-800">
               {document.trackingNumber || document.documentNumber}

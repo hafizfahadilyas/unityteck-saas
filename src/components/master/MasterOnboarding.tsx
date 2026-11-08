@@ -121,7 +121,7 @@ export const MasterOnboarding: React.FC = () => {
     setInviteTick((n) => n + 1);
     toast(
       isAr
-        ? `الدعوة جاهزة · store_id ${invite.storeId}`
+        ? `الدعوة جاهزة · معرّف المتجر${invite.storeId}`
         : `Invite ready · store_id ${invite.storeId}`,
       'success',
     );
@@ -172,7 +172,7 @@ export const MasterOnboarding: React.FC = () => {
     });
 
     setProvisionedStoreId(newId);
-    toast(isAr ? `تم تجهيز المتجر · ${newId}` : `Store provisioned · ${newId}`, 'success');
+    toast(isAr ? `تم تجهيز المتجر ·${newId}` : `Store provisioned · ${newId}`, 'success');
   };
 
   const darkInputStyle: React.CSSProperties = {
@@ -338,7 +338,7 @@ export const MasterOnboarding: React.FC = () => {
         {activeInvite && (
           <div className="flex flex-wrap items-center gap-3 text-xs bg-teal-900/40 p-2.5 rounded-xl border border-teal-500/30">
             <span className="text-[10px] font-bold uppercase tracking-wider text-teal-300 px-2 py-0.5 rounded bg-teal-950/80">
-              {isAr ? 'store_id المحجوز' : 'Reserved store_id'}
+              {isAr ? 'معرّف المتجر المحجوز' : 'Reserved store_id'}
             </span>
             <code className="text-white font-mono font-bold">{activeInvite.storeId}</code>
             <span className="text-teal-300">·</span>
@@ -576,7 +576,7 @@ export const MasterOnboarding: React.FC = () => {
                 {isAr ? 'العزل بعد التسجيل' : 'Isolation after register'}
               </span>
               <ul className="grid grid-cols-2 gap-2 ps-4 list-disc">
-                <li>{isAr ? 'store_id فريد في كل سجل' : 'Unique store_id on every row'}</li>
+                <li>{isAr ? 'معرّف المتجر فريد في كل سجل' : 'Unique store_id on every row'}</li>
                 <li>{isAr ? 'لا بيانات لمتاجر أخرى في واجهة العميل' : 'No cross-tenant data in client UI'}</li>
                 <li>{isAr ? 'تُستهلك الدعوة بعد أول استخدام' : 'Invite consumed after first use'}</li>
                 <li>{isAr ? 'كلمة المرور يحددها العميل فقط' : 'Password set only by the client'}</li>
@@ -605,7 +605,7 @@ export const MasterOnboarding: React.FC = () => {
                 {isAr ? 'المتجر جاهز' : 'Store Ready'}
               </span>
               <h3 className="text-lg font-black text-slate-900 mt-1">
-                {isAr ? `تم تجهيز ${businessName}!` : `${businessName} Provisioned!`}
+                {isAr ? `تم تجهيز${businessName}!` : `${businessName} Provisioned!`}
               </h3>
               <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                 {isAr ? (

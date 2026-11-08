@@ -64,7 +64,7 @@ export const CustomerAvatarUploadModal: React.FC<CustomerAvatarUploadModalProps>
 
   const processFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
-      alert(isAr ? 'يرجى اختيار ملف صورة صالح' : 'Please select a valid image file');
+      setPreviewError(true);
       return;
     }
 
@@ -424,7 +424,7 @@ export const CustomerAvatarUploadModal: React.FC<CustomerAvatarUploadModalProps>
           {activeTab === 'url' && (
             <div className="space-y-3">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                {isAr ? 'أدخل رابط الصورة المباشر (HTTPS)' : 'Enter Direct Image URL (HTTPS)'}
+                {isAr ? 'أدخل رابط الصورة المباشر' : 'Enter Direct Image URL (HTTPS)'}
               </label>
               <div className="flex gap-2">
                 <input

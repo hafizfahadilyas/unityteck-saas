@@ -190,6 +190,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       { id: 'dashboard', icon: LayoutDashboard },
       { id: 'orders', icon: ShoppingCart },
       { id: 'canva', icon: Paintbrush },
+      { id: 'ai-media', icon: Sparkles },
       { id: 'products', icon: Package },
       { id: 'customers', icon: Users },
       { id: 'marketing', icon: Megaphone },
@@ -575,8 +576,15 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      try {
+                        sessionStorage.setItem('unityteck-theme-intent', 'theme-settings');
+                      } catch {
+                        /* storage may be unavailable */
+                      }
                       selectTab('themes');
-                      window.dispatchEvent(new CustomEvent('unityteck-open-theme-settings'));
+                      window.setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('unityteck-open-theme-settings'));
+                      }, 60);
                     }}
                     className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
                   >
@@ -606,12 +614,22 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                         key={page.id}
                         type="button"
                         onClick={() => {
+                          try {
+                            sessionStorage.setItem(
+                              'unityteck-theme-intent',
+                              JSON.stringify({ type: 'builder', page: page.id }),
+                            );
+                          } catch {
+                            /* storage may be unavailable */
+                          }
                           selectTab('themes');
-                          window.dispatchEvent(
-                            new CustomEvent('unityteck-open-visual-builder', {
-                              detail: { page: page.id },
-                            }),
-                          );
+                          window.setTimeout(() => {
+                            window.dispatchEvent(
+                              new CustomEvent('unityteck-open-visual-builder', {
+                                detail: { page: page.id },
+                              }),
+                            );
+                          }, 60);
                         }}
                         className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
                       >
@@ -628,7 +646,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 <div className="ps-7 pe-1 space-y-0.5 py-1">
                   <button
                     type="button"
-                    onClick={() => selectTab('seo')}
+                    onClick={() => openSeoView('search-console')}
                     className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
@@ -636,7 +654,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => selectTab('seo')}
+                    onClick={() => openSeoView('gtm')}
                     className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
@@ -646,7 +664,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
               )}
 
               {/* Submenu for Marketing */}
-              {isMarketing && !collapsed && isSubmenuOpen && (
+              {isMarketing && !collapsed && isSubmenuOpen && isActive && (
                 <div className="ps-7 pe-1 space-y-0.5 py-1">
                   {[
                     { id: 'marketing', labelAr: 'مركز أدوات التسويق', labelEn: 'Marketing Tools Hub', color: 'bg-emerald-400' },
@@ -663,7 +681,14 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                     { id: 'affiliate', labelAr: 'التسويق بالعمولة', labelEn: 'Affiliate Marketing', color: 'bg-yellow-400' },
                     { id: 'direct-orders', labelAr: 'الطلب المباشر', labelEn: 'Direct Orders', color: 'bg-sky-400' },
                     { id: 'social', labelAr: 'النشر الاجتماعي', labelEn: 'Social Publishing', color: 'bg-fuchsia-400' },
-                  ].map((sub) => {
+                  ]
+                    .filter(
+                      (sub) =>
+                        canTab(sub.id, 'store') &&
+                        planAllowsStoreTab(activeStore, sub.id) &&
+                        isStoreControlEnabled(activeStore?.id, sub.id),
+                    )
+                    .map((sub) => {
                     const isSubActive = currentTab === sub.id;
                     return (
                       <button
@@ -685,7 +710,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
               )}
 
               {/* Submenu for WhatsApp */}
-              {isWhatsApp && !collapsed && isSubmenuOpen && (
+              {isWhatsApp && !collapsed && isSubmenuOpen && isActive && (
                 <div className="ps-7 pe-1 space-y-0.5 py-1">
                   {[
                     { id: 'center', labelAr: 'مركز الرسائل', labelEn: 'Message Center' },
@@ -700,8 +725,15 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                       key={sub.id}
                       type="button"
                       onClick={() => {
+                        try {
+                          sessionStorage.setItem('unityteck-whatsapp-view', sub.id);
+                        } catch {
+                          /* storage may be unavailable */
+                        }
                         selectTab('whatsapp');
-                        window.dispatchEvent(new CustomEvent('unityteck-whatsapp-view', { detail: sub.id }));
+                        window.setTimeout(() => {
+                          window.dispatchEvent(new CustomEvent('unityteck-whatsapp-view', { detail: sub.id }));
+                        }, 60);
                       }}
                       className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
                     >
@@ -713,7 +745,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
               )}
 
               {/* Submenu for Shipping & Logistics */}
-              {isShipping && !collapsed && isSubmenuOpen && (
+              {isShipping && !collapsed && isSubmenuOpen && isActive && (
                 <div className="ps-7 pe-1 space-y-0.5 py-1">
                   {[
                     { id: 'shipments', labelAr: 'الشحنات والتتبع المباشر', labelEn: 'Shipments & Tracking', color: 'bg-blue-400' },

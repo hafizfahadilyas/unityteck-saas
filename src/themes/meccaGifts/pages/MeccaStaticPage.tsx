@@ -28,7 +28,7 @@ import {
 } from '../../../services/storePagesService';
 import { useTenant } from '../../../context/TenantContext';
 import { isApiEnabled } from '../../../api/client';
-import { trackStorefrontOrder } from '../../../api/tenantApi';
+import { submitStorefrontContact, trackStorefrontOrder } from '../../../api/tenantApi';
 import { mapTrackApiToMeccaResult } from '../../../utils/orderTrackingDisplay';
 import { useApp } from '../context/AppContext';
 
@@ -38,7 +38,7 @@ interface MeccaStaticPageProps {
 }
 
 export const MeccaStaticPage: React.FC<MeccaStaticPageProps> = ({ slug, onBackToHome }) => {
-  const { currentPage, setCurrentPage, language } = useApp();
+  const { currentPage, setCurrentPage, language, showToast } = useApp();
   const { activeStore, currentOrders } = useTenant();
   const isAr = language === 'ar';
 
@@ -165,13 +165,37 @@ export const MeccaStaticPage: React.FC<MeccaStaticPageProps> = ({ slug, onBackTo
     })();
   };
 
-  const handleContactSubmit = (e: React.FormEvent) => {
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setContactSent(true);
-    setTimeout(() => {
-      setContactSent(false);
-      setContactForm({ name: '', phone: '', email: '', message: '' });
-    }, 4000);
+    const storeId = activeStore?.id;
+    if (!storeId) {
+      showToast(isAr ? 'المتجر غير جاهز حالياً' : 'Store is not ready yet');
+      return;
+    }
+    if (!contactForm.name.trim() || !contactForm.message.trim()) {
+      showToast(isAr ? 'الاسم والرسالة مطلوبان' : 'Name and message are required');
+      return;
+    }
+    if (!contactForm.phone.trim() && !contactForm.email.trim()) {
+      showToast(isAr ? 'أدخل الجوال أو البريد الإلكتروني' : 'Enter phone or email');
+      return;
+    }
+    try {
+      await submitStorefrontContact(storeId, {
+        name: contactForm.name.trim(),
+        phone: contactForm.phone.trim() || undefined,
+        email: contactForm.email.trim() || undefined,
+        message: contactForm.message.trim(),
+      });
+      setContactSent(true);
+      showToast(isAr ? 'تم استلام رسالتك بنجاح' : 'Your message was received successfully');
+      setTimeout(() => {
+        setContactSent(false);
+        setContactForm({ name: '', phone: '', email: '', message: '' });
+      }, 4000);
+    } catch {
+      showToast(isAr ? 'تعذر إرسال الرسالة. حاول مرة أخرى.' : 'Could not send the message. Please try again.');
+    }
   };
 
   const storeName = isAr ? activeStore?.nameAr || activeStore?.name || 'متجر هدايا مكة' : activeStore?.nameEn || activeStore?.name || 'Makkah Gifts Store';

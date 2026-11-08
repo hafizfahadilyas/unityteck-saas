@@ -299,7 +299,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     if (abandonedForCustomer.length === 1) {
       const items = abandonedForCustomer[0].items?.length ?? abandonedForCustomer[0].itemsCount;
       if (items && items > 0) {
-        abandonedCartsLabel = isAr ? `${items} منتج` : `${items} Product${items === 1 ? '' : 's'}`;
+        abandonedCartsLabel = isAr ? `${items}منتج` : `${items} Product${items === 1 ? '' : 's'}`;
       } else {
         abandonedCartsLabel = isAr ? '1 سلة' : '1 Cart';
       }
@@ -488,15 +488,15 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         /order/i.test(userText) ||
         userText.includes('طلب');
       let reply = isAr
-        ? `بناءً على ملف ${customer.name} في ${activeStore.name}، لديهم ميل مرتفع للشراء. إرسال كوبون واتساب مخصص للتوصيل المجاني قد يحقق معدل تحويل يقارب 32٪.`
+        ? `بناءً على ملف${customer.name}في${activeStore.name}، لديهم ميل مرتفع للشراء. إرسال كوبون واتساب مخصص للتوصيل المجاني قد يحقق معدل تحويل يقارب 32٪.`
         : `Based on ${customer.name}'s profile in ${activeStore.name}, they have high purchase propensity. Sending a personalized WhatsApp coupon code for free delivery on floral bouquets has an estimated 32% conversion rate.`;
       if (wantsOffer) {
         reply = isAr
-          ? `أنصح بإنشاء كوبون خصم 15٪ للعميل المميز صالح لمدة 7 أيام. ${customer.name} يتفاعل كثيراً عبر واتساب ويستجيب أفضل للعروض الموسمية.`
+          ? `أنصح بإنشاء كوبون خصم 15٪ للعميل المميز صالح لمدة 7 أيام.${customer.name}يتفاعل كثيراً عبر واتساب ويستجيب أفضل للعروض الموسمية.`
           : `I recommend generating a 15% VIP discount coupon valid for 7 days. ${customer.name} frequently interacts on WhatsApp and responds best to seasonal floral promotions.`;
       } else if (wantsOrder) {
         reply = isAr
-          ? `${customer.name} لديه حالياً ${customerOrders.length} طلبات مؤكدة بإجمالي قيمة ${money(customer.totalSpending || 0)}.`
+          ? `${customer.name}لديه حالياً${customerOrders.length}طلبات مؤكدة بإجمالي قيمة${money(customer.totalSpending || 0)}.`
           : `${customer.name} currently has ${customerOrders.length} confirmed orders with a total value of ${money(customer.totalSpending || 0)}.`;
       }
       setAiChatMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
@@ -542,10 +542,10 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       ? customer.aiInsights
       : [
           isAr
-            ? `طلبات مكتملة: ${customerOrders.filter((o) => ['delivered', 'completed'].includes(String(o.status).toLowerCase())).length}`
+            ? `طلبات مكتملة:${customerOrders.filter((o) => ['delivered', 'completed'].includes(String(o.status).toLowerCase)).length}`
             : `Completed orders: ${customerOrders.filter((o) => ['delivered', 'completed'].includes(String(o.status).toLowerCase())).length}`,
           isAr
-            ? `إجمالي الإنفاق: ${money(customer.totalSpending || 0)}`
+            ? `إجمالي الإنفاق:${money(customer.totalSpending || 0)}`
             : `Lifetime spent: ${money(customer.totalSpending || 0)}`,
           hasPhone
             ? isAr
@@ -739,7 +739,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                       <Calendar className="w-3.5 h-3.5 text-slate-400" />
                       <span>
                         {isAr
-                          ? `عضو منذ ${customer.registeredDate}`
+                          ? `عضو منذ${customer.registeredDate}`
                           : `Member since ${customer.registeredDate}`}
                       </span>
                     </div>
@@ -748,7 +748,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
                     <span>
-                      {isAr ? 'آخر تسجيل دخول: ' : 'Last Login: '}
+                      {isAr ? 'آخر تسجيل دخول:' : 'Last Login: '}
                       <span dir="ltr">{lastLoginDisplay}</span>
                     </span>
                   </div>
@@ -1103,7 +1103,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     onClick={() =>
                       toast(
                         isAr
-                          ? `سيتم إنشاء طلب جديد للعميل ${customer.name} في متجر ${activeStore.name}`
+                          ? `سيتم إنشاء طلب جديد للعميل${customer.name}في متجر${activeStore.name}`
                           : `New order flow for ${customer.name} in ${activeStore.name}`,
                         'info',
                       )
@@ -1131,7 +1131,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   </p>
                 </div>
                 <span className="px-3 py-1 rounded-xl bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 font-bold text-sm border border-teal-200 dark:border-teal-800">
-                  {isAr ? `الإجمالي: ${loyaltyPointsCount} نقطة` : `Total: ${loyaltyPointsCount} pts`}
+                  {isAr ? `الإجمالي:${loyaltyPointsCount}نقطة` : `Total: ${loyaltyPointsCount} pts`}
                 </span>
               </div>
 
@@ -1180,10 +1180,10 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                       <p className="text-xs text-slate-600 dark:text-slate-300">
                         {cp.discountType === 'fixed'
                           ? isAr
-                            ? `خصم ${cp.discountValue} ر.س`
+                            ? `خصم${cp.discountValue}ر.س`
                             : `${money(cp.discountValue)} off`
                           : isAr
-                            ? `خصم ${cp.discountValue}%`
+                            ? `خصم${cp.discountValue}%`
                             : `${cp.discountValue}% off`}
                       </p>
                     </div>
@@ -1236,7 +1236,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-base font-bold text-emerald-600">
-                    {isAr ? `الرصيد: ${money(cashbackAmount)}` : `Balance: ${money(cashbackAmount)}`}
+                    {isAr ? `الرصيد:${money}` : `Balance: ${money(cashbackAmount)}`}
                   </span>
                   {canAdjustWallet ? (
                     <button
@@ -1340,13 +1340,13 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                           <p className="text-sm font-semibold text-slate-900 dark:text-white">{typeLabel}</p>
                           {row.product_name ? (
                             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                              {isAr ? 'المنتج: ' : 'Product: '}
+                              {isAr ? 'المنتج:' : 'Product: '}
                               {row.product_name}
                             </p>
                           ) : null}
                           {row.order_id ? (
                             <p className="text-xs text-slate-500 dark:text-slate-400 truncate font-mono">
-                              {isAr ? 'الطلب المرتبط: ' : 'Related order: '}
+                              {isAr ? 'الطلب المرتبط:' : 'Related order: '}
                               {row.order_id}
                             </p>
                           ) : null}
@@ -1713,7 +1713,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             ) : (
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {isAr
-                  ? `${walletTransactions.length} معاملة في السجل`
+                  ? `${walletTransactions.length}معاملة في السجل`
                   : `${walletTransactions.length} transaction(s) on record`}
               </p>
             )}
@@ -1904,7 +1904,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     {isAr
-                      ? `السياق: ${customer.name} • ${activeStore.nameAr || activeStore.name}`
+                      ? `السياق:${customer.name}•${activeStore.nameAr || activeStore.name}`
                       : `Context: ${customer.name} • ${activeStore.nameEn || activeStore.name}`}
                   </p>
                 </div>

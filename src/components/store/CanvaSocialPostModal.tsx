@@ -11,20 +11,15 @@ import {
   Bookmark,
   Sparkles,
   Link2,
-  ExternalLink,
-  Phone,
-  Copy,
-  Check,
   Globe,
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
-import { openSocialOAuthPopup } from '../../services/socialOAuthService';
 import {
   fetchSocialAccounts,
+  isLiveSocialPlatform,
   scheduleSocialPost,
-  upsertSocialAccount,
   type SocialPlatform,
   type SocialAccountPublic,
 } from '../../services/socialPublisherService';
@@ -158,7 +153,6 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
   const [caption, setCaption] = useState(defaultCaption);
   const [scheduledFor, setScheduledFor] = useState('');
   const [busy, setBusy] = useState(false);
-  const [connecting, setConnecting] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState<{ postId: string; publishedAt: string } | null>(null);
 
   useEffect(() => {
@@ -181,45 +175,28 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
   const currentAccount = accounts.find((a) => a.platform === platform && a.is_connected);
   const isCurrentConnected = isWhatsApp || Boolean(currentAccount);
 
-  const handleQuickConnect = async () => {
+  const handleQuickConnect = () => {
     if (isWhatsApp) return;
-    setConnecting(true);
-    try {
-      const shortId = storeId.replace(/[^a-z0-9]/gi, '').slice(0, 8) || 'store';
-      const accountName =
-        platform === 'instagram'
-          ? 'Store Official'
-          : platform === 'facebook'
-          ? 'Store Official Facebook'
-          : platform === 'x'
-          ? 'StoreOfficial'
-          : 'StoreOfficial';
-
-      const handle =
-        platform === 'instagram' || platform === 'x'
-          ? `@store_${shortId}`
-          : accountName;
-
-      await upsertSocialAccount(storeId, {
-        platform: platform as SocialPlatform,
-        account_name: accountName,
-        handle,
-        test: true,
-      });
-
-      const refreshed = await fetchSocialAccounts(storeId);
-      setAccounts(refreshed);
+    if (!isLiveSocialPlatform(platform)) {
       toast(
         isAr
-          ? `تم ربط حساب ${platform} بنجاح!`
-          : `${platform} connected successfully!`,
-        'success',
+          ? 'قريباً — الربط المباشر متاح لإنستغرام وفيسبوك فقط. افتح مركز التواصل لإدخال رمز ميتا غراف.'
+          : 'Coming Soon — live connect is Instagram & Facebook only. Open Social Hub to add a Meta Graph token.',
+        'info',
       );
-    } catch (err) {
-      toast(err instanceof Error ? err.message : isAr ? 'فشل الربط' : 'Failed to connect', 'error');
-    } finally {
-      setConnecting(false);
+      return;
     }
+    if (onOpenSocialHub) {
+      onClose();
+      onOpenSocialHub();
+      return;
+    }
+    toast(
+      isAr
+        ? 'افتح مركز النشر الاجتماعي لربط الحساب برمز ميتا غراف الحقيقي'
+        : 'Open Social Publishing Hub to connect with a real Meta Graph token',
+      'info',
+    );
   };
 
   const handleAiGenerateCaption = () => {
@@ -323,8 +300,8 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
               </h3>
               <p className="text-xs text-slate-400 font-medium">
                 {isAr
-                  ? 'انشر تصميمك فوراً أو جدول مواعيده على إنستغرام، فيسبوك، إكس، تيك توك، وواتساب'
-                  : 'Publish your design instantly or schedule for Instagram, Facebook, X, TikTok, and WhatsApp'}
+                  ? 'النشر والجدولة المباشرة لإنستغرام وفيسبوك. مشاركة واتساب متاحة. إكس وتيك توك قريباً'
+                  : 'Live publish & schedule: Instagram and Facebook. WhatsApp share available. X & TikTok Coming Soon'}
               </p>
             </div>
           </div>
@@ -378,21 +355,33 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
         {/* Platform Selection Tabs */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {[
-            { id: 'instagram' as const, label: isAr ? 'إنستغرام' : 'Instagram', icon: InstagramIcon },
-            { id: 'facebook' as const, label: isAr ? 'فيسبوك' : 'Facebook', icon: FacebookIcon },
-            { id: 'x' as const, label: isAr ? 'إكس / تويتر' : 'X (Twitter)', icon: XIcon },
-            { id: 'tiktok' as const, label: isAr ? 'تيك توك' : 'TikTok', icon: TikTokIcon },
-            { id: 'whatsapp' as const, label: isAr ? 'واتساب' : 'WhatsApp', icon: WhatsAppIcon },
+            { id: 'instagram' as const, label: isAr ? 'إنستغرام' : 'Instagram', icon: InstagramIcon, live: true },
+            { id: 'facebook' as const, label: isAr ? 'فيسبوك' : 'Facebook', icon: FacebookIcon, live: true },
+            { id: 'x' as const, label: isAr ? 'إكس' : 'X', icon: XIcon, live: false },
+            { id: 'tiktok' as const, label: isAr ? 'تيك توك' : 'TikTok', icon: TikTokIcon, live: false },
+            { id: 'whatsapp' as const, label: isAr ? 'واتساب' : 'WhatsApp', icon: WhatsAppIcon, live: true },
           ].map((item) => {
             const acc = accounts.find((a) => a.platform === item.id && a.is_connected);
             const active = platform === item.id;
             const Icon = item.icon;
+            const comingSoon = item.id !== 'whatsapp' && !item.live;
             return (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setPlatform(item.id)}
-                className={`p-2.5 rounded-2xl border text-start cursor-pointer transition-all flex flex-col justify-between ${
+                onClick={() => {
+                  if (comingSoon) {
+                    toast(
+                      isAr ? `${item.label}— قريباً` : `${item.label} — Coming Soon`,
+                      'info',
+                    );
+                    return;
+                  }
+                  setPlatform(item.id);
+                }}
+                className={`p-2.5 rounded-2xl border text-start transition-all flex flex-col justify-between ${
+                  comingSoon ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+                } ${
                   active
                     ? 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-950/40 text-white'
                     : 'border-slate-800 bg-slate-800/40 text-slate-300 hover:border-slate-600'
@@ -400,9 +389,13 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
               >
                 <div className="flex items-center justify-between gap-1 mb-1.5">
                   <Icon className="w-5 h-5 shrink-0" />
-                  {item.id === 'whatsapp' ? (
+                  {comingSoon ? (
+                    <span className="px-1.5 py-0.5 rounded-full text-[8.5px] font-black bg-amber-900/80 text-amber-200">
+                      {isAr ? 'قريباً' : 'Soon'}
+                    </span>
+                  ) : item.id === 'whatsapp' ? (
                     <span className="px-1.5 py-0.5 rounded-full text-[8.5px] font-black bg-emerald-900 text-emerald-300">
-                      {isAr ? 'مباشر' : 'Direct'}
+                      {isAr ? 'مشاركة' : 'Share'}
                     </span>
                   ) : acc ? (
                     <span className="px-1.5 py-0.5 rounded-full text-[8.5px] font-black bg-emerald-900 text-emerald-300">
@@ -410,13 +403,19 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
                     </span>
                   ) : (
                     <span className="px-1.5 py-0.5 rounded-full text-[8.5px] font-bold bg-slate-700 text-slate-400">
-                      Off
+                      {isAr ? 'غير متصل' : 'Off'}
                     </span>
                   )}
                 </div>
                 <span className="text-xs font-black truncate">{item.label}</span>
                 <span className="text-[10px] text-slate-400 font-mono truncate">
-                  {acc ? acc.handle || acc.account_name : item.id === 'whatsapp' ? 'Share link' : 'Click to connect'}
+                  {comingSoon
+                    ? (isAr ? 'قريباً' : 'Coming Soon')
+                    : acc
+                    ? acc.handle || acc.account_name
+                    : item.id === 'whatsapp'
+                    ? (isAr ? 'رابط مشاركة' : 'Share link')
+                    : (isAr ? 'اربط الحساب' : 'Connect')}
                 </span>
               </button>
             );
@@ -424,24 +423,35 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
         </div>
 
         {/* Account Connection Status */}
-        {!isWhatsApp && !isCurrentConnected && (
+        {!isWhatsApp && !isLiveSocialPlatform(platform) && (
           <div className="p-3 rounded-2xl bg-amber-950/40 border border-amber-800/60 flex items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 text-amber-300 font-bold">
               <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
               <span>
                 {isAr
-                  ? `حساب ${platform} غير متصل حالياً.`
+                  ? 'هذه المنصة قريباً — النشر المباشر لإنستغرام وفيسبوك فقط.'
+                  : 'This platform is Coming Soon — live publish is Instagram & Facebook only.'}
+              </span>
+            </div>
+          </div>
+        )}
+        {!isWhatsApp && isLiveSocialPlatform(platform) && !isCurrentConnected && (
+          <div className="p-3 rounded-2xl bg-amber-950/40 border border-amber-800/60 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-amber-300 font-bold">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+              <span>
+                {isAr
+                  ? `حساب${platform === 'instagram' ? 'إنستغرام': 'فيسبوك'}غير متصل حالياً.`
                   : `${platform} is not currently connected.`}
               </span>
             </div>
             <button
               type="button"
               onClick={handleQuickConnect}
-              disabled={connecting}
-              className="px-3 py-1.5 rounded-xl text-xs font-black text-white shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-60 bg-emerald-600 hover:bg-emerald-500"
+              className="px-3 py-1.5 rounded-xl text-xs font-black text-white shadow-md flex items-center gap-1.5 cursor-pointer bg-emerald-600 hover:bg-emerald-500"
             >
               <Link2 className="w-3.5 h-3.5" />
-              <span>{connecting ? (isAr ? 'جارٍ الربط...' : 'Connecting...') : (isAr ? 'ربط الحساب الآن' : 'Connect Account')}</span>
+              <span>{isAr ? 'فتح مركز الربط' : 'Open Connect Hub'}</span>
             </button>
           </div>
         )}

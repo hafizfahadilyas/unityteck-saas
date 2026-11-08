@@ -230,7 +230,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs mb-4">
             <div>
               <label className="block text-[11px] font-semibold mb-1 opacity-80">
-                {isAr ? 'من تاريخ (From):' : 'From Date:'}
+                {isAr ? 'من تاريخ من:' : 'From Date:'}
               </label>
               <input
                 type="date"
@@ -249,7 +249,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
 
             <div>
               <label className="block text-[11px] font-semibold mb-1 opacity-80">
-                {isAr ? 'إلى تاريخ (To):' : 'To Date:'}
+                {isAr ? 'إلى تاريخ إلى:' : 'To Date:'}
               </label>
               <input
                 type="date"

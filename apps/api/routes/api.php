@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\MediaFolderController;
+use App\Http\Controllers\Api\AiMediaController;
 use App\Http\Controllers\Api\CategoryFieldController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PlanController;
@@ -235,6 +236,10 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::delete('/media/{id}', [MediaController::class, 'destroy']);
     Route::get('/media/{id}/usages', [MediaController::class, 'usages']);
 
+    // AI image/video generator — per-store quota (GEMINI_API_KEY on API only)
+    Route::get('/ai-media/quota', [AiMediaController::class, 'quota']);
+    Route::post('/ai-media/generate', [AiMediaController::class, 'generate'])->middleware('throttle:20,1');
+
     Route::get('/media-folders', [MediaFolderController::class, 'index']);
     Route::post('/media-folders', [MediaFolderController::class, 'store']);
     Route::patch('/media-folders/{id}', [MediaFolderController::class, 'update']);
@@ -251,6 +256,18 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::get('/google/analytics', [GoogleIntegrationController::class, 'getAnalytics'])->middleware('plan.feature:analytics');
     Route::get('/google/search-console', [GoogleIntegrationController::class, 'getSearchConsole']);
     Route::get('/google/pagespeed', [GoogleIntegrationController::class, 'getPageSpeed']);
+
+    // Google Ads — store-isolated campaigns / budgets / ROAS (real API only)
+    Route::get('/google/ads/overview', [\App\Http\Controllers\Api\GoogleAdsController::class, 'overview']);
+    Route::get('/google/ads/campaigns', [\App\Http\Controllers\Api\GoogleAdsController::class, 'campaigns']);
+    Route::get('/google/ads/ad-groups', [\App\Http\Controllers\Api\GoogleAdsController::class, 'adGroups']);
+    Route::get('/google/ads/report', [\App\Http\Controllers\Api\GoogleAdsController::class, 'report']);
+    Route::post('/google/ads/sync', [\App\Http\Controllers\Api\GoogleAdsController::class, 'sync']);
+    Route::post('/google/ads/campaigns', [\App\Http\Controllers\Api\GoogleAdsController::class, 'storeCampaign']);
+    Route::patch('/google/ads/campaigns/{campaignId}', [\App\Http\Controllers\Api\GoogleAdsController::class, 'updateCampaign']);
+    Route::get('/google/ads/recommendations', [\App\Http\Controllers\Api\GoogleAdsController::class, 'recommendations']);
+    Route::post('/google/ads/conversions/upload', [\App\Http\Controllers\Api\GoogleAdsController::class, 'uploadConversions']);
+    Route::get('/google/ads/geo-presets', [\App\Http\Controllers\Api\GoogleAdsController::class, 'geoPresets']);
 
     // Real Configurable Shipping Methods
     Route::get('/shipping-methods', [ShippingMethodController::class, 'index']);
@@ -281,6 +298,9 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::post('/payments/verify', [PaymentGatewayController::class, 'verify']);
     Route::post('/payments/refund/{id}', [PaymentGatewayController::class, 'refund']);
     Route::get('/payments/transactions', [PaymentGatewayController::class, 'transactions']);
+
+    // Home dashboard (visits / weekday chart) — all plans
+    Route::get('/analytics/dashboard-home', [AnalyticsReportController::class, 'dashboardHome']);
 
     // Real Database-Calculated Payment & Shipping Analytics
     Route::middleware('plan.feature:analytics')->group(function () {
@@ -441,6 +461,7 @@ Route::get('/storefront/builder-layout', [StoreThemeController::class, 'storefro
 Route::get('/storefront/catalog', [ProductController::class, 'storefrontCatalog']);
 Route::get('/storefront/categories', [ProductController::class, 'storefrontCategories']);
 Route::post('/storefront/newsletter', [StoreSettingsController::class, 'subscribeNewsletter']);
+Route::post('/storefront/contact', [StoreSettingsController::class, 'submitContact']);
 Route::post('/storefront/customers', [StorefrontCustomerController::class, 'upsert']);
 Route::post('/storefront/customer-activities', [CustomerActivityController::class, 'storefrontStore']);
 

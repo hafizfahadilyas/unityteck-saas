@@ -63,7 +63,7 @@ export const ExclusivePerksBar: React.FC = () => {
     if (e) e.stopPropagation();
     if (!cleanPhone) return;
     const msg = isAr
-      ? `السلام عليكم، أود الاستفسار والتواصل بخصوص متجر ${storeName}`
+      ? `السلام عليكم، أود الاستفسار والتواصل بخصوص متجر${storeName}`
       : `Hello, I would like to get in touch with ${storeName}.`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
   };

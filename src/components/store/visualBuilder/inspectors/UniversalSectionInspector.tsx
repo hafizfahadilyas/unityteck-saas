@@ -154,7 +154,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
     });
 
     return [
-      { id: 'all', nameAr: 'كافة الأقسام (All Categories)', nameEn: 'All Categories', slug: 'all' },
+      { id: 'all', nameAr: 'كافة الأقسام', nameEn: 'All Categories', slug: 'all' },
       ...Array.from(catMap.values()),
     ];
   }, [currentProducts]);
@@ -162,7 +162,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
   // Available Store Brands List (Strictly isolated per active store)
   const storeBrandsList = activeStore ? getStoreBrands(activeStore.id) : INITIAL_BRANDS;
   const availableBrands = [
-    { id: 'all', nameAr: 'كافة العلامات التجارية (All Brands)', nameEn: 'All Brands' },
+    { id: 'all', nameAr: 'كافة العلامات التجارية', nameEn: 'All Brands' },
     ...storeBrandsList.map((b: BrandItem) => ({
       id: b.id,
       nameAr: b.name,
@@ -439,9 +439,9 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                 </label>
                 <div className="grid grid-cols-4 gap-1 bg-slate-100 p-1 rounded-xl">
                   {[
-                    { id: 'portrait', labelAr: 'كاملة (4:5)', labelEn: 'Full 4:5' },
-                    { id: 'square', labelAr: 'مربعة (1:1)', labelEn: 'Square' },
-                    { id: 'tall', labelAr: 'طولية (3:4)', labelEn: 'Tall 3:4' },
+                    { id: 'portrait', labelAr: 'كاملة', labelEn: 'Full 4:5' },
+                    { id: 'square', labelAr: 'مربعة', labelEn: 'Square' },
+                    { id: 'tall', labelAr: 'طولية', labelEn: 'Tall 3:4' },
                     { id: 'auto', labelAr: 'طبيعي', labelEn: 'Auto' },
                   ].map((ratio) => (
                     <button
@@ -543,7 +543,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
               const newIdx = currentCategories.length + 1;
               const newItem = {
                 id: `cat-${Date.now()}`,
-                name: isAr ? `تصنيف ${newIdx}` : `Category ${newIdx}`,
+                name: isAr ? `تصنيف${newIdx}` : `Category ${newIdx}`,
                 nameEn: `Category ${newIdx}`,
                 image: '/images/hadaya_saudi_luxury_bouquet_1791300211553.jpg',
                 badge: isAr ? 'جديد' : 'New',
@@ -849,7 +849,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
                           }`}
                         >
-                          <span>{isAr ? `شريحة ${sIdx + 1}` : `Slide ${sIdx + 1}`}</span>
+                          <span>{isAr ? `شريحة${sIdx + 1}` : `Slide ${sIdx + 1}`}</span>
                           {slide.image && (
                             <img src={slide.image} alt="" className="w-4 h-4 rounded-full object-cover border border-white/50" />
                           )}
@@ -1205,7 +1205,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                        {isAr ? 'السجل التجاري (CR)' : 'Commercial Registration'}
+                        {isAr ? 'السجل التجاري' : 'Commercial Registration'}
                       </label>
                       <input
                         type="text"

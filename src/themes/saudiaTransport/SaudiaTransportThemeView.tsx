@@ -174,11 +174,11 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
         ? (activeStore?.nameAr || activeStore?.name || 'متجر السيارات')
         : (activeStore?.nameEn || activeStore?.name || 'Car Store');
       document.title = viewMode === 'catalog'
-        ? (isAr ? `المنتجات | ${storeName}` : `Products | ${storeName}`)
-        : (isAr ? `${storeName} | تنجيد وإكسسوارات` : `${storeName} | Upholstery and accessories`);
+        ? (isAr ? `المنتجات |${storeName}` : `Products | ${storeName}`)
+        : (isAr ? `${storeName}| تنجيد وإكسسوارات` : `${storeName} | Upholstery and accessories`);
       const desc = viewMode === 'catalog'
         ? (isAr
-          ? `منتجات ${storeName} مع التصفية حسب التصنيف. الأسعار بالريال والتوصيل داخل المملكة.`
+          ? `منتجات${storeName}مع التصفية حسب التصنيف. الأسعار بالريال والتوصيل داخل المملكة.`
           : `${storeName} products with category filters. Prices in SAR and delivery across Saudi Arabia.`)
         : (isAr
           ? `${storeName}. تنجيد وإكسسوارات مع التوصيل داخل المملكة.`
@@ -361,7 +361,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     const brandName = brand ? (isAr ? brand.nameAr : brand.nameEn) : makeEn.toUpperCase();
     addToast({
       type: 'vehicle-match',
-      title: isAr ? `تم تحديد ${brandName} (${modelEn})` : `Selected ${brandName} (${modelEn})`,
+      title: isAr ? `تم تحديد${brandName}(${modelEn})` : `Selected ${brandName} (${modelEn})`,
       message: isAr 
         ? 'تم تفعيل التوافق الليزري المباشر — المقاسات جاهزة للتفصيل مع ضمان سنتين' 
         : 'Instant laser fitment activated — Ready for bespoke crafting with 2-yr warranty',
@@ -428,7 +428,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
   const handleOpenCatalogFromFilter = () => {
     setViewMode('catalog');
 
-    let feedback = isAr ? 'نتائج مطابقة: ' : 'Matching Results: ';
+    let feedback = isAr ? 'نتائج مطابقة:' : 'Matching Results: ';
     if (formMake !== 'all') feedback += `${formMake.toUpperCase()} `;
     if (formModel !== 'all') feedback += `(${formModel}) `;
     if (formYear !== 'all') feedback += `[${formYear}] `;
@@ -668,7 +668,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
           hex: specs.color.baseHex,
           image: product.image
         },
-        selectedMaterial: isAr ? 'جلد صناعي صديق للبيئة (11 مل - 5 طبقات SASO)' : 'Eco Synthetic Leather (11mm 5D SASO)',
+        selectedMaterial: isAr ? 'جلد صناعي صديق للبيئة (11 مل - 5 طبقات ساسو)' : 'Eco Synthetic Leather (11mm 5D SASO)',
         selectedCoverage: specs.coverageLabelAr || (specs.seats === '2_seats'
           ? (isAr ? 'مقعدين (غمارتين)' : '2 Seats (Pickup)')
           : specs.seats === '7_seats' 
@@ -678,7 +678,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
         specs
       }];
     });
-    showToast(isAr ? `تمت إضافة أرضيات ${product.nameAr} لسلتك بنجاح!` : `Floor mats added to cart!`);
+    showToast(isAr ? `تمت إضافة أرضيات${product.nameAr}لسلتك بنجاح!` : `Floor mats added to cart!`);
   };
 
   const directBuyFloorMat = (product: Product, quantity: number, specs: FloorMatCustomSpecs) => {
@@ -861,9 +861,9 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[#f6c344] font-bold text-[11px] border border-[#d5a027]/40 cursor-pointer transition-all"
             >
               <Globe className="w-3.5 h-3.5 text-[#f6c344]" />
-              <span>{isAr ? 'English' : 'العربية'}</span>
+              <span>{isAr ? 'الإنجليزية' : 'العربية'}</span>
               <span className="text-[9px] bg-[#d5a027] text-[#120224] px-1.5 py-0.2 rounded font-black">
-                {isAr ? 'EN' : 'AR'}
+                {isAr ? 'إنجليزي' : 'AR'}
               </span>
             </button>
           </div>
@@ -1051,7 +1051,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               type="button"
               onClick={() => setIsAccountModalOpen(true)}
               className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white hover:text-[#f6c344] border border-white/15 flex items-center justify-center transition-all cursor-pointer shadow-md shrink-0"
-              title={isAr ? 'حسابي والطلبات (VIP Portal)' : 'My Account & Orders'}
+              title={isAr ? 'حسابي والطلبات' : 'My Account & Orders'}
               aria-label={isAr ? 'حسابي' : 'My Account'}
             >
               <User className="w-4 h-4" />
@@ -1183,7 +1183,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                   <span>{isAr ? 'اللغة الحالية: العربية' : 'Current Language: English'}</span>
                 </div>
                 <span className="text-[10px] bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-[#120224] px-2.5 py-0.5 rounded-full font-black">
-                  {isAr ? 'Switch to English' : 'التحويل للعربية'}
+                  {isAr ? 'التبديل إلى الإنجليزية' : 'التحويل للعربية'}
                 </span>
               </button>
 
@@ -1229,7 +1229,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                   className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-left rtl:text-right text-[#f6c344]"
                 >
                   <User className="w-4 h-4 text-[#f6c344]" />
-                  <span>{isAr ? 'حسابي والطلبات (VIP Portal)' : 'My Account & Orders'}</span>
+                  <span>{isAr ? 'حسابي والطلبات' : 'My Account & Orders'}</span>
                 </button>
 
                 <a
@@ -1274,7 +1274,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                   className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-colors"
                 >
                   <HelpCircle className="w-4 h-4 text-[#f6c344]" />
-                  <span>{isAr ? 'الأسئلة الشائعة (FAQ)' : 'FAQ & Fitting Assurance'}</span>
+                  <span>{isAr ? 'الأسئلة الشائعة' : 'FAQ & Fitting Assurance'}</span>
                 </a>
 
                 <button
@@ -1518,7 +1518,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
 
                       {/* Models count tag */}
                       <span className="text-[10px] font-bold text-slate-400 group-hover:text-[#d5a027] transition-colors mt-0.5">
-                        {modelsCount > 0 ? (isAr ? `${modelsCount} موديل` : `${modelsCount} models`) : (isAr ? 'متعدد' : 'All')}
+                        {modelsCount > 0 ? (isAr ? `${modelsCount}موديل` : `${modelsCount} models`) : (isAr ? 'متعدد' : 'All')}
                       </span>
                     </div>
                   );
@@ -1539,7 +1539,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                       </div>
                       <div>
                         <span className="text-xs sm:text-sm font-black text-[#3e0f77]">
-                          {isAr ? `موديلات ${activeBrand.nameAr} المتوافقة:` : `${activeBrand.nameEn} Compatible Models:`}
+                          {isAr ? `موديلات${activeBrand.nameAr}المتوافقة:` : `${activeBrand.nameEn} Compatible Models:`}
                         </span>
                         <p className="text-[11px] text-slate-500">
                           {isAr ? 'اضغط على الموديل للفلترة السريعة وتفصيل المقاس الدقيق' : 'Click a model for instantaneous custom match'}
@@ -1553,7 +1553,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                       }}
                       className="text-xs font-bold text-[#3e0f77] hover:text-[#d5a027] transition-colors cursor-pointer"
                     >
-                      {isAr ? `عرض كل منتجات ${activeBrand.nameAr}` : `View all ${activeBrand.nameEn}`}
+                      {isAr ? `عرض كل منتجات${activeBrand.nameAr}` : `View all ${activeBrand.nameEn}`}
                     </button>
                   </div>
 
@@ -1592,7 +1592,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               onSelectMat={(mat) => setSelectedFloorMatModal(mat)}
               onOpenWhatsApp={(mat, selectedColorName) => {
                 const customMsg = isAr
-                  ? `مرحباً متجر السعيدي، أرغب بالطلب والاستفسار عن أرضيات 5D ليزر:\n*النوع:* ${mat.nameAr || mat.name}\n${selectedColorName ? `*اللون المفضل:* ${selectedColorName}\n` : ''}*السعر:* ${mat.price} ر.س\n*المطلوب:* تفصيل ليزري لموديل سيارتي.`
+                  ? `مرحباً متجر السعيدي، أرغب بالطلب والاستفسار عن أرضيات 5D ليزر:\n*النوع:*${mat.nameAr || mat.name}\n${selectedColorName ?`*اللون المفضل:* ${selectedColorName}\n` : ''}*السعر:* ${mat.price} ر.س\n*المطلوب:* تفصيل ليزري لموديل سيارتي.`
                   : `Hello Al-Saeedi Car Services, I would like to order 5D Laser Floor Mats:\n*Type:* ${mat.nameEn || mat.name}\n${selectedColorName ? `*Preferred Color:* ${selectedColorName}\n` : ''}*Price:* ${mat.price} SAR\n*Request:* Laser tailored for my vehicle model.`;
                 openWhatsAppOrder(mat, undefined, undefined, customMsg);
               }}
@@ -1776,7 +1776,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             </button>
 
             <span className="text-xs text-slate-500 font-mono">
-              {isAr ? `وجدنا ${fullFilteredProducts.length} منتج متوافق` : `Found ${fullFilteredProducts.length} matching products`}
+              {isAr ? `وجدنا${fullFilteredProducts.length}منتج متوافق` : `Found ${fullFilteredProducts.length} matching products`}
             </span>
           </div>
 
@@ -2170,7 +2170,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                     {/* Installments Mini Banner (Tamara / Tabby) */}
                     <div className="py-1 px-1.5 sm:px-2 rounded-lg bg-amber-50/80 border border-amber-200/60 flex items-center justify-between text-[8.5px] sm:text-[9.5px]">
                       <span className="text-amber-900 font-bold truncate">
-                        {isAr ? `4 دفعات x ${monthlyTabby} ر.س` : `4x ${monthlyTabby} SAR`}
+                        {isAr ? `4 دفعات x${monthlyTabby}ر.س` : `4x ${monthlyTabby} SAR`}
                       </span>
                       <span className="text-[#3e0f77] font-black shrink-0">{isAr ? 'تابي · تمارا' : 'Tabby'}</span>
                     </div>
@@ -2251,7 +2251,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                 onClick={() => setCatalogPageLimit(prev => prev + 24)}
                 className="px-6 py-2.5 btn-bashayer-purple text-xs font-black cursor-pointer shadow"
               >
-                {isAr ? `عرض المزيد (${fullFilteredProducts.length - catalogPageLimit} متبقية)` : `Load More (${fullFilteredProducts.length - catalogPageLimit} left)`}
+                {isAr ? `عرض المزيد (${fullFilteredProducts.length - catalogPageLimit}متبقية)` : `Load More (${fullFilteredProducts.length - catalogPageLimit} left)`}
               </button>
             </div>
           )}

@@ -170,9 +170,9 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
 
   const coffeeSettings = useMemo(() => {
     try {
-      const storeId = tenant?.activeStore?.id || 'store-coffee';
-      const fallbackStore = tenant?.activeStore || { id: storeId, name: 'HiBrew Store' };
-      return resolveCoffeeThemeSettings(storeId, fallbackStore);
+      const storeId = tenant?.activeStore?.id;
+      if (!storeId) return null;
+      return resolveCoffeeThemeSettings(storeId, tenant.activeStore);
     } catch {
       return null;
     }
@@ -276,7 +276,7 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
         };
     document.title = titles[currentRoute] || titles.home;
     const desc = isAr
-      ? `تصفح منتجات ${storeName}. تصفية حسب التصنيف، أسعار بالريال، وتوصيل داخل المملكة.`
+      ? `تصفح منتجات${storeName}. تصفية حسب التصنيف، أسعار بالريال، وتوصيل داخل المملكة.`
       : `Browse ${storeName} products. Filter by category, with prices in SAR and delivery across Saudi Arabia.`;
     const updateMeta = (name: string, content: string, isProperty = false) => {
       let el = document.querySelector(isProperty ? `meta[property="${name}"]` : `meta[name="${name}"]`);

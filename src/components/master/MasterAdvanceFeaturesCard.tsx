@@ -79,12 +79,12 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
       mode === 'active'
         ? isAr ? 'مفعل بالكامل' : 'Fully Active'
         : mode === 'coming_soon'
-        ? isAr ? 'قريباً (Coming Soon)' : 'Coming Soon'
+        ? isAr ? 'قريباً' : 'Coming Soon'
         : isAr ? 'مخفي عن المتاجر' : 'Hidden from Stores';
 
     toast(
       isAr
-        ? `تم تحديث حالة "${name}" إلى: ${modeLabel}`
+        ? `تم تحديث حالة "${name}" إلى:${modeLabel}`
         : `Updated status for "${name}" to: ${modeLabel}`,
       'success'
     );
@@ -421,7 +421,7 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
               {/* Name EN */}
               <div className="space-y-1">
                 <label className="font-bold text-slate-700 dark:text-slate-200">
-                  {isAr ? 'اسم الوظيفة (English)' : 'Function Name (English)'}
+                  {isAr ? 'اسم الوظيفة بالإنجليزية' : 'Function Name (English)'}
                 </label>
                 <input
                   type="text"
@@ -461,7 +461,7 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
                 <div className="space-y-1">
                   <label className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'عنوان وسم قريباً (EN)' : 'Coming Soon Tag (EN)'}</span>
+                    <span>{isAr ? 'عنوان وسم قريباً بالإنجليزية' : 'Coming Soon Tag (EN)'}</span>
                   </label>
                   <input
                     type="text"
@@ -480,7 +480,7 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
                 <div className="space-y-1">
                   <label className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'عنوان وسم قريباً (AR)' : 'Coming Soon Tag (AR)'}</span>
+                    <span>{isAr ? 'عنوان وسم قريباً بالعربية' : 'Coming Soon Tag (AR)'}</span>
                   </label>
                   <input
                     type="text"
@@ -501,7 +501,7 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
               {/* Description EN */}
               <div className="space-y-1">
                 <label className="font-bold text-slate-700 dark:text-slate-200">
-                  {isAr ? 'الوصف التوضيحي (English)' : 'Description (English)'}
+                  {isAr ? 'الوصف التوضيحي بالإنجليزية' : 'Description (English)'}
                 </label>
                 <textarea
                   rows={2}
@@ -549,9 +549,9 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
                     color: 'var(--input-fg)',
                   }}
                 >
-                  <option value="coming_soon">{isAr ? 'قريباً (Coming Soon Tag)' : 'Coming Soon Tag'}</option>
-                  <option value="active">{isAr ? 'مفعل بالكامل (Active)' : 'Active (Live)'}</option>
-                  <option value="hidden">{isAr ? 'مخفي تماماً (Hidden)' : 'Hidden (Disabled)'}</option>
+                  <option value="coming_soon">{isAr ? 'قريباً' : 'Coming Soon Tag'}</option>
+                  <option value="active">{isAr ? 'مفعل بالكامل' : 'Active (Live)'}</option>
+                  <option value="hidden">{isAr ? 'مخفي تماماً' : 'Hidden (Disabled)'}</option>
                 </select>
               </div>
 
@@ -620,7 +620,7 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="font-bold text-slate-700 dark:text-slate-200">
-                    {isAr ? 'اسم الوظيفة (EN)' : 'Name (EN)'}
+                    {isAr ? 'اسم الوظيفة بالإنجليزية' : 'Name (EN)'}
                   </label>
                   <input
                     type="text"
@@ -638,7 +638,7 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
                 </div>
                 <div className="space-y-1">
                   <label className="font-bold text-slate-700 dark:text-slate-200">
-                    {isAr ? 'اسم الوظيفة (AR)' : 'Name (AR)'}
+                    {isAr ? 'اسم الوظيفة بالعربية' : 'Name (AR)'}
                   </label>
                   <input
                     type="text"
@@ -660,7 +660,7 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
                 <div className="space-y-1">
                   <label className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'وسم قريباً (EN)' : 'Coming Soon Tag (EN)'}</span>
+                    <span>{isAr ? 'وسم قريباً بالإنجليزية' : 'Coming Soon Tag (EN)'}</span>
                   </label>
                   <input
                     type="text"
@@ -678,7 +678,7 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
                 <div className="space-y-1">
                   <label className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'وسم قريباً (AR)' : 'Coming Soon Tag (AR)'}</span>
+                    <span>{isAr ? 'وسم قريباً بالعربية' : 'Coming Soon Tag (AR)'}</span>
                   </label>
                   <input
                     type="text"

@@ -192,7 +192,7 @@ export const ShortcodeGeneratorModal: React.FC<ShortcodeGeneratorModalProps> = (
             {/* Filter Type Tabs */}
             <div>
               <label className="block text-xs font-black text-slate-900 mb-1.5">
-                {isAr ? 'نوع مصدر المنتجات (Product Source):' : 'Product Source Filter:'}
+                {isAr ? 'نوع مصدر المنتجات:' : 'Product Source Filter:'}
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
@@ -266,10 +266,10 @@ export const ShortcodeGeneratorModal: React.FC<ShortcodeGeneratorModalProps> = (
                   onChange={(e) => setCollectionType(e.target.value as any)}
                   className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 >
-                  <option value="on_sale">{isAr ? 'عروض وتخفيضات خاصة (On Sale)' : 'On Sale & Discounts'}</option>
-                  <option value="bestsellers">{isAr ? 'الأكثر مبيعاً (Best Sellers)' : 'Best Sellers'}</option>
-                  <option value="new_arrivals">{isAr ? 'وصل حديثاً (New Arrivals)' : 'New Arrivals'}</option>
-                  <option value="all">{isAr ? 'جميع المنتجات (All Products)' : 'All Products'}</option>
+                  <option value="on_sale">{isAr ? 'عروض وتخفيضات خاصة' : 'On Sale & Discounts'}</option>
+                  <option value="bestsellers">{isAr ? 'الأكثر مبيعاً' : 'Best Sellers'}</option>
+                  <option value="new_arrivals">{isAr ? 'وصل حديثاً' : 'New Arrivals'}</option>
+                  <option value="all">{isAr ? 'جميع المنتجات' : 'All Products'}</option>
                 </select>
               </div>
             )}
@@ -315,7 +315,7 @@ export const ShortcodeGeneratorModal: React.FC<ShortcodeGeneratorModalProps> = (
               {/* Limit */}
               <div className="space-y-1">
                 <label className="block text-[11px] font-bold text-slate-700">
-                  {isAr ? 'عدد المنتجات (Limit):' : 'Products Limit:'}
+                  {isAr ? 'عدد المنتجات:' : 'Products Limit:'}
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -336,16 +336,16 @@ export const ShortcodeGeneratorModal: React.FC<ShortcodeGeneratorModalProps> = (
               {/* Layout Mode */}
               <div className="space-y-1">
                 <label className="block text-[11px] font-bold text-slate-700">
-                  {isAr ? 'طريقة العرض (Layout):' : 'Layout Mode:'}
+                  {isAr ? 'طريقة العرض:' : 'Layout Mode:'}
                 </label>
                 <select
                   value={layout}
                   onChange={(e) => setLayout(e.target.value as any)}
                   className="w-full p-2 rounded-xl border border-slate-200 bg-white text-xs font-medium"
                 >
-                  <option value="slider">{isAr ? 'سلايدر متحرك (Slider Carousel)' : 'Slider Carousel'}</option>
-                  <option value="grid">{isAr ? 'شبكة مربعات (Grid)' : 'Grid Layout'}</option>
-                  <option value="3d_gallery">{isAr ? 'معرض ثلاثي الأبعاد (3D Gallery)' : '3D Gallery'}</option>
+                  <option value="slider">{isAr ? 'سلايدر متحرك' : 'Slider Carousel'}</option>
+                  <option value="grid">{isAr ? 'شبكة مربعات' : 'Grid Layout'}</option>
+                  <option value="3d_gallery">{isAr ? 'معرض ثلاثي الأبعاد' : '3D Gallery'}</option>
                 </select>
               </div>
 
@@ -370,7 +370,7 @@ export const ShortcodeGeneratorModal: React.FC<ShortcodeGeneratorModalProps> = (
             {/* Custom Title */}
             <div className="space-y-1">
               <label className="block text-[11px] font-bold text-slate-700">
-                {isAr ? 'عنوان الصف الاختياري (Title):' : 'Custom Row Title (Optional):'}
+                {isAr ? 'عنوان الصف الاختياري:' : 'Custom Row Title (Optional):'}
               </label>
               <input
                 type="text"
@@ -396,7 +396,7 @@ export const ShortcodeGeneratorModal: React.FC<ShortcodeGeneratorModalProps> = (
                     key={row.id}
                     onClick={() => {
                       navigator.clipboard.writeText(sc);
-                      toast(isAr ? `تم نسخ كود: ${row.titleAr}` : `Copied shortcode for ${row.titleEn}`, 'success');
+                      toast(isAr ? `تم نسخ كود:${row.titleAr}` : `Copied shortcode for ${row.titleEn}`, 'success');
                     }}
                     className="p-2.5 rounded-xl border border-slate-200 hover:border-emerald-600 bg-slate-50 hover:bg-emerald-50/50 transition-all cursor-pointer flex items-center justify-between gap-2 group"
                   >

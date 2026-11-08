@@ -659,7 +659,7 @@ export const StoreChannelPerformance: React.FC = () => {
         {exportNotice && (
           <div className="mb-4 p-2.5 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>{isAr ? 'تم تصدير تقرير أداء القنوات التسويقية بنجاح (CSV)!' : 'Marketing channel performance report exported successfully (.CSV)!'}</span>
+            <span>{isAr ? 'تم تصدير تقرير أداء القنوات التسويقية بنجاح!' : 'Marketing channel performance report exported successfully (.CSV)!'}</span>
           </div>
         )}
 
@@ -731,7 +731,7 @@ export const StoreChannelPerformance: React.FC = () => {
                     className="py-3 px-3 text-end cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 select-none"
                   >
                     <span className="inline-flex items-center gap-1">
-                      {isAr ? 'متوسط الطلب (AOV)' : 'AOV'}
+                      {isAr ? 'متوسط الطلب' : 'AOV'}
                       <ArrowUpDown className="w-3 h-3 text-slate-300 dark:text-slate-600" />
                     </span>
                   </th>

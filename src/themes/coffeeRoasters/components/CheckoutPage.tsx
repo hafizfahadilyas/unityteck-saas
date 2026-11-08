@@ -68,7 +68,7 @@ export const CheckoutPage: React.FC = () => {
 
   const moneyFmt = useMemo(
     () => (n: number) =>
-      language === 'AR' ? `${n.toLocaleString()} ر.س` : `SAR ${n.toLocaleString()}`,
+      language === 'AR' ? `${n.toLocaleString()}ر.س` : `SAR ${n.toLocaleString()}`,
     [language],
   );
 
@@ -406,8 +406,9 @@ export const CheckoutPage: React.FC = () => {
 
             {/* 2. Saudi Authorized Payment Gateways */}
             <div className="bg-[#F8F9FA] rounded-3xl p-5 sm:p-8">
+              {activeStore?.id ? (
               <PaymentGatewaySelector
-                storeId={activeStore?.id || 'store-coffee'}
+                storeId={activeStore.id}
                 totalAmount={orderGrandTotal}
                 selectedMethod={paymentMethod as PaymentMethodId}
                 onMethodChange={(m) => setPaymentMethod(m)}
@@ -415,6 +416,11 @@ export const CheckoutPage: React.FC = () => {
                 customerName={name}
                 customerPhone={phone}
               />
+              ) : (
+                <div className="text-sm text-neutral-500 py-4 text-center">
+                  {language === 'AR' ? 'بانتظار بيانات المتجر' : 'Waiting for store data'}
+                </div>
+              )}
             </div>
           </div>
 
@@ -480,7 +486,7 @@ export const CheckoutPage: React.FC = () => {
                             ? 'مجاني'
                             : 'FREE'
                           : language === 'AR'
-                            ? `${shippingFee.toLocaleString()} ر.س`
+                            ? `${shippingFee.toLocaleString()}ر.س`
                             : `SAR ${shippingFee.toLocaleString()}`}
                     </span>
                   </div>
@@ -489,7 +495,7 @@ export const CheckoutPage: React.FC = () => {
                   <span>{language === 'AR' ? 'المبلغ المطلوب سداده' : 'Total Amount'}</span>
                   <span className="font-sans text-base sm:text-lg text-neutral-900">
                     {language === 'AR'
-                      ? `${orderGrandTotal.toLocaleString()} ر.س`
+                      ? `${orderGrandTotal.toLocaleString()}ر.س`
                       : `SAR ${orderGrandTotal.toLocaleString()}`}
                   </span>
                 </div>

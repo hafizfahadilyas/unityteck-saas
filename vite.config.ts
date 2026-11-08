@@ -49,7 +49,7 @@ export default defineConfig(() => {
       },
     },
     optimizeDeps: {
-      include: ['react', 'react-dom', 'lucide-react', 'motion', 'date-fns'],
+      include: ['react', 'react-dom', 'lucide-react', 'motion', 'date-fns', 'ag-psd'],
     },
     build: {
       emptyOutDir: false,
@@ -68,6 +68,9 @@ export default defineConfig(() => {
             }
             if (id.includes('node_modules/motion/')) {
               return 'vendor-motion';
+            }
+            if (id.includes('node_modules/ag-psd')) {
+              return 'vendor-ag-psd';
             }
           },
         },

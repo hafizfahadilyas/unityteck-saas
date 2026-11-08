@@ -443,7 +443,7 @@ export function requestAdWalletTopUp(storeId: string, amountSar: number): StoreA
     type: 'topup_request' as const,
     amountSar,
     noteEn: `Ad Wallet Top-Up Request (${amountSar} SAR) — Awaiting Master Admin Approval`,
-    noteAr: `طلب شحن محفظة الإعلانات (${amountSar} ر.س) — بانتظار موافقة الإدارة العليا`,
+    noteAr: `طلب شحن محفظة الإعلانات (${amountSar}ر.س) — بانتظار موافقة الإدارة العليا`,
     createdAt: new Date().toISOString(),
     status: 'pending' as const,
   };
@@ -469,7 +469,7 @@ export function masterApproveAdWalletTopUp(
     type: 'topup_approved' as const,
     amountSar: creditAmount,
     noteEn: `Master Admin Approved +${creditAmount} SAR to Store Ad Wallet`,
-    noteAr: `اعتمدت الإدارة العليا إضافة +${creditAmount} ر.س لمحفظة إعلانات المتجر`,
+    noteAr: `اعتمدت الإدارة العليا إضافة +${creditAmount}ر.س لمحفظة إعلانات المتجر`,
     createdAt: new Date().toISOString(),
     status: 'completed' as const,
   };
@@ -518,11 +518,11 @@ export function getStoreSocialSchedule(storeId: string, storeSlug = 'store'): St
     cooldownHours: 3,
     nextAllowedPostAt: null,
     connectedAccounts: {
-      instagram: { connected: true, handle: `@${storeSlug}.ksa` },
-      tiktok: { connected: true, handle: `@${storeSlug}.sa` },
-      snapchat: { connected: true, handle: `${storeSlug}_ksa` },
-      telegram: { connected: true, handle: `t.me/${storeSlug}` },
-      x: { connected: false, handle: `@${storeSlug}` },
+      instagram: { connected: false, handle: '' },
+      tiktok: { connected: false, handle: '' },
+      snapchat: { connected: false, handle: '' },
+      telegram: { connected: false, handle: '' },
+      x: { connected: false, handle: '' },
     },
     posts: [],
   };

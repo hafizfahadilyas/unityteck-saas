@@ -1412,7 +1412,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
               <div className="space-y-1">
                 <div className="px-2 py-1 flex items-center justify-between gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   <span className="truncate">
-                    {isAr ? `عناصر الصفحة: ${activePageMeta.nameAr || activePageMeta.nameEn}` : `Panels for: ${activePageMeta.nameEn}`}
+                    {isAr ? `عناصر الصفحة:${activePageMeta.nameAr || activePageMeta.nameEn}` : `Panels for: ${activePageMeta.nameEn}`}
                   </span>
                   <span className="text-[10px] font-mono text-slate-500 shrink-0">
                     {filteredSections.length} / {orderedPageCatalog.length}
@@ -1489,7 +1489,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                             </span>
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 block truncate mt-0.5">
                               {(elementCounts[sec.id] || 0) > 0
-                                ? (isAr ? `${elementCounts[sec.id]} عناصر ·` : `${elementCounts[sec.id]} elements · `)
+                                ? (isAr ? `${elementCounts[sec.id]}عناصر ·` : `${elementCounts[sec.id]} elements · `)
                                 : ''}
                               {isAr ? sec.descAr : sec.descEn}
                             </span>

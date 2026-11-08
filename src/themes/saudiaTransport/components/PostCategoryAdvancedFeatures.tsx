@@ -139,7 +139,7 @@ interface CustomCarPreset {
 const POPULAR_CUSTOM_CARS: CustomCarPreset[] = [
   {
     id: 'camry',
-    nameAr: 'تويوتا كامري (Camry)',
+    nameAr: 'تويوتا كامري',
     nameEn: 'Toyota Camry',
     brand: 'toyota',
     seatImages: {
@@ -153,7 +153,7 @@ const POPULAR_CUSTOM_CARS: CustomCarPreset[] = [
   },
   {
     id: 'land-cruiser',
-    nameAr: 'لاند كروزر (LC300)',
+    nameAr: 'لاند كروزر',
     nameEn: 'Land Cruiser',
     brand: 'toyota',
     seatImages: {
@@ -195,7 +195,7 @@ const POPULAR_CUSTOM_CARS: CustomCarPreset[] = [
   },
   {
     id: 'patrol',
-    nameAr: 'نيسان باترول (Patrol)',
+    nameAr: 'نيسان باترول',
     nameEn: 'Nissan Patrol',
     brand: 'nissan',
     seatImages: {
@@ -209,7 +209,7 @@ const POPULAR_CUSTOM_CARS: CustomCarPreset[] = [
   },
   {
     id: 'taurus',
-    nameAr: 'فورد تورس (Taurus)',
+    nameAr: 'فورد تورس',
     nameEn: 'Ford Taurus',
     brand: 'ford',
     seatImages: {
@@ -311,7 +311,7 @@ const LEATHER_GRADES = [
 const CUSTOM_COLORS: SeatColorOption[] = [
   {
     id: 'beige',
-    nameAr: 'بيج وكالة OEM',
+    nameAr: 'بيج وكالة الوكالة',
     nameEn: 'OEM Beige',
     hex: '#d8c8b4',
     image: '/images/seat-covers/camry-beige.jpg',
@@ -530,7 +530,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
       type: 'cart',
       title: isAr ? 'تمت إضافة التخصيص الملكي إلى السلة' : 'Custom VIP Kit Added to Cart',
       message: isAr 
-        ? `تم تجهيز مواصفات (${selectedCar.nameAr}) بخامة (${activeGrade.nameAr}) ولون (${selectedColor.nameAr}) بسعر (${studioTotalPrice} ر.س)`
+        ? `تم تجهيز مواصفات (${selectedCar.nameAr}) بخامة (${activeGrade.nameAr}) ولون (${selectedColor.nameAr}) بسعر (${studioTotalPrice}ر.س)`
         : `Ready to tailor: ${selectedCar.nameEn} in ${activeGrade.nameEn} - ${selectedColor.nameEn} (${studioTotalPrice} SAR)`,
       actionLabel: isAr ? 'عرض السلة' : 'View Cart',
       actionLabelEn: 'View Cart',
@@ -550,12 +550,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
 
     const msg = isAr 
       ? `مرحباً متجر السعيدي لخدمات السيارات، أرغب بحجز تفصيل ليزري لمقصورة سيارتي حسب التخصيص التالي:
-🚗 نوع وموديل السيارة: ${selectedCar.nameAr}
-📦 البكج المطلوب: ${studioType === 'combo' ? 'البكج الملكي الشامل (تلابيس مقاعد + أرضيات 5D ليزر)' : studioType === 'mats' ? 'طقم أرضيات 5D ليزرية' : 'تلابيس مقاعد VIP تفصيل كامل'}
-🧵 خامة وتطريز الجلد: ${activeGrade.nameAr}
-🎨 اللون المختار: ${selectedColor.nameAr}
-✨ الإضافات المختارة: ${addonsList.length > 0 ? addonsList.join(' + ') : 'بدون إضافات'}
-💰 السعر الإجمالي شامل الضريبة: ${studioTotalPrice} ر.س (وفرت ${studioTotalSavings} ر.س)
+🚗 نوع وموديل السيارة:${selectedCar.nameAr}📦 البكج المطلوب:${studioType === 'combo' ? 'البكج الملكي الشامل (تلابيس مقاعد + أرضيات 5D ليزر)': studioType === 'mats' ? 'طقم أرضيات 5D ليزرية': 'تلابيس مقاعد VIP تفصيل كامل'}🧵 خامة وتطريز الجلد:${activeGrade.nameAr}🎨 اللون المختار:${selectedColor.nameAr}✨ الإضافات المختارة:${addonsList.length > 0 ? addonsList.join(' + '): 'بدون إضافات'}💰 السعر الإجمالي شامل الضريبة:${studioTotalPrice}ر.س (وفرت${studioTotalSavings}ر.س)
 📍 مكان التركيب: فرع مكة المكرمة (بطحاء قريش) مع ضمان سنتين ذهبي.
 أرجو تأكيد موعد التفصيل والتركيب.`
       : `Hello Al-Saeedi Car Services, I want to book bespoke interior tailoring:
@@ -585,7 +580,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
       type: 'vehicle-match',
       title: isAr ? 'تم تأكيد المطابقة الليزرية 100%' : '100% Laser Fitment Verified',
       message: isAr 
-        ? `مقاسات وكالة ${quickCheckQuery} متوفرة وجاهزة للتفصيل خلال 24 ساعة مع ضمان سنتين ذهبي`
+        ? `مقاسات وكالة${quickCheckQuery}متوفرة وجاهزة للتفصيل خلال 24 ساعة مع ضمان سنتين ذهبي`
         : `OEM laser templates for ${quickCheckQuery} are ready for bespoke crafting with 2-year warranty`,
       actionLabel: isAr ? 'عرض التفاصيل' : 'View Details',
       actionLabelEn: 'View Details',
@@ -631,7 +626,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                 className="self-start md:self-auto px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-[#f6c344] to-amber-500 hover:brightness-110 text-slate-950 text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-lg hover:shadow-amber-500/30 border border-amber-300 shrink-0"
               >
                 <Settings className="w-4 h-4 text-slate-950" />
-                <span>{isAr ? 'تعديل الأسعار والمحتوى (Admin)' : 'Edit Pricing & Studio (Admin)'}</span>
+                <span>{isAr ? 'تعديل الأسعار والمحتوى' : 'Edit Pricing & Studio (Admin)'}</span>
               </button>
             )}
 
@@ -706,7 +701,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                   }`}
                 >
                   <Palette className="w-5 h-5 text-[#f6c344]" />
-                  <span className="text-xs font-black text-white">{isAr ? 'تلابيس مقاعد VIP' : 'Bespoke Covers'}</span>
+                  <span className="text-xs font-black text-white">{isAr ? 'تلابيس مقاعد كبار العملاء' : 'Bespoke Covers'}</span>
                   <span className="text-[11px] text-amber-200/90 font-bold">{adminSettings.seatsPrice} {isAr ? 'ر.س' : 'SAR'}</span>
                   <span className="text-[9px] text-slate-400 line-through">{adminSettings.seatsOldPrice} {isAr ? 'ر.س' : 'SAR'}</span>
                 </button>
@@ -993,7 +988,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                       {isAr ? selectedCar.nameAr : selectedCar.nameEn}
                     </div>
                     <div className="text-[10px] text-slate-300 truncate">
-                      {studioType === 'combo' ? (isAr ? 'البكج الشامل (مقاعد + أرضيات 5D)' : 'Full VIP Combo') : (studioType === 'mats' ? (isAr ? 'أرضيات 5D ليزر' : '5D Laser Mats') : (isAr ? 'تلابيس مقاعد VIP' : 'VIP Seat Covers'))}
+                      {studioType === 'combo' ? (isAr ? 'البكج الشامل (مقاعد + أرضيات 5D)' : 'Full VIP Combo') : (studioType === 'mats' ? (isAr ? 'أرضيات 5D ليزر' : '5D Laser Mats') : (isAr ? 'تلابيس مقاعد كبار العملاء' : 'VIP Seat Covers'))}
                     </div>
                   </div>
                   <span className="text-[11px] font-extrabold text-[#f6c344] bg-black/60 px-2 py-0.5 rounded-md border border-white/10 shrink-0">
@@ -1039,7 +1034,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
 
                   <div className="text-end">
                     <span className="inline-block bg-amber-400 text-[#120224] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
-                      {isAr ? `وفرت ${studioTotalSavings} ر.س` : `Save ${studioTotalSavings} SAR`}
+                      {isAr ? `وفرت${studioTotalSavings}ر.س` : `Save ${studioTotalSavings} SAR`}
                     </span>
                     <div className="text-[10px] text-slate-400 mt-1">{isAr ? adminSettings.installationNoteAr : adminSettings.installationNoteEn}</div>
                   </div>
@@ -1088,7 +1083,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                   </div>
                   <div>
                     <h4 className="text-sm sm:text-base font-black text-white">
-                      {isAr ? 'لوحة تحكم وتعديل استوديو التخصيص (Admin)' : 'VIP Customizer Studio Admin Controls'}
+                      {isAr ? 'لوحة تحكم وتعديل استوديو التخصيص' : 'VIP Customizer Studio Admin Controls'}
                     </h4>
                     <p className="text-[11px] text-amber-200/80 font-medium">
                       {isAr ? 'تحكم في أسعار البكجات، الخامات، النصوص، والصور مع حفظ فوري' : 'Manage package pricing, materials addons, texts, and media live'}
@@ -1172,7 +1167,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
 
                     {/* Seats */}
                     <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2">
-                      <div className="text-xs font-black text-[#f6c344]">{isAr ? '1. بكج تلابيس المقاعد VIP' : '1. Bespoke Seat Covers'}</div>
+                      <div className="text-xs font-black text-[#f6c344]">{isAr ? '1. بكج تلابيس المقاعد كبار العملاء' : '1. Bespoke Seat Covers'}</div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'سعر البيع (ر.س):' : 'Offer Price (SAR):'}</label>
@@ -1251,7 +1246,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                 {adminActiveTab === 'materials' && (
                   <div className="space-y-4">
                     <div className="text-xs text-amber-300 font-bold bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
-                      {isAr ? '💡 حدد تكلفة الإضافة الإضافية (Add-on) لكل نوع جلد أو ملحق:' : '💡 Set additional addon price for each leather grade or accessory:'}
+                      {isAr ? '💡 حدد تكلفة الإضافة الإضافية لكل نوع جلد أو ملحق:' : '💡 Set additional addon price for each leather grade or accessory:'}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1383,7 +1378,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                     </div>
 
                     <div>
-                      <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'رابط صورة المقاعد المخصصة (URL):' : 'Custom Seats Image URL:'}</label>
+                      <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'رابط صورة المقاعد المخصصة:' : 'Custom Seats Image URL:'}</label>
                       <input 
                         type="text"
                         placeholder="e.g. /images/seat-covers/camry-beige.jpg or https://..."
@@ -1394,7 +1389,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                     </div>
 
                     <div>
-                      <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'رابط صورة الأرضيات المخصصة (URL):' : 'Custom Mats Image URL:'}</label>
+                      <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'رابط صورة الأرضيات المخصصة:' : 'Custom Mats Image URL:'}</label>
                       <input 
                         type="text"
                         placeholder="e.g. /images/floor-mats/triangle-floors.jpg or https://..."

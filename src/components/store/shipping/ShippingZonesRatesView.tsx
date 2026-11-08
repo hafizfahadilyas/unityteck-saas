@@ -126,7 +126,7 @@ export const ShippingZonesRatesView: React.FC = () => {
   } = useTenant();
   const { locale, money } = usePrefs();
   const isAr = locale === 'ar';
-  const { toast } = useToast();
+  const { toast, confirm } = useToast();
 
   const [activeSubTab, setActiveSubTab] = useState<
     'zones' | 'pricing' | 'free_shipping' | 'courier' | 'weight' | 'settings'
@@ -872,10 +872,18 @@ export const ShippingZonesRatesView: React.FC = () => {
                           <button
                             type="button"
                             onClick={async () => {
-                              if (window.confirm(`Delete method ${m.name}?`)) {
-                                await deleteShippingMethod(m.id);
-                                toast(isAr ? 'تم حذف طريقة الشحن' : 'Shipping method deleted', 'info');
-                              }
+                              const ok = await confirm({
+                                title: isAr ? 'حذف طريقة الشحن' : 'Delete shipping method',
+                                message: isAr
+                                  ? `هل تريد حذف طريقة الشحن «${m.name}»؟`
+                                  : `Delete shipping method “${m.name}”?`,
+                                confirmLabel: isAr ? 'حذف' : 'Delete',
+                                cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+                                danger: true,
+                              });
+                              if (!ok) return;
+                              await deleteShippingMethod(m.id);
+                              toast(isAr ? 'تم حذف طريقة الشحن' : 'Shipping method deleted', 'info');
                             }}
                             className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
                           >
@@ -1205,12 +1213,12 @@ export const ShippingZonesRatesView: React.FC = () => {
         <GlobalModal
           onClose={() => setShowManageCitiesModal(false)}
           dir={isAr ? 'rtl' : 'ltr'}
-          aria-label={isAr ? `إدارة مدن: ${activeZone.nameAr}` : `Manage Cities: ${activeZone.nameEn}`}
+          aria-label={isAr ? `إدارة مدن:${activeZone.nameAr}` : `Manage Cities: ${activeZone.nameEn}`}
         >
           <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                {isAr ? `إدارة مدن: ${activeZone.nameAr}` : `Manage Cities: ${activeZone.nameEn}`}
+                {isAr ? `إدارة مدن:${activeZone.nameAr}` : `Manage Cities: ${activeZone.nameEn}`}
               </h3>
               <button
                 type="button"
@@ -1241,10 +1249,21 @@ export const ShippingZonesRatesView: React.FC = () => {
                         <button
                           type="button"
                           onClick={async () => {
-                            if (window.confirm(`Delete ${c} from shipping zones?`)) {
-                              await deleteShippingCity(matchingZoneRecord.id);
-                              toast(`Deleted ${c}`, 'info');
-                            }
+                            const ok = await confirm({
+                              title: isAr ? 'حذف المدينة' : 'Remove city',
+                              message: isAr
+                                ? `هل تريد حذف «${c}» من مناطق الشحن؟`
+                                : `Remove “${c}” from shipping zones?`,
+                              confirmLabel: isAr ? 'حذف' : 'Delete',
+                              cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+                              danger: true,
+                            });
+                            if (!ok) return;
+                            await deleteShippingCity(matchingZoneRecord.id);
+                            toast(
+                              isAr ? `تم حذف${c}` : `Deleted ${c}`,
+                              'info',
+                            );
                           }}
                           className="text-slate-400 hover:text-rose-600 cursor-pointer"
                         >

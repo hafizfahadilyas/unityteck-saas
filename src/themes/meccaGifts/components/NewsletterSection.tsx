@@ -1,22 +1,40 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useTenant } from '../../../context/TenantContext';
+import { subscribeStoreNewsletter } from '../../../api/tenantApi';
 import { Mail, CheckCircle2 } from 'lucide-react';
 
 export const NewsletterSection: React.FC = () => {
-  const { language } = useApp();
+  const { language, showToast } = useApp();
+  const { activeStore } = useTenant();
   const isAr = language === 'ar';
 
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim()) {
+    const value = email.trim();
+    if (!value) return;
+    const storeId = activeStore?.id;
+    if (!storeId) {
+      showToast(isAr ? 'المتجر غير جاهز' : 'Store is not ready');
+      return;
+    }
+    setBusy(true);
+    try {
+      await subscribeStoreNewsletter(storeId, value);
       setSubscribed(true);
+      showToast(isAr ? 'تم الاشتراك بنجاح' : 'Subscribed successfully');
       setTimeout(() => {
         setEmail('');
         setSubscribed(false);
       }, 4000);
+    } catch {
+      showToast(isAr ? 'تعذر الاشتراك. تحقق من البريد وحاول مرة أخرى.' : 'Could not subscribe. Check the email and try again.');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -47,30 +65,56 @@ export const NewsletterSection: React.FC = () => {
         {subscribed ? (
           <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 inline-flex items-center gap-2 text-[#e6ca98] text-sm font-semibold animate-in fade-in">
             <CheckCircle2 className="w-5 h-5" />
-            <span>{isAr ? 'شكراً لاشتراكك! كود الخصم HADAYA10 وصلك بنجاح' : 'Thank you! Your promo code HADAYA10 is ready.'}</span>
+            <span>{isAr ? 'شكراً لاشتراكك — سنرسل لك التحديثات على بريدك' : 'Thank you — updates will be sent to your inbox.'}</span>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row items-center gap-2.5 max-w-md mx-auto pt-2">
-            <div className="relative w-full">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={isAr ? 'أدخل بريدك الإلكتروني' : 'Enter your email address'}
-                className="w-full py-3.5 px-4 pr-11 rtl:pr-11 rtl:pl-4 ltr:pl-11 ltr:pr-4 rounded-full bg-white/10 border border-white/25 text-white placeholder-white/60 text-xs sm:text-sm focus:outline-none focus:bg-white/20 focus:border-[#e6ca98] transition-all"
-              />
-              <Mail className="w-4 h-4 text-white/70 absolute top-4 right-4 rtl:right-4 rtl:left-auto ltr:left-4 ltr:right-auto" />
-            </div>
-            <button
-              type="submit"
-              className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-[#FAF9F5] text-[#102a1c] hover:bg-[#e6ca98] font-bold text-xs sm:text-sm whitespace-nowrap transition-all duration-200 shadow-lg active:scale-95"
-            >
-              {isAr ? 'انضم الآن' : 'Join Now'}
-            </button>
+          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+            <motionEmailInput
+              email={email}
+              setEmail={setEmail}
+              isAr={isAr}
+              busy={busy}
+            />
           </form>
         )}
       </div>
     </section>
   );
 };
+
+function motionEmailInput({
+  email,
+  setEmail,
+  isAr,
+  busy,
+}: {
+  email: string;
+  setEmail: (v: string) => void;
+  isAr: boolean;
+  busy: boolean;
+}) {
+  return (
+    <>
+      <div className="relative flex-1">
+        <Mail className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#ded7c8]/60" />
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder={isAr ? 'بريدك الإلكتروني' : 'Your email address'}
+          disabled={busy}
+          className="w-full ps-10 pe-4 py-3 rounded-full bg-white/10 border border-white/20 text-white placeholder:text-[#ded7c8]/50 text-sm focus:outline-none focus:ring-2 focus:ring-[#e6ca98]/40"
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={busy}
+        aria-busy={busy}
+        className="px-6 py-3 rounded-full bg-[#e6ca98] text-[#102a1c] text-sm font-bold hover:bg-[#f5ddb0] transition-colors disabled:opacity-60"
+      >
+        {isAr ? 'اشتراك' : 'Subscribe'}
+      </button>
+    </>
+  );
+}

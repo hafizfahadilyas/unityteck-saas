@@ -175,7 +175,7 @@ export const ProductOptionsPicker: React.FC<ProductOptionsPickerProps> = ({
               <span className="tabular-nums">
                 {parts.selling != null
                   ? isAr
-                    ? `${parts.selling} ر.س`
+                    ? `${parts.selling}ر.س`
                     : `SAR ${parts.selling}`
                   : '—'}
               </span>
@@ -184,14 +184,14 @@ export const ProductOptionsPicker: React.FC<ProductOptionsPickerProps> = ({
               <p className="text-slate-500">
                 {isAr ? 'سعر التجزئة' : 'MRP'}:{' '}
                 <span className="line-through tabular-nums">
-                  {isAr ? `${parts.mrp} ر.س` : `SAR ${parts.mrp}`}
+                  {isAr ? `${parts.mrp}ر.س` : `SAR ${parts.mrp}`}
                 </span>
               </p>
             )}
             {parts.discount > 0 && (
               <p className="font-bold text-rose-600">
                 {isAr
-                  ? `الخصم ${parts.discount} ر.س (${parts.percent}٪)`
+                  ? `الخصم${parts.discount}ر.س (${parts.percent}٪)`
                   : `Discount SAR ${parts.discount} (${parts.percent}%)`}
               </p>
             )}
@@ -208,10 +208,10 @@ export const ProductOptionsPicker: React.FC<ProductOptionsPickerProps> = ({
               <p className={`font-semibold ${low ? 'text-amber-600' : 'text-emerald-600'}`}>
                 {low
                   ? isAr
-                    ? `تنبيه المخزون: ${matched.stock} قطعة`
+                    ? `تنبيه المخزون:${matched.stock}قطعة`
                     : `Stock alert: ${matched.stock} items`
                   : isAr
-                    ? `المتوفر: ${matched.stock} قطعة`
+                    ? `المتوفر:${matched.stock}قطعة`
                     : `In stock: ${matched.stock} items`}
               </p>
             ) : (

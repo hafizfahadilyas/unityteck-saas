@@ -10,7 +10,7 @@ export const COFFEE_STORE_WORKSPACE_PATH = 'E:\\GOGLE\\hibrew-ksa-_-official-cof
 export const COFFEE_STORE_IDENTITY = {
   storeId: 'store-coffee',
   name: 'متجر مكائن ومستلزمات القهوة (HiBrew KSA)',
-  nameAr: 'متجر مكائن ومستلزمات القهوة (HiBrew KSA)',
+  nameAr: 'متجر مكائن ومستلزمات القهوة',
   nameEn: 'HiBrew KSA Official Coffee Store',
   slug: 'coffee-store',
   workspacePath: COFFEE_STORE_WORKSPACE_PATH,
