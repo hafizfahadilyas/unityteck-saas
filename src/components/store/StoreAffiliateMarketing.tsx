@@ -3,6 +3,7 @@ import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
+import { downloadCsv } from '../../utils/exportSpreadsheet';
 import {
   Users,
   ShoppingCart,
@@ -397,7 +398,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
 
   return (
     <div
-      className="p-4 sm:p-6 lg:p-6 space-y-6 max-w-[1650px] mx-auto text-slate-800 dark:text-slate-100"
+      className="u-page p-4 sm:p-6 lg:p-6 space-y-6 max-w-[1650px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0"
       dir={isAr ? 'rtl' : 'ltr'}
     >
       {/* Top Header */}
@@ -432,23 +433,23 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
 
           <button
             onClick={() => {
-              const csvContent =
-                'data:text/csv;charset=utf-8,' +
-                ['Order #,Affiliate,Offer,Amount,Commission,Date,Status']
-                  .concat(
-                    affiliateOrders.map(
-                      (o) =>
-                        `"${o.orderNumber}","${o.affiliateName}","${o.offerName}",${o.amount},${o.commission},"${o.orderDate}","${o.status}"`
-                    )
-                  )
-                  .join('\n');
-              const encodedUri = encodeURI(csvContent);
-              const link = document.createElement('a');
-              link.setAttribute('href', encodedUri);
-              link.setAttribute('download', `affiliates_report_${activeStore.id}.csv`);
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
+              if (!affiliateOrders.length) {
+                toast(isAr ? 'لا توجد سجلات للتصدير' : 'No records to export', 'info');
+                return;
+              }
+              const headers = isAr
+                ? ['رقم الطلب', 'المسوّق', 'العرض', 'المبلغ', 'العمولة', 'التاريخ', 'الحالة']
+                : ['Order #', 'Affiliate', 'Offer', 'Amount', 'Commission', 'Date', 'Status'];
+              const rows = affiliateOrders.map((o) => [
+                String(o.orderNumber ?? ''),
+                String(o.affiliateName ?? ''),
+                String(o.offerName ?? ''),
+                String(o.amount ?? ''),
+                String(o.commission ?? ''),
+                String(o.orderDate ?? ''),
+                String(o.status ?? ''),
+              ]);
+              downloadCsv(`affiliates_report_${activeStore.id}.csv`, [headers, ...rows]);
               toast(isAr ? 'تم تصدير التقرير بنجاح' : 'Report exported successfully', 'success');
             }}
             className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-teal-700 hover:bg-teal-800 text-white transition-colors shadow-sm"
@@ -459,10 +460,10 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
         </div>
       </div>
 
-      {/* 6 KPI Cards Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* 6 KPI Cards Grid — equal height */}
+      <div className="u-equal-sections grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         {/* Total Sales */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-4 shadow-sm space-y-3">
+        <div className="h-full min-h-[140px] w-full bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-4 shadow-sm flex flex-col justify-between gap-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
             <ShoppingCart className="w-5 h-5" />
           </div>
@@ -482,7 +483,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
         </div>
 
         {/* Total Orders */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-4 shadow-sm space-y-3">
+        <div className="h-full min-h-[140px] w-full bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-4 shadow-sm flex flex-col justify-between gap-3">
           <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-500 dark:text-rose-400">
             <ShoppingBag className="w-5 h-5" />
           </div>
@@ -502,7 +503,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
         </div>
 
         {/* Total Commission */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-4 shadow-sm space-y-3">
+        <div className="h-full min-h-[140px] w-full bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-4 shadow-sm flex flex-col justify-between gap-3">
           <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/50 flex items-center justify-center text-amber-500 dark:text-amber-400">
             <Coins className="w-5 h-5" />
           </div>
@@ -522,7 +523,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
         </div>
 
         {/* Affiliates */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-4 shadow-sm space-y-3">
+        <div className="h-full min-h-[140px] w-full bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-4 shadow-sm flex flex-col justify-between gap-3">
           <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
             <Users className="w-5 h-5" />
           </div>
@@ -542,7 +543,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
         </div>
 
         {/* Affiliate Visits */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-4 shadow-sm space-y-3">
+        <div className="h-full min-h-[140px] w-full bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-4 shadow-sm flex flex-col justify-between gap-3">
           <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-teal-600 dark:text-teal-400">
             <LinkIcon className="w-5 h-5" />
           </div>
@@ -562,7 +563,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
         </div>
 
         {/* Conversion Rate */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-4 shadow-sm space-y-3">
+        <div className="h-full min-h-[140px] w-full bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-4 shadow-sm flex flex-col justify-between gap-3">
           <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/50 flex items-center justify-center text-purple-600 dark:text-purple-400">
             <Percent className="w-5 h-5" />
           </div>
@@ -583,7 +584,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
       </div>
 
       {/* Middle Row: Performance Overview, Donut Chart, Latest Updates */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="u-equal-sections grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Performance Overview (col-span-5) */}
         <div className="lg:col-span-5 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">

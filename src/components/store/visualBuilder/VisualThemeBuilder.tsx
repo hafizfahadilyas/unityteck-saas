@@ -852,7 +852,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
     if (b.type === 'header' || b.type === 'navbar') {
       if (isCoffeeStore) {
         return wrapBlock(
-          <div className="hibrew-theme-root @container w-full max-w-full min-w-0 overflow-x-clip">
+          <div className="hibrew-theme-root @container w-full max-w-full min-w-0">
             <CoffeeCartProvider>
               <CoffeeHeader />
             </CoffeeCartProvider>
@@ -942,7 +942,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
 
     if (b.type === 'product_section_natural') {
       const defaultTitle = isCoffeeStore
-        ? (isAr ? 'حبوب القهوة المختصة الطازجة' : 'Fresh Specialty Coffee Beans')
+        ? (isAr ? 'منتجات المتجر' : 'Store Products')
         : (isAr ? 'باقات الورود الطبيعية' : 'Natural Fresh Flower Bouquets');
       const defaultSub = isCoffeeStore
         ? (isAr ? 'محاصيل مختصة فردية المصدر ومحمصة حديثاً بأعلى معايير الجودة العالمية' : 'Freshly roasted single-origin micro-lots meeting world specialty standards')
@@ -968,12 +968,8 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
     if (b.type === 'promo_countdown_banner') return wrapBlock(<PromoCountdownBanner />);
 
     if (b.type === 'product_section_luxury') {
-      const defaultTitle = isCoffeeStore
-        ? (isAr ? 'مجموعات وأطقم التحضير الاحترافية' : 'Professional Brewing Kits & Gear')
-        : (isAr ? 'هدايا ملكية فاخرة (رجالية ونسائية)' : 'Royal Luxury Gift Sets (Men & Women)');
-      const defaultSub = isCoffeeStore
-        ? (isAr ? 'أطقم باريستا متكاملة، موازين دقيقة ومطاحن يدوية احترافية' : 'Complete barista kits, precision scales, and premium hand grinders')
-        : (isAr ? 'أطقم هدايا استثنائية تضم عطوراً فاخرة، ساعات، أطقم مجوهرات وباقات زهور نضرة' : 'Signature executive and feminine luxury gift sets with blooms and fine accessories');
+      const defaultTitle = isAr ? 'منتجات مميزة' : 'Featured Products';
+      const defaultSub = isAr ? 'اكتشف أفضل منتجات متجرك' : 'Discover the best products from your store';
       return wrapBlock(
         <ProductSectionSlider
           title={isAr ? (b.settings.titleAr || b.settings.mainTitleAr || defaultTitle) : (b.settings.titleEn || b.settings.mainTitleEn || defaultTitle)}
@@ -992,12 +988,8 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
     }
 
     if (b.type === 'product_section_chocolate') {
-      const defaultTitle = isCoffeeStore
-        ? (isAr ? 'محاصيل مميزة وميكرولوت نادر' : 'Signature Micro-lots & Reserve Roasts')
-        : (isAr ? 'ورد وشوكولاتة بلجيكية فاخرة' : 'Roses & Luxury Belgian Chocolates');
-      const defaultSub = isCoffeeStore
-        ? (isAr ? 'إيحاءات غنية بالشوكولاتة الداكنة والمكسرات المحمصة والفواكه المجففة' : 'Rich tasting notes of dark chocolate, roasted nuts, and dried fruit')
-        : (isAr ? 'أفخم تشكيلات باتشي وبستاني المنسقة مع باقات الجوري الساحرة' : 'Signature Patchi and Bostani chocolate boxes paired with fresh roses');
+      const defaultTitle = isAr ? 'عروض خاصة' : 'Special Offers';
+      const defaultSub = isAr ? 'منتجات مختارة بعروض حصرية من متجرك' : 'Selected products with exclusive offers from your store';
       return wrapBlock(
         <ProductSectionSlider
           title={isAr ? (b.settings.titleAr || b.settings.mainTitleAr || defaultTitle) : (b.settings.titleEn || b.settings.mainTitleEn || defaultTitle)}
@@ -1016,12 +1008,8 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
     }
 
     if (b.type === 'product_section_cake') {
-      const defaultTitle = isCoffeeStore
-        ? (isAr ? 'أدوات ومكائن الإسبريسو والفلتر' : 'Espresso & Filter Brewing Equipment')
-        : (isAr ? 'ورد و كيك' : 'Roses & Gourmet Celebration Cakes');
-      const defaultSub = isCoffeeStore
-        ? (isAr ? 'أحدث معدات استخلاص القهوة والمكائن المنزلية والتجارية المعتمدة' : 'Advanced coffee extraction gear, certified home & commercial machines')
-        : (isAr ? 'كيك كوري خاص وكعكات الريد فيلفيت الطازجة لمناسبات أعياد الميلاد والتخرج' : 'Korean lunchbox cakes and artisan bakery paired with celebratory bouquets');
+      const defaultTitle = isAr ? 'وصل حديثاً' : 'New Arrivals';
+      const defaultSub = isAr ? 'أحدث المنتجات المضافة إلى متجرك' : 'Latest products added to your store';
       return wrapBlock(
         <ProductSectionSlider
           title={isAr ? (b.settings.titleAr || b.settings.mainTitleAr || defaultTitle) : (b.settings.titleEn || b.settings.mainTitleEn || defaultTitle)}
@@ -3586,7 +3574,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     setSelectedBlockId(liveBlocks[0]?.id || 'header');
     setHasUnsavedChanges(false);
     toast(
-      isAr ? 'تمت مزامنة واستعادة تصميم وأقسام المتجر المباشر بنجاح مع -sa.!' : 'Store design and sections synced successfully with live giftshop-sa.com!',
+      isAr ? 'تمت مزامنة واستعادة تصميم وأقسام المتجر المباشر بنجاح!' : 'Store design and sections synced successfully with the live storefront!',
       'success',
     );
   }, [activeStore, currentThemeId, isAr, toast]);
@@ -6053,7 +6041,9 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              {isAr ? `سيتم حفظ هذا التنسيق في مكتبة قوالب متجر لإعادة استخدامه في أي وقت وبشكل معزول تماماً.` : `This customized section style will be stored in ${activeStore.name}'s library for future reuse.`}
+              {isAr
+                ? 'سيتم حفظ هذا التنسيق في مكتبة قوالب متجرك لإعادة استخدامه في أي وقت وبشكل معزول تماماً.'
+                : 'This customized section style will be stored in your store library for future reuse.'}
             </p>
 
             <div className="space-y-3">

@@ -240,8 +240,8 @@ export const DomainRoutingTester: React.FC<DomainRoutingTesterProps> = ({ embedd
             dir={isAr ? 'rtl' : 'ltr'}
             placeholder={
               isAr 
-                ? 'اكتب أي نطاق أو نطاق فرعي للفحص (مثال: giftshop-sa.com أو coffee.unityteck.com)' 
-                : 'Enter any domain or subdomain (e.g. giftshop-sa.com, coffee.unityteck.com)'
+                ? 'اكتب أي نطاق أو نطاق فرعي للفحص (مثال: mystore.sa أو store.unityteck.com)'
+                : 'Enter any domain or subdomain (e.g. mystore.sa, store.unityteck.com)'
             }
             className={`w-full py-2.5 rounded-xl text-xs sm:text-sm border transition-all font-mono focus:outline-none focus:ring-1 focus:ring-teal-500 ${
               isAr ? 'pr-10 pl-4 text-right' : 'pl-10 pr-4 text-left'

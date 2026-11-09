@@ -5,9 +5,9 @@ import {
   Filter,
   Download,
   Bookmark,
-  ChevronDown,
 } from 'lucide-react';
 import { usePrefs } from '../../../i18n/PrefsContext';
+import { ModernSegmentedTabs } from '../../common/ModernSegmentedTabs';
 
 export type ReportTabKey =
   | 'overview'
@@ -51,13 +51,13 @@ export const ReportsNavHeader: React.FC<ReportsNavHeaderProps> = ({
 
   const reportTabs = [
     { key: 'overview' as ReportTabKey, labelAr: 'نظرة عامة', labelEn: 'Overview' },
-    { key: 'ai_insights' as ReportTabKey, labelAr: 'تحليلات AI', labelEn: 'AI Insights' },
+    { key: 'ai_insights' as ReportTabKey, labelAr: 'تحليلات الذكاء الاصطناعي', labelEn: 'AI Insights' },
     { key: 'sales_revenue' as ReportTabKey, labelAr: 'المبيعات والإيرادات', labelEn: 'Sales & Revenue' },
     { key: 'campaign' as ReportTabKey, labelAr: 'تحليلات الحملات', labelEn: 'Campaign Analytics' },
     { key: 'customers' as ReportTabKey, labelAr: 'تحليلات العملاء', labelEn: 'Customer Analytics' },
     { key: 'products' as ReportTabKey, labelAr: 'تحليلات المنتجات', labelEn: 'Product Analytics' },
-    { key: 'channels' as ReportTabKey, labelAr: 'تحليلات القنوات', labelEn: 'Channel Analytics' },
-    { key: 'behavior' as ReportTabKey, labelAr: 'سلوك الزوار', labelEn: 'Behavior Analytics', badge: 'Clarity' },
+    { key: 'channels' as ReportTabKey, labelAr: 'أداء القنوات التسويقية', labelEn: 'Marketing Channels Performance' },
+    { key: 'behavior' as ReportTabKey, labelAr: 'سلوك الزوار', labelEn: 'Behavior Analytics' },
   ];
 
   const formattedDateRange = React.useMemo(() => {
@@ -175,37 +175,18 @@ export const ReportsNavHeader: React.FC<ReportsNavHeaderProps> = ({
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════ */}
-      {/* SUB-NAVIGATION TAB BAR (Matching Image 3 Clean Underline Style) */}
-      {/* ═══════════════════════════════════════════════════════════════ */}
-      <div className="flex items-center gap-6 overflow-x-auto border-b border-slate-200 dark:border-slate-800 text-xs font-semibold scrollbar-none pt-1">
-        {reportTabs.map((tab) => {
-          const isActive = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => onSelectTab(tab.key)}
-              className={`pb-3 relative transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-                isActive
-                  ? 'text-blue-600 dark:text-blue-400 font-extrabold'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              <span>{isAr ? tab.labelAr : tab.labelEn}</span>
-              {tab.badge && (
-                <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-blue-50 text-blue-600 dark:bg-blue-950/70 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40">
-                  {tab.badge}
-                </span>
-              )}
-              {/* Active Bottom Indicator Line */}
-              {isActive && (
-                <span className="absolute bottom-0 inset-x-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {/* Modern segmented page tabs (full button toggles — no plain underline text) */}
+      <ModernSegmentedTabs
+        accent="blue"
+        aria-label={isAr ? 'أقسام التقارير' : 'Report sections'}
+        value={activeTab}
+        onChange={onSelectTab}
+        items={reportTabs.map((tab) => ({
+          id: tab.key,
+          label: isAr ? tab.labelAr : tab.labelEn,
+          badge: tab.badge,
+        }))}
+      />
     </div>
   );
 };

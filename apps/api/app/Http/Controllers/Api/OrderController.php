@@ -13,6 +13,8 @@ use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\Store;
 use App\Models\StoreBankAccount;
+use App\Services\Cashback\CashbackService;
+use App\Services\Loyalty\LoyaltyPointsService;
 use App\Services\Notification\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -628,8 +630,45 @@ class OrderController extends Controller
                 Log::warning('Order notification error (order_placed): ' . $e->getMessage());
             }
 
+            $freshOrder = $order->fresh(['items', 'customer']);
+
+            // If created already paid via card → one-time saved-card loyalty bonus
+            $createdPay = strtolower((string) ($freshOrder->payment_status ?? ''));
+            if (
+                in_array($createdPay, ['paid', 'completed', 'success', 'captured'], true)
+                && $this->isCardPaymentMethod((string) ($freshOrder->payment_method ?? ''))
+            ) {
+                try {
+                    app(LoyaltyPointsService::class)->awardSavedCardBonus(
+                        $storeId,
+                        (string) $customer->id,
+                        (string) $freshOrder->id
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning('Saved-card loyalty bonus on create failed: '.$e->getMessage(), [
+                        'store_id' => $storeId,
+                        'order_id' => $freshOrder->id,
+                    ]);
+                }
+            }
+
+            // If created already delivered/completed → loyalty + cashback schedule
+            $createdStatus = strtolower((string) ($freshOrder->status ?? ''));
+            if (in_array($createdStatus, ['completed', 'delivered'], true)) {
+                try {
+                    app(LoyaltyPointsService::class)->awardForOrder($freshOrder);
+                } catch (\Throwable $e) {
+                    Log::warning('Loyalty award on order create failed: '.$e->getMessage());
+                }
+                try {
+                    app(CashbackService::class)->scheduleForOrder($freshOrder);
+                } catch (\Throwable $e) {
+                    Log::warning('Cashback schedule on order create failed: '.$e->getMessage());
+                }
+            }
+
             return response()->json([
-                'data' => $order->fresh(['items', 'customer']),
+                'data' => $freshOrder,
                 'customer' => $customer->fresh(),
                 'low_stock_alerts' => $lowStockAlerts,
                 'message' => 'Order and Customer created, inventory auto-deducted successfully.',
@@ -838,6 +877,54 @@ class OrderController extends Controller
 
         // Real Email + WhatsApp + SMS on status / payment changes
         $fresh = $order->fresh(['items', 'customer', 'returns']);
+
+        // Loyalty earn triggers (order completed / delivered) — idempotent per store_id
+        if (
+            $newStatus !== $prevStatus
+            && in_array(strtolower((string) $newStatus), ['completed', 'delivered'], true)
+        ) {
+            try {
+                app(LoyaltyPointsService::class)->awardForOrder($fresh);
+            } catch (\Throwable $e) {
+                Log::warning('Loyalty award on order status failed: '.$e->getMessage(), [
+                    'store_id' => $storeId,
+                    'order_id' => $fresh->id,
+                ]);
+            }
+            try {
+                app(CashbackService::class)->scheduleForOrder($fresh);
+            } catch (\Throwable $e) {
+                Log::warning('Cashback schedule on order status failed: '.$e->getMessage(), [
+                    'store_id' => $storeId,
+                    'order_id' => $fresh->id,
+                ]);
+            }
+        }
+
+        $newPay = strtolower((string) ($fresh->payment_status ?? ''));
+        $oldPay = strtolower($prevPaymentStatus);
+
+        // One-time saved-card bonus when card payment becomes paid (Mada / Visa / Mastercard / Apple Pay)
+        if (
+            $newPay !== $oldPay
+            && in_array($newPay, ['paid', 'completed', 'success', 'captured'], true)
+            && ! empty($fresh->customer_id)
+            && $this->isCardPaymentMethod((string) ($fresh->payment_method ?? ''))
+        ) {
+            try {
+                app(LoyaltyPointsService::class)->awardSavedCardBonus(
+                    $storeId,
+                    (string) $fresh->customer_id,
+                    (string) $fresh->id
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Saved-card loyalty bonus failed: '.$e->getMessage(), [
+                    'store_id' => $storeId,
+                    'order_id' => $fresh->id,
+                ]);
+            }
+        }
+
         try {
             $notificationService = new NotificationService();
             if ($newStatus !== $prevStatus) {
@@ -854,8 +941,6 @@ class OrderController extends Controller
                 }
             }
 
-            $newPay = strtolower((string) ($fresh->payment_status ?? ''));
-            $oldPay = strtolower($prevPaymentStatus);
             if ($newPay !== $oldPay) {
                 if (in_array($newPay, ['paid', 'completed', 'success', 'captured'], true)) {
                     $notificationService->sendOrderNotification('payment_received', $fresh);
@@ -1080,7 +1165,13 @@ class OrderController extends Controller
             'reason' => ['nullable', 'string', 'max:500'],
             'deletion_reason' => ['nullable', 'string', 'max:500'],
         ]);
-        $reason = trim((string) ($data['reason'] ?? $data['deletion_reason'] ?? ''));
+        $reason = trim((string) (
+            $data['reason']
+            ?? $data['deletion_reason']
+            ?? $request->query('reason')
+            ?? $request->query('deletion_reason')
+            ?? ''
+        ));
 
         $order = Order::query()->withoutGlobalScope('store')->forStore($storeId)->with('items')->where('id', $id)->firstOrFail();
 
@@ -1103,12 +1194,24 @@ class OrderController extends Controller
                 }
             }
 
-            // Persist why it was removed (audit) before hard delete.
+            // Persist why it was removed (audit trail on related returns table if needed).
+            // Do not soft-cancel then leave the row — merchant asked for hard permanent delete.
             if ($reason !== '') {
                 $order->return_reason = $reason;
                 $order->return_notes = 'Deleted: '.$reason;
-                $order->status = 'cancelled';
                 $order->save();
+            }
+
+            // Explicit child cleanup (cascade FKs also cover these; keeps Hostinger DBs without FK safe).
+            $order->items()->delete();
+            if (method_exists($order, 'returns')) {
+                $order->returns()->delete();
+            }
+            if (method_exists($order, 'installments')) {
+                $order->installments()->delete();
+            }
+            if (method_exists($order, 'shipments')) {
+                $order->shipments()->delete();
             }
 
             $order->delete();
@@ -1116,7 +1219,7 @@ class OrderController extends Controller
 
         return response()->json([
             'data' => null,
-            'message' => 'Order deleted and inventory restored.',
+            'message' => 'Order permanently deleted and inventory restored.',
             'reason' => $reason !== '' ? $reason : null,
         ]);
     }
@@ -1168,5 +1271,37 @@ class OrderController extends Controller
         }
 
         return 0;
+    }
+
+    /**
+     * Card / wallet-on-card methods eligible for one-time saved-card loyalty bonus.
+     * Excludes COD and bank transfer.
+     */
+    protected function isCardPaymentMethod(string $method): bool
+    {
+        $m = strtolower(trim($method));
+        if ($m === '') {
+            return false;
+        }
+        if (
+            str_contains($m, 'cod')
+            || str_contains($m, 'cash')
+            || str_contains($m, 'bank')
+            || str_contains($m, 'transfer')
+            || str_contains($m, 'wallet')
+        ) {
+            return false;
+        }
+
+        return str_contains($m, 'mada')
+            || str_contains($m, 'visa')
+            || str_contains($m, 'master')
+            || str_contains($m, 'apple')
+            || str_contains($m, 'card')
+            || str_contains($m, 'credit')
+            || str_contains($m, 'debit')
+            || str_contains($m, 'stc')
+            || str_contains($m, 'tabby')
+            || str_contains($m, 'tamara');
     }
 }

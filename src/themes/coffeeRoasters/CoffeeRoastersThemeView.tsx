@@ -21,6 +21,8 @@ import './coffeeRoasters.css';
 import './themeFlow.css';
 import { captureTrafficSource } from '../../utils/trafficSource';
 import { trackStorefrontEvent } from '../../utils/storefrontAnalytics';
+import { LoyaltyGiftPointsPopup } from '../../components/storefront/LoyaltyGiftPointsPopup';
+import { readSfCustomer } from '../flowersPremium/sfCustomerSession';
 
 // Code-split secondary routes for blazing fast initial homepage load
 const ProductsListPage = lazy(() => import('./components/ProductsListPage').then(m => ({ default: m.ProductsListPage })));
@@ -111,11 +113,30 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
   }
 
   const [settingsVer, setSettingsVer] = useState(0);
+  const storeIdForLoyalty = tenant?.activeStore?.id || '';
+  const [loyaltyCustomerId, setLoyaltyCustomerId] = useState<string | null>(() =>
+    storeIdForLoyalty ? readSfCustomer(storeIdForLoyalty)?.customerId || null : null,
+  );
   useEffect(() => {
     const onThemeChange = () => setSettingsVer((v) => v + 1);
     window.addEventListener('unityteck-theme-settings', onThemeChange);
     return () => window.removeEventListener('unityteck-theme-settings', onThemeChange);
   }, []);
+
+  useEffect(() => {
+    if (!storeIdForLoyalty) {
+      setLoyaltyCustomerId(null);
+      return;
+    }
+    const sync = () => setLoyaltyCustomerId(readSfCustomer(storeIdForLoyalty)?.customerId || null);
+    sync();
+    window.addEventListener('unityteck-sf-customer-ready', sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener('unityteck-sf-customer-ready', sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, [storeIdForLoyalty]);
 
   useEffect(() => {
     if (isAdmin) return;
@@ -428,6 +449,11 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
 
       {/* Floating Customer Support & Quick Dock */}
       <FloatingHelpWidget />
+
+      {/* Loyalty gift points popup (store-scoped; real ledger credits) */}
+      {storeIdForLoyalty ? (
+        <LoyaltyGiftPointsPopup storeId={storeIdForLoyalty} customerId={loyaltyCustomerId} />
+      ) : null}
 
       {/* 6. Toast Notification */}
       {toastMessage && (

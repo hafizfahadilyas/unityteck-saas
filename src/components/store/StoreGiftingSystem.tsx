@@ -179,23 +179,17 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
     }
     return {
       id: 'prod-def',
-      name: isAr ? `${activeStore.name}باقة مميزة` : `${activeStore.name} Signature Product`,
+      name: isAr ? 'منتج مميز من متجرك' : 'Signature Product from Your Store',
       price: 180,
       image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60',
     };
   }, [currentProducts, activeStore.name, isAr]);
 
-  // Store niche subtitle
-  const storeNicheSubtitle = useMemo(() => {
-    const s = (activeStore.slug || '').toLowerCase();
-    if (s.includes('coffee')) {
-      return isAr ? 'القهوة المختصة • المحامص • الهدايا' : 'Specialty Coffee • Roastery • Hampers';
-    }
-    if (s.includes('bleco') || s.includes('car')) {
-      return isAr ? 'العناية بالسيارات • نانو سيراميك • خدمات كبار العملاء' : 'Automotive Detailing • Ceramic Shield • VIP Care';
-    }
-    return isAr ? 'الزهور • الهدايا الفاخرة • التغليف' : 'Flowers • Gifts • Luxury Packaging';
-  }, [activeStore.slug, isAr]);
+  // General chrome subtitle (no niche / store-brand hardcoding — 100+ stores)
+  const storeNicheSubtitle = useMemo(
+    () => (isAr ? 'الهدايا • التغليف • كروت المعايدة' : 'Gifts • Packaging • Greeting Cards'),
+    [isAr],
+  );
 
   // Selected Box Object
   const currentSelectedBox = useMemo(() => {
@@ -231,14 +225,14 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
   return (
     <div
       dir={isAr ? 'rtl' : 'ltr'}
-      className="p-4 sm:p-6 lg:p-6 space-y-6 max-w-[1650px] mx-auto text-slate-800 dark:text-slate-100 transition-colors"
+      className="u-page p-4 sm:p-6 lg:p-6 space-y-6 max-w-[1650px] mx-auto text-slate-800 dark:text-slate-100 transition-colors w-full min-w-0"
     >
       {/* Header Banner matching Reference Image */}
       <div className="bg-gradient-to-r from-pink-50 via-purple-50 to-indigo-50 dark:from-slate-900 dark:via-purple-950/20 dark:to-slate-900 border border-pink-100 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs font-bold text-pink-600 dark:text-pink-400">
             <Gift className="w-4 h-4" />
-            <span>{activeStore.name}</span>
+            <span>{isAr ? 'أدوات التسويق' : 'Marketing Tools'}</span>
             <span>•</span>
             <span className="text-slate-500 dark:text-slate-400">{storeNicheSubtitle}</span>
           </div>
@@ -575,8 +569,8 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
                 </span>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   {isAr
-                    ? `مفعل تلقائياً لجميع منتجات متجر${activeStore.name}(${currentProducts?.length || 0}منتج).`
-                    : `Active across all catalog items for ${activeStore.name} (${currentProducts?.length || 0} products).`}
+                    ? `مفعّل تلقائياً لجميع منتجات متجرك (${currentProducts?.length || 0} منتج).`
+                    : `Active across all catalog items in your store (${currentProducts?.length || 0} products).`}
                 </p>
               </div>
             )}
@@ -976,8 +970,8 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
               <Gift className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
               <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
                 {isAr
-                  ? `لا توجد طلبات إهداء مسجلة حتى الآن لمتجر${activeStore.name}`
-                  : `No gift orders recorded yet for ${activeStore.name}`}
+                  ? 'لا توجد طلبات إهداء مسجلة حتى الآن في هذا المتجر'
+                  : 'No gift orders recorded yet for this store'}
               </div>
               <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
                 {isAr

@@ -28,9 +28,13 @@ import {
   ArrowRight,
   Eye,
 } from 'lucide-react';
+import { ModernSegmentedTabs } from '../../common/ModernSegmentedTabs';
 import { CourierShippingLabelModal } from '../orders/CourierShippingLabelModal';
 import type { ShippingLabelData, CourierCarrierCode } from '../../../utils/courierBarcode';
 import { getCustomerDisplayName } from '../../../utils/storeLocalization';
+import { downloadCsv } from '../../../utils/exportSpreadsheet';
+import { useSaudiCityOptions } from '../../../hooks/useSaudiCityOptions';
+import { SaudiCitySelect } from '../../common/SaudiCitySelect';
 
 interface ShipmentsTrackingViewProps {
   onNavigateToLabels?: (orderId?: string) => void;
@@ -38,6 +42,11 @@ interface ShipmentsTrackingViewProps {
 
 export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ onNavigateToLabels }) => {
   const { currentShipments, currentOrders, activeStore, updateShipmentStatus } = useTenant();
+  const {
+    cities: saudiCities,
+    addCity: addSaudiCity,
+    removeCity: removeSaudiCity,
+  } = useSaudiCityOptions(activeStore?.id);
   const { locale, money } = usePrefs();
   const isAr = locale === 'ar';
   const { toast } = useToast();
@@ -47,8 +56,10 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
   const [searchQuery, setSearchQuery] = useState('');
   const [courierFilter, setCourierFilter] = useState<string>('all');
   const [statusDropdownFilter, setStatusDropdownFilter] = useState<string>('all');
-  const [dateRange, setDateRange] = useState('Oct 1, 2026 - Oct 31, 2026');
-  const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [cityFilter, setCityFilter] = useState('all');
+  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [selectedShipmentId, setSelectedShipmentId] = useState<string | null>(null);
   const [selectedRowIds, setSelectedRowIds] = useState<Record<string, boolean>>({});
 
@@ -222,9 +233,30 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
         if (!matchOrder && !matchTrk && !matchCust && !matchCity) return false;
       }
 
+      // 5. Advanced panel: city
+      if (cityFilter !== 'all') {
+        const city = (item.city || '').toLowerCase();
+        const want = cityFilter.toLowerCase();
+        if (!city.includes(want) && !want.includes(city)) return false;
+      }
+
+      // 6. Advanced panel: date range (orderDate ISO / parseable)
+      if (dateFrom || dateTo) {
+        const ts = Date.parse(item.orderDate);
+        if (!Number.isFinite(ts)) return false;
+        if (dateFrom) {
+          const fromTs = Date.parse(dateFrom);
+          if (Number.isFinite(fromTs) && ts < fromTs) return false;
+        }
+        if (dateTo) {
+          const toTs = Date.parse(dateTo) + 86_400_000 - 1;
+          if (Number.isFinite(toTs) && ts > toTs) return false;
+        }
+      }
+
       return true;
     });
-  }, [unifiedShipments, activeTab, statusDropdownFilter, courierFilter, searchQuery]);
+  }, [unifiedShipments, activeTab, statusDropdownFilter, courierFilter, searchQuery, cityFilter, dateFrom, dateTo]);
 
   // Pagination calculation
   const totalPages = Math.max(1, Math.ceil(filteredShipments.length / pageSize));
@@ -248,31 +280,26 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
     toast(isAr ? 'تم نسخ رقم التتبع إلى الحافظة' : 'Tracking number copied to clipboard', 'info');
   };
 
-  // Export CSV helper
+  // Export CSV helper — real shipment rows; Excel-safe columns
   const handleExport = () => {
     if (filteredShipments.length === 0) {
       toast(isAr ? 'لا توجد شحنات لتصديرها' : 'No shipments available to export', 'error');
       return;
     }
-    const headers = ['Order #', 'Tracking Number', 'Customer', 'City', 'Courier', 'Status', 'Date', 'Shipping Cost'];
+    const headers = isAr
+      ? ['رقم الطلب', 'رقم التتبع', 'العميل', 'المدينة', 'شركة الشحن', 'الحالة', 'التاريخ', 'تكلفة الشحن']
+      : ['Order #', 'Tracking Number', 'Customer', 'City', 'Courier', 'Status', 'Date', 'Shipping Cost'];
     const rows = filteredShipments.map((s) => [
-      s.orderNumber,
-      s.trackingNumber,
-      `"${s.customerName}"`,
-      s.city,
-      s.provider.toUpperCase(),
-      s.status,
-      new Date(s.orderDate).toLocaleDateString(),
-      s.shippingCost,
+      String(s.orderNumber ?? ''),
+      String(s.trackingNumber ?? ''),
+      String(s.customerName ?? ''),
+      String(s.city ?? ''),
+      String(s.provider || '').toUpperCase(),
+      String(s.status ?? ''),
+      s.orderDate ? new Date(s.orderDate).toLocaleDateString(isAr ? 'ar-SA' : 'en-GB') : '',
+      String(s.shippingCost ?? ''),
     ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `shipments_${activeStore?.id || 'store'}_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadCsv(`shipments_${activeStore?.id || 'store'}_${Date.now()}.csv`, [headers, ...rows]);
     toast(isAr ? 'تم تصدير ملف الشحنات بنجاح' : 'Shipments exported successfully', 'success');
   };
 
@@ -456,8 +483,13 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
         <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 shadow-xs">
             <Calendar className="w-4 h-4 text-slate-400" />
-            <span>{dateRange}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            <span>
+              {dateFrom || dateTo
+                ? `${dateFrom || '…'} — ${dateTo || '…'}`
+                : isAr
+                  ? 'كل التواريخ'
+                  : 'All dates'}
+            </span>
           </div>
 
           <button
@@ -597,45 +629,24 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
         </div>
       </div>
 
-      {/* ── 3. Status Tabs Navigation ── */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto pb-px">
-        {[
-          { key: 'all', label: isAr ? 'جميع الشحنات' : 'All Shipments', count: stats.total },
-          { key: 'pending', label: isAr ? 'قيد الانتظار' : 'Pending', count: stats.pending },
-          { key: 'in_transit', label: isAr ? 'في الطريق' : 'In Transit', count: stats.inTransit },
-          { key: 'delivered', label: isAr ? 'تم التوصيل' : 'Delivered', count: stats.delivered },
-          { key: 'failed', label: isAr ? 'فشل التوصيل' : 'Failed', count: stats.failed },
-          { key: 'returned', label: isAr ? 'مرتجع' : 'Returned', count: stats.returned },
-        ].map((tab) => {
-          const isActive = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => {
-                setActiveTab(tab.key as any);
-                setCurrentPage(1);
-              }}
-              className={`px-3.5 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-all flex items-center gap-2 ${
-                isActive
-                  ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              <span>{tab.label}</span>
-              <span
-                className={`text-[11px] px-1.5 py-0.2 rounded-full font-bold ${
-                  isActive
-                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
-                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                }`}
-              >
-                {tab.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {/* ── 3. Status Tabs — modern segmented toggles ── */}
+      <ModernSegmentedTabs
+        accent="blue"
+        aria-label={isAr ? 'حالة الشحنات' : 'Shipment status'}
+        value={activeTab}
+        onChange={(key) => {
+          setActiveTab(key as typeof activeTab);
+          setCurrentPage(1);
+        }}
+        items={[
+          { id: 'all', label: isAr ? 'جميع الشحنات' : 'All Shipments', count: stats.total },
+          { id: 'pending', label: isAr ? 'قيد الانتظار' : 'Pending', count: stats.pending },
+          { id: 'in_transit', label: isAr ? 'في الطريق' : 'In Transit', count: stats.inTransit },
+          { id: 'delivered', label: isAr ? 'تم التوصيل' : 'Delivered', count: stats.delivered },
+          { id: 'failed', label: isAr ? 'فشل التوصيل' : 'Failed', count: stats.failed },
+          { id: 'returned', label: isAr ? 'مرتجع' : 'Returned', count: stats.returned },
+        ]}
+      />
 
       {/* ── 4. Search and Filters Toolbar ── */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
@@ -702,17 +713,96 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
             <option value="ups">UPS</option>
           </select>
 
-          {/* Additional Filter Button */}
+          {/* Additional Filter Button — expands inline (no overlay on table) */}
           <button
             type="button"
-            onClick={() => setShowFiltersModal(!showFiltersModal)}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs transition-colors"
+            onClick={() => setShowFiltersPanel((v) => !v)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border shadow-xs transition-colors ${
+              showFiltersPanel || cityFilter !== 'all' || dateFrom || dateTo
+                ? 'border-teal-500 text-teal-700 bg-teal-50/70 dark:bg-teal-950/40 dark:text-teal-300'
+                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+            aria-expanded={showFiltersPanel}
           >
             <Filter className="w-3.5 h-3.5" />
             <span>{isAr ? 'تصفية' : 'Filters'}</span>
           </button>
         </div>
       </div>
+
+      {showFiltersPanel && (
+        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-bold text-slate-900 dark:text-white">
+              {isAr ? 'تصفية الشحنات' : 'Filter Shipments'}
+            </span>
+            {(cityFilter !== 'all' || dateFrom || dateTo) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCityFilter('all');
+                  setDateFrom('');
+                  setDateTo('');
+                  setCurrentPage(1);
+                }}
+                className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+              >
+                {isAr ? 'إعادة تعيين' : 'Reset'}
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                {isAr ? 'المدينة' : 'City'}
+              </label>
+              <SaudiCitySelect
+                value={cityFilter === 'all' ? 'All' : cityFilter}
+                onChange={(v) => {
+                  setCityFilter(v === 'All' ? 'all' : v);
+                  setCurrentPage(1);
+                }}
+                cities={saudiCities}
+                isAr={isAr}
+                includeAllOption
+                allLabel={isAr ? 'كل المدن' : 'All cities'}
+                manageEnabled
+                onAddCity={(nameEn, nameAr) => addSaudiCity({ nameEn, nameAr })}
+                onRemoveCity={removeSaudiCity}
+                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                {isAr ? 'من تاريخ' : 'From date'}
+              </label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => {
+                  setDateFrom(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                {isAr ? 'إلى تاريخ' : 'To date'}
+              </label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => {
+                  setDateTo(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 5. Shipments Data Table ── */}
       <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs">

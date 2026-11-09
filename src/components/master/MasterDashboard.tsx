@@ -738,7 +738,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                 deltaLabel={vsLastWeek}
               />
               <OverviewStatCard
-                label={t('activePromotions') || 'Active Promotions'}
+                label={t('activeCoupons') || (isAr ? 'الكوبونات النشطة' : 'Active Coupons')}
                 value={amount(activeCouponsCount)}
                 icon={Tag}
                 tone="accent"

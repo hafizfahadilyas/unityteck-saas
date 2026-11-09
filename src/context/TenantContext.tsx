@@ -86,7 +86,7 @@ import { readAuthSession, writeAuthSession, hasLiveApiAuth, clearAuthSession } f
 import { exchangeClerkForSanctum } from '../auth/api';
 import { DEFAULT_COMMERCE_THEME_ID, defaultThemeSettings } from '../auth/defaultTheme';
 import { effectivePlanCode } from '../auth/plans';
-import { canDeleteEntities } from '../auth/roles';
+import { canDeleteEntities, canDeleteStoreOrders } from '../auth/roles';
 import { toUserFriendlyError } from '../utils/userFriendlyError';
 
 const API_MODE = isApiEnabled();
@@ -129,11 +129,56 @@ function readLeanLocalJson<T>(key: string, maxChars: number): T | null {
 
 purgeHeavyDashboardCaches();
 
+/** Hard-deleted order ids — block stale GET/merge from resurrecting rows (~3 min). */
+const DELETED_ORDER_TOMBSTONE_MS = 180_000;
+const deletedOrderTombstones = new Map<string, number>();
+
+function rememberDeletedOrder(orderId: string): void {
+  const id = String(orderId || '').trim();
+  if (!id) return;
+  deletedOrderTombstones.set(id, Date.now());
+}
+
+function pruneDeletedOrderTombstones(now = Date.now()): void {
+  for (const [id, at] of deletedOrderTombstones) {
+    if (now - at > DELETED_ORDER_TOMBSTONE_MS) deletedOrderTombstones.delete(id);
+  }
+}
+
+function isOrderTombstoned(orderId: string | undefined, now = Date.now()): boolean {
+  const id = String(orderId || '').trim();
+  if (!id) return false;
+  const at = deletedOrderTombstones.get(id);
+  if (at == null) return false;
+  if (now - at > DELETED_ORDER_TOMBSTONE_MS) {
+    deletedOrderTombstones.delete(id);
+    return false;
+  }
+  return true;
+}
+
 function mergeOrdersKeepItems(prevList: Order[], incoming: Order[]): Order[] {
-  if (!prevList.length) return incoming;
-  if (!incoming.length) return prevList;
+  const now = Date.now();
+  pruneDeletedOrderTombstones(now);
+  const filterAlive = (list: Order[]) => list.filter((o) => !isOrderTombstoned(o.id, now));
+
+  if (!prevList.length) return filterAlive(incoming);
+  // Empty API payload after delete must win — never resurrect the previous list.
+  if (!incoming.length) {
+    const guardMs = 120_000;
+    return filterAlive(
+      prevList.filter((o) => {
+        if (!o.id || isOrderTombstoned(o.id, now)) return false;
+        const raw = o.createdAt || (o.date && o.time ? `${o.date}T${o.time}` : o.date) || '';
+        const ts = raw ? Date.parse(raw.includes(' ') ? raw.replace(' ', 'T') : raw) : NaN;
+        // Only keep very fresh local creates a stale empty GET may omit.
+        if (!ts || Number.isNaN(ts)) return false;
+        return now - ts < guardMs;
+      }),
+    );
+  }
   const prevById = new Map(prevList.map((o) => [o.id, o]));
-  const mergedIncoming = incoming.map((o) => {
+  const mergedIncoming = filterAlive(incoming).map((o) => {
     const old = prevById.get(o.id);
     let next = o;
     // Keep line items when lean GET omits them.
@@ -149,12 +194,11 @@ function mergeOrdersKeepItems(prevList: Order[], incoming: Order[]): Order[] {
   // Union by id: keep just-created local rows a stale GET may omit (≈2 min).
   const incomingIds = new Set(mergedIncoming.map((o) => o.id));
   const guardMs = 120_000;
-  const now = Date.now();
   const localOnly = prevList.filter((o) => {
-    if (!o.id || incomingIds.has(o.id)) return false;
+    if (!o.id || incomingIds.has(o.id) || isOrderTombstoned(o.id, now)) return false;
     const raw = o.createdAt || (o.date && o.time ? `${o.date}T${o.time}` : o.date) || '';
     const ts = raw ? Date.parse(raw.includes(' ') ? raw.replace(' ', 'T') : raw) : NaN;
-    if (!ts || Number.isNaN(ts)) return true;
+    if (!ts || Number.isNaN(ts)) return false;
     return now - ts < guardMs;
   });
   if (!localOnly.length) return mergedIncoming;
@@ -317,7 +361,7 @@ interface TenantContextType {
   deleteOrder: (orderId: string, targetStoreId?: string) => void;
   archiveOrder: (orderId: string, targetStoreId?: string) => void;
   restoreOrder: (orderId: string, targetStoreId?: string) => void;
-  permanentDeleteOrder: (orderId: string, targetStoreId?: string, reason?: string) => void;
+  permanentDeleteOrder: (orderId: string, targetStoreId?: string, reason?: string) => Promise<boolean>;
 
   // Coupons
   currentCoupons: CouponItem[];
@@ -2228,8 +2272,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const currentMedia = useMemo(() => {
     let storeMedia = mediaMap[activeStoreId];
 
-    // On-the-fly sanity heal for store-bleco (never show coffee or flowers)
-    if (activeStoreId === 'store-bleco') {
+    // On-the-fly sanity heal for demo seeds only — live API never injects another store's media
+    if (!API_MODE && activeStoreId === 'store-bleco') {
       const isContaminated = !storeMedia || storeMedia.length === 0 || storeMedia.some(
         (m) =>
           m.id?.startsWith('med-cof') ||
@@ -2240,7 +2284,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (isContaminated) {
         storeMedia = INITIAL_MEDIA['store-bleco'];
       }
-    } else if (activeStoreId === 'store-coffee') {
+    } else if (!API_MODE && activeStoreId === 'store-coffee') {
       const isContaminated = !storeMedia || storeMedia.length < 30 || storeMedia.some(
         (m) =>
           m.id?.startsWith('med-blc') ||
@@ -2250,7 +2294,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (isContaminated) {
         storeMedia = INITIAL_MEDIA['store-coffee'];
       }
-    } else if (activeStoreId === 'store-1') {
+    } else if (!API_MODE && activeStoreId === 'store-1') {
       const isContaminated = !storeMedia || storeMedia.length === 0 || storeMedia.some(
         (m) => m.id?.startsWith('med-cof') || m.id?.startsWith('med-blc')
       );
@@ -2261,7 +2305,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const baseList = (storeMedia && storeMedia.length > 0)
       ? storeMedia
-      : (INITIAL_MEDIA[activeStoreId] || []);
+      : API_MODE
+        ? []
+        : (INITIAL_MEDIA[activeStoreId] || []);
 
     const storeProducts = productsMap[activeStoreId] || (API_MODE ? [] : INITIAL_PRODUCTS[activeStoreId] || []);
     const storeObj = stores.find((s) => s.id === activeStoreId);
@@ -3123,7 +3169,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return next;
     });
 
-    if (API_MODE) {
+    if (isLiveApiActive()) {
       tenantApi.updateThemeSettingsApi(storeId, { theme_id: themeId }).catch((err) => {
         console.warn(`[TenantContext] Failed to sync active theme ${themeId} to backend:`, err);
       });
@@ -3324,6 +3370,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           city: customerData.city,
           country: customerData.country,
           gender: customerData.gender,
+          dob: customerData.dob || null,
           group: customerData.group,
           acquisition_source: customerData.source,
           status: customerData.status,
@@ -3382,6 +3429,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (updates.city !== undefined) body.city = updates.city;
       if (updates.country !== undefined) body.country = updates.country;
       if (updates.gender !== undefined) body.gender = updates.gender;
+      if (updates.dob !== undefined) body.dob = updates.dob || null;
       if (updates.group !== undefined) body.group = updates.group;
       if (updates.source !== undefined) body.acquisition_source = updates.source;
       if (updates.status !== undefined) body.status = updates.status;
@@ -4507,24 +4555,41 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const permanentDeleteOrder = (orderId: string, targetStoreId?: string, reason?: string) => {
+  const permanentDeleteOrder = async (
+    orderId: string,
+    targetStoreId?: string,
+    reason?: string,
+  ): Promise<boolean> => {
     const session = readAuthSession();
-    if (session?.user?.role && !canDeleteEntities(session.user.role)) {
+    if (session?.user?.role && !canDeleteStoreOrders(session.user.role)) {
       console.warn('Security guard blocked permanentDeleteOrder: role unauthorized to delete orders.');
-      setApiError('Access Denied: Partner role cannot delete orders.');
-      return;
+      setApiError('Access Denied: your role cannot delete orders.');
+      return false;
     }
+
     let resolvedStoreId = targetStoreId || activeStoreId;
     let deletedLabel = orderId;
+    let removedOrder: Order | null = null;
+
+    // Snapshot before optimistic removal so API failure can restore the row.
+    for (const [sId, list] of Object.entries(ordersMap)) {
+      const hit = (list || []).find((o) => o.id === orderId);
+      if (hit) {
+        resolvedStoreId = sId;
+        deletedLabel = hit.orderNumber || hit.id;
+        removedOrder = hit;
+        break;
+      }
+    }
+
+    // Tombstone first so any in-flight GET/merge cannot resurrect this row.
+    rememberDeletedOrder(orderId);
+
     setOrdersMap((prev) => {
       const next = { ...prev };
       for (const sId of Object.keys(next)) {
-        const hit = next[sId]?.find((o) => o.id === orderId);
-        if (hit) {
-          resolvedStoreId = sId;
-          deletedLabel = hit.orderNumber || hit.id;
+        if (next[sId]?.some((o) => o.id === orderId)) {
           next[sId] = next[sId].filter((o) => o.id !== orderId);
-          break;
         }
       }
       saveOrdersMap(next);
@@ -4532,6 +4597,43 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     const reasonText = (reason || '').trim();
+    const shouldHitApi = isApiEnabled() && (dataSourceRef.current === 'api' || hasLiveApiAuth());
+
+    if (shouldHitApi) {
+      try {
+        await tenantApi.deleteOrder(
+          resolvedStoreId,
+          orderId,
+          reasonText ? { reason: reasonText } : undefined,
+        );
+        bumpCacheTag(storeTag(resolvedStoreId, 'orders'));
+        bumpCacheTag(storeTag(resolvedStoreId, 'customers'));
+        // Replace from API (merge still filters tombstones) so UI stays hard-deleted.
+        await revalidateResource(resolvedStoreId, 'orders');
+        void revalidateResource(resolvedStoreId, 'customers');
+      } catch (err) {
+        // Restore optimistic removal when API rejects the delete
+        deletedOrderTombstones.delete(orderId);
+        if (removedOrder) {
+          const restore = removedOrder;
+          setOrdersMap((prev) => {
+            const list = prev[resolvedStoreId] || [];
+            if (list.some((o) => o.id === restore.id)) return prev;
+            const next = {
+              ...prev,
+              [resolvedStoreId]: [restore, ...list],
+            };
+            saveOrdersMap(next);
+            return next;
+          });
+        }
+        const msg = err instanceof Error ? err.message : 'Order delete failed';
+        setApiError(msg);
+        console.warn('API Order delete failed:', err);
+        return false;
+      }
+    }
+
     if (reasonText) {
       addActivity({
         title: 'Order deleted',
@@ -4539,20 +4641,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         type: 'order',
       });
     }
-
-    if (dataSourceRef.current === 'api') {
-      void tenantApi
-        .deleteOrder(resolvedStoreId, orderId, reasonText ? { reason: reasonText } : undefined)
-        .then(() => {
-          bumpCacheTag(storeTag(resolvedStoreId, 'orders'));
-          bumpCacheTag(storeTag(resolvedStoreId, 'customers'));
-          void revalidateResource(resolvedStoreId, 'orders');
-          void revalidateResource(resolvedStoreId, 'customers');
-        })
-        .catch((err) => {
-          console.warn('API Order delete note:', err);
-        });
-    }
+    return true;
   };
 
   const deleteOrder = (orderId: string, targetStoreId?: string) => {
@@ -4758,7 +4847,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const sId = storeId || activeStoreId;
     if (!sId) return;
 
-    // Throttle / de-duplicate: record visit once per session to avoid infinite re-render cascades
+    // Live API path: visits come only from storefront analytics events — never inflate localStorage.
+    if (isApiEnabled()) {
+      return;
+    }
+
+    // Throttle / de-duplicate: record visit once per session (offline-only fallback)
     try {
       if (typeof sessionStorage !== 'undefined') {
         const visitedKey = `unityteck_visited_${sId}`;

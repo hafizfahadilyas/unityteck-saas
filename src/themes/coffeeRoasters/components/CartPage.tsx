@@ -4,6 +4,8 @@ import { cartChoiceLine } from '../cartLine';
 import { useTenant } from '../../../context/TenantContext';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 import { Trash2, ArrowRight, ShoppingBag, ShieldCheck, Tag, Truck, Check, Coffee } from 'lucide-react';
+import { CashbackStorefrontBanner } from '../../meccaGifts/components/CashbackStorefrontBanner';
+import { SpecialOfferStorefrontBanner } from '../../meccaGifts/components/SpecialOfferStorefrontBanner';
 
 export const CartPage: React.FC = () => {
   const {
@@ -79,6 +81,9 @@ export const CartPage: React.FC = () => {
             {language === 'AR' ? 'معدات القهوة المحددة مع ضمان الوكيل سنتين والشحن المجاني' : 'Review your selected equipment before checking out'}
           </p>
         </div>
+
+        <SpecialOfferStorefrontBanner language={language === 'AR' ? 'ar' : 'en'} />
+        <CashbackStorefrontBanner language={language === 'AR' ? 'ar' : 'en'} />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           {/* Items List (8 cols) */}

@@ -1090,7 +1090,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
                 <h1 className="font-black text-sm sm:text-xl tracking-tight flex items-center gap-1.5 truncate">
                   <span className="truncate">
                     {(!storeIdentity.storeName || storeIdentity.storeName.includes('Loading'))
-                      ? (lang === 'ar' ? 'زهور مكة الطازجة' : 'Makkah Fresh Flowers')
+                      ? (lang === 'ar' ? 'متجرك' : 'Your Store')
                       : storeIdentity.storeName}
                   </span>
                   <span className="text-[9px] sm:text-[10px] bg-amber-400/20 text-amber-300 border border-amber-400/40 px-1.5 sm:px-2 py-0.5 rounded-full font-sans shrink-0">

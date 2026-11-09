@@ -41,7 +41,8 @@ import { isPublicStoreSlugPath, storeSlugFromStorePath } from './utils/storefron
 import { useToast } from './components/common/ToastProvider';
 import { applyPortalHead } from './utils/portalHead';
 import { Lock, ShieldAlert } from 'lucide-react';
-import { isStoreControlEnabled } from './services/storeControlService';
+import { CORE_STORE_CONTROL_IDS, isStoreControlEnabled } from './services/storeControlService';
+import { isStoreTabComingSoon } from './config/storeTabVisibility';
 // HolstChromeBar retired — unified MasterTopBar / StoreTopBar (docs/21)
 
 /** Heavy tabs — code-split so dashboard/themes open fast */
@@ -109,8 +110,26 @@ const StoreProducts = lazy(() =>
 const StoreMediaLibrary = lazy(() =>
   import('./components/store/StoreMediaLibrary').then((m) => ({ default: m.StoreMediaLibrary })),
 );
+const StoreDesignStudioHub = lazy(() =>
+  import('./components/store/StoreDesignStudioHub').then((m) => ({ default: m.StoreDesignStudioHub })),
+);
 const StoreCanvaStudio = lazy(() =>
   import('./components/store/StoreCanvaStudio').then((m) => ({ default: m.StoreCanvaStudio })),
+);
+const StoreBannerDesignEditor = lazy(() =>
+  import('./components/store/editors/StoreBannerDesignEditor').then((m) => ({
+    default: m.StoreBannerDesignEditor,
+  })),
+);
+const StoreLogoDesignEditor = lazy(() =>
+  import('./components/store/editors/StoreLogoDesignEditor').then((m) => ({
+    default: m.StoreLogoDesignEditor,
+  })),
+);
+const StoreProductCardDesignEditor = lazy(() =>
+  import('./components/store/editors/StoreProductCardDesignEditor').then((m) => ({
+    default: m.StoreProductCardDesignEditor,
+  })),
 );
 const StoreAiMediaGenerator = lazy(() =>
   import('./components/store/StoreAiMediaGenerator').then((m) => ({ default: m.StoreAiMediaGenerator })),
@@ -176,6 +195,9 @@ const StoreBlogManagement = lazy(() =>
 );
 const StoreWhatsAppManager = lazy(() =>
   import('./components/store/whatsapp/StoreWhatsAppManager').then((m) => ({ default: m.StoreWhatsAppManager })),
+);
+const StoreTabComingSoon = lazy(() =>
+  import('./components/store/StoreTabComingSoon').then((m) => ({ default: m.StoreTabComingSoon })),
 );
 const StoreSocialPublisher = lazy(() =>
   import('./components/store/StoreSocialPublisher').then((m) => ({ default: m.StoreSocialPublisher })),
@@ -563,10 +585,15 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   });
   const [storeTab, setStoreTabState] = useState(() => {
     try {
+      const normalize = (tab: string) => {
+        if (tab === 'inventory' || tab === 'storefront') return 'dashboard';
+        // Coming-soon tabs stay selectable — content shows StoreTabComingSoon
+        return tab;
+      };
       const q = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') : null;
-      if (q && q !== 'inventory' && q !== 'storefront') return q;
+      if (q) return normalize(q);
       const saved = typeof localStorage !== 'undefined' && localStorage.getItem('unityteck_store_tab');
-      if (saved && saved !== 'inventory' && saved !== 'storefront') return saved;
+      if (saved) return normalize(saved);
       return 'dashboard';
     } catch {
       return 'dashboard';
@@ -600,6 +627,10 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         'products',
         'media',
         'canva',
+        'canva-studio',
+        'canva-banner',
+        'canva-logo',
+        'canva-product-card',
         'ai-media',
         'categories',
         'brands',
@@ -634,6 +665,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
 
   const setStoreTab = React.useCallback((tab: string) => {
     let targetTab = tab === 'inventory' || tab === 'storefront' || tab === 'builder' ? 'dashboard' : tab;
+    // Coming-soon tabs remain navigable (sidebar shows Soon; page is Coming Soon panel)
     if (!STORE_KNOWN_TABS.has(targetTab)) targetTab = 'dashboard';
     setStoreTabState(targetTab);
     try {
@@ -645,6 +677,15 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       }
     } catch {}
   }, [STORE_KNOWN_TABS]);
+
+  useEffect(() => {
+    const onOpenStoreTab = (e: Event) => {
+      const tab = (e as CustomEvent<string>).detail;
+      if (typeof tab === 'string' && tab.trim()) setStoreTab(tab.trim());
+    };
+    window.addEventListener('unityteck-open-store-tab', onOpenStoreTab);
+    return () => window.removeEventListener('unityteck-open-store-tab', onOpenStoreTab);
+  }, [setStoreTab]);
 
   const builderExitRef = React.useRef(false);
   useEffect(() => {
@@ -1465,7 +1506,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                 onSignOut={() => void requestLogout()}
                 onMobileMenuOpen={() => setMobileNavOpen(true)}
               />
-              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pb-16 contain-paint touch-pan-y overscroll-y-contain">
+              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pb-16 touch-pan-y overscroll-y-contain">
                 <Suspense fallback={<TabFallback />}>
                   {masterTab === 'dashboard' && (
                     <MasterDashboard onOpenCreateStore={() => setIsCreateStoreOpen(true)} />
@@ -1538,12 +1579,12 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   storeTab === 'customers' ? t('searchCustomers') : t('searchStore')
                 }
               />
-              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pb-16 contain-paint touch-pan-y overscroll-y-contain">
+              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pb-16 touch-pan-y overscroll-y-contain">
                 {/* Unmount heavy store tabs while customizer fullscreen is open */}
                 {isThemeCustomizerOpen ? null : (
                 <Suspense fallback={<TabFallback />}>
                   {!isStoreControlEnabled(activeStore?.id, storeTab) &&
-                  !['dashboard', 'notifications'].includes(storeTab) ? (
+                  !CORE_STORE_CONTROL_IDS.has(storeTab) ? (
                     <div className="p-8 max-w-md mx-auto text-center space-y-4 my-20">
                       <div className="w-16 h-16 rounded-3xl mx-auto flex items-center justify-center bg-rose-500/10 text-rose-600 dark:text-rose-400">
                         <Lock className="w-8 h-8" />
@@ -1564,6 +1605,8 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                         {locale === 'ar' ? 'العودة إلى لوحة التحكم' : 'Return to Dashboard'}
                       </button>
                     </div>
+                  ) : isStoreTabComingSoon(storeTab) ? (
+                    <StoreTabComingSoon tabId={storeTab} onNavigateTab={setStoreTab} />
                   ) : (
                     <>
                       {storeTab === 'dashboard' && (
@@ -1591,7 +1634,15 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {storeTab === 'seo' && <StoreSEO />}
                   {storeTab === 'products' && <StoreProducts />}
                   {storeTab === 'media' && <StoreMediaLibrary />}
-                  {storeTab === 'canva' && <StoreCanvaStudio onNavigateTab={setStoreTab} />}
+                  {storeTab === 'canva' && <StoreDesignStudioHub onNavigateTab={setStoreTab} />}
+                  {storeTab === 'canva-studio' && <StoreCanvaStudio onNavigateTab={setStoreTab} />}
+                  {storeTab === 'canva-banner' && (
+                    <StoreBannerDesignEditor onNavigateTab={setStoreTab} />
+                  )}
+                  {storeTab === 'canva-logo' && <StoreLogoDesignEditor onNavigateTab={setStoreTab} />}
+                  {storeTab === 'canva-product-card' && (
+                    <StoreProductCardDesignEditor onNavigateTab={setStoreTab} />
+                  )}
                   {storeTab === 'ai-media' && <StoreAiMediaGenerator onNavigateTab={setStoreTab} />}
                   {storeTab === 'categories' && <StoreCategories />}
                   {storeTab === 'brands' && <StoreBrandsView onBackToProducts={() => setStoreTab('products')} />}
@@ -1650,13 +1701,13 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {storeTab === 'blog' && (
                     <StoreBlogManagement
                       onNavigateTab={setStoreTab}
-                      onOpenCommerceTools={(artId) => {
-                        setSelectedCommerceArticleId(artId);
+                      onOpenCommerceTools={(articleId) => {
+                        setSelectedCommerceArticleId(articleId);
                         setStoreTab('commerce-tools');
                       }}
                     />
                   )}
-                  {storeTab === 'commerce-tools' && (
+                  {storeTab === 'commerce-tools' && !isStoreTabComingSoon('commerce-tools') && (
                     <StoreArticleCommerceTools
                       initialArticleId={selectedCommerceArticleId}
                       onNavigateTab={setStoreTab}

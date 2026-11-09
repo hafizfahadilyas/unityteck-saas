@@ -98,7 +98,8 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
   const totalRevenue = apiData?.kpis?.total_revenue ?? storeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
   const totalOrders = apiData?.kpis?.total_orders ?? storeOrders.length;
   const aov = apiData?.kpis?.aov ?? (totalOrders > 0 ? Number((totalRevenue / totalOrders).toFixed(2)) : 0);
-  const totalVisits = Number(activeStore.visitorsCount) || 0;
+  // Real funnel/event visits only — never seeded stores.visitors_count (zero-mock)
+  const totalVisits = Number(apiData?.funnel?.site_visits ?? apiData?.clarity_status?.sessions ?? 0) || 0;
   const conversionRate =
     apiData?.kpis?.conversion_rate_numeric ??
     (totalVisits > 0 ? Number(((totalOrders / totalVisits) * 100).toFixed(1)) : 0);
@@ -323,9 +324,9 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
   return (
     <div className="space-y-5" dir={dir}>
       {/* ═══════════════════════════════════════════════════════════════ */}
-      {/* ROW 1: 6 STAT KPI CARDS (Matching Image 3 Top Row)             */}
+      {/* SECTION: KPI STAT CARDS — 2 per row                            */}
       {/* ═══════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3.5">
+      <div className="grid grid-cols-2 gap-3.5">
         {/* Card 1: Total Revenue */}
         <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
@@ -468,11 +469,11 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════ */}
-      {/* ROW 2: (1) TREND CHART (2) SOURCE DONUT (3) WEBSITE BEHAVIOR  */}
+      {/* SECTION: (1) TREND CHART  (2) SOURCE DONUT  — 2 cards only     */}
       {/* ═══════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Card 1: Revenue & Orders Trend (Dual Chart: Vertical Bars + Smooth Line) */}
-        <div className="lg:col-span-5 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Card 1: Revenue & Orders Trend */}
+        <div className="min-w-0 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">
@@ -625,7 +626,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
         </div>
 
         {/* Card 2: Orders by Source Platform (Donut + Legend) */}
-        <div className="lg:col-span-4 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
+        <div className="min-w-0 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-sm text-slate-900 dark:text-white">
               {isAr ? 'الطلبات حسب مصدر الزيارة' : 'Orders by Source Platform'}
@@ -671,18 +672,20 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Card 3: Website Behavior (Microsoft Clarity) */}
-        <div className="lg:col-span-3 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      {/* SECTION: (1) WEBSITE BEHAVIOR  (2) TRAFFIC FUNNEL — 2 cards   */}
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Card 1: Website Behavior */}
+        <div className="min-w-0 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5">
               <span className="text-blue-500 font-bold text-xs">▲</span>
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">
                 {isAr ? 'سلوك الموقع' : 'Website Behavior'}
               </h3>
-              <span className="text-[9px] px-1.5 py-0.2 rounded-md font-bold bg-blue-50 text-blue-600 dark:bg-blue-950/70 dark:text-blue-400">
-                Clarity
-              </span>
             </div>
             <button
               type="button"
@@ -768,32 +771,22 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ═══════════════════════════════════════════════════════════════ */}
-      {/* ROW 3: (1) FUNNEL BARS (2) CONV BY PLATFORM (3) PAGES & HEATMAP */}
-      {/* ═══════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Card 1: Traffic to Order Funnel */}
-        <div className="lg:col-span-4 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
+        {/* Card 2: Traffic to Order Funnel */}
+        <div className="min-w-0 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-1">
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">
                 {isAr ? 'مسار رحلة العميل' : 'Traffic to Order Funnel'}
               </h3>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/70 px-1.5 py-0.5 rounded">
-                  Clarity
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onNavigateToTab('behavior')}
-                  className="text-[11px] font-bold text-slate-400 hover:text-blue-600 flex items-center cursor-pointer"
-                >
-                  <span>{isAr ? 'المسار الكامل' : 'Full funnel'}</span>
-                  <span className="rtl:rotate-180">›</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => onNavigateToTab('behavior')}
+                className="text-[11px] font-bold text-slate-400 hover:text-blue-600 flex items-center cursor-pointer"
+              >
+                <span>{isAr ? 'المسار الكامل' : 'Full funnel'}</span>
+                <span className="rtl:rotate-180">›</span>
+              </button>
             </div>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-3">
               {isAr ? 'معدل الانتقال عبر مراحل التسوق المختلفة.' : 'Conversion drop-off across visitor shopping stages.'}
@@ -831,9 +824,14 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
             })}
           </div>
         </div>
+      </div>
 
-        {/* Card 2: Conversion Rate by Source Platform */}
-        <div className="lg:col-span-4 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      {/* SECTION: (1) CONV BY PLATFORM  (2) LANDING / HEATMAP — 2 cards */}
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Card 1: Conversion Rate by Source Platform */}
+        <div className="min-w-0 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-sm text-slate-900 dark:text-white">
               {isAr ? 'معدل التحويل حسب المنصة' : 'Conversion Rate by Source Platform'}
@@ -869,19 +867,14 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
           </div>
         </div>
 
-        {/* Card 3: Top Landing Pages & Heatmap Preview */}
-        <div className="lg:col-span-4 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between space-y-4">
+        {/* Card 2: Top Landing Pages & Heatmap Preview */}
+        <div className="min-w-0 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between space-y-4">
           {/* Top Landing Pages Table */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                  {isAr ? 'أعلى صفحات الهبوط' : 'Top Landing Pages'}
-                </h3>
-                <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/70 px-1.5 py-0.2 rounded">
-                  Clarity
-                </span>
-              </div>
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                {isAr ? 'أعلى صفحات الهبوط' : 'Top Landing Pages'}
+              </h3>
               <button
                 type="button"
                 onClick={() => onNavigateToTab('behavior')}
@@ -930,14 +923,9 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
           {/* Heatmap Preview Cards */}
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <h4 className="font-bold text-xs text-slate-900 dark:text-white">
-                  {isAr ? 'معاينة الخرائط الحرارية' : 'Heatmap Preview'}
-                </h4>
-                <span className="text-[9px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/70 px-1 py-0.2 rounded">
-                  Clarity
-                </span>
-              </div>
+              <h4 className="font-bold text-xs text-slate-900 dark:text-white">
+                {isAr ? 'معاينة الخرائط الحرارية' : 'Heatmap Preview'}
+              </h4>
               <button
                 type="button"
                 onClick={() => onNavigateToTab('behavior')}
@@ -995,11 +983,11 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════ */}
-      {/* ROW 4: (1) TOP PRODUCTS (2) SEGMENTS (3) STATUS (4) ABANDONED  */}
+      {/* SECTION: (1) TOP PRODUCTS  (2) CUSTOMER SEGMENTS — 2 cards     */}
       {/* ═══════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Card 1: Top Products by Revenue */}
-        <div className="col-span-1 md:col-span-2 xl:col-span-4 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between min-w-0">
+        <div className="min-w-0 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">
@@ -1065,7 +1053,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
         </div>
 
         {/* Card 2: Customer Segmentation */}
-        <div className="col-span-1 xl:col-span-3 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between space-y-3 min-w-0">
+        <div className="min-w-0 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between space-y-3">
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">
@@ -1135,19 +1123,28 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
             </div>
           </div>
 
-          {/* AI Suggestion Banner */}
+          {/* Segment insight — real VIP share only (never invent %) */}
           <div className="p-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-900/50 flex items-start gap-2 text-[10.5px] text-purple-900 dark:text-purple-300 font-medium leading-relaxed">
             <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
             <span>
-              {isAr
-                ? 'يولد كبار العملاء نسبة 34% من إجمالي الإيرادات. يُنصح بإنشاء عروض خاصة لزيادة تكرار الشراء.'
-                : 'VIP customers generate 34% of total revenue. Consider creating exclusive offers to increase repeat purchases.'}
+              {totalCustomersCalculated > 0
+                ? isAr
+                  ? `كبار العملاء يمثلون ${vipPct}% من قاعدة العملاء (${vipCust.toLocaleString()} من ${totalCustomersCalculated.toLocaleString()}). راجع تبويب تحليلات العملاء للتفاصيل.`
+                  : `VIP customers are ${vipPct}% of your customer base (${vipCust.toLocaleString()} of ${totalCustomersCalculated.toLocaleString()}). Open Customer Analytics for detail.`
+                : isAr
+                  ? 'لا توجد شرائح عملاء بعد — ستظهر النسب عند تسجيل عملاء حقيقيين.'
+                  : 'No customer segments yet — percentages appear when real customers exist.'}
             </span>
           </div>
         </div>
+      </div>
 
-        {/* Card 3: Order Status */}
-        <div className="col-span-1 xl:col-span-2 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between min-w-0">
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      {/* SECTION: (1) ORDER STATUS  (2) ABANDONED CARTS — 2 cards       */}
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Card 1: Order Status */}
+        <div className="min-w-0 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">
@@ -1187,8 +1184,8 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
           </div>
         </div>
 
-        {/* Card 4: Abandoned Carts */}
-        <div className="col-span-1 md:col-span-2 xl:col-span-3 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between space-y-3 min-w-0">
+        {/* Card 2: Abandoned Carts */}
+        <div className="min-w-0 p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between space-y-3">
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">

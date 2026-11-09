@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { Sparkline } from '../common/Sparkline';
 import { DonutChart } from '../common/DonutChart';
+import { FloatingPopover } from '../common/FloatingPopover';
 import {
   Calendar,
   Search,
@@ -33,6 +34,7 @@ import {
   MarketingChannelsOverviewData,
   MarketingChannelItem,
 } from '../../api/tenantApi';
+import { downloadCsv } from '../../utils/exportSpreadsheet';
 
 type PeriodOption = '30d' | '7d' | 'this_month' | 'prev_month';
 type SortField = 'visits' | 'add_to_cart' | 'completed_orders' | 'conversion_rate' | 'revenue' | 'aov' | 'growth';
@@ -55,6 +57,8 @@ export const StoreChannelPerformance: React.FC = () => {
   const [exportNotice, setExportNotice] = useState<boolean>(false);
   const [showColumnMenu, setShowColumnMenu] = useState<boolean>(false);
   const [showPeriodMenu, setShowPeriodMenu] = useState<boolean>(false);
+  const columnsBtnRef = useRef<HTMLButtonElement>(null);
+  const periodBtnRef = useRef<HTMLButtonElement>(null);
 
   // Column visibility
   const [visibleCols, setVisibleCols] = useState({
@@ -84,7 +88,8 @@ export const StoreChannelPerformance: React.FC = () => {
       const storeOrders = (allOrders && allOrders[activeStore.id]) || [];
       const totalRev = storeOrders.reduce((s: number, o: any) => s + (o.total || 0), 0);
       const ordersCount = storeOrders.length;
-      const visits = Number(activeStore.visitorsCount) || 0;
+      // Offline fallback: never invent visits from seeded visitorsCount (zero-mock)
+      const visits = 0;
       const aov = ordersCount > 0 ? Math.round(totalRev / ordersCount) : 0;
       const convRate = visits > 0 ? Number(((ordersCount / visits) * 100).toFixed(1)) : 0;
 
@@ -161,30 +166,24 @@ export const StoreChannelPerformance: React.FC = () => {
     return list;
   }, [data?.channels, searchQuery, sortField, sortDirection]);
 
-  // Export to CSV
+  // Export to CSV — real channel rows; Excel-safe BOM + sep=,
   const handleExportCsv = () => {
     if (!channels.length) return;
-    const headers = ['Channel', 'Type', 'Visits', 'AddToCart', 'CompletedOrders', 'ConversionRate', 'Revenue', 'AOV', 'Growth%'];
-    const rows = channels.map(c => [
-      `"${c.name}"`,
-      `"${c.type}"`,
-      c.visits,
-      c.add_to_cart,
-      c.completed_orders,
-      `"${c.conversion_rate}%"`,
-      c.revenue,
-      c.aov,
-      `"${c.growth}%"`,
+    const headers = isAr
+      ? ['القناة', 'النوع', 'الزيارات', 'إضافة للسلة', 'الطلبات المكتملة', 'معدل التحويل', 'الإيرادات', 'متوسط قيمة الطلب', 'النمو%']
+      : ['Channel', 'Type', 'Visits', 'AddToCart', 'CompletedOrders', 'ConversionRate', 'Revenue', 'AOV', 'Growth%'];
+    const rows = channels.map((c) => [
+      String(isAr ? c.name_ar || c.name : c.name),
+      String(isAr ? c.type_ar || c.type : c.type),
+      String(c.visits ?? 0),
+      String(c.add_to_cart ?? 0),
+      String(c.completed_orders ?? 0),
+      `${c.conversion_rate ?? 0}%`,
+      String(c.revenue ?? 0),
+      String(c.aov ?? 0),
+      `${c.growth ?? 0}%`,
     ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `marketing_channels_${activeStore.id}_${period}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
+    downloadCsv(`marketing_channels_${activeStore.id}_${period}.csv`, [headers, ...rows]);
     setExportNotice(true);
     setTimeout(() => setExportNotice(false), 2500);
   };
@@ -342,11 +341,14 @@ export const StoreChannelPerformance: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 text-slate-800 dark:text-slate-100" dir={isAr ? 'rtl' : 'ltr'}>
+    <div
+      className="space-y-6 w-full min-w-0 max-w-full text-slate-800 dark:text-slate-100"
+      dir={isAr ? 'rtl' : 'ltr'}
+    >
       {/* ─────────────────────────────────────────────────────────────
           1. HEADER WITH DATE RANGE PICKER & PRESETS
       ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 min-w-0">
         {/* Right side in LTR, Left in RTL: Title & Subtitle */}
         <div className="order-2 lg:order-2 text-start lg:text-end">
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
@@ -361,43 +363,54 @@ export const StoreChannelPerformance: React.FC = () => {
 
         {/* Left side in LTR, Right in RTL: Date controls */}
         <div className="order-1 lg:order-1 flex items-center gap-2 flex-wrap">
-          {/* Date range display */}
+          {/* Date range display — real API label only; never invent dates */}
           <div className="flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-2xs">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <span>{data?.period?.label || (isAr ? '1 يناير 2026 - 31 يناير 2026' : 'Jan 1, 2026 - Jan 31, 2026')}</span>
+            <span>
+              {data?.period?.label || periodLabels[period] || (isAr ? 'بانتظار البيانات' : 'Waiting for Data')}
+            </span>
           </div>
 
-          {/* Period selector dropdown */}
-          <div className="relative">
+          {/* Period selector — body portal */}
+          <div>
             <button
               type="button"
+              ref={periodBtnRef}
               onClick={() => setShowPeriodMenu(!showPeriodMenu)}
               className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-2xs transition-colors cursor-pointer"
+              aria-expanded={showPeriodMenu}
             >
               <span>{periodLabels[period]}</span>
               <ChevronDown className="w-3.5 h-3.5" />
             </button>
 
-            {showPeriodMenu && (
-              <div className="absolute start-0 mt-1.5 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-30 py-1 text-xs">
-                {(['30d', '7d', 'this_month', 'prev_month'] as PeriodOption[]).map(opt => (
-                  <button
-                    key={opt}
-                    onClick={() => {
-                      setPeriod(opt);
-                      setShowPeriodMenu(false);
-                    }}
-                    className={`w-full text-start px-3 py-2 font-medium transition-colors ${
-                      period === opt
-                        ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                    }`}
-                  >
-                    {periodLabels[opt]}
-                  </button>
-                ))}
-              </div>
-            )}
+            <FloatingPopover
+              open={showPeriodMenu}
+              anchorRef={periodBtnRef}
+              onClose={() => setShowPeriodMenu(false)}
+              width={176}
+              align="start"
+              estimatedHeight={180}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg py-1 text-xs"
+            >
+              {(['30d', '7d', 'this_month', 'prev_month'] as PeriodOption[]).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => {
+                    setPeriod(opt);
+                    setShowPeriodMenu(false);
+                  }}
+                  className={`w-full text-start px-3 py-2 font-medium transition-colors ${
+                    period === opt
+                      ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {periodLabels[opt]}
+                </button>
+              ))}
+            </FloatingPopover>
           </div>
         </div>
       </div>
@@ -564,94 +577,102 @@ export const StoreChannelPerformance: React.FC = () => {
               <span>{isAr ? 'تصدير' : 'Export'}</span>
             </button>
 
-            {/* Columns Dropdown */}
-            <div className="relative">
+            {/* Columns Dropdown — body portal */}
+            <div>
               <button
                 type="button"
+                ref={columnsBtnRef}
                 onClick={() => setShowColumnMenu(!showColumnMenu)}
                 className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                aria-expanded={showColumnMenu}
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
                 <span>{isAr ? 'الأعمدة' : 'Columns'}</span>
                 <ChevronDown className="w-3 h-3" />
               </button>
 
-              {showColumnMenu && (
-                <div className="absolute end-0 mt-1.5 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-30 p-2 text-xs space-y-1">
-                  <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={visibleCols.type}
-                      onChange={e => setVisibleCols(c => ({ ...c, type: e.target.checked }))}
-                    />
-                    <span>{isAr ? 'نوع القناة' : 'Channel Type'}</span>
-                  </label>
-                  <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={visibleCols.visits}
-                      onChange={e => setVisibleCols(c => ({ ...c, visits: e.target.checked }))}
-                    />
-                    <span>{isAr ? 'الزيارات' : 'Visits'}</span>
-                  </label>
-                  <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={visibleCols.addToCart}
-                      onChange={e => setVisibleCols(c => ({ ...c, addToCart: e.target.checked }))}
-                    />
-                    <span>{isAr ? 'إضافة للسلة' : 'Add to Cart'}</span>
-                  </label>
-                  <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={visibleCols.orders}
-                      onChange={e => setVisibleCols(c => ({ ...c, orders: e.target.checked }))}
-                    />
-                    <span>{isAr ? 'الطلبات المكتملة' : 'Completed Orders'}</span>
-                  </label>
-                  <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={visibleCols.conversion}
-                      onChange={e => setVisibleCols(c => ({ ...c, conversion: e.target.checked }))}
-                    />
-                    <span>{isAr ? 'معدل التحويل' : 'Conversion Rate'}</span>
-                  </label>
-                  <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={visibleCols.revenue}
-                      onChange={e => setVisibleCols(c => ({ ...c, revenue: e.target.checked }))}
-                    />
-                    <span>{isAr ? 'الإيرادات' : 'Revenue'}</span>
-                  </label>
-                  <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={visibleCols.aov}
-                      onChange={e => setVisibleCols(c => ({ ...c, aov: e.target.checked }))}
-                    />
-                    <span>{isAr ? 'متوسط قيمة الطلب' : 'AOV'}</span>
-                  </label>
-                  <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={visibleCols.growth}
-                      onChange={e => setVisibleCols(c => ({ ...c, growth: e.target.checked }))}
-                    />
-                    <span>{isAr ? 'النمو' : 'Growth'}</span>
-                  </label>
-                  <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={visibleCols.trend}
-                      onChange={e => setVisibleCols(c => ({ ...c, trend: e.target.checked }))}
-                    />
-                    <span>{isAr ? 'المسار' : 'Trend'}</span>
-                  </label>
-                </div>
-              )}
+              <FloatingPopover
+                open={showColumnMenu}
+                anchorRef={columnsBtnRef}
+                onClose={() => setShowColumnMenu(false)}
+                width={192}
+                align="end"
+                estimatedHeight={280}
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg p-2 text-xs space-y-1"
+              >
+                <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={visibleCols.type}
+                    onChange={(e) => setVisibleCols((c) => ({ ...c, type: e.target.checked }))}
+                  />
+                  <span>{isAr ? 'نوع القناة' : 'Channel Type'}</span>
+                </label>
+                <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={visibleCols.visits}
+                    onChange={(e) => setVisibleCols((c) => ({ ...c, visits: e.target.checked }))}
+                  />
+                  <span>{isAr ? 'الزيارات' : 'Visits'}</span>
+                </label>
+                <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={visibleCols.addToCart}
+                    onChange={(e) => setVisibleCols((c) => ({ ...c, addToCart: e.target.checked }))}
+                  />
+                  <span>{isAr ? 'إضافة للسلة' : 'Add to Cart'}</span>
+                </label>
+                <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={visibleCols.orders}
+                    onChange={(e) => setVisibleCols((c) => ({ ...c, orders: e.target.checked }))}
+                  />
+                  <span>{isAr ? 'الطلبات المكتملة' : 'Completed Orders'}</span>
+                </label>
+                <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={visibleCols.conversion}
+                    onChange={(e) => setVisibleCols((c) => ({ ...c, conversion: e.target.checked }))}
+                  />
+                  <span>{isAr ? 'معدل التحويل' : 'Conversion Rate'}</span>
+                </label>
+                <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={visibleCols.revenue}
+                    onChange={(e) => setVisibleCols((c) => ({ ...c, revenue: e.target.checked }))}
+                  />
+                  <span>{isAr ? 'الإيرادات' : 'Revenue'}</span>
+                </label>
+                <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={visibleCols.aov}
+                    onChange={(e) => setVisibleCols((c) => ({ ...c, aov: e.target.checked }))}
+                  />
+                  <span>{isAr ? 'متوسط قيمة الطلب' : 'AOV'}</span>
+                </label>
+                <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={visibleCols.growth}
+                    onChange={(e) => setVisibleCols((c) => ({ ...c, growth: e.target.checked }))}
+                  />
+                  <span>{isAr ? 'النمو' : 'Growth'}</span>
+                </label>
+                <label className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={visibleCols.trend}
+                    onChange={(e) => setVisibleCols((c) => ({ ...c, trend: e.target.checked }))}
+                  />
+                  <span>{isAr ? 'المسار' : 'Trend'}</span>
+                </label>
+              </FloatingPopover>
             </div>
           </div>
         </div>

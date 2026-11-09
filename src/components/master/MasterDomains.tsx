@@ -33,6 +33,7 @@ import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
 import { getStoreDisplayName, getStoreDisplayOwner } from '../../utils/storeLocalization';
 import { DomainRoutingTester } from '../store/domains/DomainRoutingTester';
+import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
 
 export const MasterDomains: React.FC = () => {
   const { 
@@ -212,7 +213,7 @@ export const MasterDomains: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800" style={{ fontFamily: 'var(--font-ui)' }}>
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 w-full min-w-0" style={{ fontFamily: 'var(--font-ui)' }}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-white rounded-2xl border border-slate-200 shadow-2xs">
         <div>
@@ -303,60 +304,38 @@ export const MasterDomains: React.FC = () => {
       {/* Multi-Domain Dynamic Routing Tester (Phase 6.1) */}
       <DomainRoutingTester embeddedIn="master" />
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setActiveTab('all')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-colors shrink-0 flex items-center gap-1.5 ${
-            activeTab === 'all'
-              ? 'bg-slate-900 text-white'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <Globe className="w-3.5 h-3.5" />
-          <span>{isAr ? 'جميع النطاقات والاستضافات' : 'All Domains & Hosting'} ({domains.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('pending')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-colors shrink-0 flex items-center gap-1.5 ${
-            activeTab === 'pending'
-              ? 'bg-slate-900 text-white'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <Clock className="w-3.5 h-3.5 text-amber-500" />
-          <span>{isAr ? 'طلبات بانتظار الاعتماد' : 'Pending Requests'} ({domains.filter((d) => d.status !== 'active').length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('hostinger')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-colors shrink-0 flex items-center gap-1.5 ${
-            activeTab === 'hostinger'
-              ? 'bg-slate-900 text-white'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <Server className="w-3.5 h-3.5 text-emerald-600" />
-          <span>{isAr ? 'بيانات ربط واجهة هوستنجر' : 'Hostinger API & Server'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('logs')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-colors shrink-0 flex items-center gap-1.5 ${
-            activeTab === 'logs'
-              ? 'bg-slate-900 text-white'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5 text-indigo-600" />
-          <span>{isAr ? 'سجل العمليات والأمان' : 'Security Audit Logs'} ({auditLogs.length})</span>
-        </button>
-      </div>
+      {/* Tabs — modern segmented toggles */}
+      <ModernSegmentedTabs
+        accent="portal"
+        aria-label={isAr ? 'أقسام النطاقات' : 'Domains sections'}
+        value={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            id: 'all',
+            label: isAr ? 'جميع النطاقات والاستضافات' : 'All Domains & Hosting',
+            icon: Globe,
+            count: domains.length,
+          },
+          {
+            id: 'pending',
+            label: isAr ? 'طلبات بانتظار الاعتماد' : 'Pending Requests',
+            icon: Clock,
+            count: domains.filter((d) => d.status !== 'active').length,
+          },
+          {
+            id: 'hostinger',
+            label: isAr ? 'بيانات ربط واجهة هوستنجر' : 'Hostinger API & Server',
+            icon: Server,
+          },
+          {
+            id: 'logs',
+            label: isAr ? 'سجل العمليات والأمان' : 'Security Audit Logs',
+            icon: FileText,
+            count: auditLogs.length,
+          },
+        ]}
+      />
 
       {/* ======================================================== */}
       {/* TAB 1 & 2: MAIN DOMAINS TABLE                            */}

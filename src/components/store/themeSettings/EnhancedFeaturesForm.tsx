@@ -20,6 +20,7 @@ import {
   writeAllThemeSettings,
   type EnhancedFeaturesSettings,
 } from '../../../themes/settings/themeSettingsStore';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 export const EnhancedFeaturesForm: React.FC = () => {
   const { activeStore } = useTenant();
@@ -83,10 +84,10 @@ export const EnhancedFeaturesForm: React.FC = () => {
           </span>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-              Theme Settings · 14
+              {themeSettingsBadge(14, isAr)}
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'مزايا المتجر وبطاقات الثقة' : 'Enhanced Store Features (Selia)'}
+              {isAr ? 'مزايا المتجر وبطاقات الثقة' : 'Enhanced Store Features'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr

@@ -24,6 +24,7 @@ import {
   writeAllThemeSettings,
   type ProductCardsSettings,
 } from '../../../themes/settings/themeSettingsStore';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 const IMAGE_ANIMATION_LABELS: Record<string, { en: string; ar: string }> = {
   zoom: { en: 'Zoom', ar: 'تكبير' },
@@ -74,13 +75,7 @@ export const ProductCardsForm: React.FC = () => {
     }, 300);
   };
 
-  const sampleProd = currentProducts[0] || {
-    id: 'sample',
-    name: isAr ? 'باقة الملكية المخملية الفاخرة' : 'Luxury Velvet Royal Bouquet',
-    price: 189.0,
-    image: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80',
-    category: 'Vases',
-  };
+  const sampleProd = currentProducts[0] ?? null;
 
   const toggleCls = (on: boolean) =>
     `w-10 h-5 flex items-center rounded-full p-0.5 cursor-pointer ${
@@ -108,14 +103,14 @@ export const ProductCardsForm: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
-                {isAr ? 'إعدادات الثيم · 15' : 'Theme Settings · 15'}
+                {themeSettingsBadge(15, isAr)}
               </span>
               <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
                 {isAr ? 'احترافي' : 'Pro'}
               </span>
             </div>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'تصميم بطاقات المنتجات' : 'Product Cards (Selia)'}
+              {isAr ? 'تصميم بطاقات المنتجات' : 'Product cards'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr
@@ -150,6 +145,21 @@ export const ProductCardsForm: React.FC = () => {
           </span>
         </div>
 
+        {!sampleProd ? (
+          <div
+            className="py-14 px-4 text-center rounded-2xl border border-dashed"
+            style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+          >
+            <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>
+              {isAr ? 'لا توجد منتجات لعرض المعاينة' : 'No products available for preview'}
+            </p>
+            <p className="text-xs mt-1 max-w-sm mx-auto">
+              {isAr
+                ? 'أضف منتجاً واحداً على الأقل في كتالوج المتجر لمعاينة بطاقة حقيقية.'
+                : 'Add at least one product to your catalog to preview a real product card.'}
+            </p>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {/* Card 1: Royal Elegance Bouquet (Reference UI matching Image 1) */}
           <div
@@ -253,79 +263,8 @@ export const ProductCardsForm: React.FC = () => {
               </div>
             </div>
           </div>
-
-          {/* Card 2: Discount & Fast Add */}
-          <div className="rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden shadow-xs p-3 flex flex-col justify-between" style={{ borderColor: 'var(--border)' }}>
-            <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800">
-              <img src="https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=600&q=80" alt={isAr ? 'سلة الأوركيد الملكية' : 'Royal Orchid Basket'} className="w-full h-full object-cover" />
-              <span className="absolute top-2.5 start-2.5 px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-600 text-white">
-                -30%
-              </span>
-            </div>
-
-            <div className="pt-3 space-y-1.5">
-              <div className="flex items-center gap-1 text-[10px] text-amber-500">
-                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                <span className="font-bold">4.8 (96)</span>
-              </div>
-              <h4 className="text-xs font-bold truncate">{isAr ? 'سلة الأوركيد الملكية' : 'Royal Orchid Basket'}</h4>
-              <div className="flex items-baseline gap-2">
-                <span className="text-sm font-black text-slate-900 dark:text-white">{money(69.0)}</span>
-                <span className="text-[11px] text-muted line-through">{money(99.0)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Countdown Timer Card */}
-          <div className="rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden shadow-xs p-3 space-y-3" style={{ borderColor: 'var(--border)' }}>
-            <div className="flex items-center justify-between text-[10px] font-black text-white bg-rose-600 p-2 rounded-xl">
-              <span>{isAr ? 'عرض خاطف' : 'FLASH SALE'}</span>
-              <div className="flex items-center gap-1 font-mono" dir="ltr">
-                <Clock className="w-3 h-3" />
-                <span>02 : 12 : 45</span>
-              </div>
-            </div>
-            <div className="aspect-square rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800">
-              <img src="https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&w=600&q=80" alt={isAr ? 'ورود هولندية حمراء فاخرة' : 'Dutch Red Grand Roses'} className="w-full h-full object-cover" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold truncate">{isAr ? 'ورود هولندية حمراء فاخرة' : 'Dutch Red Grand Roses'}</h4>
-              <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">{money(75.0)}</span>
-            </div>
-          </div>
-
-          {/* Card 4: Out of Stock / Notify Me */}
-          <div className="rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden shadow-xs p-3 space-y-3 opacity-90" style={{ borderColor: 'var(--border)' }}>
-            <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 filter grayscale">
-              <img src="https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=600&q=80" alt={isAr ? 'فاوانيا بيضاء للعرائس' : 'Bridal White Peonies'} className="w-full h-full object-cover" />
-              <span className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-xs font-black">
-                {isAr ? 'نفدت الكمية' : 'Out of Stock'}
-              </span>
-            </div>
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold truncate">{isAr ? 'فاوانيا بيضاء للعرائس' : 'Bridal White Peonies'}</h4>
-              <button
-                type="button"
-                onClick={() => {
-                  const next = !notified;
-                  setNotified(next);
-                  toast(
-                    next
-                      ? (isAr ? 'سيتم إشعار العميل عند توفر المنتج (معاينة)' : 'Customer will be notified when back in stock (preview)')
-                      : (isAr ? 'تم إلغاء الإشعار (معاينة)' : 'Notification cancelled (preview)'),
-                    'info',
-                  );
-                }}
-                className="w-full py-2 rounded-xl border border-slate-300 dark:border-slate-600 text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                {notified ? <CheckCircle2 className="w-3 h-3 text-emerald-500" /> : <Bell className="w-3 h-3 text-amber-500" />}
-                <span>
-                  {notified ? (isAr ? 'سيتم إشعارك' : "You'll be notified") : (isAr ? 'أبلغني عند التوفر' : 'Notify Me')}
-                </span>
-              </button>
-            </div>
-          </div>
         </div>
+        )}
       </div>
 
       {/* Settings Grid */}

@@ -14,7 +14,8 @@
   #root {
     min-height: 100%;
     width: 100%;
-    font-family: var(--font-ui, 'Plus Jakarta Sans', system-ui, sans-serif);
+    /* Single face for whole admin (Invoice page reference) — AR/EN via --font-ui */
+    font-family: var(--font-ui);
     color: var(--text, #0F172A);
     background-color: var(--bg, #F8FAFC);
     -webkit-font-smoothing: antialiased;
@@ -29,10 +30,11 @@
   }
 
   h1, h2, h3, h4, h5, h6, .font-heading {
+    font-family: inherit;
     font-weight: var(--font-weight-heading, 700);
   }
 
-  /* Form controls inherit font */
+  /* Form controls inherit the same portal face */
   input,
   button,
   select,
@@ -41,31 +43,12 @@
     font-family: inherit;
   }
 
-  /* Language-driven font-family hierarchy across entire app */
-  html[lang="ar"],
-  html[lang="ar"] body,
-  html[lang="ar"] input,
-  html[lang="ar"] button,
-  html[lang="ar"] select,
-  html[lang="ar"] textarea {
-    font-family: var(--font-ui-ar, 'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Cairo', system-ui, sans-serif);
-  }
-
   /* Arabic cursive letter-spacing normalization (prevents disconnects in dark mode / tracking tokens) */
   html[lang="ar"],
   html[lang="ar"] *,
   [dir="rtl"],
   [dir="rtl"] * {
     letter-spacing: normal !important;
-  }
-
-  html[lang="en"],
-  html[lang="en"] body,
-  html[lang="en"] input,
-  html[lang="en"] button,
-  html[lang="en"] select,
-  html[lang="en"] textarea {
-    font-family: var(--font-ui-en, var(--font-ui, 'Plus Jakarta Sans', system-ui, sans-serif));
   }
 
   /* Universal shell & layout inheritance across Master, Store, Themes */
@@ -440,6 +423,54 @@
 }
 
 
+/* Equal-height dashboard section cards in one row (no staggered / age-peeche bottoms) */
+.u-equal-sections {
+  align-items: stretch;
+}
+.u-equal-sections > * {
+  height: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.u-equal-row-item {
+  width: 100%;
+  min-height: 60px;
+  box-sizing: border-box;
+}
+
+/*
+ * Arabic / RTL: stop icon+label button crush/overlap across Master + Store dashboards.
+ * Toggle knobs using Tailwind peer + after:start must move toward inline-end when checked.
+ */
+html[dir='rtl'] button.inline-flex,
+html[dir='rtl'] button.flex,
+[dir='rtl'] button.inline-flex,
+[dir='rtl'] button.flex,
+html[dir='rtl'] a.inline-flex,
+[dir='rtl'] a.inline-flex {
+  max-width: 100%;
+  flex-wrap: nowrap;
+}
+html[dir='rtl'] button svg,
+[dir='rtl'] button svg,
+html[dir='rtl'] a.inline-flex > svg,
+[dir='rtl'] a.inline-flex > svg,
+html[dir='rtl'] button > .lucide,
+[dir='rtl'] button > .lucide {
+  flex-shrink: 0;
+}
+html[dir='rtl'] button span,
+[dir='rtl'] button span {
+  min-width: 0;
+}
+/* Peer toggle: knob starts at inline-start; in RTL checked state must move left (−x) */
+[dir='rtl'] input.peer:checked + div[class*='peer-checked:after:translate-x-full']::after {
+  --tw-translate-x: -100% !important;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y, 0))
+    rotate(var(--tw-rotate, 0)) skewX(var(--tw-skew-x, 0)) skewY(var(--tw-skew-y, 0))
+    scaleX(var(--tw-scale-x, 1)) scaleY(var(--tw-scale-y, 1)) !important;
+}
+
 /* ── 3. LAPTOP & DESKTOP MODES ── */
 .builder-device-laptop {
   max-width: 1024px !important;
@@ -451,6 +482,21 @@
   max-width: 1400px !important;
   margin-left: auto !important;
   margin-right: auto !important;
+}
+
+/* ── Equal-height section cards in one dashboard row (no staggered / age-peeche edges) ── */
+.u-equal-sections {
+  align-items: stretch;
+}
+.u-equal-sections > * {
+  height: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.u-equal-row-item {
+  width: 100%;
+  min-height: 60px;
+  box-sizing: border-box;
 }
 
 

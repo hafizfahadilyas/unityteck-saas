@@ -15,6 +15,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { generateZatcaTlvBase64, generateQrSvgDataUri } from '../../utils/zatca';
+import { portalFontFamily } from '../../utils/portalFont';
 import { WhatsAppBrandIcon } from './BrandIcons';
 import { GlobalModal } from './GlobalModal';
 
@@ -47,96 +48,7 @@ interface StoreInvoiceProfile {
  * Strictly prevents hardcoded demo data from polluting other stores.
  */
 function resolveStoreInvoiceProfile(store?: Partial<Store> | null): StoreInvoiceProfile {
-  const sId = (store?.id || '').toLowerCase();
-  const slug = (store?.slug || '').toLowerCase();
-  const rawName = (store?.name || '').toLowerCase();
-  const rawCat = (store?.category || '').toLowerCase();
-
-  // 1. Specialty Coffee Store
-  if (
-    sId === 'store-coffee' ||
-    slug === 'coffee-store' ||
-    rawName.includes('coffee') ||
-    rawName.includes('قهوة') ||
-    rawCat.includes('coffee') ||
-    rawCat.includes('قهوة')
-  ) {
-    return {
-      name: store?.nameEn || store?.name || 'Specialty Coffee Roasters',
-      nameAr: store?.nameAr || store?.name || 'متجر القهوة المختصة',
-      subtitleAr: 'فاتورة ضريبية مبسطة معتمدة',
-      subtitleEn: 'Official Simplified Tax Invoice',
-      address: 'King Abdulaziz Rd, Al Yasmin District, Riyadh, Saudi Arabia',
-      addressAr: 'طريق الملك عبد العزيز، حي الياسمين، الرياض، المملكة العربية السعودية',
-      phone: store?.contactPhone || store?.phone || '+966 55 889 0123',
-      email: store?.ownerEmail || store?.email || 'orders@coffeeroasters-sa.com',
-      taxNumber: store?.taxNumber || '310458923400003',
-      crNumber: store?.crNumber || '1010928374',
-      initials: 'قهـ',
-      logo: store?.logo,
-      defaultCategoryItemNameAr: 'طلب حبوب ومستلزمات قهوة مختصة',
-      defaultCategoryItemNameEn: 'Specialty Coffee Beans & Barista Selection',
-    };
-  }
-
-  // 2. Bleco / Car Services & Accessories Store
-  if (
-    sId === 'store-bleco' ||
-    sId === 'store-car' ||
-    slug.includes('car') ||
-    slug.includes('alsaeedi') ||
-    rawName.includes('سيارات') ||
-    rawCat.includes('سيارات') ||
-    rawCat.includes('car')
-  ) {
-    return {
-      name: store?.nameEn || store?.name || 'Al-Saeedi Car Services & Accessories',
-      nameAr: store?.nameAr || store?.name || 'متجر السعيدي لخدمات وزينة السيارات',
-      subtitleAr: 'فاتورة ضريبية مبسطة معتمدة',
-      subtitleEn: 'Official Simplified Tax Invoice',
-      address: 'Khurais Branch Rd, Al Rawdah, Riyadh, Saudi Arabia',
-      addressAr: 'طريق خريص الفرعي، حي الروضة، الرياض، المملكة العربية السعودية',
-      phone: store?.contactPhone || store?.phone || '+966 54 223 9988',
-      email: store?.ownerEmail || store?.email || 'service@alsaeedi-sa.com',
-      taxNumber: store?.taxNumber || '301984275100003',
-      crNumber: store?.crNumber || '1010776543',
-      initials: 'سعـ',
-      logo: store?.logo,
-      defaultCategoryItemNameAr: 'طلب خدمات وتلابيس وزينة سيارات',
-      defaultCategoryItemNameEn: 'Custom Car Seat Covers & Interior Accessories',
-    };
-  }
-
-  // 3. Makkah Luxury Flowers & Gifts Store
-  if (
-    sId === 'store-1' ||
-    sId === '1' ||
-    slug === 'giftshop-sa' ||
-    slug.includes('flowers') ||
-    rawName.includes('مكة') ||
-    rawName.includes('ورد') ||
-    rawName.includes('زهور') ||
-    rawCat.includes('زهور')
-  ) {
-    return {
-      name: store?.nameEn || store?.name || 'Makkah Luxury Boutique & Flowers',
-      nameAr: store?.nameAr || store?.name || 'هدايا مكة الفاخرة',
-      subtitleAr: 'فاتورة ضريبية مبسطة معتمدة',
-      subtitleEn: 'Official Simplified Tax Invoice',
-      address: 'Al-Awali District, Ibrahim Al-Khalil St, Makkah, Saudi Arabia',
-      addressAr: 'حي العوالي، شارع إبراهيم الخليل، مكة المكرمة، المملكة العربية السعودية',
-      phone: store?.contactPhone || store?.phone || '+966 50 123 4567',
-      email: store?.ownerEmail || store?.email || 'concierge@giftshop-sa.com',
-      taxNumber: store?.taxNumber || '300948215600003',
-      crNumber: store?.crNumber || '1010892341',
-      initials: 'هد',
-      logo: store?.logo,
-      defaultCategoryItemNameAr: 'طلب باقات زهور طبيعية وتنسيق هدايا',
-      defaultCategoryItemNameEn: 'Fresh Floral Arrangement & Gift Presentation',
-    };
-  }
-
-  // 4. Dynamic Fallback for any other multi-tenant store from Hostinger MySQL
+  // General multi-tenant invoice identity — always from this store only (100+ stores)
   const fallbackName = store?.name || 'المتجر الإلكتروني';
   const cleanInitials = fallbackName.slice(0, 2).toUpperCase();
   return {
@@ -144,16 +56,16 @@ function resolveStoreInvoiceProfile(store?: Partial<Store> | null): StoreInvoice
     nameAr: store?.nameAr || store?.name || 'المتجر الإلكتروني',
     subtitleAr: 'فاتورة ضريبية مبسطة معتمدة',
     subtitleEn: 'Official Simplified Tax Invoice',
-    address: store?.domain ? `Saudi Arabia • ${store.domain}` : 'Riyadh, Kingdom of Saudi Arabia',
-    addressAr: store?.domain ? `المملكة العربية السعودية • ${store.domain}` : 'الرياض، المملكة العربية السعودية',
-    phone: store?.contactPhone || store?.phone || '+966 50 000 0000',
-    email: store?.ownerEmail || store?.email || 'info@store-sa.com',
-    taxNumber: store?.taxNumber || '300000000000003',
-    crNumber: store?.crNumber || '1010000000',
+    address: store?.domain ? `Saudi Arabia • ${store.domain}` : 'Kingdom of Saudi Arabia',
+    addressAr: store?.domain ? `المملكة العربية السعودية • ${store.domain}` : 'المملكة العربية السعودية',
+    phone: store?.contactPhone || store?.phone || '',
+    email: store?.ownerEmail || store?.email || '',
+    taxNumber: store?.taxNumber || '',
+    crNumber: store?.crNumber || '',
     initials: cleanInitials,
     logo: store?.logo,
-    defaultCategoryItemNameAr: `طلب منتجات (${store?.name || 'المتجر'})`,
-    defaultCategoryItemNameEn: `Products Order (${store?.name || 'Store'})`,
+    defaultCategoryItemNameAr: 'طلب منتجات من المتجر',
+    defaultCategoryItemNameEn: 'Store Products Order',
   };
 }
 
@@ -528,7 +440,7 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
               id="retail-invoice-print-area"
               dir={isAr ? 'rtl' : 'ltr'}
               className="w-full max-w-[840px] bg-white text-slate-900 p-8 sm:p-12 rounded-3xl shadow-xl border border-slate-200/90 select-text font-sans"
-              style={{ fontFamily: isAr ? "'Tajawal', 'Cairo', sans-serif" : "'Plus Jakarta Sans', 'Inter', sans-serif" }}
+              style={{ fontFamily: portalFontFamily(isAr ? 'ar' : 'en') }}
             >
               {/* Top Accent Gradient Stripe (Image 1 Exact) */}
               <div className="w-full h-2 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-amber-500 mb-8" />
@@ -793,7 +705,7 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
               id="retail-invoice-print-area"
               dir={isAr ? 'rtl' : 'ltr'}
               className="w-full max-w-[360px] bg-white text-slate-900 p-6 rounded-2xl shadow-xl border border-slate-200 select-text font-mono text-xs my-2"
-              style={{ fontFamily: isAr ? "'Tajawal', 'Cairo', monospace" : "monospace" }}
+              style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}
             >
               {/* Slip Header */}
               <div className="text-center pb-4 border-b border-dashed border-slate-300 space-y-1.5">

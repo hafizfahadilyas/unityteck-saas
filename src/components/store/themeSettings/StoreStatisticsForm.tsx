@@ -19,6 +19,7 @@ import {
   writeAllThemeSettings,
   type StoreStatisticsSettings,
 } from '../../../themes/settings/themeSettingsStore';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 export const StoreStatisticsForm: React.FC = () => {
   const { activeStore } = useTenant();
@@ -82,14 +83,14 @@ export const StoreStatisticsForm: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-                Theme Settings · 18
+                {themeSettingsBadge(18, isAr)}
               </span>
               <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
                 Pro
               </span>
             </div>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'إحصائيات وإنجازات المتجر' : 'Store Statistics (Selia)'}
+              {isAr ? 'إحصائيات وإنجازات المتجر' : 'Store Statistics'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr

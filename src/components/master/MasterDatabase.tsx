@@ -12,6 +12,7 @@ import {
   DEFAULT_HOSTINGER_CONFIG,
   HostingerDbConfig,
 } from '../../utils/hostingerMysql';
+import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
 import {
   Database,
   Server,
@@ -170,7 +171,7 @@ export const MasterDatabase: React.FC = () => {
   const inspectorData = getInspectorData();
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800">
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 w-full min-w-0">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
@@ -239,33 +240,20 @@ export const MasterDatabase: React.FC = () => {
         </div>
       )}
 
-      {/* Main Navigation Subtabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto text-xs font-semibold">
-        {[
+      {/* Main Navigation Subtabs — modern segmented toggles */}
+      <ModernSegmentedTabs
+        accent="teal"
+        aria-label="Database sections"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        items={[
           { id: 'overview', label: 'Hostinger DB Config', icon: Server },
           { id: 'schema', label: 'Hostinger Schema (SQL)', icon: Code2 },
           { id: 'seed', label: 'Real Saudi Seed Data (SQL)', icon: Download },
           { id: 'inspector', label: 'Live MySQL Table Browser', icon: Table },
           { id: 'env', label: 'Hostinger .env Config', icon: Terminal },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap ${
-                isActive
-                  ? 'bg-teal-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+        ]}
+      />
 
       {/* Tab 1: OVERVIEW & CREDENTIALS */}
       {activeTab === 'overview' && (

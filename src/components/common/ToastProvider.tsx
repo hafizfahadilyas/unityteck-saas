@@ -229,7 +229,7 @@ function ConfirmModal({
       dir={isAr ? 'rtl' : 'ltr'}
       aria-label={title}
       role="alertdialog"
-      zIndexClassName="z-[110]"
+      zIndexClassName="z-[10000]"
       backdropClassName="bg-[#04222B]/55 backdrop-blur-[2px]"
       closeOnEscape={false}
     >
@@ -343,7 +343,7 @@ function ConfirmReasonModal({
       dir={isAr ? 'rtl' : 'ltr'}
       aria-label={title}
       role="alertdialog"
-      zIndexClassName="z-[110]"
+      zIndexClassName="z-[10000]"
       backdropClassName="bg-[#04222B]/55 backdrop-blur-[2px]"
       closeOnEscape={false}
     >

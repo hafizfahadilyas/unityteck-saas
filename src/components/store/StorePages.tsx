@@ -208,7 +208,7 @@ export const StorePages: React.FC = () => {
     loadPages();
   };
 
-  // Reset to default
+  // Reset to default — writes Saudi master templates to this store_id only
   const handleResetDefaults = () => {
     const ok = window.confirm(
       isAr
@@ -217,13 +217,16 @@ export const StorePages: React.FC = () => {
     );
     if (!ok) return;
 
-    resetStorePagesToDefault(activeStore.id);
-    showNotification(isAr ? 'تمت استعادة القوالب الافتراضية المعتمدة ✓' : 'Master default policies restored ✓');
-    loadPages();
+    void resetStorePagesToDefault(activeStore.id).then((list) => {
+      setPages(list);
+      showNotification(
+        isAr ? 'تمت استعادة القوالب الافتراضية المعتمدة ✓' : 'Master default policies restored ✓',
+      );
+    });
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 pb-20 max-w-7xl mx-auto" dir={isAr ? 'rtl' : 'ltr'}>
+    <div className="u-page p-4 sm:p-6 space-y-6 pb-20 max-w-7xl mx-auto w-full min-w-0" dir={isAr ? 'rtl' : 'ltr'}>
       {/* Toast */}
       {toastMessage && (
         <div className="fixed bottom-6 end-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-700 animate-in fade-in slide-in-from-bottom-3 duration-200">
@@ -456,18 +459,42 @@ export const StorePages: React.FC = () => {
         <div className="text-center py-16 bg-white rounded-3xl border border-slate-200/80 p-8">
           <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <h3 className="font-bold text-slate-800 text-base mb-1">
-            {isAr ? 'لم يتم العثور على أي صفحات' : 'No pages found'}
+            {pages.length === 0
+              ? isAr
+                ? 'لا توجد صفحات لهذا المتجر'
+                : 'No pages for this store'
+              : isAr
+                ? 'لم يتم العثور على أي صفحات'
+                : 'No pages found'}
           </h3>
-          <p className="text-xs text-slate-500 mb-4">
-            {isAr ? 'جرّب تغيير فئة التصفية أو أنشئ صفحة جديدة.' : 'Try changing filters or create a new page.'}
+          <p className="text-xs text-slate-500 mb-4 max-w-md mx-auto">
+            {pages.length === 0
+              ? isAr
+                ? 'قاعدة البيانات فارغة لهذا المتجر. اضغط «استعادة القوالب الافتراضية» لتحميل سياسات الخصوصية والاسترجاع والشروط وغيرها، أو أنشئ صفحة جديدة.'
+                : 'This store has no saved pages yet. Click “Reset Defaults” to load Privacy, Returns, Terms and other Saudi templates, or create a new page.'
+              : isAr
+                ? 'جرّب تغيير فئة التصفية أو أنشئ صفحة جديدة.'
+                : 'Try changing filters or create a new page.'}
           </p>
-          <button
-            type="button"
-            onClick={handleStartCreate}
-            className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs cursor-pointer shadow-sm hover:bg-indigo-700 transition-colors"
-          >
-            {isAr ? 'إنشاء صفحة جديدة +' : 'Create New Page +'}
-          </button>
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            {pages.length === 0 ? (
+              <button
+                type="button"
+                onClick={handleResetDefaults}
+                className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs cursor-pointer shadow-sm hover:bg-slate-50 transition-colors inline-flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                {isAr ? 'استعادة القوالب الافتراضية' : 'Reset Defaults'}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleStartCreate}
+              className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs cursor-pointer shadow-sm hover:bg-indigo-700 transition-colors"
+            >
+              {isAr ? 'إنشاء صفحة جديدة +' : 'Create New Page +'}
+            </button>
+          </div>
         </div>
       )}
 

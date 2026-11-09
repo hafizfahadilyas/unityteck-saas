@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
+import { useSaudiCityOptions } from '../../../hooks/useSaudiCityOptions';
+import { SaudiCitySelect } from '../../../components/common/SaudiCitySelect';
 import {
   resolveCoffeeThemeSettings,
 } from '../../settings/coffeeThemeDefaults';
@@ -438,6 +440,11 @@ const ACCESSORIES_LIST: AccessoryItem[] = [
 export const CustomOrderPage: React.FC = () => {
   const { language, addCustomCornerToCart, navigateTo, showToast, storeIdentity } = useCart();
   const { activeStore } = useTenant();
+  const {
+    cities: saudiCities,
+    addCity: addSaudiCity,
+    removeCity: removeSaudiCity,
+  } = useSaudiCityOptions(activeStore?.id);
   const isAr = language === 'AR';
   const [settingsTick, setSettingsTick] = useState(0);
 
@@ -552,7 +559,7 @@ export const CustomOrderPage: React.FC = () => {
   const [isRfqModalOpen, setIsRfqModalOpen] = useState(false);
   const [rfqName, setRfqName] = useState('فهد العتيبي');
   const [rfqPhone, setRfqPhone] = useState('0501234567');
-  const [rfqCity, setRfqCity] = useState('الرياض (Riyadh)');
+  const [rfqCity, setRfqCity] = useState('Riyadh');
   const [rfqSubmitted, setRfqSubmitted] = useState(false);
   const [generatedRfqId, setGeneratedRfqId] = useState('');
 
@@ -2461,38 +2468,16 @@ Please contact me to confirm the details. Thank you!`;
                     <label className="text-xs font-semibold text-neutral-700 block mb-1">
                       {language === 'AR' ? 'المدينة:' : 'City:'}
                     </label>
-                    <select
+                    <SaudiCitySelect
                       value={rfqCity}
-                      onChange={e => setRfqCity(e.target.value)}
+                      onChange={setRfqCity}
+                      cities={saudiCities}
+                      isAr={isAr}
+                      manageEnabled
+                      onAddCity={(nameEn, nameAr) => addSaudiCity({ nameEn, nameAr })}
+                      onRemoveCity={removeSaudiCity}
                       className="w-full bg-neutral-50 border border-neutral-300 rounded-xl p-3 text-xs text-neutral-900 focus:outline-hidden cursor-pointer"
-                    >
-                      {(language === 'AR'
-                        ? [
-                            'الرياض',
-                            'جدة',
-                            'الدمام والخبر',
-                            'مكة المكرمة',
-                            'المدينة المنورة',
-                            'القصيم',
-                            'أبها وخميس مشيط',
-                            'مدينة أخرى بالمملكة',
-                          ]
-                        : [
-                            'Riyadh',
-                            'Jeddah',
-                            'Dammam & Khobar',
-                            'Makkah',
-                            'Medina',
-                            'Qassim',
-                            'Abha',
-                            'Other KSA City',
-                          ]
-                      ).map((city) => (
-                        <option key={city} value={city}>
-                          {city}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 </div>
 

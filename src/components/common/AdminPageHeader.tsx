@@ -39,13 +39,18 @@ export const AdminPageHeader: React.FC<Props> = ({
   </div>
 );
 
+/** Shared page root — min-w-0 keeps flex column from overlapping the sidebar. No overflow-x-clip (clips filter dropdowns). */
+export const PAGE_SHELL_CLASS =
+  'u-page p-3 sm:p-5 lg:p-6 space-y-3 sm:space-y-4 max-w-[1650px] mx-auto w-full min-w-0';
+
 export const AdminPageShell: React.FC<{
   children: React.ReactNode;
   className?: string;
 }> = ({ children, className = '' }) => (
   <div
-    className={`u-page p-3 sm:p-5 lg:p-6 space-y-3 sm:space-y-4 max-w-[1650px] mx-auto w-full min-w-0 overflow-x-hidden contain-inline-size ${className}`.trim()}
+    className={`${PAGE_SHELL_CLASS} ${className}`.trim()}
     style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
+    data-page-shell="1"
   >
     {children}
   </div>

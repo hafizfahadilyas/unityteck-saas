@@ -139,7 +139,19 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
               setCollapsed((v) => !v);
             }}
             className="unity-sidebar-toggle ms-auto shrink-0"
-            aria-label={isAr ? 'إغلاق القائمة' : 'Close menu'}
+            aria-label={
+              isAr
+                ? (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023.98px)').matches
+                    ? 'إغلاق القائمة'
+                    : collapsed
+                      ? 'توسيع الشريط الجانبي'
+                      : 'طي الشريط الجانبي')
+                : (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023.98px)').matches
+                    ? 'Close menu'
+                    : collapsed
+                      ? 'Expand sidebar'
+                      : 'Collapse sidebar')
+            }
           >
             <X className="w-4 h-4 lg:hidden" aria-hidden />
             <span className="hidden lg:inline-flex">

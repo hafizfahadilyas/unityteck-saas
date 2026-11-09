@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Play, Pause, Volume2, VolumeX, Sparkles, ArrowRight } from 'lucide-react';
+import { useCart } from '../context/CartContext';
 
 interface InteractiveBannerProps {
   title: string;
@@ -22,6 +23,8 @@ export const InteractiveBannerCard: React.FC<InteractiveBannerProps> = ({
   onClick,
   ctaText = 'Learn More'
 }) => {
+  const { language } = useCart();
+  const isAr = language === 'AR';
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -113,16 +116,16 @@ export const InteractiveBannerCard: React.FC<InteractiveBannerProps> = ({
             <button
               onClick={toggleVideoPlay}
               className="w-8 h-8 rounded-full bg-black/70 backdrop-blur-md hover:bg-black text-white flex items-center justify-center transition-colors cursor-pointer"
-              title={isPlaying ? 'Pause' : 'Play'}
-              aria-label={isPlaying ? 'Pause' : 'Play'}
+              title={isPlaying ? (isAr ? 'إيقاف مؤقت' : 'Pause') : (isAr ? 'تشغيل' : 'Play')}
+              aria-label={isPlaying ? (isAr ? 'إيقاف مؤقت' : 'Pause') : (isAr ? 'تشغيل' : 'Play')}
             >
               {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
             </button>
             <button
               onClick={toggleAudio}
               className="w-8 h-8 rounded-full bg-black/70 backdrop-blur-md hover:bg-black text-white flex items-center justify-center transition-colors cursor-pointer"
-              title={isMuted ? 'Unmute Sound' : 'Mute Sound'}
-              aria-label={isMuted ? 'Unmute Sound' : 'Mute Sound'}
+              title={isMuted ? (isAr ? 'تشغيل الصوت' : 'Unmute Sound') : (isAr ? 'كتم الصوت' : 'Mute Sound')}
+              aria-label={isMuted ? (isAr ? 'تشغيل الصوت' : 'Unmute Sound') : (isAr ? 'كتم الصوت' : 'Mute Sound')}
             >
               {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
             </button>

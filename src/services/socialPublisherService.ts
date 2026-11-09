@@ -32,12 +32,15 @@ export type SocialAccountPublic = {
   status: 'connected' | 'not_connected' | 'not_available';
 };
 
+export type SocialMediaType = 'image' | 'video' | 'text';
+
 export type SocialPostRow = {
   id: string;
   store_id: string;
   platform: SocialPlatform;
   media_id?: string | null;
-  image_url: string;
+  media_type?: SocialMediaType | null;
+  image_url: string | null;
   caption?: string | null;
   scheduled_for?: string | null;
   status: 'published' | 'scheduled' | 'failed' | 'cancelled';
@@ -306,8 +309,9 @@ export async function scheduleSocialPost(
   storeId: string,
   payload: {
     platform: SocialPlatform;
+    media_type?: SocialMediaType;
     media_id?: string;
-    image_url: string;
+    image_url?: string | null;
     caption?: string;
     scheduled_for?: string;
     publish_now?: boolean;
@@ -319,13 +323,19 @@ export async function scheduleSocialPost(
     );
   }
 
+  const mediaType = payload.media_type || 'image';
+  if (mediaType === 'text' && payload.platform !== 'facebook') {
+    throw new Error('Text-only posts are available on Facebook only.');
+  }
+
   const res = await apiFetch<{ data: SocialPostRow }>('/social/posts', {
     method: 'POST',
     storeId,
     body: {
       platform: payload.platform,
+      media_type: mediaType,
       media_id: payload.media_id,
-      image_url: payload.image_url,
+      image_url: mediaType === 'text' ? undefined : payload.image_url,
       caption: payload.caption,
       scheduled_for: payload.publish_now ? undefined : payload.scheduled_for,
       publish_now: payload.publish_now === true,

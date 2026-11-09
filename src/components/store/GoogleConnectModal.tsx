@@ -3,6 +3,7 @@ import { usePrefs } from '../../i18n/PrefsContext';
 import { useTenant } from '../../context/TenantContext';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
+import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
 import { realTrackingId, seoSetupStep, storeGoogleEmail } from './seo/storeSeoSetup';
 import {
   fetchGoogleStatus,
@@ -15,13 +16,14 @@ import {
 } from '../../api/tenantApi';
 import {
   initiateRealGoogleOAuth,
-  initiateInstantGoogleConnect,
   getStoredGoogleClientId,
   setStoredGoogleClientId,
+  clearStoredGoogleClientId,
   getStoreGoogleState,
   saveStoreGoogleState,
   clearStoreGoogleState,
-  GoogleConnectedState,
+  mapGoogleConnectError,
+  hasRealGoogleClientId,
 } from '../../utils/googleRealAuth';
 import {
   CheckCircle2,
@@ -369,16 +371,48 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
         if (onConnected) onConnected();
       };
 
-      const clientId = customClientIdInput.trim() || getStoredGoogleClientId();
-      if (mode === 'instant' || !clientId.endsWith('.apps.googleusercontent.com')) {
+      // Prefer the server OAuth client (secret lives on API). A mismatched Advanced
+      // Client ID causes Google "not found" / invalid_client after the popup.
+      let clientId = '';
+      try {
+        const authMeta = await fetchGoogleAuthUrl(activeStore.id, window.location.origin);
+        clientId = String(authMeta?.client_id || '').trim();
+      } catch (authErr) {
+        setIsLoading(false);
+        setErrorMessage(mapGoogleConnectError(authErr, isAr));
+        toast(mapGoogleConnectError(authErr, isAr), 'error');
+        return;
+      }
+
+      const customId = customClientIdInput.trim() || getStoredGoogleClientId();
+      if (
+        hasRealGoogleClientId(customId) &&
+        hasRealGoogleClientId(clientId) &&
+        customId !== clientId
+      ) {
+        setIsLoading(false);
+        const msg = isAr
+          ? 'معرّف العميل المخصص لا يطابق إعداد الخادم. امسحه واستخدم معرّف المنصة، أو حدّث معرّف/سر جوجل على الخادم ليطابقا.'
+          : 'Your Advanced Client ID does not match the server. Clear it to use the platform client, or update GOOGLE_CLIENT_ID / SECRET on the server to match.';
+        setErrorMessage(msg);
+        toast(msg, 'error');
+        return;
+      }
+
+      if (!hasRealGoogleClientId(clientId)) {
+        clientId = hasRealGoogleClientId(customId) ? customId : getStoredGoogleClientId();
+      }
+
+      if (mode === 'instant' || !hasRealGoogleClientId(clientId)) {
         setIsLoading(false);
         setErrorMessage(
           isAr
-            ? 'الربط الفوري متوقف. معرّف عميل جوجل غير جاهز.'
-            : 'Instant connect is off. The Google client id is not ready.',
+            ? 'معرّف عميل جوجل غير جاهز على الخادم. أعد إعداد ربط جوجل ثم حاول مرة أخرى.'
+            : 'Google Client ID is not ready on the server. Configure OAuth, then try again.',
         );
         return;
       }
+
       initiateRealGoogleOAuth({
         storeSlug: activeStore.slug,
         clientId,
@@ -408,12 +442,12 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
         onSuccess: handleTokenReceived,
         onError: (err) => {
           setIsLoading(false);
-          setErrorMessage(err || 'Google OAuth failed');
+          setErrorMessage(mapGoogleConnectError(err, isAr));
         },
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       setIsLoading(false);
-      setErrorMessage(e?.message || 'Error initializing Google authentication');
+      setErrorMessage(mapGoogleConnectError(e, isAr));
     }
   };
 
@@ -514,9 +548,9 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
       setTimeout(() => {
         onClose();
       }, 1000);
-    } catch (e: any) {
+    } catch (e: unknown) {
       setIsSyncing(false);
-      setErrorMessage(e?.message || 'Error syncing data');
+      setErrorMessage(mapGoogleConnectError(e, isAr));
     }
   };
 
@@ -585,43 +619,20 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
           </button>
         </div>
 
-        {/* Modal Navigation Tabs */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 px-6 pt-2 gap-4 text-xs font-bold shrink-0">
-          <button
-            onClick={() => setActiveTab('connect')}
-            className={`pb-3 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
-              activeTab === 'connect'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            <Zap className="w-3.5 h-3.5" />
-            <span>{isAr ? 'الاتصال والمزامنة' : 'Connect & Sync'}</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('properties')}
-            className={`pb-3 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
-              activeTab === 'properties'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>{isAr ? 'تحديد الخصائص والحاويات' : 'Select Properties'}</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('docs')}
-            className={`pb-3 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
-              activeTab === 'docs'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-            <span>{isAr ? 'دليل الربط المصور' : 'Visual Guide & Docs'}</span>
-          </button>
+        {/* Modal Navigation Tabs — modern segmented toggles */}
+        <div className="px-6 pt-3 pb-1 bg-slate-50 dark:bg-slate-900/60 shrink-0">
+          <ModernSegmentedTabs
+            accent="blue"
+            size="sm"
+            aria-label={isAr ? 'خطوات ربط جوجل' : 'Google connect steps'}
+            value={activeTab}
+            onChange={setActiveTab}
+            items={[
+              { id: 'connect', label: isAr ? 'الاتصال والمزامنة' : 'Connect & Sync', icon: Zap },
+              { id: 'properties', label: isAr ? 'تحديد الخصائص والحاويات' : 'Select Properties', icon: Sliders },
+              { id: 'docs', label: isAr ? 'دليل الربط المصور' : 'Visual Guide & Docs', icon: HelpCircle },
+            ]}
+          />
         </div>
 
         {/* Modal Body */}
@@ -794,31 +805,57 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
 
                     {showAdvancedOAuth && (
                       <div className="mt-3 p-4 bg-slate-100/70 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3 animate-fadeIn">
+                        <p className="text-[11px] text-amber-800 dark:text-amber-200 leading-relaxed">
+                          {isAr
+                            ? 'يجب أن يطابق معرّف العميل هنا إعداد الخادم (نفس العميل وسرّه). معرّف مختلف يسبب فشل الربط. للمتاجر العادية اتركه فارغاً أو امسحه.'
+                            : 'This Client ID must match the server OAuth client (same ID + secret). A different ID breaks connect. For normal stores, leave empty or clear it.'}
+                        </p>
                         <div>
                           <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                            Custom Google OAuth Client ID:
+                            {isAr ? 'معرّف عميل جوجل المخصص:' : 'Custom Google OAuth Client ID:'}
                           </label>
                           <input
                             type="text"
                             value={customClientIdInput}
                             onChange={(e) => {
                               setCustomClientIdInput(e.target.value);
-                              setStoredGoogleClientId(e.target.value);
+                              if (e.target.value.trim()) setStoredGoogleClientId(e.target.value);
+                              else clearStoredGoogleClientId();
                             }}
-                            placeholder="e.g. 123456789-abc.apps.googleusercontent.com"
+                            placeholder={
+                              isAr
+                                ? 'مثال: 123456789-abc.apps.googleusercontent.com'
+                                : 'e.g. 123456789-abc.apps.googleusercontent.com'
+                            }
                             className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-800 dark:text-slate-200"
                             dir="ltr"
                           />
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleStartGoogleConnect('oauth')}
-                          disabled={isLoading}
-                          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
-                        >
-                          <Key className="w-3.5 h-3.5" />
-                          <span>{isAr ? 'تسجيل الدخول عبر معرف العميل المخصص' : 'Sign in with Custom Client ID'}</span>
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              clearStoredGoogleClientId();
+                              setCustomClientIdInput('');
+                              toast(
+                                isAr ? 'تم مسح المعرّف المخصص. سيُستخدم عميل المنصة.' : 'Custom Client ID cleared. Platform client will be used.',
+                                'info',
+                              );
+                            }}
+                            className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold cursor-pointer"
+                          >
+                            {isAr ? 'مسح المعرّف المخصص' : 'Clear custom Client ID'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleStartGoogleConnect('oauth')}
+                            disabled={isLoading}
+                            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
+                          >
+                            <Key className="w-3.5 h-3.5" />
+                            <span>{isAr ? 'تسجيل الدخول عبر معرف العميل المخصص' : 'Sign in with Custom Client ID'}</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -982,31 +1019,111 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
               <div className="p-4 bg-blue-50/70 dark:bg-blue-950/30 rounded-2xl border border-blue-200 dark:border-blue-800 space-y-2">
                 <h4 className="font-bold text-sm text-blue-900 dark:text-blue-200 flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-blue-600" />
-                  <span>{isAr ? 'كيف يعمل ربط جوجل Site Kit؟' : 'How does Google Site Kit integration work?'}</span>
+                  <span>{isAr ? 'كيف يعمل ربط خدمات جوجل؟' : 'How does Google Site Kit integration work?'}</span>
                 </h4>
                 <p className="text-blue-800 dark:text-blue-300 leading-relaxed">
                   {isAr
-                    ? 'يتم دمج خدمات جوجل الرسمية مباشرة مع متجرك عبر بروتوكول OAuth 2.0 المعتمد، مما يمكن محرك بحث جوجل من أرشفة منتجاتك فور نشرها، وتوليد خرائط المواقع خريطة الموقع.xml آلياً، وقياس مؤشرات الأداء الحقيقية Core Web Vitals لحظة بلحظة.'
-                    : 'Direct REST integration with Google Search Console, GA4, and Google PageSpeed Insights API, automatically pushing updated sitemaps and monitoring Core Web Vitals.'}
+                    ? 'يتم دمج خدمات جوجل الرسمية مباشرة مع متجرك عبر بروتوكول المصادقة الرسمي، لأرشفة المنتجات، وإرسال خريطة الموقع، وقياس أداء الصفحة الحقيقي.'
+                    : 'Direct REST integration with Google Search Console, Analytics, and PageSpeed — sitemap push and real Core Web Vitals only after the store owner approves access.'}
                 </p>
+              </div>
+
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                  {isAr ? 'متاجر جديدة — ماذا يتكرر تلقائياً؟' : 'New stores — what is automatic?'}
+                </h4>
+                <ul className="list-disc ps-4 space-y-1.5 text-slate-600 dark:text-slate-300 leading-relaxed">
+                  <li>
+                    {isAr
+                      ? 'عميل جوجل واحد للمنصة — لا حاجة لعميل جديد لكل متجر.'
+                      : 'One platform Google OAuth client — no new Client ID per store.'}
+                  </li>
+                  <li>
+                    {isAr
+                      ? 'كل متجر يربط بريده وموافقته منفصلة. لا اتصال تلقائي وهمي.'
+                      : 'Each store signs in with its own Gmail/consent. No fake auto-connect.'}
+                  </li>
+                  <li>
+                    {isAr
+                      ? 'نطاق لوحة جديد؟ أضفه في سحابة جوجل تحت عناوين المصدر وإعادة التوجيه.'
+                      : 'New admin domain? Add it in Google Cloud under Authorized origins + redirect URIs.'}
+                  </li>
+                  <li>
+                    {isAr
+                      ? 'وضع الاختبار: أضف بريد المالك في مستخدمي الاختبار (أو انشر التطبيق لاحقاً).'
+                      : 'Testing mode: add the owner email as a Test user (or Publish the app later).'}
+                  </li>
+                </ul>
+              </div>
+
+              <div className="p-4 bg-amber-50/80 dark:bg-amber-950/30 rounded-2xl border border-amber-200 dark:border-amber-800 space-y-2">
+                <h4 className="font-bold text-sm text-amber-900 dark:text-amber-100">
+                  {isAr ? 'إذا ظهرت رسالة: لم يؤكد جوجل ملكية هذا التطبيق' : 'If you see: Google has not confirmed ownership of this app'}
+                </h4>
+                <ol className="list-decimal ps-4 space-y-1.5 text-amber-900/90 dark:text-amber-100/90 leading-relaxed">
+                  <li>
+                    {isAr
+                      ? 'في نافذة جوجل اضغط الرابط السفلي (مثل المتابعة / Advanced) ثم «المتابعة إلى التطبيق».'
+                      : 'In the Google window, open Advanced (or the small link), then Continue to the app.'}
+                  </li>
+                  <li>
+                    {isAr
+                      ? 'افتح سحابة جوجل ← واجهات برمجة التطبيقات والخدمات ← شاشة موافقة OAuth.'
+                      : 'Open Google Cloud → APIs & Services → OAuth consent screen.'}
+                  </li>
+                  <li>
+                    {isAr
+                      ? 'أضف بريد مالك المتجر تحت مستخدمي الاختبار.'
+                      : 'Add the store owner email under Test users.'}
+                  </li>
+                  <li>
+                    {isAr
+                      ? 'نفس العميل: انسخ معرّف العميل والسر إلى إعداد الخادم، وأضف عنوان هذا الموقع في عناوين إعادة التوجيه المصرّح بها.'
+                      : 'Same OAuth client: put Client ID + Secret on the server, and add this site origin to Authorized redirect URIs.'}
+                  </li>
+                </ol>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
-                  <span className="font-bold text-slate-900 dark:text-white block">1. Google Analytics 4</span>
-                  <p className="text-[11px] text-slate-500">Live e-commerce purchase tracking, add-to-cart, view-item events.</p>
+                  <span className="font-bold text-slate-900 dark:text-white block">
+                    {isAr ? '١. تحليلات جوجل ٤' : '1. Google Analytics 4'}
+                  </span>
+                  <p className="text-[11px] text-slate-500">
+                    {isAr
+                      ? 'تتبع المشتريات وإضافة السلة وعرض المنتج بعد الربط الحقيقي.'
+                      : 'Live purchase, add-to-cart, and view-item events after a real connect.'}
+                  </p>
                 </div>
                 <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
-                  <span className="font-bold text-slate-900 dark:text-white block">2. Google Search Console</span>
-                  <p className="text-[11px] text-slate-500">Instant URL indexing webhook and domain ownership verification.</p>
+                  <span className="font-bold text-slate-900 dark:text-white block">
+                    {isAr ? '٢. وحدة بحث جوجل' : '2. Google Search Console'}
+                  </span>
+                  <p className="text-[11px] text-slate-500">
+                    {isAr
+                      ? 'فهرسة الروابط والتحقق من ملكية النطاق عند توفر الصلاحيات.'
+                      : 'URL indexing and domain ownership when permissions are granted.'}
+                  </p>
                 </div>
                 <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
-                  <span className="font-bold text-slate-900 dark:text-white block">3. Core Web Vitals</span>
-                  <p className="text-[11px] text-slate-500">Automated LCP, CLS, and FCP performance diagnostics via PageSpeed API.</p>
+                  <span className="font-bold text-slate-900 dark:text-white block">
+                    {isAr ? '٣. مؤشرات أداء الويب الأساسية' : '3. Core Web Vitals'}
+                  </span>
+                  <p className="text-[11px] text-slate-500">
+                    {isAr
+                      ? 'قياس حقيقي لسرعة الصفحة عبر واجهة قياس السرعة — بدون أرقام وهمية.'
+                      : 'Real PageSpeed measurements only — never invented scores.'}
+                  </p>
                 </div>
                 <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
-                  <span className="font-bold text-slate-900 dark:text-white block">4. Tag Manager & Pixels</span>
-                  <p className="text-[11px] text-slate-500">Automated container injection with zero code modifications needed.</p>
+                  <span className="font-bold text-slate-900 dark:text-white block">
+                    {isAr ? '٤. مدير العلامات والبكسل' : '4. Tag Manager & pixels'}
+                  </span>
+                  <p className="text-[11px] text-slate-500">
+                    {isAr
+                      ? 'ربط الحاويات المكتشفة لهذا المتجر فقط بعد موافقة المالك.'
+                      : 'Link discovered containers for this store only after owner approval.'}
+                  </p>
                 </div>
               </div>
             </div>

@@ -1412,7 +1412,7 @@ class WhatsAppController extends Controller
             $storeSetting = StoreSetting::query()->where('store_id', $s->id)->first();
             $stored = $storeSetting && is_array($storeSetting->settings) ? ($storeSetting->settings['whatsapp'] ?? []) : [];
 
-            $quota = \App\Services\Notification\MessageQuota::forStore((string) $store->id);
+            $quota = \App\Services\Notification\MessageQuota::forStore((string) $s->id);
             $dailyLimit = (int) $quota['daily_limit'];
             $monthlyLimit = (int) $quota['monthly_limit'];
 

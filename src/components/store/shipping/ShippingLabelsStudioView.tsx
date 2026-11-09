@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { ModernSegmentedTabs } from '../../common/ModernSegmentedTabs';
 import type { Order } from '../../../types';
 import {
   generateCode128Svg,
@@ -216,31 +217,19 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
         </button>
       </div>
 
-      {/* ── 2. Sub-tabs Navigation ── */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto pb-px">
-        {[
-          { key: 'create', label: isAr ? 'إنشاء بوليصة شحن' : 'Create Shipping Label' },
-          { key: 'history', label: isAr ? 'سجل البوالص' : 'Label History' },
-          { key: 'bulk', label: isAr ? 'إجراءات جماعية' : 'Bulk Actions' },
-          { key: 'failed', label: isAr ? 'البوالص المتعثرة' : 'Failed Labels' },
-        ].map((tab) => {
-          const isActive = activeSubTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveSubTab(tab.key as any)}
-              className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-all ${
-                isActive
-                  ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* ── 2. Sub-tabs — modern segmented toggles ── */}
+      <ModernSegmentedTabs
+        accent="blue"
+        aria-label={isAr ? 'أقسام بوالص الشحن' : 'Shipping label sections'}
+        value={activeSubTab}
+        onChange={(key) => setActiveSubTab(key as typeof activeSubTab)}
+        items={[
+          { id: 'create', label: isAr ? 'إنشاء بوليصة شحن' : 'Create Shipping Label' },
+          { id: 'history', label: isAr ? 'سجل البوالص' : 'Label History' },
+          { id: 'bulk', label: isAr ? 'إجراءات جماعية' : 'Bulk Actions' },
+          { id: 'failed', label: isAr ? 'البوالص المتعثرة' : 'Failed Labels' },
+        ]}
+      />
 
       {activeSubTab === 'create' && (
         <div className="space-y-6">

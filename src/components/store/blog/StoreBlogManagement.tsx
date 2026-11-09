@@ -279,7 +279,9 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
     setIsEditorOpen(true);
   };
 
-  const handleSaveArticle = async (data: Partial<BlogArticleItem>) => {
+  const handleSaveArticle = async (
+    data: Partial<BlogArticleItem> & Record<string, unknown>,
+  ) => {
     if (editingArticle) {
       await updateBlogArticleApi(storeId, editingArticle.id, data);
       toast(isAr ? 'تم تحديث المقال بنجاح!' : 'Article updated successfully!', 'success');
@@ -756,20 +758,16 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
                               </button>
 
                               {/* Commerce Tools */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (onOpenCommerceTools) {
-                                    onOpenCommerceTools(art.id);
-                                  } else if (onNavigateTab) {
-                                    onNavigateTab('commerce-tools');
-                                  }
-                                }}
-                                className="p-1.5 text-teal-600 hover:text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/60 rounded-lg transition-colors cursor-pointer"
-                                title={isAr ? 'أدوات التجارة التفاعلية' : 'Article Commerce Tools'}
-                              >
-                                <Sparkles className="w-3.5 h-3.5" />
-                              </button>
+                              {onOpenCommerceTools ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenCommerceTools(art.id)}
+                                  className="p-1.5 text-teal-600 hover:text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/60 rounded-lg transition-colors cursor-pointer"
+                                  title={isAr ? 'أدوات التجارة التفاعلية' : 'Article Commerce Tools'}
+                                >
+                                  <Sparkles className="w-3.5 h-3.5" />
+                                </button>
+                              ) : null}
 
                               {/* Preview */}
                               <button
@@ -1139,13 +1137,7 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
         article={editingArticle}
         onSave={handleSaveArticle}
         categories={categoriesList}
-        onOpenCommerceTools={(artId) => {
-          if (onOpenCommerceTools) {
-            onOpenCommerceTools(artId);
-          } else if (onNavigateTab) {
-            onNavigateTab('commerce-tools');
-          }
-        }}
+        onOpenCommerceTools={onOpenCommerceTools}
       />
 
       {/* Customer-Facing Live Article Preview Modal */}

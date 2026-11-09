@@ -3,6 +3,7 @@ import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
+import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
 import {
   Database,
   Archive,
@@ -178,7 +179,7 @@ CREATE TABLE IF NOT EXISTS \`stores\` (
   PRIMARY KEY (\`id\`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(/'/g, "\\'")}', '${activeStore.slug}', 'giftshop-sa.com');
+INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(/'/g, "\\'")}', '${activeStore.slug}', '${activeStore.custom_domain || activeStore.domain || `${activeStore.slug || 'store'}.unityteck.com`}');
 
 -- Products count: ${products.length}
 -- Orders count: ${orders.length}
@@ -291,7 +292,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
 
   return (
     <div
-      className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800"
+      className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 w-full min-w-0"
       style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
     >
       {/* ── HEADER ── */}
@@ -352,67 +353,27 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
         </div>
       </div>
 
-      {/* ── SUB-TABS NAVIGATION ── */}
-      <div
-        className="p-1 rounded-2xl border flex items-center gap-1 overflow-x-auto text-xs font-bold shadow-2xs"
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-      >
-        <button
-          type="button"
-          onClick={() => setActiveTab('backup')}
-          className={`px-4 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
-            activeTab === 'backup'
-              ? 'text-white shadow-xs'
-              : 'hover:bg-slate-100 dark:hover:bg-slate-800 opacity-70'
-          }`}
-          style={activeTab === 'backup' ? { background: 'var(--portal-cta)' } : {}}
-        >
-          <Archive className="w-4 h-4" />
-          <span>{isAr ? 'النسخ الاحتياطي الشامل' : 'Full Store Backup'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('restore_migration')}
-          className={`px-4 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
-            activeTab === 'restore_migration'
-              ? 'text-white shadow-xs'
-              : 'hover:bg-slate-100 dark:hover:bg-slate-800 opacity-70'
-          }`}
-          style={activeTab === 'restore_migration' ? { background: 'var(--portal-cta)' } : {}}
-        >
-          <Rocket className="w-4 h-4" />
-          <span>{isAr ? 'الاستعادة والنقل إلى استضافة ثانية' : 'Restore & 2nd Host Migration'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('snapshots')}
-          className={`px-4 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
-            activeTab === 'snapshots'
-              ? 'text-white shadow-xs'
-              : 'hover:bg-slate-100 dark:hover:bg-slate-800 opacity-70'
-          }`}
-          style={activeTab === 'snapshots' ? { background: 'var(--portal-cta)' } : {}}
-        >
-          <Database className="w-4 h-4" />
-          <span>{isAr ? 'النسخ المجدولة (يومي / أسبوعي / شهري)' : 'Automated Snapshots'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('guides')}
-          className={`px-4 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
-            activeTab === 'guides'
-              ? 'text-white shadow-xs'
-              : 'hover:bg-slate-100 dark:hover:bg-slate-800 opacity-70'
-          }`}
-          style={activeTab === 'guides' ? { background: 'var(--portal-cta)' } : {}}
-        >
-          <FileText className="w-4 h-4" />
-          <span>{isAr ? 'أدلة الربط خطوة بخطوة' : 'Setup Guides'}</span>
-        </button>
-      </div>
+      {/* ── SUB-TABS — modern segmented toggles ── */}
+      <ModernSegmentedTabs
+        accent="portal"
+        aria-label={isAr ? 'أقسام النسخ والاستعادة' : 'Backup and restore sections'}
+        value={activeTab}
+        onChange={setActiveTab}
+        items={[
+          { id: 'backup', label: isAr ? 'النسخ الاحتياطي الشامل' : 'Full Store Backup', icon: Archive },
+          {
+            id: 'restore_migration',
+            label: isAr ? 'الاستعادة والنقل إلى استضافة ثانية' : 'Restore & 2nd Host Migration',
+            icon: Rocket,
+          },
+          {
+            id: 'snapshots',
+            label: isAr ? 'النسخ المجدولة (يومي / أسبوعي / شهري)' : 'Automated Snapshots',
+            icon: Database,
+          },
+          { id: 'guides', label: isAr ? 'أدلة الربط خطوة بخطوة' : 'Setup Guides', icon: FileText },
+        ]}
+      />
 
       {/* ═══════════════════════════════════════════════════════════════ */}
       {/* ── TAB 1: FULL ZIP BACKUP ── */}

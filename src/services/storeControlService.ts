@@ -272,10 +272,21 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     defaultEnabled: true,
     impactLevel: 'high',
   },
-
-  // ── 2. STORE ADMIN SUB-PAGES & MODULES ──────────────────────────────────
   {
-    id: 'sub_products_categories',
+    id: 'notifications',
+    category: 'store_admin_pages',
+    nameEn: 'Store Notifications Center',
+    nameAr: 'مركز إشعارات المتجر',
+    descriptionEn: 'In-dashboard alerts for orders, stock, payments, and marketing events.',
+    descriptionAr: 'تنبيهات لوحة التحكم للطلبات والمخزون والمدفوعات وأحداث التسويق.',
+    iconName: 'Bell',
+    defaultEnabled: true,
+    impactLevel: 'medium',
+  },
+
+  // ── 2. STORE ADMIN SUB-PAGES & MODULES (ids = live sidebar / tab ids) ──
+  {
+    id: 'categories',
     parentPageId: 'products',
     category: 'store_admin_subpages',
     nameEn: 'Product Categories & Hierarchy',
@@ -286,7 +297,7 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     defaultEnabled: true,
   },
   {
-    id: 'sub_products_brands',
+    id: 'brands',
     parentPageId: 'products',
     category: 'store_admin_subpages',
     nameEn: 'Brands & Manufacturer Directory',
@@ -297,7 +308,7 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     defaultEnabled: true,
   },
   {
-    id: 'sub_products_media',
+    id: 'media',
     parentPageId: 'products',
     category: 'store_admin_subpages',
     nameEn: 'Media & Asset Library',
@@ -308,29 +319,18 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     defaultEnabled: true,
   },
   {
-    id: 'sub_orders_direct',
-    parentPageId: 'orders',
-    category: 'store_admin_subpages',
-    nameEn: 'Direct Rapid POS Orders',
-    nameAr: 'إنشاء الطلبات المباشرة السريعة',
-    descriptionEn: 'Manual order creation for phone or direct showroom purchases.',
-    descriptionAr: 'إصدار الطلبات السريعة هاتفياً أو من خلال منافذ البيع المباشرة.',
-    iconName: 'ShoppingCart',
-    defaultEnabled: true,
-  },
-  {
-    id: 'sub_marketing_coupons',
+    id: 'coupons',
     parentPageId: 'marketing',
     category: 'store_admin_subpages',
-    nameEn: 'Discount Coupons & Vouchers',
-    nameAr: 'أكواد وكوبونات الخصم الترويجية',
-    descriptionEn: 'Fixed, percentage, and free shipping discount promo codes.',
+    nameEn: 'Discount Coupons',
+    nameAr: 'أكواد وكوبونات الخصم',
+    descriptionEn: 'Fixed, percentage, and free shipping coupon codes.',
     descriptionAr: 'إنشاء كوبونات الخصم بنسب مئوية أو مبالغ ثابتة أو شحن مجاني.',
     iconName: 'Tag',
     defaultEnabled: true,
   },
   {
-    id: 'sub_marketing_abandoned',
+    id: 'abandoned-carts',
     parentPageId: 'marketing',
     category: 'store_admin_subpages',
     nameEn: 'Abandoned Cart Recovery',
@@ -341,7 +341,7 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     defaultEnabled: true,
   },
   {
-    id: 'sub_marketing_cart_offers',
+    id: 'cart-offers',
     parentPageId: 'marketing',
     category: 'store_admin_subpages',
     nameEn: 'Cart Value Tier Offers',
@@ -349,10 +349,10 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     descriptionEn: 'Dynamic incentives based on cart basket value (e.g. Free gift above SAR 300).',
     descriptionAr: 'مكافآت تصاعدية بناء على قيمة سلة المشتريات (شحن مجاني أو هدية فورية).',
     iconName: 'Sparkles',
-    defaultEnabled: true,
+    defaultEnabled: false,
   },
   {
-    id: 'sub_marketing_promotions',
+    id: 'promotions',
     parentPageId: 'marketing',
     category: 'store_admin_subpages',
     nameEn: 'Flash Deals & Seasonal Promotions',
@@ -363,7 +363,7 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     defaultEnabled: true,
   },
   {
-    id: 'sub_marketing_bank',
+    id: 'bank-offers',
     parentPageId: 'marketing',
     category: 'store_admin_subpages',
     nameEn: 'Saudi Bank Card Offers',
@@ -371,10 +371,10 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     descriptionEn: 'BIN-level card discounts for Al Rajhi, SNB, Riyad Bank, and Alinma cards.',
     descriptionAr: 'خصومات فورية لحاملي بطاقات الراجحي، الأهلي، الرياض، والإنماء.',
     iconName: 'CreditCard',
-    defaultEnabled: true,
+    defaultEnabled: false,
   },
   {
-    id: 'sub_marketing_cashback',
+    id: 'cashback',
     parentPageId: 'marketing',
     category: 'store_admin_subpages',
     nameEn: 'Customer Cashback & Store Wallet',
@@ -385,7 +385,7 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     defaultEnabled: true,
   },
   {
-    id: 'sub_marketing_gifting',
+    id: 'gifting',
     parentPageId: 'marketing',
     category: 'store_admin_subpages',
     nameEn: 'Gifting System & Greeting Cards',
@@ -393,10 +393,10 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     descriptionEn: 'Gift wrapping selection, recipient greeting note, and hidden invoice delivery.',
     descriptionAr: 'خدمة إهداء الطلبات، اختيار ورق التغليف الفاخر وإرفاق كرت تهنئة مخصص.',
     iconName: 'Sparkles',
-    defaultEnabled: true,
+    defaultEnabled: false,
   },
   {
-    id: 'sub_marketing_loyalty',
+    id: 'loyalty',
     parentPageId: 'marketing',
     category: 'store_admin_subpages',
     nameEn: 'Loyalty Points & VIP Club',
@@ -407,7 +407,7 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     defaultEnabled: true,
   },
   {
-    id: 'sub_marketing_repurchase',
+    id: 'repurchase-reminders',
     parentPageId: 'marketing',
     category: 'store_admin_subpages',
     nameEn: 'Smart Repurchase Reminders',
@@ -418,7 +418,18 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     defaultEnabled: true,
   },
   {
-    id: 'sub_marketing_affiliate',
+    id: 'campaigns',
+    parentPageId: 'marketing',
+    category: 'store_admin_subpages',
+    nameEn: 'Marketing Campaigns',
+    nameAr: 'الحملات التسويقية',
+    descriptionEn: 'Multi-channel campaign planning, performance tracking, and channel attribution.',
+    descriptionAr: 'تخطيط الحملات متعددة القنوات وتتبع الأداء ونسب التحويل.',
+    iconName: 'Megaphone',
+    defaultEnabled: true,
+  },
+  {
+    id: 'affiliate',
     parentPageId: 'marketing',
     category: 'store_admin_subpages',
     nameEn: 'Affiliate Marketing & Influencer Links',
@@ -426,10 +437,32 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     descriptionEn: 'Unique tracking codes, influencer commission payouts, and link performance analytics.',
     descriptionAr: 'روابط تتبع مخصصة للمسوقين وحساب نسب العمولات والأرباح تلقائياً.',
     iconName: 'Users',
+    defaultEnabled: false,
+  },
+  {
+    id: 'direct-orders',
+    parentPageId: 'marketing',
+    category: 'store_admin_subpages',
+    nameEn: 'Direct Orders & Rapid POS',
+    nameAr: 'الطلب المباشر ونقاط البيع السريعة',
+    descriptionEn: 'Manual order creation for phone, WhatsApp, or direct showroom purchases.',
+    descriptionAr: 'إصدار الطلبات السريعة هاتفياً أو عبر واتساب أو منافذ البيع المباشرة.',
+    iconName: 'ShoppingCart',
     defaultEnabled: true,
   },
   {
-    id: 'sub_shipping_zones',
+    id: 'social',
+    parentPageId: 'marketing',
+    category: 'store_admin_subpages',
+    nameEn: 'Social Publishing',
+    nameAr: 'النشر الاجتماعي',
+    descriptionEn: 'Schedule and publish store creatives to connected social channels.',
+    descriptionAr: 'جدولة ونشر مواد المتجر على قنوات التواصل المتصلة.',
+    iconName: 'Share2',
+    defaultEnabled: true,
+  },
+  {
+    id: 'zones',
     parentPageId: 'shipping',
     category: 'store_admin_subpages',
     nameEn: 'Saudi Regional Shipping Zones',
@@ -440,7 +473,7 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     defaultEnabled: true,
   },
   {
-    id: 'sub_shipping_returns',
+    id: 'returns',
     parentPageId: 'shipping',
     category: 'store_admin_subpages',
     nameEn: 'Returns & Exchange Workflow',
@@ -448,6 +481,50 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     descriptionEn: 'Customer return approvals, automated return pickup dispatch, and credit refunds.',
     descriptionAr: 'استقبال طلبات الإرجاع، إصدار بوليصات العكسي وتحديث رصيد العميل.',
     iconName: 'RotateCcw',
+    defaultEnabled: true,
+  },
+  {
+    id: 'shipments',
+    parentPageId: 'shipping',
+    category: 'store_admin_subpages',
+    nameEn: 'Shipments & Live Tracking',
+    nameAr: 'الشحنات والتتبع المباشر',
+    descriptionEn: 'Dispatch list, courier status, and live shipment tracking for the store.',
+    descriptionAr: 'قائمة الإرسال وحالة شركات الشحن وتتبع الشحنات المباشر للمتجر.',
+    iconName: 'Truck',
+    defaultEnabled: true,
+  },
+  {
+    id: 'labels',
+    parentPageId: 'shipping',
+    category: 'store_admin_subpages',
+    nameEn: 'Shipping Labels Studio',
+    nameAr: 'استوديو بوالص الشحن',
+    descriptionEn: 'Print and manage 4×6 shipping labels for supported Saudi couriers.',
+    descriptionAr: 'طباعة وإدارة بوالص الشحن لشركات التوصيل المعتمدة.',
+    iconName: 'FileText',
+    defaultEnabled: true,
+  },
+  {
+    id: 'carriers',
+    parentPageId: 'shipping',
+    category: 'store_admin_subpages',
+    nameEn: 'Courier Integrations',
+    nameAr: 'شركات الشحن المعتمدة',
+    descriptionEn: 'Connect and manage SMSA, Aramex, SPL, and other courier accounts.',
+    descriptionAr: 'ربط وإدارة حسابات سمسا وأرامكس والبريد السعودي وغيرها.',
+    iconName: 'Truck',
+    defaultEnabled: true,
+  },
+  {
+    id: 'methods',
+    parentPageId: 'shipping',
+    category: 'store_admin_subpages',
+    nameEn: 'Shipping Methods',
+    nameAr: 'طرق وخيارات التسليم',
+    descriptionEn: 'Delivery options such as standard, express, and same-day where available.',
+    descriptionAr: 'خيارات التسليم مثل العادي والسريع وفي نفس اليوم حسب التوفر.',
+    iconName: 'Truck',
     defaultEnabled: true,
   },
 
@@ -767,14 +844,191 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
 
 const STORAGE_KEY_PREFIX = 'unityteck_store_controls_';
 const GLOBAL_STORAGE_KEY = 'unityteck_global_store_controls';
+/**
+ * Core store admin pages — always visible in sidebar / never lock-gated.
+ * "Disable all" and Master toggles cannot hide these (settings was disappearing
+ * after bulk-off or stale localStorage).
+ */
+export const CORE_STORE_CONTROL_IDS = new Set(['dashboard', 'settings', 'notifications']);
+const CORE_FORCE_ON_REV_KEY = 'unityteck_core_controls_force_on_rev';
+const CURRENT_CORE_FORCE_ON_REV = 1;
+/**
+ * One-shot hide waves for deferred marketing pages (Master can re-enable after).
+ * Bump CURRENT_DEFERRED_PAGE_HIDE_REV + add a new wave when hiding more pages.
+ * Wave 1 (bank-offers, gifting) used defaultEnabled:false only — do not re-force those.
+ */
+const DEFERRED_PAGE_HIDE_REV_KEY = 'unityteck_deferred_page_hide_rev';
+const DEFERRED_PAGE_HIDE_WAVES: Array<{ rev: number; ids: string[] }> = [
+  { rev: 2, ids: ['cart-offers', 'affiliate'] },
+];
+const CURRENT_DEFERRED_PAGE_HIDE_REV = 2;
+
+/** Old Master control keys → current sidebar / tab ids (backward compatible reads). */
+const LEGACY_CONTROL_ID_MAP: Record<string, string> = {
+  sub_products_categories: 'categories',
+  sub_products_brands: 'brands',
+  sub_products_media: 'media',
+  sub_orders_direct: 'direct-orders',
+  sub_marketing_coupons: 'coupons',
+  sub_marketing_abandoned: 'abandoned-carts',
+  sub_marketing_cart_offers: 'cart-offers',
+  sub_marketing_promotions: 'promotions',
+  sub_marketing_bank: 'bank-offers',
+  sub_marketing_cashback: 'cashback',
+  sub_marketing_gifting: 'gifting',
+  sub_marketing_loyalty: 'loyalty',
+  sub_marketing_repurchase: 'repurchase-reminders',
+  sub_marketing_affiliate: 'affiliate',
+  sub_shipping_zones: 'zones',
+  sub_shipping_returns: 'returns',
+};
+
+/** Builder page shortcuts in Themes submenu → storefront_pages controls */
+const BUILDER_PAGE_CONTROL_ALIASES: Record<string, string> = {
+  home: 'page_storefront_home',
+  catalog: 'page_storefront_catalog',
+  product: 'page_storefront_product',
+  cart: 'page_storefront_cart',
+  checkout: 'page_storefront_checkout',
+  'track-order': 'page_storefront_tracking',
+  crm: 'page_storefront_account',
+  contact: 'page_storefront_contact',
+};
 
 let cachedDefaultControls: Record<string, boolean> | null = null;
 let cachedGlobalControls: Record<string, boolean> | null = null;
 const cachedStoreControls = new Map<string, Record<string, boolean>>();
 
 function invalidateControlsCache() {
+  cachedDefaultControls = null;
   cachedGlobalControls = null;
   cachedStoreControls.clear();
+}
+
+function resolveStoreControlId(controlId: string): string {
+  if (
+    controlId === 'canva-studio' ||
+    controlId === 'canva-banner' ||
+    controlId === 'canva-logo' ||
+    controlId === 'canva-product-card'
+  ) {
+    return 'canva';
+  }
+  if (LEGACY_CONTROL_ID_MAP[controlId]) {
+    return LEGACY_CONTROL_ID_MAP[controlId];
+  }
+  if (BUILDER_PAGE_CONTROL_ALIASES[controlId]) {
+    return BUILDER_PAGE_CONTROL_ALIASES[controlId];
+  }
+  return controlId;
+}
+
+/** Remap old Master keys onto current sidebar / tab ids. */
+function remapLegacyControlKeys(stored: Record<string, boolean>): Record<string, boolean> {
+  const next: Record<string, boolean> = { ...stored };
+  for (const [legacyId, modernId] of Object.entries(LEGACY_CONTROL_ID_MAP)) {
+    if (stored[legacyId] !== undefined && stored[modernId] === undefined) {
+      next[modernId] = Boolean(stored[legacyId]);
+    }
+  }
+  return next;
+}
+
+/** Merge defaults + stored flags, remapping legacy keys onto current ids. */
+function normalizeControlRecord(stored: Record<string, boolean>): Record<string, boolean> {
+  return { ...getDefaultControls(), ...remapLegacyControlKeys(stored) };
+}
+
+/**
+ * Force newly deferred pages OFF once per revision + storage scope
+ * (global vs each store) so old "enable all" dumps do not keep them visible.
+ * After the wave runs, Master can re-enable and the toggle sticks.
+ */
+function applyDeferredPageHideWaves(
+  controls: Record<string, boolean>,
+  scopeKey: string,
+): {
+  controls: Record<string, boolean>;
+  changed: boolean;
+} {
+  if (typeof window === 'undefined') return { controls, changed: false };
+  const revStorageKey = `${DEFERRED_PAGE_HIDE_REV_KEY}:${scopeKey}`;
+  let applied = 0;
+  try {
+    applied = Number(localStorage.getItem(revStorageKey) || '0');
+  } catch {
+    applied = 0;
+  }
+  if (applied >= CURRENT_DEFERRED_PAGE_HIDE_REV) {
+    return { controls, changed: false };
+  }
+  const next = { ...controls };
+  let changed = false;
+  for (const wave of DEFERRED_PAGE_HIDE_WAVES) {
+    if (wave.rev <= applied || wave.rev > CURRENT_DEFERRED_PAGE_HIDE_REV) continue;
+    for (const id of wave.ids) {
+      if (CORE_STORE_CONTROL_IDS.has(id)) continue;
+      if (next[id] !== false) {
+        next[id] = false;
+        changed = true;
+      }
+    }
+  }
+  try {
+    localStorage.setItem(revStorageKey, String(CURRENT_DEFERRED_PAGE_HIDE_REV));
+  } catch {
+    /* ignore quota */
+  }
+  return { controls: next, changed };
+}
+
+/** Re-enable core pages if a prior "disable all" left them OFF in localStorage. */
+function applyCoreControlsForceOn(
+  controls: Record<string, boolean>,
+  scopeKey: string,
+): {
+  controls: Record<string, boolean>;
+  changed: boolean;
+} {
+  const next = { ...controls };
+  let changed = false;
+  for (const id of CORE_STORE_CONTROL_IDS) {
+    if (next[id] !== true) {
+      next[id] = true;
+      changed = true;
+    }
+  }
+  if (typeof window === 'undefined') return { controls: next, changed };
+  const revStorageKey = `${CORE_FORCE_ON_REV_KEY}:${scopeKey}`;
+  let applied = 0;
+  try {
+    applied = Number(localStorage.getItem(revStorageKey) || '0');
+  } catch {
+    applied = 0;
+  }
+  if (changed || applied < CURRENT_CORE_FORCE_ON_REV) {
+    try {
+      localStorage.setItem(revStorageKey, String(CURRENT_CORE_FORCE_ON_REV));
+    } catch {
+      /* ignore quota */
+    }
+  }
+  return { controls: next, changed };
+}
+
+function applyControlPolicyWaves(
+  controls: Record<string, boolean>,
+  scopeKey: string,
+): {
+  controls: Record<string, boolean>;
+  changed: boolean;
+} {
+  const hidden = applyDeferredPageHideWaves(controls, scopeKey);
+  const forced = applyCoreControlsForceOn(hidden.controls, scopeKey);
+  return {
+    controls: forced.controls,
+    changed: hidden.changed || forced.changed,
+  };
 }
 
 if (typeof window !== 'undefined') {
@@ -807,12 +1061,21 @@ export function getGlobalControls(): Record<string, boolean> {
   try {
     const raw = localStorage.getItem(GLOBAL_STORAGE_KEY);
     if (!raw) {
-      cachedGlobalControls = { ...getDefaultControls() };
+      const fresh = { ...getDefaultControls() };
+      const { controls: deferredFresh, changed } = applyControlPolicyWaves(fresh, 'global');
+      cachedGlobalControls = deferredFresh;
+      if (changed) {
+        localStorage.setItem(GLOBAL_STORAGE_KEY, JSON.stringify(deferredFresh));
+      }
       return cachedGlobalControls;
     }
-    const next: Record<string, boolean> = { ...getDefaultControls(), ...JSON.parse(raw) };
-    cachedGlobalControls = next;
-    return next;
+    const next = normalizeControlRecord(JSON.parse(raw) as Record<string, boolean>);
+    const { controls: deferred, changed } = applyControlPolicyWaves(next, 'global');
+    cachedGlobalControls = deferred;
+    if (changed) {
+      localStorage.setItem(GLOBAL_STORAGE_KEY, JSON.stringify(deferred));
+    }
+    return deferred;
   } catch {
     return getDefaultControls();
   }
@@ -851,10 +1114,14 @@ export function getStoreControls(storeId?: string): Record<string, boolean> {
       cachedStoreControls.set(storeId, globalDefaults);
       return globalDefaults;
     }
-    const storeSpecific = JSON.parse(raw);
+    const storeSpecific = remapLegacyControlKeys(JSON.parse(raw) as Record<string, boolean>);
     const merged = { ...globalDefaults, ...storeSpecific };
-    cachedStoreControls.set(storeId, merged);
-    return merged;
+    const { controls: deferred, changed } = applyControlPolicyWaves(merged, `store:${storeId}`);
+    cachedStoreControls.set(storeId, deferred);
+    if (changed) {
+      localStorage.setItem(`${STORAGE_KEY_PREFIX}${storeId}`, JSON.stringify(deferred));
+    }
+    return deferred;
   } catch {
     return globalDefaults;
   }
@@ -880,11 +1147,13 @@ export function saveStoreControls(storeId: string, controls: Record<string, bool
  * Check if a specific page or component is enabled for a store
  */
 export function isStoreControlEnabled(storeId: string | undefined, controlId: string): boolean {
+  const resolvedId = resolveStoreControlId(controlId);
+  if (CORE_STORE_CONTROL_IDS.has(resolvedId)) return true;
   const controls = getStoreControls(storeId);
-  if (controls[controlId] !== undefined) {
-    return Boolean(controls[controlId]);
+  if (controls[resolvedId] !== undefined) {
+    return Boolean(controls[resolvedId]);
   }
-  const def = CONTROL_DEFINITIONS.find((item) => item.id === controlId);
+  const def = CONTROL_DEFINITIONS.find((item) => item.id === resolvedId);
   return def ? def.defaultEnabled : true;
 }
 
@@ -892,14 +1161,16 @@ export function isStoreControlEnabled(storeId: string | undefined, controlId: st
  * Update a single toggle for a store (or globally if storeId === 'ALL')
  */
 export function updateSingleStoreControl(storeId: string, controlId: string, enabled: boolean) {
+  const resolvedId = resolveStoreControlId(controlId);
+  const nextEnabled = CORE_STORE_CONTROL_IDS.has(resolvedId) ? true : enabled;
   if (storeId === 'ALL') {
     const current = getGlobalControls();
-    current[controlId] = enabled;
+    current[resolvedId] = nextEnabled;
     saveGlobalControls(current);
     return;
   }
   const current = getStoreControls(storeId);
-  current[controlId] = enabled;
+  current[resolvedId] = nextEnabled;
   saveStoreControls(storeId, current);
 }
 
@@ -909,7 +1180,7 @@ export function updateSingleStoreControl(storeId: string, controlId: string, ena
 export function setAllControlsState(storeId: string, enabled: boolean) {
   const allIds: Record<string, boolean> = {};
   for (const def of CONTROL_DEFINITIONS) {
-    allIds[def.id] = enabled;
+    allIds[def.id] = CORE_STORE_CONTROL_IDS.has(def.id) ? true : enabled;
   }
   if (storeId === 'ALL') {
     saveGlobalControls(allIds);
@@ -925,7 +1196,7 @@ export function setCategoryControlsState(storeId: string, category: ControlCateg
   const current = storeId === 'ALL' ? getGlobalControls() : getStoreControls(storeId);
   const items = CONTROL_DEFINITIONS.filter((item) => item.category === category);
   for (const it of items) {
-    current[it.id] = enabled;
+    current[it.id] = CORE_STORE_CONTROL_IDS.has(it.id) ? true : enabled;
   }
   if (storeId === 'ALL') {
     saveGlobalControls(current);

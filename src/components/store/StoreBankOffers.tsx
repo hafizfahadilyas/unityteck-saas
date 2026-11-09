@@ -109,7 +109,7 @@ export const StoreBankOffers: React.FC<StoreBankOffersProps> = ({ onNavigateTab 
 
   if (viewMode === 'create') {
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
           <div>
@@ -389,7 +389,7 @@ export const StoreBankOffers: React.FC<StoreBankOffersProps> = ({ onNavigateTab 
   // LIST VIEW: Bank Offers Overview
   // ─────────────────────────────────────────────────────────────
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">

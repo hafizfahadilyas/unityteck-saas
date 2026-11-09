@@ -8,6 +8,7 @@ import {
   writeAllThemeSettings,
   type ImageGridSettings,
 } from '../../../themes/settings/themeSettingsStore';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 const LAYOUT_LABELS: Record<string, { en: string; ar: string }> = {
   bento: { en: 'Bento', ar: 'بينتو' },
@@ -84,10 +85,10 @@ export const ImageGridForm: React.FC = () => {
           </span>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-              Theme Settings · 09
+              {themeSettingsBadge(9, isAr)}
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'شبكة الصور البصرية' : 'Image Grid (Selia)'}
+              {isAr ? 'شبكة الصور البصرية' : 'Image Grid'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr ? 'عرض الصور والحملات الإعلانية في تخطيط بينتو عصري وجذاب' : 'Display your images and campaigns in a creative and flexible bento layout'}

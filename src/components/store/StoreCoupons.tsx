@@ -32,24 +32,18 @@ import {
   Pencil,
   Copy,
 } from 'lucide-react';
-import { StoreOfferPromo } from './StoreOfferPromo';
-import { OfferDisplaySettingsPanel } from './OfferDisplaySettingsPanel';
 import * as tenantApi from '../../api/tenantApi';
 import type { StoreCategory } from '../../types';
 import { computeCouponAnalytics } from '../../utils/couponAnalytics';
-import { downloadXlsx } from '../../utils/exportSpreadsheet';
-import {
-  readOfferConfig,
-  writeOfferConfig,
-  type StoreOfferConfig,
-} from '../../themes/flowersPremium/offerConfig';
+import { downloadCsv, downloadXlsx } from '../../utils/exportSpreadsheet';
+import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
 
 interface StoreCouponsProps {
   onViewStorefront?: () => void;
   onNavigateTab?: (tab: string) => void;
 }
 
-export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, onNavigateTab }) => {
+export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront }) => {
   const {
     activeStore,
     currentCoupons,
@@ -69,15 +63,15 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
   const [editingCouponId, setEditingCouponId] = useState<string | null>(null);
 
   // Form state matching reference design
-  const [couponName, setCouponName] = useState(isAr ? 'عرض خاص 50%' : 'Special Offer 50%');
+  const [couponName, setCouponName] = useState(isAr ? 'كوبون خصم 50%' : 'Coupon 50%');
   const [couponCode, setCouponCode] = useState('SALE50');
   const [status, setStatus] = useState<'active' | 'expired' | 'scheduled'>('active');
   const [couponType, setCouponType] = useState<'percentage' | 'fixed'>('percentage');
   const [discountValue, setDiscountValue] = useState('50');
   const [description, setDescription] = useState(
     isAr
-      ? `خصم 50% على جميع المنتجات المؤهلة في${activeStore.name}`
-      : `Get 50% off on eligible products at ${activeStore.name}.`
+      ? 'خصم 50٪ على جميع المنتجات المؤهلة في متجرك'
+      : 'Get 50% off on eligible products at your store.'
   );
 
   // Image & Design
@@ -85,10 +79,6 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
   const [customColor, setCustomColor] = useState('#0EA5A4');
   const [designType, setDesignType] = useState<'solid_color' | 'image_based' | 'image_only'>('solid_color');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [offerConfig, setOfferConfig] = useState<StoreOfferConfig>(() =>
-    readOfferConfig(activeStore.id),
-  );
-  const [offerEditing, setOfferEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Validity Period
@@ -103,19 +93,17 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
   const [usageLimitType, setUsageLimitType] = useState<'total' | 'per_day' | 'per_week'>('total');
   const [usageLimitPerCustomer, setUsageLimitPerCustomer] = useState('1');
   const [allowWithOtherDiscounts, setAllowWithOtherDiscounts] = useState(false);
-  const [applyToSelectedProductsOnly, setApplyToSelectedProductsOnly] = useState(true);
-  const [applyToSelectedCategoriesOnly, setApplyToSelectedCategoriesOnly] = useState(false);
 
-  // Conditions
+  // Conditions (products / categories scope — pickers under Usage Options)
   const [applicableTo, setApplicableTo] = useState<'all' | 'categories' | 'products'>('all');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [storeCategoriesList, setStoreCategoriesList] = useState<StoreCategory[]>([]);
+  const applyToSelectedProductsOnly = applicableTo === 'products';
+  const applyToSelectedCategoriesOnly = applicableTo === 'categories';
 
   // Additional Settings
   const [showCouponOnStore, setShowCouponOnStore] = useState(true);
-  const [showInSpecialOffers, setShowInSpecialOffers] = useState(true);
-  const [highlightAsFeatured, setHighlightAsFeatured] = useState(false);
   const [sendNotification, setSendNotification] = useState(true);
 
   // Preview Mode Tab
@@ -143,11 +131,6 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
   useEffect(() => {
     setPage(1);
   }, [search, statusFilter, pageSize, activeStore.id]);
-
-  useEffect(() => {
-    setOfferConfig(readOfferConfig(activeStore.id));
-    setOfferEditing(false);
-  }, [activeStore.id]);
 
   const editingCoupon = useMemo(
     () => (editingCouponId ? currentCoupons.find((c) => c.id === editingCouponId) : null),
@@ -191,7 +174,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
   const handleOpenCreate = () => {
     setViewMode('create');
     setEditingCouponId(null);
-    setCouponName(isAr ? 'عرض خاص 50%' : 'Special Offer 50%');
+    setCouponName(isAr ? 'كوبون خصم 50%' : 'Coupon 50%');
     setCouponCode('SALE50');
     setStatus('active');
     setCouponType('percentage');
@@ -211,9 +194,8 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
     setApplicableTo('all');
     setSelectedCategories([]);
     setSelectedProductIds([]);
+    setAllowWithOtherDiscounts(false);
     setShowCouponOnStore(true);
-    setShowInSpecialOffers(true);
-    setHighlightAsFeatured(false);
     setSendNotification(true);
   };
 
@@ -247,15 +229,14 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
     setApplicableTo(coupon.applicableTo || 'all');
     setSelectedCategories(coupon.selectedCategoryIds || []);
     setSelectedProductIds(coupon.selectedProductIds || []);
+    setAllowWithOtherDiscounts(coupon.allowWithOtherDiscounts ?? false);
     setShowCouponOnStore(coupon.showOnStore ?? true);
-    setShowInSpecialOffers(coupon.showInSpecialOffers ?? true);
-    setHighlightAsFeatured(coupon.highlightAsFeatured ?? false);
     setSendNotification(coupon.sendNotification ?? true);
   };
 
-  // Generate random promo code
+  // Generate random coupon code
   const generateRandomCode = () => {
-    const prefixes = ['SAVE', 'OFFER', 'SUPER', 'DEAL', 'VIP', 'GIFT'];
+    const prefixes = ['SAVE', 'COUPON', 'SUPER', 'DEAL', 'VIP', 'GIFT'];
     const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
     const num = Math.floor(10 + Math.random() * 89);
     setCouponCode(`${prefix}${num}`);
@@ -315,8 +296,8 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
       selectedProductIds,
       allowWithOtherDiscounts,
       showOnStore: showCouponOnStore,
-      showInSpecialOffers,
-      highlightAsFeatured,
+      showInSpecialOffers: false,
+      highlightAsFeatured: false,
       sendNotification,
     };
 
@@ -359,17 +340,8 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
       toast(isAr ? 'لا توجد كوبونات للتصدير' : 'No coupons to export', 'info');
       return;
     }
-    const csv = exportRows()
-      .map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `coupons-${activeStore.id}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast(isAr ? `تم تصدير${filtered.length}كوبون` : `Exported ${filtered.length} coupons`, 'success');
+    downloadCsv(`coupons-${activeStore.id}.csv`, exportRows());
+    toast(isAr ? `تم تصدير ${filtered.length} كوبون` : `Exported ${filtered.length} coupons`, 'success');
   };
 
   const exportXlsx = () => {
@@ -377,8 +349,8 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
       toast(isAr ? 'لا توجد كوبونات للتصدير' : 'No coupons to export', 'info');
       return;
     }
-    downloadXlsx(`coupons-${activeStore.id}.xlsx`, 'Coupons', exportRows());
-    toast(isAr ? `تم تصدير${filtered.length}كوبون` : `Exported ${filtered.length} coupons (Excel)`, 'success');
+    downloadXlsx(`coupons-${activeStore.id}.xls`, isAr ? 'الكوبونات' : 'Coupons', exportRows());
+    toast(isAr ? `تم تصدير ${filtered.length} كوبون` : `Exported ${filtered.length} coupons (Excel)`, 'success');
   };
 
   // Color Swatches
@@ -398,7 +370,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
   // ─────────────────────────────────────────────────────────────
   if (viewMode === 'create' || viewMode === 'edit') {
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
         {/* Top Header & Breadcrumbs Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
           <div>
@@ -408,7 +380,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                 onClick={() => setViewMode('list')}
                 className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
               >
-                {isAr ? 'الكوبونات' : 'Discounts'}
+                {isAr ? 'الكوبونات' : 'Coupons'}
               </button>
               <span>›</span>
               <span className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors cursor-pointer">
@@ -500,7 +472,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                       type="text"
                       value={couponName}
                       onChange={(e) => setCouponName(e.target.value)}
-                      placeholder={isAr ? 'عرض خاص 50%' : 'Special Offer 50%'}
+                      placeholder={isAr ? 'كوبون خصم 50%' : 'Coupon 50%'}
                       className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                     />
                   </div>
@@ -870,10 +842,10 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
               </div>
 
               <div className="p-5 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                   {/* Min Order Amount */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  <div className="min-w-0 flex flex-col h-full">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 min-h-[1.25rem]">
                       {isAr ? 'الحد الأدنى للطلب (ر.س)' : 'Minimum Order Amount (SAR)'}
                     </label>
                     <input
@@ -882,28 +854,28 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                       value={minOrderAmount}
                       onChange={(e) => setMinOrderAmount(e.target.value)}
                       placeholder="100"
-                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-semibold"
+                      className="w-full h-10 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-semibold"
                     />
                   </div>
 
                   {/* Usage Limit + Dropdown */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  <div className="min-w-0 flex flex-col h-full">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 min-h-[1.25rem]">
                       {isAr ? 'حد الاستخدام' : 'Usage Limit'}
                     </label>
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 w-full min-w-0">
                       <input
                         type="number"
                         min={1}
                         value={usageLimit}
                         onChange={(e) => setUsageLimit(e.target.value)}
                         placeholder="500"
-                        className="w-2/3 px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none font-semibold"
+                        className="flex-1 min-w-0 h-10 px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none font-semibold"
                       />
                       <select
                         value={usageLimitType}
-                        onChange={(e) => setUsageLimitType(e.target.value as any)}
-                        className="w-1/3 px-2 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-[11px] text-slate-700 dark:text-slate-300 focus:outline-none"
+                        onChange={(e) => setUsageLimitType(e.target.value as 'total' | 'per_day' | 'per_week')}
+                        className="w-[5.5rem] shrink-0 h-10 px-2 py-2 bg-slate-800 dark:bg-slate-700 border border-slate-700 dark:border-slate-600 rounded-xl text-[11px] text-white focus:outline-none"
                       >
                         <option value="total">{isAr ? 'إجمالي' : 'Total'}</option>
                         <option value="per_day">{isAr ? 'يومياً' : 'Day'}</option>
@@ -913,10 +885,10 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                   </div>
 
                   {/* Usage Limit Per Customer */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
-                      <span>{isAr ? 'الحد الأقصى لكل عميل' : 'Usage Limit Per Customer'}</span>
-                      <Info className="w-3.5 h-3.5 text-slate-400 cursor-help" />
+                  <div className="min-w-0 flex flex-col h-full">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 min-h-[1.25rem] flex items-center justify-between gap-1">
+                      <span className="truncate">{isAr ? 'الحد الأقصى لكل عميل' : 'Usage Limit Per Customer'}</span>
+                      <Info className="w-3.5 h-3.5 text-slate-400 cursor-help shrink-0" />
                     </label>
                     <input
                       type="number"
@@ -924,13 +896,13 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                       value={usageLimitPerCustomer}
                       onChange={(e) => setUsageLimitPerCustomer(e.target.value)}
                       placeholder="1"
-                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none font-semibold"
+                      className="w-full h-10 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none font-semibold"
                     />
                   </div>
                 </div>
 
-                {/* Checkboxes */}
-                <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                {/* Checkboxes + scope pickers */}
+                <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -939,33 +911,143 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                       className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300"
                     />
                     <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
-                      {isAr ? 'السماح بالدمج مع خصومات وعروض أخرى' : 'Allow with other discounts'}
+                      {isAr ? 'السماح بالدمج مع خصومات وكوبونات أخرى' : 'Allow with other coupons & discounts'}
                     </span>
                   </label>
 
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={applyToSelectedProductsOnly}
-                      onChange={(e) => setApplyToSelectedProductsOnly(e.target.checked)}
-                      className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300"
-                    />
-                    <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
-                      {isAr ? 'تطبيق على منتجات مختارة فقط' : 'Apply to selected products only'}
-                    </span>
-                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={applyToSelectedProductsOnly}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setApplicableTo('products');
+                            setSelectedCategories([]);
+                          } else {
+                            setApplicableTo('all');
+                            setSelectedProductIds([]);
+                          }
+                        }}
+                        className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300"
+                      />
+                      <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                        {isAr ? 'تطبيق على منتجات مختارة فقط' : 'Apply to selected products only'}
+                      </span>
+                    </label>
 
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={applyToSelectedCategoriesOnly}
-                      onChange={(e) => setApplyToSelectedCategoriesOnly(e.target.checked)}
-                      className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300"
-                    />
-                    <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
-                      {isAr ? 'تطبيق على تصنيفات محددة فقط' : 'Apply to selected categories only'}
-                    </span>
-                  </label>
+                    {applyToSelectedProductsOnly ? (
+                      <div className="ms-6 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                            {isAr ? 'اختيار المنتجات' : 'Select products'}
+                          </span>
+                          <span className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 tabular-nums">
+                            {selectedProductIds.length}
+                            {isAr ? ' محدد' : ' selected'}
+                          </span>
+                        </div>
+                        <div className="max-h-40 overflow-y-auto custom-sidebar-scroll space-y-1.5 pr-1">
+                          {currentProducts.length > 0 ? (
+                            currentProducts.map((p) => {
+                              const label = isAr ? p.nameAr || p.name : p.name || p.nameAr || '';
+                              return (
+                                <label
+                                  key={p.id}
+                                  className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedProductIds.includes(p.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedProductIds([...selectedProductIds, p.id]);
+                                      } else {
+                                        setSelectedProductIds(selectedProductIds.filter((id) => id !== p.id));
+                                      }
+                                    }}
+                                    className="rounded text-teal-600 focus:ring-teal-500 border-slate-300"
+                                  />
+                                  <span className="truncate">{label}</span>
+                                </label>
+                              );
+                            })
+                          ) : (
+                            <div className="text-[11px] text-slate-400 italic py-2">
+                              {isAr ? 'لا توجد منتجات مسجلة' : 'No products found'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={applyToSelectedCategoriesOnly}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setApplicableTo('categories');
+                            setSelectedProductIds([]);
+                          } else {
+                            setApplicableTo('all');
+                            setSelectedCategories([]);
+                          }
+                        }}
+                        className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300"
+                      />
+                      <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                        {isAr ? 'تطبيق على تصنيفات محددة فقط' : 'Apply to selected categories only'}
+                      </span>
+                    </label>
+
+                    {applyToSelectedCategoriesOnly ? (
+                      <div className="ms-6 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                            {isAr ? 'اختيار التصنيفات' : 'Select categories'}
+                          </span>
+                          <span className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 tabular-nums">
+                            {selectedCategories.length}
+                            {isAr ? ' محدد' : ' selected'}
+                          </span>
+                        </div>
+                        <div className="max-h-40 overflow-y-auto custom-sidebar-scroll space-y-1.5 pr-1">
+                          {storeCategoriesList.length > 0 ? (
+                            storeCategoriesList.map((cat) => {
+                              const label = isAr ? cat.nameAr || cat.name : cat.name || cat.nameAr || '';
+                              return (
+                                <label
+                                  key={cat.id}
+                                  className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedCategories.includes(cat.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedCategories([...selectedCategories, cat.id]);
+                                      } else {
+                                        setSelectedCategories(selectedCategories.filter((id) => id !== cat.id));
+                                      }
+                                    }}
+                                    className="rounded text-teal-600 focus:ring-teal-500 border-slate-300"
+                                  />
+                                  <span className="truncate">{label}</span>
+                                </label>
+                              );
+                            })
+                          ) : (
+                            <div className="text-[11px] text-slate-400 italic py-2">
+                              {isAr ? 'لا توجد تصنيفات مسجلة' : 'No categories found'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </div>
@@ -992,41 +1074,20 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                 </button>
               </div>
 
-              {/* Preview Tabs: Standard | Dark Mode | Transparent */}
-              <div className="px-4 pt-3 border-b border-slate-100 dark:border-slate-800 flex gap-4 text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setPreviewTab('standard')}
-                  className={`pb-2 border-b-2 transition-colors ${
-                    previewTab === 'standard'
-                      ? 'border-teal-500 text-teal-600 dark:text-teal-400'
-                      : 'border-transparent text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  {isAr ? 'معاينة قياسية' : 'Standard Preview'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewTab('dark')}
-                  className={`pb-2 border-b-2 transition-colors ${
-                    previewTab === 'dark'
-                      ? 'border-teal-500 text-teal-600 dark:text-teal-400'
-                      : 'border-transparent text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  {isAr ? 'الوضع الليلي' : 'Dark Mode'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewTab('transparent')}
-                  className={`pb-2 border-b-2 transition-colors ${
-                    previewTab === 'transparent'
-                      ? 'border-teal-500 text-teal-600 dark:text-teal-400'
-                      : 'border-transparent text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  {isAr ? 'شفاف' : 'Transparent (PNG)'}
-                </button>
+              {/* Preview Tabs — modern segmented toggles */}
+              <div className="px-4 pt-3">
+                <ModernSegmentedTabs
+                  accent="teal"
+                  size="sm"
+                  aria-label={isAr ? 'أنماط معاينة الكوبون' : 'Coupon preview modes'}
+                  value={previewTab}
+                  onChange={setPreviewTab}
+                  items={[
+                    { id: 'standard', label: isAr ? 'معاينة قياسية' : 'Standard Preview' },
+                    { id: 'dark', label: isAr ? 'الوضع الليلي' : 'Dark Mode' },
+                    { id: 'transparent', label: isAr ? 'شفاف' : 'Transparent (PNG)' },
+                  ]}
+                />
               </div>
 
               <div
@@ -1078,7 +1139,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                   <div className="relative z-10 flex items-start justify-between">
                     <div>
                       <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/25 backdrop-blur-xs text-[10px] font-black uppercase tracking-wider text-white">
-                        {isAr ? 'عرض خاص' : 'SPECIAL OFFER'}
+                        {isAr ? 'كوبون خصم' : 'COUPON'}
                       </span>
                       <h4 className="text-xs font-medium text-white/90 mt-1 line-clamp-1">
                         {couponName || (isAr ? 'كوبون الخصم' : 'Discount Coupon')}
@@ -1148,8 +1209,8 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
               </div>
             </div>
 
-            {/* Card 2: Conditions */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+            {/* Card 2: Conditions (summary — pickers live under Usage Options) */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden min-h-[180px] flex flex-col">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
                 <Tag className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                 <h3 className="font-bold text-xs text-slate-900 dark:text-white">
@@ -1157,7 +1218,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                 </h3>
               </div>
 
-              <div className="p-4 space-y-3">
+              <div className="p-4 space-y-3 flex-1">
                 <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400">
                   {isAr ? 'يطبق الكوبون على:' : 'Applicable To'}
                 </label>
@@ -1167,7 +1228,11 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                       type="radio"
                       name="applicable"
                       checked={applicableTo === 'all'}
-                      onChange={() => setApplicableTo('all')}
+                      onChange={() => {
+                        setApplicableTo('all');
+                        setSelectedCategories([]);
+                        setSelectedProductIds([]);
+                      }}
                       className="text-teal-600 focus:ring-teal-500"
                     />
                     <span className="text-xs text-slate-800 dark:text-slate-200 font-medium">
@@ -1180,83 +1245,47 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                       type="radio"
                       name="applicable"
                       checked={applicableTo === 'categories'}
-                      onChange={() => setApplicableTo('categories')}
+                      onChange={() => {
+                        setApplicableTo('categories');
+                        setSelectedProductIds([]);
+                      }}
                       className="text-teal-600 focus:ring-teal-500"
                     />
                     <span className="text-xs text-slate-800 dark:text-slate-200 font-medium">
                       {isAr ? 'تصنيفات محددة' : 'Specific Categories'}
+                      {applicableTo === 'categories' && selectedCategories.length > 0
+                        ? ` (${selectedCategories.length})`
+                        : ''}
                     </span>
                   </label>
-
-                  {applicableTo === 'categories' && (
-                    <div className="ps-5 pt-1 space-y-1.5 max-h-36 overflow-y-auto custom-sidebar-scroll">
-                      {storeCategoriesList.length > 0 ? (
-                        storeCategoriesList.map((cat) => (
-                          <label key={cat.id} className="flex items-center gap-2 cursor-pointer text-xs text-slate-600 dark:text-slate-400">
-                            <input
-                              type="checkbox"
-                              checked={selectedCategories.includes(cat.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedCategories([...selectedCategories, cat.id]);
-                                } else {
-                                  setSelectedCategories(selectedCategories.filter((id) => id !== cat.id));
-                                }
-                              }}
-                              className="rounded text-teal-600 focus:ring-teal-500 border-slate-300"
-                            />
-                            <span>{cat.name}</span>
-                          </label>
-                        ))
-                      ) : (
-                        <div className="text-[11px] text-slate-400 italic">
-                          {isAr ? 'لا توجد تصنيفات مسجلة' : 'No categories found'}
-                        </div>
-                      )}
-                    </div>
-                  )}
 
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
                       name="applicable"
                       checked={applicableTo === 'products'}
-                      onChange={() => setApplicableTo('products')}
+                      onChange={() => {
+                        setApplicableTo('products');
+                        setSelectedCategories([]);
+                      }}
                       className="text-teal-600 focus:ring-teal-500"
                     />
                     <span className="text-xs text-slate-800 dark:text-slate-200 font-medium">
                       {isAr ? 'منتجات محددة' : 'Specific Products'}
+                      {applicableTo === 'products' && selectedProductIds.length > 0
+                        ? ` (${selectedProductIds.length})`
+                        : ''}
                     </span>
                   </label>
-
-                  {applicableTo === 'products' && (
-                    <div className="ps-5 pt-1 space-y-1.5 max-h-36 overflow-y-auto custom-sidebar-scroll">
-                      {currentProducts.length > 0 ? (
-                        currentProducts.slice(0, 15).map((p) => (
-                          <label key={p.id} className="flex items-center gap-2 cursor-pointer text-xs text-slate-600 dark:text-slate-400">
-                            <input
-                              type="checkbox"
-                              checked={selectedProductIds.includes(p.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedProductIds([...selectedProductIds, p.id]);
-                                } else {
-                                  setSelectedProductIds(selectedProductIds.filter((id) => id !== p.id));
-                                }
-                              }}
-                              className="rounded text-teal-600 focus:ring-teal-500 border-slate-300"
-                            />
-                            <span className="truncate">{p.name}</span>
-                          </label>
-                        ))
-                      ) : (
-                        <div className="text-[11px] text-slate-400 italic">
-                          {isAr ? 'لا توجد منتجات مسجلة' : 'No products found'}
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
+
+                {(applicableTo === 'products' || applicableTo === 'categories') && (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed pt-1 border-t border-slate-100 dark:border-slate-800">
+                    {isAr
+                      ? 'اختر العناصر من قسم خيارات الاستخدام والحدود.'
+                      : 'Choose items from the Usage Options section.'}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1293,34 +1322,8 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
               </div>
             ) : null}
 
-            <div
-              className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden p-4"
-              style={{ color: 'var(--text)' }}
-            >
-              <h3 className="font-bold text-xs text-slate-900 dark:text-white mb-3">
-                {isAr ? 'نافذة العرض الخاص (منبثقة)' : 'Special offer display window'}
-              </h3>
-              <OfferDisplaySettingsPanel
-                config={offerConfig}
-                setConfig={setOfferConfig}
-                isAr={isAr}
-                editing={offerEditing}
-                onToggleEditing={() => setOfferEditing((v) => !v)}
-                onSave={(e) => {
-                  e.preventDefault();
-                  writeOfferConfig(activeStore.id, offerConfig);
-                  setOfferEditing(false);
-                  toast(isAr ? 'تم حفظ نافذة العرض' : 'Display window saved', 'success');
-                }}
-                onCancelEdit={() => {
-                  setOfferConfig(readOfferConfig(activeStore.id));
-                  setOfferEditing(false);
-                }}
-              />
-            </div>
-
             {/* Card 3: Additional Settings */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden min-h-[180px] flex flex-col">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
                 <Sliders className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                 <h3 className="font-bold text-xs text-slate-900 dark:text-white">
@@ -1328,7 +1331,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                 </h3>
               </div>
 
-              <div className="p-4 space-y-3.5">
+              <div className="p-4 space-y-3.5 flex-1">
                 {[
                   {
                     id: 'show-store',
@@ -1336,20 +1339,6 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
                     labelEn: 'Show coupon on store',
                     val: showCouponOnStore,
                     set: setShowCouponOnStore,
-                  },
-                  {
-                    id: 'show-special',
-                    labelAr: 'إظهار في قسم العروض الخاصة',
-                    labelEn: 'Show in special offers section',
-                    val: showInSpecialOffers,
-                    set: setShowInSpecialOffers,
-                  },
-                  {
-                    id: 'highlight',
-                    labelAr: 'تمييز كعرض رئيسي مميز',
-                    labelEn: 'Highlight as featured offer',
-                    val: highlightAsFeatured,
-                    set: setHighlightAsFeatured,
                   },
                   {
                     id: 'send-notif',
@@ -1386,7 +1375,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
   // RENDER: LIST VIEW (Coupons Management Table + Statistics)
   // ─────────────────────────────────────────────────────────────
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -1395,8 +1384,8 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {isAr
-              ? 'إدارة أكواد الخصم الترويجية'
-              : 'Manage promotional discount codes'}
+              ? 'إدارة أكواد وكوبونات الخصم'
+              : 'Manage coupon discount codes'}
           </p>
         </div>
 
@@ -1415,7 +1404,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
             className="px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Download className="w-4 h-4" />
-            <span>{isAr ? 'تصدير جداول البيانات' : 'Export Excel'}</span>
+            <span>{isAr ? 'تصدير إكسل' : 'Export Excel'}</span>
           </button>
           <button
             type="button"
@@ -1442,7 +1431,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
             {isAr ? 'نشط' : 'Active'}
           </div>
           <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
-            {isAr ? 'أكواد تُطبَّق تلقائيًا وأكواد السلة' : 'Auto-applied & cart promo codes'}
+            {isAr ? 'أكواد تُطبَّق تلقائيًا وأكواد السلة' : 'Auto-applied & cart coupon codes'}
           </span>
         </div>
 
@@ -1498,16 +1487,11 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront, on
         </div>
       </div>
 
-      <StoreOfferPromo
-        onEdit={handleOpenCreate}
-        onViewStorefront={() => onViewStorefront?.()}
-      />
-
       {/* Coupons Table */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-            {isAr ? 'عروض المتجر النشطة' : 'Active Store Promotions'}
+            {isAr ? 'كوبونات المتجر النشطة' : 'Active Store Coupons'}
           </span>
           <div className="flex items-center gap-2 flex-wrap">
             <input

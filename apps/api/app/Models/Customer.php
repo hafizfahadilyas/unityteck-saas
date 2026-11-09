@@ -24,6 +24,7 @@ class Customer extends Model
         'city',
         'country',
         'gender',
+        'dob',
         'group',
         'total_orders',
         'total_spend',
@@ -40,6 +41,7 @@ class Customer extends Model
             'total_spend' => 'decimal:2',
             'avg_order_value' => 'decimal:2',
             'last_order_date' => 'datetime',
+            'dob' => 'date',
         ];
     }
 

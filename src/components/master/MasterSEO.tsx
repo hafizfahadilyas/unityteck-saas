@@ -4,6 +4,7 @@ import { Sparkline } from '../common/Sparkline';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { getStoreDisplayName } from '../../utils/storeLocalization';
+import { downloadCsv } from '../../utils/exportSpreadsheet';
 import {
   getMasterGlobalTracking,
   saveMasterGlobalTracking,
@@ -126,11 +127,17 @@ export const MasterSEO: React.FC = () => {
   };
 
   const handleExportCsv = () => {
-    const header = ['Store', 'Slug', 'Google Account', 'GA4 ID', 'GTM Container', 'Indexed URLs', 'Clicks', 'Impressions', 'CTR'];
+    if (!filteredStores.length) {
+      toast(isAr ? 'لا توجد سجلات للتصدير' : 'No records to export', 'info');
+      return;
+    }
+    const header = isAr
+      ? ['المتجر', 'المسار', 'حساب جوجل', 'معرّف التحليلات', 'حاوية الوسوم', 'عناوين مفهرسة', 'النقرات', 'مرات الظهور', 'معدل النقر']
+      : ['Store', 'Slug', 'Google Account', 'GA4 ID', 'GTM Container', 'Indexed URLs', 'Clicks', 'Impressions', 'CTR'];
     const rows = filteredStores.map(({ store, seo }) => [
       getStoreDisplayName(store, locale),
       store.slug,
-      seo.googleConnected ? seo.googleAccountEmail || '' : 'Not connected',
+      seo.googleConnected ? seo.googleAccountEmail || '' : (isAr ? 'غير متصل' : 'Not connected'),
       seo.ga4MeasurementId || '',
       seo.gtmContainerId || '',
       String(seo.indexedUrlsCount || 0),
@@ -138,23 +145,12 @@ export const MasterSEO: React.FC = () => {
       String(seo.totalSearchImpressions || 0),
       seo.avgCtr ? `${seo.avgCtr}%` : '',
     ]);
-    const csv = [header, ...rows]
-      .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `master-seo-report-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadCsv(`master-seo-report-${new Date().toISOString().slice(0, 10)}.csv`, [header, ...rows]);
     toast(isAr ? 'تم تنزيل تقرير تحسين محركات البحث بصيغة جداول البيانات' : 'SEO report downloaded as CSV', 'success');
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800">
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 w-full min-w-0">
       {/* Top Banner */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-gradient-to-r from-[#032320] via-[#06332e] to-[#032320] text-white p-6 rounded-3xl shadow-sm border border-[#0d4a43]">
         <div className="space-y-1.5">

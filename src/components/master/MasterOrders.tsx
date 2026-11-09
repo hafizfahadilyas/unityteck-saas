@@ -285,7 +285,14 @@ export const MasterOrders: React.FC = () => {
       danger: true,
     });
     if (ok) {
-      permanentDeleteOrder(ord.id, ord.storeId);
+      const deleted = await permanentDeleteOrder(ord.id, ord.storeId);
+      if (!deleted) {
+        toast(
+          isAr ? 'تعذر حذف الطلب. تحقق من الصلاحيات أو حاول مرة أخرى.' : 'Could not delete the order. Check permissions or try again.',
+          'error',
+        );
+        return;
+      }
       if (selectedOrder?.id === ord.id) {
         setSelectedOrder(null);
       }
@@ -344,12 +351,25 @@ export const MasterOrders: React.FC = () => {
       danger: true,
     });
     if (ok) {
-      selectedOrderIds.forEach((id) => {
-        const ord = flatOrders.find((o) => o.id === id);
-        permanentDeleteOrder(id, ord?.storeId);
-      });
+      const results = await Promise.all(
+        selectedOrderIds.map((id) => {
+          const ord = flatOrders.find((o) => o.id === id);
+          return permanentDeleteOrder(id, ord?.storeId);
+        }),
+      );
+      const deletedCount = results.filter(Boolean).length;
       setSelectedOrderIds([]);
-      toast(isAr ? `تم الحذف النهائي لـ${count}طلبات` : `${count} orders permanently deleted`, 'success');
+      if (deletedCount === 0) {
+        toast(
+          isAr ? 'تعذر حذف الطلبات المحددة.' : 'Could not delete the selected orders.',
+          'error',
+        );
+        return;
+      }
+      toast(
+        isAr ? `تم الحذف النهائي لـ${deletedCount}طلبات` : `${deletedCount} orders permanently deleted`,
+        'success',
+      );
     }
   };
 

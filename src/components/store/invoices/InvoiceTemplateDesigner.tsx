@@ -237,10 +237,13 @@ export const InvoiceTemplateDesigner: React.FC<InvoiceTemplateDesignerProps> = (
                     onChange={(e) => setConfig((c) => ({ ...c, fontFamily: e.target.value as any }))}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-semibold"
                   >
-                    <option value="Tajawal">Tajawal (تجوال - فاخر ومقروء)</option>
-                    <option value="Cairo">Cairo (كايرو - رسمي عريض)</option>
+                    <option value="System">{isAr ? 'نفس خط لوحة التحكم' : 'Same as dashboard (Invoice chrome)'}</option>
+                    <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
                     <option value="IBM Plex Sans Arabic">IBM Plex Sans Arabic</option>
-                    <option value="Inter">Inter (English Standard)</option>
+                    <option value="Tajawal">Tajawal</option>
+                    <option value="Cairo">Cairo</option>
+                    <option value="Inter">Inter</option>
+                    <option value="Almarai">Almarai</option>
                   </select>
                 </div>
 

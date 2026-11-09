@@ -41,6 +41,8 @@ use App\Http\Controllers\Api\NotificationSettingsController;
 use App\Http\Controllers\Api\WhatsAppController;
 use App\Http\Controllers\Api\AffiliateController;
 use App\Http\Controllers\Api\LoyaltyController;
+use App\Http\Controllers\Api\CashbackController;
+use App\Http\Controllers\Api\SpecialOfferController;
 use App\Http\Controllers\Api\MarketingCampaignsController;
 use App\Http\Controllers\Api\CartInterceptController;
 use App\Http\Controllers\Api\GiftingController;
@@ -79,6 +81,7 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::get('/plans/current', [PlanController::class, 'current']);
     Route::get('/design-templates/entitlements', [DesignTemplatesController::class, 'entitlements']);
+    Route::get('/design-templates/daily', [DesignTemplatesController::class, 'daily']);
     Route::middleware('plan.feature:social')->group(function () {
     Route::get('/social/accounts', [SocialController::class, 'accounts']);
     Route::put('/social/accounts', [SocialController::class, 'upsertAccount']);
@@ -236,8 +239,11 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::delete('/media/{id}', [MediaController::class, 'destroy']);
     Route::get('/media/{id}/usages', [MediaController::class, 'usages']);
 
-    // AI image/video generator — per-store quota (GEMINI_API_KEY on API only)
+    // AI image/video generator — per-store quota + brand identity (GEMINI_API_KEY on API only)
     Route::get('/ai-media/quota', [AiMediaController::class, 'quota']);
+    Route::get('/ai-media/brand-profile', [AiMediaController::class, 'brandProfile']);
+    Route::put('/ai-media/brand-profile', [AiMediaController::class, 'updateBrandProfile'])->middleware('throttle:40,1');
+    Route::post('/ai-media/enhance-prompt', [AiMediaController::class, 'enhancePrompt'])->middleware('throttle:30,1');
     Route::post('/ai-media/generate', [AiMediaController::class, 'generate'])->middleware('throttle:20,1');
 
     Route::get('/media-folders', [MediaFolderController::class, 'index']);
@@ -389,26 +395,26 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::post('/notifications/test', [NotificationSettingsController::class, 'sendTestNotification']);
     Route::get('/notifications/deliveries', [NotificationSettingsController::class, 'listDeliveries']);
     Route::post('/notifications/deliveries/mark-read', [NotificationSettingsController::class, 'markDeliveriesRead']);
-});
 
-// Store-scoped WhatsApp Store Management & Messaging Center (Strict X-Store-Id isolation)
-Route::middleware(['store.id', 'plan.feature:whatsapp'])->group(function () {
-    Route::get('/whatsapp/overview', [WhatsAppController::class, 'overview']);
-    Route::get('/whatsapp/messages', [WhatsAppController::class, 'messages']);
-    Route::post('/whatsapp/messages', [WhatsAppController::class, 'sendMessage']);
-    Route::get('/whatsapp/templates', [WhatsAppController::class, 'templates']);
-    Route::get('/whatsapp/contacts', [WhatsAppController::class, 'contacts']);
-    Route::get('/whatsapp/segments', [WhatsAppController::class, 'segments']);
-    Route::get('/whatsapp/settings', [WhatsAppController::class, 'settings']);
-    Route::put('/whatsapp/settings', [WhatsAppController::class, 'updateSettings']);
-    Route::post('/whatsapp/test-connection', [WhatsAppController::class, 'testConnection']);
-    Route::get('/whatsapp/logs', [WhatsAppController::class, 'logs']);
-    Route::post('/whatsapp/templates', [WhatsAppController::class, 'createTemplate']);
-    Route::get('/whatsapp/automations', [WhatsAppController::class, 'automations']);
-    Route::put('/whatsapp/automations', [WhatsAppController::class, 'updateAutomations']);
-    Route::get('/whatsapp/campaigns', [WhatsAppController::class, 'campaigns']);
-    Route::post('/whatsapp/campaigns', [WhatsAppController::class, 'createCampaign']);
-    Route::delete('/whatsapp/campaigns/{id}', [WhatsAppController::class, 'deleteCampaign']);
+    // WhatsApp Store Management (auth + plan)
+    Route::middleware('plan.feature:whatsapp')->group(function () {
+        Route::get('/whatsapp/overview', [WhatsAppController::class, 'overview']);
+        Route::get('/whatsapp/messages', [WhatsAppController::class, 'messages']);
+        Route::post('/whatsapp/messages', [WhatsAppController::class, 'sendMessage']);
+        Route::get('/whatsapp/templates', [WhatsAppController::class, 'templates']);
+        Route::get('/whatsapp/contacts', [WhatsAppController::class, 'contacts']);
+        Route::get('/whatsapp/segments', [WhatsAppController::class, 'segments']);
+        Route::get('/whatsapp/settings', [WhatsAppController::class, 'settings']);
+        Route::put('/whatsapp/settings', [WhatsAppController::class, 'updateSettings']);
+        Route::post('/whatsapp/test-connection', [WhatsAppController::class, 'testConnection']);
+        Route::get('/whatsapp/logs', [WhatsAppController::class, 'logs']);
+        Route::post('/whatsapp/templates', [WhatsAppController::class, 'createTemplate']);
+        Route::get('/whatsapp/automations', [WhatsAppController::class, 'automations']);
+        Route::put('/whatsapp/automations', [WhatsAppController::class, 'updateAutomations']);
+        Route::get('/whatsapp/campaigns', [WhatsAppController::class, 'campaigns']);
+        Route::post('/whatsapp/campaigns', [WhatsAppController::class, 'createCampaign']);
+        Route::delete('/whatsapp/campaigns/{id}', [WhatsAppController::class, 'deleteCampaign']);
+    });
 
     // Affiliate Marketing
     Route::get('/affiliate/overview', [AffiliateController::class, 'overview']);
@@ -432,10 +438,86 @@ Route::middleware(['store.id', 'plan.feature:whatsapp'])->group(function () {
     Route::delete('/loyalty/rewards/{id}', [LoyaltyController::class, 'deleteReward']);
     Route::patch('/loyalty/earn-rules/{id}', [LoyaltyController::class, 'updateEarnRule']);
     Route::put('/loyalty/settings', [LoyaltyController::class, 'updateSettings']);
+    Route::post('/loyalty/spin', [LoyaltyController::class, 'dailySpin']);
+    Route::post('/loyalty/bonuses/saved-card', [LoyaltyController::class, 'awardSavedCardBonus']);
+    Route::post('/loyalty/bonuses/location-push', [LoyaltyController::class, 'awardLocationPushBonus']);
+    Route::get('/loyalty/customers/{customerId}/summary', [LoyaltyController::class, 'customerSummary']);
+
+    // Cashback Campaigns (store wallet only)
+    Route::get('/cashback/campaigns', [CashbackController::class, 'index']);
+    Route::post('/cashback/campaigns', [CashbackController::class, 'store']);
+    Route::patch('/cashback/campaigns/{id}', [CashbackController::class, 'update']);
+    Route::delete('/cashback/campaigns/{id}', [CashbackController::class, 'destroy']);
+
+    // Special / Promotional Offers (customer banner bg + image)
+    Route::get('/special-offers', [SpecialOfferController::class, 'index']);
+    Route::post('/special-offers', [SpecialOfferController::class, 'store']);
+    Route::patch('/special-offers/{id}', [SpecialOfferController::class, 'update']);
+    Route::delete('/special-offers/{id}', [SpecialOfferController::class, 'destroy']);
 
     // Gifting System
     Route::get('/gifting/settings', [GiftingController::class, 'getSettings']);
     Route::put('/gifting/settings', [GiftingController::class, 'updateSettings']);
+
+    // tenantApi path-style (same controllers; storeId in URL)
+    Route::get('/stores/{storeId}/blog/articles', [BlogController::class, 'index']);
+    Route::post('/stores/{storeId}/blog/articles', [BlogController::class, 'store']);
+    Route::put('/stores/{storeId}/blog/articles/{id}', [BlogController::class, 'update']);
+    Route::delete('/stores/{storeId}/blog/articles/{id}', [BlogController::class, 'destroy']);
+    Route::post('/stores/{storeId}/blog/articles/bulk', [BlogController::class, 'bulkAction']);
+    Route::get('/stores/{storeId}/blog/settings', [BlogController::class, 'getSettings']);
+    Route::put('/stores/{storeId}/blog/settings', [BlogController::class, 'updateSettings']);
+    Route::get('/stores/{storeId}/blog/commerce-tools/{articleId}', [BlogController::class, 'getCommerceTools']);
+    Route::put('/stores/{storeId}/blog/commerce-tools/{articleId}', [BlogController::class, 'saveCommerceTools']);
+
+    Route::get('/stores/{storeId}/affiliate/overview', [AffiliateController::class, 'overview']);
+    Route::get('/stores/{storeId}/affiliate/opportunities', [AffiliateController::class, 'getOpportunities']);
+    Route::get('/stores/{storeId}/affiliate/partners', [AffiliateController::class, 'getPartners']);
+    Route::get('/stores/{storeId}/affiliate/orders', [AffiliateController::class, 'getOrders']);
+    Route::get('/stores/{storeId}/affiliate/payments', [AffiliateController::class, 'getPayments']);
+    Route::post('/stores/{storeId}/affiliate/opportunities', [AffiliateController::class, 'saveOpportunity']);
+    Route::patch('/stores/{storeId}/affiliate/opportunities/{id}', [AffiliateController::class, 'updateOpportunity']);
+    Route::delete('/stores/{storeId}/affiliate/opportunities/{id}', [AffiliateController::class, 'deleteOpportunity']);
+    Route::post('/stores/{storeId}/affiliate/partners', [AffiliateController::class, 'savePartner']);
+    Route::post('/stores/{storeId}/affiliate/payments', [AffiliateController::class, 'savePayment']);
+    Route::put('/stores/{storeId}/affiliate/settings', [AffiliateController::class, 'updateSettings']);
+
+    Route::get('/stores/{storeId}/marketing/channels/overview', [MarketingCampaignsController::class, 'overview']);
+
+    Route::post('/stores/{storeId}/loyalty/rewards', [LoyaltyController::class, 'saveReward']);
+    Route::delete('/stores/{storeId}/loyalty/rewards/{id}', [LoyaltyController::class, 'deleteReward']);
+    Route::patch('/stores/{storeId}/loyalty/earn-rules/{id}', [LoyaltyController::class, 'updateEarnRule']);
+    Route::put('/stores/{storeId}/loyalty/settings', [LoyaltyController::class, 'updateSettings']);
+    Route::post('/stores/{storeId}/loyalty/spin', [LoyaltyController::class, 'dailySpin']);
+    Route::post('/stores/{storeId}/loyalty/bonuses/saved-card', [LoyaltyController::class, 'awardSavedCardBonus']);
+    Route::post('/stores/{storeId}/loyalty/bonuses/location-push', [LoyaltyController::class, 'awardLocationPushBonus']);
+    Route::get('/stores/{storeId}/loyalty/customers/{customerId}/summary', [LoyaltyController::class, 'customerSummary']);
+
+    Route::get('/stores/{storeId}/cashback/campaigns', [CashbackController::class, 'index']);
+    Route::post('/stores/{storeId}/cashback/campaigns', [CashbackController::class, 'store']);
+    Route::patch('/stores/{storeId}/cashback/campaigns/{id}', [CashbackController::class, 'update']);
+    Route::delete('/stores/{storeId}/cashback/campaigns/{id}', [CashbackController::class, 'destroy']);
+
+    Route::get('/stores/{storeId}/special-offers', [SpecialOfferController::class, 'index']);
+    Route::post('/stores/{storeId}/special-offers', [SpecialOfferController::class, 'store']);
+    Route::patch('/stores/{storeId}/special-offers/{id}', [SpecialOfferController::class, 'update']);
+    Route::delete('/stores/{storeId}/special-offers/{id}', [SpecialOfferController::class, 'destroy']);
+
+    Route::get('/stores/{storeId}/gifting/settings', [GiftingController::class, 'getSettings']);
+    Route::put('/stores/{storeId}/gifting/settings', [GiftingController::class, 'updateSettings']);
+
+    Route::get('/stores/{storeId}/loyalty/overview', [LoyaltyController::class, 'overview']);
+
+    Route::get('/stores/{storeId}/cart-intercept/settings', [CartInterceptController::class, 'getSettings']);
+    Route::put('/stores/{storeId}/cart-intercept/settings', [CartInterceptController::class, 'updateSettings']);
+    Route::get('/stores/{storeId}/cart-intercept/tracking', [CartInterceptController::class, 'getTracking']);
+
+    Route::get('/design-templates/daily', [DesignTemplatesController::class, 'daily']);
+    Route::get('/studio-designs', [\App\Http\Controllers\Api\StoreStudioDesignController::class, 'index']);
+    Route::post('/studio-designs', [\App\Http\Controllers\Api\StoreStudioDesignController::class, 'store']);
+    Route::get('/studio-designs/{id}', [\App\Http\Controllers\Api\StoreStudioDesignController::class, 'show']);
+    Route::put('/studio-designs/{id}', [\App\Http\Controllers\Api\StoreStudioDesignController::class, 'update']);
+    Route::delete('/studio-designs/{id}', [\App\Http\Controllers\Api\StoreStudioDesignController::class, 'destroy']);
 });
 
 // Store-scoped category taxonomy catalog (read-only with X-Store-Id isolation)
@@ -463,6 +545,7 @@ Route::get('/storefront/categories', [ProductController::class, 'storefrontCateg
 Route::post('/storefront/newsletter', [StoreSettingsController::class, 'subscribeNewsletter']);
 Route::post('/storefront/contact', [StoreSettingsController::class, 'submitContact']);
 Route::post('/storefront/customers', [StorefrontCustomerController::class, 'upsert']);
+Route::get('/storefront/{storeId}/loyalty/balance', [LoyaltyController::class, 'storefrontBalance']);
 Route::post('/storefront/customer-activities', [CustomerActivityController::class, 'storefrontStore']);
 
 // Public Inbound Webhooks for official Payment Gateways and Couriers
@@ -489,51 +572,16 @@ Route::middleware(['auth:sanctum', 'role.can:stores.read'])->group(function () {
 });
 
 // Master Admin: Multi-Store WhatsApp Quotas & Anti-Ban Controls
-Route::get('/master/whatsapp/quotas', [WhatsAppController::class, 'allStoresQuotas']);
-Route::put('/master/whatsapp/quotas/{storeId}', [WhatsAppController::class, 'updateStoreQuota']);
+Route::middleware(['auth:sanctum', 'role.can:stores.read'])->group(function () {
+    Route::get('/master/whatsapp/quotas', [WhatsAppController::class, 'allStoresQuotas']);
+});
+Route::middleware(['auth:sanctum', 'role.can:stores.write'])->group(function () {
+    Route::put('/master/whatsapp/quotas/{storeId}', [WhatsAppController::class, 'updateStoreQuota']);
+});
 
-// Store-Level Real Blog Content & Commerce Management (Hostinger MySQL)
-Route::get('/stores/{storeId}/blog/articles', [BlogController::class, 'index']);
-Route::post('/stores/{storeId}/blog/articles', [BlogController::class, 'store']);
-Route::put('/stores/{storeId}/blog/articles/{id}', [BlogController::class, 'update']);
-Route::delete('/stores/{storeId}/blog/articles/{id}', [BlogController::class, 'destroy']);
-Route::post('/stores/{storeId}/blog/articles/bulk', [BlogController::class, 'bulkAction']);
-Route::get('/stores/{storeId}/blog/settings', [BlogController::class, 'getSettings']);
-Route::put('/stores/{storeId}/blog/settings', [BlogController::class, 'updateSettings']);
-Route::get('/stores/{storeId}/blog/commerce-tools/{articleId}', [BlogController::class, 'getCommerceTools']);
-Route::put('/stores/{storeId}/blog/commerce-tools/{articleId}', [BlogController::class, 'saveCommerceTools']);
-
-// Store-Level Real Affiliate Marketing Management (Hostinger MySQL)
-Route::get('/stores/{storeId}/affiliate/overview', [AffiliateController::class, 'overview']);
-Route::get('/stores/{storeId}/affiliate/opportunities', [AffiliateController::class, 'getOpportunities']);
-Route::post('/stores/{storeId}/affiliate/opportunities', [AffiliateController::class, 'saveOpportunity']);
-Route::patch('/stores/{storeId}/affiliate/opportunities/{id}', [AffiliateController::class, 'updateOpportunity']);
-Route::delete('/stores/{storeId}/affiliate/opportunities/{id}', [AffiliateController::class, 'deleteOpportunity']);
-Route::get('/stores/{storeId}/affiliate/partners', [AffiliateController::class, 'getPartners']);
-Route::post('/stores/{storeId}/affiliate/partners', [AffiliateController::class, 'savePartner']);
-Route::get('/stores/{storeId}/affiliate/orders', [AffiliateController::class, 'getOrders']);
-Route::get('/stores/{storeId}/affiliate/payments', [AffiliateController::class, 'getPayments']);
-Route::post('/stores/{storeId}/affiliate/payments', [AffiliateController::class, 'savePayment']);
-Route::put('/stores/{storeId}/affiliate/settings', [AffiliateController::class, 'updateSettings']);
-
-// Store-Level Real Marketing Campaigns & Channels Management (Hostinger MySQL)
-Route::get('/stores/{storeId}/marketing/channels/overview', [MarketingCampaignsController::class, 'overview']);
-
-// Store-Level Real Loyalty Program Management (Hostinger MySQL)
-Route::get('/stores/{storeId}/loyalty/overview', [LoyaltyController::class, 'overview']);
-Route::post('/stores/{storeId}/loyalty/rewards', [LoyaltyController::class, 'saveReward']);
-Route::delete('/stores/{storeId}/loyalty/rewards/{id}', [LoyaltyController::class, 'deleteReward']);
-Route::patch('/stores/{storeId}/loyalty/earn-rules/{id}', [LoyaltyController::class, 'updateEarnRule']);
-Route::put('/stores/{storeId}/loyalty/settings', [LoyaltyController::class, 'updateSettings']);
-
-// Store-Level Real Smart Cart Intercept (Flowers Store 1st-Click Popup & Tracking - Hostinger MySQL)
-Route::get('/stores/{storeId}/cart-intercept/settings', [CartInterceptController::class, 'getSettings']);
-Route::put('/stores/{storeId}/cart-intercept/settings', [CartInterceptController::class, 'updateSettings']);
-Route::get('/stores/{storeId}/cart-intercept/tracking', [CartInterceptController::class, 'getTracking']);
+// Storefront cart intercept (public read/track only)
 Route::post('/storefront/cart-intercept/{storeId}/track', [CartInterceptController::class, 'trackAction']);
 Route::get('/storefront/cart-intercept/{storeId}/settings', [CartInterceptController::class, 'getSettings']);
 Route::get('/storefront/cart-intercept/{storeId}/customer/{customerId}', [CartInterceptController::class, 'getCustomerProfileRewards']);
-
-// Store-Level Real Gifting System Management (Hostinger MySQL)
-Route::get('/stores/{storeId}/gifting/settings', [GiftingController::class, 'getSettings']);
-Route::put('/stores/{storeId}/gifting/settings', [GiftingController::class, 'updateSettings']);
+Route::get('/storefront/cashback/active', [CashbackController::class, 'storefrontActive']);
+Route::get('/storefront/special-offers/active', [SpecialOfferController::class, 'storefrontActive']);

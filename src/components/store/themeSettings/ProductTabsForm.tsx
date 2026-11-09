@@ -8,6 +8,7 @@ import {
   writeAllThemeSettings,
   type ProductTabsSettings,
 } from '../../../themes/settings/themeSettingsStore';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 export const ProductTabsForm: React.FC = () => {
   const { activeStore, currentProducts } = useTenant();
@@ -67,10 +68,10 @@ export const ProductTabsForm: React.FC = () => {
           </span>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-              Theme Settings · 07
+              {themeSettingsBadge(7, isAr)}
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'تبويبات المنتجات' : 'Product Tabs (Selia)'}
+              {isAr ? 'تبويبات المنتجات' : 'Product Tabs'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr

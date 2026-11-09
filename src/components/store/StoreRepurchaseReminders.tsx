@@ -8,14 +8,8 @@ import {
   Globe,
   Sliders,
   Settings,
-  Sparkles,
   CheckCircle2,
-  AlertCircle,
-  Clock,
-  Calendar,
   Layers,
-  ChevronDown,
-  X,
   Send,
   Bold,
   Italic,
@@ -25,13 +19,9 @@ import {
   ListOrdered,
   Link2,
   Smile,
-  Package,
-  ArrowRight,
   Plus,
-  RefreshCw,
   Trash2,
   Edit2,
-  Eye,
 } from 'lucide-react';
 
 interface ReminderItem {
@@ -63,13 +53,14 @@ interface StoreRepurchaseRemindersProps {
 export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> = ({
   onNavigateTab,
 }) => {
-  const { activeStore, currentProducts, currentOrders } = useTenant();
+  const { activeStore, currentProducts } = useTenant();
   const { money, locale } = usePrefs();
   const isAr = locale === 'ar';
 
   // Active view: 'create' or 'list'
   const [viewMode, setViewMode] = useState<'create' | 'list'>('create');
   const [activeSection, setActiveSection] = useState<'content' | 'conditions' | 'settings'>('content');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form state
   const [isActive, setIsActive] = useState(true);
@@ -104,6 +95,48 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
   const [notificationSuccess, setNotificationSuccess] = useState<string | null>(null);
   const [testSent, setTestSent] = useState(false);
 
+  const timeUnitLabel = (unit: 'days' | 'weeks' | 'months') => {
+    if (!isAr) {
+      if (unit === 'days') return 'days';
+      if (unit === 'weeks') return 'weeks';
+      return 'months';
+    }
+    if (unit === 'days') return 'أيام';
+    if (unit === 'weeks') return 'أسابيع';
+    return 'أشهر';
+  };
+
+  const productDisplayName = (productId: string, fallbackName: string) => {
+    const product = currentProducts.find((p) => p.id === productId);
+    if (!product) return fallbackName;
+    if (isAr) {
+      return (product as any).name_ar || product.nameAr || product.name || fallbackName;
+    }
+    return product.name || fallbackName;
+  };
+
+  const resetFormToCreate = () => {
+    setEditingId(null);
+    setIsActive(true);
+    setLanguage(isAr ? 'AR' : 'EN');
+    setNotificationTitle(isAr ? 'أوشكت الكمية على الانتهاء؟ 👀' : 'Running low? 👀');
+    setNotificationMessage(
+      isAr
+        ? 'مرحباً {name} 👋 مرّ وقت منذ آخر شراء لـ {product}. إذا أوشكت الكمية على الانتهاء يمكنك إعادة الطلب في أي وقت! 🌸'
+        : "Hey {name} 👋 It's been a while since you picked up {product}, and we wanted to make sure you're all set. If you're running low, you can reorder it anytime and keep enjoying it! 🌸"
+    );
+    setSelectedProductId(currentProducts[0]?.id || '');
+    setTimeSincePurchase(30);
+    setTimeUnit('days');
+    setChannels({ email: true, sms: true, inApp: true, webPush: true });
+    setActiveSection('content');
+  };
+
+  const openCreateView = () => {
+    resetFormToCreate();
+    setViewMode('create');
+  };
+
   // Set default product from real store products if available
   React.useEffect(() => {
     if (currentProducts.length > 0 && !selectedProductId) {
@@ -117,50 +150,85 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
 
   // Rendered preview message with dynamic tags replaced
   const previewMessage = useMemo(() => {
+    const contentIsAr = language === 'AR';
     const pName = selectedProduct
-      ? (isAr ? (selectedProduct as any).name_ar || selectedProduct.nameAr || selectedProduct.name : selectedProduct.name)
-      : (isAr ? 'المنتج المختار' : 'Selected Product');
+      ? contentIsAr
+        ? (selectedProduct as any).name_ar || selectedProduct.nameAr || selectedProduct.name
+        : selectedProduct.name
+      : contentIsAr
+        ? 'المنتج المختار'
+        : 'Selected Product';
     return notificationMessage
-      .replace(/{name}/g, isAr ? 'سارة' : 'Sarah')
+      .replace(/{name}/g, contentIsAr ? 'سارة' : 'Sarah')
       .replace(/{product}/g, pName)
       .replace(/{discount}/g, '15%')
-      .replace(/{expiry_date}/g, isAr ? '١٥ يوليو' : 'July 15');
-  }, [notificationMessage, selectedProduct, isAr]);
+      .replace(/{expiry_date}/g, contentIsAr ? '١٥ يوليو' : 'July 15');
+  }, [notificationMessage, selectedProduct, language]);
 
   const insertVariable = (variable: string) => {
     setNotificationMessage((prev) => `${prev} ${variable}`);
   };
 
-  const handleSaveReminder = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newReminder: ReminderItem = {
-      id: `rem_${Date.now()}`,
-      store_id: activeStore.id,
-      title: notificationTitle,
-      message: notificationMessage,
-      language,
-      productId: selectedProductId,
-      productName: selectedProduct ? selectedProduct.name : 'All Products',
-      daysAfterPurchase: timeSincePurchase,
-      timeUnit,
-      channels,
-      isActive,
-      sentCount: 0,
-      conversionRate: '0.0%',
-      createdAt: new Date().toISOString(),
-    };
-
-    const updated = [newReminder, ...remindersList];
+  const persistReminders = (updated: ReminderItem[]) => {
     setRemindersList(updated);
     try {
       localStorage.setItem(storageKey, JSON.stringify(updated));
     } catch {
       // storage unavailable
     }
+  };
 
-    setNotificationSuccess(isAr ? 'تم حفظ التذكير الآلي بنجاح!' : 'Automated reminder saved successfully!');
+  const handleSaveReminder = (e: React.FormEvent) => {
+    e.preventDefault();
+    const productName = selectedProduct
+      ? selectedProduct.name
+      : isAr
+        ? 'كل المنتجات'
+        : 'All Products';
+
+    if (editingId) {
+      const updated = remindersList.map((r) =>
+        r.id === editingId
+          ? {
+              ...r,
+              title: notificationTitle,
+              message: notificationMessage,
+              language,
+              productId: selectedProductId,
+              productName,
+              daysAfterPurchase: timeSincePurchase,
+              timeUnit,
+              channels,
+              isActive,
+            }
+          : r
+      );
+      persistReminders(updated);
+      setNotificationSuccess(isAr ? 'تم تحديث التذكير بنجاح!' : 'Reminder updated successfully!');
+    } else {
+      const newReminder: ReminderItem = {
+        id: `rem_${Date.now()}`,
+        store_id: activeStore.id,
+        title: notificationTitle,
+        message: notificationMessage,
+        language,
+        productId: selectedProductId,
+        productName,
+        daysAfterPurchase: timeSincePurchase,
+        timeUnit,
+        channels,
+        isActive,
+        sentCount: 0,
+        conversionRate: '0.0%',
+        createdAt: new Date().toISOString(),
+      };
+      persistReminders([newReminder, ...remindersList]);
+      setNotificationSuccess(isAr ? 'تم حفظ التذكير الآلي بنجاح!' : 'Automated reminder saved successfully!');
+    }
+
     setTimeout(() => {
       setNotificationSuccess(null);
+      setEditingId(null);
       setViewMode('list');
     }, 1500);
   };
@@ -170,28 +238,35 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
     setTimeout(() => setTestSent(false), 3000);
   };
 
+  const handleEditReminder = (rem: ReminderItem) => {
+    setEditingId(rem.id);
+    setIsActive(rem.isActive);
+    setLanguage(rem.language);
+    setNotificationTitle(rem.title);
+    setNotificationMessage(rem.message);
+    setSelectedProductId(rem.productId || currentProducts[0]?.id || '');
+    setTimeSincePurchase(rem.daysAfterPurchase);
+    setTimeUnit(rem.timeUnit);
+    setChannels({ ...rem.channels });
+    setActiveSection('content');
+    setViewMode('create');
+  };
+
   const handleDeleteReminder = (id: string) => {
     const updated = remindersList.filter((r) => r.id !== id);
-    setRemindersList(updated);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(updated));
-    } catch {
-      // storage unavailable
+    persistReminders(updated);
+    if (editingId === id) {
+      resetFormToCreate();
     }
   };
 
   const handleToggleReminderStatus = (id: string) => {
     const updated = remindersList.map((r) => (r.id === id ? { ...r, isActive: !r.isActive } : r));
-    setRemindersList(updated);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(updated));
-    } catch {
-      // storage unavailable
-    }
+    persistReminders(updated);
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-6 space-y-6 max-w-[1650px] mx-auto text-slate-800 dark:text-slate-100" dir={isAr ? 'rtl' : 'ltr'}>
+    <div className="u-page p-4 sm:p-6 lg:p-6 space-y-6 max-w-[1650px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={isAr ? 'rtl' : 'ltr'}>
       {/* Top Breadcrumb & Header Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-gray-200 dark:border-slate-800">
         <div>
@@ -232,7 +307,7 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
             </button>
           ) : (
             <button
-              onClick={() => setViewMode('create')}
+              onClick={openCreateView}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl bg-teal-600 hover:bg-teal-700 text-white transition-colors shadow-sm"
             >
               <Plus className="w-4 h-4" />
@@ -270,12 +345,12 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {isAr
-                  ? `مخصص لمتجر:${activeStore.name}`
-                  : `Configured specifically for: ${activeStore.name}`}
+                  ? 'تذكيرات آلية مخصصة لهذا المتجر فقط'
+                  : 'Automated reminders configured for this store only'}
               </p>
             </div>
             <button
-              onClick={() => setViewMode('create')}
+              onClick={openCreateView}
               className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-teal-600 hover:bg-teal-700 text-white transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -297,7 +372,7 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
                   : 'Start by creating your first smart reminder to drive repeat purchases and customer retention.'}
               </p>
               <button
-                onClick={() => setViewMode('create')}
+                onClick={openCreateView}
                 className="px-4 py-2 text-xs font-semibold rounded-xl bg-teal-600 hover:bg-teal-700 text-white transition-colors shadow-sm"
               >
                 {isAr ? 'إنشاء تذكير الآن' : 'Create Reminder Now'}
@@ -305,36 +380,70 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm" dir={isAr ? 'rtl' : 'ltr'}>
+              <table className="w-full text-sm" dir={isAr ? 'rtl' : 'ltr'}>
                 <thead>
-                  <tr className="border-b border-gray-100 dark:border-slate-800 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <th className="py-3 px-4">{isAr ? 'عنوان الإشعار' : 'Reminder Title'}</th>
-                    <th className="py-3 px-4">{isAr ? 'المنتج المستهدف' : 'Target Product'}</th>
-                    <th className="py-3 px-4">{isAr ? 'توقيت الإرسال' : 'Trigger Time'}</th>
-                    <th className="py-3 px-4">{isAr ? 'القنوات' : 'Channels'}</th>
-                    <th className="py-3 px-4">{isAr ? 'الحالة' : 'Status'}</th>
+                  <tr className="border-b border-gray-100 dark:border-slate-800 text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wider">
+                    <th className="py-3 px-4 text-start">{isAr ? 'عنوان الإشعار' : 'Reminder Title'}</th>
+                    <th className="py-3 px-4 text-start">{isAr ? 'المنتج المستهدف' : 'Target Product'}</th>
+                    <th className="py-3 px-4 text-start">{isAr ? 'توقيت الإرسال' : 'Trigger Time'}</th>
+                    <th className="py-3 px-4 text-start">{isAr ? 'القنوات' : 'Channels'}</th>
+                    <th className="py-3 px-4 text-start">{isAr ? 'الحالة' : 'Status'}</th>
                     <th className="py-3 px-4 text-end">{isAr ? 'الإجراءات' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                  {remindersList.map((rem) => (
+                  {remindersList.map((rem) => {
+                    const contentDir = rem.language === 'AR' ? 'rtl' : 'ltr';
+                    return (
                     <tr key={rem.id} className="hover:bg-gray-50/70 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-gray-900 dark:text-white">{rem.title}</div>
-                        <div className="text-xs text-gray-500 line-clamp-1 max-w-xs">{rem.message}</div>
+                        <div
+                          dir={contentDir}
+                          className="font-semibold text-gray-900 dark:text-white"
+                          style={{ unicodeBidi: 'isolate' }}
+                        >
+                          {rem.title}
+                        </div>
+                        <div
+                          dir={contentDir}
+                          className="text-xs text-gray-500 line-clamp-1 max-w-xs"
+                          style={{ unicodeBidi: 'isolate' }}
+                        >
+                          {rem.message}
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 font-medium text-gray-700 dark:text-gray-300">
-                        {rem.productName}
+                        <span dir="auto" style={{ unicodeBidi: 'plaintext' }}>
+                          {productDisplayName(rem.productId, rem.productName)}
+                        </span>
                       </td>
-                      <td className="py-3.5 px-4 text-xs text-gray-600 dark:text-gray-400">
-                        {rem.daysAfterPurchase} {rem.timeUnit} {isAr ? 'بعد الشراء' : 'after order'}
+                      <td className="py-3.5 px-4 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        {isAr
+                          ? `${rem.daysAfterPurchase} ${timeUnitLabel(rem.timeUnit)} بعد الشراء`
+                          : `${rem.daysAfterPurchase} ${timeUnitLabel(rem.timeUnit)} after order`}
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                          {rem.channels.email && <span title="Email"><Mail className="w-3.5 h-3.5 text-teal-600" /></span>}
-                          {rem.channels.sms && <span title="SMS"><MessageSquare className="w-3.5 h-3.5 text-blue-600" /></span>}
-                          {rem.channels.inApp && <span title="In-App"><Bell className="w-3.5 h-3.5 text-amber-600" /></span>}
-                          {rem.channels.webPush && <span title="Web Push"><Globe className="w-3.5 h-3.5 text-indigo-600" /></span>}
+                          {rem.channels.email && (
+                            <span title={isAr ? 'البريد الإلكتروني' : 'Email'}>
+                              <Mail className="w-3.5 h-3.5 text-teal-600" />
+                            </span>
+                          )}
+                          {rem.channels.sms && (
+                            <span title={isAr ? 'الرسائل النصية' : 'SMS'}>
+                              <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
+                            </span>
+                          )}
+                          {rem.channels.inApp && (
+                            <span title={isAr ? 'إشعار داخل التطبيق' : 'In-App'}>
+                              <Bell className="w-3.5 h-3.5 text-amber-600" />
+                            </span>
+                          )}
+                          {rem.channels.webPush && (
+                            <span title={isAr ? 'إشعارات الويب' : 'Web Push'}>
+                              <Globe className="w-3.5 h-3.5 text-indigo-600" />
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="py-3.5 px-4">
@@ -351,18 +460,30 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
                         </button>
                       </td>
                       <td className="py-3.5 px-4 text-end">
-                        <div className="inline-flex items-center gap-2">
+                        <div className="inline-flex items-center gap-1">
                           <button
+                            type="button"
+                            onClick={() => handleEditReminder(rem)}
+                            className="p-1.5 text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                            title={isAr ? 'تعديل' : 'Edit'}
+                            aria-label={isAr ? 'تعديل' : 'Edit'}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleDeleteReminder(rem.id)}
                             className="p-1.5 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                             title={isAr ? 'حذف' : 'Delete'}
+                            aria-label={isAr ? 'حذف' : 'Delete'}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -474,14 +595,22 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1 mb-0.5">
-                        <span className="text-xs font-bold text-gray-900 dark:text-white truncate">
-                          {notificationTitle || (isAr ? 'تذكير بالمنتج' : 'Running low? 👀')}
+                        <span
+                          dir={language === 'AR' ? 'rtl' : 'ltr'}
+                          className="text-xs font-bold text-gray-900 dark:text-white truncate"
+                          style={{ unicodeBidi: 'isolate' }}
+                        >
+                          {notificationTitle || (language === 'AR' ? 'تذكير بالمنتج' : 'Running low? 👀')}
                         </span>
                         <span className="text-[10px] text-gray-400 font-medium shrink-0">
                           {isAr ? 'الآن' : 'now'}
                         </span>
                       </div>
-                      <p className="text-[11px] leading-relaxed text-gray-700 dark:text-gray-300 break-words">
+                      <p
+                        dir={language === 'AR' ? 'rtl' : 'ltr'}
+                        className="text-[11px] leading-relaxed text-gray-700 dark:text-gray-300 break-words"
+                        style={{ unicodeBidi: 'isolate' }}
+                      >
                         {previewMessage}
                       </p>
                     </div>
@@ -506,12 +635,22 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
                     </div>
                     <div>
                       <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                        {isAr ? 'إنشاء تذكير جديد' : 'Create New Reminder'}
+                        {editingId
+                          ? isAr
+                            ? 'تعديل التذكير'
+                            : 'Edit Reminder'
+                          : isAr
+                            ? 'إنشاء تذكير جديد'
+                            : 'Create New Reminder'}
                       </h2>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {isAr
-                          ? 'أرسل إشعارات وتنبيهات آلية لعملائك في التوقيت الأمثل.'
-                          : 'Send automatic notifications to customers at the right time.'}
+                        {editingId
+                          ? isAr
+                            ? 'حدّث محتوى التذكير والشروط والقنوات ثم احفظ التغييرات.'
+                            : 'Update reminder content, conditions, and channels, then save.'
+                          : isAr
+                            ? 'أرسل إشعارات وتنبيهات آلية لعملائك في التوقيت الأمثل.'
+                            : 'Send automatic notifications to customers at the right time.'}
                       </p>
                     </div>
                   </div>
@@ -562,9 +701,10 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
                     <input
                       type="text"
                       required
+                      dir={language === 'AR' ? 'rtl' : 'ltr'}
                       value={notificationTitle}
                       onChange={(e) => setNotificationTitle(e.target.value)}
-                      placeholder={isAr ? 'أوشكت الكمية على الانتهاء؟ 👀' : 'Running low? 👀'}
+                      placeholder={language === 'AR' ? 'أوشكت الكمية على الانتهاء؟ 👀' : 'Running low? 👀'}
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                     />
                   </div>
@@ -577,8 +717,8 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
                       onChange={(e) => setLanguage(e.target.value as 'EN' | 'AR')}
                       className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                     >
-                      <option value="EN">EN</option>
-                      <option value="AR">AR</option>
+                      <option value="EN">{isAr ? 'إنجليزي' : 'English'}</option>
+                      <option value="AR">{isAr ? 'عربي' : 'Arabic'}</option>
                     </select>
                   </div>
                 </div>
@@ -666,6 +806,7 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
                       required
                       maxLength={300}
                       rows={4}
+                      dir={language === 'AR' ? 'rtl' : 'ltr'}
                       value={notificationMessage}
                       onChange={(e) => setNotificationMessage(e.target.value)}
                       className="w-full p-3.5 bg-white dark:bg-slate-900 text-sm text-gray-900 dark:text-white focus:outline-none resize-none leading-relaxed"
@@ -840,7 +981,7 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
                         {isAr ? 'البريد الإلكتروني' : 'Email'}
                       </div>
                       <div className="text-[11px] text-gray-500 mt-0.5">
-                        {isAr ? 'إرسال عبر الإيميل' : 'Send via email'}
+                        {isAr ? 'إرسال عبر البريد الإلكتروني' : 'Send via email'}
                       </div>
                     </div>
                   </label>
@@ -926,7 +1067,10 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
               <div className="flex items-center justify-between pt-2">
                 <button
                   type="button"
-                  onClick={() => setViewMode('list')}
+                  onClick={() => {
+                    setEditingId(null);
+                    setViewMode('list');
+                  }}
                   className="px-6 py-2.5 rounded-xl border border-rose-300 dark:border-rose-900 text-rose-600 dark:text-rose-400 font-semibold text-sm hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
                 >
                   {isAr ? 'إلغاء' : 'Cancel'}
@@ -946,8 +1090,14 @@ export const StoreRepurchaseReminders: React.FC<StoreRepurchaseRemindersProps> =
                     type="submit"
                     className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm transition-all shadow-md hover:shadow-teal-600/20"
                   >
-                    <Bell className="w-4 h-4" />
-                    {isAr ? 'إنشاء التذكير' : 'Create Reminder'}
+                    {editingId ? <Edit2 className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+                    {editingId
+                      ? isAr
+                        ? 'حفظ التعديلات'
+                        : 'Save Changes'
+                      : isAr
+                        ? 'إنشاء التذكير'
+                        : 'Create Reminder'}
                   </button>
                 </div>
               </div>

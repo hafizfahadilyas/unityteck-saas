@@ -603,7 +603,7 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                 type="text"
                 value={saveFilterName}
                 onChange={(e) => setSaveFilterName(e.target.value)}
-                placeholder={isAr ? 'مثال: منتجات الورود منخفضة المخزون' : 'e.g. VIP Bouquets Low Stock'}
+                placeholder={isAr ? 'مثال: منتجات منخفضة المخزون' : 'e.g. Low Stock Products'}
                 autoFocus
                 className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
               />
@@ -849,7 +849,7 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                 type="text"
                 value={newFilterName}
                 onChange={(e) => setNewFilterName(e.target.value)}
-                placeholder={isAr ? 'مثال: منتجات الهدايا الترويجية' : 'e.g. Promotional Gifts Campaign'}
+                placeholder={isAr ? 'مثال: حملة المنتجات الترويجية' : 'e.g. Promotional Products Campaign'}
                 className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500"
               />
             </div>

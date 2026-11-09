@@ -3,6 +3,7 @@ import type { InvoiceDocument, InvoiceTemplateConfig, InvoiceLineItem } from '..
 import { Send, CheckCircle2, Clock, Calendar, Sparkles, MapPin, Phone, Mail, Building } from 'lucide-react';
 import { getLocalizedItemName, getCustomerDisplayName, getLocalizedAddress } from '../../../../utils/storeLocalization';
 import { formatInvoiceDate } from '../../../../utils/zatca';
+import { invoiceDocFontFamily } from '../../../../utils/portalFont';
 
 interface TemplateProps {
   document: InvoiceDocument;
@@ -18,7 +19,7 @@ export const QuotationTemplate: React.FC<TemplateProps> = ({ document, config, l
     <div
       className="bg-white text-slate-900 w-full min-h-[1050px] p-8 sm:p-12 flex flex-col justify-between select-text"
       style={{
-        fontFamily: isAr ? "'Cairo', 'Tajawal', sans-serif" : 'Inter, sans-serif',
+        fontFamily: invoiceDocFontFamily(config.fontFamily, locale),
       }}
       dir={isAr ? 'rtl' : 'ltr'}
     >

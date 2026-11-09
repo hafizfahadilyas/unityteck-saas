@@ -58,9 +58,15 @@ class ThemePageController extends Controller
         if (($data['type'] ?? '') === 'custom') {
             $data['header_mode'] = 'global';
             $data['footer_mode'] = 'global';
-            $data['draft_layout'] = ['sections' => []];
-            $data['published_layout'] = null;
-            $data['status'] = 'draft';
+            // Page-builder custom pages start empty. Policy/content docs keep contentEn/contentAr.
+            $layout = is_array($data['draft_layout'] ?? null) ? $data['draft_layout'] : null;
+            $isContentDoc = is_array($layout)
+                && (array_key_exists('contentEn', $layout) || array_key_exists('contentAr', $layout));
+            if (! $isContentDoc) {
+                $data['draft_layout'] = ['sections' => []];
+                $data['published_layout'] = null;
+                $data['status'] = 'draft';
+            }
         }
         $page = ThemePage::withoutGlobalScope('store')->create([
             ...$data,

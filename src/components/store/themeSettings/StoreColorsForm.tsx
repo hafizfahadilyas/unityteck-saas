@@ -12,6 +12,7 @@ import {
 } from '../../../themes/settings/themeSettingsStore';
 import { isCoffeeStore } from '../../../themes/settings/coffeeThemeDefaults';
 import { MediaUploadField } from '../../common/MediaUploadField';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 export const StoreColorsForm: React.FC = () => {
   const { activeStore } = useTenant();
@@ -133,7 +134,7 @@ export const StoreColorsForm: React.FC = () => {
           </span>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-              Theme Settings · 03
+              {themeSettingsBadge(3, isAr)}
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
               {isAr ? 'ألوان المتجر والوضع الداكن' : 'Store Colors / Dark Mode'}
@@ -298,11 +299,9 @@ export const StoreColorsForm: React.FC = () => {
                     value={settings.loadingSubtitle || ''}
                     onChange={(e) => setVal('loadingSubtitle', e.target.value)}
                     placeholder={
-                      activeStore.id === 'store-coffee'
-                        ? 'HiBrew KSA · Specialty Coffee Machines & Barista Essentials'
-                        : activeStore.id === 'store-bleco'
-                        ? 'Al-Saeedi VIP · Precision Automotive Styling & Custom Upholstery'
-                        : `${activeStore.nameEn || activeStore.name} · Luxury Flowers & Gifts`
+                      isAr
+                        ? 'اسم متجرك · وصف مختصر لنشاطك'
+                        : 'Your Store Name · Short business tagline'
                     }
                     className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none font-sans"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
@@ -335,11 +334,7 @@ export const StoreColorsForm: React.FC = () => {
                   </div>
                   <p className="text-[11px] font-semibold text-slate-200 font-sans tracking-wide truncate max-w-full">
                     {settings.loadingSubtitle ||
-                      (activeStore.id === 'store-coffee'
-                        ? 'HiBrew KSA · Specialty Coffee Machines & Barista Essentials'
-                        : activeStore.id === 'store-bleco'
-                        ? 'Al-Saeedi VIP · Precision Automotive Styling & Custom Upholstery'
-                        : `${activeStore.nameEn || activeStore.name} · Luxury Flowers & Gifts`)}
+                      (isAr ? 'اسم متجرك · وصف مختصر لنشاطك' : 'Your Store Name · Short business tagline')}
                   </p>
                 </div>
 

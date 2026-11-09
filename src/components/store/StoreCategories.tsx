@@ -569,15 +569,21 @@ export const StoreCategories: React.FC = () => {
     if (!silent) setLoading(true);
     setError(null);
     try {
+      // Live API = MySQL only. Empty list stays empty — never seed or localStorage fallback.
       if (isApiEnabled()) {
         try {
           const list = await tenantApi.fetchCategories(activeStore.id, { all: true });
-          if (Array.isArray(list) && list.length > 0) {
-            setRows(list);
-            return;
-          }
+          setRows(Array.isArray(list) ? list : []);
+          return;
         } catch (apiErr) {
           console.warn('[StoreCategories] Live API categories fetch notice:', apiErr);
+          setRows([]);
+          setError(
+            toUserFriendlyError(
+              apiErr instanceof Error ? apiErr.message : 'Failed to load categories',
+            ),
+          );
+          return;
         }
       }
 
@@ -810,13 +816,13 @@ export const StoreCategories: React.FC = () => {
           setRows((prev) => prev.map((r) => (r.id === editingId ? updated : r)));
           targetCategoryId = editingId;
           bumpStore(activeStore.id, 'categories');
-          toast('Category updated', 'success');
+          toast(isAr ? 'تم تحديث التصنيف' : 'Category updated', 'success');
         } else {
           const created = await tenantApi.createCategory(activeStore.id, payload);
           setRows((prev) => [...prev, created]);
           targetCategoryId = created.id;
           bumpStore(activeStore.id, 'categories');
-          toast('Category created', 'success');
+          toast(isAr ? 'تم إنشاء التصنيف' : 'Category created', 'success');
         }
       } else {
         const savedKey = `unityteck_store_categories_${activeStore.id}`;
@@ -843,7 +849,7 @@ export const StoreCategories: React.FC = () => {
             window.dispatchEvent(new CustomEvent('unityteck-categories-updated', { detail: { storeId: activeStore.id, categories: next } }));
           } catch {}
           bumpStore(activeStore.id, 'categories');
-          toast('Category updated', 'success');
+          toast(isAr ? 'تم تحديث التصنيف' : 'Category updated', 'success');
         } else {
           const created: StoreCategory = {
             id: `cat-${Date.now()}`,
@@ -865,7 +871,7 @@ export const StoreCategories: React.FC = () => {
             window.dispatchEvent(new CustomEvent('unityteck-categories-updated', { detail: { storeId: activeStore.id, categories: next } }));
           } catch {}
           bumpStore(activeStore.id, 'categories');
-          toast('Category created', 'success');
+          toast(isAr ? 'تم إنشاء التصنيف' : 'Category created', 'success');
           targetCategoryId = created.id;
         }
       }
@@ -922,7 +928,7 @@ export const StoreCategories: React.FC = () => {
       }
       bumpStore(activeStore.id, 'categories');
       setConfirmDeleteId(null);
-      toast('Category deleted', 'success');
+      toast(isAr ? 'تم حذف التصنيف' : 'Category deleted', 'success');
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Delete failed', 'error');
     }
@@ -1047,7 +1053,7 @@ export const StoreCategories: React.FC = () => {
   const parentOptionsForForm = parentPickerOptions(rows, editingId, isAr);
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-200">
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-200 w-full min-w-0">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">

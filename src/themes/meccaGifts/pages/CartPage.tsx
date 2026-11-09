@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ShoppingBag, Trash2, Plus, Minus, ArrowLeft, ArrowRight, Truck, Gift, Tag, Sparkles } from 'lucide-react';
+import { CashbackStorefrontBanner } from '../components/CashbackStorefrontBanner';
+import { SpecialOfferStorefrontBanner } from '../components/SpecialOfferStorefrontBanner';
 
 export const CartPage: React.FC = () => {
   const {
@@ -59,6 +61,9 @@ export const CartPage: React.FC = () => {
       <h1 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c] mb-8">
         {isAr ? 'حقيبة التسوق والهدايا' : 'Shopping Bag'}
       </h1>
+
+      <SpecialOfferStorefrontBanner language={language} />
+      <CashbackStorefrontBanner language={language} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
         {/* Items List (8 cols) */}

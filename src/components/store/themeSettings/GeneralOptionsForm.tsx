@@ -8,6 +8,7 @@ import {
   writeAllThemeSettings,
   type GeneralOptionsSettings,
 } from '../../../themes/settings/themeSettingsStore';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 export const GeneralOptionsForm: React.FC = () => {
   const { activeStore } = useTenant();
@@ -83,7 +84,7 @@ export const GeneralOptionsForm: React.FC = () => {
           </span>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-              Theme Settings · 02
+              {themeSettingsBadge(2, isAr)}
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
               {isAr ? 'خيارات تصميم الثيم — العامة' : 'Theme Design Options'}

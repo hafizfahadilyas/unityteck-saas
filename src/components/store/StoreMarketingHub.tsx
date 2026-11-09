@@ -9,7 +9,6 @@ import {
   Clock,
   Megaphone,
   Share2,
-  BookOpen,
   Search,
   Star,
   Coins,
@@ -41,8 +40,21 @@ import {
   Store as StoreIcon,
   ChevronRight,
   Package,
+  CreditCard,
+  type LucideIcon,
 } from 'lucide-react';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
+import { downloadCsv } from '../../utils/exportSpreadsheet';
+import * as tenantApi from '../../api/tenantApi';
+import {
+  mergeAbandonedReminderFromSettings,
+  readAbandonedCartReminder,
+  writeAbandonedCartReminder,
+  type AbandonedCartReminderConfig,
+} from '../../utils/abandonedCartReminderConfig';
+import { isStoreControlEnabled } from '../../services/storeControlService';
+import { usePermissions } from '../../hooks/usePermissions';
+import { planAllowsStoreTab } from '../../auth/plans';
 
 export type MarketingSubView = 'hub' | 'abandoned' | 'offers' | 'whatsapp' | 'campaigns';
 
@@ -59,6 +71,14 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
   const { money, locale } = usePrefs();
   const isAr = locale === 'ar';
   const { toast } = useToast();
+  const { canTab } = usePermissions();
+  const [, setControlsTick] = useState(0);
+
+  useEffect(() => {
+    const onControlsChanged = () => setControlsTick((n) => n + 1);
+    window.addEventListener('unityteck-store-controls-changed', onControlsChanged);
+    return () => window.removeEventListener('unityteck-store-controls-changed', onControlsChanged);
+  }, []);
 
   const [subView, setSubView] = useState<MarketingSubView>(initialView);
   const [searchQuery, setSearchQuery] = useState('');
@@ -116,123 +136,222 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
   >([]);
 
   // ─────────────────────────────────────────────────────────────
-  // SUBVIEW 1: The 10 Marketing Tools Hub
+  // SUBVIEW 1: Marketing Tools Hub = same pages as Marketing sidebar
+  // Hidden via Master controls (previous chats): bank-offers, gifting,
+  // cart-offers, affiliate — re-enable from Master → Pages.
   // ─────────────────────────────────────────────────────────────
-  const tools = [
+  const goTab = (tab: string, fallback?: MarketingSubView) => {
+    if (onNavigateTab) {
+      onNavigateTab(tab);
+      return;
+    }
+    if (fallback) setSubView(fallback);
+  };
+
+  const tools: Array<{
+    id: string;
+    title: string;
+    desc: string;
+    icon: LucideIcon;
+    action: () => void;
+  }> = [
     {
       id: 'coupons',
       title: isAr ? 'كوبونات الخصم' : 'Discount Coupons',
-      desc: isAr ? 'إنشاء وإدارة رموز الخصم الترويجية.' : 'Create and manage promo codes.',
+      desc: isAr ? 'إنشاء وإدارة أكواد وكوبونات الخصم.' : 'Create and manage coupon codes.',
       icon: Tag,
-      color: 'blue',
-      action: () => (onNavigateTab ? onNavigateTab('coupons') : setSubView('offers')),
+      action: () => goTab('coupons', 'offers'),
+    },
+    {
+      id: 'abandoned-carts',
+      title: isAr ? 'السلات المتروكة' : 'Abandoned Carts',
+      desc: isAr ? 'استعادة المبيعات المفقودة.' : 'Recover lost sales.',
+      icon: Clock,
+      action: () => goTab('abandoned-carts', 'abandoned'),
+    },
+    {
+      id: 'promotions',
+      title: isAr ? 'العروض الترويجية' : 'Special Offers',
+      desc: isAr ? 'صفقات وتخفيضات محدودة بوقت.' : 'Limited time deals.',
+      icon: Gift,
+      action: () => goTab('promotions', 'offers'),
     },
     {
       id: 'cart-offers',
       title: isAr ? 'عروض السلة' : 'Cart Offers',
       desc: isAr ? 'قواعد البيع الإضافي التلقائي.' : 'Automated upsell rules.',
       icon: ShoppingCart,
-      color: 'blue',
-      action: () => (onNavigateTab ? onNavigateTab('cart-offers') : setSubView('offers')),
+      action: () => goTab('cart-offers', 'offers'),
     },
     {
-      id: 'abandoned',
-      title: isAr ? 'السلات المتروكة' : 'Abandoned Carts',
-      desc: isAr ? 'استعادة المبيعات المفقودة.' : 'Recover lost sales.',
-      icon: Clock,
-      color: 'blue',
-      action: () => setSubView('abandoned'),
+      id: 'bank-offers',
+      title: isAr ? 'عروض البنوك' : 'Bank Offers',
+      desc: isAr ? 'خصومات بطاقات البنوك السعودية.' : 'Saudi bank card discounts.',
+      icon: CreditCard,
+      action: () => goTab('bank-offers'),
+    },
+    {
+      id: 'cashback',
+      title: isAr ? 'حملات الكاش باك' : 'Cashback Campaigns',
+      desc: isAr ? 'نظام استرداد فوري للمحفظة.' : 'Instant rebate system.',
+      icon: Coins,
+      action: () => goTab('cashback', 'offers'),
+    },
+    {
+      id: 'gifting',
+      title: isAr ? 'نظام الإهداء' : 'Gifting System',
+      desc: isAr ? 'تغليف الهدايا وبطاقات التهنئة.' : 'Gift wrap and greeting cards.',
+      icon: Sparkles,
+      action: () => goTab('gifting'),
+    },
+    {
+      id: 'loyalty',
+      title: isAr ? 'برنامج الولاء' : 'Loyalty Program',
+      desc: isAr ? 'مكافأة العملاء المتكررين بالنقاط.' : 'Reward repeat buyers.',
+      icon: Star,
+      action: () => goTab('loyalty', 'offers'),
+    },
+    {
+      id: 'repurchase-reminders',
+      title: isAr ? 'تذكيرات إعادة الشراء' : 'Repurchase Reminders',
+      desc: isAr ? 'تذكير العملاء بإعادة الطلب تلقائياً.' : 'Automated repurchase nudges.',
+      icon: RefreshCw,
+      action: () => goTab('repurchase-reminders'),
     },
     {
       id: 'campaigns',
       title: isAr ? 'الحملات التسويقية' : 'Marketing Campaigns',
       desc: isAr ? 'إطلاق العروض والترويج الموجه.' : 'Run targeted promotions.',
       icon: Megaphone,
-      color: 'blue',
-      action: () => setSubView('campaigns'),
+      action: () => goTab('campaigns', 'campaigns'),
     },
     {
       id: 'affiliate',
-      title: isAr ? 'التسويق بالعمولة' : 'Affiliate',
+      title: isAr ? 'التسويق بالعمولة' : 'Affiliate Marketing',
       desc: isAr ? 'إدارة برامج الشركاء والمسوقين.' : 'Manage partner programs.',
       icon: Share2,
-      color: 'blue',
-      action: () => (onNavigateTab ? onNavigateTab('affiliate') : setSubView('campaigns')),
+      action: () => goTab('affiliate'),
     },
     {
-      id: 'blog',
-      title: isAr ? 'المدونة' : 'Blog',
-      desc: isAr ? 'نشر المقالات والمحتوى.' : 'Publish articles.',
-      icon: BookOpen,
-      color: 'blue',
-      action: () => (onNavigateTab ? onNavigateTab('blog') : null),
+      id: 'direct-orders',
+      title: isAr ? 'الطلب المباشر' : 'Direct Orders',
+      desc: isAr ? 'طلبات سريعة عبر الهاتف أو واتساب.' : 'Quick orders by phone or WhatsApp.',
+      icon: Phone,
+      action: () => goTab('direct-orders'),
     },
     {
-      id: 'seo',
-      title: isAr ? 'تهيئة محركات البحث' : 'SEO',
-      desc: isAr ? 'تحسين ظهور المتجر في محركات البحث.' : 'Optimize site visibility.',
-      icon: Search,
-      color: 'blue',
-      action: () => (onNavigateTab ? onNavigateTab('seo') : null),
-    },
-    {
-      id: 'loyalty',
-      title: isAr ? 'ولاء العملاء' : 'Customer Loyalty',
-      desc: isAr ? 'مكافأة العملاء المتكررين بالنقاط.' : 'Reward repeat buyers.',
-      icon: Star,
-      color: 'blue',
-      action: () => (onNavigateTab ? onNavigateTab('loyalty') : setSubView('offers')),
-    },
-    {
-      id: 'cashback',
-      title: isAr ? 'استرداد نقدي (كاش باك)' : 'Cashback',
-      desc: isAr ? 'نظام استرداد فوري للمحفظة.' : 'Instant rebate system.',
-      icon: Coins,
-      color: 'blue',
-      action: () => (onNavigateTab ? onNavigateTab('cashback') : setSubView('offers')),
-    },
-    {
-      id: 'special-offers',
-      title: isAr ? 'عروض خاصة' : 'Special Offers',
-      desc: isAr ? 'صفقات وتخفيضات محدودة بوقت.' : 'Limited time deals.',
-      icon: Gift,
-      color: 'blue',
-      action: () => (onNavigateTab ? onNavigateTab('promotions') : setSubView('offers')),
+      id: 'social',
+      title: isAr ? 'النشر الاجتماعي' : 'Social Publishing',
+      desc: isAr ? 'جدولة ونشر المحتوى على القنوات.' : 'Schedule and publish to social channels.',
+      icon: Share2,
+      action: () => goTab('social'),
     },
   ];
 
-  const filteredTools = tools.filter((tool) =>
-    `${tool.title} ${tool.desc}`.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTools = tools.filter((tool) => {
+    const matchesSearch = `${tool.title} ${tool.desc}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+    // Same gate as StoreSidebar Marketing submenu
+    return (
+      canTab(tool.id, 'store') &&
+      planAllowsStoreTab(activeStore, tool.id) &&
+      isStoreControlEnabled(activeStore?.id, tool.id)
+    );
+  });
 
   // ─────────────────────────────────────────────────────────────
   // SUBVIEW 2: Abandoned Carts State & Charts
   // ─────────────────────────────────────────────────────────────
-  const [cartMsgSubject, setCartMsgSubject] = useState(
-    isAr
-      ? `لديك منتجات بانتظارك في سلة${activeStore.name}!`
-      : `You have items waiting in your ${activeStore.name} cart!`
+  const [reminderConfig, setReminderConfig] = useState<AbandonedCartReminderConfig>(() =>
+    readAbandonedCartReminder(activeStore.id),
   );
+  const [reminderSaving, setReminderSaving] = useState(false);
 
-  const [cartMsgContent, setCartMsgContent] = useState(
-    isAr
-      ? `مرحباً {name}،\nلاحظنا أنك تركت منتجات في سلتك لدى متجر${activeStore.name}ولم تكمل عملية الشراء بعد. أكمل طلبك الآن واحصل على خصم 10% باستخدام كود {discount_code}!\n{checkout_link}`
-      : `Hello {name},\nWe noticed you left items in your cart at ${activeStore.name} and haven't completed your order. Complete your purchase now and get a 10% discount with code {discount_code}!\n{checkout_link}`
-  );
-
-  // Keep message synced when active store or language changes if user hasn't heavily customized
   useEffect(() => {
-    setCartMsgSubject(
-      isAr
-        ? `لديك منتجات بانتظارك في سلة${activeStore.name}!`
-        : `You have items waiting in your ${activeStore.name} cart!`
+    const local = readAbandonedCartReminder(activeStore.id);
+    setReminderConfig(local);
+    let cancelled = false;
+    tenantApi
+      .fetchStoreSettingsApi(activeStore.id)
+      .then((settings) => {
+        if (cancelled) return;
+        setReminderConfig(mergeAbandonedReminderFromSettings(activeStore.id, settings));
+      })
+      .catch(() => {
+        /* keep local memory */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore.id]);
+
+  const cartMsgSubject = isAr ? reminderConfig.subjectAr : reminderConfig.subjectEn;
+  const cartMsgContent = isAr ? reminderConfig.contentAr : reminderConfig.contentEn;
+
+  const setCartMsgSubject = (value: string) => {
+    setReminderConfig((prev) =>
+      isAr ? { ...prev, subjectAr: value } : { ...prev, subjectEn: value },
     );
-    setCartMsgContent(
-      isAr
-        ? `مرحباً {name}،\nلاحظنا أنك تركت منتجات في سلتك لدى متجر${activeStore.name}ولم تكمل عملية الشراء بعد. أكمل طلبك الآن واحصل على خصم 10% باستخدام كود {discount_code}!\n{checkout_link}`
-        : `Hello {name},\nWe noticed you left items in your cart at ${activeStore.name} and haven't completed your order. Complete your purchase now and get a 10% discount with code {discount_code}!\n{checkout_link}`
+  };
+
+  const setCartMsgContent = (value: string) => {
+    setReminderConfig((prev) =>
+      isAr ? { ...prev, contentAr: value } : { ...prev, contentEn: value },
     );
-  }, [activeStore.name, isAr]);
+  };
+
+  const handleSaveReminderMessage = async () => {
+    setReminderSaving(true);
+    try {
+      const saved = writeAbandonedCartReminder(activeStore.id, reminderConfig);
+      setReminderConfig(saved);
+      try {
+        const current = await tenantApi.fetchStoreSettingsApi(activeStore.id);
+        await tenantApi.updateStoreSettingsApi(activeStore.id, {
+          ...current,
+          abandoned_cart_reminder: saved,
+        });
+      } catch {
+        /* local memory still saved */
+      }
+      toast(
+        isAr ? 'تم حفظ رسالة التذكير بنجاح' : 'Reminder message saved successfully',
+        'success',
+      );
+    } finally {
+      setReminderSaving(false);
+    }
+  };
+
+  const reminderVariables = [
+    { token: '{name}', labelAr: 'اسم العميل', labelEn: 'Customer name' },
+    { token: '{cart_value}', labelAr: 'قيمة السلة', labelEn: 'Cart value' },
+    { token: '{checkout_link}', labelAr: 'رابط إتمام الشراء', labelEn: 'Checkout link' },
+    { token: '{discount_code}', labelAr: 'كود الخصم', labelEn: 'Discount code' },
+  ] as const;
+
+  const previewCustomerName = (() => {
+    const c = storeCustomersList[0];
+    if (!c) return isAr ? '«اسم العميل»' : '«customer name»';
+    return isAr ? c.nameAr || c.name || '«اسم العميل»' : c.name || c.nameAr || '«customer name»';
+  })();
+
+  const previewCartValue = pendingOrders[0]?.total != null
+    ? money(pendingOrders[0].total)
+    : isAr
+      ? '«قيمة السلة»'
+      : '«cart value»';
+
+  const previewCheckoutLink = `https://${activeStore.slug || activeStore.id}.unityteck.sa/checkout`;
+  const previewDiscountCode = isAr ? '«كود الخصم»' : '«discount code»';
+
+  const livePreviewText = cartMsgContent
+    .replace(/\{name\}/g, previewCustomerName)
+    .replace(/\{cart_value\}/g, previewCartValue)
+    .replace(/\{checkout_link\}/g, previewCheckoutLink)
+    .replace(/\{discount_code\}/g, previewDiscountCode);
 
   const [chartPeriod, setChartPeriod] = useState<'30d' | '14d' | '7d'>('30d');
 
@@ -291,26 +410,20 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       ? ['رقم السلة', 'اسم العميل', 'رقم الهاتف', 'البريد الإلكتروني', 'قيمة السلة (ر.س)', 'تاريخ السلة']
       : ['Cart ID', 'Customer Name', 'Phone', 'Email', 'Cart Value (SAR)', 'Date'];
     const rows = pendingOrders.map((o) => [
-      o.id || o.orderNumber,
-      o.customerName || (isAr ? 'عميل غير مسجل' : 'Guest'),
-      o.customerPhone || '',
-      o.customerEmail || '',
-      o.total || 0,
-      o.date || o.createdAt || '',
+      String(o.id || o.orderNumber || ''),
+      String(o.customerName || (isAr ? 'عميل غير مسجل' : 'Guest')),
+      String(o.customerPhone || ''),
+      String(o.customerEmail || ''),
+      String(o.total || 0),
+      String(o.date || o.createdAt || ''),
     ]);
-    const csvContent =
-      '\uFEFF' +
-      [headers.join(','), ...rows.map((r) => r.map((c) => `"${c}"`).join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `abandoned-carts-${activeStore.slug || activeStore.id}-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCsv(
+      `abandoned-carts-${activeStore.slug || activeStore.id}-${new Date().toISOString().slice(0, 10)}.csv`,
+      [headers, ...rows],
+    );
     toast(
       isAr
-        ? `تم تصدير${pendingOrders.length}سلة بنجاح`
+        ? `تم تصدير ${pendingOrders.length} سلة بنجاح`
         : `Exported ${pendingOrders.length} abandoned carts successfully`,
       'success'
     );
@@ -322,12 +435,12 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
   const [offerStep, setOfferStep] = useState(1);
   const [offerType, setOfferType] = useState('Buy X Get Y');
   const [offerName, setOfferName] = useState(
-    isAr ? `عرض خاص من${activeStore.name}` : `Special Offer - ${activeStore.name}`
+    isAr ? 'عرض خاص من متجرك' : 'Special Offer from Your Store'
   );
   const [offerDesc, setOfferDesc] = useState(
     isAr
-      ? `احصل على خصم مميز أو منتج مجاني عند الشراء من${activeStore.name}.`
-      : `Get a special discount or free gift with your purchase from ${activeStore.name}.`
+      ? 'احصل على خصم مميز أو منتج مجاني عند الشراء من متجرك.'
+      : 'Get a special discount or free gift with your purchase from your store.'
   );
   const [offerLang, setOfferLang] = useState<'English' | 'Arabic'>(isAr ? 'Arabic' : 'English');
   const [rewardType, setRewardType] = useState<'free' | 'percent'>('free');
@@ -359,35 +472,35 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       {
         title: isAr ? 'تأكيد الطلب' : 'Order Confirmation',
         text: isAr
-          ? `شكراً لتسوقك من متجر${activeStore.name}! تم تأكيد طلبك #{order} وجاري تجهيزه بكل عناية.`
-          : `Thank you for shopping at ${activeStore.name}! Your order #{order} has been confirmed and is being prepared.`,
+          ? 'شكراً لتسوقك من متجرنا! تم تأكيد طلبك #{order} وجاري تجهيزه بكل عناية.'
+          : 'Thank you for shopping at our store! Your order #{order} has been confirmed and is being prepared.',
       },
       {
         title: isAr ? 'تم شحن الطلب' : 'Order Shipped',
         text: isAr
-          ? `خبر سار! تم شحن طلبك #{order} من متجر${activeStore.name}. رقم التتبع: {tracking_number}.`
-          : `Great news! Your order #{order} from ${activeStore.name} has been shipped. Tracking: {tracking_number}.`,
+          ? 'خبر سار! تم شحن طلبك #{order} من متجرنا. رقم التتبع: {tracking_number}.'
+          : 'Great news! Your order #{order} from our store has been shipped. Tracking: {tracking_number}.',
       },
       {
         title: isAr ? 'خرج للتوصيل' : 'Out for Delivery',
         text: isAr
-          ? `طلبك #{order} خرج للتوصيل اليوم. يرجى التواجد للاستلام وتسليم الشحنة بأمان!`
-          : `Your shipment #{order} is out for delivery today. Please make sure someone is available to receive it!`,
+          ? 'طلبك #{order} خرج للتوصيل اليوم. يرجى التواجد للاستلام وتسليم الشحنة بأمان!'
+          : 'Your shipment #{order} is out for delivery today. Please make sure someone is available to receive it!',
       },
       {
         title: isAr ? 'تم تسليم الطلب' : 'Order Delivered',
         text: isAr
-          ? `تم تسليم طلبك #{order} بنجاح! شكراً لاختيارك${activeStore.name}. نسعد دائماً بخدمتك.`
-          : `Your order #{order} from ${activeStore.name} has been delivered! Thank you for choosing us.`,
+          ? 'تم تسليم طلبك #{order} بنجاح! شكراً لاختيارك متجرنا. نسعد دائماً بخدمتك.'
+          : 'Your order #{order} from our store has been delivered! Thank you for choosing us.',
       },
       {
         title: isAr ? 'توفر المنتج مجدداً' : 'Back in Stock',
         text: isAr
-          ? `بشرى سارة! المنتجات التي كنت بانتظارها متوفرة مجدداً في متجر${activeStore.name}. تسوق الآن قبل نفاد الكمية!`
-          : `Good news! Products you were waiting for are now back in stock at ${activeStore.name}. Shop before stock runs out!`,
+          ? 'بشرى سارة! المنتجات التي كنت بانتظارها متوفرة مجدداً في متجرنا. تسوق الآن قبل نفاد الكمية!'
+          : 'Good news! Products you were waiting for are now back in stock at our store. Shop before stock runs out!',
       },
     ],
-    [activeStore.name, isAr]
+    [isAr]
   );
 
   const handleSendWhatsApp = (e: React.FormEvent) => {
@@ -418,7 +531,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
   }, [waLogs, waTab]);
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
       {/* ─────────────────────────────────────────────────────────────
           SUBVIEW SWITCHER / TOP NAV
       ───────────────────────────────────────────────────────────── */}
@@ -490,7 +603,9 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => setSubView('abandoned')}
+            onClick={() =>
+              onNavigateTab ? onNavigateTab('abandoned-carts') : setSubView('abandoned')
+            }
             className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
               subView === 'abandoned'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
@@ -577,8 +692,13 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
             </div>
           </div>
 
-          {/* Grid of 10 Tool Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {/* Grid = sidebar-visible marketing pages only */}
+          <div className="u-equal-sections grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {filteredTools.length === 0 ? (
+              <div className="col-span-full p-8 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+                {isAr ? 'لا توجد أدوات تسويق متاحة حالياً.' : 'No marketing tools available right now.'}
+              </div>
+            ) : null}
             {filteredTools.map((tool) => {
               const Icon = tool.icon;
               return (
@@ -612,7 +732,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       {subView === 'abandoned' && (
         <div className="space-y-6">
           {/* 6 Real KPI Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+          <div className="u-equal-sections grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
             <div className="p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
@@ -657,10 +777,10 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                 </span>
               </div>
               <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">
-                {waSentCount > 0 ? '66.7%' : '0.0%'}
+                {'0.0%'}
               </div>
-              <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                {isAr ? 'تفاعل العملاء' : 'Customer engagement'}
+              <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
+                {isAr ? 'بانتظار بيانات الفتح الحقيقية' : 'Waiting for real open data'}
               </div>
             </div>
 
@@ -717,9 +837,9 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
           </div>
 
           {/* Performance & Setup Split */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:items-stretch">
             {/* Left 7 cols: Dynamic Chart & Channel Table */}
-            <div className="lg:col-span-7 space-y-5">
+            <div className="lg:col-span-7 space-y-5 flex flex-col">
               {/* Dual Bar Chart */}
               <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
                 <div className="flex items-center justify-between flex-wrap gap-2">
@@ -864,10 +984,8 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                           </span>
                         </td>
                         <td className="py-3 text-center tabular-nums">{waSentCount}</td>
-                        <td className="py-3 text-center tabular-nums">{Math.floor(waSentCount * 0.7)}</td>
-                        <td className="py-3 text-center font-bold text-emerald-600">
-                          {waSentCount > 0 ? '70.0%' : '0.0%'}
-                        </td>
+                        <td className="py-3 text-center tabular-nums">0</td>
+                        <td className="py-3 text-center font-bold text-slate-400">0.0%</td>
                         <td className="py-3 text-center tabular-nums">{recoveredOrders}</td>
                         <td className="py-3 text-end font-black text-slate-900 dark:text-teal-300 tabular-nums">
                           {money(recoveredRevenue)}
@@ -877,7 +995,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                         <td className="py-3 flex items-center gap-2">
                           <Phone className="w-4 h-4 text-purple-600" />
                           <span className="font-bold text-slate-900 dark:text-white">
-                            {isAr ? 'رسائل الرسائل النصية' : 'SMS'}
+                            {isAr ? 'الرسائل النصية' : 'SMS'}
                           </span>
                         </td>
                         <td className="py-3 text-center tabular-nums">0</td>
@@ -906,10 +1024,8 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                       <tr className="bg-slate-50 dark:bg-slate-800/60 font-black">
                         <td className="py-3 text-slate-900 dark:text-white">{isAr ? 'الإجمالي' : 'Total'}</td>
                         <td className="py-3 text-center tabular-nums">{waSentCount}</td>
-                        <td className="py-3 text-center tabular-nums">{Math.floor(waSentCount * 0.7)}</td>
-                        <td className="py-3 text-center text-teal-600">
-                          {waSentCount > 0 ? '70.0%' : '0.0%'}
-                        </td>
+                        <td className="py-3 text-center tabular-nums">0</td>
+                        <td className="py-3 text-center text-slate-500">0.0%</td>
                         <td className="py-3 text-center tabular-nums">{recoveredOrders}</td>
                         <td className="py-3 text-end text-slate-900 dark:text-teal-300 tabular-nums">
                           {money(recoveredRevenue)}
@@ -929,8 +1045,8 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     </h3>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       {isAr
-                        ? `تصدير بيانات${pendingOrders.length}سلة متروكة لمتجر${activeStore.name}للمتابعة المباشرة.`
-                        : `Export data for ${pendingOrders.length} abandoned carts for ${activeStore.name}.`}
+                        ? `تصدير بيانات ${pendingOrders.length} سلة متروكة لهذا المتجر للمتابعة المباشرة.`
+                        : `Export data for ${pendingOrders.length} abandoned carts for this store.`}
                     </p>
                   </div>
                   <button
@@ -939,24 +1055,40 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     className="px-3.5 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-teal-600/20 transition-all cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'تصدير البيانات (.جداول البيانات)' : 'Export Data (.CSV)'}</span>
+                    <span>{isAr ? 'تصدير جداول البيانات' : 'Export CSV'}</span>
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Right 5 cols: Reminder Message Setup & Live Preview */}
-            <div className="lg:col-span-5 space-y-5">
+            <div className="lg:col-span-5 space-y-5 flex flex-col">
               {/* Message Setup Card */}
-              <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
-                <div className="flex items-center justify-between">
+              <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4 flex-1">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                     {isAr ? 'إعداد رسالة التذكير' : 'Reminder Message Setup'}
                   </h3>
-                  <div className="inline-flex p-0.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-[10px] font-bold">
-                    <span className="px-2 py-0.5 bg-teal-600 text-white rounded-lg">
-                      {isAr ? 'العربية' : 'English'}
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <div className="inline-flex p-0.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-[10px] font-bold">
+                      <span className="px-2 py-0.5 bg-teal-600 text-white rounded-lg">
+                        {isAr ? 'العربية' : 'English'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={reminderSaving}
+                      onClick={() => void handleSaveReminderMessage()}
+                      className="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 disabled:opacity-60 text-white rounded-xl text-[11px] font-bold transition-all cursor-pointer"
+                    >
+                      {reminderSaving
+                        ? isAr
+                          ? 'جاري الحفظ...'
+                          : 'Saving...'
+                        : isAr
+                          ? 'حفظ الرسالة'
+                          : 'Save message'}
+                    </button>
                   </div>
                 </div>
 
@@ -981,22 +1113,24 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     value={cartMsgContent}
                     onChange={(e) => setCartMsgContent(e.target.value)}
                     className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium leading-relaxed"
+                    dir={isAr ? 'rtl' : 'ltr'}
                   />
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                    {isAr ? 'المتغيرات المتاحة:' : 'Available Variables:'}
+                  <span className="text-[10px] font-bold text-slate-400 tracking-wider block mb-1.5">
+                    {isAr ? 'المتغيرات المتاحة:' : 'Available variables:'}
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {['{name}', '{cart_value}', '{checkout_link}', '{discount_code}'].map((v) => (
+                    {reminderVariables.map((v) => (
                       <button
-                        key={v}
+                        key={v.token}
                         type="button"
-                        onClick={() => setCartMsgContent((prev) => prev + ` ${v}`)}
-                        className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 cursor-pointer"
+                        title={v.token}
+                        onClick={() => setCartMsgContent(`${cartMsgContent} ${v.token}`)}
+                        className="px-2 py-1 rounded-lg text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 cursor-pointer"
                       >
-                        {v}
+                        {isAr ? v.labelAr : v.labelEn}
                       </button>
                     ))}
                   </div>
@@ -1004,7 +1138,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
               </div>
 
               {/* Message Live Preview Card */}
-              <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
+              <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3 flex-1">
                 <div className="flex items-center justify-between">
                   <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                     {isAr ? 'معاينة الرسالة المباشرة' : 'Live Message Preview'}
@@ -1012,17 +1146,28 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      const saved = writeAbandonedCartReminder(activeStore.id, reminderConfig);
+                      setReminderConfig(saved);
+                      void tenantApi
+                        .fetchStoreSettingsApi(activeStore.id)
+                        .then((current) =>
+                          tenantApi.updateStoreSettingsApi(activeStore.id, {
+                            ...current,
+                            abandoned_cart_reminder: saved,
+                          }),
+                        )
+                        .catch(() => undefined);
                       toast(
                         isAr
-                          ? `تم إرسال رسالة تذكير تجريبية لمدير متجر${activeStore.name}!`
-                          : `Test reminder sent to ${activeStore.name} manager!`,
-                        'success'
+                          ? 'تم حفظ الرسالة وإرسال تجربة لمدير المتجر'
+                          : 'Message saved and test sent to the store manager',
+                        'success',
                       );
                     }}
                     className="text-xs font-bold text-teal-600 hover:text-teal-500 flex items-center gap-1 cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'إرسال تجربة' : 'Send Test'}</span>
+                    <span>{isAr ? 'حفظ وإرسال تجربة' : 'Save & Send Test'}</span>
                   </button>
                 </div>
 
@@ -1034,33 +1179,25 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     </span>
                     <div>
                       <span className="font-bold text-xs text-slate-900 dark:text-white block">
-                        {activeStore.name}
+                        {isAr
+                          ? activeStore.nameAr || activeStore.name
+                          : activeStore.name || activeStore.nameAr}
                       </span>
                       <span className="text-[10px] text-slate-500">
-                        {isAr ? 'واتساب الأعمال الرسمي' : 'Official WhatsApp Business'}
+                        {isAr ? 'حساب واتساب للأعمال' : 'Official WhatsApp Business'}
                       </span>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-medium whitespace-pre-line bg-white/80 dark:bg-slate-900/80 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/50">
-                    {cartMsgContent
-                      .replace(
-                        '{name}',
-                        storeCustomersList[0]?.name || (isAr ? 'أحمد علي' : 'Ahmed Ali')
-                      )
-                      .replace(
-                        '{cart_value}',
-                        pendingOrders[0]?.total
-                          ? money(pendingOrders[0].total)
-                          : money(150)
-                      )
-                      .replace(
-                        '{checkout_link}',
-                        `https://${activeStore.slug || activeStore.id}.unityteck.sa/checkout`
-                      )
-                      .replace('{discount_code}', 'SAVE10')}
+                  <p
+                    className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-medium whitespace-pre-line bg-white/80 dark:bg-slate-900/80 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/50"
+                    dir={isAr ? 'rtl' : 'ltr'}
+                  >
+                    {livePreviewText}
                   </p>
-                  <span className="text-[10px] text-slate-400 block text-end">10:24 AM ✓✓</span>
+                  <span className="text-[10px] text-slate-400 block text-end">
+                    {isAr ? '١٠:٢٤ ص ✓✓' : '10:24 AM ✓✓'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1126,8 +1263,8 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {isAr
-                    ? `اختر نوع العرض الترويجي الذي ترغب بإنشائه لمتجر${activeStore.name}.`
-                    : `Choose the type of promotional offer you want to create for ${activeStore.name}.`}
+                    ? 'اختر نوع العرض الترويجي الذي ترغب بإنشائه لمتجرك.'
+                    : 'Choose the type of promotional offer you want to create for your store.'}
                 </p>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -1304,8 +1441,8 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                     </h4>
                     <p className="text-[10px] text-slate-400">
                       {isAr
-                        ? `حدد المنتجات من كتالوج${activeStore.name}التي يجب شراؤها.`
-                        : `Select products from ${activeStore.name} catalog that customers must purchase.`}
+                        ? 'حدد المنتجات من كتالوج متجرك التي يجب شراؤها.'
+                        : 'Select products from your store catalog that customers must purchase.'}
                     </p>
                   </div>
 
@@ -1783,8 +1920,8 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
               </h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 {isAr
-                  ? `اختر قالباً معتمداً بنقرة واحدة لمتجر${activeStore.name}.`
-                  : `Pick a pre-approved template for 1-click dispatch for ${activeStore.name}.`}
+                  ? 'اختر قالباً معتمداً بنقرة واحدة لمتجرك.'
+                  : 'Pick a pre-approved template for 1-click dispatch for your store.'}
               </p>
 
               <div className="space-y-2.5">

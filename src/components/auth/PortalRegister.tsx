@@ -420,7 +420,7 @@ export const PortalRegister: React.FC<PortalRegisterProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Makkah Fresh Flowers"
+                    placeholder={isAr ? 'مثال: اسم متجرك' : 'e.g. Your Store Name'}
                     value={brandName}
                     onChange={(e) => setBrandName(e.target.value)}
                     className={inputClassPlain}

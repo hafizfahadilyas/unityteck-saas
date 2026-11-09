@@ -223,12 +223,34 @@ class SocialController extends Controller
 
         $data = $request->validate([
             'platform' => ['required', Rule::in(self::LIVE_PLATFORMS)],
-            'image_url' => ['required', 'string', 'max:1024'],
+            'media_type' => ['nullable', Rule::in(['image', 'video', 'text'])],
+            'image_url' => ['nullable', 'string', 'max:1024'],
             'media_id' => ['nullable', 'string', 'max:64'],
             'caption' => ['nullable', 'string', 'max:2200'],
             'scheduled_for' => ['nullable', 'date'],
             'publish_now' => ['nullable', 'boolean'],
         ]);
+
+        $mediaType = $data['media_type'] ?? 'image';
+        $imageUrl = trim((string) ($data['image_url'] ?? ''));
+        $caption = trim((string) ($data['caption'] ?? ''));
+
+        if ($mediaType === 'text') {
+            if ($data['platform'] !== 'facebook') {
+                return response()->json([
+                    'message' => 'Text-only (general text) posts are available on Facebook only.',
+                ], 422);
+            }
+            if ($caption === '') {
+                return response()->json([
+                    'message' => 'General text is required for text-only posts.',
+                ], 422);
+            }
+        } elseif ($imageUrl === '') {
+            return response()->json([
+                'message' => $mediaType === 'video' ? 'Video URL is required.' : 'Image URL is required.',
+            ], 422);
+        }
 
         $account = SocialAccount::query()
             ->where('store_id', $storeId)
@@ -253,16 +275,21 @@ class SocialController extends Controller
             ], 422);
         }
 
-        $post = new SocialPost([
+        $payload = [
             'id' => $this->newId('socpost'),
             'store_id' => $storeId,
             'platform' => $data['platform'],
             'media_id' => $data['media_id'] ?? null,
-            'image_url' => $data['image_url'],
-            'caption' => $data['caption'] ?? '',
+            'image_url' => $mediaType === 'text' ? '' : $imageUrl,
+            'caption' => $caption,
             'scheduled_for' => $publishNow ? now() : $scheduledFor,
             'status' => $publishNow ? 'publishing' : 'scheduled',
-        ]);
+        ];
+        if (Schema::hasColumn('social_posts', 'media_type')) {
+            $payload['media_type'] = $mediaType;
+        }
+
+        $post = new SocialPost($payload);
         $post->save();
 
         if ($publishNow) {

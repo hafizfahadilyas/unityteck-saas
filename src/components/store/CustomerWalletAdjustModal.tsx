@@ -245,7 +245,7 @@ export const CustomerWalletAdjustModal: React.FC<Props> = ({
                   onClick={() => setTxType(t)}
                   className={`py-2 rounded-xl border font-semibold transition-colors cursor-pointer ${
                     txType === t
-                      ? 'bg-teal-600 text-white border-teal-600'
+                      ? 'bg-blue-600 text-white border-blue-600'
                       : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
                 >
@@ -271,7 +271,7 @@ export const CustomerWalletAdjustModal: React.FC<Props> = ({
               step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               required
             />
           </div>
@@ -281,7 +281,7 @@ export const CustomerWalletAdjustModal: React.FC<Props> = ({
               type="checkbox"
               checked={resetLoyalty}
               onChange={(e) => setResetLoyalty(e.target.checked)}
-              className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
             />
             <span className="font-medium text-slate-700 dark:text-slate-300">
               {isAr ? 'إعادة تعيين نقاط الولاء إلى صفر' : 'Reset loyalty points to zero'}
@@ -296,7 +296,7 @@ export const CustomerWalletAdjustModal: React.FC<Props> = ({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 resize-none"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
             />
           </div>
 
@@ -307,7 +307,7 @@ export const CustomerWalletAdjustModal: React.FC<Props> = ({
             <select
               value={notifyChannel}
               onChange={(e) => setNotifyChannel(e.target.value as NotifyChannel)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             >
               {notifyOptions.map((opt) => (
                 <option key={opt.value} value={opt.value} disabled={!opt.enabled && opt.value !== 'none'}>
@@ -325,7 +325,7 @@ export const CustomerWalletAdjustModal: React.FC<Props> = ({
           <button
             type="submit"
             disabled={busy}
-            className="w-full py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-bold flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold flex items-center justify-center gap-2 cursor-pointer"
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             <span>{isAr ? 'تنفيذ' : 'Execute'}</span>

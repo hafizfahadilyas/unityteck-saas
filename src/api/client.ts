@@ -39,6 +39,7 @@ function extractBodyMessage(json: unknown): string | null {
     if (typeof first === 'string') return first;
   }
   if (typeof obj.message === 'string' && obj.message) return obj.message;
+  if (typeof obj.error === 'string' && obj.error) return obj.error;
   return null;
 }
 
@@ -51,7 +52,24 @@ export type ApiFetchOptions = {
   skipAuth?: boolean;
   /** Internal: one silent token renew after 401. Never logs the admin out. */
   authRetried?: boolean;
+  /** Override default abort timeout (ms). AI image gen needs ~120s. */
+  timeoutMs?: number;
 };
+
+/** Structured API failure — preserves business `code` + payload for UI handling. */
+export class ApiRequestError extends Error {
+  status: number;
+  code?: string;
+  payload?: unknown;
+
+  constructor(message: string, status: number, code?: string, payload?: unknown) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.status = status;
+    this.code = code;
+    this.payload = payload;
+  }
+}
 
 const GET_MEMORY_TTL_MS = 8_000;
 /** One product page is small. 20s covers a slow Hostinger round trip without parking the whole app. */
@@ -134,7 +152,10 @@ export async function apiFetch<T>(
       path.startsWith('/customers') ||
       path.startsWith('/coupons') ||
       path.startsWith('/seo') ||
-      path.startsWith('/reports'));
+      path.startsWith('/reports') ||
+      path.startsWith('/analytics/dashboard-home') ||
+      path.includes('/store-settings') ||
+      path.startsWith('/google/'));
   if (!isPublicEndpoint && !guestReadable && !(token && !token.startsWith('mock-'))) {
     throw new Error(toUserFriendlyError('No active backend API session (mock/guest mode).'));
   }
@@ -157,7 +178,13 @@ export async function apiFetch<T>(
 
   const run = async (): Promise<T> => {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), isGet ? GET_TIMEOUT_MS : WRITE_TIMEOUT_MS);
+    const timeoutMs =
+      typeof options.timeoutMs === 'number' && options.timeoutMs > 0
+        ? options.timeoutMs
+        : isGet
+          ? GET_TIMEOUT_MS
+          : WRITE_TIMEOUT_MS;
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     let res: Response;
     try {
       res = await fetch(requestUrl, {
@@ -191,7 +218,16 @@ export async function apiFetch<T>(
         }
       }
       const bodyMessage = extractBodyMessage(json);
-      throw new Error(friendlyHttpError(res.status, res.statusText, bodyMessage));
+      const code =
+        json && typeof json === 'object' && typeof (json as { code?: unknown }).code === 'string'
+          ? String((json as { code: string }).code)
+          : undefined;
+      throw new ApiRequestError(
+        friendlyHttpError(res.status, res.statusText, bodyMessage),
+        res.status,
+        code,
+        json,
+      );
     }
 
     if (json === null) {

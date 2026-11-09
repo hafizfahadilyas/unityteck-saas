@@ -53,8 +53,8 @@ function useBuilderStoreContext(isAr: boolean) {
   const isAuto = activeStore?.id === 'store-transport' || Boolean(activeStore?.category && (activeStore.category.includes('سيار') || activeStore.category.includes('نقل')));
 
   const storeName = isAr
-    ? (activeStore?.nameAr || activeStore?.name || (isCoffee ? 'محمصة القهوة المختصة' : isAuto ? 'نقليات ومعدات الجزيرة' : 'هدايا مكة'))
-    : (activeStore?.nameEn || activeStore?.name || (isCoffee ? 'Specialty Coffee Roasters' : isAuto ? 'Saudia Transport Logistics' : 'Hadaya Flowers & Gifts'));
+    ? (activeStore?.nameAr || activeStore?.name || 'متجرك')
+    : (activeStore?.nameEn || activeStore?.name || 'Your Store');
 
   const primaryProduct = currentProducts[0] || null;
   const secondaryProduct = currentProducts[1] || null;
@@ -125,7 +125,7 @@ export const BuilderProductPage: React.FC<BuilderPageProps> = ({
 
   const categoryTitle = isAr
     ? (primaryProduct?.category || (isCoffee ? 'محاصيل القهوة المختصة' : isAuto ? 'خدمات النقل والأساطيل' : 'الباقات الفاخرة'))
-    : (primaryProduct?.categoryEn || primaryProduct?.category || (isCoffee ? 'Specialty Coffee Beans' : isAuto ? 'Fleet & Logistics' : 'Luxury Bouquets'));
+    : (primaryProduct?.categoryEn || primaryProduct?.category || (isAr ? 'التصنيف' : 'Category'));
 
   const productTitle = isAr
     ? (primaryProduct?.name || (isCoffee ? 'محصول سلفادور سانتا لوسيا كلاسيك' : isAuto ? 'شاحنة مرسيدس أكتروس للنقل الثقيل' : 'حامل ورود حمراء مخملية ملكية'))
@@ -385,7 +385,7 @@ export const BuilderProductPage: React.FC<BuilderPageProps> = ({
                 : 'text-slate-500 hover:text-slate-900'
             }`}
           >
-            {isAr ? 'نصائح العناية بالورد' : 'Floral Care Instructions'}
+            {isAr ? 'تعليمات الاستخدام' : 'Care Instructions'}
           </button>
           <button
             onClick={() => setActiveTab('reviews')}
@@ -395,7 +395,7 @@ export const BuilderProductPage: React.FC<BuilderPageProps> = ({
                 : 'text-slate-500 hover:text-slate-900'
             }`}
           >
-            {isAr ? 'آراء ضيوف المتجر (١٢٤)' : 'Customer Reviews (124)'}
+            {isAr ? 'آراء العملاء' : 'Customer Reviews'}
           </button>
         </div>
 
@@ -403,20 +403,20 @@ export const BuilderProductPage: React.FC<BuilderPageProps> = ({
           <div className="text-xs sm:text-sm text-slate-600 space-y-3 leading-relaxed">
             <p>
               {isAr
-                ? 'تم تصميم هذه الباقة الملكية في ورشاتنا المركزية بمكة المكرمة بأيدي منسقي زهور معتمدين. نستخدم حصرياً جوري إكوادوري أحمر طبيعي مقطوف طازجاً، يتم حفظه في درجات حرارة مثالية لضمان استمراره في كامل رونقه وعطره لعدة أيام داخل غرفتك أو فندقك.'
-                : 'Hand-assembled by master florists at our central Makkah boutique using authentic Ecuadorian long-stem roses kept in strictly climate-controlled chambers for peak vitality.'}
+                ? 'وصف المنتج يظهر هنا من بيانات متجرك الحقيقية. أضف وصفاً واضحاً ومفصلاً لمساعدة العملاء على اتخاذ قرار الشراء.'
+                : 'Product description appears here from your store’s real data. Add a clear, detailed description to help customers decide.'}
             </p>
             <ul className="list-disc list-inside space-y-1 text-slate-700 font-medium">
-              <li>{isAr ? 'نوع الورد: جوري إكوادوري فئة أولى' : 'Floral Grade: Premium Grade A Ecuadorian Roses'}</li>
-              <li>{isAr ? 'الارتفاع التقريبي: ٥٥ سم · العرض: ٤٠ سم' : 'Approx Dimensions: 55cm Height · 40cm Width'}</li>
-              <li>{isAr ? 'الملحقات: بطاقة إهداء فاخرة + مغذي زهور هولندي مجاني' : 'Includes: Luxury gold-foil gift card & Dutch flower food'}</li>
+              <li>{isAr ? 'المواصفات: حسب بيانات المنتج' : 'Specs: according to product data'}</li>
+              <li>{isAr ? 'التوفر: حسب المخزون الحالي' : 'Availability: according to current stock'}</li>
+              <li>{isAr ? 'الشحن: حسب إعدادات متجرك' : 'Shipping: according to your store settings'}</li>
             </ul>
           </div>
         )}
 
         {activeTab === 'care' && (
           <div className="text-xs sm:text-sm text-slate-600 space-y-2">
-            <p className="font-bold text-slate-800">{isAr ? 'إرشادات الحفاظ على نضارة الورد:' : 'To extend freshness:'}</p>
+            <p className="font-bold text-slate-800">{isAr ? 'إرشادات الاستخدام والعناية:' : 'Usage & care tips:'}</p>
             <p>1. {isAr ? 'قص أطراف السيقان بزاوية ٤٥ درجة قبل وضعها في ماء بارد ونظيف.' : 'Trim stems at a 45° angle before placing in cool fresh water.'}</p>
             <p>2. {isAr ? 'تجنب وضع الباقة تحت تيار هواء التكييف المباشر أو أشعة الشمس القوية.' : 'Keep away from direct air conditioning vents and sunlight.'}</p>
             <p>3. {isAr ? 'استبدال الماء كل يومين وإضافة كيس المغذي المرفق.' : 'Change water every 2 days and dissolve the provided nutrients.'}</p>
@@ -489,7 +489,7 @@ export const BuilderCartPage: React.FC<BuilderPageProps> = ({
         id: 'p1',
         name: isAr
           ? (isCoffee ? 'محصول بن كولومبي مختص' : isAuto ? 'خدمة نقل شحن لوجستي' : 'باقة زهور طبيعية فاخرة')
-          : (isCoffee ? 'Colombian Specialty Coffee' : isAuto ? 'Logistics Transport Service' : 'Luxury Flower Bouquet'),
+          : (isAr ? 'منتج المتجر' : 'Store Product'),
         price: isCoffee ? 95 : isAuto ? 1200 : 490,
         qty: 1,
         img: isCoffee
@@ -621,7 +621,7 @@ export const BuilderCartPage: React.FC<BuilderPageProps> = ({
               rows={2}
               value={cardMessage}
               onChange={(e) => setCardMessage(e.target.value)}
-              placeholder={isAr ? 'مثال: أطيب التهاني بمناسبة قدومكم لمكة، حفظكم الله وسدد خطاكم...' : 'Example: May your visit to the Holy City be filled with peace and blessings...'}
+              placeholder={isAr ? 'مثال: شكراً لتسوقكم معنا، نسعد بخدمتكم دائماً...' : 'Example: Thank you for shopping with us. We are happy to serve you...'}
               className="w-full p-2.5 rounded-xl border border-indigo-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
@@ -714,7 +714,7 @@ export const BuilderCheckoutPage: React.FC<BuilderPageProps> = ({
 
   const item1Name = isAr
     ? (primaryProduct?.name || (isCoffee ? 'محصول بن مختص' : isAuto ? 'خدمة نقل أسطول' : 'باقة زهور فاخرة'))
-    : (primaryProduct?.nameEn || primaryProduct?.name || (isCoffee ? 'Specialty Coffee' : isAuto ? 'Fleet Transport' : 'Luxury Bouquet'));
+    : (primaryProduct?.nameEn || primaryProduct?.name || (isAr ? 'منتج المتجر' : 'Store Product'));
   const item1Price = primaryProduct?.price || (isCoffee ? 95 : isAuto ? 1200 : 490);
 
   const item2Name = isAr
@@ -1057,7 +1057,7 @@ export const BuilderAboutPage: React.FC<BuilderPageProps> = ({
   const { activeStore, isCoffee, isAuto, storeName } = useBuilderStoreContext(isAr);
 
   const heroSub = isCoffee
-    ? (isAr ? 'قصة شغف بالبن المختص وطرق التحميص الاحترافية' : 'Our Passion for Specialty Coffee Roasting')
+    ? (isAr ? 'قصة متجرنا ورؤيتنا' : 'Our Store Story & Vision')
     : isAuto
     ? (isAr ? 'ريادة في النقل اللوجستي وتجهيز الأساطيل بالمملكة' : 'Pioneering Transport & Fleet Solutions in Saudi Arabia')
     : (isAr ? 'عراقة وفخامة الهدايا والزهور الطبيعية' : 'Heritage of Curated Luxury & Elegant Gifting');

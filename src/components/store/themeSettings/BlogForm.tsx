@@ -9,6 +9,7 @@ import {
   writeAllThemeSettings,
   type BlogSettings,
 } from '../../../themes/settings/themeSettingsStore';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 export const BlogForm: React.FC = () => {
   const { activeStore } = useTenant();
@@ -62,10 +63,10 @@ export const BlogForm: React.FC = () => {
           </span>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-              Theme Settings · 12
+              {themeSettingsBadge(12, isAr)}
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'مدونة المتجر والمقالات' : 'Blog (Selia)'}
+              {isAr ? 'مدونة المتجر والمقالات' : 'Blog'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr
@@ -230,7 +231,7 @@ export const BlogForm: React.FC = () => {
                 excerpt: isAr
                   ? 'خطوات عملية ميسرة تبقي باقات الورد نضرة وفواحة لأكثر من أسبوعين.'
                   : 'Actionable tips from our Makkah floral florists to keep your blooms fresh for over 14 days.',
-                category: isAr ? 'العناية بالورد' : 'Floral Care',
+                category: isAr ? 'مقالات المتجر' : 'Store Articles',
                 date: '2026-10-03',
                 readTime: isAr ? '3 دقائق قراءة' : '3 min read',
               };

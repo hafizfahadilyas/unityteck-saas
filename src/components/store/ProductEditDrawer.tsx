@@ -782,7 +782,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder={isAr ? 'مثال: مكينة قهوة منزلية' : 'e.g. HiBrew Barista Pro'}
+                      placeholder={isAr ? 'مثال: اسم المنتج' : 'e.g. Product name'}
                       className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold focus:outline-none focus:ring-1 focus:ring-teal-500"
                     />
                   </div>
@@ -795,7 +795,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                       type="text"
                       value={sku}
                       onChange={(e) => setSku(e.target.value)}
-                      placeholder={isAr ? 'مثال: HB-H10A-SILVER' : 'e.g. HB-H10A-SILVER'}
+                      placeholder={isAr ? 'مثال: PRD-001' : 'e.g. PRD-001'}
                       className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono font-bold uppercase focus:outline-none focus:ring-1 focus:ring-teal-500"
                     />
                   </div>

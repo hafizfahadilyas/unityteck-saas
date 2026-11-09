@@ -92,16 +92,21 @@ export interface CategoryItem {
 
 export type CustomerStatus = 'VIP' | 'Active' | 'New' | 'Inactive' | 'Cancelled';
 
-export type CustomerSource = 
-  | 'Instagram' 
-  | 'Google Ads' 
-  | 'WhatsApp' 
-  | 'Facebook' 
-  | 'Snapchat' 
-  | 'Direct' 
-  | 'TikTok' 
-  | 'Referral' 
+export type CustomerSource =
+  | 'Instagram'
+  | 'Google Ads'
+  | 'WhatsApp'
+  | 'Facebook'
+  | 'Snapchat'
+  | 'Direct'
+  | 'TikTok'
+  | 'Referral'
   | 'Google'
+  | 'Website'
+  | 'X'
+  | 'Telegram'
+  | 'YouTube'
+  | 'Organic Search'
   | 'Other';
 
 export interface Customer {

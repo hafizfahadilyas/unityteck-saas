@@ -277,8 +277,10 @@ export const ReportsBehaviorProfitability: React.FC<ReportsBehaviorProfitability
               </div>
 
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-                <span>{isAr ? 'مدعوم بمايكروسوفت كلاريتي' : 'Powered by Microsoft Clarity'}</span>
-                <span className="font-semibold text-purple-600 dark:text-purple-400">100% Real Tracking</span>
+                <span>{isAr ? 'تتبع سلوك الزوار من بيانات المتجر' : 'Visitor behavior from store tracking data'}</span>
+                <span className="font-semibold text-purple-600 dark:text-purple-400">
+                  {isAr ? 'بيانات حقيقية فقط' : 'Real data only'}
+                </span>
               </div>
             </div>
 
@@ -343,7 +345,7 @@ export const ReportsBehaviorProfitability: React.FC<ReportsBehaviorProfitability
                 </h3>
               </div>
               <button
-                onClick={() => toast(isAr ? 'جاري فتح لوحة تسجيلات الجلسات...' : 'Opening Clarity recordings viewer...', 'info')}
+                onClick={() => toast(isAr ? 'جاري فتح لوحة تسجيلات الجلسات...' : 'Opening session recordings viewer...', 'info')}
                 className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline"
               >
                 {isAr ? 'عرض كل التسجيلات' : 'View All Recordings'}

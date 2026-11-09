@@ -9,6 +9,7 @@ import {
   type CategoryCartCustomerSettings,
 } from '../../../themes/settings/themeSettingsStore';
 import { MediaUploadField } from '../../common/MediaUploadField';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 export const CategoryCartCustomerForm: React.FC = () => {
   const { activeStore } = useTenant();
@@ -66,7 +67,7 @@ export const CategoryCartCustomerForm: React.FC = () => {
           </span>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-              Theme Settings · 04
+              {themeSettingsBadge(4, isAr)}
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
               {isAr ? 'صفحات التصنيفات والسلة وحسابات العملاء' : 'Category Pages, Cart & Customer Pages Settings'}

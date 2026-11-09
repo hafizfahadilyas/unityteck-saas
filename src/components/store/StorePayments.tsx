@@ -44,6 +44,7 @@ import {
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
+import { downloadCsv } from '../../utils/exportSpreadsheet';
 
 const emptyBankForm = (): StoreBankAccountPayload => ({
   bank_name: '',
@@ -562,24 +563,28 @@ export const StorePayments: React.FC = () => {
     );
   };
 
-  /** Export all payout receipts as CSV (Blob download) */
+  /** Export all payout receipts as CSV (Excel-safe columns) */
   const exportReceiptsCsv = () => {
+    if (!payouts.length) {
+      toast(isAr ? 'لا توجد تسويات للتصدير' : 'No payouts to export', 'info');
+      return;
+    }
     const header = isAr
       ? ['مرجع التحويل', 'التاريخ', 'الوجهة', 'المبلغ الإجمالي (ر.س)', 'ضريبة القيمة المضافة 15% (ر.س)', 'الحالة', 'مرجع البنك']
       : ['Payout Ref', 'Date', 'Destination', 'Gross Amount (SAR)', '15% VAT (SAR)', 'Status', 'Bank Ref'];
-    const rows = payouts.map((p: any) => [p.id, p.date, p.destination, p.amount, (Number(p.amount) * 0.15).toFixed(2), p.status, p.ref]);
-    const csv = [header, ...rows]
-      .map((r: any) => r.map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `payout-receipts-${activeStore.name.replace(/\s+/g, '-').toLowerCase()}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    const rows = payouts.map((p: any) => [
+      String(p.id ?? ''),
+      String(p.date ?? ''),
+      String(p.destination ?? ''),
+      String(p.amount ?? ''),
+      (Number(p.amount) * 0.15).toFixed(2),
+      String(p.status ?? ''),
+      String(p.ref ?? ''),
+    ]);
+    downloadCsv(
+      `payout-receipts-${activeStore.name.replace(/\s+/g, '-').toLowerCase()}.csv`,
+      [header, ...rows],
+    );
     toast(isAr ? 'تم تصدير كشف التسويات بنجاح كملف مفصول بفواصل' : 'Settlement statement exported (CSV)', 'success');
   };
 
@@ -614,7 +619,7 @@ export const StorePayments: React.FC = () => {
     'w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500';
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
       {/* Header bar matching 14_payments.png */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

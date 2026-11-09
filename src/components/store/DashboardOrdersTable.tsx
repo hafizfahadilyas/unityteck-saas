@@ -3,6 +3,7 @@ import type { Order } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useTenant } from '../../context/TenantContext';
 import { useToast } from '../common/ToastProvider';
+import { FloatingPopover } from '../common/FloatingPopover';
 import {
   ShoppingCart,
   ChevronLeft,
@@ -76,26 +77,11 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
   const [sortKey, setSortKey] = useState<SortKey>('date_desc');
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Popover menus state
+  // Filter + Sort use body portal so page/shell overflow never clips the panel.
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
-
-  const filterRef = useRef<HTMLDivElement>(null);
-  const sortRef = useRef<HTMLDivElement>(null);
-
-  // Click outside listener for dropdowns
-  useEffect(() => {
-    const handleOutside = (e: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
-        setShowFilterMenu(false);
-      }
-      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
-        setShowSortMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleOutside);
-    return () => document.removeEventListener('mousedown', handleOutside);
-  }, []);
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
+  const sortBtnRef = useRef<HTMLButtonElement>(null);
 
   // Filtered & Sorted orders
   const processedOrders = useMemo(() => {
@@ -293,7 +279,14 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
         : 'e.g. Duplicate order, data error, test order…',
     });
     if (reason == null) return;
-    permanentDeleteOrder(ord.id, ord.storeId, reason);
+    const ok = await permanentDeleteOrder(ord.id, ord.storeId, reason);
+    if (!ok) {
+      toast(
+        isAr ? 'تعذر حذف الطلب. تحقق من الصلاحيات أو حاول مرة أخرى.' : 'Could not delete the order. Check permissions or try again.',
+        'error',
+      );
+      return;
+    }
     if (inspectOrder?.id === ord.id) setInspectOrder(null);
     toast(
       t('permanentDeleteOrderSuccess') || (isAr ? 'تم حذف الطلب بنجاح' : 'Order deleted successfully'),
@@ -303,7 +296,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
 
   return (
     <div
-      className={`u-panel rounded-2xl shadow-xs border transition-all duration-200 overflow-hidden ${className}`}
+      className={`u-panel rounded-2xl shadow-xs border transition-all duration-200 overflow-visible ${className}`}
       data-panel="dashboard-orders-table"
       style={{
         background: 'var(--surface)',
@@ -312,8 +305,8 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
     >
       {/* ── Top Header Toolbar (Exact Match to Image 1) ── */}
       <div
-        className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 p-4 sm:p-5 border-b"
-        style={{ borderColor: 'var(--border)' }}
+        className="relative z-30 flex flex-col md:flex-row md:items-center justify-between gap-3.5 p-4 sm:p-5 border-b rounded-t-2xl"
+        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
       >
         {/* Title side (Right in RTL, Left in LTR) */}
         <div className="flex items-center gap-2.5">
@@ -356,164 +349,94 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
             )}
           </div>
 
-          {/* Filter Button & Popover */}
-          <div className="relative" ref={filterRef}>
-            <button
-              type="button"
-              onClick={() => setShowFilterMenu((v) => !v)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs ${
-                hasActiveFilters
-                  ? 'border-teal-500 text-teal-700 bg-teal-50/70 dark:bg-teal-950/40 dark:text-teal-300'
-                  : 'hover:bg-slate-50 dark:hover:bg-slate-800'
-              }`}
-              style={!hasActiveFilters ? { borderColor: 'var(--border)', color: 'var(--text)' } : undefined}
-            >
-              <Filter className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-              <span>{t('filters')}</span>
-              {hasActiveFilters && (
-                <span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />
-              )}
-            </button>
-
-            {showFilterMenu && (
-              <div
-                className="absolute end-0 mt-2 w-64 p-3 rounded-2xl border shadow-xl z-40 text-xs space-y-3 animate-in fade-in zoom-in-95 duration-150"
-                style={{
-                  background: 'var(--surface)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--text)',
-                }}
-              >
-                <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: 'var(--border)' }}>
-                  <span className="font-bold text-xs">{t('filterOrders')}</span>
-                  {hasActiveFilters && (
-                    <button
-                      type="button"
-                      onClick={resetAllFilters}
-                      className="text-[11px] text-rose-500 hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>{t('resetLabel')}</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Status Filter */}
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
-                    {t('statusCol')}
-                  </label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  >
-                    <option value="all">{t('allStatuses')}</option>
-                    <option value="completed">{t('completed')}</option>
-                    <option value="pending">{t('pendingStatus')}</option>
-                    <option value="processing">{t('processingStatus')}</option>
-                    <option value="shipped">{t('shippedStatus')}</option>
-                    <option value="cancelled">{t('cancelledStatus')}</option>
-                  </select>
-                </div>
-
-                {/* Payment Filter */}
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
-                    {t('paymentMethod')}
-                  </label>
-                  <select
-                    value={paymentFilter}
-                    onChange={(e) => setPaymentFilter(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  >
-                    <option value="all">{t('allPaymentMethods')}</option>
-                    <option value="mada">{t('mada')}</option>
-                    <option value="apple">{t('applePay')}</option>
-                    <option value="tamara">{t('tamara')}</option>
-                    <option value="tabby">{t('tabby')}</option>
-                    <option value="cash">{t('cashOnDelivery')}</option>
-                    <option value="bank">{isAr ? 'تحويل بنكي' : 'Bank Transfer'}</option>
-                  </select>
-                </div>
-
-                {/* Channel Filter */}
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
-                    {t('salesChannel')}
-                  </label>
-                  <select
-                    value={channelFilter}
-                    onChange={(e) => setChannelFilter(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  >
-                    <option value="all">{t('allChannels')}</option>
-                    <option value="Direct">{localizeSalesChannel('Direct', locale)}</option>
-                    <option value="TikTok">{localizeSalesChannel('TikTok', locale)}</option>
-                    <option value="Snapchat">{localizeSalesChannel('Snapchat', locale)}</option>
-                    <option value="Instagram">{localizeSalesChannel('Instagram', locale)}</option>
-                    <option value="WhatsApp">{localizeSalesChannel('WhatsApp', locale)}</option>
-                    <option value="Facebook">{localizeSalesChannel('Facebook', locale)}</option>
-                    <option value="Google">{localizeSalesChannel('Google Ads', locale)}</option>
-                  </select>
-                </div>
-              </div>
+          {/* Filter Button — body portal panel (never clipped by shell / table) */}
+          <button
+            type="button"
+            ref={filterBtnRef}
+            onClick={() => {
+              setShowFilterMenu((v) => !v);
+              setShowSortMenu(false);
+            }}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs ${
+              showFilterMenu || hasActiveFilters
+                ? 'border-teal-500 text-teal-700 bg-teal-50/70 dark:bg-teal-950/40 dark:text-teal-300'
+                : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+            style={!showFilterMenu && !hasActiveFilters ? { borderColor: 'var(--border)', color: 'var(--text)' } : undefined}
+            aria-expanded={showFilterMenu}
+            aria-haspopup="listbox"
+          >
+            <Filter className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+            <span>{t('filters')}</span>
+            {hasActiveFilters && (
+              <span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />
             )}
-          </div>
+          </button>
 
-          {/* Sort Button & Popover */}
-          <div className="relative" ref={sortRef}>
-            <button
-              type="button"
-              onClick={() => setShowSortMenu((v) => !v)}
-              className="px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-2xs"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-            >
-              <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" />
-              <span>{t('sort')}</span>
-            </button>
+          {/* Sort Button — body portal so shell overflow never clips */}
+          <button
+            type="button"
+            ref={sortBtnRef}
+            onClick={() => {
+              setShowSortMenu((v) => !v);
+              setShowFilterMenu(false);
+            }}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-2xs ${
+              showSortMenu
+                ? 'border-teal-500 text-teal-700 bg-teal-50/70 dark:bg-teal-950/40 dark:text-teal-300'
+                : ''
+            }`}
+            style={!showSortMenu ? { borderColor: 'var(--border)', color: 'var(--text)' } : undefined}
+            aria-expanded={showSortMenu}
+            aria-haspopup="listbox"
+          >
+            <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" />
+            <span>{t('sort')}</span>
+          </button>
 
-            {showSortMenu && (
-              <div
-                className="absolute end-0 mt-2 w-48 py-1 rounded-2xl border shadow-xl z-40 text-xs animate-in fade-in zoom-in-95 duration-150"
-                style={{
-                  background: 'var(--surface)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--text)',
-                }}
-              >
-                {[
-                  { id: 'date_desc' as const, labelKey: 'sortDateNewest' as const },
-                  { id: 'date_asc' as const, labelKey: 'sortDateOldest' as const },
-                  { id: 'total_desc' as const, labelKey: 'sortTotalHighest' as const },
-                  { id: 'total_asc' as const, labelKey: 'sortTotalLowest' as const },
-                  { id: 'id_desc' as const, labelKey: 'sortOrderHighest' as const },
-                  { id: 'id_asc' as const, labelKey: 'sortOrderLowest' as const },
-                ].map((s) => {
-                  const active = sortKey === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => {
-                        setSortKey(s.id);
-                        setShowSortMenu(false);
-                      }}
-                      className="w-full px-3.5 py-2 text-start flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                    >
-                      <span className={active ? 'font-bold text-teal-600 dark:text-teal-400' : ''}>
-                        {t(s.labelKey)}
-                      </span>
-                      {active && <Check className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <FloatingPopover
+            open={showSortMenu}
+            anchorRef={sortBtnRef}
+            onClose={() => setShowSortMenu(false)}
+            width={192}
+            align="end"
+            estimatedHeight={220}
+            className="py-1 rounded-xl border shadow-lg text-xs"
+            style={{
+              background: 'var(--surface)',
+              borderColor: 'var(--border)',
+              color: 'var(--text)',
+            }}
+          >
+            {[
+              { id: 'date_desc' as const, labelKey: 'sortDateNewest' as const },
+              { id: 'date_asc' as const, labelKey: 'sortDateOldest' as const },
+              { id: 'total_desc' as const, labelKey: 'sortTotalHighest' as const },
+              { id: 'total_asc' as const, labelKey: 'sortTotalLowest' as const },
+              { id: 'id_desc' as const, labelKey: 'sortOrderHighest' as const },
+              { id: 'id_asc' as const, labelKey: 'sortOrderLowest' as const },
+            ].map((s) => {
+              const active = sortKey === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => {
+                    setSortKey(s.id);
+                    setShowSortMenu(false);
+                  }}
+                  className="w-full px-3.5 py-2 text-start flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <span className={active ? 'font-bold text-teal-600 dark:text-teal-400' : ''}>
+                    {t(s.labelKey)}
+                  </span>
+                  {active && <Check className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />}
+                </button>
+              );
+            })}
+          </FloatingPopover>
 
           {/* Manage Orders Button */}
           <button
@@ -533,6 +456,100 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
           </button>
         </div>
       </div>
+
+      {/* ── Filter dropdown pinned to Filters button ── */}
+      <FloatingPopover
+        open={showFilterMenu}
+        anchorRef={filterBtnRef}
+        onClose={() => setShowFilterMenu(false)}
+        width={340}
+        align="end"
+        estimatedHeight={220}
+        className="p-4 rounded-xl border shadow-lg space-y-3.5"
+        style={{
+          background: 'var(--surface)',
+          borderColor: 'var(--border)',
+          color: 'var(--text)',
+        }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-bold text-xs sm:text-sm" style={{ color: 'var(--text)' }}>
+            {t('filterOrders')}
+          </span>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={resetAllFilters}
+              className="text-[11px] text-rose-500 hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>{t('resetLabel')}</span>
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 text-xs">
+          <div>
+            <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+              {t('statusCol')}
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none"
+              style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+            >
+              <option value="all">{t('allStatuses')}</option>
+              <option value="completed">{t('completed')}</option>
+              <option value="pending">{t('pendingStatus')}</option>
+              <option value="processing">{t('processingStatus')}</option>
+              <option value="shipped">{t('shippedStatus')}</option>
+              <option value="cancelled">{t('cancelledStatus')}</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+              {t('paymentMethod')}
+            </label>
+            <select
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none"
+              style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+            >
+              <option value="all">{t('allPaymentMethods')}</option>
+              <option value="mada">{t('mada')}</option>
+              <option value="apple">{t('applePay')}</option>
+              <option value="tamara">{t('tamara')}</option>
+              <option value="tabby">{t('tabby')}</option>
+              <option value="cash">{t('cashOnDelivery')}</option>
+              <option value="bank">{isAr ? 'تحويل بنكي' : 'Bank Transfer'}</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+              {t('salesChannel')}
+            </label>
+            <select
+              value={channelFilter}
+              onChange={(e) => setChannelFilter(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none"
+              style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+            >
+              <option value="all">{t('allChannels')}</option>
+              <option value="Direct">{localizeSalesChannel('Direct', locale)}</option>
+              <option value="TikTok">{localizeSalesChannel('TikTok', locale)}</option>
+              <option value="Snapchat">{localizeSalesChannel('Snapchat', locale)}</option>
+              <option value="Instagram">{localizeSalesChannel('Instagram', locale)}</option>
+              <option value="WhatsApp">{localizeSalesChannel('WhatsApp', locale)}</option>
+              <option value="Facebook">{localizeSalesChannel('Facebook', locale)}</option>
+              <option value="Google">{localizeSalesChannel('Google Ads', locale)}</option>
+            </select>
+          </div>
+        </div>
+      </FloatingPopover>
 
       {/* ── Active Filters Indicators ── */}
       {hasActiveFilters && (
@@ -618,7 +635,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
           ) : null}
         </div>
       ) : (
-        <div className="overflow-x-auto min-w-0">
+        <div className="relative z-0 overflow-x-auto min-w-0 rounded-b-none">
           <table className="w-full text-start text-xs border-collapse min-w-[680px] lg:min-w-full">
             <thead>
               <tr
@@ -649,7 +666,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
                 return (
                   <tr
                     key={ord.id}
-                    className="hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors"
+                    className="relative z-0 hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors align-top"
                   >
                     {/* 1. Order Number */}
                     <td className="py-3.5 px-4 font-black tracking-tight whitespace-nowrap">
@@ -729,7 +746,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
 
                     {/* 9. Actions — view + delete (reason required) */}
                     <td className="py-3.5 px-3 sm:px-4 text-center whitespace-nowrap">
-                      <div className="inline-flex items-center justify-center gap-1.5 flex-wrap">
+                      <div className="inline-flex items-center justify-center gap-1.5 flex-nowrap">
                         <button
                           type="button"
                           onClick={() => setInspectOrder(ord)}

@@ -26,6 +26,18 @@ trait ResolvesStoreId
     protected function canonicalStoreId(string $raw): string
     {
         $s = strtolower(trim($raw));
+
+        // DB first — onboarded slugs must not collide with demo aliases
+        $matchedId = \App\Models\Store::query()
+            ->where('id', $raw)
+            ->orWhere('slug', $raw)
+            ->orWhere('slug', $s)
+            ->value('id');
+
+        if ($matchedId) {
+            return (string) $matchedId;
+        }
+
         if ($s === 'flowers' || $s === 'hadaya' || $s === 'makkah' || $s === 'giftshop') {
             return 'store-1';
         }
@@ -36,9 +48,7 @@ trait ResolvesStoreId
             return 'store-bleco';
         }
 
-        $matchedId = \App\Models\Store::query()->where('id', $raw)->orWhere('slug', $raw)->orWhere('slug', $s)->value('id');
-
-        return $matchedId ?: trim($raw);
+        return trim($raw);
     }
 
     protected function newId(string $prefix): string

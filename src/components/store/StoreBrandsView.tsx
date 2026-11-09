@@ -804,8 +804,8 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
             </div>
             <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--muted)' }}>
               {isAr
-                ? `إدارة العلامات التجارية لمتجر "${activeStore.name}". معزولة بالكامل ومخصصة لنشاط وثيم هذا المتجر فقط.`
-                : `Manage product brands dedicated to "${activeStore.name}". Fully isolated per tenant and theme.`}
+                ? 'إدارة العلامات التجارية لهذا المتجر. معزولة بالكامل ومخصصة لهذا المتجر فقط.'
+                : 'Manage product brands for this store. Fully isolated per tenant and theme.'}
             </p>
           </div>
 
@@ -1074,7 +1074,7 @@ export const StoreBrandsView: React.FC<StoreBrandsViewProps> = ({ onBackToProduc
                   type="text"
                   value={newBrandName}
                   onChange={(e) => setNewBrandName(e.target.value)}
-                  placeholder={isAr ? 'مثال: هاريو، كيمكس، فيلو...' : 'e.g. Hario, Chemex, Fellow...'}
+                  placeholder={isAr ? 'مثال: اسم العلامة التجارية' : 'e.g. Brand name'}
                   required
                   className="w-full px-3 py-2 rounded-xl border focus:outline-none"
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}

@@ -178,7 +178,7 @@ export const ExportTemplateModal: React.FC<ExportTemplateModalProps> = ({
                   : 'border-slate-200 dark:border-slate-700'
               }`}
             >
-              {isAr ? 'إكسل (.xlsx)' : 'Excel (.xlsx)'}
+              {isAr ? 'إكسل' : 'Excel'}
             </button>
             <button
               type="button"
@@ -189,7 +189,7 @@ export const ExportTemplateModal: React.FC<ExportTemplateModalProps> = ({
                   : 'border-slate-200 dark:border-slate-700'
               }`}
             >
-              {isAr ? 'ملف نصي (.csv)' : 'CSV (.csv)'}
+              {isAr ? 'ملف نصي' : 'CSV'}
             </button>
           </div>
 

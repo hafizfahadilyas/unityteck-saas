@@ -25,6 +25,7 @@ import {
   writeAllThemeSettings,
   type DetailedProductsSettings,
 } from '../../../themes/settings/themeSettingsStore';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 export const DetailedProductsForm: React.FC = () => {
   const { activeStore, currentProducts } = useTenant();
@@ -91,16 +92,11 @@ export const DetailedProductsForm: React.FC = () => {
             <Sparkles className="w-5 h-5" />
           </span>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-                Theme Settings · 08
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold">
-                Selia Store Builder
-              </span>
-            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
+              {themeSettingsBadge(8, isAr)}
+            </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'المنتجات المفصلة (منتجات مفصلة)' : 'Detailed Products (Selia)'}
+              {isAr ? 'المنتجات المفصلة (منتجات مفصلة)' : 'Detailed Products'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr
@@ -353,7 +349,9 @@ export const DetailedProductsForm: React.FC = () => {
                 />
               </div>
               <p className="text-[10px] text-muted mt-1">
-                YouTube and Google Drive direct links are not supported. Upload your video to Selia Center and get the ready-to-use link.
+                {isAr
+                  ? 'روابط يوتيوب وجوجل درايف المباشرة غير مدعومة. ارفع الفيديو إلى مكتبة الوسائط واحصل على الرابط الجاهز.'
+                  : 'YouTube and Google Drive direct links are not supported. Upload your video to the Media Library and use the ready link.'}
               </p>
             </div>
           </div>

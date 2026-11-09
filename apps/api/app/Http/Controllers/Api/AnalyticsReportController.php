@@ -246,9 +246,8 @@ class AnalyticsReportController extends Controller
         $ordersGrowth = $prevOrders > 0 ? round((($totalOrders - $prevOrders) / $prevOrders) * 100, 1) : ($totalOrders > 0 ? 100.0 : 0.0);
         $aovGrowth = $prevAov > 0 ? round((($aov - $prevAov) / $prevAov) * 100, 1) : ($aov > 0 ? 100.0 : 0.0);
 
-        // Store visits — real counter only; never invent conversion from orders
-        $store = Store::query()->find($storeId);
-        $totalVisits = $store ? max(0, (int) ($store->visitors_count ?? 0)) : 0;
+        // Store visits — storefront events only; never invent from orders×N or seeded counters
+        $totalVisits = $this->countUniquePageViewSessions($storeId, $startDate, $now);
         $conversionRate = $totalVisits > 0 ? round(($totalOrders / $totalVisits) * 100, 2) : 0.0;
 
         // Customers
@@ -346,7 +345,7 @@ class AnalyticsReportController extends Controller
 
         // Funnel: real visits + real orders only — no invented mid-stages
         $eventCounts = $this->storefrontEventCounts($storeId, $startDate, $now);
-        $funnelVisits = $totalVisits > 0 ? $totalVisits : (int) ($eventCounts['page_view'] ?? 0);
+        $funnelVisits = $totalVisits;
         $productViews = (int) ($eventCounts['product_view'] ?? 0);
         $addToCart = (int) ($eventCounts['add_to_cart'] ?? 0);
         $checkoutStarted = (int) ($eventCounts['begin_checkout'] ?? 0);
@@ -899,12 +898,8 @@ class AnalyticsReportController extends Controller
         $ordersQuery = Order::query()->forStore($storeId)->whereBetween('created_at', [$startDate, $now]);
         $totalRevenue = (float) ((clone $ordersQuery)->where('status', '!=', 'cancelled')->sum('total_amount') ?? 0);
         $totalOrders = (clone $ordersQuery)->count();
-        $store = Store::query()->find($storeId);
-        $visits = $store ? max(0, (int) ($store->visitors_count ?? 0)) : 0;
         $eventCounts = $this->storefrontEventCounts($storeId, $startDate, $now);
-        if ($visits <= 0) {
-            $visits = (int) ($eventCounts['page_view'] ?? 0);
-        }
+        $visits = $this->countUniquePageViewSessions($storeId, $startDate, $now);
         $convRate = $visits > 0 ? round(($totalOrders / $visits) * 100, 2) : 0.0;
 
         $highValueCount = Customer::query()->forStore($storeId)->where('total_spend', '>=', 500)->count();
@@ -1046,12 +1041,7 @@ class AnalyticsReportController extends Controller
         $ordersQuery = Order::query()->forStore($storeId)->whereBetween('created_at', [$startDate, $now]);
         $totalRevenue = (float) ((clone $ordersQuery)->where('status', '!=', 'cancelled')->sum('total_amount') ?? 0);
         $totalOrders = (clone $ordersQuery)->count();
-        $store = Store::query()->find($storeId);
-        $eventCounts = $this->storefrontEventCounts($storeId, $startDate, $now);
-        $totalSessions = $store ? max(0, (int) ($store->visitors_count ?? 0)) : 0;
-        if ($totalSessions <= 0) {
-            $totalSessions = (int) ($eventCounts['page_view'] ?? 0);
-        }
+        $totalSessions = $this->countUniquePageViewSessions($storeId, $startDate, $now);
         $shipping = (float) ((clone $ordersQuery)->sum('shipping_cost') ?? 0);
 
         return response()->json([
@@ -1343,7 +1333,7 @@ class AnalyticsReportController extends Controller
     }
 
     /**
-     * Store home dashboard: live visitors_count + weekday visit distribution from storefront events.
+     * Store home dashboard: live visitors from storefront events only (never seeded stores.visitors_count).
      */
     public function dashboardHome(Request $request): JsonResponse
     {
@@ -1352,30 +1342,20 @@ class AnalyticsReportController extends Controller
             return $storeId;
         }
 
-        $store = Store::query()->find($storeId);
-        $visitorsCount = $store ? max(0, (int) ($store->visitors_count ?? 0)) : 0;
-
         $now = Carbon::now();
         $start30 = (clone $now)->subDays(30)->startOfDay();
         $prevStart = (clone $start30)->subDays(30);
 
+        // All-time unique sessions from real page_view events — zero when none recorded
+        $visitorsCount = $this->countUniquePageViewSessions($storeId, null, null);
+
         $visitsGrowth = null;
         $visitsByWeekday = [];
+        $trafficSources = [];
 
         if (Schema::hasTable('storefront_analytics_events')) {
-            $sessionCount = static function (Carbon $from, Carbon $to) use ($storeId): int {
-                return (int) StorefrontAnalyticsEvent::query()
-                    ->forStore($storeId)
-                    ->where('event_name', 'page_view')
-                    ->whereBetween('created_at', [$from, $to])
-                    ->whereNotNull('session_key')
-                    ->where('session_key', '!=', '')
-                    ->distinct()
-                    ->count('session_key');
-            };
-
-            $currentSessions = $sessionCount($start30, $now);
-            $prevSessions = $sessionCount($prevStart, $start30);
+            $currentSessions = $this->countUniquePageViewSessions($storeId, $start30, $now);
+            $prevSessions = $this->countUniquePageViewSessions($storeId, $prevStart, $start30);
 
             if ($prevSessions > 0) {
                 $visitsGrowth = round((($currentSessions - $prevSessions) / $prevSessions) * 100, 1);
@@ -1422,6 +1402,8 @@ class AnalyticsReportController extends Controller
                     'highlighted' => $maxCount > 0 && $counts[$dow] === $maxCount,
                 ];
             }
+
+            $trafficSources = $this->trafficSourcesFromEvents($storeId, null, null);
         }
 
         return response()->json([
@@ -1429,7 +1411,188 @@ class AnalyticsReportController extends Controller
             'visitors_count' => $visitorsCount,
             'visits_growth' => $visitsGrowth,
             'visits_by_weekday' => $visitsByWeekday,
+            'traffic_sources' => $trafficSources,
         ]);
+    }
+
+    /**
+     * Unique page_view sessions for a store. Null dates = all time.
+     * Never falls back to seeded stores.visitors_count (zero-mock).
+     */
+    private function countUniquePageViewSessions(string $storeId, ?Carbon $from, ?Carbon $to): int
+    {
+        if (! Schema::hasTable('storefront_analytics_events')) {
+            return 0;
+        }
+
+        $base = StorefrontAnalyticsEvent::query()
+            ->forStore($storeId)
+            ->where('event_name', 'page_view');
+
+        if ($from !== null && $to !== null) {
+            $base->whereBetween('created_at', [$from, $to]);
+        }
+
+        $withSession = (clone $base)
+            ->whereNotNull('session_key')
+            ->where('session_key', '!=', '')
+            ->distinct()
+            ->count('session_key');
+
+        $orphanHits = (clone $base)
+            ->where(function ($q) {
+                $q->whereNull('session_key')->orWhere('session_key', '');
+            })
+            ->count();
+
+        return max(0, (int) $withSession + (int) $orphanHits);
+    }
+
+    /**
+     * Real traffic source breakdown from page_view sessions (same unit as Total Visits).
+     * Percentages use largest-remainder so they always sum to 100 — never invent min 1%.
+     *
+     * @return list<array{id: string, name: string, name_ar: string, percentage: number, color: string, icon_type: string, visits: int}>
+     */
+    private function trafficSourcesFromEvents(string $storeId, ?Carbon $from, ?Carbon $to): array
+    {
+        if (! Schema::hasTable('storefront_analytics_events')) {
+            return [];
+        }
+
+        $query = StorefrontAnalyticsEvent::query()
+            ->forStore($storeId)
+            ->where('event_name', 'page_view');
+
+        if ($from !== null && $to !== null) {
+            $query->whereBetween('created_at', [$from, $to]);
+        }
+
+        // Match countUniquePageViewSessions: distinct session_key + orphan hits as 1 each
+        $rows = $query
+            ->select(
+                DB::raw("COALESCE(NULLIF(TRIM(source), ''), 'Direct') as src"),
+                DB::raw("COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN session_key END) as sessions"),
+                DB::raw("SUM(CASE WHEN session_key IS NULL OR session_key = '' THEN 1 ELSE 0 END) as orphans")
+            )
+            ->groupBy('src')
+            ->get();
+
+        $weights = [];
+        $prepared = [];
+        foreach ($rows as $row) {
+            $src = (string) ($row->src ?: 'Direct');
+            $visits = max(0, (int) ($row->sessions ?? 0) + (int) ($row->orphans ?? 0));
+            if ($visits <= 0) {
+                continue;
+            }
+            $weights[] = $visits;
+            $prepared[] = ['src' => $src, 'visits' => $visits];
+        }
+
+        $totalVisits = array_sum($weights);
+        if ($totalVisits <= 0) {
+            return [];
+        }
+
+        $percentages = $this->allocatePercentages($weights);
+        $out = [];
+        foreach ($prepared as $i => $item) {
+            $pct = (int) ($percentages[$i] ?? 0);
+            if ($pct <= 0) {
+                continue; // hide after fair rounding — no fake min-1%
+            }
+            $meta = $this->trafficSourceMeta($item['src']);
+            $out[] = [
+                'id' => 'src_'.strtolower(preg_replace('/[^a-z0-9]+/i', '_', $item['src']) ?: 'direct'),
+                'name' => $meta['name'],
+                'name_ar' => $meta['name_ar'],
+                'percentage' => $pct,
+                'color' => $meta['color'],
+                'icon_type' => $meta['icon_type'],
+                'visits' => $item['visits'],
+            ];
+        }
+
+        usort($out, fn ($a, $b) => ($b['visits'] <=> $a['visits']) ?: ($b['percentage'] <=> $a['percentage']));
+
+        return array_values($out);
+    }
+
+    /**
+     * Largest-remainder percentages that always sum to 100 (or 0 when empty).
+     *
+     * @param  list<int>  $weights
+     * @return list<int>
+     */
+    private function allocatePercentages(array $weights): array
+    {
+        $total = array_sum($weights);
+        $n = count($weights);
+        if ($total <= 0 || $n === 0) {
+            return array_fill(0, $n, 0);
+        }
+
+        $floors = [];
+        $fracs = [];
+        foreach ($weights as $i => $w) {
+            $exact = ((float) $w / (float) $total) * 100.0;
+            $floor = (int) floor($exact);
+            $floors[$i] = $floor;
+            $fracs[$i] = $exact - $floor;
+        }
+
+        $remaining = 100 - array_sum($floors);
+        arsort($fracs);
+        foreach (array_keys($fracs) as $i) {
+            if ($remaining <= 0) {
+                break;
+            }
+            $floors[$i]++;
+            $remaining--;
+        }
+
+        return array_map(static fn ($v) => (int) $v, $floors);
+    }
+
+    /**
+     * @return array{name: string, name_ar: string, color: string, icon_type: string}
+     */
+    private function trafficSourceMeta(string $source): array
+    {
+        $key = strtolower(trim($source));
+        $catalog = [
+            'direct' => ['name' => 'Direct', 'name_ar' => 'مباشر', 'color' => '#0d9488', 'icon_type' => 'direct'],
+            'whatsapp' => ['name' => 'WhatsApp', 'name_ar' => 'واتساب', 'color' => '#22c55e', 'icon_type' => 'whatsapp'],
+            'instagram' => ['name' => 'Instagram', 'name_ar' => 'إنستغرام', 'color' => '#ec4899', 'icon_type' => 'instagram'],
+            'tiktok' => ['name' => 'TikTok', 'name_ar' => 'تيك توك', 'color' => '#0f172a', 'icon_type' => 'tiktok'],
+            'snapchat' => ['name' => 'Snapchat', 'name_ar' => 'سناب شات', 'color' => '#eab308', 'icon_type' => 'snapchat'],
+            'facebook' => ['name' => 'Facebook', 'name_ar' => 'فيسبوك', 'color' => '#2563eb', 'icon_type' => 'facebook'],
+            'google ads' => ['name' => 'Google Ads', 'name_ar' => 'إعلانات جوجل', 'color' => '#ea4335', 'icon_type' => 'google'],
+            'organic search' => ['name' => 'Organic Search', 'name_ar' => 'بحث عضوي', 'color' => '#4285f4', 'icon_type' => 'google'],
+            'referral' => ['name' => 'Referral', 'name_ar' => 'إحالة', 'color' => '#64748b', 'icon_type' => 'other'],
+            'email' => ['name' => 'Email', 'name_ar' => 'البريد الإلكتروني', 'color' => '#ea580c', 'icon_type' => 'email'],
+            'youtube' => ['name' => 'YouTube', 'name_ar' => 'يوتيوب', 'color' => '#dc2626', 'icon_type' => 'youtube'],
+            'x' => ['name' => 'X', 'name_ar' => 'إكس', 'color' => '#0f172a', 'icon_type' => 'x'],
+            'twitter' => ['name' => 'X', 'name_ar' => 'إكس', 'color' => '#0f172a', 'icon_type' => 'x'],
+        ];
+
+        if (isset($catalog[$key])) {
+            return $catalog[$key];
+        }
+
+        foreach ($catalog as $needle => $meta) {
+            if ($needle !== 'direct' && str_contains($key, $needle)) {
+                return $meta;
+            }
+        }
+
+        return [
+            'name' => $source !== '' ? $source : 'Direct',
+            'name_ar' => $source !== '' ? $source : 'مباشر',
+            'color' => '#64748b',
+            'icon_type' => 'other',
+        ];
     }
 
     /**

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useSignIn, useSignUp, useClerk } from '@clerk/clerk-react';
 import { readAuthSession, type AuthPortal, type AuthSession } from '../../auth/session';
-import { sessionFromClerkUser, isClerkConfigured } from '../../auth/clerkSession';
+import { sessionFromClerkUser, isClerkConfigured, clerkEnvKeyMissing } from '../../auth/clerkSession';
 import {
   assertStoreLoginEmailAllowed,
   exchangeClerkForSanctum,
@@ -82,8 +82,8 @@ export const PortalLogin: React.FC<PortalLoginProps> = (props) => {
           <h1 className="text-lg font-black">{isAr ? 'نظام المصادقة غير مهيأ' : 'Authentication not configured'}</h1>
           <p className="text-sm" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? 'أضف مفتاح النشر في ملف البيئة ثم أعد تشغيل الخادم المحلي.'
-              : 'Add the publishable key in .env and restart the local server.'}
+              ? 'حدّث الصفحة. إن استمرت المشكلة فأعد تشغيل الخادم المحلي بعد التأكد من مفتاح المصادقة في ملف البيئة.'
+              : 'Refresh the page. If it continues, restart the local server after confirming the auth publishable key in .env.'}
           </p>
           <code className="block text-[11px] p-2 rounded-xl bg-slate-100 dark:bg-slate-900 break-all">
             VITE_CLERK_PUBLISHABLE_KEY=pk_test_…
@@ -109,6 +109,8 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
   const { isLoaded: signInLoaded, signIn, setActive: setSignInActive } = useSignIn();
   const { isLoaded: signUpLoaded, signUp, setActive: setSignUpActive } = useSignUp();
   const clerk = useClerk();
+  const [clerkLoadTimedOut, setClerkLoadTimedOut] = useState(false);
+  const clerkReady = clerkOn && clerk.loaded && signInLoaded && Boolean(signIn);
 
   const storeParam =
     typeof window !== 'undefined'
@@ -253,6 +255,15 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
     // Stay on this login URL — default afterSignOutUrl must not send users to the public storefront.
     void clerk.signOut({ redirectUrl: window.location.href }).catch(() => undefined);
   }, [clerk]);
+
+  useEffect(() => {
+    if (clerkReady) {
+      setClerkLoadTimedOut(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setClerkLoadTimedOut(true), 12000);
+    return () => window.clearTimeout(timer);
+  }, [clerkReady]);
 
   useEffect(() => {
     if (otpExpiresIn <= 0) return;
@@ -415,11 +426,20 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
       return;
     }
 
-    if (!clerkOn || !signInLoaded || !signUpLoaded || !signIn || !signUp) {
+    if (!clerkOn || !clerk.loaded || !signInLoaded || !signIn) {
+      const envHint = clerkEnvKeyMissing();
       toast(
-        isAr
-          ? 'نظام المصادقة غير مهيأ. أضف مفتاح النشر في ملف البيئة ثم أعد التشغيل.'
-          : 'Auth is not configured. Add the publishable key in .env and restart.',
+        clerkLoadTimedOut
+          ? envHint
+            ? isAr
+              ? 'تعذّر تحميل نظام المصادقة. أضف VITE_CLERK_PUBLISHABLE_KEY في ملف البيئة ثم أعد تشغيل الخادم المحلي.'
+              : 'Authentication failed to load. Set VITE_CLERK_PUBLISHABLE_KEY in .env and restart the dev server.'
+            : isAr
+              ? 'تعذّر تحميل نظام المصادقة. حدّث الصفحة وتأكد أن نطاق المتجر مسموح في لوحة إعدادات المصادقة.'
+              : 'Authentication failed to load. Refresh and confirm this domain is allowed in the Clerk dashboard.'
+          : isAr
+            ? 'نظام المصادقة لا يزال قيد التحميل… انتظر لحظة ثم أعد المحاولة.'
+            : 'Authentication is still loading… wait a moment and try again.',
         'error',
       );
       return;
@@ -494,6 +514,13 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
           }
         } else {
           // Registered merchant, but no Clerk account yet → one-time sign-up OTP
+          if (!signUpLoaded || !signUp) {
+            throw new Error(
+              isAr
+                ? 'نظام المصادقة لا يزال يحمّل بيانات التسجيل. انتظر لحظة ثم أعد المحاولة.'
+                : 'Authentication is still loading sign-up. Wait a moment and try again.',
+            );
+          }
           try {
             await signUp.create({ emailAddress: email });
             await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
@@ -577,8 +604,6 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
       setBusy(false);
     }
   };
-
-  const clerkReady = clerkOn && signInLoaded && signUpLoaded;
 
   return (
     <div
@@ -719,10 +744,33 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
             </div>
 
             {!clerkReady && (
-              <div className="mb-5 p-3.5 rounded-2xl border text-xs bg-amber-500/10 border-amber-500/30 text-amber-700">
-                {isAr
-                  ? 'جارٍ تحميل نظام المصادقة… تأكد من إعداد مفتاح النشر في ملف البيئة.'
-                  : 'Loading authentication… ensure the publishable key is set in .env.'}
+              <div
+                className={`mb-5 p-3.5 rounded-2xl border text-xs ${
+                  clerkLoadTimedOut
+                    ? 'bg-red-500/10 border-red-500/30 text-red-700'
+                    : 'bg-amber-500/10 border-amber-500/30 text-amber-700'
+                }`}
+              >
+                {clerkLoadTimedOut
+                  ? clerkEnvKeyMissing()
+                    ? isAr
+                      ? 'تعذّر تحميل نظام المصادقة. أضف VITE_CLERK_PUBLISHABLE_KEY في ملف البيئة ثم أعد تشغيل الخادم المحلي.'
+                      : 'Authentication failed to load. Ensure the publishable key is set in .env (VITE_CLERK_PUBLISHABLE_KEY) and restart the dev server.'
+                    : isAr
+                      ? 'تعذّر تحميل نظام المصادقة. حدّث الصفحة، وتأكد أن نطاق المتجر مسموح في لوحة إعدادات المصادقة.'
+                      : 'Authentication failed to load. Refresh the page and confirm this domain is allowed in the Clerk dashboard.'
+                  : isAr
+                    ? 'جارٍ تحميل نظام المصادقة… يرجى الانتظار لحظة.'
+                    : 'Loading authentication… please wait a moment.'}
+                {clerkLoadTimedOut ? (
+                  <button
+                    type="button"
+                    className="mt-2 block text-[11px] font-bold underline"
+                    onClick={() => window.location.reload()}
+                  >
+                    {isAr ? 'تحديث الصفحة' : 'Refresh page'}
+                  </button>
+                ) : null}
               </div>
             )}
 
@@ -804,7 +852,7 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
                     <p style={{ color: 'var(--muted)' }}>
                       {otpExpiresIn > 0
                         ? isAr
-                          ? `يمكنك تغيير البريد بعد 0:${String.padStart(2, '0')}`
+                          ? `يمكنك تغيير البريد بعد 0:${String(otpExpiresIn).padStart(2, '0')}`
                           : `Change email after 0:${String(otpExpiresIn).padStart(2, '0')}`
                         : isAr
                           ? 'يمكنك الآن تغيير البريد أو إعادة الإرسال'

@@ -139,7 +139,7 @@ export const StatusPage: React.FC<StatusPageProps> = ({
               className="w-full py-3 px-4 rounded-xl bg-black hover:bg-neutral-800 text-white font-black text-sm flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all active:scale-95"
             >
               <span>☕</span>
-              <span>{locale === 'ar' ? 'الذهاب لمتجر القهوة' : 'Go to Coffee Storefront (HiBrew)'}</span>
+              <span>{locale === 'ar' ? 'الذهاب لمتجر تجريبي' : 'Go to Demo Storefront'}</span>
               <ArrowRight className="w-4 h-4 rtl:rotate-180" />
             </button>
 

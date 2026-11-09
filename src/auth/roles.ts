@@ -204,10 +204,14 @@ export function canAbility(
   ability: string,
   fallbackRole?: string | null,
 ): boolean {
-  const list =
-    abilities && abilities.length > 0 ? abilities : abilitiesFor(fallbackRole);
-  if (list.includes('*')) return true;
-  return list.includes(ability);
+  // Role matrix is the floor (fixes truncated/stale session.abilities hiding sidebar tabs).
+  const roleList = abilitiesFor(fallbackRole);
+  if (roleList.includes('*') || roleList.includes(ability)) return true;
+  // Session may only add extra grants — never strip role defaults.
+  if (abilities && abilities.length > 0) {
+    if (abilities.includes('*') || abilities.includes(ability)) return true;
+  }
+  return false;
 }
 
 export function listRoles(portal?: 'master' | 'store'): Array<{
@@ -228,12 +232,21 @@ export function listRoles(portal?: 'master' | 'store'): Array<{
 }
 
 /**
- * Strict Security Guard: Only super_admin (Owner) can permanently delete stores, products, or orders.
- * Partner / Sub-admin roles are explicitly blocked from all destructive deletion operations.
+ * Strict Security Guard: Only super_admin (Owner) can permanently delete stores / master-level entities.
+ * Partner / Sub-admin roles are explicitly blocked from master destructive deletion operations.
  */
 export function canDeleteEntities(role?: string | null): boolean {
   const r = normalizeRole(role);
   return r === 'super_admin';
+}
+
+/**
+ * Store-scoped order hard delete: Master Owner + store Admin/Manager.
+ * Partner (master sub-admin) and limited store roles stay blocked.
+ */
+export function canDeleteStoreOrders(role?: string | null): boolean {
+  const r = normalizeRole(role);
+  return r === 'super_admin' || r === 'admin' || r === 'manager';
 }
 
 /** Check whether a role is a Master Portal Admin (Super Admin or Partner) */

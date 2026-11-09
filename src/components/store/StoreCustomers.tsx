@@ -14,8 +14,6 @@ import {
   RotateCcw,
   Check,
   MoreHorizontal,
-  ChevronLeft,
-  ChevronRight,
   Plus,
   Trash2,
   X,
@@ -37,6 +35,14 @@ import { parseOrderDate, periodCountGrowth } from '../../utils/liveSeries';
 import { ORDER_SOURCE_OPTIONS, OrderSourceIcon, WhatsAppBrandIcon } from '../common/BrandIcons';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
+import { FloatingPopover } from '../common/FloatingPopover';
+import { WindowedPagination } from '../common/WindowedPagination';
+import { downloadCsv } from '../../utils/exportSpreadsheet';
+import { CUSTOMER_GENDER_OPTIONS } from '../../data/saudiCities';
+import { useSaudiCityOptions } from '../../hooks/useSaudiCityOptions';
+import { SaudiCitySelect } from '../common/SaudiCitySelect';
+import { DateCalendarField } from '../common/DateCalendarField';
+import { MediaUploadField } from '../common/MediaUploadField';
 
 type CustomerGroupDef = { id: string; name: string; icon: string };
 
@@ -61,12 +67,6 @@ function renderGroupIcon(iconKey: string, className = 'w-4 h-4') {
   return <Icon className={className} />;
 }
 
-function escapeCsvCell(value: string | number | undefined): string {
-  const s = String(value ?? '');
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
-
 function downloadCustomersCsv(customers: Customer[], storeName: string) {
   const headers = [
     'name',
@@ -84,35 +84,24 @@ function downloadCustomersCsv(customers: Customer[], storeName: string) {
     'avgOrderValue',
     'lastOrderDate',
   ];
-  const lines = [
-    headers.join(','),
-    ...customers.map((c) =>
-      [
-        escapeCsvCell(c.name),
-        escapeCsvCell(c.phone),
-        escapeCsvCell(c.email),
-        escapeCsvCell(c.city),
-        escapeCsvCell(c.country),
-        escapeCsvCell(c.status),
-        escapeCsvCell(c.gender),
-        escapeCsvCell(c.source),
-        escapeCsvCell(c.group),
-        escapeCsvCell(c.registeredDate),
-        escapeCsvCell(c.totalOrders),
-        escapeCsvCell(c.totalSpending),
-        escapeCsvCell(c.avgOrderValue),
-        escapeCsvCell(c.lastOrderDate),
-      ].join(','),
-    ),
-  ];
-  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const rows = customers.map((c) => [
+    String(c.name ?? ''),
+    String(c.phone ?? ''),
+    String(c.email ?? ''),
+    String(c.city ?? ''),
+    String(c.country ?? ''),
+    String(c.status ?? ''),
+    String(c.gender ?? ''),
+    String(c.source ?? ''),
+    String(c.group ?? ''),
+    String(c.registeredDate ?? ''),
+    String(c.totalOrders ?? ''),
+    String(c.totalSpending ?? ''),
+    String(c.avgOrderValue ?? ''),
+    String(c.lastOrderDate ?? ''),
+  ]);
   const safeName = storeName.replace(/[^\w\-]+/g, '_').slice(0, 40);
-  a.href = url;
-  a.download = `customers_${safeName}_${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadCsv(`customers_${safeName}_${new Date().toISOString().slice(0, 10)}.csv`, [headers, ...rows]);
 }
 
 function parseCsvLine(line: string): string[] {
@@ -155,10 +144,15 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
   const { money, locale } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
+  const {
+    cities: saudiCities,
+    addCity: addSaudiCity,
+    removeCity: removeSaudiCity,
+  } = useSaudiCityOptions(activeStore.id);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
-  const headerMenuRef = useRef<HTMLDivElement>(null);
+  const headerMenuBtnRef = useRef<HTMLButtonElement>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
 
   const [customGroups, setCustomGroups] = useState<CustomerGroupDef[]>([]);
@@ -188,17 +182,6 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
   useEffect(() => {
     loadCustomGroups();
   }, [loadCustomGroups]);
-
-  useEffect(() => {
-    if (!showHeaderMenu) return;
-    const onDoc = (e: MouseEvent) => {
-      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node)) {
-        setShowHeaderMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [showHeaderMenu]);
 
   const groupFilterOptions = useMemo(() => {
     const names = new Set<string>();
@@ -232,6 +215,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
       icon: newGroupIcon,
     };
     persistCustomGroups([...customGroups, next]);
+    setNewCustGroup(name);
     setNewGroupName('');
     setNewGroupIcon('Users');
     setShowCreateGroupModal(false);
@@ -253,7 +237,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
     selectedIds.forEach((id) => updateCustomer(id, { group: bulkGroupValue }));
     toast(
       isAr
-        ? `تم تعيين${selectedIds.length}عميل للمجموعة`
+        ? `تم تعيين ${selectedIds.length} عميل للمجموعة`
         : `Assigned ${selectedIds.length} customer(s) to group`,
       'success',
     );
@@ -282,17 +266,46 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const actionMenuBtnRef = useRef<HTMLButtonElement>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   // New Customer Form State
-  const [newCustName, setNewCustName] = useState('');
+  const [newCustFirstName, setNewCustFirstName] = useState('');
+  const [newCustLastName, setNewCustLastName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('+966 50 ');
   const [newCustEmail, setNewCustEmail] = useState('');
   const [newCustCity, setNewCustCity] = useState('Riyadh');
   const [newCustSource, setNewCustSource] = useState<CustomerSource>('Instagram');
   const [newCustStatus, setNewCustStatus] = useState<CustomerStatus>('Active');
   const [newCustGender, setNewCustGender] = useState<'Male' | 'Female' | 'Other'>('Male');
+  const [newCustDob, setNewCustDob] = useState('');
+  const [newCustGroup, setNewCustGroup] = useState('Regular');
   const [newCustAvatar, setNewCustAvatar] = useState('');
+
+  const builtinGroups = useMemo(
+    () => [
+      { id: 'Regular', nameEn: 'Regular', nameAr: 'عادي' },
+      { id: 'VIP', nameEn: 'VIP', nameAr: 'عميل مميز' },
+      { id: 'Wholesale', nameEn: 'Wholesale', nameAr: 'جملة' },
+    ],
+    [],
+  );
+
+  const addCustomerGroupOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const opts: Array<{ value: string; label: string }> = [];
+    for (const g of builtinGroups) {
+      seen.add(g.id.toLowerCase());
+      opts.push({ value: g.id, label: isAr ? g.nameAr : g.nameEn });
+    }
+    for (const g of customGroups) {
+      const key = g.name.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      opts.push({ value: g.name, label: g.name });
+    }
+    return opts;
+  }, [builtinGroups, customGroups, isAr]);
 
   // Check URL query param for customerId & keep in sync
   useEffect(() => {
@@ -490,7 +503,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
         toast(isAr ? 'لم يُستورد أي عميل (يتطلب الاسم والهاتف)' : 'No customers imported (name + phone required)', 'warning');
       } else {
         toast(
-          isAr ? `تم استيراد${imported}عميل` : `Imported ${imported} customer(s)`,
+          isAr ? `تم استيراد ${imported} عميل` : `Imported ${imported} customer(s)`,
           'success',
         );
         setShowImportModal(false);
@@ -502,32 +515,54 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
     reader.readAsText(file, 'UTF-8');
   };
 
+  const resetAddCustomerForm = () => {
+    setNewCustFirstName('');
+    setNewCustLastName('');
+    setNewCustAvatar('');
+    setNewCustPhone('+966 50 ');
+    setNewCustEmail('');
+    setNewCustCity('Riyadh');
+    setNewCustSource('Instagram');
+    setNewCustStatus('Active');
+    setNewCustGender('Male');
+    setNewCustDob('');
+    setNewCustGroup('Regular');
+  };
+
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCustName.trim()) return;
+    const firstName = newCustFirstName.trim();
+    const lastName = newCustLastName.trim();
+    const fullName = `${firstName} ${lastName}`.trim();
+    if (!fullName) return;
+
+    const emailFallback = `${fullName.toLowerCase().replace(/\s+/g, '.')}@example.sa`;
+    const groupValue = newCustGroup.trim() || (newCustStatus === 'VIP' ? 'VIP' : 'Regular');
 
     addCustomer({
-      name: newCustName,
+      name: fullName,
+      firstName,
+      lastName,
       phone: newCustPhone,
-      email: newCustEmail || `${newCustName.toLowerCase().replace(/\s+/g, '.')}@example.sa`,
+      email: newCustEmail.trim() || emailFallback,
       status: newCustStatus,
       city: newCustCity,
       country: 'Saudi Arabia',
       gender: newCustGender,
+      dob: newCustDob.trim() || undefined,
       source: newCustSource,
-      group: newCustStatus === 'VIP' ? 'VIP' : 'Regular',
-      totalOrders: 1,
-      totalSpending: 450,
-      avgOrderValue: 450,
-      lastOrderDate: 'Today',
-      avatar: newCustAvatar || getArabCustomerAvatar({ name: newCustName, gender: newCustGender }),
+      group: groupValue,
+      totalOrders: 0,
+      totalSpending: 0,
+      avgOrderValue: 0,
+      lastOrderDate: '—',
+      avatar:
+        newCustAvatar ||
+        getArabCustomerAvatar({ name: fullName, gender: newCustGender }),
     });
 
     setShowAddModal(false);
-    setNewCustName('');
-    setNewCustAvatar('');
-    setNewCustPhone('+966 50 ');
-    setNewCustEmail('');
+    resetAddCustomerForm();
   };
 
   // Real brand icons + locale-consistent labels (no EN/AR mix)
@@ -628,7 +663,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -673,41 +708,49 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
             <span>{isAr ? 'إنشاء مجموعة' : 'Create Group'}</span>
           </button>
 
-          <div className="relative" ref={headerMenuRef}>
+          <div>
             <button
               type="button"
+              ref={headerMenuBtnRef}
               onClick={() => setShowHeaderMenu((v) => !v)}
               className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300 transition-colors"
               aria-label={isAr ? 'المزيد' : 'More options'}
+              aria-expanded={showHeaderMenu}
             >
               <MoreHorizontal className="w-5 h-5" />
             </button>
-            {showHeaderMenu && (
-              <div className="absolute end-0 mt-1 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1 z-40 text-xs">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowExportModal(true);
-                    setShowHeaderMenu(false);
-                  }}
-                  className="w-full px-3 py-2 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold text-start"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>{isAr ? 'تصدير العملاء' : 'Export Customers'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowImportModal(true);
-                    setShowHeaderMenu(false);
-                  }}
-                  className="w-full px-3 py-2 hover:bg-blue-50 dark:hover:bg-sky-950/40 flex items-center gap-2 text-blue-800 dark:text-sky-300 font-semibold text-start"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span>{isAr ? 'استيراد العملاء' : 'Import Customers'}</span>
-                </button>
-              </div>
-            )}
+            <FloatingPopover
+              open={showHeaderMenu}
+              anchorRef={headerMenuBtnRef}
+              onClose={() => setShowHeaderMenu(false)}
+              width={192}
+              align="end"
+              estimatedHeight={200}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1 text-xs"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setShowExportModal(true);
+                  setShowHeaderMenu(false);
+                }}
+                className="w-full px-3 py-2 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold text-start"
+              >
+                <Download className="w-4 h-4" />
+                <span>{isAr ? 'تصدير العملاء' : 'Export Customers'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowImportModal(true);
+                  setShowHeaderMenu(false);
+                }}
+                className="w-full px-3 py-2 hover:bg-blue-50 dark:hover:bg-sky-950/40 flex items-center gap-2 text-blue-800 dark:text-sky-300 font-semibold text-start"
+              >
+                <Upload className="w-4 h-4" />
+                <span>{isAr ? 'استيراد العملاء' : 'Import Customers'}</span>
+              </button>
+            </FloatingPopover>
           </div>
 
           <button
@@ -722,7 +765,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
       </div>
 
       {/* Metric cards — full width */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="u-equal-sections grid grid-cols-2 sm:grid-cols-4 gap-4">
           {/* Total Customers */}
           <div className="p-4 bg-blue-50/70 hover:bg-blue-50/90 dark:bg-sky-950/40 rounded-2xl border border-blue-200/80 dark:border-sky-900/60 shadow-xs flex flex-col justify-between transition-all">
             <div className="flex items-center justify-between mb-2">
@@ -841,8 +884,11 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                 className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
               >
                 <option value="All">{isAr ? 'الكل' : 'All'}</option>
-                <option value="Male">{isAr ? 'ذكر' : 'Male'}</option>
-                <option value="Female">{isAr ? 'أنثى' : 'Female'}</option>
+                {CUSTOMER_GENDER_OPTIONS.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {isAr ? g.nameAr : g.nameEn}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -864,24 +910,37 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
               <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                 {isAr ? 'المدينة' : 'City'}
               </label>
-              <select
+              <SaudiCitySelect
                 value={cityFilter}
-                onChange={(e) => setCityFilter(e.target.value)}
+                onChange={setCityFilter}
+                cities={saudiCities}
+                isAr={isAr}
+                includeAllOption
+                manageEnabled
+                onAddCity={(nameEn, nameAr) => {
+                  const ok = addSaudiCity({ nameEn, nameAr });
+                  toast(
+                    ok
+                      ? isAr
+                        ? 'تمت إضافة المدينة'
+                        : 'City added'
+                      : isAr
+                        ? 'المدينة موجودة مسبقاً'
+                        : 'City already exists',
+                    ok ? 'success' : 'warning',
+                  );
+                  return ok;
+                }}
+                onRemoveCity={(id) => {
+                  removeSaudiCity(id);
+                  toast(isAr ? 'تم حذف المدينة من القائمة' : 'City removed from list', 'success');
+                }}
                 className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
-              >
-                <option value="All">{isAr ? 'الكل' : 'All'}</option>
-                <option value="Jeddah">{isAr ? 'جدة' : 'Jeddah'}</option>
-                <option value="Riyadh">{isAr ? 'الرياض' : 'Riyadh'}</option>
-                <option value="Makkah">{isAr ? 'مكة' : 'Makkah'}</option>
-                <option value="Taif">{isAr ? 'الطائف' : 'Taif'}</option>
-                <option value="Dammam">{isAr ? 'الدمام' : 'Dammam'}</option>
-                <option value="Madinah">{isAr ? 'المدينة' : 'Madinah'}</option>
-                <option value="Al-Khobar">{isAr ? 'الخبر' : 'Al-Khobar'}</option>
-              </select>
+              />
             </div>
             <div>
               <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                {isAr ? 'مصدر العميل' : 'Source'}
+                {isAr ? 'مصدر جلب العميل' : 'Acquisition Source'}
               </label>
               <select
                 value={sourceFilter}
@@ -917,20 +976,26 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
               <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                 {isAr ? 'تاريخ التسجيل' : 'Registration date'}
               </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200"
-                />
-                <span className="text-slate-400 text-xs">{isAr ? 'إلى' : 'to'}</span>
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200"
-                />
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex-1 min-w-0">
+                  <DateCalendarField
+                    value={fromDate}
+                    onChange={setFromDate}
+                    isAr={isAr}
+                    showIcon={false}
+                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200"
+                  />
+                </div>
+                <span className="text-slate-400 text-xs shrink-0">{isAr ? 'إلى' : 'to'}</span>
+                <div className="flex-1 min-w-0">
+                  <DateCalendarField
+                    value={toDate}
+                    onChange={setToDate}
+                    isAr={isAr}
+                    showIcon={false}
+                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -948,14 +1013,14 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
       )}
 
       {/* Customer Data Table matching 08_customers.png */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-visible">
         {/* Table Top Toolbar */}
-        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-t-2xl">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
             <select
               value={bulkAction}
               onChange={(e) => setBulkAction(e.target.value)}
-              className="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none"
+              className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none min-h-[2.25rem]"
             >
               <option value="">{isAr ? 'إجراءات جماعية' : 'Bulk Actions'}</option>
               <option value="assign_group">{isAr ? 'تعيين مجموعة' : 'Assign to Group'}</option>
@@ -967,15 +1032,15 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
               type="button"
               onClick={handleApplyBulk}
               disabled={!bulkAction || selectedIds.length === 0}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-800 rounded-lg text-xs font-medium transition-colors"
+              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-medium transition-colors min-h-[2.25rem]"
             >
               {isAr ? 'تطبيق' : 'Apply'}
             </button>
           </div>
 
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-slate-500 dark:text-slate-400 shrink-0">
             {isAr
-              ? `عرض${fromRow}–${toRow}من${filteredCustomers.length.toLocaleString()}عميل${
+              ? `عرض ${fromRow}–${toRow} من ${filteredCustomers.length.toLocaleString()} عميل${
                   filteredCustomers.length !== totalCount
                     ? ` (من ${totalCount.toLocaleString()} إجمالاً)`
                     : ''
@@ -988,12 +1053,12 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
           </div>
         </div>
 
-        {/* Table Grid */}
-        <div className="overflow-x-auto scrollbar-thin">
-          <table className="w-full text-left text-xs min-w-[850px]">
+        {/* Table Grid — no forced min-width scrollbar on laptop; secondary cols hide */}
+        <div className="w-full overflow-x-auto [scrollbar-width:thin]">
+          <table className="w-full text-start text-xs table-auto">
             <thead>
-              <tr className="border-b border-slate-100 text-slate-400 font-semibold text-[11px] bg-slate-50/50">
-                <th className="py-3 px-4 w-10">
+              <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold text-[11px] bg-slate-50/50 dark:bg-slate-800/40">
+                <th className="py-3 px-3 sm:px-4 w-10">
                   <input
                     type="checkbox"
                     onChange={handleSelectAll}
@@ -1004,19 +1069,29 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                     className="rounded text-blue-600 focus:ring-blue-500"
                   />
                 </th>
-                <th className="py-3 pr-3 font-semibold">Customer</th>
-                <th className="py-3 px-2 font-semibold">Status</th>
-                <th className="py-3 px-2 font-semibold">City</th>
-                <th className="py-3 px-2 font-semibold">Source</th>
-                <th className="py-3 px-2 font-semibold text-center">Total Orders</th>
-                <th className="py-3 px-2 font-semibold text-right">Total Spending</th>
-                <th className="py-3 px-2 font-semibold text-right">Registered</th>
-                <th className="py-3 px-2 font-semibold text-right">Avg. Order Value</th>
-                <th className="py-3 px-2 font-semibold text-right">Last Order</th>
-                <th className="py-3 px-4 text-center">Actions</th>
+                <th className="py-3 pr-2 sm:pr-3 font-semibold">{isAr ? 'العميل' : 'Customer'}</th>
+                <th className="py-3 px-2 font-semibold">{isAr ? 'الحالة' : 'Status'}</th>
+                <th className="py-3 px-2 font-semibold hidden sm:table-cell">{isAr ? 'المدينة' : 'City'}</th>
+                <th className="py-3 px-2 font-semibold hidden md:table-cell">{isAr ? 'المصدر' : 'Source'}</th>
+                <th className="py-3 px-2 font-semibold text-center">
+                  {isAr ? 'الطلبات' : 'Orders'}
+                </th>
+                <th className="py-3 px-2 font-semibold text-end">
+                  {isAr ? 'الإنفاق' : 'Spending'}
+                </th>
+                <th className="py-3 px-2 font-semibold text-end hidden xl:table-cell">
+                  {isAr ? 'تاريخ التسجيل' : 'Registered'}
+                </th>
+                <th className="py-3 px-2 font-semibold text-end hidden lg:table-cell">
+                  {isAr ? 'متوسط الطلب' : 'Avg. Order'}
+                </th>
+                <th className="py-3 px-2 font-semibold text-end hidden lg:table-cell">
+                  {isAr ? 'آخر طلب' : 'Last Order'}
+                </th>
+                <th className="py-3 px-3 sm:px-4 text-center w-12">{isAr ? 'الإجراءات' : 'Actions'}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
               {pageCustomers.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-12 text-center text-slate-400">
@@ -1030,11 +1105,11 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                   return (
                     <tr
                       key={cust.id || cust.email || `cust-${custIdx}`}
-                      className={`hover:bg-blue-50/30 transition-colors ${
-                        isSelected ? 'bg-blue-50/40' : ''
+                      className={`hover:bg-blue-50/30 dark:hover:bg-slate-800/50 transition-colors ${
+                        isSelected ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''
                       }`}
                     >
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-3 sm:px-4 align-middle">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -1043,9 +1118,8 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                         />
                       </td>
 
-                      {/* Customer Name, Avatar & Phone */}
-                      <td className="py-3 pr-3">
-                        <div className="flex items-center gap-2.5">
+                      <td className="py-3 pr-2 sm:pr-3 align-middle min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           <button
                             type="button"
                             onClick={() => handleSelectCustomer(cust.id)}
@@ -1062,23 +1136,24 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                                 className="w-full h-full rounded-full object-cover"
                               />
                             ) : (
-                              <span>{cust.name.substring(0, 2).toUpperCase()}</span>
+                              <span>{(cust.name || '??').substring(0, 2).toUpperCase()}</span>
                             )}
                           </button>
-                          <div className="text-start min-w-0">
+                          <div className="text-start min-w-0 flex-1">
                             <button
                               type="button"
                               onClick={() => handleSelectCustomer(cust.id)}
-                              className="font-bold text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 transition-colors text-start block cursor-pointer truncate max-w-[200px]"
+                              className="font-bold text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 transition-colors text-start block cursor-pointer truncate max-w-[9rem] sm:max-w-[12rem] lg:max-w-[16rem]"
                               title={isAr ? 'عرض تفاصيل العميل' : 'View Customer Details'}
                             >
-                              {cust.name}
+                              {cust.name || (isAr ? 'بدون اسم' : 'Unnamed')}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleSelectCustomer(cust.id)}
-                              className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 font-mono transition-colors text-start block cursor-pointer mt-0.5 tracking-tight"
+                              className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 font-mono transition-colors text-start block cursor-pointer mt-0.5 tracking-tight truncate"
                               title={isAr ? 'عرض تفاصيل العميل' : 'View Customer Details'}
+                              dir="ltr"
                             >
                               {cust.phone}
                             </button>
@@ -1086,92 +1161,49 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                         </div>
                       </td>
 
-                      {/* Status */}
-                      <td className="py-3 px-2">
-                        {renderStatusBadge(cust.status)}
+                      <td className="py-3 px-2 align-middle">{renderStatusBadge(cust.status)}</td>
+                      <td className="py-3 px-2 text-slate-600 dark:text-slate-300 font-medium align-middle hidden sm:table-cell">
+                        {cust.city || '—'}
                       </td>
-
-                      {/* City */}
-                      <td className="py-3 px-2 text-slate-600 font-medium">
-                        {cust.city}
-                      </td>
-
-                      {/* Source */}
-                      <td className="py-3 px-2">
+                      <td className="py-3 px-2 align-middle hidden md:table-cell">
                         {renderSourceIcon(cust.source)}
                       </td>
-
-                      {/* Total Orders */}
-                      <td className="py-3 px-2 text-center font-bold tabular-nums text-slate-900">
+                      <td className="py-3 px-2 text-center font-bold tabular-nums text-slate-900 dark:text-white align-middle">
                         {cust.totalOrders}
                       </td>
-
-                      {/* Total Spending */}
-                      <td className="py-3 px-2 text-right font-extrabold tabular-nums text-slate-900">
+                      <td className="py-3 px-2 text-end font-extrabold tabular-nums text-slate-900 dark:text-white align-middle whitespace-nowrap">
                         {money(cust.totalSpending)}
                       </td>
-
-                      {/* Registered */}
-                      <td className="py-3 px-2 text-right tabular-nums text-slate-500">
-                        {cust.registeredDate}
+                      <td className="py-3 px-2 text-end tabular-nums text-slate-500 align-middle hidden xl:table-cell whitespace-nowrap">
+                        {cust.registeredDate || '—'}
                       </td>
-
-                      {/* Avg Order Value */}
-                      <td className="py-3 px-2 text-right tabular-nums text-slate-600">
+                      <td className="py-3 px-2 text-end tabular-nums text-slate-600 dark:text-slate-300 align-middle hidden lg:table-cell whitespace-nowrap">
                         {money(cust.avgOrderValue)}
                       </td>
-
-                      {/* Last Order */}
-                      <td className="py-3 px-2 text-right tabular-nums text-slate-500">
-                        {cust.lastOrderDate}
+                      <td className="py-3 px-2 text-end tabular-nums text-slate-500 align-middle hidden lg:table-cell whitespace-nowrap">
+                        {cust.lastOrderDate || '—'}
                       </td>
 
-                      {/* Actions */}
-                      <td className="py-3 px-4 text-center relative">
+                      <td className="py-3 px-3 sm:px-4 text-center align-middle">
                         <button
-                          onClick={() => setActiveMenuId(activeMenuId === cust.id ? null : cust.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                          type="button"
+                          ref={activeMenuId === cust.id ? actionMenuBtnRef : undefined}
+                          data-customer-actions-trigger
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (activeMenuId === cust.id) {
+                              setActiveMenuId(null);
+                              return;
+                            }
+                            actionMenuBtnRef.current = e.currentTarget;
+                            setActiveMenuId(cust.id);
+                          }}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          aria-label={isAr ? 'الإجراءات' : 'Actions'}
+                          aria-expanded={activeMenuId === cust.id}
                         >
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
-
-                        {activeMenuId === cust.id && (
-                          <div className="absolute right-4 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-30 text-left text-xs">
-                            <button
-                              onClick={() => {
-                                setSelectedCustomerId(cust.id);
-                                setActiveMenuId(null);
-                              }}
-                              className="w-full px-3 py-1.5 hover:bg-teal-50 flex items-center gap-1.5 text-teal-700 font-semibold"
-                            >
-                              <Eye className="w-3.5 h-3.5 text-teal-600" />
-                              <span>{isAr ? 'الملف والمكافآت' : 'View Profile & Rewards'}</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setAssignGroupCustomerId(cust.id);
-                                setAssignGroupValue(cust.group || '');
-                                setActiveMenuId(null);
-                              }}
-                              className="w-full px-3 py-1.5 hover:bg-slate-50 flex items-center gap-1.5 text-slate-700"
-                            >
-                              <Tags className="w-3.5 h-3.5 text-indigo-500" />
-                              <span>{isAr ? 'إضافة إلى مجموعة' : 'Add to Groups'}</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                deleteCustomer(cust.id);
-                                setActiveMenuId(null);
-                              }}
-                              className="w-full px-3 py-1.5 hover:bg-rose-50 flex items-center gap-1.5 text-rose-600"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>{isAr ? 'حذف' : 'Delete'}</span>
-                            </button>
-                          </div>
-                        )}
                       </td>
                     </tr>
                   );
@@ -1181,194 +1213,309 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
           </table>
         </div>
 
-        {/* Table Bottom Pagination */}
-        <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500">
-          <label className="flex items-center gap-1.5">
-            <span>Show</span>
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none"
-            >
-              {[10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-            <span>entries</span>
-          </label>
-
-          <div className="flex items-center gap-1">
-            <span className="mr-3">
-              Showing {fromRow} – {toRow} of {filteredCustomers.length.toLocaleString()}
-            </span>
-            <button
-              type="button"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="p-1 rounded hover:bg-slate-100 disabled:opacity-40"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            {Array.from({ length: Math.min(5, lastPage) }, (_, i) => {
-              let pageNum: number;
-              if (lastPage <= 5) pageNum = i + 1;
-              else if (page <= 3) pageNum = i + 1;
-              else if (page >= lastPage - 2) pageNum = lastPage - 4 + i;
-              else pageNum = page - 2 + i;
-              return (
-                <button
-                  key={pageNum}
-                  type="button"
-                  onClick={() => setPage(pageNum)}
-                  className={`w-6 h-6 rounded text-xs flex items-center justify-center font-bold ${
-                    page === pageNum
-                      ? 'bg-[#0b3b82] text-white'
-                      : 'hover:bg-slate-100 text-slate-700'
-                  }`}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              disabled={page >= lastPage}
-              onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
-              className="p-1 rounded hover:bg-slate-100 disabled:opacity-40"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+        <WindowedPagination
+          currentPage={page}
+          totalPages={Math.max(1, lastPage)}
+          totalCount={filteredCustomers.length}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          isAr={isAr}
+          itemLabel={isAr ? 'عميل' : 'customers'}
+          pageSizeOptions={[10, 25, 50, 100]}
+        />
       </div>
+
+      <FloatingPopover
+        open={!!activeMenuId}
+        anchorRef={actionMenuBtnRef}
+        onClose={() => setActiveMenuId(null)}
+        width={200}
+        align="end"
+        estimatedHeight={140}
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1 text-xs"
+      >
+        {(() => {
+          const cust =
+            pageCustomers.find((c) => c.id === activeMenuId) ||
+            filteredCustomers.find((c) => c.id === activeMenuId);
+          if (!cust) return null;
+          return (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCustomerId(cust.id);
+                  setActiveMenuId(null);
+                }}
+                className="w-full px-3 py-2 hover:bg-teal-50 dark:hover:bg-teal-950/40 flex items-center gap-1.5 text-teal-700 dark:text-teal-300 font-semibold text-start"
+              >
+                <Eye className="w-3.5 h-3.5 text-teal-600" />
+                <span>{isAr ? 'الملف والمكافآت' : 'View Profile & Rewards'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAssignGroupCustomerId(cust.id);
+                  setAssignGroupValue(cust.group || '');
+                  setActiveMenuId(null);
+                }}
+                className="w-full px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 text-slate-700 dark:text-slate-200 text-start"
+              >
+                <Tags className="w-3.5 h-3.5 text-indigo-500" />
+                <span>{isAr ? 'إضافة إلى مجموعة' : 'Add to Groups'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteCustomer(cust.id);
+                  setActiveMenuId(null);
+                }}
+                className="w-full px-3 py-2 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-1.5 text-rose-600 text-start"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isAr ? 'حذف' : 'Delete'}</span>
+              </button>
+            </>
+          );
+        })()}
+      </FloatingPopover>
 
       {/* Add Customer Modal */}
       {showAddModal && (
         <GlobalModal
-          onClose={() => setShowAddModal(false)}
+          onClose={() => {
+            setShowAddModal(false);
+            resetAddCustomerForm();
+          }}
           dir={isAr ? 'rtl' : 'ltr'}
-          aria-label={isAr ? 'إضافة عميل' : 'Add Customer'}
+          aria-label={isAr ? 'إضافة عميل جديد' : 'Add New Customer'}
         >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="bg-[#0b1b36] px-5 py-4 text-white flex items-center justify-between">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="bg-[#0b1b36] px-5 py-4 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-400" />
-                <h3 className="font-bold text-base">{isAr ? 'إضافة عميل' : 'Add New Customer'}</h3>
+                <h3 className="font-bold text-base">
+                  {isAr ? 'إضافة عميل جديد' : 'Add New Customer'}
+                </h3>
               </div>
               <button
-                onClick={() => setShowAddModal(false)}
+                type="button"
+                onClick={() => {
+                  setShowAddModal(false);
+                  resetAddCustomerForm();
+                }}
                 className="p-1 rounded-lg text-slate-400 hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleAddSubmit} className="p-5 space-y-3.5 text-xs text-slate-700">
-              <div>
-                <label className="block font-semibold mb-1">{isAr ? 'الاسم الكامل *' : 'Customer Full Name *'}</label>
-                <input
-                  type="text"
-                  required
-                  placeholder={isAr ? 'مثال: فيصل العتيبي' : 'e.g. Faisal Al-Otaibi'}
-                  value={newCustName}
-                  onChange={(e) => setNewCustName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
+            <form
+              onSubmit={handleAddSubmit}
+              className="p-5 space-y-3.5 text-xs text-slate-700 dark:text-slate-200 overflow-y-auto"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">
+                    {isAr ? 'الاسم الأول *' : 'First Name *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={isAr ? 'مثال: فيصل' : 'e.g. Faisal'}
+                    value={newCustFirstName}
+                    onChange={(e) => setNewCustFirstName(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">
+                    {isAr ? 'اسم العائلة *' : 'Last Name *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={isAr ? 'مثال: العتيبي' : 'e.g. Al-Otaibi'}
+                    value={newCustLastName}
+                    onChange={(e) => setNewCustLastName(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1">{isAr ? 'رقم الجوال' : 'Phone Number'}</label>
+                  <label className="block font-semibold mb-1">
+                    {isAr ? 'رقم الجوال' : 'Phone Number'}
+                  </label>
                   <input
                     type="text"
                     required
                     value={newCustPhone}
                     onChange={(e) => setNewCustPhone(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1">{isAr ? 'المدينة' : 'City'}</label>
+                  <label className="block font-semibold mb-1">
+                    {isAr ? 'الجنس' : 'Gender'}
+                  </label>
                   <select
-                    value={newCustCity}
-                    onChange={(e) => setNewCustCity(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                    value={newCustGender}
+                    onChange={(e) =>
+                      setNewCustGender(e.target.value as 'Male' | 'Female' | 'Other')
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
-                    <option value="Riyadh">{isAr ? 'الرياض' : 'Riyadh'}</option>
-                    <option value="Jeddah">{isAr ? 'جدة' : 'Jeddah'}</option>
-                    <option value="Dammam">{isAr ? 'الدمام' : 'Dammam'}</option>
-                    <option value="Makkah">{isAr ? 'مكة' : 'Makkah'}</option>
-                    <option value="Madinah">{isAr ? 'المدينة' : 'Madinah'}</option>
-                    <option value="Taif">{isAr ? 'الطائف' : 'Taif'}</option>
+                    {CUSTOMER_GENDER_OPTIONS.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {isAr ? g.nameAr : g.nameEn}
+                      </option>
+                    ))}
                   </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">
+                    {isAr ? 'تاريخ الميلاد' : 'Date of Birth'}
+                  </label>
+                  <DateCalendarField
+                    value={newCustDob}
+                    onChange={setNewCustDob}
+                    isAr={isAr}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">
+                    {isAr ? 'المدينة' : 'City'}
+                  </label>
+                  <SaudiCitySelect
+                    value={newCustCity}
+                    onChange={setNewCustCity}
+                    cities={saudiCities}
+                    isAr={isAr}
+                    manageEnabled
+                    onAddCity={(nameEn, nameAr) => {
+                      const ok = addSaudiCity({ nameEn, nameAr });
+                      toast(
+                        ok
+                          ? isAr
+                            ? 'تمت إضافة المدينة'
+                            : 'City added'
+                          : isAr
+                            ? 'المدينة موجودة مسبقاً'
+                            : 'City already exists',
+                        ok ? 'success' : 'warning',
+                      );
+                      return ok;
+                    }}
+                    onRemoveCity={(id) => {
+                      removeSaudiCity(id);
+                      toast(
+                        isAr ? 'تم حذف المدينة من القائمة' : 'City removed from list',
+                        'success',
+                      );
+                    }}
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1">{isAr ? 'مصدر الاكتساب' : 'Acquisition Source'}</label>
+                  <label className="block font-semibold mb-1">
+                    {isAr ? 'مجموعة العميل' : 'Customer Group'}
+                  </label>
                   <select
-                    value={newCustSource}
-                    onChange={(e) => setNewCustSource(e.target.value as CustomerSource)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                    value={newCustGroup}
+                    onChange={(e) => setNewCustGroup(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
-                    <option value="Instagram">{isAr ? 'إنستغرام' : 'Instagram'}</option>
-                    <option value="Google Ads">{isAr ? 'إعلانات جوجل' : 'Google Ads'}</option>
-                    <option value="TikTok">{isAr ? 'تيك توك' : 'TikTok'}</option>
-                    <option value="Direct">{isAr ? 'مباشر' : 'Direct'}</option>
-                    <option value="Referral">{isAr ? 'إحالة' : 'Referral'}</option>
-                    <option value="Snapchat">{isAr ? 'سناب شات' : 'Snapchat'}</option>
-                    <option value="Other">{isAr ? 'أخرى' : 'Other'}</option>
+                    {addCustomerGroupOptions.map((g) => (
+                      <option key={g.value} value={g.value}>
+                        {g.label}
+                      </option>
+                    ))}
                   </select>
+                  {customGroups.length === 0 ? (
+                    <p className="mt-1 text-[10px] text-slate-400">
+                      {isAr
+                        ? 'أنشئ مجموعة من زر المجموعات لتظهر هنا.'
+                        : 'Create a group from Groups to show it here.'}
+                    </p>
+                  ) : null}
                 </div>
-
                 <div>
-                  <label className="block font-semibold mb-1">{isAr ? 'الحالة الأولية' : 'Initial Status'}</label>
+                  <label className="block font-semibold mb-1">
+                    {isAr ? 'الحالة الأولية' : 'Initial Status'}
+                  </label>
                   <select
                     value={newCustStatus}
                     onChange={(e) => setNewCustStatus(e.target.value as CustomerStatus)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="Active">{isAr ? 'نشط' : 'Active'}</option>
                     <option value="VIP">{isAr ? 'عميل مميز' : 'VIP'}</option>
                     <option value="New">{isAr ? 'جديد' : 'New'}</option>
+                    <option value="Inactive">{isAr ? 'غير نشط' : 'Inactive'}</option>
                   </select>
                 </div>
               </div>
 
               <div>
                 <label className="block font-semibold mb-1">
-                  {isAr ? 'صورة الملف الشخصي (اختياري)' : 'Profile Photo (Optional)'}
+                  {isAr ? 'مصدر جلب العميل' : 'Acquisition Source'}
                 </label>
-                <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-200 shrink-0 border border-slate-300">
-                    <img
-                      src={newCustAvatar || getArabCustomerAvatar({ name: newCustName, gender: newCustGender })}
-                      alt={isAr ? 'معاينة صورة العميل الجديد' : 'New customer profile photo preview'}
-                      loading="lazy"
-                      onError={(e) => handleImageError(e)}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <input
-                      type="url"
-                      placeholder={isAr ? 'https://... أو صورة تلقائية' : 'https://... or auto-assigned Arab portrait'}
-                      value={newCustAvatar}
-                      onChange={(e) => setNewCustAvatar(e.target.value)}
-                      className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-lg text-slate-800 focus:outline-none"
-                    />
-                  </div>
-                </div>
+                <select
+                  value={newCustSource}
+                  onChange={(e) => setNewCustSource(e.target.value as CustomerSource)}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {ORDER_SOURCE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {isAr ? o.labelAr : o.labelEn}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              <MediaUploadField
+                label={isAr ? 'صورة الملف الشخصي (اختياري)' : 'Profile Photo (Optional)'}
+                value={newCustAvatar}
+                onChange={(url) => setNewCustAvatar(url)}
+                aspectRatio="square"
+                recommendedSize="400×400"
+                initialFolder="customers"
+                altText={
+                  `${newCustFirstName} ${newCustLastName}`.trim()
+                    ? getCustomerSeoAlt(
+                        {
+                          name: `${newCustFirstName} ${newCustLastName}`.trim(),
+                          city: newCustCity,
+                        },
+                        activeStore?.name,
+                        isAr,
+                      )
+                    : undefined
+                }
+                placeholder={isAr ? 'https://... أو ارفع صورة' : 'https://... or upload a photo'}
+                showUrlInput
+              />
 
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100"
+                  onClick={() => {
+                    setShowAddModal(false);
+                    resetAddCustomerForm();
+                  }}
+                  className="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   {isAr ? 'إلغاء' : 'Cancel'}
                 </button>
@@ -1377,7 +1524,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  {isAr ? 'حفظ' : 'Save Customer'}
+                  {isAr ? 'حفظ العميل' : 'Save Customer'}
                 </button>
               </div>
             </form>
@@ -1428,7 +1575,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                   downloadCustomersCsv(filteredCustomers, activeStore.name);
                   toast(
                     isAr
-                      ? `تم تنزيل${filteredCustomers.length}عميل`
+                      ? `تم تنزيل ${filteredCustomers.length} عميل`
                       : `Downloaded ${filteredCustomers.length} customer(s)`,
                     'success',
                   );
@@ -1501,11 +1648,18 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
           aria-label={isAr ? 'إنشاء مجموعة عملاء' : 'Create Customer Group'}
         >
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                {isAr ? 'إنشاء مجموعة عملاء' : 'Create Customer Group'}
-              </h3>
-              <button type="button" onClick={() => setShowCreateGroupModal(false)} className="text-slate-400 hover:text-slate-700">
+            <div className="bg-[#0b1b36] px-5 py-4 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Tags className="w-5 h-5 text-blue-400" />
+                <h3 className="font-bold text-base">
+                  {isAr ? 'إنشاء مجموعة عملاء' : 'Create Customer Group'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateGroupModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1519,7 +1673,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                   required
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -1534,7 +1688,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                       onClick={() => setNewGroupIcon(key)}
                       className={`p-2.5 rounded-xl border transition-colors ${
                         newGroupIcon === key
-                          ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/50 text-blue-700'
                           : 'border-slate-200 dark:border-slate-600 text-slate-600'
                       }`}
                     >
@@ -1547,11 +1701,14 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                 <button
                   type="button"
                   onClick={() => setShowCreateGroupModal(false)}
-                  className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100"
+                  className="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   {isAr ? 'إلغاء' : 'Cancel'}
                 </button>
-                <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold">
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
+                >
                   {isAr ? 'حفظ المجموعة' : 'Save Group'}
                 </button>
               </div>
@@ -1570,46 +1727,60 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
           dir={isAr ? 'rtl' : 'ltr'}
           aria-label={isAr ? 'تعيين مجموعة' : 'Assign to Group'}
         >
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-sm w-full p-5 border border-slate-200 dark:border-slate-700">
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-3">
-              {isAr ? 'تعيين مجموعة' : 'Assign to Group'}
-            </h3>
-            <select
-              value={assignGroupValue}
-              onChange={(e) => setAssignGroupValue(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-600 rounded-lg mb-4 bg-white dark:bg-slate-800"
-            >
-              <option value="">{isAr ? '— اختر —' : '— Select —'}</option>
-              {groupFilterOptions.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-            {assignGroupValue && customGroups.find((g) => g.name === assignGroupValue) && (
-              <div className="flex items-center gap-2 mb-4 text-slate-600">
-                {renderGroupIcon(customGroups.find((g) => g.name === assignGroupValue)!.icon)}
-              </div>
-            )}
-            <div className="flex gap-2">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-sm w-full border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="bg-[#0b1b36] px-5 py-4 text-white flex items-center justify-between">
+              <h3 className="font-bold text-base">
+                {isAr ? 'تعيين مجموعة' : 'Assign to Group'}
+              </h3>
               <button
                 type="button"
                 onClick={() => {
                   setAssignGroupCustomerId(null);
                   setAssignGroupValue('');
                 }}
-                className="flex-1 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="p-1 rounded-lg text-slate-400 hover:text-white"
               >
-                {isAr ? 'إلغاء' : 'Cancel'}
+                <X className="w-5 h-5" />
               </button>
-              <button
-                type="button"
-                onClick={handleAssignGroupSubmit}
-                disabled={!assignGroupValue.trim()}
-                className="flex-1 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg"
+            </div>
+            <div className="p-5">
+              <select
+                value={assignGroupValue}
+                onChange={(e) => setAssignGroupValue(e.target.value)}
+                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-600 rounded-lg mb-4 bg-white dark:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
-                {isAr ? 'حفظ' : 'Save'}
-              </button>
+                <option value="">{isAr ? '— اختر —' : '— Select —'}</option>
+                {addCustomerGroupOptions.map((g) => (
+                  <option key={g.value} value={g.value}>
+                    {g.label}
+                  </option>
+                ))}
+              </select>
+              {assignGroupValue && customGroups.find((g) => g.name === assignGroupValue) && (
+                <div className="flex items-center gap-2 mb-4 text-slate-600">
+                  {renderGroupIcon(customGroups.find((g) => g.name === assignGroupValue)!.icon)}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssignGroupCustomerId(null);
+                    setAssignGroupValue('');
+                  }}
+                  className="flex-1 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+                >
+                  {isAr ? 'إلغاء' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAssignGroupSubmit}
+                  disabled={!assignGroupValue.trim()}
+                  className="flex-1 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-lg"
+                >
+                  {isAr ? 'حفظ' : 'Save'}
+                </button>
+              </div>
             </div>
           </div>
         </GlobalModal>
@@ -1625,46 +1796,60 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
           dir={isAr ? 'rtl' : 'ltr'}
           aria-label={isAr ? 'تعيين مجموعة جماعي' : 'Bulk Assign Group'}
         >
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-sm w-full p-5 border border-slate-200 dark:border-slate-700">
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-1">
-              {isAr ? 'تعيين مجموعة جماعي' : 'Bulk Assign Group'}
-            </h3>
-            <p className="text-[11px] text-slate-500 mb-3">
-              {isAr
-                ? `${selectedIds.length}عميل محدد`
-                : `${selectedIds.length} customer(s) selected`}
-            </p>
-            <select
-              value={bulkGroupValue}
-              onChange={(e) => setBulkGroupValue(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-600 rounded-lg mb-4 bg-white dark:bg-slate-800"
-            >
-              <option value="">{isAr ? '— اختر —' : '— Select —'}</option>
-              {groupFilterOptions.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-            <div className="flex gap-2">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-sm w-full border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="bg-[#0b1b36] px-5 py-4 text-white flex items-center justify-between">
+              <h3 className="font-bold text-base">
+                {isAr ? 'تعيين مجموعة جماعي' : 'Bulk Assign Group'}
+              </h3>
               <button
                 type="button"
                 onClick={() => {
                   setShowBulkGroupModal(false);
                   setBulkGroupValue('');
                 }}
-                className="flex-1 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="p-1 rounded-lg text-slate-400 hover:text-white"
               >
-                {isAr ? 'إلغاء' : 'Cancel'}
+                <X className="w-5 h-5" />
               </button>
-              <button
-                type="button"
-                onClick={handleBulkAssignGroupSubmit}
-                disabled={!bulkGroupValue.trim()}
-                className="flex-1 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg"
+            </div>
+            <div className="p-5">
+              <p className="text-[11px] text-slate-500 mb-3">
+                {isAr
+                  ? `${selectedIds.length} عميل محدد`
+                  : `${selectedIds.length} customer(s) selected`}
+              </p>
+              <select
+                value={bulkGroupValue}
+                onChange={(e) => setBulkGroupValue(e.target.value)}
+                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-600 rounded-lg mb-4 bg-white dark:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
-                {isAr ? 'تطبيق' : 'Apply'}
-              </button>
+                <option value="">{isAr ? '— اختر —' : '— Select —'}</option>
+                {addCustomerGroupOptions.map((g) => (
+                  <option key={g.value} value={g.value}>
+                    {g.label}
+                  </option>
+                ))}
+              </select>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBulkGroupModal(false);
+                    setBulkGroupValue('');
+                  }}
+                  className="flex-1 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+                >
+                  {isAr ? 'إلغاء' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkAssignGroupSubmit}
+                  disabled={!bulkGroupValue.trim()}
+                  className="flex-1 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-lg"
+                >
+                  {isAr ? 'تطبيق' : 'Apply'}
+                </button>
+              </div>
             </div>
           </div>
         </GlobalModal>

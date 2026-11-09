@@ -38,7 +38,7 @@ import {
 } from 'lucide-react';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
 import { GlobalModal } from '../common/GlobalModal';
-import { GoogleToolsWaitGuide } from './seo/GoogleToolsWaitGuide';
+import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
 import { realTrackingId, seoSetupStep, storeGoogleEmail, storePublicHost } from './seo/storeSeoSetup';
 import { GoogleConnectModal } from './GoogleConnectModal';
 import { UtmCampaignBuilder } from './UtmCampaignBuilder';
@@ -49,9 +49,11 @@ import {
   clearStoreGoogleState,
   clearPageSpeedFixes,
   mapPageSpeedAuditSnapshot,
+  mapGoogleConnectError,
+  hasRealGoogleClientId,
   PageSpeedAuditResult,
 } from '../../utils/googleRealAuth';
-import { fetchGooglePageSpeedData, submitGoogleCallback } from '../../api/tenantApi';
+import { fetchGoogleAuthUrl, fetchGooglePageSpeedData, submitGoogleCallback } from '../../api/tenantApi';
 import {
   getStoreSeoDeepAudit,
   saveStoreSeoDeepAudit,
@@ -132,20 +134,32 @@ export const StoreSEO: React.FC = () => {
   const [isSubmittingIndex, setIsSubmittingIndex] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  /** Sidebar deep-link: Search Console / Tag Manager */
+  /** Legacy SEO deep-links for Search Console / GTM → Settings page */
   useEffect(() => {
-    const applySeoView = (view: unknown) => {
-      if (view === 'search-console') setActiveSubTab('console');
-      else if (view === 'gtm') setActiveSubTab('google_tags');
+    const redirectToSettings = (view: unknown) => {
+      const mapped =
+        view === 'search-console' || view === 'search_console'
+          ? 'search_console'
+          : view === 'gtm' || view === 'tag_manager'
+            ? 'tag_manager'
+            : null;
+      if (!mapped) return;
+      try {
+        sessionStorage.setItem('unityteck-settings-view', mapped);
+      } catch {
+        /* storage may be unavailable */
+      }
+      window.dispatchEvent(new CustomEvent('unityteck-settings-view', { detail: mapped }));
+      window.dispatchEvent(new CustomEvent('unityteck-open-store-tab', { detail: 'settings' }));
     };
     const onSeoView = (e: Event) => {
-      applySeoView((e as CustomEvent).detail);
+      redirectToSettings((e as CustomEvent).detail);
     };
     window.addEventListener('unityteck-seo-view', onSeoView);
     try {
       const saved = sessionStorage.getItem('unityteck-seo-view');
       if (saved) {
-        applySeoView(saved);
+        redirectToSettings(saved);
         sessionStorage.removeItem('unityteck-seo-view');
       }
     } catch {
@@ -259,31 +273,21 @@ export const StoreSEO: React.FC = () => {
   const [ogImageUrl, setOgImageUrl] = useState('');
   const ogFileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const [pageSpeedUrlInput, setPageSpeedUrlInput] = useState(
-    activeStore.custom_domain
-      ? `https://${activeStore.custom_domain}`
-      : `https://${activeStore.slug || 'demo'}.saasdomain.com`
-  );
-
-  // Keep PageSpeed URL aligned with active store (tenant isolation)
+  // PageSpeed always audits this store's own URL only (no manual typing / cross-store URLs)
   useEffect(() => {
-    const nextUrl = activeStore.custom_domain
-      ? `https://${activeStore.custom_domain}`
-      : `https://${activeStore.slug || 'demo'}.saasdomain.com`;
-    setPageSpeedUrlInput(nextUrl);
     setPageSpeedData(null);
     setPageSpeedError(null);
-  }, [activeStore.id, activeStore.custom_domain, activeStore.slug]);
+  }, [activeStore.id, storeBaseUrl]);
 
   // Load live PageSpeed via Laravel API (Hostinger) → Google PSI — never invent scores
   const loadPageSpeed = async (
     strategy: 'mobile' | 'desktop' = pageSpeedStrategy,
-    customUrl?: string,
+    _customUrl?: string,
     refresh = true,
   ) => {
     setIsLoadingPageSpeed(true);
     setPageSpeedError(null);
-    const targetUrl = (customUrl || pageSpeedUrlInput || storeBaseUrl || '').trim();
+    const targetUrl = (storeBaseUrl || '').trim();
     try {
       const res = await fetchGooglePageSpeedData(activeStore.id, strategy, refresh, targetUrl || undefined);
       const mapped = mapPageSpeedAuditSnapshot(res?.audit as Record<string, any> | null, strategy, targetUrl);
@@ -312,10 +316,10 @@ export const StoreSEO: React.FC = () => {
 
   useEffect(() => {
     if (activeSubTab === 'pagespeed' && !pageSpeedData && !isLoadingPageSpeed && !pageSpeedError) {
-      void loadPageSpeed(pageSpeedStrategy, pageSpeedUrlInput, false);
+      void loadPageSpeed(pageSpeedStrategy, storeBaseUrl, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSubTab, activeStore.id]);
+  }, [activeSubTab, activeStore.id, storeBaseUrl]);
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -357,46 +361,90 @@ export const StoreSEO: React.FC = () => {
     setIsAuthenticating(true);
     setOauthError(null);
 
-    initiateRealGoogleOAuth({
-      storeSlug: activeStore.slug,
-      clientId: customClientId || getStoredGoogleClientId(),
-      loginHint: email,
-      flow: 'code',
-      onCode: async (code, redirectUri) => {
-        const res = await submitGoogleCallback(activeStore.id, { code, redirect_uri: redirectUri });
-        const savedEmail = String(res?.integration?.google_account_email || '').trim();
+    void (async () => {
+      let clientId = '';
+      try {
+        const authMeta = await fetchGoogleAuthUrl(activeStore.id, window.location.origin);
+        clientId = String(authMeta?.client_id || '').trim();
+      } catch (err) {
         setIsAuthenticating(false);
-        if (!savedEmail) {
-          setOauthError(
-            isAr
-              ? 'جوجل لم يحفظ حساب هذا المتجر. أعد المحاولة من النطاق العام.'
-              : 'Google did not save this store account. Try again on the public domain.',
-          );
-          return;
-        }
-        connectGoogleAccount(activeStore.id, savedEmail);
-        updateStoreSEOConfig(activeStore.id, {
-          googleConnected: true,
-          googleAccountEmail: savedEmail,
-          connectedAt: new Date().toISOString().split('T')[0],
-          searchConsoleConnected: Boolean(res?.site_kit?.linked?.search_console),
-          ga4MeasurementId: res?.integration?.ga4_measurement_id || realTrackingId(currentSEOConfig.ga4MeasurementId),
-          gtmContainerId: res?.integration?.gtm_container_id || realTrackingId(currentSEOConfig.gtmContainerId),
-          indexingApiEnabled: Boolean(res?.site_kit?.indexing_homepage_pinged),
-        });
-        toast(
-          isAr ? `تم ربط جوجل لهذا المتجر:${savedEmail}` : `Google connected for this store: ${savedEmail}`,
-          'success',
+        setOauthError(mapGoogleConnectError(err, isAr));
+        return;
+      }
+
+      const custom = (customClientId || getStoredGoogleClientId()).trim();
+      if (
+        hasRealGoogleClientId(custom) &&
+        hasRealGoogleClientId(clientId) &&
+        custom !== clientId
+      ) {
+        setIsAuthenticating(false);
+        setOauthError(
+          isAr
+            ? 'معرّف العميل المخصص لا يطابق إعداد الخادم. امسحه أو طابق السر على الخادم.'
+            : 'Custom Client ID does not match the server. Clear it or match GOOGLE_CLIENT_ID / SECRET.',
         );
-      },
-      onSuccess: () => {
+        return;
+      }
+      if (!hasRealGoogleClientId(clientId)) {
+        clientId = hasRealGoogleClientId(custom) ? custom : getStoredGoogleClientId();
+      }
+      if (!hasRealGoogleClientId(clientId)) {
         setIsAuthenticating(false);
-      },
-      onError: (errMsg) => {
-        setIsAuthenticating(false);
-        setOauthError(errMsg);
-      },
-    });
+        setOauthError(
+          isAr
+            ? 'معرّف عميل جوجل غير جاهز على الخادم.'
+            : 'Google Client ID is not ready on the server.',
+        );
+        return;
+      }
+
+      initiateRealGoogleOAuth({
+        storeSlug: activeStore.slug,
+        clientId,
+        loginHint: email,
+        flow: 'code',
+        onCode: async (code, redirectUri) => {
+          try {
+            const res = await submitGoogleCallback(activeStore.id, { code, redirect_uri: redirectUri });
+            const savedEmail = String(res?.integration?.google_account_email || '').trim();
+            setIsAuthenticating(false);
+            if (!savedEmail) {
+              setOauthError(
+                isAr
+                  ? 'جوجل لم يحفظ حساب هذا المتجر. أعد المحاولة من النطاق العام.'
+                  : 'Google did not save this store account. Try again on the public domain.',
+              );
+              return;
+            }
+            connectGoogleAccount(activeStore.id, savedEmail);
+            updateStoreSEOConfig(activeStore.id, {
+              googleConnected: true,
+              googleAccountEmail: savedEmail,
+              connectedAt: new Date().toISOString().split('T')[0],
+              searchConsoleConnected: Boolean(res?.site_kit?.linked?.search_console),
+              ga4MeasurementId: res?.integration?.ga4_measurement_id || realTrackingId(currentSEOConfig.ga4MeasurementId),
+              gtmContainerId: res?.integration?.gtm_container_id || realTrackingId(currentSEOConfig.gtmContainerId),
+              indexingApiEnabled: Boolean(res?.site_kit?.indexing_homepage_pinged),
+            });
+            toast(
+              isAr ? `تم ربط جوجل لهذا المتجر:${savedEmail}` : `Google connected for this store: ${savedEmail}`,
+              'success',
+            );
+          } catch (err) {
+            setIsAuthenticating(false);
+            setOauthError(mapGoogleConnectError(err, isAr));
+          }
+        },
+        onSuccess: () => {
+          setIsAuthenticating(false);
+        },
+        onError: (errMsg) => {
+          setIsAuthenticating(false);
+          setOauthError(mapGoogleConnectError(errMsg, isAr));
+        },
+      });
+    })();
   };
 
   const handleDisconnect = () => {
@@ -455,7 +503,7 @@ export const StoreSEO: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
       {/* ── Top Header Banner with Official Google Identity ── */}
       <div
         className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 text-white p-6 sm:p-7 rounded-3xl shadow-sm border"
@@ -586,97 +634,22 @@ export const StoreSEO: React.FC = () => {
         </div>
       )}
 
-      {/* Sub Tabs Selector */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-2 overflow-x-auto text-xs font-semibold pb-1">
-        <button
-          onClick={() => setActiveSubTab('hub')}
-          className={`pb-3 px-3.5 transition-colors flex items-center gap-1.5 cursor-pointer border-b-2 ${
-            activeSubTab === 'hub'
-              ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400 font-bold'
-              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Activity className="w-4 h-4" />
-          <span>{isAr ? 'مركز الربط' : 'Connection hub'}</span>
-        </button>
-        <button
-          onClick={() => setActiveSubTab('pagespeed')}
-          className={`pb-3 px-3.5 transition-colors flex items-center gap-1.5 cursor-pointer border-b-2 ${
-            activeSubTab === 'pagespeed'
-              ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400 font-bold'
-              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Gauge className="w-4 h-4" />
-          <span>{isAr ? 'سرعة الصفحات ومؤشرات الويب' : 'PageSpeed & Web Vitals'}</span>
-        </button>
-        <button
-          onClick={() => setActiveSubTab('console')}
-          className={`pb-3 px-3.5 transition-colors flex items-center gap-1.5 cursor-pointer border-b-2 ${
-            activeSubTab === 'console'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-bold'
-              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <BarChart3 className="w-4 h-4" />
-          <span>{isAr ? 'بحث جوجل والفهرسة' : 'Search Console and indexing'}</span>
-        </button>
-        <button
-          onClick={() => setActiveSubTab('google_tags')}
-          className={`pb-3 px-3.5 transition-colors flex items-center gap-1.5 cursor-pointer border-b-2 ${
-            activeSubTab === 'google_tags'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-bold'
-              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Code className="w-4 h-4" />
-          <span>{isAr ? 'مدير العلامات والتحليلات' : 'Tag Manager and Analytics'}</span>
-        </button>
-        <button
-          onClick={() => setActiveSubTab('utm')}
-          className={`pb-3 px-3.5 transition-colors flex items-center gap-1.5 cursor-pointer border-b-2 ${
-            activeSubTab === 'utm'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
-              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Link2 className="w-4 h-4 text-indigo-500" />
-          <span>{isAr ? 'تتبع الحملات' : 'Campaign tracking'}</span>
-        </button>
-        <button
-          onClick={() => setActiveSubTab('meta')}
-          className={`pb-3 px-3.5 transition-colors flex items-center gap-1.5 cursor-pointer border-b-2 ${
-            activeSubTab === 'meta'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-bold'
-              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Globe className="w-4 h-4" />
-          <span>{isAr ? 'وسوم الصفحة وخريطة الموقع' : 'Page tags and sitemap'}</span>
-        </button>
-        <button
-          onClick={() => setActiveSubTab('simulator')}
-          className={`pb-3 px-3.5 transition-colors flex items-center gap-1.5 cursor-pointer border-b-2 ${
-            activeSubTab === 'simulator'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-bold'
-              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Eye className="w-4 h-4" />
-          <span>{isAr ? 'معاينة نتائج البحث' : 'Search result preview'}</span>
-        </button>
-        <button
-          onClick={() => setActiveSubTab('deep_audit')}
-          className={`pb-3 px-3.5 transition-colors flex items-center gap-1.5 cursor-pointer border-b-2 ${
-            activeSubTab === 'deep_audit'
-              ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold'
-              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Sparkles className="w-4 h-4 text-emerald-500" />
-          <span>{isAr ? 'الروابط والعناوين والنص البديل' : 'Links, headings, and alt text'}</span>
-        </button>
-      </div>
+      {/* Sub Tabs — full modern luxury segmented buttons (no underline text links) */}
+      <ModernSegmentedTabs
+        accent="emerald"
+        size="md"
+        aria-label={isAr ? 'أقسام تحسين محركات البحث' : 'SEO sections'}
+        value={activeSubTab}
+        onChange={setActiveSubTab}
+        items={[
+          { id: 'hub', label: isAr ? 'مركز الربط' : 'Connection hub', icon: Activity },
+          { id: 'pagespeed', label: isAr ? 'سرعة الصفحات ومؤشرات الويب' : 'PageSpeed & Web Vitals', icon: Gauge },
+          { id: 'utm', label: isAr ? 'تتبع الحملات' : 'Campaign tracking', icon: Link2 },
+          { id: 'meta', label: isAr ? 'وسوم الصفحة وخريطة الموقع' : 'Page tags and sitemap', icon: Globe },
+          { id: 'simulator', label: isAr ? 'معاينة نتائج البحث' : 'Search result preview', icon: Eye },
+          { id: 'deep_audit', label: isAr ? 'الروابط والعناوين والنص البديل' : 'Links, headings, and alt text', icon: Sparkles },
+        ]}
+      />
 
       {/* ================= TAB 0: SITE KIT CENTRALIZED CONNECTION HUB ================= */}
       {activeSubTab === 'hub' && (
@@ -762,10 +735,17 @@ export const StoreSEO: React.FC = () => {
                 </span>
                 <button
                   type="button"
-                  onClick={() => setActiveSubTab('console')}
+                  onClick={() => {
+                    try {
+                      sessionStorage.setItem('unityteck-settings-view', 'search_console');
+                    } catch {
+                      /* storage may be unavailable */
+                    }
+                    window.dispatchEvent(new CustomEvent('unityteck-open-store-tab', { detail: 'settings' }));
+                  }}
                   className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-bold text-[11px] cursor-pointer"
                 >
-                  {isAr ? 'عرض البيانات' : 'View data'}
+                  {isAr ? 'فتح الإعدادات' : 'Open Settings'}
                 </button>
               </div>
             </div>
@@ -838,16 +818,22 @@ export const StoreSEO: React.FC = () => {
                 </span>
                 <button
                   type="button"
-                  onClick={() => setActiveSubTab('console')}
+                  onClick={() => {
+                    try {
+                      sessionStorage.setItem('unityteck-settings-view', 'search_console');
+                    } catch {
+                      /* storage may be unavailable */
+                    }
+                    window.dispatchEvent(new CustomEvent('unityteck-open-store-tab', { detail: 'settings' }));
+                  }}
                   className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-bold text-[11px] cursor-pointer"
                 >
-                  {isAr ? 'فحص الفهرسة' : 'Check indexing'}
+                  {isAr ? 'فتح الإعدادات' : 'Open Settings'}
                 </button>
               </div>
             </div>
           </div>
 
-          <GoogleToolsWaitGuide isAr={isAr} />
         </div>
       )}
 
@@ -868,16 +854,17 @@ export const StoreSEO: React.FC = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono">
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono max-w-full"
+                title={isAr ? 'رابط هذا المتجر فقط — غير قابل للتعديل' : 'This store URL only — not editable'}
+              >
                 <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <input
-                  type="text"
-                  value={pageSpeedUrlInput}
-                  onChange={(e) => setPageSpeedUrlInput(e.target.value)}
-                  placeholder="https://yourstore.com"
-                  className="bg-transparent text-xs font-mono font-bold text-slate-800 dark:text-slate-200 outline-none w-48 sm:w-60"
+                <span
+                  className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate max-w-[14rem] sm:max-w-[16rem] select-all"
                   dir="ltr"
-                />
+                >
+                  {storeBaseUrl}
+                </span>
               </div>
 
               <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold shrink-0">
@@ -885,7 +872,7 @@ export const StoreSEO: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setPageSpeedStrategy('mobile');
-                    void loadPageSpeed('mobile', pageSpeedUrlInput, true);
+                    void loadPageSpeed('mobile', storeBaseUrl, true);
                   }}
                   className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
                     pageSpeedStrategy === 'mobile' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold' : 'text-slate-500'
@@ -898,7 +885,7 @@ export const StoreSEO: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setPageSpeedStrategy('desktop');
-                    void loadPageSpeed('desktop', pageSpeedUrlInput, true);
+                    void loadPageSpeed('desktop', storeBaseUrl, true);
                   }}
                   className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
                     pageSpeedStrategy === 'desktop' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold' : 'text-slate-500'
@@ -911,7 +898,7 @@ export const StoreSEO: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => void loadPageSpeed(pageSpeedStrategy, pageSpeedUrlInput, true)}
+                onClick={() => void loadPageSpeed(pageSpeedStrategy, storeBaseUrl, true)}
                 disabled={isLoadingPageSpeed}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-60 whitespace-nowrap shrink-0"
               >
@@ -932,12 +919,12 @@ export const StoreSEO: React.FC = () => {
               <p className="text-xs text-slate-500 max-w-md mx-auto">
                 {pageSpeedError ||
                   (isAr
-                    ? `اضغط على زر الفحص لقياس أداء ومؤشرات الويب الحقيقية لمتجر${activeStore.nameAr || activeStore.name}عبر واجهة جوجل الرسمية.`
-                    : `Click Run Audit to measure genuine performance, SEO, accessibility, and Core Web Vitals via the official Google PageSpeed API.`)}
+                    ? 'اضغط على زر الفحص لقياس أداء ومؤشرات الويب الحقيقية لمتجرك عبر واجهة جوجل الرسمية.'
+                    : 'Click Run Audit to measure genuine performance, SEO, accessibility, and Core Web Vitals via the official Google PageSpeed API.')}
               </p>
               <button
                 type="button"
-                onClick={() => void loadPageSpeed(pageSpeedStrategy, pageSpeedUrlInput, true)}
+                onClick={() => void loadPageSpeed(pageSpeedStrategy, storeBaseUrl, true)}
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer inline-flex items-center gap-2"
               >
                 <Zap className="w-3.5 h-3.5" />

@@ -13,6 +13,8 @@ import {
 import { PlanType } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { GlobalModal } from './GlobalModal';
+import { useSaudiCityOptions } from '../../hooks/useSaudiCityOptions';
+import { SaudiCitySelect } from './SaudiCitySelect';
 
 interface ClientAuthModalProps {
   isOpen: boolean;
@@ -33,6 +35,11 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
     activeStore,
     canAccessMaster,
   } = useTenant();
+  const {
+    cities: saudiCities,
+    addCity: addSaudiCity,
+    removeCity: removeSaudiCity,
+  } = useSaudiCityOptions(activeStore?.id || 'platform');
 
   const [activeTab, setActiveTab] = useState<'login' | 'register'>(initialTab);
 
@@ -40,7 +47,7 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
   const [clientName, setClientName] = useState('');
   const [email, setEmail] = useState('');
   const [businessName, setBusinessName] = useState('');
-  const [city, setCity] = useState(isAr ? 'مكة المكرمة' : 'Makkah Al-Mukarramah');
+  const [city, setCity] = useState('Makkah');
   const [category, setCategory] = useState('Real Fresh Flowers & Gifts');
   const [password, setPassword] = useState('');
   const [selectedPlan, setSelectedPlan] = useState<PlanType>('pro');
@@ -241,7 +248,7 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
               </label>
               <input
                 type="text"
-                placeholder={isAr ? 'زهور مكة الفاخرة' : 'e.g. Makkah Fresh Flowers'}
+                placeholder={isAr ? 'مثال: اسم متجرك' : 'e.g. Your Store Name'}
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
                 className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -254,17 +261,16 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   Store Location
                 </label>
-                <select
+                <SaudiCitySelect
                   value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                  onChange={setCity}
+                  cities={saudiCities}
+                  isAr={isAr}
+                  manageEnabled
+                  onAddCity={(nameEn, nameAr) => addSaudiCity({ nameEn, nameAr })}
+                  onRemoveCity={removeSaudiCity}
                   className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="Makkah Al-Mukarramah">{isAr ? 'مكة المكرمة' : 'Makkah Al-Mukarramah'}</option>
-                  <option value="Jeddah">{isAr ? 'جدة' : 'Jeddah'}</option>
-                  <option value="Riyadh">{isAr ? 'الرياض' : 'Riyadh'}</option>
-                  <option value="Madinah">{isAr ? 'المدينة المنورة' : 'Madinah'}</option>
-                  <option value="Dammam">{isAr ? 'الدمام' : 'Dammam'}</option>
-                </select>
+                />
               </div>
 
               <div>

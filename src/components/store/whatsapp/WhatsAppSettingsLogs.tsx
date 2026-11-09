@@ -3,6 +3,7 @@ import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
 import { GlobalModal } from '../../common/GlobalModal';
+import { ModernSegmentedTabs } from '../../common/ModernSegmentedTabs';
 import type { WhatsAppSettingsData, WhatsAppMessageItem } from '../../../types/whatsapp';
 import {
   fetchWhatsAppSettings,
@@ -305,31 +306,22 @@ export const WhatsAppSettingsLogs: React.FC<Props> = ({ onNavigateSubView }) => 
         </button>
       </div>
 
-      {/* 2. Top Sub-Tabs (Matching Reference Image 1) */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
-        {[
-          { id: 'api', labelAr: 'تكوين واجهة البرمجة', labelEn: 'API Configuration' },
-          { id: 'phones', labelAr: 'أرقام الهواتف', labelEn: 'Phone Numbers' },
-          { id: 'webhooks', labelAr: 'الويبهوك', labelEn: 'Webhooks' },
-          { id: 'message_logs', labelAr: 'سجلات الرسائل', labelEn: 'Message Logs' },
-          { id: 'error_logs', labelAr: 'سجلات الأخطاء', labelEn: 'Error Logs' },
-          { id: 'usage', labelAr: 'الاستخدام والفوترة', labelEn: 'Usage & Billing' },
-          { id: 'team', labelAr: 'صلاحيات الفريق', labelEn: 'Team Access' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
-              activeTab === tab.id
-                ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/30'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
-          >
-            {isAr ? tab.labelAr : tab.labelEn}
-          </button>
-        ))}
-      </div>
+      {/* 2. Top Sub-Tabs — modern segmented toggles */}
+      <ModernSegmentedTabs
+        accent="emerald"
+        aria-label={isAr ? 'أقسام إعدادات واتساب' : 'WhatsApp settings sections'}
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        items={[
+          { id: 'api', label: isAr ? 'تكوين واجهة البرمجة' : 'API Configuration' },
+          { id: 'phones', label: isAr ? 'أرقام الهواتف' : 'Phone Numbers' },
+          { id: 'webhooks', label: isAr ? 'خطافات الويب' : 'Webhooks' },
+          { id: 'message_logs', label: isAr ? 'سجلات الرسائل' : 'Message Logs' },
+          { id: 'error_logs', label: isAr ? 'سجلات الأخطاء' : 'Error Logs' },
+          { id: 'usage', label: isAr ? 'الاستخدام والفوترة' : 'Usage & Billing' },
+          { id: 'team', label: isAr ? 'صلاحيات الفريق' : 'Team Access' },
+        ]}
+      />
 
       {/* CENTRAL COMMUNICATION & NOTIFICATION HUB (Unified Single Number & Email) */}
       <div className="p-4 sm:p-5 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-teal-500/5 to-transparent dark:from-emerald-950/20 dark:via-teal-950/10 shadow-sm space-y-4">

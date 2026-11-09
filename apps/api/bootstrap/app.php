@@ -21,6 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Hostinger: * * * * * php artisan schedule:run
         $schedule->command('social:publish-due')->everyMinute()->withoutOverlapping();
         $schedule->command('google:sync-ads')->everyThirtyMinutes()->withoutOverlapping();
+        $schedule->command('loyalty:award-birthdays')->dailyAt('00:15')->timezone('Asia/Riyadh')->withoutOverlapping();
+        $schedule->command('cashback:process-credits')->hourly()->timezone('Asia/Riyadh')->withoutOverlapping();
     })
     ->withMiddleware(function (Middleware $middleware) {
         // API SPA — never redirect to missing web route('login') (that caused HTTP 500).

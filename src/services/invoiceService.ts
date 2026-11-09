@@ -205,7 +205,7 @@ export const DEFAULT_TEMPLATE_CONFIG: InvoiceTemplateConfig = {
   primaryColor: '#0f172a',
   secondaryColor: '#334155',
   accentColor: '#059669',
-  fontFamily: 'Tajawal',
+  fontFamily: 'System',
   fontSize: 'normal',
   showLogo: true,
   businessNameEn: 'Makkah Gifts & Luxury Flowers Est.',

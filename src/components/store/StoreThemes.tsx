@@ -96,9 +96,9 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
       category: newThemeCategoryAr.trim() || activeStore.category || 'متجر مخصص',
       categoryAr: newThemeCategoryAr.trim() || activeStore.category || 'متجر مخصص',
       categoryEn: 'Custom Store Theme',
-      tagline: newThemeTaglineAr.trim() || `ثيم مخصص حصرياً لمتجر ${activeStore.name}`,
-      taglineAr: newThemeTaglineAr.trim() || `ثيم مخصص حصرياً لمتجر ${activeStore.name}`,
-      taglineEn: `Exclusive custom theme for ${activeStore.name}`,
+      tagline: newThemeTaglineAr.trim() || 'ثيم مخصص حصرياً لهذا المتجر',
+      taglineAr: newThemeTaglineAr.trim() || 'ثيم مخصص حصرياً لهذا المتجر',
+      taglineEn: 'Exclusive custom theme for this store',
       previewColor: newThemeColor,
       thumbnail: activeStore.logo && isValidMediaUrl(activeStore.logo) ? activeStore.logo : '/theme-mockups/real_storefront_fullpage.png',
       badge: isAr ? 'ثيم خاص بالمتجر' : 'Private Store Theme',
@@ -233,11 +233,13 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
     ? (isAr ? 'متجر السيارات (محلي)' : 'Car Store (Local)')
     : isCoffeeStore
       ? (isAr ? 'متجر القهوة (محلي)' : 'Coffee Store (Local)')
-      : (activeStore.custom_domain || activeStore.domain || 'giftshop-sa.com');
+      : (activeStore.custom_domain || activeStore.domain || `${activeStore.slug || 'store'}.unityteck.com`);
 
   const liveStoreHref = (isCarStore || isCoffeeStore || isLocalHost)
     ? localStorefrontUrl
-    : (activeStore.custom_domain ? `https://${activeStore.custom_domain}/` : 'https://giftshop-sa.com/');
+    : (activeStore.custom_domain
+        ? `https://${activeStore.custom_domain}/`
+        : `https://${activeStore.slug || 'store'}.unityteck.com/`);
 
   const [builderThemeId, setBuilderThemeId] = useState<string>(() => {
     try {
@@ -462,7 +464,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
 
   return (
     <div
-      className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto"
+      className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0"
       style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
     >
       {/* Top Banner & Action Header */}
@@ -1419,8 +1421,8 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
                   </h3>
                   <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
                     {isAr
-                      ? `سيتم حفظ هذا الثيم حصرياً لمتجر${activeStore.name}ولن يظهر لأي متجر آخر`
-                      : `This theme will be private to ${activeStore.name} and hidden from other stores`}
+                      ? 'سيتم حفظ هذا الثيم حصرياً لهذا المتجر ولن يظهر لأي متجر آخر'
+                      : 'This theme will be private to this store and hidden from other stores'}
                   </p>
                 </div>
               </div>

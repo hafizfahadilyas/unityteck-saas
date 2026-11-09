@@ -26,6 +26,8 @@ import {
   Award,
 } from 'lucide-react';
 import { MECCA_LOGO } from '../data/mockData';
+import { useSaudiCityOptions } from '../../../hooks/useSaudiCityOptions';
+import { SaudiCitySelect } from '../../../components/common/SaudiCitySelect';
 
 interface AuthModalProps {
   isOpen?: boolean;
@@ -74,13 +76,18 @@ function AuthModalBody({
   const { activeStore } = useTenant();
   const isAr = language === 'ar';
   const storeId = activeStore?.id || '';
+  const {
+    cities: saudiCities,
+    addCity: addSaudiCity,
+    removeCity: removeSaudiCity,
+  } = useSaudiCityOptions(storeId || 'platform');
 
   const isOpen = propIsOpen !== undefined ? propIsOpen : isAuthModalOpen;
   const onClose = propOnClose || (() => setIsAuthModalOpen(false));
 
   const [nameInput, setNameInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
-  const [cityInput, setCityInput] = useState('');
+  const [cityInput, setCityInput] = useState('Makkah');
   const [emailInput, setEmailInput] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
@@ -322,12 +329,18 @@ function AuthModalBody({
                 </label>
                 <label className="block text-xs font-bold text-[#102a1c]">
                   {isAr ? 'المدينة' : 'City'}
-                  <input
-                    type="text"
-                    value={cityInput}
-                    onChange={(e) => setCityInput(e.target.value)}
-                    className="mt-1 w-full py-2.5 px-4 rounded-xl border border-[#d6cfc0] text-sm focus:outline-none focus:border-[#102a1c]"
-                  />
+                  <div className="mt-1">
+                    <SaudiCitySelect
+                      value={cityInput}
+                      onChange={setCityInput}
+                      cities={saudiCities}
+                      isAr={isAr}
+                      manageEnabled
+                      onAddCity={(nameEn, nameAr) => addSaudiCity({ nameEn, nameAr })}
+                      onRemoveCity={removeSaudiCity}
+                      className="w-full py-2.5 px-4 rounded-xl border border-[#d6cfc0] text-sm focus:outline-none focus:border-[#102a1c] bg-white"
+                    />
+                  </div>
                 </label>
               </div>
               <button

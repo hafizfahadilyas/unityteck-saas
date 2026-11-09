@@ -805,11 +805,21 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             $publicHost = explode('/', $publicHost)[0];
         }
         $ga = strtoupper(trim((string)($seo['ga4MeasurementId'] ?? $data['ga4MeasurementId'] ?? $data['ga4_measurement_id'] ?? '')));
-        $googleConnected = (bool)preg_match('/^G-[A-Z0-9]+$/', $ga);
+        $gaOk = (bool)preg_match('/^G-[A-Z0-9]+$/', $ga);
+        $gInt = is_array($data['google_integration'] ?? null) ? $data['google_integration'] : [];
+        // Real OAuth connect only — never mark Connected from a typed Measurement ID alone
+        $googleConnected = !empty($gInt['is_connected']) && !empty($gInt['google_account_email']);
+        $gaOut = '';
+        if ($gaOk) {
+            $gaOut = $ga;
+        } elseif (!empty($gInt['ga4_measurement_id']) && preg_match('/^G-[A-Z0-9]+$/i', (string)$gInt['ga4_measurement_id'])) {
+            $gaOut = strtoupper((string)$gInt['ga4_measurement_id']);
+        }
         echo json_encode(['data' => [
             'store_id' => $storeId,
             'google_connected' => $googleConnected,
-            'ga4_measurement_id' => $googleConnected ? $ga : '',
+            'google_account_email' => $googleConnected ? (string)($gInt['google_account_email'] ?? '') : '',
+            'ga4_measurement_id' => $gaOut,
             'meta_title' => (string)($seo['metaTitle'] ?? $data['metaTitle'] ?? $data['meta_title'] ?? ''),
             'meta_description' => (string)($seo['metaDescription'] ?? $data['metaDescription'] ?? $data['meta_description'] ?? ''),
             'keywords' => $seo['keywords'] ?? $data['keywords'] ?? [],

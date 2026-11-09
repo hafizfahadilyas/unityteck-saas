@@ -6,6 +6,7 @@ import { GlobalModal } from '../common/GlobalModal';
 import { MasterAdvanceFeaturesCard } from './MasterAdvanceFeaturesCard';
 import {
   CONTROL_DEFINITIONS,
+  CORE_STORE_CONTROL_IDS,
   type ControlCategory,
   type ControlItemDefinition,
   getGlobalControls,
@@ -90,6 +91,7 @@ import {
   Check,
   X,
   Lock,
+  Bell,
 } from 'lucide-react';
 
 // Icon resolver helper
@@ -98,6 +100,7 @@ const renderIcon = (name: string, className = 'w-5 h-5') => {
     case 'LayoutDashboard': return <LayoutDashboard className={className} />;
     case 'ShoppingCart': return <ShoppingCart className={className} />;
     case 'Package': return <Package className={className} />;
+    case 'Bell': return <Bell className={className} />;
     case 'Users': return <Users className={className} />;
     case 'Megaphone': return <Megaphone className={className} />;
     case 'ReceiptText': return <ReceiptText className={className} />;
@@ -180,7 +183,13 @@ export const MasterControlCenter: React.FC = () => {
       const customEvent = e as CustomEvent<{ storeId: string; controls: Record<string, boolean> }>;
       if (customEvent.detail) {
         if (customEvent.detail.storeId === selectedStoreId || (selectedStoreId === 'ALL' && customEvent.detail.storeId === 'ALL')) {
-          setControls({ ...customEvent.detail.controls });
+          const next =
+            customEvent.detail.controls && typeof customEvent.detail.controls === 'object'
+              ? { ...customEvent.detail.controls }
+              : selectedStoreId === 'ALL'
+                ? getGlobalControls()
+                : getStoreControls(selectedStoreId);
+          setControls(next);
         }
       }
     };
@@ -201,6 +210,15 @@ export const MasterControlCenter: React.FC = () => {
 
   // Handle single toggle toggle
   const handleToggle = (item: ControlItemDefinition) => {
+    if (CORE_STORE_CONTROL_IDS.has(item.id)) {
+      toast(
+        isAr
+          ? `"${item.nameAr}" صفحة أساسية ولا يمكن تعطيلها`
+          : `"${item.nameEn}" is a core page and cannot be disabled`,
+        'info',
+      );
+      return;
+    }
     const nextVal = !controls[item.id];
     const updated = { ...controls, [item.id]: nextVal };
     setControls(updated);
@@ -235,13 +253,13 @@ export const MasterControlCenter: React.FC = () => {
     setAllControlsState(selectedStoreId, false);
     const updated: Record<string, boolean> = {};
     for (const def of CONTROL_DEFINITIONS) {
-      updated[def.id] = false;
+      updated[def.id] = CORE_STORE_CONTROL_IDS.has(def.id);
     }
     setControls(updated);
     toast(
       isAr
-        ? `تم تعطيل كافة الصفحات والمكونات لـ${currentTargetName}`
-        : `All pages & components disabled for ${currentTargetName}`,
+        ? `تم تعطيل الصفحات غير الأساسية لـ${currentTargetName} (الإعدادات تبقى ظاهرة)`
+        : `Non-core pages disabled for ${currentTargetName} (Settings stays visible)`,
       'warning'
     );
   };
@@ -277,7 +295,7 @@ export const MasterControlCenter: React.FC = () => {
     const updated = { ...controls };
     const catItems = CONTROL_DEFINITIONS.filter((item) => item.category === category);
     for (const item of catItems) {
-      updated[item.id] = enable;
+      updated[item.id] = CORE_STORE_CONTROL_IDS.has(item.id) ? true : enable;
     }
     setControls(updated);
     toast(
@@ -399,7 +417,7 @@ export const MasterControlCenter: React.FC = () => {
   }, [controls]);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-[1560px] mx-auto min-w-0" style={{ color: 'var(--text)' }}>
+    <div className="u-page p-4 sm:p-6 lg:p-8 space-y-8 max-w-[1560px] mx-auto min-w-0 w-full" style={{ color: 'var(--text)' }}>
       {/* ── Top Executive Header ── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b pb-6" style={{ borderColor: 'var(--border)' }}>
         <div className="space-y-1.5">
@@ -1434,7 +1452,8 @@ export const MasterControlCenter: React.FC = () => {
           {/* Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredItems.map((item) => {
-              const isEnabled = Boolean(controls[item.id]);
+              const isCore = CORE_STORE_CONTROL_IDS.has(item.id);
+              const isEnabled = isCore || Boolean(controls[item.id]);
 
               // Category Badge Labels
               const categoryBadge = {
@@ -1496,14 +1515,23 @@ export const MasterControlCenter: React.FC = () => {
                         type="button"
                         role="switch"
                         aria-checked={isEnabled}
+                        aria-disabled={isCore}
                         onClick={() => handleToggle(item)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
                           isEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
-                        }`}
+                        } ${isCore ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
                         title={
-                          isEnabled
-                            ? isAr ? 'انقر للتعطيل' : 'Click to disable'
-                            : isAr ? 'انقر للتفعيل' : 'Click to enable'
+                          isCore
+                            ? isAr
+                              ? 'صفحة أساسية — لا يمكن تعطيلها'
+                              : 'Core page — cannot be disabled'
+                            : isEnabled
+                              ? isAr
+                                ? 'انقر للتعطيل'
+                                : 'Click to disable'
+                              : isAr
+                                ? 'انقر للتفعيل'
+                                : 'Click to enable'
                         }
                       >
                         <span className="sr-only">Toggle {item.nameEn}</span>

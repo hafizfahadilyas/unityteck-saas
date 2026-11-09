@@ -17,6 +17,7 @@ import {
   Smartphone,
   ExternalLink,
 } from 'lucide-react';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
@@ -138,16 +139,11 @@ export const CustomLinksForm: React.FC = () => {
             <Link2 className="w-5 h-5" />
           </span>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-                Theme Settings · 10
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold">
-                Selia Custom Links
-              </span>
-            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
+              {themeSettingsBadge(10, isAr)}
+            </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'الروابط المخصصة' : 'Selia — Custom Links'}
+              {isAr ? 'الروابط المخصصة' : 'Custom Links'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr

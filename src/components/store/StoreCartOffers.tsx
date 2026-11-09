@@ -23,6 +23,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { StoreCartInterceptTab } from './StoreCartInterceptTab';
+import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
 
 interface StoreCartOffersProps {
   onNavigateTab?: (tab: string) => void;
@@ -121,30 +122,29 @@ export const StoreCartOffers: React.FC<StoreCartOffersProps> = ({ onNavigateTab 
   // ─────────────────────────────────────────────────────────────
   if (mainSection === 'intercept') {
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
-        {/* Top Section Nav Tabs */}
-        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setMainSection('intercept')}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-blue-600 text-white shadow-xs shrink-0"
-          >
-            <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>{isAr ? 'نوافذ التقاط السلة الذكية (الأولى بالنقرة)' : 'Smart Cart Intercept (1st-Click)'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setMainSection('rules');
-              setViewMode('list');
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 shrink-0"
-          >
-            <ShoppingCart className="w-4 h-4" />
-            <span>{isAr ? 'قواعد عروض السلة التلقائية' : 'Cart Offer Rules'}</span>
-          </button>
-        </div>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
+        {/* Top Section Nav — modern segmented toggles */}
+        <ModernSegmentedTabs
+          accent="blue"
+          aria-label={isAr ? 'أقسام عروض السلة' : 'Cart offers sections'}
+          value={mainSection}
+          onChange={(section) => {
+            setMainSection(section);
+            if (section === 'rules') setViewMode('list');
+          }}
+          items={[
+            {
+              id: 'intercept',
+              label: isAr ? 'نوافذ التقاط السلة الذكية (الأولى بالنقرة)' : 'Smart Cart Intercept (1st-Click)',
+              icon: Sparkles,
+            },
+            {
+              id: 'rules',
+              label: isAr ? 'قواعد عروض السلة التلقائية' : 'Cart Offer Rules',
+              icon: ShoppingCart,
+            },
+          ]}
+        />
 
         <StoreCartInterceptTab />
       </div>
@@ -156,7 +156,7 @@ export const StoreCartOffers: React.FC<StoreCartOffersProps> = ({ onNavigateTab 
   // ─────────────────────────────────────────────────────────────
   if (viewMode === 'create') {
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
           <div>
@@ -627,27 +627,26 @@ export const StoreCartOffers: React.FC<StoreCartOffersProps> = ({ onNavigateTab 
   // LIST VIEW: Cart Offers Overview
   // ─────────────────────────────────────────────────────────────
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
-      {/* Top Section Nav Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setMainSection('intercept')}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 shrink-0"
-        >
-          <Sparkles className="w-4 h-4 text-amber-500" />
-          <span>{isAr ? 'نوافذ التقاط السلة الذكية (الأولى بالنقرة)' : 'Smart Cart Intercept (1st-Click)'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setMainSection('rules')}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-blue-600 text-white shadow-xs shrink-0"
-        >
-          <ShoppingCart className="w-4 h-4" />
-          <span>{isAr ? 'قواعد عروض السلة التلقائية' : 'Cart Offer Rules'}</span>
-        </button>
-      </div>
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
+      {/* Top Section Nav — modern segmented toggles */}
+      <ModernSegmentedTabs
+        accent="blue"
+        aria-label={isAr ? 'أقسام عروض السلة' : 'Cart offers sections'}
+        value={mainSection}
+        onChange={setMainSection}
+        items={[
+          {
+            id: 'intercept',
+            label: isAr ? 'نوافذ التقاط السلة الذكية (الأولى بالنقرة)' : 'Smart Cart Intercept (1st-Click)',
+            icon: Sparkles,
+          },
+          {
+            id: 'rules',
+            label: isAr ? 'قواعد عروض السلة التلقائية' : 'Cart Offer Rules',
+            icon: ShoppingCart,
+          },
+        ]}
+      />
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

@@ -478,10 +478,14 @@ class BlogController extends Controller
         if ($id instanceof JsonResponse) return $id;
 
         $payload = $this->getStorePayload($id);
+        $defaults = $this->defaultCommerceToolsConfig($articleId, (string)$id);
         $tools = $payload['article_commerce_tools'][$articleId] ?? null;
 
-        if (!$tools) {
-            $tools = $this->defaultCommerceToolsConfig($articleId, (string)$id);
+        // Merge partial/legacy saved configs onto full 20-tool shell (prevents SPA .enabled crashes)
+        if (is_array($tools)) {
+            $tools = $this->mergeCommerceToolsConfig($defaults, $tools);
+        } else {
+            $tools = $defaults;
         }
 
         return response()->json([
@@ -505,18 +509,54 @@ class BlogController extends Controller
             $payload['article_commerce_tools'] = [];
         }
 
-        $payload['article_commerce_tools'][$articleId] = $data['config'];
+        $defaults = $this->defaultCommerceToolsConfig($articleId, (string)$id);
+        $normalized = $this->mergeCommerceToolsConfig($defaults, is_array($data['config']) ? $data['config'] : []);
+        $payload['article_commerce_tools'][$articleId] = $normalized;
         $this->persistSettings($id, $payload);
 
         return response()->json([
             'success' => true,
             'message' => 'Article commerce tools configuration saved successfully.',
-            'data' => $data['config'],
+            'data' => $normalized,
         ]);
     }
 
     /**
-     * Empty commerce-tools shell — never invent HiBrew/flower Unsplash product rows (zero-mock).
+     * Deep-merge saved commerce-tools onto the full default shell.
+     */
+    protected function mergeCommerceToolsConfig(array $defaults, array $partial): array
+    {
+        $merged = $defaults;
+        if (isset($partial['article_id']) && is_string($partial['article_id'])) {
+            $merged['article_id'] = $partial['article_id'];
+        }
+
+        foreach ($defaults as $key => $defSection) {
+            if ($key === 'article_id' || !is_array($defSection)) {
+                continue;
+            }
+            $incoming = $partial[$key] ?? null;
+            if (!is_array($incoming)) {
+                continue;
+            }
+            $section = array_merge($defSection, $incoming);
+            foreach ($defSection as $subKey => $defVal) {
+                if (is_array($defVal) && array_is_list($defVal) && !is_array($section[$subKey] ?? null)) {
+                    $section[$subKey] = $defVal;
+                }
+            }
+            if (!array_key_exists('enabled', $section) || !is_bool($section['enabled'])) {
+                $section['enabled'] = (bool)($defSection['enabled'] ?? false);
+            }
+            $merged[$key] = $section;
+        }
+
+        return $merged;
+    }
+
+    /**
+     * Full empty 20-tool commerce shell — never invent products/reviews/metrics (zero-mock).
+     * Must include every section the admin UI reads (*.enabled) or partial saves crash the SPA.
      */
     protected function defaultCommerceToolsConfig(string $articleId, string $storeId = ''): array
     {
@@ -529,10 +569,10 @@ class BlogController extends Controller
                 'price' => 0,
                 'rating' => 0,
                 'rating_count' => 0,
-                'show_price' => false,
-                'show_rating' => false,
-                'show_add_to_cart' => false,
-                'show_wishlist_icon' => false,
+                'show_price' => true,
+                'show_rating' => true,
+                'show_add_to_cart' => true,
+                'show_wishlist_icon' => true,
                 'card_style' => 'Classic',
             ],
             'product_quiz' => [
@@ -544,17 +584,141 @@ class BlogController extends Controller
             'comparison_table' => [
                 'enabled' => false,
                 'products' => [],
-                'show_buy_button' => false,
+                'show_buy_button' => true,
             ],
             'product_bundles' => [
                 'enabled' => false,
                 'bundle_title' => '',
-                'products' => [],
+                'images' => [],
+                'show_bundle_discount' => true,
+                'show_original_price' => true,
+                'show_savings_badge' => true,
+                'original_price' => 0,
+                'bundle_price' => 0,
+                'savings_badge' => '',
+                'bundle_button_text' => '',
+            ],
+            'discount_coupon' => [
+                'enabled' => false,
+                'coupon_code' => '',
+                'discount_value' => 0,
+                'discount_type' => 'Percentage %',
+                'description' => '',
+                'expiry_date' => '',
+                'show_terms' => false,
+                'terms_text' => '',
+            ],
+            'customer_reviews' => [
+                'enabled' => false,
+                'review_source' => 'Store Reviews',
+                'reviewer_name' => '',
+                'time_ago' => '',
+                'rating' => 0,
+                'comment' => '',
+                'photos' => [],
+                'show_customer_photos' => false,
+                'show_verified_badge' => true,
+            ],
+            'free_shipping_bar' => [
+                'enabled' => false,
+                'threshold' => 0,
+                'current_cart_amount' => 0,
+                'progress_text' => '',
+                'show_progress_text' => true,
+                'show_icon' => true,
+            ],
+            'savings_calculator' => [
+                'enabled' => false,
+                'original_price' => 0,
+                'discount_percent' => 0,
+                'final_price' => 0,
+                'you_save' => 0,
+                'show_savings_amount' => true,
+                'label_text' => 'You Save',
+            ],
+            'sticky_add_to_cart' => [
+                'enabled' => false,
+                'product_name' => '',
+                'product_image' => '',
+                'price' => 0,
+                'show_on_mobile' => true,
+                'button_text' => 'Add to Cart',
+            ],
+            'wishlist' => [
+                'enabled' => false,
+                'button_style' => 'Heart Icon',
+                'button_text' => 'Save for Later',
+                'position' => 'Top Right',
+                'show_on_product_cards' => true,
+                'allow_guest_users' => true,
+                'show_login_prompt' => true,
+                'login_message' => '',
+            ],
+            'product_video' => [
+                'enabled' => false,
+                'video_type' => 'YouTube',
+                'video_url' => '',
+                'show_autoplay_muted' => false,
+                'show_video_title' => true,
+                'show_thumbnail' => true,
+            ],
+            'ai_assistant' => [
+                'enabled' => false,
+                'assistant_name' => '',
+                'welcome_message' => '',
+                'suggested_questions' => [],
+            ],
+            'newsletter' => [
+                'enabled' => false,
+                'title' => '',
+                'description' => '',
+                'email_placeholder' => '',
+                'show_incentive_text' => true,
+                'success_message' => '',
+            ],
+            'social_sharing' => [
+                'enabled' => false,
+                'platforms' => ['pinterest', 'twitter', 'linkedin', 'facebook', 'instagram'],
+                'button_style' => 'Icon + Text',
+                'button_size' => 'Medium',
+                'show_share_count' => false,
+            ],
+            'related_articles' => [
+                'enabled' => false,
+                'section_title' => '',
+                'display_style' => 'Grid',
+                'number_of_articles' => 3,
+                'category' => '',
+                'show_view_all_link' => true,
+            ],
+            'seo_enhancements' => [
+                'enabled' => false,
+                'seo_title' => '',
+                'meta_description' => '',
+                'focus_keyword' => '',
+                'add_structured_data' => true,
+                'enable_breadcrumbs' => true,
+            ],
+            'table_of_contents' => [
+                'enabled' => false,
+                'title' => '',
+                'headings' => [],
+                'show_in_sticky_sidebar' => true,
+                'collapsible_sections' => true,
+            ],
+            'stock_alert' => [
+                'enabled' => false,
+                'alert_type' => 'Both (Back in Stock & Price Drop)',
+                'product_name' => '',
+                'product_image' => '',
+                'notify_price_drops' => true,
+                'notify_back_in_stock' => true,
+                'success_message' => '',
             ],
             'performance_analytics' => [
                 'enabled' => false,
-                'metrics_to_display' => [],
-                'time_range' => '',
+                'metrics_to_display' => ['views', 'product_clicks', 'add_to_cart', 'orders'],
+                'time_range' => 'Last 30 Days',
                 'views' => 0,
                 'product_clicks' => 0,
                 'add_to_cart' => 0,
@@ -566,7 +730,7 @@ class BlogController extends Controller
                 'description' => '',
                 'email_placeholder' => '',
                 'display_delay_seconds' => 0,
-                'show_on_mobile' => false,
+                'show_on_mobile' => true,
                 'coupon_code' => '',
             ],
         ];

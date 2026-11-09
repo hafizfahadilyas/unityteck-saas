@@ -777,9 +777,13 @@ function resolveLiveStoreId(PDO $pdo, string $key): ?string {
         'coffee' => 'store-coffee',
         'hibrew' => 'store-coffee',
         'roasters' => 'store-coffee',
+        'mieraf-ksa.com' => 'store-coffee',
+        'www.mieraf-ksa.com' => 'store-coffee',
         'car' => 'store-bleco',
         'cars' => 'store-bleco',
         'bleco' => 'store-bleco',
+        'tanjeedmakkah.com' => 'store-bleco',
+        'www.tanjeedmakkah.com' => 'store-bleco',
     ];
     $found = null;
     while ($row = $stmt->fetch()) {
@@ -1627,35 +1631,170 @@ if (preg_match('#^/stores/([^/]+)/builder-layout#', $uri, $mBL)) {
 }
 
 // ── 10. PAGES & POLICIES ──
-if (preg_match('#^/stores/([^/]+)/pages#', $uri, $mP) || $uri === '/pages') {
+if (preg_match('#^/stores/([^/]+)/pages(?:/([^/]+))?(?:/(publish))?$#', $uri, $mP) || $uri === '/pages') {
     $targetStore = !empty($mP[1]) ? $mP[1] : $storeId;
+    $pageKey = isset($mP[2]) ? rawurldecode((string) $mP[2]) : '';
+    $isPublishAction = ($method === 'POST' && !empty($mP[3]) && $mP[3] === 'publish');
 
-    if (in_array($method, ['PUT', 'POST'])) {
-        $pId = $inputData['id'] ?? ('page-' . uniqid());
+    $mapPageRow = static function (array $row): array {
+        $contentEn = (string) ($row['content_en'] ?? '');
+        $contentAr = (string) ($row['content_ar'] ?? '');
+        $category = (string) ($row['category'] ?? 'custom');
+        $isSystem = (bool) ((int) ($row['is_system_default'] ?? 0));
+        $published = (bool) ((int) ($row['is_published'] ?? 0));
+        $layout = [
+            'contentEn' => $contentEn,
+            'contentAr' => $contentAr,
+            'category' => $category,
+            'isSystemDefault' => $isSystem,
+        ];
+        return [
+            'id' => $row['id'],
+            'store_id' => $row['store_id'],
+            'slug' => $row['slug'],
+            'type' => 'custom',
+            'title_en' => $row['title_en'] ?? '',
+            'title_ar' => $row['title_ar'] ?? '',
+            'draft_layout' => $layout,
+            'published_layout' => $published ? $layout : null,
+            'seo' => [
+                'seo_description_en' => $row['meta_description_en'] ?? '',
+                'seo_description_ar' => $row['meta_description_ar'] ?? '',
+            ],
+            'header_mode' => 'global',
+            'footer_mode' => 'global',
+            'status' => $published ? 'published' : 'draft',
+            'updated_at' => $row['updated_at'] ?? null,
+            // Flat fields kept for older clients
+            'titleEn' => $row['title_en'] ?? '',
+            'titleAr' => $row['title_ar'] ?? '',
+            'content_en' => $contentEn,
+            'content_ar' => $contentAr,
+            'category' => $category,
+            'is_system_default' => $isSystem ? 1 : 0,
+            'is_published' => $published ? 1 : 0,
+            'meta_description_en' => $row['meta_description_en'] ?? '',
+            'meta_description_ar' => $row['meta_description_ar'] ?? '',
+        ];
+    };
+
+    if ($method === 'DELETE' && $pageKey !== '') {
+        $del = $pdo->prepare('DELETE FROM pages WHERE store_id = ? AND (id = ? OR slug = ?)');
+        $del->execute([$targetStore, $pageKey, $pageKey]);
+        echo json_encode(['success' => true, 'store_id' => $targetStore]);
+        exit;
+    }
+
+    if ($isPublishAction && $pageKey !== '') {
+        $pub = $pdo->prepare("UPDATE pages SET is_published = 1, updated_at = datetime('now') WHERE store_id = ? AND (id = ? OR slug = ?)");
+        $pub->execute([$targetStore, $pageKey, $pageKey]);
+        $stOne = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND (id = ? OR slug = ?) LIMIT 1');
+        $stOne->execute([$targetStore, $pageKey, $pageKey]);
+        $saved = $stOne->fetch();
+        echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $saved ? $mapPageRow($saved) : null]);
+        exit;
+    }
+
+    if (in_array($method, ['PUT', 'POST'], true)) {
+        $draft = is_array($inputData['draft_layout'] ?? null) ? $inputData['draft_layout'] : [];
+        $publishedLayout = is_array($inputData['published_layout'] ?? null) ? $inputData['published_layout'] : [];
+        $seo = is_array($inputData['seo'] ?? null) ? $inputData['seo'] : [];
+
+        $slug = (string) ($inputData['slug'] ?? $pageKey);
+        $titleEn = (string) ($inputData['titleEn'] ?? ($inputData['title_en'] ?? ''));
+        $titleAr = (string) ($inputData['titleAr'] ?? ($inputData['title_ar'] ?? ''));
+        $contentEn = (string) ($inputData['contentEn'] ?? ($inputData['content_en'] ?? ($draft['contentEn'] ?? ($publishedLayout['contentEn'] ?? ''))));
+        $contentAr = (string) ($inputData['contentAr'] ?? ($inputData['content_ar'] ?? ($draft['contentAr'] ?? ($publishedLayout['contentAr'] ?? ''))));
+        $category = (string) ($inputData['category'] ?? ($draft['category'] ?? ($publishedLayout['category'] ?? 'legal')));
+        $isSystem = isset($inputData['isSystemDefault'])
+            ? (int) (bool) $inputData['isSystemDefault']
+            : (int) (bool) ($draft['isSystemDefault'] ?? false);
+        $status = (string) ($inputData['status'] ?? '');
+        $isPublished = isset($inputData['isPublished'])
+            ? (int) (bool) $inputData['isPublished']
+            : ($status === 'published' || $status === '' ? 1 : 0);
+        if ($publishedLayout) {
+            $isPublished = 1;
+        }
+        $metaEn = (string) ($inputData['metaDescriptionEn'] ?? ($inputData['meta_description_en'] ?? ($seo['seo_description_en'] ?? '')));
+        $metaAr = (string) ($inputData['metaDescriptionAr'] ?? ($inputData['meta_description_ar'] ?? ($seo['seo_description_ar'] ?? '')));
+
+        $existing = null;
+        if ($pageKey !== '') {
+            $find = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND (id = ? OR slug = ?) LIMIT 1');
+            $find->execute([$targetStore, $pageKey, $pageKey]);
+            $existing = $find->fetch() ?: null;
+        }
+        if (!$existing && $slug !== '') {
+            $find = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND slug = ? LIMIT 1');
+            $find->execute([$targetStore, $slug]);
+            $existing = $find->fetch() ?: null;
+        }
+
+        $pId = (string) ($inputData['id'] ?? ($existing['id'] ?? ('page-' . uniqid())));
+        if ($slug === '' && $existing) {
+            $slug = (string) $existing['slug'];
+        }
+
         $ins = $pdo->prepare("
             INSERT OR REPLACE INTO pages (
                 id, store_id, slug, title_ar, title_en, content_ar, content_en, category, is_system_default, is_published, meta_description_ar, meta_description_en, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
         ");
         $ins->execute([
-            $pId, $targetStore, $inputData['slug'] ?? '',
-            $inputData['titleAr'] ?? ($inputData['title_ar'] ?? ''),
-            $inputData['titleEn'] ?? ($inputData['title_en'] ?? ''),
-            $inputData['contentAr'] ?? ($inputData['content_ar'] ?? ''),
-            $inputData['contentEn'] ?? ($inputData['content_en'] ?? ''),
-            $inputData['category'] ?? 'legal',
-            isset($inputData['isSystemDefault']) ? (int)(bool)$inputData['isSystemDefault'] : 0,
-            isset($inputData['isPublished']) ? (int)(bool)$inputData['isPublished'] : 1,
-            $inputData['metaDescriptionAr'] ?? '', $inputData['metaDescriptionEn'] ?? ''
+            $pId,
+            $targetStore,
+            $slug,
+            $titleAr,
+            $titleEn,
+            $contentAr,
+            $contentEn,
+            $category,
+            $isSystem,
+            $isPublished,
+            $metaAr,
+            $metaEn,
         ]);
-        echo json_encode(['success' => true, 'data' => $inputData]);
+
+        $stOne = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND id = ? LIMIT 1');
+        $stOne->execute([$targetStore, $pId]);
+        $saved = $stOne->fetch() ?: [
+            'id' => $pId,
+            'store_id' => $targetStore,
+            'slug' => $slug,
+            'title_en' => $titleEn,
+            'title_ar' => $titleAr,
+            'content_en' => $contentEn,
+            'content_ar' => $contentAr,
+            'category' => $category,
+            'is_system_default' => $isSystem,
+            'is_published' => $isPublished,
+            'meta_description_en' => $metaEn,
+            'meta_description_ar' => $metaAr,
+            'updated_at' => date('c'),
+        ];
+        http_response_code($existing ? 200 : 201);
+        echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $mapPageRow($saved)]);
         exit;
     }
 
-    $st = $pdo->prepare("SELECT * FROM pages WHERE store_id = ?");
+    if ($pageKey !== '') {
+        $stOne = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND (id = ? OR slug = ?) LIMIT 1');
+        $stOne->execute([$targetStore, $pageKey, $pageKey]);
+        $saved = $stOne->fetch();
+        if (!$saved) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Page not found.']);
+            exit;
+        }
+        echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $mapPageRow($saved)]);
+        exit;
+    }
+
+    $st = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? ORDER BY slug ASC');
     $st->execute([$targetStore]);
-    $rows = $st->fetchAll();
-    echo json_encode(['success' => true, 'data' => $rows]);
+    $rows = array_map($mapPageRow, $st->fetchAll());
+    echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $rows]);
     exit;
 }
 

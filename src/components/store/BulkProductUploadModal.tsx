@@ -19,9 +19,11 @@ import {
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
+import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
 import type { Product } from '../../types';
 import { isCoffeeStore } from '../../themes/settings/coffeeThemeDefaults';
 import { isFlowerStore } from '../../themes/settings/themeSettingsStore';
+import { downloadCsv } from '../../utils/exportSpreadsheet';
 
 interface BulkProductUploadModalProps {
   isOpen: boolean;
@@ -512,7 +514,7 @@ for (let i = 2; i <= 50; i++) {
   const price = 50 + i * 9;
   SAMPLE_50_GENERIC_ITEMS.push({
     name: `Premium Store Product Sample ${String(i).padStart(2, '0')}`,
-    nameAr: `منتج تجريبي للمتجر رقم${String.padStart(2, '0')}`,
+    nameAr: `منتج تجريبي للمتجر رقم${String(i).padStart(2, '0')}`,
     category: 'Store Products',
     sku: `PRD-${String(i).padStart(3, '0')}`,
     price,
@@ -638,28 +640,18 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
     ];
 
     const demoRows = demoCatalog.slice(0, 10).map((row) => [
-      `"${row.name.replace(/"/g, '""')}"`,
-      `"${row.category}"`,
-      `"${row.sku}"`,
-      row.price,
-      row.discountedPrice || '',
-      row.stock,
+      String(row.name ?? ''),
+      String(row.category ?? ''),
+      String(row.sku ?? ''),
+      String(row.price ?? ''),
+      String(row.discountedPrice || ''),
+      String(row.stock ?? ''),
       row.offersAllowed ? 'Yes' : 'No',
-      `"${row.productType}"`,
-      `"${row.description.replace(/"/g, '""')}"`,
-      `"${row.image}"`
+      String(row.productType ?? ''),
+      String(row.description ?? ''),
+      String(row.image ?? ''),
     ]);
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...demoRows.map((r) => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', copy.templateFile);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadCsv(copy.templateFile, [headers, ...demoRows]);
 
     toast(
       locale === 'ar'
@@ -685,28 +677,18 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
     ];
 
     const fullRows = demoCatalog.map((row) => [
-      `"${row.name.replace(/"/g, '""')}"`,
-      `"${row.category}"`,
-      `"${row.sku}"`,
-      row.price,
-      row.discountedPrice || '',
-      row.stock,
+      String(row.name ?? ''),
+      String(row.category ?? ''),
+      String(row.sku ?? ''),
+      String(row.price ?? ''),
+      String(row.discountedPrice || ''),
+      String(row.stock ?? ''),
       row.offersAllowed ? 'Yes' : 'No',
-      `"${row.productType}"`,
-      `"${row.description.replace(/"/g, '""')}"`,
-      `"${row.image}"`
+      String(row.productType ?? ''),
+      String(row.description ?? ''),
+      String(row.image ?? ''),
     ]);
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...fullRows.map((r) => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${copy.filePrefix}_ready.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadCsv(`${copy.filePrefix}_ready.csv`, [headers, ...fullRows]);
 
     toast(copy.downloadToast, 'success');
   };
@@ -868,34 +850,25 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
     const rows = currentProducts.map((p) => {
       const offersAllowed = !p.tags?.includes('no_offers');
       return [
-        `"${p.name.replace(/"/g, '""')}"`,
-        `"${p.category || 'General'}"`,
-        `"${p.sku}"`,
-        p.price,
-        p.discountedPrice || '',
-        p.stock,
-        `"${p.status}"`,
+        String(p.name ?? ''),
+        String(p.category || 'General'),
+        String(p.sku ?? ''),
+        String(p.price ?? ''),
+        String(p.discountedPrice || ''),
+        String(p.stock ?? ''),
+        String(p.status ?? ''),
         offersAllowed ? 'Yes' : 'No',
-        `"${p.productType || 'Physical'}"`,
-        `"${(p.description || '').replace(/"/g, '""')}"`,
-        `"${p.image || ''}"`
+        String(p.productType || 'Physical'),
+        String(p.description || ''),
+        String(p.image || ''),
       ];
     });
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${storeName.replace(/\s+/g, '_')}_products_export_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadCsv(`${storeName.replace(/\s+/g, '_')}_products_export_${Date.now()}.csv`, [headers, ...rows]);
 
     toast(
       locale === 'ar'
-        ? `تم تصدير${currentProducts.length}منتج بنجاح إلى ملف جداول البيانات`
+        ? `تم تصدير ${currentProducts.length} منتج بنجاح إلى ملف جداول البيانات`
         : `Exported ${currentProducts.length} products to CSV file!`,
       'success'
     );
@@ -945,30 +918,26 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex items-center gap-2 px-6 pt-3 border-b bg-slate-50/30 dark:bg-slate-900/30 text-xs font-bold">
-          <button
-            onClick={() => setActiveTab('import')}
-            className={`pb-3 px-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'import'
-                ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <UploadCloud className="w-4 h-4" />
-            <span>{locale === 'ar' ? 'استيراد منتجات' : 'Import Products'}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('export')}
-            className={`pb-3 px-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'export'
-                ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <Download className="w-4 h-4" />
-            <span>{locale === 'ar' ? 'تصدير الكتالوج إلى ملف مفصول بفواصل' : 'Export Catalog to CSV'}</span>
-          </button>
+        {/* Tab Switcher — modern segmented toggles */}
+        <div className="px-6 pt-3 pb-1">
+          <ModernSegmentedTabs
+            accent="emerald"
+            aria-label={locale === 'ar' ? 'استيراد وتصدير المنتجات' : 'Import and export products'}
+            value={activeTab}
+            onChange={setActiveTab}
+            items={[
+              {
+                id: 'import',
+                label: locale === 'ar' ? 'استيراد منتجات' : 'Import Products',
+                icon: UploadCloud,
+              },
+              {
+                id: 'export',
+                label: locale === 'ar' ? 'تصدير الكتالوج إلى ملف مفصول بفواصل' : 'Export Catalog to CSV',
+                icon: Download,
+              },
+            ]}
+          />
         </div>
 
         {/* Modal Body */}

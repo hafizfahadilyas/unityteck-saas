@@ -3,6 +3,7 @@ import { LogOut, Package, User } from 'lucide-react';
 import type { Order } from '../../types';
 import type { SfCustomerSession } from './sfCustomerSession';
 import { CustomerLoyaltyProfileSection } from '../../components/storefront/CustomerLoyaltyProfileSection';
+import { LoyaltyGiftPointsPopup } from '../../components/storefront/LoyaltyGiftPointsPopup';
 
 
 type Props = {
@@ -85,14 +86,15 @@ export const CustomerProfile: React.FC<Props> = ({
         </p>
       </div>
 
-      {/* Gamified Loyalty Card & Coins Section */}
+      {/* Gamified Loyalty Card & Coins Section — this store only */}
       <CustomerLoyaltyProfileSection
-        storeId="store-1"
-        customerId={session.phone || session.email || 'customer'}
+        storeId={session.storeId}
+        customerId={session.customerId}
         customerName={session.name}
         customerEmail={session.email}
         customerPhone={session.phone}
       />
+      <LoyaltyGiftPointsPopup storeId={session.storeId} customerId={session.customerId} />
 
       <div>
         <h3 className="text-sm font-bold mb-3 flex items-center gap-1.5">

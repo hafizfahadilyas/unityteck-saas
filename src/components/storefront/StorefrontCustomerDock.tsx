@@ -257,7 +257,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <h3 className="font-black text-base">
-                  {isAr ? `ملف ومكافآت العميل —${activeStore.name}` : `Customer Rewards, Cards & Tracking — ${activeStore.name}`}
+                  {isAr ? 'ملف ومكافآت العميل' : 'Customer Rewards, Cards & Tracking'}
                 </h3>
                 <p className="text-xs text-slate-500">
                   {profile.name} · {profile.city}, KSA · {profile.loyaltyCardNumber}

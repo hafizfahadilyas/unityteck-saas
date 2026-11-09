@@ -29,6 +29,9 @@ import {
 } from 'lucide-react';
 
 import { useTenant } from '../../../context/TenantContext';
+import { CustomerLoyaltyProfileSection } from '../../../components/storefront/CustomerLoyaltyProfileSection';
+import { fetchStorefrontLoyaltyBalanceApi } from '../../../api/tenantApi';
+import { readSfCustomer } from '../../flowersPremium/sfCustomerSession';
 
 type ClerkCustomerBridge = {
   isLoaded: boolean;
@@ -65,6 +68,8 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
   const [otpCode, setOtpCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authErrorCode, setAuthErrorCode] = useState('');
+  const [loyaltyPoints, setLoyaltyPoints] = useState(user.points || 0);
+  const sfCustomer = activeStore?.id ? readSfCustomer(activeStore.id) : null;
 
   const storeDisplayName = activeStore?.name || (language === 'AR' ? 'متجر القهوة المختصة' : 'Specialty Coffee Roasters');
   const isAr = language === 'AR';
@@ -72,6 +77,31 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
   useEffect(() => {
     preloadCustomerGoogleScript();
   }, []);
+
+  useEffect(() => {
+    if (!activeStore?.id || !sfCustomer?.customerId || !user.isLoggedIn) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await fetchStorefrontLoyaltyBalanceApi(activeStore.id, sfCustomer.customerId);
+        if (cancelled) return;
+        setLoyaltyPoints(Number(data.loyalty_points || 0));
+      } catch {
+        /* keep existing points — never invent */
+      }
+    })();
+    const onBalance = (e: Event) => {
+      const d = (e as CustomEvent<{ storeId?: string; points?: number }>).detail;
+      if (d?.storeId === activeStore.id && typeof d.points === 'number') {
+        setLoyaltyPoints(d.points);
+      }
+    };
+    window.addEventListener('unityteck-loyalty-balance', onBalance);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('unityteck-loyalty-balance', onBalance);
+    };
+  }, [activeStore?.id, sfCustomer?.customerId, user.isLoggedIn]);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -452,7 +482,7 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
                 </span>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-[11px]">
                   <Award className="w-3 h-3 text-amber-600" />
-                  <span>{user.points} {language === 'AR' ? 'نقطة مكافآت' : 'Points'}</span>
+                  <span>{loyaltyPoints} {language === 'AR' ? 'نقطة مكافآت' : 'Points'}</span>
                 </span>
               </div>
             </div>
@@ -475,6 +505,16 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
             </button>
           </div>
         </div>
+
+        {activeStore?.id && sfCustomer?.customerId ? (
+          <CustomerLoyaltyProfileSection
+            storeId={activeStore.id}
+            customerId={sfCustomer.customerId}
+            customerName={user.name || sfCustomer.name}
+            customerEmail={user.email || sfCustomer.email}
+            customerPhone={user.phone || sfCustomer.phone}
+          />
+        ) : null}
 
         {/* Order History */}
         <div className="space-y-4">

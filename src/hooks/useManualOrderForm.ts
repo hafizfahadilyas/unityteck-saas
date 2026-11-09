@@ -54,7 +54,7 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('shipping_company');
   const [driverId, setDriverId] = useState<string>('');
   const [shippingFee, setShippingFee] = useState<number>(initialShippingFee);
-  const [shippingAddress, setShippingAddress] = useState<string>('Makkah, Saudi Arabia');
+  const [shippingAddress, setShippingAddress] = useState<string>('');
   const [shippingCompany, setShippingCompany] = useState<string>('');
 
   // Additional Meta
@@ -120,17 +120,20 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
 
   const updateQuantity = useCallback((id: string, deltaOrExact: number, isExact = false) => {
     setItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item;
+      prev.flatMap((item) => {
+        if (item.id !== id) return [item];
         const newQty = isExact
-          ? Math.max(1, deltaOrExact)
-          : Math.max(1, item.quantity + deltaOrExact);
-        return {
-          ...item,
-          quantity: newQty,
-          total: Number((item.price * newQty).toFixed(2)),
-        };
-      })
+          ? Math.max(0, deltaOrExact)
+          : item.quantity + deltaOrExact;
+        if (newQty <= 0) return [];
+        return [
+          {
+            ...item,
+            quantity: newQty,
+            total: Number((item.price * newQty).toFixed(2)),
+          },
+        ];
+      }),
     );
   }, []);
 

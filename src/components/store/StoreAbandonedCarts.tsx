@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
@@ -24,7 +24,6 @@ import {
   Edit2,
   X,
   Sparkles,
-  Bot,
   ExternalLink,
   ChevronLeft,
   ChevronRight,
@@ -53,6 +52,13 @@ import {
 import { formatRelativeTime } from '../../notification-system/utils/dateFilters';
 import { parseOrderDate, periodCountGrowth } from '../../utils/liveSeries';
 import { WhatsAppBrandIcon } from '../common/BrandIcons';
+import { downloadCsv } from '../../utils/exportSpreadsheet';
+import {
+  readAbandonedCartSequence,
+  writeAbandonedCartSequence,
+  type AbandonedCartSequenceConfig,
+} from '../../utils/abandonedCartSequenceConfig';
+import * as tenantApi from '../../api/tenantApi';
 
 interface StoreAbandonedCartsProps {
   onNavigateTab?: (tab: string) => void;
@@ -64,12 +70,10 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
   const isAr = locale === 'ar';
   const { toast } = useToast();
 
-  const editSectionRef = useRef<HTMLDivElement>(null);
-
-  // Selected reminder to edit (first, second, third, or null)
-  const [editingReminder, setEditingReminder] = useState<'first' | 'second' | 'third' | null>('first');
+  // Selected reminder to edit (first, second, third, or null) — opens popup modal
+  const [editingReminder, setEditingReminder] = useState<'first' | 'second' | 'third' | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<'whatsapp' | 'sms' | 'email'>('whatsapp');
-  const [activeLang, setActiveLang] = useState<'EN' | 'AR'>('EN');
+  const [activeLang, setActiveLang] = useState<'EN' | 'AR'>(isAr ? 'AR' : 'EN');
 
   // Preview cart details modal
   const [viewingCart, setViewingCart] = useState<any | null>(null);
@@ -78,48 +82,48 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
   const [showServicesModal, setShowServicesModal] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
 
-  // Reminder templates state matching reference
-  const [reminders, setReminders] = useState({
-    first: {
-      enabled: true,
-      time: '1',
-      unit: 'Hour',
-      channel: 'whatsapp' as 'whatsapp' | 'sms' | 'email',
-      title: 'Gentle Reminder',
-      message:
-        'Hi {name} 👋\n\nWe noticed you left some products in your cart and haven\'t completed your order yet.\n\nDo you need any help?\nYou can complete your order using the link below:\n{checkout_link}\n\nWe\'re here to help anytime! 💙',
-      minCartValue: '50.00',
-      targetMarket: 'All Markets',
-      freeShipping: false,
-      discount: false,
-    },
-    second: {
-      enabled: true,
-      time: '24',
-      unit: 'Hours',
-      channel: 'sms' as 'whatsapp' | 'sms' | 'email',
-      title: 'Special Offer',
-      message:
-        'Hello {name}, your cart is waiting! Use code SAVE10 to get 10% off your order: {checkout_link}',
-      minCartValue: '100.00',
-      targetMarket: 'All Markets',
-      freeShipping: true,
-      discount: true,
-    },
-    third: {
-      enabled: true,
-      time: '3',
-      unit: 'Days',
-      channel: 'email' as 'whatsapp' | 'sms' | 'email',
-      title: 'Last Chance',
-      message:
-        'Dear {name}, this is your last chance to complete your order at {store_name} before items sell out: {checkout_link}',
-      minCartValue: '50.00',
-      targetMarket: 'All Markets',
-      freeShipping: true,
-      discount: true,
-    },
-  });
+  // Reminder templates — persisted per store_id
+  const [reminders, setReminders] = useState<AbandonedCartSequenceConfig>(() =>
+    readAbandonedCartSequence(activeStore.id),
+  );
+
+  React.useEffect(() => {
+    setReminders(readAbandonedCartSequence(activeStore.id));
+    setActiveLang(isAr ? 'AR' : 'EN');
+    let cancelled = false;
+    tenantApi
+      .fetchStoreSettingsApi(activeStore.id)
+      .then((settings) => {
+        if (cancelled) return;
+        const remote = settings?.abandoned_cart_sequence;
+        if (remote && typeof remote === 'object') {
+          const merged = {
+            ...readAbandonedCartSequence(activeStore.id),
+            ...(remote as Partial<AbandonedCartSequenceConfig>),
+          } as AbandonedCartSequenceConfig;
+          writeAbandonedCartSequence(activeStore.id, merged);
+          setReminders(merged);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore.id, isAr]);
+
+  const persistReminders = async (next: AbandonedCartSequenceConfig) => {
+    setReminders(next);
+    writeAbandonedCartSequence(activeStore.id, next);
+    try {
+      const current = await tenantApi.fetchStoreSettingsApi(activeStore.id);
+      await tenantApi.updateStoreSettingsApi(activeStore.id, {
+        ...current,
+        abandoned_cart_sequence: next,
+      });
+    } catch {
+      /* local memory kept */
+    }
+  };
 
   // Automation Settings State
   const [automationSettings, setAutomationSettings] = useState({
@@ -177,6 +181,69 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
     return list;
   }, [currentOrders, storeCustomers, isAr, locale]);
 
+  const currentTemplate = editingReminder ? reminders[editingReminder] : null;
+
+  const activeTemplateMessage =
+    currentTemplate &&
+    (activeLang === 'AR'
+      ? currentTemplate.messageAr || currentTemplate.message
+      : currentTemplate.message || currentTemplate.messageAr || '');
+
+  const activeTemplateTitle =
+    currentTemplate &&
+    (activeLang === 'AR'
+      ? currentTemplate.titleAr || currentTemplate.title
+      : currentTemplate.title || currentTemplate.titleAr || '');
+
+  // Live formatted text for channel preview (uses this store’s first abandoned cart when available)
+  const livePreviewText = useMemo(() => {
+    if (!currentTemplate || !activeTemplateMessage) return '';
+    const sample = abandonedCarts[0];
+    const checkoutPath = activeStore.slug ? `/${activeStore.slug}/checkout` : '/checkout';
+    const storeLabel = isAr
+      ? activeStore.nameAr || activeStore.name || 'متجرك'
+      : activeStore.name || activeStore.nameAr || 'Your Store';
+    return activeTemplateMessage
+      .replace(/\{name\}/g, sample?.customerName || (isAr ? '«اسم العميل»' : '«customer name»'))
+      .replace(/\{cart_value\}/g, sample ? money(sample.cartValue) : isAr ? '«قيمة السلة»' : '«cart value»')
+      .replace(/\{checkout_link\}/g, checkoutPath)
+      .replace(/\{store_name\}/g, storeLabel)
+      .replace(/\{discount_code\}/g, isAr ? '«كود الخصم»' : '«discount code»')
+      .replace(
+        /\{products\}/g,
+        sample
+          ? isAr
+            ? `${sample.itemsCount} منتجات`
+            : `${sample.itemsCount} products`
+          : isAr
+            ? '٠ منتجات'
+            : '0 products',
+      )
+      .replace(
+        /\{product_list\}/g,
+        sample?.items?.length
+          ? sample.items
+              .map(
+                (it: any) =>
+                  (isAr ? it.nameAr || it.name || it.nameEn : it.name || it.nameEn || it.nameAr) || '',
+              )
+              .filter(Boolean)
+              .join(isAr ? '، ' : ', ')
+          : isAr
+            ? 'لا توجد منتجات'
+            : 'No products',
+      );
+  }, [
+    currentTemplate,
+    activeTemplateMessage,
+    activeStore.name,
+    activeStore.nameAr,
+    activeStore.slug,
+    isAr,
+    abandonedCarts,
+    money,
+  ]);
+
   // Filtered abandoned carts
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -210,34 +277,27 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
     return filtered.slice(start, start + pageSize);
   }, [filtered, page, pageSize]);
 
-  // Export CSV
+  // Export CSV — real cart rows; Excel-safe BOM + sep=,
   const handleExportCsv = () => {
     if (filtered.length === 0) {
       toast(isAr ? 'لا توجد بيانات سلات للتصدير' : 'No carts to export', 'info');
       return;
     }
-    const header = ['ID', 'Customer', 'Email', 'Phone', 'Cart Value', 'Source', 'Date', 'Status'];
+    const header = isAr
+      ? ['المعرف', 'العميل', 'البريد الإلكتروني', 'الهاتف', 'قيمة السلة', 'المصدر', 'التاريخ', 'الحالة']
+      : ['ID', 'Customer', 'Email', 'Phone', 'Cart Value', 'Source', 'Date', 'Status'];
     const rows = filtered.map((c) => [
-      c.id,
-      c.customerName,
-      c.customerEmail,
-      c.customerPhone,
-      c.cartValue,
-      c.source,
-      c.abandonedAt,
-      c.status,
+      String(c.id ?? ''),
+      String(c.customerName ?? ''),
+      String(c.customerEmail ?? ''),
+      String(c.customerPhone ?? ''),
+      String(c.cartValue ?? ''),
+      String(c.source ?? ''),
+      String(c.abandonedAt ?? ''),
+      String(c.status ?? ''),
     ]);
-    const csv = [header, ...rows]
-      .map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `abandoned-carts-${activeStore.id}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast(isAr ? `تم تصدير${filtered.length}سلة بنجاح` : `Exported ${filtered.length} carts`, 'success');
+    downloadCsv(`abandoned-carts-${activeStore.id}.csv`, [header, ...rows]);
+    toast(isAr ? `تم تصدير ${filtered.length} سلة بنجاح` : `Exported ${filtered.length} carts`, 'success');
   };
 
   const handleSendManualReminder = (cartId: string, name: string) => {
@@ -249,43 +309,61 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
     );
   };
 
-  const scrollToEditor = (key: 'first' | 'second' | 'third') => {
+  const openReminderEditor = (key: 'first' | 'second' | 'third') => {
     setEditingReminder(key);
     setSelectedChannel(reminders[key].channel);
-    setTimeout(() => {
-      editSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 50);
-  };
-
-  const currentTemplate = editingReminder ? reminders[editingReminder] : null;
-
-  const insertVariableIntoMessage = (variable: string) => {
-    if (!editingReminder) return;
-    setReminders({
-      ...reminders,
-      [editingReminder]: {
-        ...reminders[editingReminder],
-        message: (reminders[editingReminder].message ? reminders[editingReminder].message + ' ' : '') + variable,
-      },
-    });
     setVariableDropdownOpen(false);
   };
 
-  // Live formatted text for phone preview
-  const livePreviewText = useMemo(() => {
-    if (!currentTemplate) return '';
-    return currentTemplate.message
-      .replace(/\{name\}/g, 'Fahad')
-      .replace(/\{cart_value\}/g, 'SAR 420')
-      .replace(/\{checkout_link\}/g, 'https://souq.sa/checkout/c94')
-      .replace(/\{store_name\}/g, activeStore.name || 'HiBrew KSA')
-      .replace(/\{discount_code\}/g, 'SAVE10')
-      .replace(/\{products\}/g, '2 products')
-      .replace(/\{product_list\}/g, 'Coffee Machine, Filter Paper');
-  }, [currentTemplate, activeStore.name]);
+  const channelLabel = (ch: 'whatsapp' | 'sms' | 'email') =>
+    ch === 'whatsapp'
+      ? isAr
+        ? 'واتساب'
+        : 'WhatsApp'
+      : ch === 'sms'
+        ? isAr
+          ? 'رسائل قصيرة'
+          : 'SMS'
+        : isAr
+          ? 'البريد الإلكتروني'
+          : 'Email';
+
+  const selectPreviewChannel = (ch: 'whatsapp' | 'sms' | 'email') => {
+    setSelectedChannel(ch);
+    if (!editingReminder) return;
+    setReminders((prev) => ({
+      ...prev,
+      [editingReminder]: { ...prev[editingReminder], channel: ch },
+    }));
+  };
+
+  const insertVariableIntoMessage = (variable: string) => {
+    if (!editingReminder) return;
+    const step = reminders[editingReminder];
+    if (activeLang === 'AR') {
+      const prev = step.messageAr || step.message || '';
+      setReminders({
+        ...reminders,
+        [editingReminder]: {
+          ...step,
+          messageAr: `${prev}${prev ? ' ' : ''}${variable}`,
+        },
+      });
+    } else {
+      const prev = step.message || '';
+      setReminders({
+        ...reminders,
+        [editingReminder]: {
+          ...step,
+          message: `${prev}${prev ? ' ' : ''}${variable}`,
+        },
+      });
+    }
+    setVariableDropdownOpen(false);
+  };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
       {/* 1. Page Header matching Reference Screenshot */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -303,7 +381,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
           <button
             type="button"
-            onClick={() => scrollToEditor('first')}
+            onClick={() => openReminderEditor('first')}
             className="px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Settings className="w-4 h-4 text-slate-500" />
@@ -728,178 +806,21 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
         </div>
       </div>
 
-      {/* 4. Reminder Management Section matching Reference Screenshot */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800/80 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0">
-              <Bot className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                {isAr ? 'إدارة رسائل التذكير' : 'Reminder Management'}
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {isAr
-                  ? 'إنشاء وإدارة رسائل التذكير المؤتمتة للسلات المتروكة'
-                  : 'Create and manage automated reminders for abandoned carts'}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              scrollToEditor('first');
-              toast(isAr ? 'تم فتح محرر قوالب التذكير' : 'Opened reminder editor', 'info');
+      {/* Edit Reminder popup modal — opened from Reminder Sequence */}
+      {editingReminder && currentTemplate && (
+          <GlobalModal
+            isOpen
+            onClose={() => {
+              setEditingReminder(null);
+              setVariableDropdownOpen(false);
             }}
-            className="px-3.5 py-1.5 border border-teal-500 text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/40 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all self-start sm:self-auto cursor-pointer"
+            dir={isAr ? 'rtl' : 'ltr'}
+            aria-label={isAr ? 'تعديل التذكير' : 'Edit Reminder'}
+            contentClassName="max-w-6xl"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>{isAr ? 'إنشاء تذكير جديد' : 'Create New Reminder'}</span>
-          </button>
-        </div>
-
-        {/* 3 Step Cards matching screenshot */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* First Reminder Card */}
-          <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-slate-400" />
-                <span className="font-bold text-xs text-slate-900 dark:text-white">
-                  {isAr ? 'التذكير الأول' : 'First Reminder'}
-                </span>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={reminders.first.enabled}
-                  onChange={(e) =>
-                    setReminders({
-                      ...reminders,
-                      first: { ...reminders.first, enabled: e.target.checked },
-                    })
-                  }
-                  className="sr-only peer"
-                />
-                <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-slate-600 peer-checked:bg-[#0EA5A4]"></div>
-              </label>
-            </div>
-            <div className="text-[11px] text-slate-500">
-              {isAr ? 'بعد ساعة واحدة' : 'After 1 hour'}
-            </div>
-            <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700/60">
-              <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-semibold">
-                <span className="text-slate-400 text-[11px]">{isAr ? 'القناة:' : 'Channel:'}</span>
-                <WhatsAppBrandIcon className="w-3.5 h-3.5 text-[#25D366]" title="WhatsApp" />
-                <span>WhatsApp</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => scrollToEditor('first')}
-                className="px-2.5 py-1 text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 rounded-lg hover:bg-teal-100 transition-colors cursor-pointer"
-              >
-                {isAr ? 'تعديل' : 'Edit'}
-              </button>
-            </div>
-          </div>
-
-          {/* Second Reminder Card */}
-          <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-slate-400" />
-                <span className="font-bold text-xs text-slate-900 dark:text-white">
-                  {isAr ? 'التذكير الثاني' : 'Second Reminder'}
-                </span>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={reminders.second.enabled}
-                  onChange={(e) =>
-                    setReminders({
-                      ...reminders,
-                      second: { ...reminders.second, enabled: e.target.checked },
-                    })
-                  }
-                  className="sr-only peer"
-                />
-                <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-slate-600 peer-checked:bg-[#0EA5A4]"></div>
-              </label>
-            </div>
-            <div className="text-[11px] text-slate-500">
-              {isAr ? 'بعد 24 ساعة' : 'After 24 hours'}
-            </div>
-            <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700/60">
-              <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-semibold">
-                <span className="text-slate-400 text-[11px]">{isAr ? 'القناة:' : 'Channel:'}</span>
-                <Smartphone className="w-3.5 h-3.5 text-blue-500" />
-                <span>SMS</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => scrollToEditor('second')}
-                className="px-2.5 py-1 text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 rounded-lg hover:bg-teal-100 transition-colors cursor-pointer"
-              >
-                {isAr ? 'تعديل' : 'Edit'}
-              </button>
-            </div>
-          </div>
-
-          {/* Third Reminder Card */}
-          <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-slate-400" />
-                <span className="font-bold text-xs text-slate-900 dark:text-white">
-                  {isAr ? 'التذكير الثالث' : 'Third Reminder'}
-                </span>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={reminders.third.enabled}
-                  onChange={(e) =>
-                    setReminders({
-                      ...reminders,
-                      third: { ...reminders.third, enabled: e.target.checked },
-                    })
-                  }
-                  className="sr-only peer"
-                />
-                <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-slate-600 peer-checked:bg-[#0EA5A4]"></div>
-              </label>
-            </div>
-            <div className="text-[11px] text-slate-500">
-              {isAr ? 'بعد 3 أيام' : 'After 3 days'}
-            </div>
-            <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700/60">
-              <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-semibold">
-                <span className="text-slate-400 text-[11px]">{isAr ? 'القناة:' : 'Channel:'}</span>
-                <Mail className="w-3.5 h-3.5 text-purple-500" />
-                <span>Email</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => scrollToEditor('third')}
-                className="px-2.5 py-1 text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 rounded-lg hover:bg-teal-100 transition-colors cursor-pointer"
-              >
-                {isAr ? 'تعديل' : 'Edit'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* 5. Inline Edit Reminder Section matching Reference Screenshot Exactly */}
-        {editingReminder && currentTemplate && (
-          <div
-            ref={editSectionRef}
-            className="rounded-2xl border border-teal-200 dark:border-teal-800/80 overflow-hidden bg-white dark:bg-slate-900 shadow-sm animate-in fade-in duration-200"
-          >
+          <div className="w-full rounded-2xl border border-teal-200 dark:border-teal-800/80 overflow-hidden bg-white dark:bg-slate-900 shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[min(92dvh,900px)] overflow-y-auto">
             {/* Light Teal Header Banner matching reference */}
-            <div className="bg-[#d1f4f0] dark:bg-teal-950/80 border-b border-teal-200 dark:border-teal-800/80 px-5 py-3.5 flex items-center justify-between">
+            <div className="sticky top-0 z-10 bg-[#d1f4f0] dark:bg-teal-950/80 border-b border-teal-200 dark:border-teal-800/80 px-5 py-3.5 flex items-center justify-between">
               <div className="flex items-center gap-2.5 text-teal-900 dark:text-teal-200 font-bold text-sm">
                 <Edit2 className="w-4 h-4 text-teal-700 dark:text-teal-300" />
                 <span>{isAr ? 'تعديل التذكير' : 'Edit Reminder'}</span>
@@ -913,7 +834,10 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
               </div>
               <button
                 type="button"
-                onClick={() => setEditingReminder(null)}
+                onClick={() => {
+                  setEditingReminder(null);
+                  setVariableDropdownOpen(false);
+                }}
                 className="p-1 rounded-lg text-teal-800 dark:text-teal-300 hover:bg-teal-200/60 dark:hover:bg-teal-900/60 transition-colors cursor-pointer"
                 title={isAr ? 'إغلاق' : 'Close'}
               >
@@ -922,52 +846,51 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
             </div>
 
             <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              {/* Smartphone Live Preview Column (4 cols) */}
+              {/* Device Live Preview Column (4 cols) */}
               <div className="lg:col-span-4 flex flex-col items-center">
                 <span className="block text-xs font-bold text-slate-800 dark:text-slate-200 self-start mb-2.5">
                   {isAr ? 'معاينة الرسالة' : 'Message Preview'}
                 </span>
 
                 {/* Channel Switch Tabs */}
-                <div className="flex items-center gap-1.5 mb-4 self-start">
+                <div className="flex items-center gap-1.5 mb-4 self-start flex-wrap">
                   <button
                     type="button"
-                    onClick={() => setSelectedChannel('whatsapp')}
+                    onClick={() => selectPreviewChannel('whatsapp')}
                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       selectedChannel === 'whatsapp'
                         ? 'bg-emerald-500 text-white shadow-2xs'
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
                     }`}
                   >
-                    WhatsApp
+                    {channelLabel('whatsapp')}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSelectedChannel('sms')}
+                    onClick={() => selectPreviewChannel('sms')}
                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       selectedChannel === 'sms'
                         ? 'bg-blue-500 text-white shadow-2xs'
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
                     }`}
                   >
-                    SMS
+                    {channelLabel('sms')}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSelectedChannel('email')}
+                    onClick={() => selectPreviewChannel('email')}
                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       selectedChannel === 'email'
                         ? 'bg-purple-500 text-white shadow-2xs'
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
                     }`}
                   >
-                    Email
+                    {channelLabel('email')}
                   </button>
                 </div>
 
-                {/* Realistic iPhone Style Mockup matching Reference */}
+                {/* Device mockup — screen changes by selected channel */}
                 <div className="w-[280px] h-[500px] bg-slate-950 rounded-[44px] p-3 shadow-xl border-4 border-slate-800 relative flex flex-col">
-                  {/* Top Notch & Status Bar */}
                   <div className="relative pt-1 pb-2 px-3 flex items-center justify-between text-[10px] text-white font-medium select-none">
                     <span>10:24</span>
                     <div className="w-24 h-4 bg-slate-900 rounded-b-xl mx-auto -mt-1" />
@@ -979,41 +902,115 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
                     </div>
                   </div>
 
-                  {/* Smartphone Screen Content */}
-                  <div className="flex-1 bg-[#efeae2] dark:bg-[#0b141a] rounded-[30px] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100 border border-black/10">
-                    {/* WhatsApp Top Header */}
-                    <div className="bg-[#075e54] dark:bg-[#1f2c34] text-white px-3 py-2 flex items-center justify-between shadow-xs">
-                      <div className="flex items-center gap-2">
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                        <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold">
-                          {activeStore.name?.charAt(0) || 'M'}
-                        </div>
-                        <div className="leading-tight">
-                          <div className="text-[11px] font-bold truncate max-w-[120px]">
-                            {activeStore.name || 'My Store'}
+                  {selectedChannel === 'whatsapp' && (
+                    <div className="flex-1 bg-[#efeae2] dark:bg-[#0b141a] rounded-[30px] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100 border border-black/10">
+                      <div className="bg-[#075e54] dark:bg-[#1f2c34] text-white px-3 py-2 flex items-center justify-between shadow-xs">
+                        <div className="flex items-center gap-2">
+                          <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+                          <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold">
+                            {activeStore.name?.charAt(0) || (isAr ? 'م' : 'S')}
                           </div>
-                          <div className="text-[9px] text-emerald-200">Online</div>
+                          <div className="leading-tight">
+                            <div className="text-[11px] font-bold truncate max-w-[120px]">
+                              {activeStore.name || (isAr ? 'متجرك' : 'Your Store')}
+                            </div>
+                            <div className="text-[9px] text-emerald-200">
+                              {isAr ? 'متصل' : 'Online'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-white/80">
+                          <Phone className="w-3 h-3" />
+                          <MoreVertical className="w-3 h-3" />
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 text-white/80">
-                        <Phone className="w-3 h-3" />
-                        <MoreVertical className="w-3 h-3" />
+                      <div className="flex-1 p-3 overflow-y-auto space-y-2">
+                        <div className="bg-white dark:bg-[#1f2c34] p-3 rounded-2xl rounded-tl-xs shadow-xs text-xs leading-relaxed text-slate-800 dark:text-slate-100">
+                          <p className="whitespace-pre-wrap text-[11px]">{livePreviewText}</p>
+                          <div className="text-[9px] text-slate-400 text-end flex items-center justify-end gap-1 mt-1">
+                            <span>10:24</span>
+                            <span className="text-teal-600 dark:text-teal-400 font-bold">✓✓</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
+                  )}
 
-                    {/* Chat Bubble Area */}
-                    <div className="flex-1 p-3 overflow-y-auto space-y-2">
-                      <div className="bg-white dark:bg-[#1f2c34] p-3 rounded-2xl rounded-tl-xs shadow-xs text-xs space-y-2 leading-relaxed text-slate-800 dark:text-slate-100">
-                        <p className="whitespace-pre-wrap text-[11px]">
+                  {selectedChannel === 'sms' && (
+                    <div className="flex-1 bg-[#f2f2f7] rounded-[30px] overflow-hidden flex flex-col text-slate-900 border border-black/10">
+                      <div className="bg-white/90 border-b border-slate-200 px-3 py-2.5 flex items-center justify-between">
+                        <ChevronLeft className="w-4 h-4 text-blue-500 rtl:rotate-180" />
+                        <div className="text-center leading-tight">
+                          <div className="text-[11px] font-bold text-slate-900 truncate max-w-[140px]">
+                            {activeStore.name || (isAr ? 'متجرك' : 'Your Store')}
+                          </div>
+                          <div className="text-[9px] text-slate-400">
+                            {isAr ? 'رسالة نصية' : 'Text Message'}
+                          </div>
+                        </div>
+                        <MoreVertical className="w-3.5 h-3.5 text-blue-500" />
+                      </div>
+                      <div className="flex-1 p-3 overflow-y-auto">
+                        <div className="max-w-[92%] ms-auto bg-[#0A84FF] text-white p-3 rounded-2xl rounded-br-sm text-[11px] leading-relaxed whitespace-pre-wrap shadow-xs">
                           {livePreviewText}
-                        </p>
-                        <div className="text-[9px] text-slate-400 text-end flex items-center justify-end gap-1">
-                          <span>10:24 AM</span>
-                          <span className="text-teal-600 dark:text-teal-400 font-bold">✓✓</span>
+                        </div>
+                        <div className="text-[9px] text-slate-400 text-end mt-1.5 px-1">10:24</div>
+                      </div>
+                      <div className="px-3 py-2 border-t border-slate-200 bg-white flex items-center gap-2">
+                        <div className="flex-1 h-7 rounded-full bg-slate-100 border border-slate-200 px-3 text-[10px] text-slate-400 flex items-center">
+                          {isAr ? 'رسالة نصية' : 'Text Message'}
+                        </div>
+                        <div className="w-7 h-7 rounded-full bg-[#0A84FF] flex items-center justify-center">
+                          <Send className="w-3 h-3 text-white" />
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
+
+                  {selectedChannel === 'email' && (
+                    <div className="flex-1 bg-white rounded-[30px] overflow-hidden flex flex-col text-slate-900 border border-black/10">
+                      <div className="bg-purple-600 text-white px-3 py-2.5 flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 shrink-0" />
+                        <div className="leading-tight min-w-0">
+                          <div className="text-[11px] font-bold truncate">
+                            {currentTemplate.title || (isAr ? 'تذكير السلة' : 'Cart Reminder')}
+                          </div>
+                          <div className="text-[9px] text-purple-100 truncate">
+                            {activeStore.name || (isAr ? 'متجرك' : 'Your Store')}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="px-3 py-2 border-b border-slate-100 space-y-1 text-[10px]">
+                        <div className="flex gap-1">
+                          <span className="text-slate-400 shrink-0">{isAr ? 'من:' : 'From:'}</span>
+                          <span className="font-semibold text-slate-700 truncate">
+                            {activeStore.name || (isAr ? 'متجرك' : 'Your Store')}
+                          </span>
+                        </div>
+                        <div className="flex gap-1">
+                          <span className="text-slate-400 shrink-0">{isAr ? 'إلى:' : 'To:'}</span>
+                          <span className="text-slate-600 truncate">
+                            {abandonedCarts[0]?.customerEmail && abandonedCarts[0].customerEmail !== '—'
+                              ? abandonedCarts[0].customerEmail
+                              : isAr
+                                ? 'لا يوجد بريد'
+                                : 'No email yet'}
+                          </span>
+                        </div>
+                        <div className="flex gap-1">
+                          <span className="text-slate-400 shrink-0">{isAr ? 'الموضوع:' : 'Subject:'}</span>
+                          <span className="font-semibold text-slate-800 truncate">
+                            {currentTemplate.title}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex-1 p-3 overflow-y-auto bg-slate-50">
+                        <div className="bg-white border border-slate-200 rounded-xl p-3 text-[11px] leading-relaxed text-slate-800 whitespace-pre-wrap shadow-xs">
+                          {livePreviewText}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1056,21 +1053,22 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
                       {isAr ? 'عنوان الرسالة (داخلي)' : 'Message Title (Internal)'}
                     </label>
                     <span className="text-[10px] text-slate-400">
-                      {currentTemplate.title.length}/100
+                      {(activeTemplateTitle || '').length}/100
                     </span>
                   </div>
                   <input
                     type="text"
-                    value={currentTemplate.title}
+                    value={activeTemplateTitle || ''}
                     onChange={(e) =>
                       setReminders({
                         ...reminders,
-                        [editingReminder]: {
-                          ...currentTemplate,
-                          title: e.target.value,
-                        },
+                        [editingReminder]:
+                          activeLang === 'AR'
+                            ? { ...currentTemplate, titleAr: e.target.value }
+                            : { ...currentTemplate, title: e.target.value },
                       })
                     }
+                    dir={activeLang === 'AR' ? 'rtl' : 'ltr'}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
                   />
                 </div>
@@ -1170,21 +1168,22 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
 
                     <textarea
                       rows={6}
-                      value={currentTemplate.message}
+                      value={activeTemplateMessage || ''}
                       onChange={(e) =>
                         setReminders({
                           ...reminders,
-                          [editingReminder]: {
-                            ...currentTemplate,
-                            message: e.target.value,
-                          },
+                          [editingReminder]:
+                            activeLang === 'AR'
+                              ? { ...currentTemplate, messageAr: e.target.value }
+                              : { ...currentTemplate, message: e.target.value },
                         })
                       }
+                      dir={activeLang === 'AR' ? 'rtl' : 'ltr'}
                       className="w-full p-3 bg-transparent text-xs leading-relaxed resize-none text-slate-900 dark:text-white focus:outline-none"
                     />
 
                     <div className="px-3 py-1.5 text-end text-[10px] text-slate-400 border-t border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-800/50">
-                      {currentTemplate.message.length}/1000
+                      {(activeTemplateMessage || '').length}/1000
                     </div>
                   </div>
                 </div>
@@ -1196,21 +1195,22 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {[
-                      '{name}',
-                      '{cart_value}',
-                      '{checkout_link}',
-                      '{products}',
-                      '{product_list}',
-                      '{discount_code}',
-                      '{store_name}',
+                      { token: '{name}', labelAr: 'اسم العميل', labelEn: 'Customer name' },
+                      { token: '{cart_value}', labelAr: 'قيمة السلة', labelEn: 'Cart value' },
+                      { token: '{checkout_link}', labelAr: 'رابط إتمام الشراء', labelEn: 'Checkout link' },
+                      { token: '{products}', labelAr: 'عدد المنتجات', labelEn: 'Products count' },
+                      { token: '{product_list}', labelAr: 'قائمة المنتجات', labelEn: 'Products list' },
+                      { token: '{discount_code}', labelAr: 'كود الخصم', labelEn: 'Discount code' },
+                      { token: '{store_name}', labelAr: 'اسم المتجر', labelEn: 'Store name' },
                     ].map((v) => (
                       <button
-                        key={v}
+                        key={v.token}
                         type="button"
-                        onClick={() => insertVariableIntoMessage(v)}
-                        className="px-2 py-1 rounded-md bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 text-[10px] font-mono font-bold hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-colors cursor-pointer border border-teal-200/50 dark:border-teal-800/50"
+                        title={v.token}
+                        onClick={() => insertVariableIntoMessage(v.token)}
+                        className="px-2 py-1 rounded-md bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 text-[10px] font-bold hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-colors cursor-pointer border border-teal-200/50 dark:border-teal-800/50"
                       >
-                        {v}
+                        {isAr ? v.labelAr : v.labelEn}
                       </button>
                     ))}
                   </div>
@@ -1378,9 +1378,9 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
                     }}
                     className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
                   >
-                    <option value="whatsapp">WhatsApp</option>
-                    <option value="sms">SMS</option>
-                    <option value="email">Email</option>
+                    <option value="whatsapp">{channelLabel('whatsapp')}</option>
+                    <option value="sms">{channelLabel('sms')}</option>
+                    <option value="email">{channelLabel('email')}</option>
                   </select>
                 </div>
 
@@ -1389,7 +1389,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
                   <Info className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
                   <p className="leading-snug">
                     {isAr
-                      ? 'يمكنك تفعيل أكثر من قناة (مثل الإرسال عبر الرسائل النصية) من خلال إعدادات الأتمتة المتقدمة.'
+                      ? 'يمكنك تفعيل أكثر من قناة (مثل الإرسال عبر الرسائل القصيرة) من خلال إعدادات الأتمتة المتقدمة.'
                       : 'You can activate more than one channel (e.g. send via SMS) from the automation settings.'}
                   </p>
                 </div>
@@ -1397,11 +1397,16 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
                 <button
                   type="button"
                   onClick={() => {
-                    toast(
-                      isAr ? 'تم حفظ وتطبيق إعدادات القالب بنجاح' : 'Reminder settings applied and saved successfully',
-                      'success'
-                    );
-                    setEditingReminder(null);
+                    void persistReminders(reminders).then(() => {
+                      toast(
+                        isAr
+                          ? 'تم حفظ وتطبيق إعدادات القالب بنجاح'
+                          : 'Reminder settings applied and saved successfully',
+                        'success',
+                      );
+                      setEditingReminder(null);
+                      setVariableDropdownOpen(false);
+                    });
                   }}
                   className="w-full py-2.5 bg-[#0EA5A4] hover:bg-[#0c8f8e] text-white rounded-xl text-xs font-bold transition-all mt-4 cursor-pointer shadow-xs"
                 >
@@ -1410,10 +1415,10 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
               </div>
             </div>
           </div>
+          </GlobalModal>
         )}
-      </div>
 
-      {/* 6. Bottom 4 Cards Grid Matching Reference Screenshot Exactly */}
+      {/* Bottom cards grid — Automation / Reminder Sequence / Rules / Recovery */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Automation Settings */}
         <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
@@ -1525,89 +1530,91 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
 
           {/* Timeline Nodes */}
           <div className="space-y-3 relative before:absolute before:top-3 before:bottom-3 before:start-3.5 before:w-0.5 before:bg-teal-200 dark:before:bg-teal-900">
-            {/* Node 1 */}
-            <div className="relative flex items-center justify-between ps-8">
-              <div className="absolute start-1.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-bold ring-4 ring-white dark:ring-slate-900">
-                1
-              </div>
-              <div className="flex items-center gap-2">
-                <WhatsAppBrandIcon className="w-3.5 h-3.5 text-[#25D366]" title="WhatsApp" />
-                <div>
-                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    {isAr ? 'التذكير الأول' : 'First Reminder'}
-                  </div>
-                  <div className="text-[10px] text-slate-400">
-                    {isAr ? 'بعد ساعة واحدة' : 'After 1 hour'}
+            {(
+              [
+                {
+                  key: 'first' as const,
+                  step: 1,
+                  color: 'bg-emerald-500',
+                  icon: <WhatsAppBrandIcon className="w-3.5 h-3.5 text-[#25D366]" title={channelLabel('whatsapp')} />,
+                  title: isAr ? 'التذكير الأول' : 'First Reminder',
+                  when: isAr ? 'بعد ساعة واحدة' : 'After 1 hour',
+                },
+                {
+                  key: 'second' as const,
+                  step: 2,
+                  color: 'bg-blue-500',
+                  icon: <Smartphone className="w-3.5 h-3.5 text-blue-500" />,
+                  title: isAr ? 'التذكير الثاني' : 'Second Reminder',
+                  when: isAr ? 'بعد 24 ساعة' : 'After 24 hours',
+                },
+                {
+                  key: 'third' as const,
+                  step: 3,
+                  color: 'bg-purple-500',
+                  icon: <Mail className="w-3.5 h-3.5 text-purple-500" />,
+                  title: isAr ? 'التذكير الثالث' : 'Third Reminder',
+                  when: isAr ? 'بعد 3 أيام' : 'After 3 days',
+                },
+              ] as const
+            ).map((node) => (
+              <div
+                key={node.key}
+                className={`relative flex items-center justify-between ps-8 gap-2 ${
+                  reminders[node.key].enabled ? '' : 'opacity-55'
+                }`}
+              >
+                <div
+                  className={`absolute start-1.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full ${node.color} text-white flex items-center justify-center text-[10px] font-bold ring-4 ring-white dark:ring-slate-900`}
+                >
+                  {node.step}
+                </div>
+                <div className="flex items-center gap-2 min-w-0">
+                  {node.icon}
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                      {node.title}
+                    </div>
+                    <div className="text-[10px] text-slate-400">{node.when}</div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-1 text-slate-400">
-                <button
-                  type="button"
-                  onClick={() => scrollToEditor('first')}
-                  className="p-1 hover:text-teal-600 rounded"
-                >
-                  <Edit2 className="w-3 h-3" />
-                </button>
-                <MoreVertical className="w-3 h-3" />
-              </div>
-            </div>
-
-            {/* Node 2 */}
-            <div className="relative flex items-center justify-between ps-8">
-              <div className="absolute start-1.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-[10px] font-bold ring-4 ring-white dark:ring-slate-900">
-                2
-              </div>
-              <div className="flex items-center gap-2">
-                <Smartphone className="w-3.5 h-3.5 text-blue-500" />
-                <div>
-                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    {isAr ? 'التذكير الثاني' : 'Second Reminder'}
-                  </div>
-                  <div className="text-[10px] text-slate-400">
-                    {isAr ? 'بعد 24 ساعة' : 'After 24 hours'}
-                  </div>
+                <div className="flex items-center gap-1.5 text-slate-400 shrink-0">
+                  <label
+                    className="relative inline-flex items-center cursor-pointer"
+                    title={
+                      reminders[node.key].enabled
+                        ? isAr
+                          ? 'إيقاف'
+                          : 'Turn off'
+                        : isAr
+                          ? 'تشغيل'
+                          : 'Turn on'
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      checked={reminders[node.key].enabled}
+                      onChange={(e) =>
+                        setReminders({
+                          ...reminders,
+                          [node.key]: { ...reminders[node.key], enabled: e.target.checked },
+                        })
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-slate-600 peer-checked:bg-[#0EA5A4]" />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => openReminderEditor(node.key)}
+                    className="p-1 hover:text-teal-600 rounded cursor-pointer"
+                    title={isAr ? 'تعديل' : 'Edit'}
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-1 text-slate-400">
-                <button
-                  type="button"
-                  onClick={() => scrollToEditor('second')}
-                  className="p-1 hover:text-teal-600 rounded"
-                >
-                  <Edit2 className="w-3 h-3" />
-                </button>
-                <MoreVertical className="w-3 h-3" />
-              </div>
-            </div>
-
-            {/* Node 3 */}
-            <div className="relative flex items-center justify-between ps-8">
-              <div className="absolute start-1.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-purple-500 text-white flex items-center justify-center text-[10px] font-bold ring-4 ring-white dark:ring-slate-900">
-                3
-              </div>
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-purple-500" />
-                <div>
-                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    {isAr ? 'التذكير الثالث' : 'Third Reminder'}
-                  </div>
-                  <div className="text-[10px] text-slate-400">
-                    {isAr ? 'بعد 3 أيام' : 'After 3 days'}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 text-slate-400">
-                <button
-                  type="button"
-                  onClick={() => scrollToEditor('third')}
-                  className="p-1 hover:text-teal-600 rounded"
-                >
-                  <Edit2 className="w-3 h-3" />
-                </button>
-                <MoreVertical className="w-3 h-3" />
-              </div>
-            </div>
+            ))}
           </div>
 
           <button

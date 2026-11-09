@@ -73,13 +73,23 @@ class GoogleService
     }
 
     /**
-     * Exchange auth code for access token and refresh token
+     * Exchange auth code for access token and refresh token.
+     *
+     * @return array{success: bool, token?: array<string, mixed>, message?: string, google_error?: string}
      */
-    public function exchangeCode(string $code, ?string $redirectUri = null): ?array
+    public function exchangeCode(string $code, ?string $redirectUri = null): array
     {
         $clientId = $this->getClientId();
         $clientSecret = $this->getClientSecret();
         $redirect = $redirectUri ?: $this->getRedirectUri();
+
+        if ($clientId === '' || $clientSecret === '') {
+            return [
+                'success' => false,
+                'message' => 'Google OAuth is not configured on the server. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.',
+                'google_error' => 'missing_server_credentials',
+            ];
+        }
 
         try {
             $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
@@ -91,15 +101,53 @@ class GoogleService
             ]);
 
             if ($response->successful()) {
-                return $response->json();
+                return [
+                    'success' => true,
+                    'token' => $response->json(),
+                ];
             }
 
+            $body = $response->json();
+            $gError = is_array($body) ? (string) ($body['error'] ?? '') : '';
+            $gDesc = is_array($body) ? (string) ($body['error_description'] ?? '') : '';
             Log::warning('Google OAuth exchange error: ' . $response->body());
-            return null;
+
+            return [
+                'success' => false,
+                'message' => $this->mapTokenExchangeError($gError, $gDesc, $redirect),
+                'google_error' => $gError !== '' ? $gError : 'token_exchange_failed',
+            ];
         } catch (\Throwable $e) {
             Log::error('Google OAuth exchange exception: ' . $e->getMessage());
-            return null;
+
+            return [
+                'success' => false,
+                'message' => 'Could not reach Google to finish sign-in. Check the server network and try again.',
+                'google_error' => 'network',
+            ];
         }
+    }
+
+    /**
+     * Merchant-safe mapping for Google token endpoint failures.
+     */
+    protected function mapTokenExchangeError(string $error, string $description, string $redirectUri): string
+    {
+        $e = strtolower($error.' '.$description);
+        if (str_contains($e, 'redirect_uri')) {
+            return 'Google rejected the redirect URL ('.$redirectUri.'). Add this exact origin in Google Cloud → Credentials → Authorized redirect URIs.';
+        }
+        if (str_contains($e, 'invalid_client') || str_contains($e, 'unauthorized_client')) {
+            return 'Google Client ID or Client Secret on the server does not match. Use the same OAuth client in GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET.';
+        }
+        if (str_contains($e, 'invalid_grant') || str_contains($e, 'code')) {
+            return 'The Google sign-in code expired or was already used. Click Sign in with Google again.';
+        }
+        if (str_contains($e, 'not found') || str_contains($e, 'deleted')) {
+            return 'This Google OAuth client was not found or was deleted in Google Cloud. Create a new Web client and update server credentials.';
+        }
+
+        return 'Could not finish Google sign-in. Confirm OAuth client, secret, and redirect URI, then try again.';
     }
 
     /**

@@ -574,14 +574,23 @@ const CUSTOMER_SOURCES: CustomerSource[] = [
   'TikTok',
   'Referral',
   'Google',
+  'Website',
+  'X',
+  'Telegram',
+  'YouTube',
+  'Organic Search',
   'Other',
 ];
 
 function mapCustomerSource(v: unknown): CustomerSource {
-  const s = str(v, 'Direct');
-  return (
-    CUSTOMER_SOURCES.find((x) => x.toLowerCase() === s.toLowerCase()) ?? 'Direct'
-  );
+  const s = str(v, 'Direct').trim();
+  const lower = s.toLowerCase();
+  const exact = CUSTOMER_SOURCES.find((x) => x.toLowerCase() === lower);
+  if (exact) return exact;
+  if (lower === 'twitter' || lower === 'x (twitter)') return 'X';
+  if (lower.includes('organic')) return 'Organic Search';
+  if (lower === 'walk-in' || lower === 'walk in') return 'Direct';
+  return 'Other';
 }
 
 function mapCustomerStatus(v: unknown): CustomerStatus {
@@ -603,9 +612,9 @@ function mapGender(v: unknown): Customer['gender'] {
 }
 
 function mapGroup(v: unknown): Customer['group'] {
-  const s = str(v, 'Regular');
-  if (s === 'VIP' || s === 'Regular' || s === 'Wholesale') return s;
-  return 'Regular';
+  const s = str(v, 'Regular').trim();
+  // Preserve merchant-defined custom group names (not only VIP/Regular/Wholesale).
+  return s || 'Regular';
 }
 
 export function mapCustomer(row: ApiCustomerRow): Customer {
@@ -632,6 +641,7 @@ export function mapCustomer(row: ApiCustomerRow): Customer {
     city: str(row.city, ''),
     country: str(row.country, 'Saudi Arabia'),
     gender: mapGender(row.gender),
+    dob: row.dob != null && str(row.dob) !== '' ? dateSlice(row.dob) : undefined,
     source: mapCustomerSource(row.acquisition_source ?? row.source),
     group: mapGroup(row.group),
     totalOrders,

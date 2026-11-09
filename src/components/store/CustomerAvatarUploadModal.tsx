@@ -19,6 +19,7 @@ import {
 } from '../../utils/customerAvatars';
 import { handleImageError } from '../../utils/imageFallback';
 import { GlobalModal } from '../common/GlobalModal';
+import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
 
 interface CustomerAvatarUploadModalProps {
   isOpen: boolean;
@@ -128,6 +129,19 @@ export const CustomerAvatarUploadModal: React.FC<CustomerAvatarUploadModalProps>
     setPreviewError(false);
   };
 
+  const handleRemoveAndSave = async () => {
+    setIsSaving(true);
+    try {
+      updateCustomer(customerId, { avatar: '' });
+      onAvatarUpdated('');
+      onClose();
+    } catch (err) {
+      console.error('Failed to remove customer avatar:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const seoAlt = getCustomerSeoAlt({ name: customerName }, activeStore?.name, isAr);
 
   return (
@@ -193,69 +207,45 @@ export const CustomerAvatarUploadModal: React.FC<CustomerAvatarUploadModalProps>
                   ? 'صورة بحجم 1:1 دائرية، محسّنة لمحركات البحث وسريعة التحميل بدون روابط تالفة.'
                   : '1:1 circular photo, SEO-optimized with alt tags & resilient zero-broken image fallback.'}
               </p>
-              {selectedAvatar && (
-                <button
-                  type="button"
-                  onClick={handleRemovePhoto}
-                  className="inline-flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 hover:underline pt-1 cursor-pointer font-medium"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>{isAr ? 'إزالة الصورة الحالية' : 'Remove current photo'}</span>
-                </button>
+              {(selectedAvatar || currentAvatar) && (
+                <div className="pt-1 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    className="inline-flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 hover:underline cursor-pointer font-medium"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isAr ? 'مسح المعاينة' : 'Clear preview'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={handleRemoveAndSave}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-950/70 cursor-pointer disabled:opacity-50"
+                    title={isAr ? 'حذف الصورة وحفظ' : 'Remove photo and save'}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isAr ? 'حذف الصورة' : 'Remove photo'}</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
 
-          {/* Navigation Tabs */}
-          <div className="flex border-b border-slate-200 dark:border-slate-800 text-xs font-semibold gap-2 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('upload')}
-              className={`pb-2.5 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === 'upload'
-                  ? 'border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>{isAr ? 'رفع من الجهاز' : 'Upload File'}</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('presets')}
-              className={`pb-2.5 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === 'presets'
-                  ? 'border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>{isAr ? 'نماذج عربية جاهزة' : 'Arab Presets'}</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('media')}
-              className={`pb-2.5 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === 'media'
-                  ? 'border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <ImageIcon className="w-3.5 h-3.5" />
-              <span>{isAr ? 'مكتبة وسائط المتجر' : 'Media Library'}</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('url')}
-              className={`pb-2.5 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === 'url'
-                  ? 'border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <Link className="w-3.5 h-3.5" />
-              <span>{isAr ? 'رابط مباشر' : 'Image URL'}</span>
-            </button>
-          </div>
+          {/* Navigation Tabs — modern segmented toggles */}
+          <ModernSegmentedTabs
+            accent="teal"
+            size="sm"
+            aria-label={isAr ? 'خيارات رفع الصورة' : 'Avatar upload options'}
+            value={activeTab}
+            onChange={setActiveTab}
+            items={[
+              { id: 'upload', label: isAr ? 'رفع من الجهاز' : 'Upload File', icon: Upload },
+              { id: 'presets', label: isAr ? 'نماذج عربية جاهزة' : 'Arab Presets', icon: Sparkles },
+              { id: 'media', label: isAr ? 'مكتبة وسائط المتجر' : 'Media Library', icon: ImageIcon },
+              { id: 'url', label: isAr ? 'رابط مباشر' : 'Image URL', icon: Link },
+            ]}
+          />
 
           {/* Tab 1: Direct File Upload */}
           {activeTab === 'upload' && (
@@ -325,7 +315,7 @@ export const CustomerAvatarUploadModal: React.FC<CustomerAvatarUploadModalProps>
                         className="w-full h-full object-cover"
                       />
                       {selectedAvatar === url && (
-                        <div className="absolute inset-0 bg-teal-600/30 flex items-center justify-center text-white">
+                        <div className="absolute inset-0 bg-blue-600/30 flex items-center justify-center text-white">
                           <Check className="w-4 h-4 stroke-[3]" />
                         </div>
                       )}
@@ -362,7 +352,7 @@ export const CustomerAvatarUploadModal: React.FC<CustomerAvatarUploadModalProps>
                         className="w-full h-full object-cover"
                       />
                       {selectedAvatar === url && (
-                        <div className="absolute inset-0 bg-teal-600/30 flex items-center justify-center text-white">
+                        <div className="absolute inset-0 bg-blue-600/30 flex items-center justify-center text-white">
                           <Check className="w-4 h-4 stroke-[3]" />
                         </div>
                       )}
@@ -404,7 +394,7 @@ export const CustomerAvatarUploadModal: React.FC<CustomerAvatarUploadModalProps>
                           className="w-full h-full object-cover"
                         />
                         {selectedAvatar === mediaUrl && (
-                          <div className="absolute inset-0 bg-teal-600/30 flex items-center justify-center text-white">
+                          <div className="absolute inset-0 bg-blue-600/30 flex items-center justify-center text-white">
                             <Check className="w-4 h-4 stroke-[3]" />
                           </div>
                         )}
@@ -447,23 +437,39 @@ export const CustomerAvatarUploadModal: React.FC<CustomerAvatarUploadModalProps>
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-          >
-            {isAr ? 'إلغاء' : 'Cancel'}
-          </button>
-          <button
-            type="button"
-            disabled={isSaving}
-            onClick={handleSave}
-            className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600 transition-all shadow-md shadow-teal-500/20 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-          >
-            <Check className="w-4 h-4" />
-            <span>{isSaving ? (isAr ? 'جاري الحفظ...' : 'Saving...') : (isAr ? 'حفظ الصورة' : 'Save Photo')}</span>
-          </button>
+        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 flex-wrap">
+          {(selectedAvatar || currentAvatar) ? (
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={handleRemoveAndSave}
+              className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 transition-colors cursor-pointer disabled:opacity-50"
+              title={isAr ? 'حذف الصورة' : 'Remove photo'}
+              aria-label={isAr ? 'حذف الصورة' : 'Remove photo'}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-3 ms-auto">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+            >
+              {isAr ? 'إلغاء' : 'Cancel'}
+            </button>
+            <button
+              type="button"
+              disabled={isSaving || !selectedAvatar}
+              onClick={handleSave}
+              className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-all shadow-md shadow-blue-500/20 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+            >
+              <Upload className="w-4 h-4" />
+              <span>{isSaving ? (isAr ? 'جاري الحفظ...' : 'Saving...') : (isAr ? 'حفظ الصورة' : 'Save Photo')}</span>
+            </button>
+          </div>
         </div>
       </div>
     </GlobalModal>

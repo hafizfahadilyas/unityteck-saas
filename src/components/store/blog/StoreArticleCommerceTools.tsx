@@ -58,10 +58,10 @@ function getStoreDefaultArticles(_storeId: string, _storeName?: string, _categor
 }
 
 /**
- * Builds baseline 20 tools config matching reference Image 5 exactly.
+ * Empty 20-tool shell for one article. Real catalog fields only — never invent products/reviews/metrics.
  */
 function buildStoreCommerceToolsConfig(
-  storeId: string,
+  _storeId: string,
   articleId: string,
   products: Product[],
   article: BlogArticleItem | null
@@ -70,23 +70,26 @@ function buildStoreCommerceToolsConfig(
   const p2 = products[1];
   const p3 = products[2];
 
-  // Real catalog only — empty store stays empty (zero-mock)
   const mainProdName = p1?.name || '';
   const mainProdPrice = p1?.price ?? 0;
   const mainProdImg = p1?.image || '';
-
-  const prod2Name = p2?.name || '';
-  const prod2Price = p2?.price ?? 0;
   const prod2Img = p2?.image || '';
-
-  const prod3Name = p3?.name || '';
-  const prod3Price = p3?.price ?? 0;
   const prod3Img = p3?.image || '';
+
+  const comparisonProducts = [p1, p2, p3]
+    .filter((p): p is Product => Boolean(p))
+    .map((p) => ({
+      name: p.name || '',
+      image: p.image || '',
+      price: typeof p.price === 'number' ? String(p.price) : '',
+      duration: '',
+      best_for: '',
+    }));
 
   return {
     article_id: articleId,
     product_cards: {
-      enabled: true,
+      enabled: false,
       product_name: mainProdName,
       product_image: mainProdImg,
       price: mainProdPrice,
@@ -99,99 +102,68 @@ function buildStoreCommerceToolsConfig(
       card_style: 'Classic',
     },
     product_quiz: {
-      enabled: true,
-      quiz_title: 'What type of scent do you prefer?',
-      options: [
-        { id: 'opt-1', label: 'Floral', color: '#a855f7' },
-        { id: 'opt-2', label: 'Woody', color: '#d97706' },
-        { id: 'opt-3', label: 'Fresh', color: '#0ea5e9' },
-        { id: 'opt-4', label: 'Citrus', color: '#eab308' },
-      ],
-      result_products: 'Show matched products',
+      enabled: false,
+      quiz_title: '',
+      options: [],
+      result_products: '',
     },
     comparison_table: {
-      enabled: true,
-      products: [
-        {
-          name: mainProdName,
-          image: mainProdImg,
-          price: `$${mainProdPrice}`,
-          duration: '3 months',
-          best_for: 'Living room',
-        },
-        {
-          name: prod2Name,
-          image: prod2Img,
-          price: `$${prod2Price}`,
-          duration: '1 month',
-          best_for: 'Bedroom',
-        },
-        {
-          name: prod3Name,
-          image: prod3Img,
-          price: `$${prod3Price}`,
-          duration: '2 months',
-          best_for: 'All rooms',
-        },
-      ],
+      enabled: false,
+      products: comparisonProducts,
       show_buy_button: true,
     },
     product_bundles: {
-      enabled: true,
-      bundle_title: 'Home Fragrance Bundle',
-      images: [mainProdImg, prod2Img, prod3Img],
+      enabled: false,
+      bundle_title: '',
+      images: [mainProdImg, prod2Img, prod3Img].filter(Boolean),
       show_bundle_discount: true,
       show_original_price: true,
       show_savings_badge: true,
-      original_price: 87,
-      bundle_price: 69,
-      savings_badge: 'Save 20%',
-      bundle_button_text: 'Bundle Button Text',
+      original_price: 0,
+      bundle_price: 0,
+      savings_badge: '',
+      bundle_button_text: '',
     },
     discount_coupon: {
-      enabled: true,
-      coupon_code: 'HOME20',
-      discount_value: 20,
+      enabled: false,
+      coupon_code: '',
+      discount_value: 0,
       discount_type: 'Percentage %',
-      description: '20% off all home fragrance products.',
-      expiry_date: '2026-10-31',
-      show_terms: true,
-      terms_text: 'Valid on all home fragrance products.',
+      description: '',
+      expiry_date: '',
+      show_terms: false,
+      terms_text: '',
     },
     customer_reviews: {
-      enabled: true,
+      enabled: false,
       review_source: 'Store Reviews',
-      reviewer_name: 'Sarah M.',
-      time_ago: '5 days ago',
-      rating: 5,
-      comment: 'The scent is amazing and lasts long! Highly recommend!',
-      photos: [
-        'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=200&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1507652313519-d4e9174996dd?w=200&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=200&auto=format&fit=crop&q=80',
-      ],
-      show_customer_photos: true,
+      reviewer_name: '',
+      time_ago: '',
+      rating: 0,
+      comment: '',
+      photos: [],
+      show_customer_photos: false,
       show_verified_badge: true,
     },
     free_shipping_bar: {
-      enabled: true,
-      threshold: 50,
-      current_cart_amount: 29,
-      progress_text: 'Add $21 more for FREE shipping!',
+      enabled: false,
+      threshold: 0,
+      current_cart_amount: 0,
+      progress_text: '',
       show_progress_text: true,
       show_icon: true,
     },
     savings_calculator: {
-      enabled: true,
-      original_price: 65,
-      discount_percent: 20,
-      final_price: 52.0,
-      you_save: 13.0,
+      enabled: false,
+      original_price: mainProdPrice || 0,
+      discount_percent: 0,
+      final_price: mainProdPrice || 0,
+      you_save: 0,
       show_savings_amount: true,
       label_text: 'You Save',
     },
     sticky_add_to_cart: {
-      enabled: true,
+      enabled: false,
       product_name: mainProdName,
       product_image: mainProdImg,
       price: mainProdPrice,
@@ -199,89 +171,78 @@ function buildStoreCommerceToolsConfig(
       button_text: 'Add to Cart',
     },
     wishlist: {
-      enabled: true,
+      enabled: false,
       button_style: 'Heart Icon',
       button_text: 'Save for Later',
       position: 'Top Right',
       show_on_product_cards: true,
       allow_guest_users: true,
       show_login_prompt: true,
-      login_message: 'Sign in to save products for later.',
+      login_message: '',
     },
     product_video: {
-      enabled: true,
+      enabled: false,
       video_type: 'YouTube',
-      video_url: 'https://youtu.be/example',
-      show_autoplay_muted: true,
+      video_url: '',
+      show_autoplay_muted: false,
       show_video_title: true,
       show_thumbnail: true,
     },
     ai_assistant: {
-      enabled: true,
-      assistant_name: 'Product Assistant',
-      welcome_message: 'Hi! How can I help you today?',
-      suggested_questions: [
-        'Is this diffuser safe for pets?',
-        'How long does the scent last?',
-        'Do you offer international shipping?',
-      ],
+      enabled: false,
+      assistant_name: '',
+      welcome_message: '',
+      suggested_questions: [],
     },
     newsletter: {
-      enabled: true,
-      title: 'Get Exclusive Deals & Tips',
-      description: 'Subscribe to our newsletter and receive 10% off.',
-      email_placeholder: 'Enter your email',
+      enabled: false,
+      title: '',
+      description: '',
+      email_placeholder: '',
       show_incentive_text: true,
-      success_message: 'Thank you for subscribing!',
+      success_message: '',
     },
     social_sharing: {
-      enabled: true,
+      enabled: false,
       platforms: ['pinterest', 'twitter', 'linkedin', 'facebook', 'instagram'],
       button_style: 'Icon + Text',
       button_size: 'Medium',
       show_share_count: false,
     },
     related_articles: {
-      enabled: true,
-      section_title: 'Related Articles',
+      enabled: false,
+      section_title: '',
       display_style: 'Grid',
       number_of_articles: 3,
-      category: article?.category || 'Home Decor',
+      category: article?.category || '',
       show_view_all_link: true,
     },
     seo_enhancements: {
-      enabled: true,
-      seo_title: article?.title || 'A Complete Guide to Choosing the Perfect Fragrance for Your Home',
-      meta_description: article?.excerpt || 'Discover the best home fragrances, diffuser scents, and candles to create a luxurious welcoming atmosphere.',
-      focus_keyword: 'home fragrance',
+      enabled: false,
+      seo_title: article?.title || '',
+      meta_description: article?.excerpt || '',
+      focus_keyword: '',
       add_structured_data: true,
       enable_breadcrumbs: true,
     },
     table_of_contents: {
-      enabled: true,
-      title: 'Table of Contents',
-      headings: [
-        'Why Home Fragrance Matters',
-        'Types of Fragrances',
-        'How to Choose the Right Scent',
-        'Best Products',
-        'Expert Tips',
-        'FAQs',
-      ],
+      enabled: false,
+      title: '',
+      headings: [],
       show_in_sticky_sidebar: true,
       collapsible_sections: true,
     },
     stock_alert: {
-      enabled: true,
+      enabled: false,
       alert_type: 'Both (Back in Stock & Price Drop)',
       product_name: mainProdName,
       product_image: mainProdImg,
       notify_price_drops: true,
       notify_back_in_stock: true,
-      success_message: 'You will be notified!',
+      success_message: '',
     },
     performance_analytics: {
-      enabled: true,
+      enabled: false,
       metrics_to_display: ['views', 'product_clicks', 'add_to_cart', 'orders'],
       time_range: 'Last 30 Days',
       views: 0,
@@ -290,15 +251,62 @@ function buildStoreCommerceToolsConfig(
       orders: 0,
     },
     exit_intent: {
-      enabled: true,
-      offer_title: 'Wait! Get 10% OFF',
-      description: 'Before you go, join our newsletter and receive 10% off your first order.',
-      email_placeholder: 'Enter your email',
-      display_delay_seconds: 10,
+      enabled: false,
+      offer_title: '',
+      description: '',
+      email_placeholder: '',
+      display_delay_seconds: 0,
       show_on_mobile: true,
-      coupon_code: 'HOME10',
+      coupon_code: '',
     },
   };
+}
+
+/** Merge partial API/DB config onto a full 20-tool shell so missing sections never crash on `.enabled`. */
+function normalizeArticleCommerceToolsConfig(
+  partial: Partial<ArticleCommerceToolsConfig> | null | undefined,
+  defaults: ArticleCommerceToolsConfig
+): ArticleCommerceToolsConfig {
+  const src = partial && typeof partial === 'object' ? partial : {};
+  const merged: ArticleCommerceToolsConfig = {
+    ...defaults,
+    article_id: typeof (src as ArticleCommerceToolsConfig).article_id === 'string'
+      ? (src as ArticleCommerceToolsConfig).article_id
+      : defaults.article_id,
+  };
+
+  (Object.keys(defaults) as Array<keyof ArticleCommerceToolsConfig>).forEach((key) => {
+    if (key === 'article_id') return;
+    const defSection = defaults[key];
+    const srcSection = (src as Record<string, unknown>)[key as string];
+    if (!defSection || typeof defSection !== 'object' || Array.isArray(defSection)) return;
+
+    const incoming =
+      srcSection && typeof srcSection === 'object' && !Array.isArray(srcSection)
+        ? (srcSection as Record<string, unknown>)
+        : {};
+
+    const nextSection: Record<string, unknown> = {
+      ...(defSection as Record<string, unknown>),
+      ...incoming,
+    };
+
+    // Keep required array fields as arrays even if API sent null/object
+    Object.keys(defSection as object).forEach((subKey) => {
+      const defVal = (defSection as Record<string, unknown>)[subKey];
+      if (Array.isArray(defVal) && !Array.isArray(nextSection[subKey])) {
+        nextSection[subKey] = defVal;
+      }
+    });
+
+    if (typeof nextSection.enabled !== 'boolean') {
+      nextSection.enabled = Boolean((defSection as { enabled?: boolean }).enabled);
+    }
+
+    (merged as Record<string, unknown>)[key as string] = nextSection;
+  });
+
+  return merged;
 }
 
 export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps> = ({
@@ -337,9 +345,32 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
     return articles.find((a) => a.id === selectedArticleId) || articles[0] || null;
   }, [articles, selectedArticleId]);
 
-  // 20 Tools Config State initialized with active store's real data
-  const [config, setConfig] = useState<ArticleCommerceToolsConfig>(() =>
-    buildStoreCommerceToolsConfig(activeStore.id, initialArticleId || '', availableProducts, null)
+  // 20 Tools Config State — partial API payloads are merged onto a full shell (never crash on .enabled)
+  const [configState, setConfig] = useState<ArticleCommerceToolsConfig>(() =>
+    normalizeArticleCommerceToolsConfig(
+      null,
+      buildStoreCommerceToolsConfig(activeStore.id, initialArticleId || '', availableProducts, null)
+    )
+  );
+  const config = useMemo(
+    () =>
+      normalizeArticleCommerceToolsConfig(
+        configState,
+        buildStoreCommerceToolsConfig(
+          activeStore.id,
+          selectedArticleId || configState.article_id || initialArticleId || '',
+          availableProducts,
+          currentArticle
+        )
+      ),
+    [
+      configState,
+      activeStore.id,
+      selectedArticleId,
+      availableProducts,
+      currentArticle,
+      initialArticleId,
+    ]
   );
 
   // Load articles and products on activeStore change
@@ -380,11 +411,14 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
 
           const selectedArt = loadedArticles.find((a) => a.id === activeArtId) || loadedArticles[0];
           setConfig(
-            buildStoreCommerceToolsConfig(
-              activeStore.id,
-              activeArtId,
-              prods.length > 0 ? prods : currentProducts,
-              selectedArt
+            normalizeArticleCommerceToolsConfig(
+              null,
+              buildStoreCommerceToolsConfig(
+                activeStore.id,
+                activeArtId,
+                prods.length > 0 ? prods : currentProducts,
+                selectedArt || null
+              )
             )
           );
         }
@@ -405,19 +439,24 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
     if (!selectedArticleId) return;
     let isMounted = true;
     async function loadTools() {
+      const defaults = buildStoreCommerceToolsConfig(
+        activeStore.id,
+        selectedArticleId,
+        availableProducts,
+        currentArticle
+      );
       try {
         const res = await fetchArticleCommerceToolsApi(activeStore.id, selectedArticleId);
         if (res && res.data && isMounted) {
-          setConfig(res.data);
+          // API may return a partial shell (older saves / incomplete defaults) — never replace wholesale
+          setConfig(normalizeArticleCommerceToolsConfig(res.data, defaults));
           return;
         }
       } catch {
-        // Fallback to active store's real config
+        // Fallback to active store shell
       }
       if (isMounted) {
-        setConfig(
-          buildStoreCommerceToolsConfig(activeStore.id, selectedArticleId, availableProducts, currentArticle)
-        );
+        setConfig(normalizeArticleCommerceToolsConfig(null, defaults));
       }
     }
     loadTools();
@@ -434,8 +473,8 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
       await saveArticleCommerceToolsApi(activeStore.id, selectedArticleId, config);
       toast(
         isAr
-          ? 'تم حفظ جميع أدوات التجارة للمقال بنجاح في قاعدة بيانات هوستنجر MySQL!'
-          : 'All 20 Article Commerce Tools saved successfully to Hostinger MySQL!',
+          ? 'تم حفظ جميع أدوات التجارة للمقال بنجاح.'
+          : 'All article commerce tools saved successfully.',
         'success'
       );
     } catch (err: any) {
@@ -445,20 +484,27 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
     }
   };
 
-  // Helper toggle tool
+  // Helper toggle tool — tolerate missing sections from stale state
   const toggleTool = (toolKey: keyof ArticleCommerceToolsConfig) => {
     setConfig((prev) => {
-      const tool = prev[toolKey] as any;
-      if (typeof tool === 'object' && 'enabled' in tool) {
+      const defaults = buildStoreCommerceToolsConfig(
+        activeStore.id,
+        selectedArticleId || prev.article_id || '',
+        availableProducts,
+        currentArticle
+      );
+      const safePrev = normalizeArticleCommerceToolsConfig(prev, defaults);
+      const tool = safePrev[toolKey] as { enabled?: boolean } | string | undefined;
+      if (tool && typeof tool === 'object' && typeof tool.enabled === 'boolean') {
         return {
-          ...prev,
+          ...safePrev,
           [toolKey]: {
             ...tool,
             enabled: !tool.enabled,
           },
         };
       }
-      return prev;
+      return safePrev;
     });
   };
 
@@ -531,7 +577,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
 
   return (
     <div
-      className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1920px] mx-auto min-h-screen font-sans select-none"
+      className="u-page p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1920px] mx-auto min-h-screen font-sans select-none w-full min-w-0"
       dir={isAr ? 'rtl' : 'ltr'}
     >
       {/* 1. Page Header and Global Actions (100% Matching Image 5) */}
@@ -3072,7 +3118,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
             </div>
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 space-y-1">
               <div className="text-[11px] text-slate-500 font-mono truncate">
-                https://giftshop-sa.com/blog/{currentArticle?.slug || 'home-fragrance-guide'}
+                https://{activeStore.slug || 'store'}.unityteck.com/blog/{currentArticle?.slug || 'article-slug'}
               </div>
               <div className="text-base text-blue-600 hover:underline cursor-pointer font-medium leading-snug">
                 {config.seo_enhancements.seo_title}

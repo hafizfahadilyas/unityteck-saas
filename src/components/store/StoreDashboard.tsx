@@ -91,13 +91,15 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
     return analyticsOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
   }, [analyticsOrders]);
 
-  // Real storefront visits only — never invent orders×N (zero-mock).
+  // Real storefront event sessions only — never invent orders×N or trust seeded/local visitorsCount.
   const visitorsCount = useMemo(() => {
     const fromApi = homeAnalytics?.visitors_count;
-    const fromStore = Number(activeStore.visitorsCount) || 0;
-    if (typeof fromApi === 'number') return Math.max(fromStore, fromApi);
-    return Math.max(0, fromStore);
-  }, [activeStore.visitorsCount, homeAnalytics?.visitors_count]);
+    if (typeof fromApi === 'number' && Number.isFinite(fromApi)) {
+      return Math.max(0, fromApi);
+    }
+    // Waiting for API / disconnected → genuine zero (zero-mock)
+    return 0;
+  }, [homeAnalytics?.visitors_count]);
 
   // Profit stays 0 until real cost data exists — never invent a margin %.
   const estimatedProfit = useMemo(() => {
@@ -166,48 +168,56 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
     return homeAnalytics.visits_growth;
   }, [homeAnalytics]);
 
-  // Traffic channels need real visit counts — never invent visits from order×N.
-  // When storefront visits exist, order `source` mix is used only as channel share.
-  const trafficChannels = useMemo(() => {
-    const realVisits = Math.max(0, Number(activeStore.visitorsCount) || 0);
-    if (realVisits <= 0 || !currentOrders || currentOrders.length === 0) return [];
-    const sourceCounts: Record<string, number> = {};
-    currentOrders.forEach((o) => {
-      const src = o.source || 'Direct';
-      sourceCounts[src] = (sourceCounts[src] || 0) + 1;
-    });
+  // Traffic channels: real page_view sessions only — never invent from order source mix / min-1%
+  const trafficChannels = useMemo<import('./dashboard/TrafficSourcesCard').TrafficChannel[]>(() => {
+    const rows = homeAnalytics?.traffic_sources;
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    const allowed = new Set([
+      'tiktok', 'snapchat', 'whatsapp', 'instagram', 'facebook', 'google',
+      'bing', 'youtube', 'x', 'email', 'other', 'direct',
+    ]);
+    const mapped = rows
+      .filter((r) => (Number(r.visits) || 0) > 0)
+      .map((r) => {
+        const icon = String(r.icon_type || 'other').toLowerCase();
+        return {
+          id: r.id || `src_${r.name}`,
+          name: r.name || 'Direct',
+          nameAr: r.name_ar || r.name || 'مباشر',
+          visits: Math.max(0, Number(r.visits) || 0),
+          percentage: Math.max(0, Number(r.percentage) || 0),
+          color: r.color || '#64748b',
+          iconType: (allowed.has(icon) ? icon : 'other') as import('./dashboard/TrafficSourcesCard').TrafficChannel['iconType'],
+        };
+      });
+    if (mapped.length === 0) return [];
 
-    const total = currentOrders.length;
-    const channelConfigs: Record<string, { nameEn: string; nameAr: string; color: string; iconType: any }> = {
-      TikTok: { nameEn: 'TikTok', nameAr: 'تيك توك', color: '#0f172a', iconType: 'tiktok' },
-      Snapchat: { nameEn: 'Snapchat', nameAr: 'سناب شات', color: '#f59e0b', iconType: 'snapchat' },
-      WhatsApp: { nameEn: 'WhatsApp', nameAr: 'واتساب', color: '#10b981', iconType: 'whatsapp' },
-      Instagram: { nameEn: 'Instagram', nameAr: 'انستغرام', color: '#e1306c', iconType: 'instagram' },
-      Facebook: { nameEn: 'Facebook', nameAr: 'فيسبوك', color: '#1877f2', iconType: 'facebook' },
-      Direct: { nameEn: 'Direct Visits', nameAr: 'زيارات مباشرة', color: '#0d9488', iconType: 'direct' },
-      'Direct Visits': { nameEn: 'Direct Visits', nameAr: 'زيارات مباشرة', color: '#0d9488', iconType: 'direct' },
-      Google: { nameEn: 'Google Ads', nameAr: 'إعلانات جوجل', color: '#0284c7', iconType: 'google' },
-      'Google Ads': { nameEn: 'Google Ads', nameAr: 'إعلانات جوجل', color: '#0284c7', iconType: 'google' },
-      'Organic Search': { nameEn: 'Organic Search', nameAr: 'بحث مجاني', color: '#059669', iconType: 'google' },
-    };
+    // Guard against stale API (max(1%) / naive round) so UI never shows 100%+1%
+    const visitSum = mapped.reduce((s, r) => s + r.visits, 0);
+    const pctSum = mapped.reduce((s, r) => s + r.percentage, 0);
+    if (visitSum > 0 && (pctSum !== 100 || mapped.some((r) => r.percentage <= 0 && r.visits > 0))) {
+      const floors = mapped.map((r) => {
+        const exact = (r.visits / visitSum) * 100;
+        return { floor: Math.floor(exact), frac: exact - Math.floor(exact) };
+      });
+      let remaining = 100 - floors.reduce((s, f) => s + f.floor, 0);
+      const order = floors
+        .map((f, i) => ({ i, frac: f.frac }))
+        .sort((a, b) => b.frac - a.frac);
+      for (const { i } of order) {
+        if (remaining <= 0) break;
+        floors[i].floor += 1;
+        remaining -= 1;
+      }
+      floors.forEach((f, i) => {
+        mapped[i].percentage = f.floor;
+      });
+    }
 
-    return Object.entries(sourceCounts).map(([src, count]) => {
-      const cfg = channelConfigs[src] || {
-        nameEn: src,
-        nameAr: src,
-        color: '#64748b',
-        iconType: 'other',
-      };
-      return {
-        id: src.toLowerCase().replace(/\s+/g, '-'),
-        name: cfg.nameEn,
-        nameAr: cfg.nameAr,
-        percentage: Math.round((count / total) * 100),
-        color: cfg.color,
-        iconType: cfg.iconType,
-      };
-    });
-  }, [currentOrders, activeStore.visitorsCount]);
+    return mapped
+      .filter((r) => r.percentage > 0)
+      .map(({ visits: _visits, ...ch }) => ch);
+  }, [homeAnalytics?.traffic_sources]);
 
   // Live product sales qty from real order line items (no hardcoded mock ranks)
   const salesByProductId = useMemo(() => {

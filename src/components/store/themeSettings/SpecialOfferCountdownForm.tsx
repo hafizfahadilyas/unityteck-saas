@@ -19,6 +19,7 @@ import {
   writeAllThemeSettings,
   type SpecialOfferCountdownSettings,
 } from '../../../themes/settings/themeSettingsStore';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 export const SpecialOfferCountdownForm: React.FC = () => {
   const { activeStore } = useTenant();
@@ -72,10 +73,10 @@ export const SpecialOfferCountdownForm: React.FC = () => {
           </span>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-              {isAr ? 'إعدادات الثيم · 17' : 'Theme Settings · 17'}
+              {themeSettingsBadge(17, isAr)}
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'العرض الخاص مع العد التنازلي' : 'Special Offer with Countdown (Selia)'}
+              {isAr ? 'العرض الخاص مع العد التنازلي' : 'Special Offer with Countdown'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr

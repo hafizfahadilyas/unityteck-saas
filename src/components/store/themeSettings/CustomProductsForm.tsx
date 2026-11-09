@@ -8,6 +8,7 @@ import {
   writeAllThemeSettings,
   type CustomProductsSettings,
 } from '../../../themes/settings/themeSettingsStore';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 export const CustomProductsForm: React.FC = () => {
   const { activeStore, currentProducts } = useTenant();
@@ -63,10 +64,10 @@ export const CustomProductsForm: React.FC = () => {
           </span>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-              Theme Settings · 16
+              {themeSettingsBadge(16, isAr)}
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'المنتجات المخصصة' : 'Custom Products (Selia)'}
+              {isAr ? 'المنتجات المخصصة' : 'Custom Products'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr

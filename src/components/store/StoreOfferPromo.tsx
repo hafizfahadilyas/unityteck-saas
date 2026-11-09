@@ -52,11 +52,11 @@ export const StoreOfferPromo: React.FC<Props> = ({ onEdit, onViewStorefront, com
     toast(
       next.enabled
         ? isAr
-          ? 'تم تفعيل العرض على الواجهة'
-          : 'Offer popup enabled on storefront'
+          ? 'تم تفعيل نافذة الكوبون على الواجهة'
+          : 'Coupon popup enabled on storefront'
         : isAr
-          ? 'العرض متوقف — لن يظهر افتراضياً'
-          : 'Offer off — will not show by default',
+          ? 'نافذة الكوبون متوقفة — لن تظهر افتراضياً'
+          : 'Coupon popup off — will not show by default',
       'success',
     );
   };
@@ -65,7 +65,7 @@ export const StoreOfferPromo: React.FC<Props> = ({ onEdit, onViewStorefront, com
     e.preventDefault();
     persist(config);
     setEditing(false);
-    toast(isAr ? 'تم حفظ العرض' : 'Offer saved', 'success');
+    toast(isAr ? 'تم حفظ نافذة الكوبون' : 'Coupon popup saved', 'success');
   };
 
   const handleView = () => {
@@ -88,7 +88,7 @@ export const StoreOfferPromo: React.FC<Props> = ({ onEdit, onViewStorefront, com
           </span>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-bold text-sm">{isAr ? 'عرض خاص منبثق' : 'Special offer popup'}</h3>
+              <h3 className="font-bold text-sm">{isAr ? 'نافذة الكوبون المنبثقة' : 'Coupon popup'}</h3>
               <span
                 className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
                 style={{
@@ -151,13 +151,13 @@ export const StoreOfferPromo: React.FC<Props> = ({ onEdit, onViewStorefront, com
             <div className="flex items-center gap-2">
               <Gift className="w-5 h-5" style={{ color: 'var(--accent)' }} />
               <h2 className="font-bold text-sm">
-                {isAr ? 'نافذة العرض الخاص' : 'Special offer popup'}
+                {isAr ? 'نافذة الكوبون المنبثقة' : 'Coupon popup'}
               </h2>
             </div>
             <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
               {isAr
-                ? 'افتراضياً متوقف — فعّله ليظهر على واجهة المتجر. يدعم العربي والإنجليزي والوضع الداكن/الفاتح.'
-                : 'Off by default — turn on to show on the storefront. Arabic + English, dark & light ready.'}
+                ? 'افتراضياً متوقف — فعّله ليظهر على واجهة المتجر. يدعم العربية والإنجليزية والوضع الداكن والفاتح.'
+                : 'Off by default — turn on to show on the storefront. Supports Arabic and English, dark and light mode.'}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -203,7 +203,7 @@ export const StoreOfferPromo: React.FC<Props> = ({ onEdit, onViewStorefront, com
               style={{ background: 'var(--portal-cta)' }}
             >
               <Eye className="w-3.5 h-3.5" />
-              {isAr ? 'عرض على الواجهة' : 'View on storefront'}
+              {isAr ? 'معاينة على الواجهة' : 'View on storefront'}
             </button>
           </div>
         </div>

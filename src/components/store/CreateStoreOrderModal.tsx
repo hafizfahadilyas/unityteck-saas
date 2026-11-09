@@ -32,7 +32,6 @@ import type { Order, Product } from '../../types';
 import {
   fetchDeliveryDriversApi,
   fetchStoreBankAccountsApi,
-  createOrderInstallmentsApi,
   type DeliveryDriverRow,
   type StoreBankAccountRow,
 } from '../../api/tenantApi';
@@ -50,6 +49,8 @@ import {
   TabbyIcon,
   TamaraIcon,
 } from '../../themes/coffeeRoasters/components/PaymentIcons';
+import { DeliveryLiveMapPin } from './DeliveryLiveMapPin';
+import type { CheckoutGeoPoint } from '../storefront/checkout/CheckoutLocationPicker';
 
 export interface CreateStoreOrderModalProps {
   isOpen?: boolean;
@@ -171,6 +172,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
   const [bankAccounts, setBankAccounts] = useState<StoreBankAccountRow[]>([]);
   const [driversLoading, setDriversLoading] = useState(false);
   const [banksLoading, setBanksLoading] = useState(false);
+  const [deliveryGeo, setDeliveryGeo] = useState<CheckoutGeoPoint | null>(null);
 
   useEffect(() => {
     if (!resolvedStoreId) {
@@ -195,9 +197,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
   }, [resolvedStoreId]);
 
   const needsBankAccount =
-    paymentMethod === 'bank_transfer' ||
-    paymentPlan === 'partial' ||
-    paymentPlan === 'installment';
+    paymentMethod === 'bank_transfer' || paymentPlan === 'partial';
 
   useEffect(() => {
     if (!resolvedStoreId || !needsBankAccount) {
@@ -323,46 +323,15 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
     setSubmitError(null);
     try {
       const payload = getOrderPayload(resolvedStoreId);
-      const created = await Promise.resolve(onCreate(payload));
-      const createdOrder =
-        created && typeof created === 'object' && 'id' in created && created.id
-          ? (created as Order)
-          : null;
-
-      // Real API installments only when parent returns a created order with id
       if (
-        paymentPlan === 'installment' &&
-        createdOrder?.id &&
-        resolvedStoreId
+        deliveryMethod === 'delivery' &&
+        deliveryGeo &&
+        payload.deliveryLocation &&
+        !payload.deliveryLocation.includes(`${deliveryGeo.lat.toFixed(5)}`)
       ) {
-        try {
-          const total = Number(createdOrder.total ?? payload.total) || 0;
-          if (total > 0) {
-            const count = 3;
-            const cents = Math.round(total * 100);
-            const baseCents = Math.floor(cents / count);
-            const amounts: number[] = [];
-            let allocated = 0;
-            for (let i = 0; i < count - 1; i++) {
-              amounts.push(baseCents / 100);
-              allocated += baseCents;
-            }
-            amounts.push((cents - allocated) / 100);
-            const baseDate = new Date();
-            for (let i = 0; i < count; i++) {
-              const due = new Date(baseDate);
-              due.setDate(due.getDate() + 30 * (i + 1));
-              await createOrderInstallmentsApi(resolvedStoreId, createdOrder.id, {
-                installment_number: i + 1,
-                amount: amounts[i],
-                due_date: due.toISOString().slice(0, 10),
-              });
-            }
-          }
-        } catch {
-          // Order already created — skip installment errors without fake rows
-        }
+        payload.deliveryLocation = `${payload.deliveryLocation} · ${deliveryGeo.lat.toFixed(5)},${deliveryGeo.lng.toFixed(5)}`;
       }
+      await Promise.resolve(onCreate(payload));
     } catch (err) {
       const msg =
         err instanceof Error
@@ -756,21 +725,65 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                               )}
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSelectProduct(product);
-                              }}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all ${
-                                qtyInOrder > 0
-                                  ? 'bg-teal-600 text-white hover:bg-teal-700'
-                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 hover:bg-teal-600 hover:text-white'
-                              }`}
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>{qtyInOrder > 0 ? `${qtyInOrder} ${isAr ? 'مضاف' : 'in order'}` : isAr ? 'إضافة' : 'Add'}</span>
-                            </button>
+                            {qtyInOrder > 0 ? (
+                              <div
+                                className="flex items-center gap-1"
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    updateQuantity(product.id, -1);
+                                  }}
+                                  className="w-8 h-8 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-700 dark:text-slate-200 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 dark:hover:bg-rose-950/40 flex items-center justify-center cursor-pointer shadow-2xs transition-all"
+                                  title={isAr ? 'تقليل أو إزالة' : 'Decrease or remove'}
+                                  aria-label={isAr ? 'تقليل أو إزالة' : 'Decrease or remove'}
+                                >
+                                  <Minus className="w-3.5 h-3.5" />
+                                </button>
+                                <span className="min-w-[2rem] text-center text-xs font-black tabular-nums text-teal-700 dark:text-teal-300">
+                                  {qtyInOrder}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectProduct(product);
+                                  }}
+                                  className="w-8 h-8 rounded-xl bg-teal-600 text-white hover:bg-teal-700 flex items-center justify-center cursor-pointer shadow-2xs transition-all"
+                                  title={isAr ? 'زيادة الكمية' : 'Increase quantity'}
+                                  aria-label={isAr ? 'زيادة الكمية' : 'Increase quantity'}
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeItem(product.id);
+                                  }}
+                                  className="w-8 h-8 rounded-xl border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center justify-center cursor-pointer shadow-2xs transition-all"
+                                  title={isAr ? 'إزالة من الطلب' : 'Remove from order'}
+                                  aria-label={isAr ? 'إزالة من الطلب' : 'Remove from order'}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectProduct(product);
+                                }}
+                                className="px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 hover:bg-teal-600 hover:text-white"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>{isAr ? 'إضافة' : 'Add'}</span>
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
@@ -1092,12 +1105,11 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                   {isAr ? 'خطة الدفع' : 'Payment Plan'}
                 </label>
-                <div className="grid grid-cols-3 gap-2 max-w-xl">
+                <div className="grid grid-cols-2 gap-2 max-w-xl">
                   {(
                     [
                       { id: 'full' as const, label: commerceTerm('fullPayment', isAr) },
                       { id: 'partial' as const, label: commerceTerm('partialPayment', isAr) },
-                      { id: 'installment' as const, label: commerceTerm('installmentPayment', isAr) },
                     ] as const
                   ).map((opt) => (
                     <button
@@ -1119,7 +1131,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                 </div>
               </div>
 
-              {(paymentPlan === 'partial' || paymentPlan === 'installment') && (
+              {paymentPlan === 'partial' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
@@ -1260,7 +1272,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                     }`}
                   >
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-amber-400/40" />
-                    <span>{isAr ? 'بانتظار التحصيل / الدفع' : 'Pending Payment'}</span>
+                    <span>{isAr ? 'بانتظار الدفع' : 'Awaiting payment'}</span>
                   </button>
                 </div>
               </div>
@@ -1481,7 +1493,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
               </div>
             )}
 
-            {/* Shipping Address */}
+            {/* Shipping Address + live map pin */}
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 {isAr ? 'عنوان التوصيل والحي' : 'Delivery Address & District'} <span className="text-rose-500">*</span>
@@ -1502,6 +1514,13 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                   className="w-full ps-10 pe-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs transition-all font-medium"
                 />
               </div>
+              <DeliveryLiveMapPin
+                isAr={isAr}
+                onAddressChange={setShippingAddress}
+                geo={deliveryGeo}
+                onGeoChange={setDeliveryGeo}
+                disabled={deliveryMethod === 'pickup'}
+              />
             </div>
           </section>
 

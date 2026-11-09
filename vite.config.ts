@@ -1,13 +1,57 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, loadEnv, type Plugin} from 'vite';
 
-export default defineConfig(() => {
+/** Public Clerk pk_ — same as src/auth/clerkSession.ts fallback (safe in SPA). */
+const CLERK_PUBLISHABLE_KEY_FALLBACK =
+  'pk_test_cXVpZXQtYWxiYWNvcmUtMzkwNi5jbGVyay5hY2NvdW50cy5kZXYk';
+
+function resolveClerkPublishableKey(raw: string): string {
+  const trimmed = String(raw || '').trim();
+  if (
+    (trimmed.startsWith('pk_test_') || trimmed.startsWith('pk_live_')) &&
+    trimmed.length >= 24 &&
+    !/x{3,}|REPLACE|your_key|xxxxx/i.test(trimmed)
+  ) {
+    return trimmed;
+  }
+  return CLERK_PUBLISHABLE_KEY_FALLBACK;
+}
+
+/** Bake Clerk publishable key into index.html so Hostinger static deploys never boot without it. */
+function injectClerkPublishableKey(key: string): Plugin {
   return {
-    plugins: [react(), tailwindcss()],
+    name: 'inject-clerk-publishable-key',
+    transformIndexHtml(html) {
+      const trimmed = resolveClerkPublishableKey(key);
+      const snippet = `<script>window.__CLERK_PUBLISHABLE_KEY=${JSON.stringify(trimmed)};</script>`;
+      if (html.includes('window.__CLERK_PUBLISHABLE_KEY')) {
+        return html.replace(
+          /window\.__CLERK_PUBLISHABLE_KEY\s*=\s*[^;]+;/,
+          `window.__CLERK_PUBLISHABLE_KEY=${JSON.stringify(trimmed)};`,
+        );
+      }
+      return html.replace('<head>', `<head>\n    ${snippet}`);
+    },
+  };
+}
+
+export default defineConfig(({mode}) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const clerkPublishableKey = resolveClerkPublishableKey(
+    String(env.VITE_CLERK_PUBLISHABLE_KEY || env.CLERK_PUBLISHABLE_KEY || ''),
+  );
+
+  return {
+    envDir: process.cwd(),
+    define: {
+      // Ensure production bundles always receive a real pk_ even if CI secret was empty.
+      'import.meta.env.VITE_CLERK_PUBLISHABLE_KEY': JSON.stringify(clerkPublishableKey),
+    },
+    plugins: [react(), tailwindcss(), injectClerkPublishableKey(clerkPublishableKey)],
     resolve: {
-      alias: {
+    alias: {
         '@': path.resolve(import.meta.dirname, '.'),
       },
     },

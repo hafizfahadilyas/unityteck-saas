@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\StoreSetting;
+use App\Services\Loyalty\LoyaltyPointsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Customer reviews for a store. Persisted on store_settings (not theme JSON).
@@ -45,7 +47,23 @@ class StoreReviewsController extends Controller
             'titleAr' => ['nullable', 'string', 'max:200'],
             'comment' => ['required', 'string', 'max:2000'],
             'commentAr' => ['nullable', 'string', 'max:2000'],
+            'customer_id' => ['nullable', 'string', 'max:64'],
+            'product_id' => ['nullable', 'string', 'max:64'],
+            'verified' => ['nullable', 'boolean'],
+            'has_media' => ['nullable', 'boolean'],
+            'media_urls' => ['nullable', 'array'],
+            'media_urls.*' => ['string', 'max:500'],
+            'image_url' => ['nullable', 'string', 'max:500'],
+            'video_url' => ['nullable', 'string', 'max:500'],
         ]);
+
+        $mediaUrls = array_values(array_filter(
+            is_array($data['media_urls'] ?? null) ? $data['media_urls'] : []
+        ));
+        $hasMedia = (bool) ($data['has_media'] ?? false)
+            || $mediaUrls !== []
+            || ! empty($data['image_url'])
+            || ! empty($data['video_url']);
 
         $reviews = $this->readReviews($id);
         $reviews[] = [
@@ -54,13 +72,19 @@ class StoreReviewsController extends Controller
             'city' => $data['city'] ?? '',
             'product' => $data['product'] ?? '',
             'productAr' => $data['productAr'] ?? '',
+            'product_id' => $data['product_id'] ?? '',
+            'customer_id' => $data['customer_id'] ?? '',
             'rating' => (int) ($data['rating'] ?? 5),
             'title' => $data['title'] ?? '',
             'titleAr' => $data['titleAr'] ?? '',
             'comment' => $data['comment'],
             'commentAr' => $data['commentAr'] ?? '',
-            'verified' => false,
+            'verified' => (bool) ($data['verified'] ?? false),
             'active' => false,
+            'has_media' => $hasMedia,
+            'media_urls' => $mediaUrls,
+            'image_url' => $data['image_url'] ?? '',
+            'video_url' => $data['video_url'] ?? '',
             'likes' => 0,
             'date' => now()->toDateString(),
         ];
@@ -88,6 +112,8 @@ class StoreReviewsController extends Controller
             'reviews.*.city' => ['nullable', 'string', 'max:120'],
             'reviews.*.product' => ['nullable', 'string', 'max:200'],
             'reviews.*.productAr' => ['nullable', 'string', 'max:200'],
+            'reviews.*.product_id' => ['nullable', 'string', 'max:64'],
+            'reviews.*.customer_id' => ['nullable', 'string', 'max:64'],
             'reviews.*.rating' => ['nullable', 'integer', 'min:1', 'max:5'],
             'reviews.*.title' => ['nullable', 'string', 'max:200'],
             'reviews.*.titleAr' => ['nullable', 'string', 'max:200'],
@@ -95,17 +121,36 @@ class StoreReviewsController extends Controller
             'reviews.*.commentAr' => ['nullable', 'string', 'max:2000'],
             'reviews.*.verified' => ['nullable', 'boolean'],
             'reviews.*.active' => ['nullable', 'boolean'],
+            'reviews.*.has_media' => ['nullable', 'boolean'],
+            'reviews.*.media_urls' => ['nullable', 'array'],
+            'reviews.*.image_url' => ['nullable', 'string', 'max:500'],
+            'reviews.*.video_url' => ['nullable', 'string', 'max:500'],
             'reviews.*.likes' => ['nullable', 'integer', 'min:0'],
             'reviews.*.date' => ['nullable', 'string', 'max:40'],
         ]);
 
+        $previous = [];
+        foreach ($this->readReviews($id) as $row) {
+            $previous[(string) ($row['id'] ?? '')] = $row;
+        }
+
         $clean = array_values(array_map(function ($row) {
+            $mediaUrls = array_values(array_filter(
+                is_array($row['media_urls'] ?? null) ? $row['media_urls'] : []
+            ));
+            $hasMedia = (bool) ($row['has_media'] ?? false)
+                || $mediaUrls !== []
+                || ! empty($row['image_url'])
+                || ! empty($row['video_url']);
+
             return [
                 'id' => (string) $row['id'],
                 'author' => (string) ($row['author'] ?? ''),
                 'city' => (string) ($row['city'] ?? ''),
                 'product' => (string) ($row['product'] ?? ''),
                 'productAr' => (string) ($row['productAr'] ?? ''),
+                'product_id' => (string) ($row['product_id'] ?? ''),
+                'customer_id' => (string) ($row['customer_id'] ?? ''),
                 'rating' => (int) ($row['rating'] ?? 5),
                 'title' => (string) ($row['title'] ?? ''),
                 'titleAr' => (string) ($row['titleAr'] ?? ''),
@@ -113,12 +158,33 @@ class StoreReviewsController extends Controller
                 'commentAr' => (string) ($row['commentAr'] ?? ''),
                 'verified' => (bool) ($row['verified'] ?? false),
                 'active' => (bool) ($row['active'] ?? false),
+                'has_media' => $hasMedia,
+                'media_urls' => $mediaUrls,
+                'image_url' => (string) ($row['image_url'] ?? ''),
+                'video_url' => (string) ($row['video_url'] ?? ''),
                 'likes' => (int) ($row['likes'] ?? 0),
                 'date' => (string) ($row['date'] ?? ''),
             ];
         }, $data['reviews']));
 
         $this->writeReviews($id, $clean);
+
+        // Award loyalty points when a review becomes approved (active) — idempotent
+        try {
+            $loyalty = app(LoyaltyPointsService::class);
+            foreach ($clean as $review) {
+                $rid = (string) ($review['id'] ?? '');
+                $wasActive = (bool) ($previous[$rid]['active'] ?? false);
+                $isActive = (bool) ($review['active'] ?? false);
+                if ($isActive && ! $wasActive && ! empty($review['customer_id'])) {
+                    $loyalty->awardForReview($id, $review);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Loyalty award on review approval failed: '.$e->getMessage(), [
+                'store_id' => $id,
+            ]);
+        }
 
         return response()->json([
             'success' => true,

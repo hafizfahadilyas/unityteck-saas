@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Lock, Search, Sparkles, FilePlus2, Upload, Trash2 } from 'lucide-react';
 import type { Store } from '../../types';
 import {
@@ -16,6 +16,16 @@ import {
   isCanvaTemplateUnlocked,
 } from '../../services/canvaTemplateAccess';
 import type { CanvaMyTemplate } from '../../services/canvaMyTemplates';
+import { fetchDailyDesignTemplates } from '../../services/storeStudioDesigns';
+
+/** Map UI category → Laravel daily catalog category (ads reuse banner pool). */
+function toDailyApiCategory(
+  cat: CanvaTemplateCategory | 'all',
+): 'banner' | 'logo' | 'product' | 'social' | 'category' | null {
+  if (cat === 'all') return null;
+  if (cat === 'ads') return 'banner';
+  return cat;
+}
 
 export interface CanvaTemplatesPanelProps {
   store: Pick<
@@ -40,6 +50,8 @@ export interface CanvaTemplatesPanelProps {
   onOpenUploadTab?: () => void;
   onRequestPro: () => void;
   onSelectFormatPreset?: (width: number, height: number, label: string) => void;
+  /** When set, category tabs are hidden and list is scoped to this category */
+  lockedCategory?: CanvaTemplateCategory;
 }
 
 /** True mini-canvas preview — layers at real xPct/yPct (no crude bottom overlay). */
@@ -201,11 +213,42 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
   onOpenUploadTab,
   onRequestPro,
   onSelectFormatPreset,
+  lockedCategory,
 }) => {
   const storeNiche = useMemo(() => resolveStoreCanvaNiche(store), [store]);
-  const [activeCategory, setActiveCategory] = useState<CanvaTemplateCategory | 'all'>('all');
+  const [activeCategory, setActiveCategory] = useState<CanvaTemplateCategory | 'all'>(
+    lockedCategory || 'all',
+  );
+
+  React.useEffect(() => {
+    if (lockedCategory) {
+      setActiveCategory(lockedCategory);
+    }
+  }, [lockedCategory]);
   const [nicheFilter, setNicheFilter] = useState<'for_you' | 'blank' | 'all' | 'mine'>('for_you');
   const [search, setSearch] = useState('');
+  const [dailyIds, setDailyIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const apiCat = toDailyApiCategory(activeCategory);
+    if (!apiCat || nicheFilter === 'mine') {
+      setDailyIds([]);
+      return;
+    }
+    void (async () => {
+      try {
+        const pick = await fetchDailyDesignTemplates(store.id, apiCat);
+        if (cancelled) return;
+        setDailyIds(Array.isArray(pick?.template_ids) ? pick!.template_ids : []);
+      } catch {
+        if (!cancelled) setDailyIds([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [store.id, activeCategory, nicheFilter]);
 
   const storeName = (isAr ? store.nameAr || store.name : store.name) || '';
   const productName = previewProduct
@@ -283,6 +326,13 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
   // Generic chrome only — never surface coffee/flowers pack names in UI
   const nicheLabel = isAr ? 'قوالب متجرك' : 'Your templates';
 
+  const dailyTemplates = useMemo(() => {
+    if (dailyIds.length === 0) return [] as CanvaDesignTemplate[];
+    return dailyIds
+      .map((id) => getCanvaTemplate(id))
+      .filter((t): t is CanvaDesignTemplate => Boolean(t));
+  }, [dailyIds]);
+
   const templates = useMemo(() => {
     if (nicheFilter === 'mine') return [];
 
@@ -296,20 +346,32 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
       );
     }
 
-    if (!search.trim()) return list;
-    const q = search.toLowerCase();
-    return list.filter(
-      (t) =>
-        t.nameEn.toLowerCase().includes(q) ||
-        t.nameAr.includes(search) ||
-        t.niche.includes(q) ||
-        t.elements.some(
-          (e) =>
-            (e.textEn || '').toLowerCase().includes(q) ||
-            (e.textAr || '').includes(search),
-        ),
-    );
-  }, [activeCategory, search, store, nicheFilter, storeNiche]);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (t) =>
+          t.nameEn.toLowerCase().includes(q) ||
+          t.nameAr.includes(search) ||
+          t.niche.includes(q) ||
+          t.elements.some(
+            (e) =>
+              (e.textEn || '').toLowerCase().includes(q) ||
+              (e.textAr || '').includes(search),
+          ),
+      );
+    }
+
+    // Surface today's 5 first when API returned real catalog IDs
+    if (dailyIds.length > 0) {
+      const dailySet = new Set(dailyIds);
+      list = [
+        ...list.filter((t) => dailySet.has(t.id)),
+        ...list.filter((t) => !dailySet.has(t.id)),
+      ];
+    }
+
+    return list;
+  }, [activeCategory, search, store, nicheFilter, storeNiche, dailyIds]);
 
   const counts = useMemo(() => {
     if (activeCategory === 'all') {
@@ -510,6 +572,7 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
       </div>
 
       {/* Category pills */}
+      {!lockedCategory ? (
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
@@ -547,13 +610,32 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
           </button>
         ))}
       </div>
+      ) : (
+        <p className="text-[10px] font-bold" style={{ color: 'var(--accent)' }}>
+          {isAr
+            ? CANVA_TEMPLATE_CATEGORIES.find((c) => c.id === lockedCategory)?.labelAr || lockedCategory
+            : CANVA_TEMPLATE_CATEGORIES.find((c) => c.id === lockedCategory)?.labelEn || lockedCategory}
+        </p>
+      )}
 
       {nicheFilter !== 'mine' && activeCategory !== 'all' && counts.limit != null && (
         <p className="text-[10px] text-muted">
           {isAr
-            ? `${counts.unlocked}من${counts.total}مفتوح في الباقة الحالية`
+            ? `${counts.unlocked} من ${counts.total} مفتوح في الباقة الحالية`
             : `${counts.unlocked} of ${counts.total} unlocked on your plan`}
         </p>
+      )}
+
+      {nicheFilter !== 'mine' && dailyTemplates.length > 0 && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50/80 px-2.5 py-1.5">
+          <span className="text-[10px] font-black text-amber-800 flex items-center gap-1">
+            <Sparkles className="w-3 h-3" />
+            {isAr ? `قوالب اليوم (${dailyTemplates.length})` : `Today's templates (${dailyTemplates.length})`}
+          </span>
+          <span className="text-[9px] font-bold text-amber-700/80">
+            {isAr ? 'تتجدد يومياً' : 'Rotates daily'}
+          </span>
+        </div>
       )}
 
       {/* Template grid — responsive cards (premade packs) */}
@@ -562,20 +644,25 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
         {templates.map((tpl) => {
           const unlocked = isCanvaTemplateUnlocked(tpl, store);
           const isSelected = selectedTemplateId === tpl.id;
+          const isDaily = dailyIds.includes(tpl.id);
           const typeTag =
             tpl.niche === 'blank'
               ? isAr
                 ? 'فارغ'
                 : 'Blank'
-              : isAr
-                ? 'قالب'
-                : 'Template';
+              : isDaily
+                ? isAr
+                  ? 'اليوم'
+                  : 'Today'
+                : isAr
+                  ? 'قالب'
+                  : 'Template';
 
           return (
             <div
               key={tpl.id}
               className={`group relative rounded-lg border p-1.5 transition-colors flex flex-col bg-white ${
-                isSelected ? 'ring-1' : 'border-slate-200 hover:border-slate-400'
+                isSelected ? 'ring-1' : isDaily ? 'border-amber-300' : 'border-slate-200 hover:border-slate-400'
               }`}
               style={
                 isSelected
@@ -586,6 +673,11 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
                   : undefined
               }
             >
+              {isDaily && (
+                <span className="absolute top-2 start-2 z-20 px-1.5 py-0.5 rounded text-[7px] font-black bg-amber-500 text-white">
+                  {isAr ? 'اليوم' : 'TODAY'}
+                </span>
+              )}
               <button
                 type="button"
                 className="w-full text-start cursor-pointer"
@@ -611,7 +703,7 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
                   <div className="text-[8px] text-slate-500 flex items-center gap-1 font-mono">
                     <span
                       className="font-bold not-italic font-sans"
-                      style={{ color: 'var(--accent, #1d8b94)' }}
+                      style={{ color: isDaily ? '#b45309' : 'var(--accent, #1d8b94)' }}
                     >
                       {typeTag}
                     </span>

@@ -41,8 +41,8 @@ export const ShortcodeGeneratorModal: React.FC<ShortcodeGeneratorModalProps> = (
   const { toast } = useToast();
 
   const [filterType, setFilterType] = useState<ProductRowConfig['filterType']>('category');
-  const [selectedCategory, setSelectedCategory] = useState('natural-bouquets');
-  const [selectedBrand, setSelectedBrand] = useState('Hadaya Mecca Signature');
+  const [selectedCategory, setSelectedCategory] = useState('all-products');
+  const [selectedBrand, setSelectedBrand] = useState('Store Brand');
   const [collectionType, setCollectionType] = useState<ProductRowConfig['collectionType']>('on_sale');
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [limit, setLimit] = useState(6);
@@ -51,38 +51,18 @@ export const ShortcodeGeneratorModal: React.FC<ShortcodeGeneratorModalProps> = (
   const [customTitle, setCustomTitle] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // 17 Real Store Categories
+  // General categories (no niche hardcoding — 100+ stores)
   const categories = useMemo(() => [
-    { slug: 'natural-bouquets', nameAr: 'باقات الورود الطبيعية', nameEn: 'Natural Flower Bouquets' },
-    { slug: 'roses-patchi', nameAr: 'ورد و شوكليت باتشي', nameEn: 'Roses & Patchi Chocolate' },
-    { slug: 'roses-bostani', nameAr: 'ورد وشوكوليت بستاني', nameEn: 'Roses & Bostani Chocolate' },
-    { slug: 'flower-vases', nameAr: 'فازات ورد طبيعي', nameEn: 'Natural Flower Vases' },
-    { slug: 'vases-chocolate', nameAr: 'فازات الورود مع شوكليت', nameEn: 'Flower Vases with Chocolate' },
-    { slug: 'roses-fish', nameAr: 'ورود مع أسماك زينة', nameEn: 'Roses with Aquarium Fish' },
-    { slug: 'roses-lovebirds', nameAr: 'ورود مع عصافير الحب', nameEn: 'Roses with Lovebirds' },
-    { slug: 'roses-coffee', nameAr: 'تقديمة ورد وقهوة', nameEn: 'Roses & Coffee Presentation' },
-    { slug: 'roses-coffee-sweets', nameAr: 'تقديمة ورد مع قهوة وحلا', nameEn: 'Roses with Coffee & Sweets' },
-    { slug: 'roses-cake', nameAr: 'ورد مع كيك', nameEn: 'Roses with Gourmet Cake' },
-    { slug: 'korean-cake', nameAr: 'تقديمة كيك الكوري', nameEn: 'Korean Lunchbox Bento Cake' },
-    { slug: 'mawajeeb', nameAr: 'لوحات مواجيب وتراث حجازي', nameEn: 'Mawajeeb Wooden Plaques' },
-    { slug: 'newborn', nameAr: 'هدايا المواليد', nameEn: 'Newborn Welcome Gifts' },
-    { slug: 'graduation', nameAr: 'هدايا التخرج', nameEn: 'Graduation Milestones' },
-    { slug: 'valentine', nameAr: 'هدايا عيد الحب والرومانسية', nameEn: 'Valentine & Romantic Gifts' },
-    { slug: 'wedding', nameAr: 'هدايا الزواج والعرائس', nameEn: 'Wedding & Bridal Keepsakes' },
-    { slug: 'birthday', nameAr: 'هدايا عيد ميلاد', nameEn: 'Birthday Celebrations' },
-    { slug: 'men-gifts', nameAr: 'هدايا رجالية ملكية', nameEn: 'Men Luxury Gifts' },
-    { slug: 'women-gifts', nameAr: 'هدايا نسائية فاخرة', nameEn: 'Women Luxury Gifts' },
+    { slug: 'all-products', nameAr: 'جميع المنتجات', nameEn: 'All Products' },
+    { slug: 'featured', nameAr: 'منتجات مميزة', nameEn: 'Featured Products' },
+    { slug: 'new-arrivals', nameAr: 'وصل حديثاً', nameEn: 'New Arrivals' },
+    { slug: 'best-sellers', nameAr: 'الأكثر مبيعاً', nameEn: 'Best Sellers' },
+    { slug: 'on-sale', nameAr: 'عروض وتخفيضات', nameEn: 'On Sale' },
   ], []);
 
-  // 7 Real Store Brands
+  // General brand placeholders — merchant brands come from this store’s catalog
   const brands = useMemo(() => [
-    { id: 'b1', name: 'Hadaya Mecca Signature', nameAr: 'هدايا مكة سيغنتشر' },
-    { id: 'b2', name: 'Patchi & Mecca Blooms', nameAr: 'باتشي وهدايا مكة' },
-    { id: 'b3', name: 'Bostani & Mecca Blooms', nameAr: 'بستاني وهدايا مكة' },
-    { id: 'b4', name: 'Hadaya Mecca Bakery & Florist', nameAr: 'كيك وزهور هدايا مكة' },
-    { id: 'b5', name: 'Hadaya Mecca Crystal', nameAr: 'كريستال وفازات هدايا مكة' },
-    { id: 'b6', name: 'Hadaya Mecca Heritage', nameAr: 'تراث ومواجيب هدايا مكة' },
-    { id: 'b7', name: 'Hadaya Mecca Executive', nameAr: 'أطقم هدايا مكة الملكية' },
+    { id: 'b1', name: 'Store Brand', nameAr: 'علامة المتجر' },
   ], []);
 
   const generatedShortcode = useMemo(() => {
@@ -376,7 +356,7 @@ export const ShortcodeGeneratorModal: React.FC<ShortcodeGeneratorModalProps> = (
                 type="text"
                 value={customTitle}
                 onChange={(e) => setCustomTitle(e.target.value)}
-                placeholder={isAr ? 'مثال: عروض كيك أعياد الميلاد الخاصة' : 'e.g. Birthday Special Cakes'}
+                  placeholder={isAr ? 'مثال: عروض خاصة لهذا الأسبوع' : 'e.g. This Week Special Offers'}
                 className="w-full p-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>

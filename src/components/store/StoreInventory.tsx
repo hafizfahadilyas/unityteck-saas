@@ -107,7 +107,7 @@ export const StoreInventory: React.FC = () => {
   };
 
   return (
-    <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto font-sans">
+    <div className="u-page p-4 md:p-8 space-y-6 max-w-7xl mx-auto font-sans w-full min-w-0">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

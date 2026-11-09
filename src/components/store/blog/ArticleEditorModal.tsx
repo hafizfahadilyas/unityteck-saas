@@ -1,17 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Image as ImageIcon, Sparkles, AlertCircle, Check } from 'lucide-react';
+import { X, Save, Sparkles, AlertCircle } from 'lucide-react';
 import type { BlogArticleItem } from '../../../types/blog';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { GlobalModal } from '../../common/GlobalModal';
+import { RichTextEditor } from '../../common/RichTextEditor';
+import { MediaUploadField } from '../../common/MediaUploadField';
 
 interface ArticleEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
   article: BlogArticleItem | null;
-  onSave: (articleData: Partial<BlogArticleItem>) => Promise<void>;
+  onSave: (articleData: Partial<BlogArticleItem> & Record<string, unknown>) => Promise<void>;
   categories: string[];
   onOpenCommerceTools?: (articleId: string) => void;
 }
+
+const DEFAULT_CATEGORIES_EN = [
+  'Home Decor',
+  'Fragrances',
+  'Lifestyle',
+  'Guides',
+  'Wellness',
+  'Science',
+  'Products',
+];
+
+const DEFAULT_CATEGORIES_AR = [
+  'ديكور المنزل',
+  'عطور',
+  'أسلوب حياة',
+  'أدلة',
+  'عافية',
+  'علوم',
+  'منتجات',
+];
 
 export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
   isOpen,
@@ -27,11 +49,11 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
   const [title, setTitle] = useState('');
   const [excerpt, setExcerpt] = useState('');
   const [content, setContent] = useState('');
-  const [category, setCategory] = useState('Home Decor');
+  const [category, setCategory] = useState('');
   const [newCategory, setNewCategory] = useState('');
-  const [status, setStatus] = useState<'published' | 'draft'>('published');
+  const [status, setStatus] = useState<'published' | 'draft'>('draft');
   const [thumbnail, setThumbnail] = useState('');
-  const [authorName, setAuthorName] = useState('Sarah Ahmed');
+  const [authorName, setAuthorName] = useState('');
   const [featured, setFeatured] = useState(false);
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDescription, setMetaDescription] = useState('');
@@ -39,60 +61,80 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const categoryOptions = Array.from(
+    new Set([
+      ...categories.filter(Boolean),
+      ...(isAr ? DEFAULT_CATEGORIES_AR : DEFAULT_CATEGORIES_EN),
+    ]),
+  );
+
   useEffect(() => {
     if (article) {
       setTitle(article.title || '');
       setExcerpt(article.excerpt || '');
       setContent(article.content || '');
-      setCategory(article.category || 'Home Decor');
-      setStatus(article.status || 'published');
+      setCategory(article.category || categoryOptions[0] || '');
+      setStatus(article.status || 'draft');
       setThumbnail(article.thumbnail || '');
-      setAuthorName(article.author?.name || 'Sarah Ahmed');
+      setAuthorName(article.author?.name || '');
       setFeatured(Boolean(article.featured));
-      setMetaTitle(article.seo?.meta_title || article.title || '');
-      setMetaDescription(article.seo?.meta_description || article.excerpt || '');
+      setMetaTitle(article.seo?.meta_title || '');
+      setMetaDescription(article.seo?.meta_description || '');
       setFocusKeyword(article.seo?.focus_keyword || '');
     } else {
       setTitle('');
       setExcerpt('');
       setContent('');
-      setCategory(categories[0] || 'Home Decor');
-      setStatus('published');
-      setThumbnail('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80');
-      setAuthorName('Sarah Ahmed');
+      setCategory(categories[0] || categoryOptions[0] || '');
+      setStatus('draft');
+      setThumbnail('');
+      setAuthorName('');
       setFeatured(false);
       setMetaTitle('');
       setMetaDescription('');
       setFocusKeyword('');
     }
+    setNewCategory('');
     setErrorMsg(null);
   }, [article, categories, isOpen]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!title.trim()) {
       setErrorMsg(isAr ? 'يرجى كتابة عنوان المقال' : 'Article title is required.');
       return;
     }
 
     const selectedCategory = newCategory.trim() ? newCategory.trim() : category;
+    if (!selectedCategory) {
+      setErrorMsg(isAr ? 'يرجى اختيار التصنيف' : 'Category is required.');
+      return;
+    }
 
     try {
       setIsSubmitting(true);
       setErrorMsg(null);
+
+      // API expects flat author_* / meta_* fields (BlogController validate).
       await onSave({
         title: title.trim(),
         excerpt: excerpt.trim(),
-        content: content.trim(),
+        content: content || '',
         category: selectedCategory,
         status,
-        thumbnail: thumbnail.trim() || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80',
-        author: {
-          name: authorName.trim() || 'Admin',
-          avatar: article?.author?.avatar || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80',
-          role: article?.author?.role || 'Staff Editor',
-        },
+        thumbnail: thumbnail.trim(),
         featured,
+        author_name: authorName.trim() || undefined,
+        author_avatar: article?.author?.avatar || undefined,
+        meta_title: metaTitle.trim() || title.trim(),
+        meta_description: metaDescription.trim() || excerpt.trim(),
+        focus_keyword: focusKeyword.trim(),
+        // Keep nested shapes for local optimistic UI consumers.
+        author: {
+          name: authorName.trim() || (isAr ? 'المسؤول' : 'Admin'),
+          avatar: article?.author?.avatar || '',
+          role: article?.author?.role || (isAr ? 'طاقم المتجر' : 'Store Staff'),
+        },
         seo: {
           meta_title: metaTitle.trim() || title.trim(),
           meta_description: metaDescription.trim() || excerpt.trim(),
@@ -112,11 +154,17 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       dir={isAr ? 'rtl' : 'ltr'}
-      aria-label={article ? (isAr ? 'تعديل المقال' : 'Edit Article') : (isAr ? 'إضافة مقال جديد' : 'Add New Article')}
+      aria-label={
+        article
+          ? isAr
+            ? 'تعديل المقال'
+            : 'Edit Article'
+          : isAr
+            ? 'إضافة مقال جديد'
+            : 'Add New Article'
+      }
     >
-      <div
-        className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col my-8 max-h-[90vh]"
-      >
+      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col my-8 max-h-[92vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
           <div>
@@ -126,12 +174,12 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
                   ? 'تعديل المقال'
                   : 'Edit Article'
                 : isAr
-                ? 'إضافة مقال جديد'
-                : 'Add New Article'}
+                  ? 'إضافة مقال جديد'
+                  : 'Add New Article'}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {isAr
-                ? 'قم بملء تفاصيل المقال، الكلمات المفتاحية وبيانات السيو'
+                ? 'قم بإعداد محتوى المقال والصور والتصنيف وبيانات تحسين البحث'
                 : 'Configure article content, imagery, category, and SEO metadata.'}
             </p>
           </div>
@@ -164,7 +212,11 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={isAr ? 'مثال: 5 طرق لتنسيق ديكور المنزل' : 'e.g. 5 Simple Ways to Create a Cozy Home'}
+                placeholder={
+                  isAr
+                    ? 'مثال: ٥ طرق لتنسيق ديكور المنزل'
+                    : 'e.g. 5 Simple Ways to Create a Cozy Home'
+                }
                 className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
               />
             </div>
@@ -192,26 +244,34 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
               rows={2}
               value={excerpt}
               onChange={(e) => setExcerpt(e.target.value)}
-              placeholder={isAr ? 'مقدمة مختصرة تظهر في قائمة المقالات وبطاقات المشاركة...' : 'Short preview shown on cards and social shares...'}
+              placeholder={
+                isAr
+                  ? 'مقدمة مختصرة تظهر في قائمة المقالات وبطاقات المشاركة...'
+                  : 'Short preview shown on cards and social shares...'
+              }
               className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/30"
             />
           </div>
 
-          {/* Content Body */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              {isAr ? 'محتوى المقال' : 'Article Body Content'}
-            </label>
-            <textarea
-              rows={7}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder={isAr ? 'اكتب محتوى المقال هنا بالتفصيل...' : 'Write your full article content here...'}
-              className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-teal-500/30"
-            />
-          </div>
+          {/* Rich Text Body */}
+          <RichTextEditor
+            label={isAr ? 'محتوى المقال' : 'Article Body Content'}
+            value={content}
+            onChange={setContent}
+            placeholder={
+              isAr
+                ? 'اكتب المقال مع العناوين والتنسيق والصور والروابط...'
+                : 'Write your full article with headings, formatting, images, and links...'
+            }
+            minHeight={220}
+            rows={10}
+            isAr={isAr}
+            enableHeadings
+            enableMedia
+            mediaFolder="marketing"
+          />
 
-          {/* Category, Author, Thumbnail */}
+          {/* Category, Author, Featured */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -222,19 +282,19 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/30"
               >
-                {categories.map((c) => (
+                {categoryOptions.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
                 ))}
-                <option value="Home Decor">Home Decor</option>
-                <option value="Fragrances">Fragrances</option>
-                <option value="Lifestyle">Lifestyle</option>
-                <option value="Guides">Guides</option>
-                <option value="Wellness">Wellness</option>
-                <option value="Science">Science</option>
-                <option value="Products">Products</option>
               </select>
+              <input
+                type="text"
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                placeholder={isAr ? 'أو أضف تصنيفاً جديداً...' : 'Or add a new category...'}
+                className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/30"
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -245,13 +305,14 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
                 type="text"
                 value={authorName}
                 onChange={(e) => setAuthorName(e.target.value)}
+                placeholder={isAr ? 'مثال: فريق المتجر' : 'e.g. Store Team'}
                 className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/30"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                <span>{isAr ? 'تمييز كمقال بارز' : 'Featured Article'}</span>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                {isAr ? 'تمييز كمقال بارز' : 'Featured Article'}
               </label>
               <div className="flex items-center h-10">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -269,28 +330,19 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
             </div>
           </div>
 
-          {/* Thumbnail URL with Preview */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              {isAr ? 'رابط الصورة البارزة' : 'Featured Image / Thumbnail URL'}
-            </label>
-            <div className="flex gap-3 items-center">
-              <input
-                type="url"
-                value={thumbnail}
-                onChange={(e) => setThumbnail(e.target.value)}
-                placeholder="https://images.unsplash.com/..."
-                className="flex-1 px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/30"
-              />
-              {thumbnail && (
-                <div className="w-12 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0 shadow-2xs">
-                  <img src={thumbnail} alt="Thumbnail preview" className="w-full h-full object-cover" />
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Featured Image Upload */}
+          <MediaUploadField
+            label={isAr ? 'الصورة البارزة' : 'Featured Image / Thumbnail'}
+            value={thumbnail}
+            onChange={(url) => setThumbnail(url)}
+            recommendedSize={isAr ? '١٢٠٠ × ٦٣٠ بكسل' : '1200 × 630 px'}
+            aspectRatio="banner"
+            allowedTypes={['image', 'gif', 'svg']}
+            initialFolder="marketing"
+            showUrlInput
+          />
 
-          {/* SEO Metadata Box */}
+          {/* SEO Metadata */}
           <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 space-y-3">
             <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-teal-500" />
@@ -305,9 +357,16 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
                   type="text"
                   value={metaTitle}
                   onChange={(e) => setMetaTitle(e.target.value)}
-                  placeholder={title || 'Blog post meta title'}
+                  placeholder={
+                    title ||
+                    (isAr ? 'عنوان المقال في نتائج البحث' : 'Blog post meta title')
+                  }
+                  maxLength={70}
                   className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
                 />
+                <p className="text-[10px] text-slate-400 font-mono">
+                  {(metaTitle || title).length}/70
+                </p>
               </div>
               <div className="space-y-1">
                 <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
@@ -317,7 +376,9 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
                   type="text"
                   value={focusKeyword}
                   onChange={(e) => setFocusKeyword(e.target.value)}
-                  placeholder="e.g. home fragrance"
+                  placeholder={
+                    isAr ? 'مثال: عطور منزلية' : 'e.g. home fragrance'
+                  }
                   className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
                 />
               </div>
@@ -330,18 +391,30 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
                 rows={2}
                 value={metaDescription}
                 onChange={(e) => setMetaDescription(e.target.value)}
-                placeholder="Search result snippet..."
+                placeholder={
+                  isAr
+                    ? 'مقتطف يظهر في نتائج محركات البحث...'
+                    : 'Search result snippet...'
+                }
+                maxLength={160}
                 className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
               />
+              <p className="text-[10px] text-slate-400 font-mono">
+                {(metaDescription || excerpt).length}/160
+              </p>
             </div>
           </div>
 
           {/* Quick link to Article Commerce Tools */}
           {article && onOpenCommerceTools && (
-            <div className="p-3 bg-teal-50 dark:bg-teal-950/30 rounded-xl border border-teal-200 dark:border-teal-900/60 flex items-center justify-between">
+            <div className="p-3 bg-teal-50 dark:bg-teal-950/30 rounded-xl border border-teal-200 dark:border-teal-900/60 flex items-center justify-between gap-3">
               <div className="text-xs text-teal-800 dark:text-teal-200">
-                <span className="font-bold">{isAr ? 'أدوات التجارة للمقال:' : 'Article Commerce Tools:'}</span>{' '}
-                {isAr ? 'يمكنك ربط المنتجات، الكوبونات، المقارنة، والمسابقات لهذا المقال.' : 'Add interactive product cards, bundles, quiz, and coupons.'}
+                <span className="font-bold">
+                  {isAr ? 'أدوات التجارة للمقال:' : 'Article Commerce Tools:'}
+                </span>{' '}
+                {isAr
+                  ? 'يمكنك ربط المنتجات والكوبونات والمقارنة لهذا المقال.'
+                  : 'Add interactive product cards, bundles, quiz, and coupons.'}
               </div>
               <button
                 type="button"
@@ -349,9 +422,9 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
                   onClose();
                   onOpenCommerceTools(article.id);
                 }}
-                className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0"
               >
-                {isAr ? 'تخصيص أدوات التجارة →' : 'Customize Tools →'}
+                {isAr ? 'تخصيص أدوات التجارة ←' : 'Customize Tools →'}
               </button>
             </div>
           )}
@@ -368,12 +441,20 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
           </button>
           <button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => void handleSubmit()}
             disabled={isSubmitting}
             className="px-5 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 active:scale-95 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
-            <span>{isSubmitting ? (isAr ? 'جاري الحفظ...' : 'Saving...') : isAr ? 'حفظ المقال' : 'Save Article'}</span>
+            <span>
+              {isSubmitting
+                ? isAr
+                  ? 'جاري الحفظ...'
+                  : 'Saving...'
+                : isAr
+                  ? 'حفظ المقال'
+                  : 'Save Article'}
+            </span>
           </button>
         </div>
       </div>

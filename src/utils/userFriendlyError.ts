@@ -179,7 +179,8 @@ export function isTechnicalErrorMessage(raw: string): boolean {
 /** Keep short, clean validation / business messages from the API. */
 function isSafeUserMessage(raw: string): boolean {
   if (!raw || isTechnicalErrorMessage(raw)) return false;
-  if (raw.length > 180) return false;
+  // AI media / provider messages can be longer than typical UI copy.
+  if (raw.length > 280) return false;
   // Prefer messages that look like product copy (Arabic or plain English sentences).
   const hasArabic = /[\u0600-\u06FF]/.test(raw);
   if (hasArabic) return true;
@@ -389,7 +390,18 @@ export function friendlyHttpError(
   locale?: FriendlyLocale | string | boolean | null,
 ): string {
   const loc = resolveFriendlyLocale(locale);
-  if (status === 422 && bodyMessage && isSafeUserMessage(bodyMessage)) {
+  // Prefer clear API business copy over generic status labels (Google OAuth, SEO, AI media, etc.)
+  if (
+    bodyMessage &&
+    isSafeUserMessage(bodyMessage) &&
+    (status === 400 ||
+      status === 404 ||
+      status === 409 ||
+      status === 422 ||
+      status === 429 ||
+      status === 502 ||
+      status === 503)
+  ) {
     return bodyMessage;
   }
   const byStatus = classifyByStatus(status, loc);

@@ -25,7 +25,10 @@
   --portal-200: #98d8d0;
   --portal-50: #e2f4f0;
   --portal-cta: linear-gradient(90deg, #1d8b94, #4fb8b4);
-  --font-ui: 'Plus Jakarta Sans', system-ui, sans-serif;
+  /* Invoice / Holst chrome = single source for ALL admin pages (EN + AR) */
+  --font-ui-en: 'Plus Jakarta Sans', 'Cairo', 'Noto Sans Arabic', system-ui, sans-serif;
+  --font-ui-ar: 'IBM Plex Sans Arabic', 'Cairo', 'Tajawal', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-ui: var(--font-ui-en);
   --radius-ctrl: 16px;
   --icon-radius: 16px;
   --active-bg: #1d8b94;
@@ -127,8 +130,20 @@
   --card-shadow-hover: 0 8px 28px color-mix(in srgb, var(--portal-600) 35%, transparent);
 }
 
+/* Locale switch: same token tree as Invoice page — every portal surface inherits it */
+html[lang="ar"],
+html[dir="rtl"] {
+  --font-ui: var(--font-ui-ar);
+}
+
+html[lang="en"],
+html[dir="ltr"]:not([lang="ar"]) {
+  --font-ui: var(--font-ui-en);
+}
+
 html,
 body,
+#root,
 .unity-shell,
 .u-page,
 .u-panel,
@@ -136,24 +151,26 @@ body,
 .unity-card,
 [data-portal="master"],
 [data-portal="store"],
-.storefront-root,
 [data-global-modal="backdrop"],
 [data-global-modal="panel"] {
   font-family: var(--font-ui);
 }
 
-/* Arabic locale: prefer AR stack if brand set both fonts */
-html[lang="ar"] body,
-html[dir="rtl"] body,
-[dir="rtl"][data-portal] {
-  font-family: var(--font-ui-ar, var(--font-ui));
-}
-
 input,
 button,
 select,
-textarea {
+textarea,
+optgroup {
   font-family: inherit;
+}
+
+/* Mono / code stay mono — do not inherit UI face */
+.font-mono,
+code,
+kbd,
+pre,
+samp {
+  font-family: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
 }
 
 /* ─── Shared controls: card / table / form / search / filter ─── */
@@ -406,12 +423,121 @@ textarea {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding-bottom: max(4rem, env(safe-area-inset-bottom, 0px));
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
 }
+
+/*
+ * Anti-overlap layout guards (all Master + Store pages, all tenants)
+ * Fixes: sidebar/content collision, page-level horizontal scroll,
+ * flex/grid children blowing past the main column, toolbars colliding.
+ */
+.unity-shell > .flex {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+.unity-shell > .flex > .flex-1 {
+  min-width: 0;
+  max-width: 100%;
+}
+.unity-aside {
+  position: relative;
+  z-index: 40;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+/* Desktop: drawer attrs must never keep aside fixed / zero-width */
+@media (min-width: 1024px) {
+  .unity-aside[data-mobile-drawer='true'] {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    flex: 0 0 auto !important;
+    height: 100% !important;
+    max-height: none !important;
+    width: auto; /* inline style still sets rem width */
+    max-width: none;
+    margin: 0 !important;
+    box-shadow: none;
+  }
+}
+.unity-shell main > * {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.unity-shell main > .u-page,
+.unity-shell main > div:not(.canva-studio-shell) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  /*
+   * Never set overflow-x: clip/hidden here — CSS then forces overflow-y to auto
+   * and clips Filter / dropdown panels mid-card (Orders, Customers, etc.).
+   * Page-level X scroll is already blocked on `.unity-shell main`.
+   */
+  overflow: visible;
+}
+.unity-shell main > .canva-studio-shell {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+/* Soften prior shell class patches that still carry overflow-x-clip */
+.unity-shell main .u-page.overflow-x-clip,
+.unity-shell main .u-page[class*='overflow-x-clip'] {
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+}
+.unity-shell main .u-page .grid,
+.unity-shell main .u-page [class*='grid-cols-'] {
+  min-width: 0;
+  max-width: 100%;
+}
+.unity-shell main .u-page .grid > *,
+.unity-shell main .u-page [class*='grid-cols-'] > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.unity-shell main .u-page .flex {
+  min-width: 0;
+  max-width: 100%;
+}
+.unity-shell main .u-page .overflow-x-auto,
+.unity-shell main .u-page .overflow-x-scroll {
+  max-width: 100%;
+  min-width: 0;
+}
+/* Title + actions rows: wrap instead of overlapping (page modules only) */
+.unity-shell main .u-page .flex.justify-between,
+.unity-shell main .u-page .flex.items-center.justify-between {
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+  column-gap: 0.75rem;
+}
+/* Wide tables stay inside their scrollport — never push the page under the sidebar */
+.unity-shell main .overflow-x-auto > table,
+.unity-shell main .overflow-x-scroll > table {
+  max-width: none;
+}
+
 .unity-shell [data-chrome='store-topbar'],
 .unity-shell [data-chrome='master-topbar'] {
   padding-inline: max(0.5rem, env(safe-area-inset-left, 0px)) max(0.5rem, env(safe-area-inset-right, 0px));
   padding-top: env(safe-area-inset-top, 0px);
   background: var(--surface);
+  position: relative;
+  z-index: 50;
+  isolation: isolate;
+  overflow: visible;
 }
 @media (max-width: 1023.98px) {
   .unity-shell [data-chrome='store-topbar'],

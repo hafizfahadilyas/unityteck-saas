@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useTenant } from '../../context/TenantContext';
+import { FloatingPopover } from '../common/FloatingPopover';
 import { fetchProductsPage } from '../../api/tenantApi';
 import type { Product } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
@@ -155,12 +155,8 @@ export const StoreProducts: React.FC = () => {
   const [showFieldsFilterPopover, setShowFieldsFilterPopover] = useState(false);
   const [columnSearch, setColumnSearch] = useState('');
   const [bulkAction, setBulkAction] = useState<string>('');
-  const [columnsPopoverPos, setColumnsPopoverPos] = useState<{ top: number; left: number } | null>(null);
-  const [fieldsPopoverPos, setFieldsPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const columnsBtnRef = useRef<HTMLButtonElement>(null);
   const fieldsBtnRef = useRef<HTMLButtonElement>(null);
-  const columnsPopoverRef = useRef<HTMLDivElement>(null);
-  const fieldsPopoverRef = useRef<HTMLDivElement>(null);
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
     image: true,
     name: true,
@@ -189,76 +185,20 @@ export const StoreProducts: React.FC = () => {
     setVisibleEditSections(loadEditFieldVisibility(activeStore.id));
   }, [activeStore.id]);
 
-  /** Place floating menus in a body portal so AdminPageShell overflow-x-hidden cannot clip them. */
-  const placePopoverBelow = (
-    btn: HTMLElement | null,
-    width: number,
-    alignEnd: boolean,
-  ): { top: number; left: number } | null => {
-    if (!btn) return null;
-    const rect = btn.getBoundingClientRect();
-    const left = alignEnd
-      ? Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))
-      : Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
-    return { top: rect.bottom + 8, left };
-  };
-
   const openColumnsPopover = () => {
     setShowFieldsFilterPopover(false);
-    setFieldsPopoverPos(null);
-    if (showColumnsPopover) {
-      setShowColumnsPopover(false);
-      setColumnsPopoverPos(null);
-      return;
-    }
-    setColumnsPopoverPos(placePopoverBelow(columnsBtnRef.current, 256, true));
-    setShowColumnsPopover(true);
+    setShowColumnsPopover((v) => !v);
   };
 
   const openFieldsFilterPopover = () => {
     setShowColumnsPopover(false);
-    setColumnsPopoverPos(null);
-    if (showFieldsFilterPopover) {
-      setShowFieldsFilterPopover(false);
-      setFieldsPopoverPos(null);
-      return;
-    }
-    setFieldsPopoverPos(placePopoverBelow(fieldsBtnRef.current, 288, false));
-    setShowFieldsFilterPopover(true);
+    setShowFieldsFilterPopover((v) => !v);
   };
 
   const closeFloatingPopovers = () => {
     setShowColumnsPopover(false);
     setShowFieldsFilterPopover(false);
-    setColumnsPopoverPos(null);
-    setFieldsPopoverPos(null);
   };
-
-  useEffect(() => {
-    if (!showColumnsPopover && !showFieldsFilterPopover) return;
-    const onPointerDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (columnsBtnRef.current?.contains(t) || columnsPopoverRef.current?.contains(t)) return;
-      if (fieldsBtnRef.current?.contains(t) || fieldsPopoverRef.current?.contains(t)) return;
-      closeFloatingPopovers();
-    };
-    const onReposition = () => {
-      if (showColumnsPopover) {
-        setColumnsPopoverPos(placePopoverBelow(columnsBtnRef.current, 256, true));
-      }
-      if (showFieldsFilterPopover) {
-        setFieldsPopoverPos(placePopoverBelow(fieldsBtnRef.current, 288, false));
-      }
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    window.addEventListener('resize', onReposition);
-    window.addEventListener('scroll', onReposition, true);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      window.removeEventListener('resize', onReposition);
-      window.removeEventListener('scroll', onReposition, true);
-    };
-  }, [showColumnsPopover, showFieldsFilterPopover]);
 
   const [catalogBusy, setCatalogBusy] = useState(false);
 
@@ -425,7 +365,6 @@ export const StoreProducts: React.FC = () => {
   useEffect(() => {
     if (editPanelOpen) return;
     setShowFieldsFilterPopover(false);
-    setFieldsPopoverPos(null);
   }, [editPanelOpen]);
 
   // ── 4 KPI Summary Cards matching Mockup 06 (Store Scoped) ──
@@ -2417,197 +2356,185 @@ export const StoreProducts: React.FC = () => {
         )}
       </div>
 
-      {/* Fixed portals — never clipped by AdminPageShell overflow-x-hidden / card stacking */}
-      {showFieldsFilterPopover &&
-        fieldsPopoverPos &&
-        typeof document !== 'undefined' &&
-        createPortal(
-          <div
-            ref={fieldsPopoverRef}
-            className="fixed z-[9999] w-72 max-w-[calc(100vw-1rem)] rounded-2xl border shadow-xl p-3 animate-in fade-in duration-100 space-y-2.5"
+      {/* Body-portal menus — anchored to trigger (never mid-screen / clipped) */}
+      <FloatingPopover
+        open={showFieldsFilterPopover}
+        anchorRef={fieldsBtnRef}
+        onClose={closeFloatingPopovers}
+        width={288}
+        align="start"
+        estimatedHeight={360}
+        className="rounded-2xl border shadow-xl p-3 space-y-2.5"
+        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+      >
+        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <span className="font-bold text-xs text-slate-900 dark:text-white block">
+              {isAr ? 'تصفية حقول التعديل' : 'Filter Edit Fields'}
+            </span>
+            <span className="text-[10px] text-slate-500">
+              {isAr
+                ? 'إيقاف أي قسم يخفيه من لوحة التعديل فوراً'
+                : 'Turn off a section to hide it from the edit panel'}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={closeFloatingPopovers}
+            className="text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="max-h-64 overflow-y-auto space-y-1 custom-scroll pe-1">
+          {PRODUCT_EDIT_SECTION_OPTIONS.map((opt) => {
+            const isOn = visibleEditSections[opt.id] !== false;
+            return (
+              <label
+                key={opt.id}
+                className="flex items-center justify-between gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs"
+              >
+                <span className="text-slate-700 dark:text-slate-300 font-medium">
+                  {isAr ? opt.labelAr : opt.labelEn}
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isOn}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    applyEditSectionVisibility({
+                      ...visibleEditSections,
+                      [opt.id]: !isOn,
+                    });
+                  }}
+                  className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer p-0.5 shrink-0 ${
+                    isOn ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
+                  }`}
+                >
+                  <span
+                    className={`w-3.5 h-3.5 rounded-full bg-white shadow block transition-transform transform ${
+                      isOn ? 'translate-x-3.5 rtl:-translate-x-3.5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </label>
+            );
+          })}
+        </div>
+
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end">
+          <button
+            type="button"
+            onClick={() => applyEditSectionVisibility({ ...DEFAULT_PRODUCT_EDIT_SECTIONS })}
+            className="text-[11px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:underline cursor-pointer"
+          >
+            {isAr ? 'إظهار الكل' : 'Show All'}
+          </button>
+        </div>
+      </FloatingPopover>
+
+      <FloatingPopover
+        open={showColumnsPopover}
+        anchorRef={columnsBtnRef}
+        onClose={closeFloatingPopovers}
+        width={256}
+        align="end"
+        estimatedHeight={360}
+        className="rounded-2xl border shadow-xl p-3 space-y-2.5"
+        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+      >
+        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+          <span className="font-bold text-xs text-slate-900 dark:text-white">
+            {isAr ? 'تخصيص الأعمدة' : 'Customize Columns'}
+          </span>
+          <button
+            type="button"
+            onClick={closeFloatingPopovers}
+            className="text-slate-400 hover:text-slate-600 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="relative">
+          <Search className="w-3.5 h-3.5 absolute start-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder={isAr ? 'بحث في الأعمدة...' : 'Search columns...'}
+            value={columnSearch}
+            onChange={(e) => setColumnSearch(e.target.value)}
+            className="w-full ps-8 pe-2.5 py-1 text-xs rounded-lg border focus:outline-none"
             style={{
-              top: fieldsPopoverPos.top,
-              left: fieldsPopoverPos.left,
               background: 'var(--surface)',
               borderColor: 'var(--border)',
+              color: 'var(--text)',
             }}
-          >
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <span className="font-bold text-xs text-slate-900 dark:text-white block">
-                  {isAr ? 'تصفية حقول التعديل' : 'Filter Edit Fields'}
-                </span>
-                <span className="text-[10px] text-slate-500">
-                  {isAr
-                    ? 'إيقاف أي قسم يخفيه من لوحة التعديل فوراً'
-                    : 'Turn off a section to hide it from the edit panel'}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={closeFloatingPopovers}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
+          />
+        </div>
+
+        <div className="max-h-52 overflow-y-auto space-y-1.5 custom-scroll pe-1">
+          {[
+            { id: 'image', label: isAr ? 'الصورة' : 'Image' },
+            { id: 'name', label: isAr ? 'اسم المنتج' : 'Product Name' },
+            { id: 'sku', label: isAr ? 'رمز المنتج' : 'SKU' },
+            { id: 'price', label: isAr ? 'السعر (ر.س)' : 'Price (SAR)' },
+            { id: 'salePrice', label: isAr ? 'سعر الخصم' : 'Discount Price (SAR)' },
+            { id: 'stock', label: isAr ? 'المخزون' : 'Stock' },
+            { id: 'category', label: isAr ? 'التصنيف' : 'Category' },
+            { id: 'status', label: isAr ? 'الحالة' : 'Status' },
+            { id: 'weight', label: isAr ? 'الوزن (كجم)' : 'Weight (kg)' },
+            { id: 'shippingClass', label: isAr ? 'فئة الشحن' : 'Shipping Class' },
+            { id: 'actions', label: isAr ? 'إجراءات' : 'Actions' },
+          ]
+            .filter((c) => c.label.toLowerCase().includes(columnSearch.toLowerCase()))
+            .map((col) => (
+              <label
+                key={col.id}
+                className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs"
               >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
+                <span className="text-slate-700 dark:text-slate-300 font-medium">{col.label}</span>
+                <input
+                  type="checkbox"
+                  checked={visibleColumns[col.id] !== false}
+                  onChange={(e) =>
+                    setVisibleColumns((prev) => ({
+                      ...prev,
+                      [col.id]: e.target.checked,
+                    }))
+                  }
+                  className="rounded cursor-pointer"
+                />
+              </label>
+            ))}
+        </div>
 
-            <div className="max-h-64 overflow-y-auto space-y-1 custom-scroll pe-1">
-              {PRODUCT_EDIT_SECTION_OPTIONS.map((opt) => {
-                const isOn = visibleEditSections[opt.id] !== false;
-                return (
-                  <label
-                    key={opt.id}
-                    className="flex items-center justify-between gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs"
-                  >
-                    <span className="text-slate-700 dark:text-slate-300 font-medium">
-                      {isAr ? opt.labelAr : opt.labelEn}
-                    </span>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={isOn}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        applyEditSectionVisibility({
-                          ...visibleEditSections,
-                          [opt.id]: !isOn,
-                        });
-                      }}
-                      className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer p-0.5 shrink-0 ${
-                        isOn ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                      }`}
-                    >
-                      <span
-                        className={`w-3.5 h-3.5 rounded-full bg-white shadow block transition-transform transform ${
-                          isOn ? 'translate-x-3.5 rtl:-translate-x-3.5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </label>
-                );
-              })}
-            </div>
-
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end">
-              <button
-                type="button"
-                onClick={() => applyEditSectionVisibility({ ...DEFAULT_PRODUCT_EDIT_SECTIONS })}
-                className="text-[11px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:underline cursor-pointer"
-              >
-                {isAr ? 'إظهار الكل' : 'Show All'}
-              </button>
-            </div>
-          </div>,
-          document.body,
-        )}
-
-      {showColumnsPopover &&
-        columnsPopoverPos &&
-        typeof document !== 'undefined' &&
-        createPortal(
-          <div
-            ref={columnsPopoverRef}
-            className="fixed z-[9999] w-64 max-w-[calc(100vw-1rem)] rounded-2xl border shadow-xl p-3 animate-in fade-in duration-100 space-y-2.5"
-            style={{
-              top: columnsPopoverPos.top,
-              left: columnsPopoverPos.left,
-              background: 'var(--surface)',
-              borderColor: 'var(--border)',
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              setVisibleColumns({
+                image: true,
+                name: true,
+                sku: true,
+                price: true,
+                salePrice: true,
+                stock: true,
+                category: true,
+                status: true,
+                weight: true,
+                shippingClass: true,
+                actions: true,
+              });
+              setColumnSearch('');
             }}
+            className="text-[11px] font-bold text-teal-700 dark:text-teal-300 hover:underline cursor-pointer"
           >
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <span className="font-bold text-xs text-slate-900 dark:text-white">
-                {isAr ? 'تخصيص الأعمدة' : 'Customize Columns'}
-              </span>
-              <button
-                type="button"
-                onClick={closeFloatingPopovers}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute start-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder={isAr ? 'بحث في الأعمدة...' : 'Search columns...'}
-                value={columnSearch}
-                onChange={(e) => setColumnSearch(e.target.value)}
-                className="w-full ps-8 pe-2.5 py-1 text-xs rounded-lg border focus:outline-none"
-                style={{
-                  background: 'var(--surface)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--text)',
-                }}
-              />
-            </div>
-
-            <div className="max-h-52 overflow-y-auto space-y-1.5 custom-scroll pe-1">
-              {[
-                { id: 'image', label: isAr ? 'الصورة' : 'Image' },
-                { id: 'name', label: isAr ? 'اسم المنتج' : 'Product Name' },
-                { id: 'sku', label: isAr ? 'رمز المنتج' : 'SKU' },
-                { id: 'price', label: isAr ? 'السعر (ر.س)' : 'Price (SAR)' },
-                { id: 'salePrice', label: isAr ? 'سعر الخصم' : 'Discount Price (SAR)' },
-                { id: 'stock', label: isAr ? 'المخزون' : 'Stock' },
-                { id: 'category', label: isAr ? 'التصنيف' : 'Category' },
-                { id: 'status', label: isAr ? 'الحالة' : 'Status' },
-                { id: 'weight', label: isAr ? 'الوزن (كجم)' : 'Weight (kg)' },
-                { id: 'shippingClass', label: isAr ? 'فئة الشحن' : 'Shipping Class' },
-                { id: 'actions', label: isAr ? 'إجراءات' : 'Actions' },
-              ]
-                .filter((c) => c.label.toLowerCase().includes(columnSearch.toLowerCase()))
-                .map((col) => (
-                  <label
-                    key={col.id}
-                    className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs"
-                  >
-                    <span className="text-slate-700 dark:text-slate-300 font-medium">{col.label}</span>
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns[col.id] !== false}
-                      onChange={(e) =>
-                        setVisibleColumns((prev) => ({
-                          ...prev,
-                          [col.id]: e.target.checked,
-                        }))
-                      }
-                      className="rounded cursor-pointer"
-                    />
-                  </label>
-                ))}
-            </div>
-
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setVisibleColumns({
-                    image: true,
-                    name: true,
-                    sku: true,
-                    price: true,
-                    salePrice: true,
-                    stock: true,
-                    category: true,
-                    status: true,
-                    weight: true,
-                    shippingClass: true,
-                    actions: true,
-                  });
-                  setColumnSearch('');
-                }}
-                className="text-[11px] font-bold text-teal-700 dark:text-teal-300 hover:underline cursor-pointer"
-              >
-                {isAr ? 'إعادة ضبط للافتراضي' : 'Reset to Default'}
-              </button>
-            </div>
-          </div>,
-          document.body,
-        )}
+            {isAr ? 'إعادة ضبط للافتراضي' : 'Reset to Default'}
+          </button>
+        </div>
+      </FloatingPopover>
 
       {/* ── BULK PRODUCT UPLOAD & EXPORT MODAL ── */}
       <BulkProductUploadModal

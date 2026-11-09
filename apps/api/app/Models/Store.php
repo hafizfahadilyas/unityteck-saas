@@ -88,6 +88,11 @@ class Store extends Model
         return $this->hasOne(StoreSetting::class);
     }
 
+    public function aiBrandProfile(): HasOne
+    {
+        return $this->hasOne(StoreAiBrandProfile::class);
+    }
+
     public function seoConfig(): HasOne
     {
         return $this->hasOne(SeoConfig::class);

@@ -9,6 +9,7 @@ import {
   type ProductVideosSettings,
   type VideoProductItem,
 } from '../../../themes/settings/themeSettingsStore';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 export const ProductVideosForm: React.FC = () => {
   const { activeStore } = useTenant();
@@ -66,10 +67,10 @@ export const ProductVideosForm: React.FC = () => {
           </span>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-              Theme Settings · 06
+              {themeSettingsBadge(6, isAr)}
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'فيديوهات المنتجات' : 'Product Videos (Selia)'}
+              {isAr ? 'فيديوهات المنتجات' : 'Product Videos'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr ? 'عرض فيديوهات المنتجات القصيرة لزيادة المبيعات' : 'Show your products with engaging short-form vertical videos'}

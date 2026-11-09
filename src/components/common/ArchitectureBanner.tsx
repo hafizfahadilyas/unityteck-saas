@@ -203,8 +203,8 @@ export const ArchitectureBanner: React.FC = () => {
                     ? 'لوحة المشرف العام للمنصة'
                     : 'Master Admin Platform View'
                   : isAr
-                    ? `لوحة المتجر (${activeStore.name})`
-                    : `Store Admin (${activeStore.name})`}
+                    ? 'لوحة المتجر'
+                    : 'Store Admin'}
               </span>
               <span className="text-[11px] text-teal-700 dark:text-teal-300">
                 {canAccessMaster

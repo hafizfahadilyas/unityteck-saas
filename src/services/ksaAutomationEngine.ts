@@ -4,29 +4,16 @@
  * Zero hardcoded store content — adapts dynamically to activeStore.
  */
 
-export type KsaCity =
-  | 'Riyadh'
-  | 'Jeddah'
-  | 'Makkah'
-  | 'Madinah'
-  | 'Dammam'
-  | 'Khobar'
-  | 'Qassim'
-  | 'Abha'
-  | 'Tabuk'
-  | 'Taif';
+import { DEFAULT_SAUDI_CITIES } from '../data/saudiCities';
+
+export type KsaCity = (typeof DEFAULT_SAUDI_CITIES)[number]['id'] | 'Qassim';
 
 export const KSA_CITIES: Array<{ id: KsaCity; nameEn: string; nameAr: string }> = [
-  { id: 'Riyadh', nameEn: 'Riyadh', nameAr: 'الرياض' },
-  { id: 'Jeddah', nameEn: 'Jeddah', nameAr: 'جدة' },
-  { id: 'Makkah', nameEn: 'Makkah', nameAr: 'مكة المكرمة' },
-  { id: 'Madinah', nameEn: 'Madinah', nameAr: 'المدينة المنورة' },
-  { id: 'Dammam', nameEn: 'Dammam', nameAr: 'الدمام' },
-  { id: 'Khobar', nameEn: 'Al Khobar', nameAr: 'الخبر' },
-  { id: 'Qassim', nameEn: 'Al Qassim', nameAr: 'القصيم' },
-  { id: 'Abha', nameEn: 'Abha', nameAr: 'أبها' },
-  { id: 'Tabuk', nameEn: 'Tabuk', nameAr: 'تبوك' },
-  { id: 'Taif', nameEn: 'Taif', nameAr: 'الطائف' },
+  ...DEFAULT_SAUDI_CITIES.map((c) => ({ id: c.id as KsaCity, nameEn: c.nameEn, nameAr: c.nameAr })),
+  // Keep legacy Qassim alias used by older campaigns
+  ...(DEFAULT_SAUDI_CITIES.some((c) => c.id === 'Buraidah')
+    ? [{ id: 'Qassim' as KsaCity, nameEn: 'Al Qassim', nameAr: 'القصيم' }]
+    : []),
 ];
 
 export type KsaAdPlatform = 'snapchat' | 'tiktok' | 'instagram' | 'google' | 'youtube';

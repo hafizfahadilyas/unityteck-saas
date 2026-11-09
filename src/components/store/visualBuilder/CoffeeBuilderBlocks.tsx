@@ -101,7 +101,7 @@ function useCoffeeThemeSettings(store: { id?: string; name?: string } | null | u
 const Shell: React.FC<{ children: React.ReactNode; settings?: AllThemeSettings | null }> = ({
   children,
 }) => (
-  <div className="hibrew-theme-root coffee-builder-preview w-full max-w-full min-h-0 overflow-x-clip bg-white text-neutral-900">
+  <div className="hibrew-theme-root coffee-builder-preview w-full max-w-full min-h-0 bg-white text-neutral-900">
     {children}
   </div>
 );

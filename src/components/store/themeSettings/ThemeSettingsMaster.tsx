@@ -121,7 +121,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
   {
     id: '06_product_videos',
     num: '06',
-    titleEn: 'Product Videos (Selia)',
+    titleEn: 'Product Videos',
     titleAr: 'فيديوهات المنتجات التفاعلية',
     descEn: 'Short-form 9:16 vertical videos (Reels/TikTok) with play overlay and badges',
     descAr: 'فيديوهات طولية 9:16 للمنتجات مع زر تشغيل وشارات العروض الترويجية',
@@ -132,7 +132,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
   {
     id: '07_product_tabs',
     num: '07',
-    titleEn: 'Product Tabs (Selia)',
+    titleEn: 'Product Tabs',
     titleAr: 'تبويبات المنتجات المتعددة',
     descEn: 'Product collections in tabbed buttons (Best Selling, Latest, Discounts, Bridal)',
     descAr: 'عرض المنتجات في تبويبات تفاعلية للأكثر مبيعاً، الأحدث، والتخفيضات',
@@ -143,7 +143,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
   {
     id: '08_detailed_products',
     num: '08',
-    titleEn: 'Detailed Products (Selia)',
+    titleEn: 'Detailed Products',
     titleAr: 'بطاقة المنتج المفصلة الشاملة',
     descEn: 'Spotlight product showcase with gallery, stars rating, ticker, and instant Buy Now',
     descAr: 'عرض تفصيلي لمنتج الأسبوع مع معرض الصور، التقييم، وشريط الضمانات المتحرك',
@@ -154,7 +154,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
   {
     id: '09_image_grid',
     num: '09',
-    titleEn: 'Image Grid / Bento (Selia)',
+    titleEn: 'Image Grid / Bento',
     titleAr: 'شبكة الصور البينتو التفاعلية',
     descEn: 'Bento layout, masonry, collage, geometric shapes & modern hover zoom effects',
     descAr: 'شبكة صور بتخطيط بينتو وماسونري وأشكال هندسية وتأثيرات تحويم فاخرة',
@@ -176,7 +176,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
   {
     id: '11_banners',
     num: '11',
-    titleEn: 'Banners & Promotions (Selia)',
+    titleEn: 'Banners & Promotions',
     titleAr: 'البانرات الإعلانية الترويجية',
     descEn: 'Full-width animated banners with discount badges, arrows, and dark overlay',
     descAr: 'بانرات عريضة وشارات تخفيضات 30% مع أسهم تنقل وتحكم بالشفافية',
@@ -220,7 +220,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
   {
     id: '15_product_cards',
     num: '15',
-    titleEn: 'Product Cards Designer (Selia)',
+    titleEn: 'Product Cards Designer',
     titleAr: 'مصمم بطاقات المنتجات المطور',
     descEn: 'Hover actions, wishlist, quick add, color swatches, stock alerts & flash countdown',
     descAr: 'بطاقات المنتجات بأزرار التحويم، نقاط الألوان، التقييم، وشارات التخفيض',
@@ -253,7 +253,7 @@ export const THEME_SECTIONS: ThemeSectionMeta[] = [
   {
     id: '18_store_statistics',
     num: '18',
-    titleEn: 'Store Statistics (Selia)',
+    titleEn: 'Store Statistics',
     titleAr: 'إحصائيات وأرقام المتجر',
     descEn: '5 styles (Glass, card, floating, stats bar) with animated counters (+500, +3K, etc.)',
     descAr: 'إبراز إنجازات المتجر بأرقام متحركة وتصاميم زجاجية وعائمة مذهلة',

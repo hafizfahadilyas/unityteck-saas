@@ -7,7 +7,9 @@ import {
   localizeSalesChannel,
 } from './domainLabels';
 import { localeMixedLabel } from './localeMixedLabel';
-import { downloadXlsx } from './exportSpreadsheet';
+import { downloadCsv, downloadXlsx } from './exportSpreadsheet';
+
+export { downloadCsv, downloadXlsx } from './exportSpreadsheet';
 
 export type OrderExportFieldId =
   | 'order_number'
@@ -90,13 +92,16 @@ export function resolveOrderExportField(
 
   switch (fieldId as OrderExportFieldId) {
     case 'order_number':
-      return String(order.orderNumber || '');
-    case 'order_date':
-      return [order.date, order.time].filter(Boolean).join(' ') || order.createdAt || '';
+      return String(order.orderNumber || order.id || '');
+    case 'order_date': {
+      const raw = [order.date, order.time].filter(Boolean).join(' ') || order.createdAt || '';
+      // Keep as plain text so Excel does not split "2026-11-09" across columns
+      return String(raw).replace(/,/g, ' ');
+    }
     case 'customer_name':
-      return getCustomerDisplayName(order.customerName, locale) || '';
+      return getCustomerDisplayName(order.customerName, locale) || String(order.customerName || '');
     case 'customer_phone':
-      return order.customerPhone || '';
+      return String(order.customerPhone || '');
     case 'customer_city':
       return city;
     case 'customer_country':
@@ -141,24 +146,6 @@ export function buildOrderExportTable(
   return [headers, ...rows];
 }
 
-export function downloadCsv(filename: string, rows: string[][]): void {
-  const escapeCell = (cell: string) => {
-    const s = String(cell ?? '');
-    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-    return s;
-  };
-  const csvContent = '\uFEFF' + rows.map((r) => r.map(escapeCell).join(',')).join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', filename.endsWith('.csv') ? filename : `${filename}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
-
 export function exportOrdersSpreadsheet(
   orders: Order[],
   options: {
@@ -169,9 +156,22 @@ export function exportOrdersSpreadsheet(
     sheetName?: string;
   },
 ): void {
-  const table = buildOrderExportTable(orders, options.fieldIds || DEFAULT_ORDER_EXPORT_FIELDS, options.locale);
+  const fieldIds = options.fieldIds || DEFAULT_ORDER_EXPORT_FIELDS;
+  const table = buildOrderExportTable(orders, fieldIds, options.locale);
   if (options.format === 'xlsx') {
-    downloadXlsx(options.filename, options.sheetName || (options.locale === 'ar' ? 'الطلبات' : 'Orders'), table);
+    const fields = (fieldIds.length ? fieldIds : DEFAULT_ORDER_EXPORT_FIELDS).filter(
+      (id): id is OrderExportFieldId => id in FIELD_LABELS,
+    );
+    const safeFields = fields.length ? fields : DEFAULT_ORDER_EXPORT_FIELDS;
+    const textColumnIndexes = safeFields
+      .map((id, i) => (id === 'customer_phone' || id === 'order_number' ? i : -1))
+      .filter((i) => i >= 0);
+    downloadXlsx(
+      options.filename,
+      options.sheetName || (options.locale === 'ar' ? 'الطلبات' : 'Orders'),
+      table,
+      { rtl: options.locale === 'ar', textColumnIndexes },
+    );
   } else {
     downloadCsv(options.filename, table);
   }

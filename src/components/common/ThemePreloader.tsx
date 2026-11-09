@@ -58,8 +58,8 @@ export const ThemePreloader: React.FC<ThemePreloaderProps> = ({
   const englishTagline = subtitle?.trim()
     ? subtitle
     : storeName && storeName !== 'Loading store…'
-    ? `${storeName} · Luxury Flowers & Gifts`
-    : 'Hadaya Makkah · Luxury Fresh Floral Arrangements & VIP Gifts';
+    ? `${storeName} · Online Store`
+    : 'Your Store · Online Store';
 
   return (
     <div

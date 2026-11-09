@@ -177,7 +177,7 @@ export const StoreHostingDomain: React.FC = () => {
 
   return (
     <div
-      className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800"
+      className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 w-full min-w-0"
       style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
     >
       {/* Top Header */}
@@ -223,18 +223,20 @@ export const StoreHostingDomain: React.FC = () => {
           </a>
 
           <a
-            href="https://giftshop-sa.com/admin"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/admin"
             className="px-3.5 py-2 rounded-xl text-xs font-semibold border flex items-center gap-1.5 shadow-2xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
           >
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>{isAr ? 'لوحة تحكم المتجر المباشر' : 'Live Store Admin'}</span>
+            <span>{isAr ? 'لوحة تحكم المتجر' : 'Store Admin'}</span>
           </a>
 
           <a
-            href="https://giftshop-sa.com/"
+            href={
+              activeStore?.custom_domain
+                ? `https://${activeStore.custom_domain}/`
+                : `https://${activeStore?.slug || 'store'}.unityteck.com/`
+            }
             target="_blank"
             rel="noopener noreferrer"
             className="px-4 py-2 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-opacity hover:opacity-90"
@@ -482,7 +484,7 @@ export const StoreHostingDomain: React.FC = () => {
                   <input
                     type="text"
                     required
-                    placeholder={isAr ? 'مثال: makkaflower.com' : 'e.g. makkaflower.com'}
+                    placeholder={isAr ? 'مثال: mystore.sa' : 'e.g. mystore.sa'}
                     value={customDomainInput}
                     onChange={(e) => setCustomDomainInput(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-xl border bg-white dark:bg-slate-900 font-mono"

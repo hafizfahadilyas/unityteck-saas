@@ -37,8 +37,8 @@ export const CustomerJourneyFunnel: React.FC<CustomerJourneyFunnelProps> = ({
 
   const storeOrders = (allOrders && allOrders[activeStore.id]) || [];
   const completedOrders = storeOrders.length;
-  // Real visits only — never invent from orders × N (zero-mock)
-  const visits = Number(activeStore.visitorsCount) || 0;
+  // Real visits only via parent stages / analytics API — never invent from orders×N or seeded counter
+  const visits = 0;
   const productViews = 0;
   const addToCart = 0;
   const checkouts = 0;

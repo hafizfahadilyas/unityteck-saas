@@ -21,6 +21,7 @@ import {
   writeAllThemeSettings,
   type AnnouncementBarSettings,
 } from '../../../themes/settings/themeSettingsStore';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 export const AnnouncementBarForm: React.FC = () => {
   const { activeStore } = useTenant();
@@ -78,10 +79,10 @@ export const AnnouncementBarForm: React.FC = () => {
           </span>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-              Theme Settings · 13
+              {themeSettingsBadge(13, isAr)}
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'شريط الإعلانات الترويجي' : 'Announcement Bar (Selia)'}
+              {isAr ? 'شريط الإعلانات الترويجي' : 'Announcement Bar'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr

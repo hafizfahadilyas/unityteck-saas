@@ -27,6 +27,7 @@ import { CustomerDeliveriesPanel } from './CustomerDeliveriesPanel';
 import { useDateRange } from '../../context/DateRangeContext';
 import { format } from 'date-fns';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { downloadCsv } from '../../utils/exportSpreadsheet';
 
 interface NotificationCenterProps {
   isOpen?: boolean;
@@ -136,36 +137,30 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     setSelectedIds(new Set());
   };
 
-  // Export to CSV
+  // Export to CSV — Excel-safe columns (BOM + sep=,)
   const handleExportCSV = () => {
+    if (!filteredItems.length) return;
     const headers = ['ID', 'Zone', 'Category', 'Severity', 'Title', 'Description', 'Timestamp', 'Status'];
     const rows = filteredItems.map((item) => [
-      item.id,
-      item.zone,
-      item.category,
-      item.severity,
-      `"${item.title.replace(/"/g, '""')}"`,
-      `"${item.description.replace(/"/g, '""')}"`,
-      item.timestamp,
+      String(item.id ?? ''),
+      String(item.zone ?? ''),
+      String(item.category ?? ''),
+      String(item.severity ?? ''),
+      String(item.title ?? ''),
+      String(item.description ?? ''),
+      String(item.timestamp ?? ''),
       item.read ? 'read' : 'unread',
     ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `souq-notifications-${format(new Date(), 'yyyy-MM-dd')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadCsv(`souq-notifications-${format(new Date(), 'yyyy-MM-dd')}.csv`, [headers, ...rows]);
   };
 
   if (!isFullPage && !isOpen) return null;
 
   const content = (
     <div
-      className={`w-full ${
+      className={`w-full min-w-0 ${
         isFullPage
-          ? 'h-full flex flex-col p-4 sm:p-6'
+          ? 'u-page h-full flex flex-col p-4 sm:p-6 max-w-[1650px] mx-auto'
           : 'max-w-5xl h-[92vh] max-h-[900px] rounded-2xl shadow-2xl border flex flex-col overflow-hidden animate-in zoom-in-95 duration-150'
       }`}
       style={{

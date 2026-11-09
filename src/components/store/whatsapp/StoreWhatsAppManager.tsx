@@ -70,7 +70,7 @@ export const StoreWhatsAppManager: React.FC<Props> = ({
   };
 
   return (
-    <div className="w-full p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto min-w-0">
+    <div className="u-page w-full p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto min-w-0">
       {/* Screen 1: WhatsApp Message Center */}
       {currentSubView === 'center' && (
         <WhatsAppMessageCenter onNavigateSubView={handleNavigate} />

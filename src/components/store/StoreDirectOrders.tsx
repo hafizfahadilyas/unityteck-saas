@@ -82,7 +82,7 @@ export const StoreDirectOrders: React.FC<StoreDirectOrdersProps> = ({ onNavigate
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-6 space-y-6 max-w-[1650px] mx-auto text-slate-800 dark:text-slate-100" dir={isAr ? 'rtl' : 'ltr'}>
+    <div className="u-page p-4 sm:p-6 lg:p-6 space-y-6 max-w-[1650px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={isAr ? 'rtl' : 'ltr'}>
       {/* Top Breadcrumbs */}
       <div className="flex items-center justify-between pb-2 border-b border-gray-200 dark:border-slate-800 text-xs">
         <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">

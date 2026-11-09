@@ -139,7 +139,7 @@ export const DashboardLoader: React.FC<DashboardLoaderProps> = ({
 
   // 1. HiBrew Coffee Store Page Loader
   if (isCoffee) {
-    const englishTagline = taglineEn || messageEn || 'HiBrew KSA · Specialty Coffee Machines & Barista Essentials';
+    const englishTagline = taglineEn || messageEn || (storeName ? `${storeName} · Online Store` : 'Your Store · Online Store');
 
     return (
       <div
@@ -161,7 +161,7 @@ export const DashboardLoader: React.FC<DashboardLoaderProps> = ({
               {effectiveLogo && !imgError ? (
                 <img
                   src={effectiveLogo}
-                  alt="HiBrew KSA"
+                  alt={storeName || 'Store'}
                   onError={() => setImgError(true)}
                   className="w-full h-full object-contain filter drop-shadow-sm"
                 />
@@ -187,7 +187,7 @@ export const DashboardLoader: React.FC<DashboardLoaderProps> = ({
 
   // 2. Al-Saeedi VIP Automotive Studio Page Loader
   if (isCar) {
-    const englishTagline = taglineEn || messageEn || 'Al-Saeedi VIP · Precision Automotive Styling & Custom Upholstery';
+    const englishTagline = taglineEn || messageEn || (storeName ? `${storeName} · Online Store` : 'Your Store · Online Store');
 
     return (
       <div
@@ -209,7 +209,7 @@ export const DashboardLoader: React.FC<DashboardLoaderProps> = ({
               {effectiveLogo && !imgError ? (
                 <img
                   src={effectiveLogo}
-                  alt="Al-Saeedi VIP Automotive"
+                  alt={storeName || 'Store'}
                   onError={() => setImgError(true)}
                   className="w-full h-full object-contain"
                 />
@@ -273,7 +273,7 @@ export const DashboardLoader: React.FC<DashboardLoaderProps> = ({
   }
 
   // 4. Hadaya Makkah Flowers & Luxury Gifts Page Loader (Default for floral/gift storefronts)
-  const flowersTagline = taglineEn || messageEn || (storeName ? `${storeName} · Luxury Flowers & Gifts` : 'Hadaya Makkah · Luxury Fresh Floral Arrangements & VIP Gifts');
+  const flowersTagline = taglineEn || messageEn || (storeName ? `${storeName} · Online Store` : 'Your Store · Online Store');
 
   return (
     <div

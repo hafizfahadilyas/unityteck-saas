@@ -1,6 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { isApiEnabled } from '../../api/client';
+import { fetchDashboardHomeAnalytics } from '../../api/tenantApi';
+import { downloadCsv } from '../../utils/exportSpreadsheet';
 import { DateRangeFilter } from '../../notification-system/components/DateRangeFilter';
 import { AreaChart } from '../common/AreaChart';
 import { DonutChart } from '../common/DonutChart';
@@ -13,8 +16,9 @@ import { ReportsAiInsights } from './reports/ReportsAiInsights';
 import { ReportsBehaviorProfitability } from './reports/ReportsBehaviorProfitability';
 import { ReportsCustomers } from './reports/ReportsCustomers';
 import { ReportsProducts } from './reports/ReportsProducts';
-import { ReportsChannels } from './reports/ReportsChannels';
 import { ReportsEmptyState } from './reports/ReportsEmptyState';
+import { StoreChannelPerformance } from './StoreChannelPerformance';
+import { localizePaymentMethod } from '../../utils/domainLabels';
 
 
 import {
@@ -95,7 +99,56 @@ export const StoreReports: React.FC = () => {
   const computedNetSales = Math.max(0, Math.round(computedTotalSales - totalTax));
   const computedTotalOrders = storeOrders.length;
   const computedCustomersCount = storeCustomers.length;
-  const computedVisits = Number(activeStore.visitorsCount) || 0;
+  // Real storefront event sessions only — never seeded/local visitorsCount (zero-mock)
+  const [computedVisits, setComputedVisits] = useState(0);
+  const [visitTrafficRows, setVisitTrafficRows] = useState<
+    Array<{ source: string; visits: number; pct: string; cr: string }>
+  >([]);
+
+  useEffect(() => {
+    const storeId = activeStore?.id;
+    if (!storeId || !isApiEnabled()) {
+      setComputedVisits(0);
+      setVisitTrafficRows([]);
+      return;
+    }
+    let cancelled = false;
+    void fetchDashboardHomeAnalytics(storeId)
+      .then((data) => {
+        if (cancelled) return;
+        const visits = Math.max(0, Number(data?.visitors_count) || 0);
+        setComputedVisits(visits);
+        const sources = Array.isArray(data?.traffic_sources) ? data.traffic_sources : [];
+        const ordersSnapshot = (allOrders && allOrders[storeId]) || [];
+        setVisitTrafficRows(
+          sources
+            .filter((s) => (Number(s.visits) || 0) > 0)
+            .map((s) => {
+              const v = Math.max(0, Number(s.visits) || 0);
+              const name = String(s.name || '').toLowerCase();
+              const ordersForSrc = ordersSnapshot.filter((o) => {
+                const src = String(o.source || '').toLowerCase();
+                return src && name && (src.includes(name) || name.includes(src));
+              }).length;
+              return {
+                source: isAr ? s.name_ar || s.name : s.name,
+                visits: v,
+                pct: `${Math.max(0, Number(s.percentage) || 0)}%`,
+                cr: v > 0 ? `${((ordersForSrc / v) * 100).toFixed(1)}%` : '0%',
+              };
+            }),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setComputedVisits(0);
+          setVisitTrafficRows([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore?.id, isAr, allOrders]);
 
   // Main KPI cards — real totals only; no invented growth %
   const mainKpis = [
@@ -151,30 +204,19 @@ export const StoreReports: React.FC = () => {
     },
   ];
 
-  // Sales Overview Chart data
+  // Sales Overview Chart data — real order days only (never invent a Sep curve)
   const salesChartData = React.useMemo(() => {
-    if (storeOrders.length === 0) {
-      return [
-        { label: 'Sep 1', value: 0 },
-        { label: 'Sep 5', value: 0 },
-        { label: 'Sep 10', value: 0 },
-        { label: 'Sep 15', value: 0 },
-        { label: 'Sep 20', value: 0 },
-        { label: 'Sep 25', value: 0 },
-        { label: 'Sep 30', value: 0 },
-      ];
-    }
-    const step = computedTotalSales / 7;
-    return [
-      { label: 'Sep 1', value: Math.round(step * 0.4) },
-      { label: 'Sep 5', value: Math.round(step * 0.7) },
-      { label: 'Sep 10', value: Math.round(step * 0.9) },
-      { label: 'Sep 15', value: Math.round(step * 1.1) },
-      { label: 'Sep 20', value: Math.round(step * 1.3) },
-      { label: 'Sep 25', value: Math.round(step * 1.2) },
-      { label: 'Sep 30', value: Math.round(step * 1.4) },
-    ];
-  }, [storeOrders, computedTotalSales]);
+    if (storeOrders.length === 0) return [];
+    const byDay = new Map<string, number>();
+    storeOrders.forEach((o) => {
+      const key = (o.date || '').slice(0, 10) || '—';
+      byDay.set(key, (byDay.get(key) || 0) + (Number(o.total) || 0));
+    });
+    return Array.from(byDay.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-14)
+      .map(([label, value]) => ({ label: label.length > 5 ? label.slice(5) : label, value: Math.round(value) }));
+  }, [storeOrders]);
 
   // Top Performing Categories
   const topCategories = React.useMemo(() => {
@@ -198,7 +240,7 @@ export const StoreReports: React.FC = () => {
 
     if (Object.keys(categoryTotals).length === 0) {
       const catName = (isAr ? activeStore.categoryAr : activeStore.categoryEn) || activeStore.category || (isAr ? 'المنتجات' : 'Products');
-      return [{ id: '1', name: catName, revenue: computedTotalSales, change: computedTotalSales > 0 ? '+100%' : '0%' }];
+      return [{ id: '1', name: catName, revenue: computedTotalSales, change: '—' }];
     }
 
     return Object.entries(categoryTotals)
@@ -273,23 +315,29 @@ export const StoreReports: React.FC = () => {
 
   const handleDownload = () => {
     const storeOrdersList = (allOrders && allOrders[activeStore.id]) || [];
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    csvContent += 'Order Number,Customer Name,Date,Status,Total Amount (SAR),Payment Method,Source\n';
-    if (storeOrdersList.length > 0) {
-      storeOrdersList.forEach((o) => {
-        csvContent += `"${o.orderNumber || o.id}","${o.customerName || 'Customer'}","${o.createdAt || ''}","${o.status || 'pending'}","${o.total || 0}","${o.paymentMethod || 'Mada'}","${o.source || 'Direct'}"\n`;
-      });
-    } else {
-      csvContent += 'No records found\n';
+    if (storeOrdersList.length === 0) {
+      toast(isAr ? 'لا توجد سجلات للتصدير' : 'No records found to export', 'info');
+      return;
     }
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `${activeStore.slug}_${activeReportTab}_report_${dateRange}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast(isAr ? 'تم تصدير تقرير المتجر الحقيقي بنجاح!' : 'Store real report exported successfully as CSV!', 'success');
+    const headers = isAr
+      ? ['رقم الطلب', 'اسم العميل', 'التاريخ', 'الحالة', 'المبلغ الإجمالي (ر.س)', 'طريقة الدفع', 'المصدر']
+      : ['Order Number', 'Customer Name', 'Date', 'Status', 'Total Amount (SAR)', 'Payment Method', 'Source'];
+    const rows = storeOrdersList.map((o) => [
+      String(o.orderNumber || o.id || ''),
+      String(o.customerName || ''),
+      String(o.date || o.createdAt || ''),
+      String(o.status || ''),
+      String(o.total ?? 0),
+      String(o.paymentMethod || ''),
+      String(o.source || ''),
+    ]);
+    downloadCsv(`${activeStore.slug}_${activeReportTab}_report_${dateRange}.csv`, [headers, ...rows]);
+    toast(
+      isAr
+        ? `تم تصدير ${storeOrdersList.length} سجل بنجاح`
+        : `Exported ${storeOrdersList.length} records successfully`,
+      'success',
+    );
   };
 
   // ═══════════════════════════════════════════════════════════════════
@@ -299,15 +347,18 @@ export const StoreReports: React.FC = () => {
     const totalDiscounts = storeOrders.reduce((sum, o) => sum + (o.discountAmount || (o as any).discount || 0), 0);
     const totalShipping = storeOrders.reduce((sum, o) => sum + (o.shippingFee || 0), 0);
 
+    const realTax = storeOrders.reduce((sum, o) => sum + (Number((o as { tax?: number }).tax) || 0), 0);
+    const realFees = currentPaymentTransactions.reduce((sum, tx) => sum + (Number(tx.feeAmount) || 0), 0);
     const salesKpis = [
-      { label: isAr ? 'إجمالي المبيعات (شامل الخصومات)' : 'Total Sales (Including Discounts)', value: computedTotalSales, change: computedTotalSales > 0 ? '+12%' : '0%', color: 'emerald', icon: ShoppingCart },
-      { label: isAr ? 'كوبونات الخصم' : 'Discount Coupons', value: totalDiscounts, change: totalDiscounts > 0 ? '+18%' : '0%', color: 'rose', icon: Percent },
-      { label: isAr ? 'إجمالي المبيعات' : 'Total Sales', value: computedTotalSales, change: computedTotalSales > 0 ? '+11%' : '0%', color: 'blue', icon: ShoppingBag },
-      { label: isAr ? 'تكلفة المنتجات' : 'Product Costs', value: Math.round(computedTotalSales * 0.45), change: computedTotalSales > 0 ? '+7%' : '0%', color: 'amber', icon: Package },
-      { label: isAr ? 'الشحن والتوصيل' : 'Shipping', value: totalShipping, change: totalShipping > 0 ? '+9%' : '0%', color: 'purple', icon: Truck },
-      { label: isAr ? 'الضرائب (ضريبة القيمة المضافة)' : 'Taxes', value: Math.round(computedTotalSales * 0.15), change: computedTotalSales > 0 ? '+6%' : '0%', color: 'amber', icon: FileText },
-      { label: isAr ? 'رسوم الدفع الإلكتروني' : 'Electronic Payment Fees', value: Math.round(computedTotalSales * 0.025), change: computedTotalSales > 0 ? '+4%' : '0%', color: 'blue', icon: CreditCard },
-      { label: isAr ? 'صافي المبيعات' : 'Net Sales', value: computedNetSales, change: computedNetSales > 0 ? '+10%' : '0%', color: 'emerald', icon: DollarSign },
+      { label: isAr ? 'إجمالي المبيعات (شامل الخصومات)' : 'Total Sales (Including Discounts)', value: computedTotalSales, change: '—', color: 'emerald', icon: ShoppingCart },
+      { label: isAr ? 'كوبونات الخصم' : 'Discount Coupons', value: totalDiscounts, change: '—', color: 'rose', icon: Percent },
+      { label: isAr ? 'إجمالي المبيعات' : 'Total Sales', value: computedTotalSales, change: '—', color: 'blue', icon: ShoppingBag },
+      // Costs unknown until COGS fields exist — never invent ×0.45
+      { label: isAr ? 'تكلفة المنتجات' : 'Product Costs', value: 0, change: '—', color: 'amber', icon: Package },
+      { label: isAr ? 'الشحن والتوصيل' : 'Shipping', value: totalShipping, change: '—', color: 'purple', icon: Truck },
+      { label: isAr ? 'الضرائب (ضريبة القيمة المضافة)' : 'Taxes', value: realTax, change: '—', color: 'amber', icon: FileText },
+      { label: isAr ? 'رسوم الدفع الإلكتروني' : 'Electronic Payment Fees', value: realFees, change: '—', color: 'blue', icon: CreditCard },
+      { label: isAr ? 'صافي المبيعات' : 'Net Sales', value: computedNetSales, change: '—', color: 'emerald', icon: DollarSign },
     ];
 
     const salesSubTabs = [
@@ -367,7 +418,7 @@ export const StoreReports: React.FC = () => {
     const paymentMethods = storeOrders.length > 0 ? Object.values(pmAgg).sort((a, b) => b.sales - a.sales).slice(0, 5).map((pm, i) => ({ id: String(i + 1), rank: i + 1, ...pm })) : [];
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
         {/* Breadcrumb & Top Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -672,11 +723,12 @@ export const StoreReports: React.FC = () => {
   // ═══════════════════════════════════════════════════════════════════
   if (selectedCategory === 'marketing' || selectedCategory === 'Marketing Reports' || selectedCategory === 'تقرير التسويق والطلب') {
     const mktKpis = [
-      { label: isAr ? 'إجمالي مبيعات التسويق' : 'Total Marketing Sales', value: computedTotalSales, change: computedTotalSales > 0 ? '+18%' : '0%', isMoney: true, icon: Megaphone, color: 'emerald' },
-      { label: isAr ? 'إجمالي الإنفاق الإعلاني' : 'Total Ad Spend', value: Math.round(computedTotalSales * 0.22), change: computedTotalSales > 0 ? '+6%' : '0%', isMoney: true, icon: Target, color: 'rose' },
-      { label: isAr ? 'العائد على الإنفاق الإعلاني' : 'ROAS', value: computedTotalSales > 0 ? '4.5x' : '0.0x', change: computedTotalSales > 0 ? '+22%' : '0%', isMoney: false, icon: TrendingUp, color: 'blue' },
-      { label: isAr ? 'عملاء جدد من الحملات' : 'New Customers from Marketing', value: computedCustomersCount, change: computedCustomersCount > 0 ? '+24%' : '0%', isMoney: false, icon: Users, color: 'purple' },
-      { label: isAr ? 'معدل التحويل' : 'Conversion Rate', value: computedTotalOrders > 0 ? `${((computedTotalOrders / Math.max(1, computedVisits)) * 100).toFixed(1)}%` : '0%', change: computedTotalOrders > 0 ? '+14%' : '0%', isMoney: false, icon: ShoppingCart, color: 'amber' },
+      { label: isAr ? 'إجمالي مبيعات التسويق' : 'Total Marketing Sales', value: computedTotalSales, change: '—', isMoney: true, icon: Megaphone, color: 'emerald' },
+      // Ad spend / ROAS only when real campaign spend exists — never invent ×0.22 or 4.5x
+      { label: isAr ? 'إجمالي الإنفاق الإعلاني' : 'Total Ad Spend', value: 0, change: '—', isMoney: true, icon: Target, color: 'rose' },
+      { label: isAr ? 'العائد على الإنفاق الإعلاني' : 'ROAS', value: '—', change: '—', isMoney: false, icon: TrendingUp, color: 'blue' },
+      { label: isAr ? 'عملاء جدد من الحملات' : 'New Customers from Marketing', value: 0, change: '—', isMoney: false, icon: Users, color: 'purple' },
+      { label: isAr ? 'معدل التحويل' : 'Conversion Rate', value: computedVisits > 0 ? `${((computedTotalOrders / computedVisits) * 100).toFixed(1)}%` : '—', change: '—', isMoney: false, icon: ShoppingCart, color: 'amber' },
     ];
 
     const campaignPerformance: any[] = [];
@@ -717,7 +769,7 @@ export const StoreReports: React.FC = () => {
     ];
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
         {/* Breadcrumb & Top Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -1082,8 +1134,8 @@ export const StoreReports: React.FC = () => {
     const avgPrice = storeProducts.length > 0 ? Math.round(storeProducts.reduce((s, p) => s + (p.price || 0), 0) / storeProducts.length) : 0;
 
     const prodKpis = [
-      { label: isAr ? 'إجمالي المنتجات المباعة' : 'Units Sold', value: totalUnitsSold, change: totalUnitsSold > 0 ? '+14%' : '0%', isMoney: false, icon: Package, color: 'emerald' },
-      { label: isAr ? 'إيرادات المنتجات' : 'Product Revenue', value: computedTotalSales, change: computedTotalSales > 0 ? '+12%' : '0%', isMoney: true, icon: DollarSign, color: 'blue' },
+      { label: isAr ? 'إجمالي المنتجات المباعة' : 'Units Sold', value: totalUnitsSold, change: '—', isMoney: false, icon: Package, color: 'emerald' },
+      { label: isAr ? 'إيرادات المنتجات' : 'Product Revenue', value: computedTotalSales, change: '—', isMoney: true, icon: DollarSign, color: 'blue' },
       { label: isAr ? 'متوسط سعر الوحدة' : 'Avg Unit Price', value: avgPrice, change: '0%', isMoney: true, icon: Tag, color: 'purple' },
       { label: isAr ? 'منتجات أوشكت على النفاد' : 'Low Stock Items', value: lowStockCount, change: '0', isMoney: false, icon: Layers, color: 'amber' },
       { label: isAr ? 'هامش الربح الإجمالي' : 'Gross Margin', value: storeOrders.length > 0 ? '45%' : '0%', change: '0%', isMoney: false, icon: TrendingUp, color: 'teal' },
@@ -1120,7 +1172,7 @@ export const StoreReports: React.FC = () => {
     });
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
@@ -1286,8 +1338,8 @@ export const StoreReports: React.FC = () => {
     const avgLtv = totalCustCount > 0 ? Math.round(computedTotalSales / totalCustCount) : 0;
 
     const custKpis = [
-      { label: isAr ? 'إجمالي العملاء النشطين' : 'Active Customers', value: totalCustCount, change: totalCustCount > 0 ? '+100%' : '0%', isMoney: false, icon: Users, color: 'emerald' },
-      { label: isAr ? 'عملاء جدد' : 'New Customers', value: newCustomers, change: newCustomers > 0 ? '+100%' : '0%', isMoney: false, icon: Users, color: 'blue' },
+      { label: isAr ? 'إجمالي العملاء النشطين' : 'Active Customers', value: totalCustCount, change: '—', isMoney: false, icon: Users, color: 'emerald' },
+      { label: isAr ? 'عملاء جدد' : 'New Customers', value: newCustomers, change: '—', isMoney: false, icon: Users, color: 'blue' },
       { label: isAr ? 'معدل تكرار الشراء' : 'Repeat Purchase Rate', value: returningRate, change: '0%', isMoney: false, icon: TrendingUp, color: 'purple' },
       { label: isAr ? 'متوسط قيمة العميل LTV' : 'Customer LTV', value: avgLtv, change: '0%', isMoney: true, icon: DollarSign, color: 'amber' },
       { label: isAr ? 'معدل الاحتفاظ بالعملاء' : 'Retention Rate', value: returningRate, change: '0%', isMoney: false, icon: CheckCircle2, color: 'teal' },
@@ -1313,7 +1365,7 @@ export const StoreReports: React.FC = () => {
     ] : [];
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
@@ -1449,36 +1501,21 @@ export const StoreReports: React.FC = () => {
   // SUB-VIEW 5: VISITS REPORT
   // ═══════════════════════════════════════════════════════════════════
   if (selectedCategory === 'visits' || selectedCategory === 'Visits Report' || selectedCategory === 'تقرير الزيارات') {
-    const uniqueVisits = computedVisits > 0 ? Math.round(computedVisits * 0.72) : 0;
+    // Real event sessions only — never invent unique×0.72, bounce, duration, or 75/25 devices
+    // Unique visitors only when a distinct metric exists — never clone Total Visits (zero-mock)
     const visitsKpis = [
-      { label: isAr ? 'إجمالي الزيارات' : 'Total Visits', value: computedVisits, change: computedVisits > 0 ? '+12%' : '0%', isMoney: false, icon: Eye, color: 'emerald' },
-      { label: isAr ? 'الزوار الفريدين' : 'Unique Visitors', value: uniqueVisits, change: uniqueVisits > 0 ? '+10%' : '0%', isMoney: false, icon: Users, color: 'blue' },
-      { label: isAr ? 'الصفحات لكل زيارة' : 'Pages / Session', value: computedVisits > 0 ? '3.8' : '0.0', change: '0%', isMoney: false, icon: FileText, color: 'purple' },
-      { label: isAr ? 'متوسط مدة الجلسة' : 'Avg Session Duration', value: computedVisits > 0 ? '2m 45s' : '0s', change: '0%', isMoney: false, icon: Clock, color: 'amber' },
-      { label: isAr ? 'معدل الارتداد' : 'Bounce Rate', value: computedVisits > 0 ? '31.2%' : '0.0%', change: '0%', isMoney: false, icon: TrendingUp, color: 'teal' },
+      { label: isAr ? 'إجمالي الزيارات' : 'Total Visits', value: computedVisits, change: '—', isMoney: false, icon: Eye, color: 'emerald' },
+      { label: isAr ? 'الزوار الفريدون' : 'Unique Visitors', value: '—', change: '—', isMoney: false, icon: Users, color: 'blue' },
+      { label: isAr ? 'الصفحات لكل زيارة' : 'Pages / Session', value: '—', change: '—', isMoney: false, icon: FileText, color: 'purple' },
+      { label: isAr ? 'متوسط مدة الجلسة' : 'Avg Session Duration', value: '—', change: '—', isMoney: false, icon: Clock, color: 'amber' },
+      { label: isAr ? 'معدل الارتداد' : 'Bounce Rate', value: '—', change: '—', isMoney: false, icon: TrendingUp, color: 'teal' },
     ];
 
-    const srcAgg: Record<string, number> = {};
-    storeOrders.forEach((o) => {
-      const src = o.source || (isAr ? 'مباشر (المتجر)' : 'Direct (Store)');
-      srcAgg[src] = (srcAgg[src] || 0) + 1;
-    });
-    const trafficSources = storeOrders.length > 0
-      ? Object.entries(srcAgg).map(([source, count]) => {
-          const visits = Math.max(count, Math.round(computedVisits * (count / storeOrders.length)));
-          const pct = computedVisits > 0 ? `${((visits / computedVisits) * 100).toFixed(1)}%` : '100%';
-          const cr = visits > 0 ? `${((count / visits) * 100).toFixed(1)}%` : '0%';
-          return { source, visits, pct, cr };
-        })
-      : [];
-
-    const devicesDonut = computedVisits > 0 ? [
-      { label: isAr ? 'جوال ذكي' : 'Mobile Devices', value: 75, color: '#3b82f6', formattedValue: `${Math.round(computedVisits * 0.75).toLocaleString()} (75%)` },
-      { label: isAr ? 'كمبيوتر مكتبي' : 'Desktop', value: 25, color: '#10b981', formattedValue: `${Math.round(computedVisits * 0.25).toLocaleString()} (25%)` },
-    ] : [];
+    const trafficSources = visitTrafficRows;
+    const devicesDonut: Array<{ label: string; value: number; color: string; formattedValue: string }> = [];
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
@@ -1538,7 +1575,11 @@ export const StoreReports: React.FC = () => {
                 <div>
                   <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block truncate">{kpi.label}</span>
                   <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white tabular-nums mt-0.5">
-                    {kpi.isMoney ? money(Number(kpi.value)) : kpi.value.toLocaleString()}
+                    {kpi.isMoney
+                      ? money(Number(kpi.value))
+                      : typeof kpi.value === 'number'
+                        ? kpi.value.toLocaleString()
+                        : kpi.value}
                   </div>
                   <span className="text-[10px] text-slate-400 block mt-0.5">{isAr ? 'مقارنة بالفترة السابقة' : 'vs prev period'}</span>
                 </div>
@@ -1589,15 +1630,21 @@ export const StoreReports: React.FC = () => {
           <div className="lg:col-span-4 p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">{isAr ? 'توزيع الأجهزة المستخدمة' : 'Device Distribution'}</h3>
-              <span className="text-xs font-bold text-purple-600">{computedVisits > 0 ? '75% Mobile' : (isAr ? 'لا توجد بيانات' : 'No Data')}</span>
+              <span className="text-xs font-bold text-purple-600">{isAr ? 'بانتظار البيانات' : 'Waiting for Data'}</span>
             </div>
-            <DonutChart
-              segments={devicesDonut}
-              centerValue={computedVisits.toLocaleString()}
-              centerLabel="Total Visits"
-              size={160}
-              strokeWidth={20}
-            />
+            {devicesDonut.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center py-10 text-center text-xs text-slate-400 dark:text-slate-500">
+                {isAr ? 'لا توجد بيانات أجهزة مسجلة لهذا المتجر' : 'No device analytics recorded for this store'}
+              </div>
+            ) : (
+              <DonutChart
+                segments={devicesDonut}
+                centerValue={computedVisits.toLocaleString()}
+                centerLabel={isAr ? 'إجمالي الزيارات' : 'Total Visits'}
+                size={160}
+                strokeWidth={20}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -1689,14 +1736,26 @@ export const StoreReports: React.FC = () => {
 
     // Dynamic Payment Gateways breakdown from store orders and transactions
     const paymentMethodCounts: Record<string, { count: number; sales: number }> = {};
+    const locale = isAr ? 'ar' : 'en';
     storeOrders.forEach((o) => {
-      const pName = o.paymentMethod || 'Mada';
-      if (!paymentMethodCounts[pName]) {
-        paymentMethodCounts[pName] = { count: 0, sales: 0 };
+      const rawMethod = o.paymentMethod || (isAr ? 'مدى' : 'Mada');
+      const label = localizePaymentMethod(rawMethod, locale);
+      if (!paymentMethodCounts[label]) {
+        paymentMethodCounts[label] = { count: 0, sales: 0 };
       }
-      paymentMethodCounts[pName].count += 1;
-      paymentMethodCounts[pName].sales += o.total || 0;
+      paymentMethodCounts[label].count += 1;
+      paymentMethodCounts[label].sales += o.total || 0;
     });
+
+    const emptyPaymentRows = [
+      { key: 'apple', orders: 0, sales: 0, fee: 0, share: '0%' },
+      { key: 'mada', orders: 0, sales: 0, fee: 0, share: '0%' },
+      { key: 'visa', orders: 0, sales: 0, fee: 0, share: '0%' },
+      { key: 'cod', orders: 0, sales: 0, fee: 0, share: '0%' },
+    ].map((row) => ({
+      ...row,
+      name: localizePaymentMethod(row.key === 'apple' ? 'Apple Pay' : row.key === 'mada' ? 'Mada' : row.key === 'visa' ? 'Visa' : 'Cash on Delivery', locale),
+    }));
 
     const paymentGateways = Object.keys(paymentMethodCounts).length > 0
       ? Object.entries(paymentMethodCounts).map(([name, data]) => {
@@ -1710,15 +1769,10 @@ export const StoreReports: React.FC = () => {
             share,
           };
         })
-      : [
-          { name: 'Apple Pay', orders: 0, sales: 0, fee: 0, share: '0%' },
-          { name: 'mada (مدى)', orders: 0, sales: 0, fee: 0, share: '0%' },
-          { name: 'Visa / MasterCard', orders: 0, sales: 0, fee: 0, share: '0%' },
-          { name: isAr ? 'الدفع عند الاستلام الدفع عند الاستلام' : 'Cash on Delivery', orders: 0, sales: 0, fee: 0, share: '0%' },
-        ];
+      : emptyPaymentRows;
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
@@ -1875,7 +1929,7 @@ export const StoreReports: React.FC = () => {
   // ═══════════════════════════════════════════════════════════════════
   if (activeReportTab === 'overview' && !selectedCategory) {
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
         <ReportsNavHeader
           activeTab={activeReportTab}
           onSelectTab={handleTabSwitch}
@@ -1910,7 +1964,7 @@ export const StoreReports: React.FC = () => {
   // ═══════════════════════════════════════════════════════════════════
   if (activeReportTab === 'sales_revenue' && !selectedCategory) {
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
         <ReportsNavHeader
           activeTab={activeReportTab}
           onSelectTab={handleTabSwitch}
@@ -1945,7 +1999,7 @@ export const StoreReports: React.FC = () => {
   // ═══════════════════════════════════════════════════════════════════
   if (activeReportTab === 'campaign' && !selectedCategory) {
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
         <ReportsNavHeader
           activeTab={activeReportTab}
           onSelectTab={handleTabSwitch}
@@ -1979,7 +2033,7 @@ export const StoreReports: React.FC = () => {
   // ═══════════════════════════════════════════════════════════════════
   if (activeReportTab === 'ai_insights' && !selectedCategory) {
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
         <ReportsNavHeader
           activeTab={activeReportTab}
           onSelectTab={handleTabSwitch}
@@ -2013,7 +2067,7 @@ export const StoreReports: React.FC = () => {
   // ═══════════════════════════════════════════════════════════════════
   if (activeReportTab === 'behavior' && !selectedCategory) {
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
         <ReportsNavHeader
           activeTab={activeReportTab}
           onSelectTab={handleTabSwitch}
@@ -2047,7 +2101,7 @@ export const StoreReports: React.FC = () => {
   // ═══════════════════════════════════════════════════════════════════
   if (activeReportTab === 'customers' && !selectedCategory) {
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
         <ReportsNavHeader
           activeTab={activeReportTab}
           onSelectTab={handleTabSwitch}
@@ -2081,7 +2135,7 @@ export const StoreReports: React.FC = () => {
   // ═══════════════════════════════════════════════════════════════════
   if (activeReportTab === 'products' && !selectedCategory) {
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
         <ReportsNavHeader
           activeTab={activeReportTab}
           onSelectTab={handleTabSwitch}
@@ -2111,11 +2165,12 @@ export const StoreReports: React.FC = () => {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // CHANNELS & ATTRIBUTION (Tab: channels)
+  // MARKETING CHANNELS PERFORMANCE (Tab: channels)
+  // Full page: StoreChannelPerformance (traffic, conversions, revenue by channel)
   // ═══════════════════════════════════════════════════════════════════
   if (activeReportTab === 'channels' && !selectedCategory) {
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
         <ReportsNavHeader
           activeTab={activeReportTab}
           onSelectTab={handleTabSwitch}
@@ -2129,11 +2184,7 @@ export const StoreReports: React.FC = () => {
           onSaveView={() => toast(isAr ? 'تم حفظ إعدادات العرض بنجاح!' : 'Report view saved successfully!', 'success')}
         />
 
-        <ReportsChannels
-          dateRange={dateRange}
-          comparisonPeriod={comparisonPeriod}
-          onNavigateToTab={handleTabSwitch}
-        />
+        <StoreChannelPerformance />
 
         <PageDocsGuideModal
           isOpen={isGuideOpen}
@@ -2150,7 +2201,7 @@ export const StoreReports: React.FC = () => {
   // DEFAULT VIEW: MAIN REPORTS DASHBOARD (Legacy Category Hub)
   // ═══════════════════════════════════════════════════════════════════
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100" dir={dir}>
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
       {/* Header bar matching 11_reports.png */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -2354,7 +2405,7 @@ export const StoreReports: React.FC = () => {
                     sales: 'sales_revenue',
                     product: 'products',
                     customer: 'customers',
-                    marketing: 'campaign',
+                    marketing: 'channels',
                     visits: 'behavior',
                     shipping: 'channels',
                   };

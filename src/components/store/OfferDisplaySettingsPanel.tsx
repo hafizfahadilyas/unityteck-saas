@@ -90,7 +90,7 @@ export const OfferDisplaySettingsPanel: React.FC<Props> = ({
           className="mt-3 px-3 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer"
           style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
         >
-          {isAr ? 'تعديل نافذة العرض' : 'Edit display window'}
+          {isAr ? 'تعديل نافذة الكوبون' : 'Edit coupon window'}
         </button>
       ) : (
         <form onSubmit={onSave} className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t mt-3" style={{ borderColor: 'var(--border)' }}>

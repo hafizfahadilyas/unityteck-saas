@@ -67,6 +67,19 @@ class EnsureStoreId
     protected function resolveStoreId(string $raw): string
     {
         $s = strtolower(trim($raw));
+
+        // DB first — never force a new onboarded slug onto a demo tenant id
+        $matched = \App\Models\Store::query()
+            ->where('id', $raw)
+            ->orWhere('slug', $raw)
+            ->orWhere('slug', $s)
+            ->value('id');
+
+        if ($matched) {
+            return (string) $matched;
+        }
+
+        // Legacy demo aliases only when no DB row exists for that slug/id
         if (in_array($s, ['flowers', 'hadaya', 'makkah', 'giftshop'], true)) {
             return 'store-1';
         }
@@ -77,12 +90,6 @@ class EnsureStoreId
             return 'store-bleco';
         }
 
-        $matched = \App\Models\Store::query()
-            ->where('id', $raw)
-            ->orWhere('slug', $raw)
-            ->orWhere('slug', $s)
-            ->value('id');
-
-        return $matched ? (string) $matched : trim($raw);
+        return trim($raw);
     }
 }

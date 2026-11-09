@@ -4,6 +4,7 @@ import { useTenant } from '../../context/TenantContext';
 import type { Order, OrderStatus } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { AdminPageShell } from '../common/AdminPageHeader';
+import { FloatingPopover, placePopoverBelow, type PopoverPlacement } from '../common/FloatingPopover';
 import { displayOrderNumber } from '../../utils/orderNumber';
 import { fetchOrder } from '../../api/tenantApi';
 import {
@@ -145,7 +146,7 @@ export const StoreOrders: React.FC = () => {
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
-  const [actionMenuPos, setActionMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [actionMenuPos, setActionMenuPos] = useState<PopoverPlacement | null>(null);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -216,18 +217,12 @@ export const StoreOrders: React.FC = () => {
   const [showPaymentTransactionsModal, setShowPaymentTransactionsModal] = useState(false);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
   const [openFilterDropdown, setOpenFilterDropdown] = useState<'date' | 'payment' | 'shipping' | 'source' | null>(null);
-  const orderToolsMenuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!showOrderToolsMenu) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (!orderToolsMenuRef.current?.contains(e.target as Node)) {
-        setShowOrderToolsMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [showOrderToolsMenu]);
+  const orderToolsBtnRef = useRef<HTMLButtonElement | null>(null);
+  const dateFilterBtnRef = useRef<HTMLButtonElement | null>(null);
+  const paymentFilterBtnRef = useRef<HTMLButtonElement | null>(null);
+  const shippingFilterBtnRef = useRef<HTMLButtonElement | null>(null);
+  const sourceFilterBtnRef = useRef<HTMLButtonElement | null>(null);
+  const bulkStatusBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const isAr = locale === 'ar';
 
@@ -712,7 +707,14 @@ export const StoreOrders: React.FC = () => {
         : 'e.g. Duplicate order, data error, test order…',
     });
     if (reason == null) return;
-    permanentDeleteOrder(ord.id, ord.storeId, reason);
+    const deleted = await permanentDeleteOrder(ord.id, ord.storeId, reason);
+    if (!deleted) {
+      toast(
+        isAr ? 'تعذر حذف الطلب. تحقق من الصلاحيات أو حاول مرة أخرى.' : 'Could not delete the order. Check permissions or try again.',
+        'error',
+      );
+      return;
+    }
     if (selectedOrder?.id === ord.id) {
       setSelectedOrder(null);
     }
@@ -764,9 +766,22 @@ export const StoreOrders: React.FC = () => {
       danger: true,
     });
     if (ok) {
-      selectedOrderIds.forEach((id) => permanentDeleteOrder(id, activeStore.id));
+      const results = await Promise.all(
+        selectedOrderIds.map((id) => permanentDeleteOrder(id, activeStore.id)),
+      );
+      const deletedCount = results.filter(Boolean).length;
       setSelectedOrderIds([]);
-      toast(isAr ? `تم الحذف النهائي لـ${count}طلبات` : `${count} orders permanently deleted`, 'success');
+      if (deletedCount === 0) {
+        toast(
+          isAr ? 'تعذر حذف الطلبات المحددة.' : 'Could not delete the selected orders.',
+          'error',
+        );
+        return;
+      }
+      toast(
+        isAr ? `تم الحذف النهائي لـ${deletedCount}طلبات` : `${deletedCount} orders permanently deleted`,
+        'success',
+      );
     }
   };
 
@@ -795,7 +810,7 @@ export const StoreOrders: React.FC = () => {
     const stamp = Date.now();
     const resolvedName =
       filename ||
-      (format === 'xlsx' ? `orders_${stamp}.xlsx` : `orders_${stamp}.csv`);
+      (format === 'xlsx' ? `orders_${stamp}.xls` : `orders_${stamp}.csv`);
     exportOrdersSpreadsheet(ordersToExport, {
       format,
       filename: resolvedName,
@@ -806,11 +821,11 @@ export const StoreOrders: React.FC = () => {
     toast(
       format === 'xlsx'
         ? isAr
-          ? 'تم تصدير ملف إكسل بنجاح'
-          : 'Excel file exported successfully'
+          ? `تم تصدير ${ordersToExport.length} طلب إلى إكسل`
+          : `Exported ${ordersToExport.length} orders to Excel`
         : isAr
-          ? 'تم تصدير ملف الطلبات بنجاح'
-          : 'Orders exported successfully',
+          ? `تم تصدير ${ordersToExport.length} طلب إلى ملف نصي`
+          : `Exported ${ordersToExport.length} orders to CSV`,
       'success',
     );
   };
@@ -851,7 +866,6 @@ export const StoreOrders: React.FC = () => {
   const getSourceIcon = (source: string) => {
     if (source === 'AI Assistant') return <Bot className="w-4 h-4 text-cyan-600 shrink-0" />;
     if (source === 'Referral') return <Share2 className="w-4 h-4 text-purple-600 shrink-0" />;
-    if (source === 'Organic Search') return <Search className="w-4 h-4 text-emerald-600 shrink-0" />;
     return <OrderSourceIcon source={source} className="w-4 h-4 shrink-0" />;
   };
 
@@ -2153,114 +2167,126 @@ export const StoreOrders: React.FC = () => {
             )}
           </div>
 
-          {/* Order Tools Dropdown Button */}
-          <div className="relative shrink-0" ref={orderToolsMenuRef}>
+          {/* Order Tools — body portal (never clipped / overlapping table wrongly) */}
+          <div className="shrink-0">
             <button
               type="button"
-              onClick={() => setShowOrderToolsMenu(!showOrderToolsMenu)}
+              ref={orderToolsBtnRef}
+              onClick={() => {
+                setShowOrderToolsMenu(!showOrderToolsMenu);
+                setOpenFilterDropdown(null);
+              }}
               className="px-4 py-2.5 rounded-xl text-xs font-bold border flex items-center gap-2 cursor-pointer shadow-xs transition-colors bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+              aria-expanded={showOrderToolsMenu}
             >
               <Settings className="w-3.5 h-3.5 text-teal-600" />
               <span>{isAr ? 'أدوات الطلبات' : 'Order Tools'}</span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 
-            {/* Order Tools Popover Menu */}
-            {showOrderToolsMenu && (
-              <div
-                className="absolute end-0 top-full mt-1.5 w-60 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1.5 z-50 animate-in fade-in duration-100 text-xs font-medium"
+            <FloatingPopover
+              open={showOrderToolsMenu}
+              anchorRef={orderToolsBtnRef}
+              onClose={() => setShowOrderToolsMenu(false)}
+              width={240}
+              align="end"
+              estimatedHeight={220}
+              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1.5 text-xs font-medium"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAutoAssignmentModal(true);
+                  setShowOrderToolsMenu(false);
+                }}
+                className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
               >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAutoAssignmentModal(true);
-                    setShowOrderToolsMenu(false);
-                  }}
-                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
-                >
-                  <UserCheck className="w-4 h-4 text-teal-600" />
-                  <span>{isAr ? 'التعيين التلقائي للطلبات' : 'Automatic Assignment'}</span>
-                </button>
+                <UserCheck className="w-4 h-4 text-teal-600" />
+                <span>{isAr ? 'التعيين التلقائي للطلبات' : 'Automatic Assignment'}</span>
+              </button>
 
-                <div className="h-[1px] my-1 bg-slate-100 dark:bg-slate-800" />
+              <div className="h-[1px] my-1 bg-slate-100 dark:bg-slate-800" />
 
-                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  {isAr ? 'تصدير الطلبات' : 'Export Orders'}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleExportOrders(filteredOrders, 'xlsx', `orders_${Date.now()}.xlsx`);
-                    setShowOrderToolsMenu(false);
-                  }}
-                  className="w-full text-start px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
-                >
-                  <FileText className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{isAr ? 'ملف إكسل (.xlsx)' : 'Excel (.xlsx)'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleExportOrders(filteredOrders, 'csv', `orders_${Date.now()}.csv`);
-                    setShowOrderToolsMenu(false);
-                  }}
-                  className="w-full text-start px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5 text-blue-600" />
-                  <span>{isAr ? 'ملف نصي (.csv)' : 'CSV (.csv)'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowExportTemplateModal(true);
-                    setShowOrderToolsMenu(false);
-                  }}
-                  className="w-full text-start px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-teal-600 font-semibold cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{isAr ? 'تخصيص قالب تصدير...' : 'Custom Export Template...'}</span>
-                </button>
-
-                <div className="h-[1px] my-1 bg-slate-100 dark:bg-slate-800" />
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowOrderStatusSettings(true);
-                    setShowOrderToolsMenu(false);
-                  }}
-                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
-                >
-                  <Layers className="w-4 h-4 text-purple-600" />
-                  <span>{isAr ? 'تخصيص حالات الطلب' : 'Customize Statuses'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPaymentTransactionsModal(true);
-                    setShowOrderToolsMenu(false);
-                  }}
-                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
-                >
-                  <CreditCard className="w-4 h-4 text-amber-600" />
-                  <span>{isAr ? 'عمليات الدفع الإلكتروني' : 'Electronic Payment Transactions'}</span>
-                </button>
+              <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                {isAr ? 'تصدير الطلبات' : 'Export Orders'}
               </div>
-            )}
+
+              <button
+                type="button"
+                onClick={() => {
+                    handleExportOrders(filteredOrders, 'xlsx', `orders_${Date.now()}.xls`);
+                  setShowOrderToolsMenu(false);
+                }}
+                className="w-full text-start px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
+              >
+                <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{isAr ? 'ملف إكسل' : 'Excel'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handleExportOrders(filteredOrders, 'csv', `orders_${Date.now()}.csv`);
+                  setShowOrderToolsMenu(false);
+                }}
+                className="w-full text-start px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-blue-600" />
+                <span>{isAr ? 'ملف نصي (.csv)' : 'CSV (.csv)'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowExportTemplateModal(true);
+                  setShowOrderToolsMenu(false);
+                }}
+                className="w-full text-start px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-teal-600 font-semibold cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{isAr ? 'تخصيص قالب تصدير...' : 'Custom Export Template...'}</span>
+              </button>
+
+              <div className="h-[1px] my-1 bg-slate-100 dark:bg-slate-800" />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOrderStatusSettings(true);
+                  setShowOrderToolsMenu(false);
+                }}
+                className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
+              >
+                <Layers className="w-4 h-4 text-purple-600" />
+                <span>{isAr ? 'تخصيص حالات الطلب' : 'Customize Statuses'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPaymentTransactionsModal(true);
+                  setShowOrderToolsMenu(false);
+                }}
+                className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
+              >
+                <CreditCard className="w-4 h-4 text-amber-600" />
+                <span>{isAr ? 'عمليات الدفع الإلكتروني' : 'Electronic Payment Transactions'}</span>
+              </button>
+            </FloatingPopover>
           </div>
         </div>
 
-        {/* Row 2: 4 Inline Dropdowns (Order Date, Payment Status, Shipping Status, Order Source) */}
+        {/* Row 2: filter chips — menus via body portal (no table overlap / clip) */}
         <div className="flex items-center gap-2.5 flex-wrap pt-1">
           {/* 1. Order Date */}
-          <div className="relative">
+          <div>
             <button
               type="button"
-              onClick={() => setOpenFilterDropdown(openFilterDropdown === 'date' ? null : 'date')}
+              ref={dateFilterBtnRef}
+              onClick={() => {
+                setOpenFilterDropdown(openFilterDropdown === 'date' ? null : 'date');
+                setShowOrderToolsMenu(false);
+              }}
               className={`px-3 py-2 rounded-xl text-xs font-semibold border flex items-center gap-2 cursor-pointer transition-colors ${
                 orderFilters.datePreset !== 'all'
                   ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-teal-800 dark:text-teal-200'
@@ -2281,42 +2307,51 @@ export const StoreOrders: React.FC = () => {
               </span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
-
-            {openFilterDropdown === 'date' && (
-              <div className="absolute start-0 top-full mt-1.5 w-44 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 z-50 text-xs">
-                {[
-                  { value: 'all', label: isAr ? 'جميع التواريخ' : 'All Dates' },
-                  { value: 'today', label: isAr ? 'اليوم' : 'Today' },
-                  { value: 'last_7_days', label: isAr ? 'آخر 7 أيام' : 'Last 7 Days' },
-                  { value: 'last_30_days', label: isAr ? 'آخر 30 يوماً' : 'Last 30 Days' },
-                  { value: 'this_month', label: isAr ? 'هذا الشهر' : 'This Month' },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => {
-                      setOrderFilters((prev) => ({ ...prev, datePreset: opt.value as any }));
-                      setOpenFilterDropdown(null);
-                      setPage(1);
-                    }}
-                    className={`w-full text-start px-3 py-1.5 rounded-lg cursor-pointer ${
-                      orderFilters.datePreset === opt.value
-                        ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-700 font-bold'
-                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <FloatingPopover
+              open={openFilterDropdown === 'date'}
+              anchorRef={dateFilterBtnRef}
+              onClose={() => setOpenFilterDropdown(null)}
+              width={176}
+              align="start"
+              estimatedHeight={220}
+              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 text-xs"
+            >
+              {[
+                { value: 'all', label: isAr ? 'جميع التواريخ' : 'All Dates' },
+                { value: 'today', label: isAr ? 'اليوم' : 'Today' },
+                { value: 'last_7_days', label: isAr ? 'آخر 7 أيام' : 'Last 7 Days' },
+                { value: 'last_30_days', label: isAr ? 'آخر 30 يوماً' : 'Last 30 Days' },
+                { value: 'this_month', label: isAr ? 'هذا الشهر' : 'This Month' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    setOrderFilters((prev) => ({ ...prev, datePreset: opt.value as any }));
+                    setOpenFilterDropdown(null);
+                    setPage(1);
+                  }}
+                  className={`w-full text-start px-3 py-1.5 rounded-lg cursor-pointer ${
+                    orderFilters.datePreset === opt.value
+                      ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-700 font-bold'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </FloatingPopover>
           </div>
 
           {/* 2. Payment Status */}
-          <div className="relative">
+          <div>
             <button
               type="button"
-              onClick={() => setOpenFilterDropdown(openFilterDropdown === 'payment' ? null : 'payment')}
+              ref={paymentFilterBtnRef}
+              onClick={() => {
+                setOpenFilterDropdown(openFilterDropdown === 'payment' ? null : 'payment');
+                setShowOrderToolsMenu(false);
+              }}
               className={`px-3 py-2 rounded-xl text-xs font-semibold border flex items-center gap-2 cursor-pointer transition-colors ${
                 orderFilters.paymentStatus !== 'all'
                   ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-teal-800 dark:text-teal-200'
@@ -2336,43 +2371,52 @@ export const StoreOrders: React.FC = () => {
               </span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
-
-            {openFilterDropdown === 'payment' && (
-              <div className="absolute start-0 top-full mt-1.5 w-44 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 z-50 text-xs">
-                {[
-                  { value: 'all', label: isAr ? 'جميع حالات الدفع' : 'All Payment Statuses' },
-                  { value: 'Paid', label: localizePaymentStatus('Paid', locale) },
-                  { value: 'Pending Payment', label: isAr ? 'بانتظار الدفع' : 'Pending Payment' },
-                  { value: 'Payment Failed', label: isAr ? 'فشلت عملية الدفع' : 'Payment Failed' },
-                  { value: 'Refunded', label: localizePaymentStatus('Refunded', locale) },
-                  { value: 'Partially Refunded', label: isAr ? 'مسترجع جزئياً' : 'Partially Refunded' },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => {
-                      setOrderFilters((prev) => ({ ...prev, paymentStatus: opt.value as any }));
-                      setOpenFilterDropdown(null);
-                      setPage(1);
-                    }}
-                    className={`w-full text-start px-3 py-1.5 rounded-lg cursor-pointer ${
-                      orderFilters.paymentStatus === opt.value
-                        ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-700 font-bold'
-                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <FloatingPopover
+              open={openFilterDropdown === 'payment'}
+              anchorRef={paymentFilterBtnRef}
+              onClose={() => setOpenFilterDropdown(null)}
+              width={176}
+              align="start"
+              estimatedHeight={260}
+              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 text-xs max-h-64 overflow-y-auto"
+            >
+              {[
+                { value: 'all', label: isAr ? 'جميع حالات الدفع' : 'All Payment Statuses' },
+                { value: 'Paid', label: localizePaymentStatus('Paid', locale) },
+                { value: 'Pending Payment', label: isAr ? 'بانتظار الدفع' : 'Pending Payment' },
+                { value: 'Payment Failed', label: isAr ? 'فشلت عملية الدفع' : 'Payment Failed' },
+                { value: 'Refunded', label: localizePaymentStatus('Refunded', locale) },
+                { value: 'Partially Refunded', label: isAr ? 'مسترجع جزئياً' : 'Partially Refunded' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    setOrderFilters((prev) => ({ ...prev, paymentStatus: opt.value as any }));
+                    setOpenFilterDropdown(null);
+                    setPage(1);
+                  }}
+                  className={`w-full text-start px-3 py-1.5 rounded-lg cursor-pointer ${
+                    orderFilters.paymentStatus === opt.value
+                      ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-700 font-bold'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </FloatingPopover>
           </div>
 
           {/* 3. Shipping Status */}
-          <div className="relative">
+          <div>
             <button
               type="button"
-              onClick={() => setOpenFilterDropdown(openFilterDropdown === 'shipping' ? null : 'shipping')}
+              ref={shippingFilterBtnRef}
+              onClick={() => {
+                setOpenFilterDropdown(openFilterDropdown === 'shipping' ? null : 'shipping');
+                setShowOrderToolsMenu(false);
+              }}
               className={`px-3 py-2 rounded-xl text-xs font-semibold border flex items-center gap-2 cursor-pointer transition-colors ${
                 orderFilters.shippingStatus !== 'all'
                   ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-teal-800 dark:text-teal-200'
@@ -2393,43 +2437,52 @@ export const StoreOrders: React.FC = () => {
               </span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
-
-            {openFilterDropdown === 'shipping' && (
-              <div className="absolute start-0 top-full mt-1.5 w-48 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 z-50 text-xs">
-                {[
-                  { value: 'all', label: isAr ? 'جميع حالات الشحن' : 'All Shipping Statuses' },
-                  { value: 'Not Shipped', label: isAr ? 'لم يتم الشحن' : 'Not Shipped' },
-                  { value: 'Ready to Ship', label: isAr ? 'جاهز للشحن' : 'Ready to Ship' },
-                  { value: 'Handed to Carrier', label: isAr ? 'تم التسليم للشحن' : 'Handed to Carrier' },
-                  { value: 'In Transit', label: localizeShippingStatus('In Transit', locale) },
-                  { value: 'Delivered', label: localizeShippingStatus('Delivered', locale) },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => {
-                      setOrderFilters((prev) => ({ ...prev, shippingStatus: opt.value as any }));
-                      setOpenFilterDropdown(null);
-                      setPage(1);
-                    }}
-                    className={`w-full text-start px-3 py-1.5 rounded-lg cursor-pointer ${
-                      orderFilters.shippingStatus === opt.value
-                        ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-700 font-bold'
-                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <FloatingPopover
+              open={openFilterDropdown === 'shipping'}
+              anchorRef={shippingFilterBtnRef}
+              onClose={() => setOpenFilterDropdown(null)}
+              width={192}
+              align="start"
+              estimatedHeight={220}
+              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 text-xs"
+            >
+              {[
+                { value: 'all', label: isAr ? 'جميع حالات الشحن' : 'All Shipping Statuses' },
+                { value: 'Not Shipped', label: isAr ? 'لم يتم الشحن' : 'Not Shipped' },
+                { value: 'Ready to Ship', label: isAr ? 'جاهز للشحن' : 'Ready to Ship' },
+                { value: 'Handed to Carrier', label: isAr ? 'تم التسليم للشحن' : 'Handed to Carrier' },
+                { value: 'In Transit', label: localizeShippingStatus('In Transit', locale) },
+                { value: 'Delivered', label: localizeShippingStatus('Delivered', locale) },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    setOrderFilters((prev) => ({ ...prev, shippingStatus: opt.value as any }));
+                    setOpenFilterDropdown(null);
+                    setPage(1);
+                  }}
+                  className={`w-full text-start px-3 py-1.5 rounded-lg cursor-pointer ${
+                    orderFilters.shippingStatus === opt.value
+                      ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-700 font-bold'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </FloatingPopover>
           </div>
 
           {/* 4. Order Source */}
-          <div className="relative">
+          <div>
             <button
               type="button"
-              onClick={() => setOpenFilterDropdown(openFilterDropdown === 'source' ? null : 'source')}
+              ref={sourceFilterBtnRef}
+              onClick={() => {
+                setOpenFilterDropdown(openFilterDropdown === 'source' ? null : 'source');
+                setShowOrderToolsMenu(false);
+              }}
               className={`px-3 py-2 rounded-xl text-xs font-semibold border flex items-center gap-2 cursor-pointer transition-colors ${
                 orderFilters.orderSource !== 'all' && selectedSource !== 'all'
                   ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-teal-800 dark:text-teal-200'
@@ -2444,43 +2497,48 @@ export const StoreOrders: React.FC = () => {
               </span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
-
-            {openFilterDropdown === 'source' && (
-              <div className="absolute start-0 top-full mt-1.5 w-44 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 z-50 text-xs">
-                {[
-                  { value: 'all', label: isAr ? 'جميع المصادر' : 'All Sources' },
-                  { value: 'Instagram', label: isAr ? 'إنستغرام' : 'Instagram' },
-                  { value: 'Website', label: isAr ? 'الموقع' : 'Website' },
-                  { value: 'TikTok', label: isAr ? 'تيك توك' : 'TikTok' },
-                  { value: 'Snapchat', label: isAr ? 'سناب شات' : 'Snapchat' },
-                  { value: 'WhatsApp', label: isAr ? 'واتساب' : 'WhatsApp' },
-                  { value: 'Facebook', label: isAr ? 'فيسبوك' : 'Facebook' },
-                  { value: 'X', label: isAr ? 'إكس (تويتر)' : 'X (Twitter)' },
-                  { value: 'Telegram', label: isAr ? 'تيليجرام' : 'Telegram' },
-                  { value: 'YouTube', label: isAr ? 'يوتيوب' : 'YouTube' },
-                  { value: 'Google Ads', label: isAr ? 'إعلانات جوجل' : 'Google Ads' },
-                  { value: 'Direct', label: isAr ? 'مباشر' : 'Direct' },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => {
-                      setSelectedSource(opt.value);
-                      setOrderFilters((prev) => ({ ...prev, orderSource: opt.value }));
-                      setOpenFilterDropdown(null);
-                      setPage(1);
-                    }}
-                    className={`w-full text-start px-3 py-1.5 rounded-lg cursor-pointer ${
-                      selectedSource === opt.value
-                        ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-700 font-bold'
-                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <FloatingPopover
+              open={openFilterDropdown === 'source'}
+              anchorRef={sourceFilterBtnRef}
+              onClose={() => setOpenFilterDropdown(null)}
+              width={176}
+              align="start"
+              estimatedHeight={260}
+              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 text-xs max-h-64 overflow-y-auto"
+            >
+              {[
+                { value: 'all', label: isAr ? 'جميع المصادر' : 'All Sources' },
+                { value: 'Instagram', label: isAr ? 'إنستغرام' : 'Instagram' },
+                { value: 'Website', label: isAr ? 'الموقع' : 'Website' },
+                { value: 'TikTok', label: isAr ? 'تيك توك' : 'TikTok' },
+                { value: 'Snapchat', label: isAr ? 'سناب شات' : 'Snapchat' },
+                { value: 'WhatsApp', label: isAr ? 'واتساب' : 'WhatsApp' },
+                { value: 'Facebook', label: isAr ? 'فيسبوك' : 'Facebook' },
+                { value: 'X', label: isAr ? 'إكس (تويتر)' : 'X (Twitter)' },
+                { value: 'Telegram', label: isAr ? 'تيليجرام' : 'Telegram' },
+                { value: 'YouTube', label: isAr ? 'يوتيوب' : 'YouTube' },
+                { value: 'Google Ads', label: isAr ? 'إعلانات جوجل' : 'Google Ads' },
+                { value: 'Direct', label: isAr ? 'مباشر' : 'Direct' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    setSelectedSource(opt.value);
+                    setOrderFilters((prev) => ({ ...prev, orderSource: opt.value }));
+                    setOpenFilterDropdown(null);
+                    setPage(1);
+                  }}
+                  className={`w-full text-start px-3 py-1.5 rounded-lg cursor-pointer ${
+                    selectedSource === opt.value
+                      ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-700 font-bold'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </FloatingPopover>
           </div>
 
           {/* Reset Filters Shortcut */}
@@ -2632,17 +2690,17 @@ export const StoreOrders: React.FC = () => {
                 <span>{isAr ? 'طباعة الفواتير' : 'Print Invoices'}</span>
               </button>
 
-              {/* Export CSV */}
+              {/* Export Excel (styled columns — not plain CSV) */}
               <button
                 type="button"
                 onClick={() => {
                   const toExport = currentOrders.filter((o) => selectedOrderIds.includes(o.id));
-                  handleExportCsv(toExport, `selected_orders_${Date.now()}.csv`);
+                  handleExportOrders(toExport, 'xlsx', `selected_orders_${Date.now()}.xls`);
                 }}
                 className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-bold flex items-center gap-1.5 hover:bg-slate-50 cursor-pointer shadow-2xs"
               >
                 <Download className="w-3.5 h-3.5 text-teal-600" />
-                <span>{isAr ? 'تصدير جداول البيانات' : 'Export CSV'}</span>
+                <span>{isAr ? 'تصدير إكسل' : 'Export Excel'}</span>
               </button>
 
               {/* Archive */}
@@ -2880,18 +2938,9 @@ export const StoreOrders: React.FC = () => {
                                 setActionMenuPos(null);
                                 return;
                               }
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              const menuW = 192;
-                              const left = Math.max(
-                                8,
-                                Math.min(rect.right - menuW, window.innerWidth - menuW - 8),
-                              );
-                              const spaceBelow = window.innerHeight - rect.bottom;
-                              const top =
-                                spaceBelow < 280 && rect.top > 280
-                                  ? Math.max(8, rect.top - 280)
-                                  : rect.bottom + 4;
-                              setActionMenuPos({ top, left });
+                              const place = placePopoverBelow(e.currentTarget, 192, true, 4, 200);
+                              if (!place) return;
+                              setActionMenuPos(place);
                               setActiveActionMenuId(ord.id);
                             }}
                             className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors shrink-0"
@@ -2942,8 +2991,13 @@ export const StoreOrders: React.FC = () => {
               <div
                 ref={actionMenuRef}
                 role="menu"
-                className="fixed z-[9999] w-48 rounded-xl border p-1 shadow-xl text-xs font-semibold bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
-                style={{ top: actionMenuPos.top, left: actionMenuPos.left }}
+                className="fixed z-[9999] w-48 rounded-xl border p-1 shadow-xl text-xs font-semibold bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 overflow-y-auto"
+                style={{
+                  left: actionMenuPos.left,
+                  top: actionMenuPos.top ?? 'auto',
+                  bottom: actionMenuPos.bottom ?? 'auto',
+                  maxHeight: actionMenuPos.maxHeight,
+                }}
               >
                 <button
                   type="button"
@@ -3244,7 +3298,7 @@ export const StoreOrders: React.FC = () => {
           handleExportOrders(
             filteredOrders,
             format,
-            `orders_export_${Date.now()}.${format}`,
+            `orders_export_${Date.now()}.${format === 'xlsx' ? 'xls' : 'csv'}`,
             fields,
           );
         }}

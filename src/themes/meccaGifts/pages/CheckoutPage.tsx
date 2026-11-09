@@ -18,7 +18,8 @@ import {
 } from 'lucide-react';
 import { PaymentGatewaySelector, type PaymentMethodId } from '../../../components/storefront/checkout/PaymentGatewaySelector';
 import { resolveBankCardDiscount } from '../../../utils/bankOffers';
-
+import { useSaudiCityOptions } from '../../../hooks/useSaudiCityOptions';
+import { SaudiCitySelect } from '../../../components/common/SaudiCitySelect';
 export const CheckoutPage: React.FC = () => {
   const {
     language,
@@ -35,6 +36,11 @@ export const CheckoutPage: React.FC = () => {
     removeAppliedCoupon
   } = useApp();
   const { activeStore } = useTenant();
+  const {
+    cities: saudiCities,
+    addCity: addSaudiCity,
+    removeCity: removeSaudiCity,
+  } = useSaudiCityOptions(activeStore?.id);
 
   const isAr = language === 'ar';
   const [promoCode, setPromoCode] = useState('');
@@ -253,17 +259,18 @@ export const CheckoutPage: React.FC = () => {
                 <label className="text-xs font-semibold text-[#1a1f1b] block mb-1">
                   {isAr ? 'المدينة *' : 'City *'}
                 </label>
-                <select
+                <SaudiCitySelect
                   value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className="w-full bg-white border border-[#d6cfc0] rounded-xl px-3.5 py-2.5 text-xs text-[#1a1f1b] focus:outline-none focus:border-[#102a1c]"
+                  onChange={setCity}
+                  cities={saudiCities}
+                  isAr={isAr}
                   required
-                >
-                  <option value="" disabled>{isAr ? 'اختر المدينة' : 'Select city'}</option>
-                  <option value="مكة المكرمة">{isAr ? 'مكة المكرمة (توصيل فوري 60 دقيقة)' : 'Mecca (1-hr express)'}</option>
-                  <option value="جدة">{isAr ? 'جدة (توصيل نفس اليوم)' : 'Jeddah (Same-day)'}</option>
-                  <option value="الرياض">{isAr ? 'الرياض (شحن مبرد فاخر)' : 'Riyadh (Refrigerated)'}</option>
-                </select>
+                  placeholder={isAr ? 'اختر المدينة' : 'Select city'}
+                  manageEnabled
+                  onAddCity={(nameEn, nameAr) => addSaudiCity({ nameEn, nameAr })}
+                  onRemoveCity={removeSaudiCity}
+                  className="w-full bg-white border border-[#d6cfc0] rounded-xl px-3.5 py-2.5 text-xs text-[#1a1f1b] focus:outline-none focus:border-[#102a1c]"
+                />
               </div>
 
               <div>

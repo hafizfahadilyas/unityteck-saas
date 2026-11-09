@@ -1,307 +1,254 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
-import { useDateRange } from '../../context/DateRangeContext';
 import { DateRangeFilter } from '../../notification-system/components/DateRangeFilter';
 import { DonutChart } from '../common/DonutChart';
 import {
-  Calendar,
   TrendingUp,
   Users,
-  ShoppingCart,
   Megaphone,
-  Smartphone,
   CheckCircle2,
-  Clock,
-  Truck,
-  XCircle,
-  ExternalLink,
-  ChevronDown,
   Sparkles,
-  ArrowUpRight,
   HelpCircle,
-  Activity,
   Globe,
-  RefreshCw,
+  Eye,
+  MousePointerClick,
+  Smartphone,
+  Monitor,
+  Tablet,
 } from 'lucide-react';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
 import { GoogleConnectModal } from './GoogleConnectModal';
-import { fetchGoogleAnalyticsData, fetchGoogleStatus } from '../../api/tenantApi';
-import { getCustomerDisplayName, getLocalizedAddress } from '../../utils/storeLocalization';
-import { localizeOrderStatus } from '../../utils/domainLabels';
+import {
+  fetchGoogleAnalyticsData,
+  fetchGoogleStatus,
+  fetchDashboardHomeAnalytics,
+  type DashboardHomeAnalytics,
+} from '../../api/tenantApi';
+import { isApiEnabled } from '../../api/client';
+import { normalizeGa4Snapshot, type NormalizedGa4Metrics } from '../../utils/normalizeGa4Snapshot';
 
 interface StoreAnalyticsProps {
   onNavigateTab?: (tab: string) => void;
 }
 
+const emptyGa: NormalizedGa4Metrics = {
+  realtimeUsers: 0,
+  sessions: 0,
+  totalUsers: 0,
+  newUsers: 0,
+  returningUsers: 0,
+  pageViews: 0,
+  bounceRate: null,
+  deviceBreakdown: { mobile: 0, desktop: 0, tablet: 0 },
+  trafficSources: [],
+  countries: [],
+};
+
+/**
+ * Analytics page = traffic / acquisition / GA4 / storefront events ONLY.
+ * Sales · products · order status · customer cohorts live on Reports (no duplicate).
+ */
 export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab }) => {
-  const { activeStore, allProducts, allOrders, allStoreCustomers } = useTenant();
-  const { t, money, locale } = usePrefs();
+  const { activeStore, allOrders } = useTenant();
+  const { money, locale } = usePrefs();
   const isAr = locale === 'ar';
-  const [dateRange, setDateRange] = useState('Jan 1, 2026 - Jan 31, 2026');
-  const [locationType, setLocationType] = useState<'cities' | 'regions'>('cities');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
 
-  // Real Google Analytics state
   const [gaConnected, setGaConnected] = useState(false);
   const [gaEmail, setGaEmail] = useState<string | null>(null);
-  const [gaData, setGaData] = useState<{
-    realtimeUsers?: number;
-    sessions?: number;
-    totalUsers?: number;
-    newUsers?: number;
-    returningUsers?: number;
-    deviceBreakdown?: { mobile: number; desktop: number; tablet: number };
-    trafficSources?: { source: string; users: number; sessions: number }[];
-  } | null>(null);
+  const [gaData, setGaData] = useState<NormalizedGa4Metrics>(emptyGa);
   const [isLoadingGa, setIsLoadingGa] = useState(false);
 
-  // Check Google integration status & data
+  const [homeAnalytics, setHomeAnalytics] = useState<DashboardHomeAnalytics | null>(null);
+  const [isLoadingHome, setIsLoadingHome] = useState(false);
+
+  const storeOrders = (allOrders && allOrders[activeStore.id]) || [];
+
+  const loadTraffic = async () => {
+    if (!activeStore?.id) return;
+    setIsLoadingGa(true);
+    setIsLoadingHome(true);
+    try {
+      const status = await fetchGoogleStatus(activeStore.id);
+      if (status.is_connected) {
+        setGaConnected(true);
+        setGaEmail(status.integration?.google_account_email || null);
+        const analyticsRes = await fetchGoogleAnalyticsData(activeStore.id);
+        setGaData(normalizeGa4Snapshot(analyticsRes));
+      } else {
+        setGaConnected(false);
+        setGaEmail(null);
+        setGaData(emptyGa);
+      }
+    } catch {
+      setGaConnected(false);
+      setGaData(emptyGa);
+    } finally {
+      setIsLoadingGa(false);
+    }
+
+    if (!isApiEnabled()) {
+      setHomeAnalytics(null);
+      setIsLoadingHome(false);
+      return;
+    }
+    try {
+      const home = await fetchDashboardHomeAnalytics(activeStore.id);
+      setHomeAnalytics(home);
+    } catch {
+      setHomeAnalytics(null);
+    } finally {
+      setIsLoadingHome(false);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
-    const checkGoogle = async () => {
-      try {
-        setIsLoadingGa(true);
-        const status = await fetchGoogleStatus(activeStore.id);
-        if (!mounted) return;
-        if (status.is_connected) {
-          setGaConnected(true);
-          setGaEmail(status.integration?.google_account_email || null);
-          const analyticsRes = await fetchGoogleAnalyticsData(activeStore.id);
-          if (mounted && analyticsRes?.data) {
-            setGaData(analyticsRes.data);
-          }
-        } else {
-          setGaConnected(false);
-          setGaEmail(null);
-          setGaData(null);
-        }
-      } catch {
-        if (mounted) {
-          setGaConnected(false);
-          setGaData(null);
-        }
-      } finally {
-        if (mounted) setIsLoadingGa(false);
-      }
-    };
-    void checkGoogle();
+    void (async () => {
+      await loadTraffic();
+      if (!mounted) return;
+    })();
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStore.id]);
 
-  // Real tenant database orders, customers, and products
-  const storeDbProducts = (allProducts && allProducts[activeStore.id]) || [];
-  const storeOrders = (allOrders && allOrders[activeStore.id]) || [];
-  const storeCustomers = (allStoreCustomers && allStoreCustomers[activeStore.id]) || [];
+  const storefrontVisits = Math.max(0, Number(homeAnalytics?.visitors_count) || 0);
+  const sessions = gaConnected && gaData.sessions > 0 ? gaData.sessions : storefrontVisits;
+  const totalUsers = gaConnected ? gaData.totalUsers : storefrontVisits;
+  const newUsers = gaConnected ? gaData.newUsers : 0;
+  const returningUsers = gaConnected ? gaData.returningUsers : 0;
+  const pageViews = gaConnected ? gaData.pageViews : 0;
+  const realtimeUsers = gaConnected ? gaData.realtimeUsers : 0;
 
-  const universalDateRange = useDateRange();
+  const conversionRate =
+    sessions > 0 && storeOrders.length > 0
+      ? Number(((storeOrders.length / sessions) * 100).toFixed(1))
+      : 0;
 
-  // Filter tenant database orders by universal date range
-  const filteredOrders = useMemo(() => {
-    if (!universalDateRange.isFiltered) return storeOrders;
-    const fromTime = universalDateRange.from.getTime();
-    const toTime = universalDateRange.to.getTime();
-    const matched = storeOrders.filter((o) => {
-      const rawDate = (o as any).createdAt || o.date;
-      const oTime = rawDate ? new Date(rawDate).getTime() : 0;
-      return oTime >= fromTime && oTime <= toTime;
-    });
-    return matched.length > 0 ? matched : storeOrders;
-  }, [storeOrders, universalDateRange]);
-
-  // Top Products calculated from real orders or active catalog
-  const topProducts = useMemo(() => {
-    if (filteredOrders.length > 0) {
-      const productSalesMap: Record<string, { name: string; orders: number; revenue: number; img: string }> = {};
-      filteredOrders.forEach((o) => {
-        if (o.items && o.items.length > 0) {
-          o.items.forEach((it) => {
-            if (!productSalesMap[it.name]) {
-              productSalesMap[it.name] = { name: it.name, orders: 0, revenue: 0, img: it.image || '' };
-            }
-            productSalesMap[it.name].orders += it.quantity || 1;
-            productSalesMap[it.name].revenue += it.total || (it.price * it.quantity);
-          });
-        }
-      });
-      const sorted = Object.entries(productSalesMap)
-        .sort((a, b) => b[1].revenue - a[1].revenue)
-        .slice(0, 5);
-
-      if (sorted.length > 0) {
-        return sorted.map(([id, data], idx) => ({
-          id,
-          rank: idx + 1,
-          name: data.name,
-          orders: data.orders,
-          revenue: data.revenue,
-          img: data.img || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=100&q=80',
-        }));
-      }
-    }
-
-    if (storeDbProducts.length > 0) {
-      return storeDbProducts.slice(0, 5).map((p, idx) => ({
-        id: p.id,
+  const trafficRows = useMemo(() => {
+    if (gaConnected && gaData.trafficSources.length > 0) {
+      const total = gaData.trafficSources.reduce((s, r) => s + r.sessions, 0) || 1;
+      return gaData.trafficSources.map((r, idx) => ({
+        id: String(idx + 1),
         rank: idx + 1,
-        name: p.name,
-        orders: Number(p.salesCount) || 0,
-        revenue: (Number(p.price) || 0) * (Number(p.salesCount) || 0),
-        img: p.image || '',
+        source: r.source,
+        sessions: r.sessions,
+        users: r.users,
+        share: `${((r.sessions / total) * 100).toFixed(1)}%`,
       }));
     }
+    const sources = Array.isArray(homeAnalytics?.traffic_sources) ? homeAnalytics!.traffic_sources! : [];
+    return sources
+      .filter((s) => (Number(s.visits) || 0) > 0)
+      .map((s, idx) => ({
+        id: String(idx + 1),
+        rank: idx + 1,
+        source: isAr ? s.name_ar || s.name : s.name,
+        sessions: Math.max(0, Number(s.visits) || 0),
+        users: Math.max(0, Number(s.visits) || 0),
+        share: `${Math.max(0, Number(s.percentage) || 0)}%`,
+      }));
+  }, [gaConnected, gaData.trafficSources, homeAnalytics, isAr]);
 
-    return [];
-  }, [filteredOrders, storeDbProducts]);
-
-  // Real Customer Segments from tenant database
-  const customerSegments = useMemo(() => {
-    const totalCust = storeCustomers.length || 1;
-    const vipCount = storeCustomers.filter((c) => c.group === 'VIP').length;
-    const regularCount = storeCustomers.filter((c) => c.group === 'Regular').length;
-    const atRiskCount = storeCustomers.filter((c) => c.status === 'Inactive').length;
-    const newCount = Math.max(0, storeCustomers.length - vipCount - regularCount - atRiskCount);
-
-    return [
-      {
-        label: isAr ? 'عملاء جدد' : 'New Customers',
-        value: Number(((newCount / totalCust) * 100).toFixed(1)),
-        color: '#3b82f6',
-        formattedValue: `${newCount} (${((newCount / totalCust) * 100).toFixed(1)}%)`,
-      },
-      {
-        label: isAr ? 'عملاء دائمون' : 'Returning Customers',
-        value: Number(((regularCount / totalCust) * 100).toFixed(1)),
-        color: '#10b981',
-        formattedValue: `${regularCount} (${((regularCount / totalCust) * 100).toFixed(1)}%)`,
-      },
-      {
-        label: isAr ? 'عملاء مميزون' : 'Priority customers',
-        value: Number(((vipCount / totalCust) * 100).toFixed(1)),
-        color: '#a855f7',
-        formattedValue: `${vipCount} (${((vipCount / totalCust) * 100).toFixed(1)}%)`,
-      },
-      {
-        label: isAr ? 'عملاء معرضون للانسحاب' : 'At Risk Customers',
-        value: Number(((atRiskCount / totalCust) * 100).toFixed(1)),
-        color: '#f59e0b',
-        formattedValue: `${atRiskCount} (${((atRiskCount / totalCust) * 100).toFixed(1)}%)`,
-      },
-    ];
-  }, [storeCustomers, isAr]);
-
-  // Real Order Status breakdown from tenant database
-  const orderStatuses = useMemo(() => {
-    const total = filteredOrders.length || 1;
-    const completed = filteredOrders.filter((o) => o.status === 'completed' || o.status === 'delivered').length;
-    const processing = filteredOrders.filter((o) => o.status === 'processing').length;
-    const shipped = filteredOrders.filter((o) => o.status === 'shipped' || o.status === 'out_for_delivery').length;
-    const cancelled = filteredOrders.filter((o) => o.status === 'cancelled').length;
-
-    return [
-      {
-        label: isAr ? 'مكتمل' : 'Completed',
-        value: Number(((completed / total) * 100).toFixed(1)),
-        color: '#10b981',
-        formattedValue: `${completed} (${((completed / total) * 100).toFixed(1)}%)`,
-      },
-      {
-        label: isAr ? 'قيد التجهيز' : 'Processing',
-        value: Number(((processing / total) * 100).toFixed(1)),
-        color: '#3b82f6',
-        formattedValue: `${processing} (${((processing / total) * 100).toFixed(1)}%)`,
-      },
-      {
-        label: isAr ? 'تم الشحن' : 'Shipped',
-        value: Number(((shipped / total) * 100).toFixed(1)),
-        color: '#f59e0b',
-        formattedValue: `${shipped} (${((shipped / total) * 100).toFixed(1)}%)`,
-      },
-      {
-        label: isAr ? 'ملغي' : 'Cancelled',
-        value: Number(((cancelled / total) * 100).toFixed(1)),
-        color: '#ef4444',
-        formattedValue: `${cancelled} (${((cancelled / total) * 100).toFixed(1)}%)`,
-      },
-    ];
-  }, [filteredOrders, isAr]);
-
-  // Devices Used donut: GA4 API connected vs Not Connected prompt
-  const devicesUsed = useMemo(() => {
-    if (gaData?.deviceBreakdown) {
-      const { mobile = 0, desktop = 0, tablet = 0 } = gaData.deviceBreakdown;
-      const total = mobile + desktop + tablet || 1;
+  const visitorSegments = useMemo(() => {
+    if (!gaConnected || (newUsers === 0 && returningUsers === 0)) {
       return [
-        { label: isAr ? 'الجوال' : 'Mobile', value: Number(((mobile / total) * 100).toFixed(1)), color: '#3b82f6', formattedValue: `${((mobile / total) * 100).toFixed(1)}%` },
-        { label: isAr ? 'الكمبيوتر' : 'Desktop', value: Number(((desktop / total) * 100).toFixed(1)), color: '#10b981', formattedValue: `${((desktop / total) * 100).toFixed(1)}%` },
-        { label: isAr ? 'الأجهزة اللوحية' : 'Tablet', value: Number(((tablet / total) * 100).toFixed(1)), color: '#a855f7', formattedValue: `${((tablet / total) * 100).toFixed(1)}%` },
+        { label: isAr ? 'زوار جدد' : 'New visitors', value: 0, color: '#3b82f6', formattedValue: '0' },
+        { label: isAr ? 'زوار عائدون' : 'Returning visitors', value: 0, color: '#10b981', formattedValue: '0' },
       ];
     }
-    // No GA4 device data — genuine zeros (zero-mock)
+    const total = newUsers + returningUsers || 1;
     return [
-      { label: isAr ? 'الجوال' : 'Mobile', value: 0, color: '#3b82f6', formattedValue: '0%' },
-      { label: isAr ? 'الكمبيوتر' : 'Desktop', value: 0, color: '#10b981', formattedValue: '0%' },
-      { label: isAr ? 'الأجهزة اللوحية' : 'Tablet', value: 0, color: '#a855f7', formattedValue: '0%' },
+      {
+        label: isAr ? 'زوار جدد' : 'New visitors',
+        value: Number(((newUsers / total) * 100).toFixed(1)),
+        color: '#3b82f6',
+        formattedValue: `${newUsers.toLocaleString()} (${((newUsers / total) * 100).toFixed(1)}%)`,
+      },
+      {
+        label: isAr ? 'زوار عائدون' : 'Returning visitors',
+        value: Number(((returningUsers / total) * 100).toFixed(1)),
+        color: '#10b981',
+        formattedValue: `${returningUsers.toLocaleString()} (${((returningUsers / total) * 100).toFixed(1)}%)`,
+      },
     ];
-  }, [gaData, isAr]);
+  }, [gaConnected, newUsers, returningUsers, isAr]);
 
-  // Recent Orders from real store database
-  const recentOrders = useMemo(() => {
-    return storeOrders.slice(0, 5).map((o) => ({
-      id: o.orderNumber,
-      customer: getCustomerDisplayName(o.customerName, locale),
-      items: o.itemsCount || 1,
-      amount: o.total,
-      status: o.status,
-      date: o.date,
-    }));
-  }, [storeOrders, locale]);
+  const devicesUsed = useMemo(() => {
+    const { mobile, desktop, tablet } = gaData.deviceBreakdown;
+    const total = mobile + desktop + tablet;
+    if (!gaConnected || total <= 0) {
+      return [
+        { label: isAr ? 'الجوال' : 'Mobile', value: 0, color: '#3b82f6', formattedValue: '0%' },
+        { label: isAr ? 'الكمبيوتر' : 'Desktop', value: 0, color: '#10b981', formattedValue: '0%' },
+        { label: isAr ? 'الأجهزة اللوحية' : 'Tablet', value: 0, color: '#a855f7', formattedValue: '0%' },
+      ];
+    }
+    return [
+      {
+        label: isAr ? 'الجوال' : 'Mobile',
+        value: Number(((mobile / total) * 100).toFixed(1)),
+        color: '#3b82f6',
+        formattedValue: `${((mobile / total) * 100).toFixed(1)}%`,
+      },
+      {
+        label: isAr ? 'الكمبيوتر' : 'Desktop',
+        value: Number(((desktop / total) * 100).toFixed(1)),
+        color: '#10b981',
+        formattedValue: `${((desktop / total) * 100).toFixed(1)}%`,
+      },
+      {
+        label: isAr ? 'الأجهزة اللوحية' : 'Tablet',
+        value: Number(((tablet / total) * 100).toFixed(1)),
+        color: '#a855f7',
+        formattedValue: `${((tablet / total) * 100).toFixed(1)}%`,
+      },
+    ];
+  }, [gaConnected, gaData.deviceBreakdown, isAr]);
 
-  const getStatusLabel = (status: string) => localizeOrderStatus(status, locale);
-
-  // Top Customer Locations calculated dynamically from real orders
-  const activeLocations = useMemo(() => {
-    const locMap: Record<string, { orders: number; revenue: number }> = {};
-    let totalRev = 0;
-    storeOrders.forEach((o) => {
-      const loc = (o.deliveryLocation || '').trim();
-      if (!loc) return;
-      if (!locMap[loc]) locMap[loc] = { orders: 0, revenue: 0 };
-      locMap[loc].orders += 1;
-      locMap[loc].revenue += o.total;
-      totalRev += o.total;
-    });
-
-    const entries = Object.entries(locMap).sort((a, b) => b[1].revenue - a[1].revenue);
-    if (entries.length === 0) return [];
-    return entries.slice(0, 5).map(([name, stat], idx) => ({
+  const countryRows = useMemo(() => {
+    if (!gaConnected || gaData.countries.length === 0) return [];
+    const total = gaData.countries.reduce((s, c) => s + c.sessions, 0) || 1;
+    return gaData.countries.map((c, idx) => ({
       id: String(idx + 1),
       rank: idx + 1,
-      name: getLocalizedAddress(name, locale) || name,
-      orders: stat.orders,
-      revenue: stat.revenue,
-      share: `${((stat.revenue / (totalRev || 1)) * 100).toFixed(1)}%`,
+      name: c.name,
+      sessions: c.sessions,
+      share: `${((c.sessions / total) * 100).toFixed(1)}%`,
     }));
-  }, [storeOrders, locale]);
+  }, [gaConnected, gaData.countries]);
+
+  const weekdayBars = useMemo(() => {
+    const rows = Array.isArray(homeAnalytics?.visits_by_weekday) ? homeAnalytics!.visits_by_weekday : [];
+    return rows.map((d) => ({
+      label: isAr ? d.dayAr : d.dayEn,
+      pct: Math.max(0, Number(d.percentage) || 0),
+      highlighted: Boolean(d.highlighted),
+    }));
+  }, [homeAnalytics, isAr]);
+
+  const waitingTraffic = !isLoadingGa && !isLoadingHome && sessions === 0 && trafficRows.length === 0;
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
-      {/* Header bar matching Screenshot 3 & 10_analytics.png */}
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            {isAr ? 'تحليلات العملاء والبيانات المتقدمة' : 'Customer Insights & Additional Analytics'}
+            {isAr ? 'التحليلات ومصادر الزيارات' : 'Analytics & Traffic Insights'}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            {isAr ? 'تحليل أعمق لأداء متجرك' : 'Go deeper into your store performance'}
+            {isAr
+              ? 'جلسات الزوار، مصادر الاكتساب، والأجهزة — بيانات حقيقية فقط. المبيعات في التقارير.'
+              : 'Visitor sessions, acquisition sources, and devices — real traffic only. Sales live in Reports.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          {/* Google Analytics Connect Button */}
           {gaConnected ? (
             <button
               type="button"
@@ -322,399 +269,459 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
             </button>
           )}
 
+          {onNavigateTab && (
+            <button
+              type="button"
+              onClick={() => onNavigateTab('reports')}
+              className="px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <TrendingUp className="w-3.5 h-3.5 text-teal-600" />
+              <span>{isAr ? 'فتح التقارير' : 'Open Reports'}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setIsGuideOpen(true)}
             className="px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <HelpCircle className="w-3.5 h-3.5 text-blue-500" />
-            <span>{isAr ? '📘 دليل الاستخدام' : '📘 Docs & Guide'}</span>
+            <span>{isAr ? 'دليل الاستخدام' : 'Docs & Guide'}</span>
           </button>
 
           <DateRangeFilter />
         </div>
       </div>
 
-      {/* Real-time Google Analytics 4 Stream Banner */}
+      {/* Live GA4 banner */}
       {gaConnected && (
         <div className="p-4 bg-gradient-to-r from-teal-500/10 via-blue-500/10 to-indigo-500/10 dark:from-teal-950/40 dark:via-blue-950/40 dark:to-indigo-950/40 border border-teal-200 dark:border-teal-900 rounded-2xl flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
             <div>
               <div className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                <span>{isAr ? 'بيانات تحليلات جوجل ٤ المباشرة' : 'Live Google Analytics 4 Connected Stream'}</span>
+                <span>{isAr ? 'بث تحليلات جوجل ٤ المباشر' : 'Live Google Analytics 4 stream'}</span>
                 {gaEmail && <span className="text-[10px] text-slate-500 font-normal">({gaEmail})</span>}
               </div>
               <div className="text-[11px] text-slate-600 dark:text-slate-400">
                 {isAr
-                  ? 'يتم عرض الزوار والجلسات ومصادر الزيارات الحقيقية من حساب جوجل الخاص بالمتجر.'
-                  : 'Displaying real active users, sessions, and traffic sources from store Google property.'}
+                  ? 'يتم عرض المستخدمين والجلسات ومصادر الزيارات من حساب جوجل الخاص بهذا المتجر فقط.'
+                  : 'Active users, sessions, and traffic sources from this store’s Google property only.'}
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-4 text-xs">
             <div className="text-center px-3 py-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-              <span className="text-[10px] text-slate-500 block">{isAr ? 'مستخدمون الآن' : 'Active Users (30m)'}</span>
+              <span className="text-[10px] text-slate-500 block">{isAr ? 'مستخدمون الآن' : 'Active now'}</span>
               <span className="font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
-                {gaData?.realtimeUsers ?? 0}
+                {realtimeUsers.toLocaleString()}
               </span>
             </div>
             <div className="text-center px-3 py-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-              <span className="text-[10px] text-slate-500 block">{isAr ? 'إجمالي الجلسات' : 'Sessions'}</span>
+              <span className="text-[10px] text-slate-500 block">{isAr ? 'الجلسات' : 'Sessions'}</span>
               <span className="font-black text-blue-600 dark:text-blue-400 tabular-nums">
-                {gaData?.sessions ? gaData.sessions.toLocaleString() : '0'}
+                {gaData.sessions.toLocaleString()}
               </span>
             </div>
             <div className="text-center px-3 py-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-              <span className="text-[10px] text-slate-500 block">{isAr ? 'مستخدمون جدد' : 'New Users'}</span>
+              <span className="text-[10px] text-slate-500 block">{isAr ? 'مستخدمون جدد' : 'New users'}</span>
               <span className="font-black text-purple-600 dark:text-purple-400 tabular-nums">
-                {gaData?.newUsers ? gaData.newUsers.toLocaleString() : '0'}
+                {gaData.newUsers.toLocaleString()}
               </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Row 1: Top Products, Customer Segments Donut, Order Status Donut */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Card 1: Top Products by Revenue */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                {isAr ? 'أعلى المنتجات حسب الإيرادات' : 'Top Products by Revenue'}
-              </h2>
-              {onNavigateTab && (
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab('products')}
-                  className="text-xs font-bold text-teal-700 dark:text-teal-400 hover:underline cursor-pointer"
-                >
-                  {isAr ? 'عرض الكل' : 'View All'}
-                </button>
-              )}
+      {/* KPI strip — traffic only */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        {[
+          {
+            label: isAr ? 'الجلسات / الزيارات' : 'Sessions / Visits',
+            value: sessions.toLocaleString(),
+            icon: Eye,
+            tone: 'emerald',
+          },
+          {
+            label: isAr ? 'المستخدمون' : 'Users',
+            value: totalUsers.toLocaleString(),
+            icon: Users,
+            tone: 'blue',
+          },
+          {
+            label: isAr ? 'مشاهدات الصفحات' : 'Page views',
+            value: pageViews > 0 ? pageViews.toLocaleString() : '—',
+            icon: MousePointerClick,
+            tone: 'purple',
+          },
+          {
+            label: isAr ? 'معدل التحويل' : 'Conversion rate',
+            value: sessions > 0 ? `${conversionRate}%` : '—',
+            icon: TrendingUp,
+            tone: 'amber',
+          },
+          {
+            label: isAr ? 'معدل الارتداد' : 'Bounce rate',
+            value:
+              gaConnected && gaData.bounceRate != null
+                ? `${(gaData.bounceRate * (gaData.bounceRate <= 1 ? 100 : 1)).toFixed(1)}%`
+                : '—',
+            icon: Smartphone,
+            tone: 'rose',
+          },
+        ].map((kpi) => {
+          const Icon = kpi.icon;
+          return (
+            <div
+              key={kpi.label}
+              className="p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">{kpi.label}</span>
+                <span className="p-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500">
+                  <Icon className="w-3.5 h-3.5" />
+                </span>
+              </div>
+              <div className="text-lg font-black text-slate-900 dark:text-white tabular-nums">{kpi.value}</div>
             </div>
+          );
+        })}
+      </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 text-start">
-                    <th className="py-2 font-medium w-8">#</th>
-                    <th className="py-2 font-medium text-start">{isAr ? 'المنتج' : 'Product'}</th>
-                    <th className="py-2 font-medium text-center">{isAr ? 'الطلبات' : 'Orders'}</th>
-                    <th className="py-2 font-medium text-end">{isAr ? 'الإيرادات' : 'Revenue'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
-                  {topProducts.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-2.5 text-slate-400 dark:text-slate-500">{p.rank}</td>
-                      <td className="py-2.5">
-                        <div className="flex items-center gap-2">
-                          <img src={p.img} alt={p.name} className="w-6 h-6 rounded-md object-cover border border-slate-200 dark:border-slate-700 shrink-0" />
-                          <span className="font-bold text-slate-900 dark:text-white truncate max-w-[150px]">
-                            {p.name}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 text-center tabular-nums text-slate-600 dark:text-slate-300">
-                        {p.orders.toLocaleString()}
-                      </td>
-                      <td className="py-2.5 text-end tabular-nums font-black text-slate-900 dark:text-teal-300">
-                        {money(p.revenue)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+      {waitingTraffic && (
+        <div className="p-5 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 text-center space-y-2">
+          <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+            {isAr ? 'بانتظار بيانات الزيارات' : 'Waiting for traffic data'}
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl mx-auto">
+            {isAr
+              ? 'اربط تحليلات جوجل ٤ أو فعّل تتبع واجهة المتجر لعرض الجلسات ومصادر الزيارات الحقيقية. لا تُعرض أرقام وهمية.'
+              : 'Connect GA4 or enable storefront tracking to show real sessions and traffic sources. No invented metrics.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsGoogleModalOpen(true)}
+            className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-teal-600 text-white cursor-pointer"
+          >
+            <Globe className="w-3.5 h-3.5" />
+            {isAr ? 'ربط حساب جوجل' : 'Connect Google account'}
+          </button>
         </div>
+      )}
 
-        {/* Card 2: Customer Segments Donut */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
+      {/* Row 1: Traffic sources · Visitor segments · Devices */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="font-extrabold text-sm text-slate-900 dark:text-white">
-              {isAr ? 'شرائح العملاء' : 'Customer Segments'}
+              {isAr ? 'مصادر الزيارات' : 'Traffic sources'}
             </h2>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
-              {isAr ? 'المجموعات النشطة' : 'Active Cohorts'}
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-900">
+              {gaConnected
+                ? isAr
+                  ? 'تحليلات جوجل'
+                  : 'GA4'
+                : isAr
+                  ? 'أحداث المتجر'
+                  : 'Storefront events'}
             </span>
           </div>
-          <div className="py-2 flex items-center justify-center">
-            <DonutChart
-              segments={customerSegments}
-              centerLabel={isAr ? 'إجمالي العملاء' : 'Total Customers'}
-              centerValue={(storeCustomers.length || 9400).toLocaleString()}
-              size={175}
-              strokeWidth={22}
-            />
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 text-start">
+                  <th className="py-2 font-medium w-8">#</th>
+                  <th className="py-2 font-medium text-start">{isAr ? 'المصدر' : 'Source'}</th>
+                  <th className="py-2 font-medium text-center">{isAr ? 'الجلسات' : 'Sessions'}</th>
+                  <th className="py-2 font-medium text-end">%</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
+                {trafficRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-slate-400 dark:text-slate-500">
+                      {isAr ? 'لا توجد مصادر زيارات بعد' : 'No traffic sources yet'}
+                    </td>
+                  </tr>
+                ) : (
+                  trafficRows.map((row) => (
+                    <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="py-2.5 text-slate-400">{row.rank}</td>
+                      <td className="py-2.5 font-bold text-slate-900 dark:text-white truncate max-w-[160px]">
+                        {row.source}
+                      </td>
+                      <td className="py-2.5 text-center tabular-nums text-slate-600 dark:text-slate-300">
+                        {row.sessions.toLocaleString()}
+                      </td>
+                      <td className="py-2.5 text-end tabular-nums font-black text-teal-700 dark:text-teal-300">
+                        {row.share}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/* Card 3: Order Status Donut */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
+        <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col">
           <div className="flex items-center justify-between mb-2">
             <h2 className="font-extrabold text-sm text-slate-900 dark:text-white">
-              {isAr ? 'حالة الطلبات' : 'Order Status'}
+              {isAr ? 'زوار جدد مقابل عائدون' : 'New vs returning visitors'}
             </h2>
-            {onNavigateTab && (
-              <button
-                type="button"
-                onClick={() => onNavigateTab('orders')}
-                className="text-xs font-bold text-teal-700 dark:text-teal-400 hover:underline cursor-pointer"
-              >
-                {isAr ? 'عرض الكل' : 'View All'}
-              </button>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
+              {gaConnected ? (isAr ? 'بيانات حقيقية' : 'GA4 live') : (isAr ? 'غير متصل' : 'Not connected')}
+            </span>
+          </div>
+          <div className="py-2 flex-1 flex items-center justify-center">
+            {gaConnected && (newUsers > 0 || returningUsers > 0) ? (
+              <DonutChart
+                segments={visitorSegments}
+                centerLabel={isAr ? 'المستخدمون' : 'Users'}
+                centerValue={totalUsers.toLocaleString()}
+                size={175}
+                strokeWidth={22}
+              />
+            ) : (
+              <p className="text-xs text-slate-400 dark:text-slate-500 text-center px-4">
+                {isAr
+                  ? 'اربط تحليلات جوجل لعرض تقسيم الزوار الجدد والعائدين.'
+                  : 'Connect GA4 to show new vs returning visitor split.'}
+              </p>
             )}
           </div>
-          <div className="py-2 flex items-center justify-center">
-            <DonutChart
-              segments={orderStatuses}
-              centerLabel={isAr ? 'إجمالي الطلبات' : 'Total Orders'}
-              centerValue={(storeOrders.length || 9400).toLocaleString()}
-              size={175}
-              strokeWidth={22}
-            />
+        </div>
+
+        <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-extrabold text-sm text-slate-900 dark:text-white">
+              {isAr ? 'الأجهزة المستخدمة' : 'Devices used'}
+            </h2>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900">
+              {gaConnected ? (isAr ? 'بيانات حقيقية' : 'GA4 live') : (isAr ? 'غير متصل' : 'Not connected')}
+            </span>
+          </div>
+          <div className="py-2 flex-1 flex items-center justify-center">
+            {gaConnected &&
+            gaData.deviceBreakdown.mobile + gaData.deviceBreakdown.desktop + gaData.deviceBreakdown.tablet > 0 ? (
+              <DonutChart
+                segments={devicesUsed}
+                centerLabel={isAr ? 'الجلسات' : 'Sessions'}
+                centerValue={gaData.sessions.toLocaleString()}
+                size={175}
+                strokeWidth={22}
+              />
+            ) : (
+              <div className="text-center space-y-2 px-3">
+                <div className="flex items-center justify-center gap-3 text-slate-400">
+                  <Smartphone className="w-5 h-5" />
+                  <Monitor className="w-5 h-5" />
+                  <Tablet className="w-5 h-5" />
+                </div>
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  {isAr
+                    ? 'لا توجد بيانات أجهزة حتى يتم ربط وتحليلات جوجل ومزامنتها.'
+                    : 'No device split until GA4 is connected and synced.'}
+                </p>
+                {!gaConnected && (
+                  <button
+                    type="button"
+                    onClick={() => setIsGoogleModalOpen(true)}
+                    className="text-[11px] font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
+                  >
+                    {isAr ? 'ربط تحليلات جوجل ←' : 'Connect GA4 →'}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Row 2: Recent Orders, Top Customer Locations, Devices Used */}
+      {/* Row 2: Weekday pattern · Countries · Bridge to Reports */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Recent Orders table (5 cols) */}
-        <div className="lg:col-span-5 p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                {isAr ? 'أحدث الطلبات' : 'Recent Orders'}
-              </h2>
-              {onNavigateTab && (
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab('orders')}
-                  className="text-xs font-bold text-teal-700 dark:text-teal-400 hover:underline cursor-pointer"
-                >
-                  {isAr ? 'عرض الكل' : 'View All'}
-                </button>
-              )}
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 text-start">
-                    <th className="py-2 font-medium">{isAr ? 'رقم الطلب' : 'Order #'}</th>
-                    <th className="py-2 font-medium text-start">{isAr ? 'العميل' : 'Customer'}</th>
-                    <th className="py-2 font-medium text-center">{isAr ? 'العناصر' : 'Items'}</th>
-                    <th className="py-2 font-medium text-end">{isAr ? 'المبلغ' : 'Amount'}</th>
-                    <th className="py-2 font-medium text-center">{isAr ? 'الحالة' : 'Status'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
-                  {recentOrders.map((o) => (
-                    <tr key={o.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">{o.id}</td>
-                      <td className="py-2.5 text-slate-700 dark:text-slate-300 truncate max-w-[120px]">{o.customer}</td>
-                      <td className="py-2.5 text-center text-slate-500 dark:text-slate-400">{o.items}</td>
-                      <td className="py-2.5 text-end font-bold text-slate-900 dark:text-white">{money(o.amount)}</td>
-                      <td className="py-2.5 text-center">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            o.status === 'delivered'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
-                              : o.status === 'processing'
-                                ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800'
-                                : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
-                          }`}
-                        >
-                          {getStatusLabel(o.status)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Top Customer Locations (4 cols) */}
-        <div className="lg:col-span-4 p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                {isAr ? 'أعلى مواقع العملاء' : 'Top Customer Locations'}
-              </h2>
-              <div className="inline-flex p-0.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-[11px] font-bold">
-                <button
-                  type="button"
-                  onClick={() => setLocationType('cities')}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                    locationType === 'cities'
-                      ? 'bg-teal-600 text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                  }`}
-                >
-                  {isAr ? 'المدن' : 'Cities'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLocationType('regions')}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                    locationType === 'regions'
-                      ? 'bg-teal-600 text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                  }`}
-                >
-                  {isAr ? 'المناطق' : 'Regions'}
-                </button>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 text-start">
-                    <th className="py-2 font-medium w-6">#</th>
-                    <th className="py-2 font-medium text-start">{isAr ? 'الموقع' : 'Location'}</th>
-                    <th className="py-2 font-medium text-center">{isAr ? 'الطلبات' : 'Orders'}</th>
-                    <th className="py-2 font-medium text-end">{isAr ? 'الإيرادات' : 'Revenue'}</th>
-                    <th className="py-2 font-medium text-end">%</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
-                  {activeLocations.map((loc) => (
-                    <tr key={loc.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-2 text-slate-400 dark:text-slate-500">{loc.rank}</td>
-                      <td className="py-2 text-slate-800 dark:text-slate-200 font-bold truncate max-w-[110px]">{loc.name}</td>
-                      <td className="py-2 text-center text-slate-600 dark:text-slate-400 tabular-nums">{loc.orders.toLocaleString()}</td>
-                      <td className="py-2 text-end font-bold text-slate-900 dark:text-teal-300 tabular-nums">{money(loc.revenue)}</td>
-                      <td className="py-2 text-end text-slate-500 dark:text-slate-400 tabular-nums">{loc.share}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Devices Used Donut (3 cols) */}
-        <div className="lg:col-span-3 p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
+        <div className="lg:col-span-5 p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center justify-between mb-3">
             <h2 className="font-extrabold text-sm text-slate-900 dark:text-white">
-              {isAr ? 'الأجهزة المستخدمة' : 'Devices Used'}
+              {isAr ? 'توزيع الزيارات حسب أيام الأسبوع' : 'Visits by weekday'}
             </h2>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900">
-              {gaConnected ? (isAr ? 'بيانات حقيقية GA4' : 'GA4 Live') : (isAr ? 'تقديري' : 'Calculated')}
+            <span className="text-[10px] font-bold text-slate-500">
+              {isAr ? 'أحداث واجهة المتجر' : 'Storefront events'}
             </span>
           </div>
-          <div className="py-2 flex items-center justify-center">
-            <DonutChart
-              segments={devicesUsed}
-              centerLabel={gaConnected ? (isAr ? 'إجمالي الزيارات' : 'GA4 Sessions') : (isAr ? 'الطلبات' : 'Total Orders')}
-              centerValue={gaConnected && gaData?.sessions ? gaData.sessions.toLocaleString() : (storeOrders.length || 0).toLocaleString()}
-              size={175}
-              strokeWidth={22}
-            />
-          </div>
-          {!gaConnected && (
-            <div className="pt-2 text-center">
-              <button
-                type="button"
-                onClick={() => setIsGoogleModalOpen(true)}
-                className="text-[11px] font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
-              >
-                {isAr ? '← اربط تحليلات جوجل لعرض الزيارات الفعلية' : 'Connect GA4 for real-time visits →'}
-              </button>
+          {weekdayBars.length === 0 || storefrontVisits === 0 ? (
+            <p className="py-10 text-center text-xs text-slate-400 dark:text-slate-500">
+              {isAr ? 'لا توجد زيارات مسجلة لهذا المتجر بعد' : 'No storefront visits recorded yet'}
+            </p>
+          ) : (
+            <div className="space-y-2.5 pt-1">
+              {weekdayBars.map((d) => (
+                <div key={d.label} className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px] font-semibold">
+                    <span className="text-slate-600 dark:text-slate-300">{d.label}</span>
+                    <span className="tabular-nums text-slate-900 dark:text-white">{d.pct}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${d.highlighted ? 'bg-teal-600' : 'bg-blue-500'}`}
+                      style={{ width: `${Math.min(100, d.pct)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
+
+        <div className="lg:col-span-4 p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-extrabold text-sm text-slate-900 dark:text-white">
+              {isAr ? 'أعلى الدول حسب الجلسات' : 'Top countries by sessions'}
+            </h2>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900">
+              {gaConnected ? (isAr ? 'تحليلات جوجل' : 'GA4') : (isAr ? 'غير متصل' : 'Not connected')}
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                  <th className="py-2 font-medium w-6">#</th>
+                  <th className="py-2 font-medium text-start">{isAr ? 'الدولة' : 'Country'}</th>
+                  <th className="py-2 font-medium text-end">{isAr ? 'الجلسات' : 'Sessions'}</th>
+                  <th className="py-2 font-medium text-end">%</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
+                {countryRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-slate-400 dark:text-slate-500">
+                      {isAr ? 'لا توجد بيانات دول' : 'No country data'}
+                    </td>
+                  </tr>
+                ) : (
+                  countryRows.map((c) => (
+                    <tr key={c.id}>
+                      <td className="py-2 text-slate-400">{c.rank}</td>
+                      <td className="py-2 font-bold text-slate-800 dark:text-slate-200">{c.name}</td>
+                      <td className="py-2 text-end tabular-nums">{c.sessions.toLocaleString()}</td>
+                      <td className="py-2 text-end text-slate-500 tabular-nums">{c.share}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="lg:col-span-3 p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between gap-3">
+          <div>
+            <h2 className="font-extrabold text-sm text-slate-900 dark:text-white mb-1">
+              {isAr ? 'المبيعات والتقارير' : 'Sales & reports'}
+            </h2>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              {isAr
+                ? 'تحليلات المنتجات والطلبات والإيرادات موجودة في صفحة التقارير — بدون تكرار هنا.'
+                : 'Product, order, and revenue analytics live on the Reports page — not repeated here.'}
+            </p>
+          </div>
+          {onNavigateTab && (
+            <button
+              type="button"
+              onClick={() => onNavigateTab('reports')}
+              className="w-full py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white cursor-pointer"
+            >
+              {isAr ? 'الانتقال إلى التقارير' : 'Go to Reports'}
+            </button>
+          )}
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
+            <div className="flex justify-between gap-2">
+              <span>{isAr ? 'طلبات المتجر (مرجع)' : 'Store orders (ref)'}</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200 tabular-nums">
+                {storeOrders.length.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span>{isAr ? 'إيراد الطلبات (مرجع)' : 'Order revenue (ref)'}</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200 tabular-nums">
+                {money(storeOrders.reduce((s, o) => s + (o.total || 0), 0))}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Row 3: Key Takeaways & Recommendations (4 cards) */}
+      {/* Takeaways — real only */}
       <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
         <div className="flex items-center gap-2">
           <span className="p-1.5 bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 rounded-xl">
             <Sparkles className="w-4 h-4" />
           </span>
           <h2 className="font-extrabold text-sm text-slate-900 dark:text-white">
-            {isAr ? 'أهم الملاحظات والتوصيات' : 'Key Takeaways & Recommendations'}
+            {isAr ? 'ملخص الزيارات' : 'Traffic summary'}
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Strong Growth */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/40 space-y-2">
             <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 font-bold text-xs">
-              <TrendingUp className="w-4 h-4" />
-              <span>{isAr ? 'نمو قوي' : 'Strong Growth'}</span>
+              <Eye className="w-4 h-4" />
+              <span>{isAr ? 'حجم الزيارات' : 'Traffic volume'}</span>
             </div>
             <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
-              {isAr
-                ? `بلغت إيرادات المتجر${money(storeOrders.reduce((acc, o) => acc + o.total, 0))}عبر${storeOrders.length}طلبات عملاء مكتملة.`
-                : `Store revenue stands at ${money(storeOrders.reduce((acc, o) => acc + o.total, 0))} across ${storeOrders.length} processed customer orders.`}
+              {sessions > 0
+                ? isAr
+                  ? `تم تسجيل ${sessions.toLocaleString()} جلسة/زيارة لهذا المتجر من مصادر حقيقية.`
+                  : `${sessions.toLocaleString()} sessions/visits recorded for this store from real sources.`
+                : isAr
+                  ? 'لا توجد زيارات مسجلة بعد — بانتظار بيانات جوجل أو أحداث واجهة المتجر.'
+                  : 'No visits recorded yet — waiting for GA4 or storefront events.'}
             </p>
           </div>
 
-          {/* Card 2: Returning Customers */}
           <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/40 space-y-2">
             <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-bold text-xs">
               <Users className="w-4 h-4" />
-              <span>{isAr ? 'قاعدة العملاء' : 'Customer Base'}</span>
+              <span>{isAr ? 'الاكتساب' : 'Acquisition'}</span>
             </div>
             <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
-              {isAr
-                ? `تتتبع قاعدة البيانات${storeCustomers.length}عملاء مسجلين لديهم سجل طلبات نشط في مدن المملكة.`
-                : `Database tracks ${storeCustomers.length} registered customers with active order histories across Saudi cities.`}
+              {trafficRows.length > 0
+                ? isAr
+                  ? `أعلى مصدر حالياً: ${trafficRows[0].source} (${trafficRows[0].share}).`
+                  : `Top source right now: ${trafficRows[0].source} (${trafficRows[0].share}).`
+                : isAr
+                  ? 'لا توجد مصادر زيارات بعد.'
+                  : 'No traffic sources yet.'}
             </p>
           </div>
 
-          {/* Card 3: Reduce Cart Abandonment */}
-          <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/40 space-y-2">
-            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-bold text-xs">
-              <ShoppingCart className="w-4 h-4" />
-              <span>{isAr ? 'تقليل السلات المتروكة' : 'Reduce Cart Abandonment'}</span>
-            </div>
-            <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
-              {isAr
-                ? 'نظام الاستعادة التلقائي عبر واتساب جاهز في مركز التسويق لاسترداد المبيعات المفقودة تلقائياً.'
-                : 'Automated WhatsApp checkout recovery is ready in Marketing Hub to recover lost sales automatically.'}
-            </p>
-          </div>
-
-          {/* Card 4: Opportunity */}
           <div className="p-4 rounded-2xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-900/40 space-y-2">
             <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 font-bold text-xs">
               <Megaphone className="w-4 h-4" />
-              <span>{isAr ? 'بيانات جوجل المتصلة' : 'Google Connected Real Data'}</span>
+              <span>{isAr ? 'حالة الربط' : 'Connection status'}</span>
             </div>
             <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
               {gaConnected
-                ? (isAr ? `نظام تحليلات جوجل ٤ يقوم ببث القياسات المباشرة لمتجر${activeStore.name}.` : `Google Analytics 4 is streaming live telemetry for ${activeStore.name}.`)
-                : (isAr ? 'اربط حساب جوجل الخاص بك لبث بيانات الزوار الحقيقيين والجلسات وأحداث الشراء.' : 'Connect your Google account to stream real GA4 visitors, sessions, and e-commerce events.')}
+                ? isAr
+                  ? 'تحليلات جوجل متصلة وتبث بيانات هذا المتجر فقط.'
+                  : 'Google Analytics is connected and streaming this store only.'
+                : isAr
+                  ? 'اربط حساب جوجل لبث الجلسات والأجهزة ومصادر الزيارات الحقيقية.'
+                  : 'Connect Google to stream real sessions, devices, and traffic sources.'}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Docs Guide Modal */}
-      <PageDocsGuideModal
-        isOpen={isGuideOpen}
-        onClose={() => setIsGuideOpen(false)}
-        pageId="analytics"
-      />
+      <PageDocsGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} pageId="analytics" />
 
-      {/* Real Google Connect Modal */}
       <GoogleConnectModal
         isOpen={isGoogleModalOpen}
         onClose={() => setIsGoogleModalOpen(false)}
         onConnected={() => {
           setGaConnected(true);
-          void fetchGoogleAnalyticsData(activeStore.id).then((res) => {
-            if (res?.data) setGaData(res.data);
-          });
+          void loadTraffic();
         }}
       />
     </div>

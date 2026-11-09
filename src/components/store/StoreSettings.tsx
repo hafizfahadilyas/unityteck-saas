@@ -28,7 +28,14 @@ import {
   HardDrive,
   Copy,
   Smartphone,
+  Search,
+  BarChart3,
+  Code,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
+import { GoogleConnectModal } from './GoogleConnectModal';
+import { realTrackingId, seoSetupStep, storeGoogleEmail, storePublicHost } from './seo/storeSeoSetup';
 import { BrandingPanel } from '../common/BrandingPanel';
 import { DbSyncSettingsCard } from '../common/DbSyncSettingsCard';
 import { bumpStore, bumpCacheTag, platformTag } from '../../api/cacheTags';
@@ -51,15 +58,26 @@ import {
   type StoreChromeBrand,
 } from '../../i18n/storeChrome';
 
-type SettingsTab = 'general' | 'localization' | 'appearance' | 'maintenance' | 'social' | 'subscription' | 'thresholds' | 'notifications';
+type SettingsTab =
+  | 'general'
+  | 'localization'
+  | 'appearance'
+  | 'maintenance'
+  | 'social'
+  | 'subscription'
+  | 'thresholds'
+  | 'notifications'
+  | 'search_console';
 
 export const StoreSettings: React.FC = () => {
-  const { activeStore, updateStorePlan, softRefreshTenantData } = useTenant();
+  const { activeStore, updateStorePlan, softRefreshTenantData, currentSEOConfig } = useTenant();
   const { t, locale, setLocale, currency, setCurrency, theme, toggleTheme, money, allowedLocales } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
   const chromeSaveTimer = useRef<number | null>(null);
   const [chrome, setChrome] = useState<StoreChromeBrand>(() => readChromeCache(activeStore.id));
+  const [showGoogleConnect, setShowGoogleConnect] = useState(false);
+  const [settingsFocus, setSettingsFocus] = useState<'search_console' | 'tag_manager'>('search_console');
 
   useEffect(() => {
     let stop = false;
@@ -97,47 +115,40 @@ export const StoreSettings: React.FC = () => {
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
 
+  /** Sidebar deep-link: Search Console / Tag Manager under Settings */
+  useEffect(() => {
+    const applyView = (view: string | null | undefined) => {
+      if (view === 'search_console' || view === 'tag_manager') {
+        setActiveTab('search_console');
+        setSettingsFocus(view);
+      }
+    };
+    try {
+      applyView(sessionStorage.getItem('unityteck-settings-view'));
+      sessionStorage.removeItem('unityteck-settings-view');
+    } catch {
+      /* storage may be unavailable */
+    }
+    const onView = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      applyView(detail);
+    };
+    window.addEventListener('unityteck-settings-view', onView);
+    return () => window.removeEventListener('unityteck-settings-view', onView);
+  }, []);
+
   // Load existing theme settings
   const initialThemeSettings = useMemo(() => {
     return readAllThemeSettings(activeStore.id, activeStore);
   }, [activeStore.id, activeStore]);
 
-  // Maintenance Mode State
-  const isBleco = activeStore.id === 'store-bleco' || /سيارات|بلاكو|تنجيد|cars|saeedi/i.test(activeStore.name);
-  const isCoffee = activeStore.id === 'store-coffee' || /قهوة|coffee/i.test(activeStore.name);
-  const isFlower = activeStore.id === 'store-mecca' || /ورد|زهور|هدايا|flower|gift/i.test(activeStore.name + (activeStore.category || ''));
-
-  const defaultMaintenanceTitleAr = isBleco
-    ? 'نجهز لكم أرقى تجربة تنجيد ودعاسات ليزرية لسيارتكم'
-    : isCoffee
-    ? 'نجهز لكم أرقى تجربة قهوة مختصة ومحاصيل محمصة طازجة'
-    : isFlower
-    ? 'نجهز لكم تجربة إهداء ملكية تليق بأطهر بقاع الأرض'
-    : `نعمل على تحديث وتطوير متجر ${activeStore.nameAr || activeStore.name}`;
-
-  const defaultMaintenanceTitleEn = isBleco
-    ? 'Crafting the Ultimate Automotive Styling & Precision Tailored Upholstery'
-    : isCoffee
-    ? 'Brewing the Finest Artisan Specialty Coffee Roasting Experience'
-    : isFlower
-    ? 'Crafting a Royal Floral Gifting Experience in Holy Makkah'
-    : `We are upgrading and enhancing ${activeStore.nameEn || activeStore.name}`;
-
-  const defaultMaintenanceSubtitleAr = isBleco
-    ? 'نعمل بكل دقة على تفصيل وتنجيد أحدث أطقم المراتب الجلدية، أرضيات 5D و 7D الليزرية المقاومة للحرارة، واكسسوارات السيارات المعتمدة بأعلى معايير الجودة والضمان.'
-    : isCoffee
-    ? 'نعمل على تحميص أندر محاصيل البن المختص الإثيوبي والكولومبي، وتجهيز مكائن الإسبريسو ومطاحن التروس ومعدات التقطير بأعلى معايير الباريستا.'
-    : isFlower
-    ? 'نعمل بكل حب على تجهيز تشكيلات الزهور الطبيعية الهولندية، شوكولاتة باتشي وبستاني الملكية، وكيك المناسبات لخدمتكم بأعلى معايير الفخامة في فنادق وأحياء مكة المكرمة.'
-    : `نعمل على تحسين تجربة التسوق وتطوير المتجر لخدمتكم بأعلى معايير الجودة. سنعود إليكم قريباً!`;
-
-  const defaultMaintenanceSubtitleEn = isBleco
-    ? 'We are tailoring luxury precision-fit leather seat covers, 5D/7D diamond floor mats, and heat-resistant automotive accessories with comprehensive warranty.'
-    : isCoffee
-    ? 'We are freshly roasting rare specialty coffee beans and curating professional barista espresso and drip gear across Saudi Arabia.'
-    : isFlower
-    ? 'We are arranging the finest natural Dutch blooms, Patchi & Bostani luxury chocolates, and celebratory cakes with 2-hour express delivery to Haram hotels.'
-    : `We are upgrading our catalog and shopping experience to bring you the best products. We will be back shortly!`;
+  // Maintenance Mode — general chrome defaults (merchant can customize; no niche hardcoding)
+  const defaultMaintenanceTitleAr = 'نعمل على تحديث وتطوير متجرك';
+  const defaultMaintenanceTitleEn = 'We are upgrading and enhancing your store';
+  const defaultMaintenanceSubtitleAr =
+    'نعمل على تحسين تجربة التسوق وتطوير المتجر لخدمتكم بأعلى معايير الجودة. سنعود إليكم قريباً!';
+  const defaultMaintenanceSubtitleEn =
+    'We are upgrading our catalog and shopping experience to bring you the best products. We will be back shortly!';
 
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(
     Boolean(initialThemeSettings.maintenance?.enabled)
@@ -280,6 +291,11 @@ export const StoreSettings: React.FC = () => {
       icon: Settings,
     },
     {
+      id: 'search_console',
+      label: isAr ? 'بحث جوجل والتحليلات' : 'Search Console',
+      icon: Search,
+    },
+    {
       id: 'localization',
       label: isAr ? 'اللغة والعملة والتوقيت' : 'Language & Currency',
       icon: Coins,
@@ -316,8 +332,15 @@ export const StoreSettings: React.FC = () => {
     },
   ];
 
+  const ga4Id = realTrackingId(currentSEOConfig?.ga4MeasurementId);
+  const gtmId = realTrackingId(currentSEOConfig?.gtmContainerId);
+  const googleConnected = Boolean(currentSEOConfig?.googleConnected);
+  const setupStep = seoSetupStep(activeStore);
+  const ownerEmail = storeGoogleEmail(activeStore);
+  const publicHost = storePublicHost(activeStore);
+
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto min-w-0" style={{ color: 'var(--text)' }}>
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto min-w-0 w-full" style={{ color: 'var(--text)' }}>
       {/* ── Page Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4" style={{ borderColor: 'var(--border)' }}>
         <div>
@@ -1376,11 +1399,235 @@ export const StoreSettings: React.FC = () => {
         </form>
       )}
 
+      {/* ── TAB: Search Console & Google Analytics (moved from SEO sidebar) ── */}
+      {activeTab === 'search_console' && (
+        <div className="space-y-6">
+          <div
+            className="p-5 rounded-2xl border shadow-xs space-y-3"
+            style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-extrabold text-sm flex items-center gap-2">
+                  <Search className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span>
+                    {settingsFocus === 'tag_manager'
+                      ? isAr
+                        ? 'مدير العلامات والتحليلات'
+                        : 'Tag Manager & Analytics'
+                      : isAr
+                        ? 'أدوات مشرفي المواقع والفهرسة'
+                        : 'Search Console & Indexing'}
+                  </span>
+                </h3>
+                <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+                  {isAr
+                    ? 'ربط بحث جوجل ومدير العلامات وتحليلات الزوار من الإعدادات — صفحة تحسين محركات البحث للتحسين فقط.'
+                    : 'Connect Search Console, Tag Manager, and analytics here. The SEO page is for optimization tools only.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGoogleConnect(true)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 shadow-xs cursor-pointer flex items-center gap-2 shrink-0"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>
+                  {googleConnected
+                    ? isAr
+                      ? 'إدارة الربط'
+                      : 'Manage connection'
+                    : isAr
+                      ? 'ربط حساب جوجل'
+                      : 'Connect Google account'}
+                </span>
+              </button>
+            </div>
+
+            <div
+              className="p-3 rounded-xl border text-xs leading-relaxed"
+              style={{
+                background: 'color-mix(in srgb, var(--surface) 85%, var(--border))',
+                borderColor: 'var(--border)',
+              }}
+            >
+              {setupStep === 'need_email' &&
+                (isAr
+                  ? 'بريد دخول هذا المتجر غير محفوظ. بعد حفظه يربط المالك حسابه بنفسه.'
+                  : 'This store has no login email yet. After it is saved, the owner connects their own account.')}
+              {setupStep === 'need_domain' &&
+                (isAr
+                  ? `البريد ${ownerEmail} جاهز. النطاق العام غير مربوط، لذلك تبقى هذه الخطوة معلقة.`
+                  : `Email ${ownerEmail} is ready. The public domain is not linked yet, so this step waits.`)}
+              {setupStep === 'ready' &&
+                (isAr
+                  ? `النطاق ${publicHost} والبريد ${ownerEmail} جاهزان. المالك يسجّل الدخول ببريده مرة واحدة.`
+                  : `Domain ${publicHost} and email ${ownerEmail} are ready. The owner signs in with that email once.`)}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div
+              className={`p-5 rounded-2xl border shadow-xs space-y-3 ${
+                settingsFocus === 'search_console' ? 'ring-2 ring-blue-500/40' : ''
+              }`}
+              style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold text-xs flex items-center justify-center border border-blue-200 dark:border-blue-800">
+                    GSC
+                  </div>
+                  <span className="font-bold text-xs">{isAr ? 'بحث جوجل' : 'Search Console'}</span>
+                </div>
+                {googleConnected ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    {isAr ? 'متصل' : 'Connected'}
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {isAr ? 'غير متصل' : 'Not connected'}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
+                {isAr
+                  ? 'الفهرسة ومرات الظهور والنقرات تظهر بعد الربط الحقيقي فقط.'
+                  : 'Indexing, impressions, and clicks appear only after a real connection.'}
+              </p>
+              <div
+                className="pt-2 border-t text-xs font-mono"
+                style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+              >
+                {googleConnected
+                  ? isAr
+                    ? `${currentSEOConfig?.totalSearchClicks || 0} نقرة`
+                    : `${currentSEOConfig?.totalSearchClicks || 0} clicks`
+                  : '—'}
+              </div>
+            </div>
+
+            <div
+              className={`p-5 rounded-2xl border shadow-xs space-y-3 ${
+                settingsFocus === 'tag_manager' ? 'ring-2 ring-purple-500/40' : ''
+              }`}
+              style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 font-bold text-xs flex items-center justify-center border border-teal-200 dark:border-teal-800">
+                    GTM
+                  </div>
+                  <span className="font-bold text-xs">{isAr ? 'مدير العلامات' : 'Tag Manager'}</span>
+                </div>
+                {gtmId ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    {isAr ? 'محفوظ' : 'Saved'}
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
+                    {isAr ? 'غير محفوظ' : 'Not saved'}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
+                {isAr
+                  ? 'معرّف الحاوية يُحفظ لهذا المتجر فقط — بدون استعارة من متجر آخر.'
+                  : 'Container id is saved for this store only — never borrowed from another tenant.'}
+              </p>
+              <div
+                className="pt-2 border-t text-xs font-mono truncate"
+                style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+              >
+                {gtmId || '—'}
+              </div>
+            </div>
+
+            <div
+              className="p-5 rounded-2xl border shadow-xs space-y-3"
+              style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center justify-center border border-amber-200 dark:border-amber-800">
+                    GA4
+                  </div>
+                  <span className="font-bold text-xs">{isAr ? 'تحليلات جوجل' : 'Analytics'}</span>
+                </div>
+                {ga4Id ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    {isAr ? 'محفوظ' : 'Saved'}
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
+                    {isAr ? 'غير محفوظ' : 'Not saved'}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
+                {isAr
+                  ? 'معرّف القياس الحقيقي فقط — لا قيم وهمية.'
+                  : 'Real measurement id only — never invented values.'}
+              </p>
+              <div
+                className="pt-2 border-t text-xs font-mono truncate"
+                style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+              >
+                {ga4Id || '—'}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSettingsFocus('search_console');
+                setShowGoogleConnect(true);
+              }}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800"
+              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-blue-600" />
+              {isAr ? 'إعداد بحث جوجل' : 'Configure Search Console'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSettingsFocus('tag_manager');
+                setShowGoogleConnect(true);
+              }}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800"
+              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+            >
+              <Code className="w-3.5 h-3.5 text-purple-600" />
+              {isAr ? 'إعداد مدير العلامات' : 'Configure Tag Manager'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── TAB: Notification Thresholds & Integrations ── */}
       {activeTab === 'thresholds' && <ThresholdSettings />}
 
       {/* ── TAB: Saudi WhatsApp & SMS Notifications ── */}
       {activeTab === 'notifications' && <NotificationSettings />}
+
+      <GoogleConnectModal
+        isOpen={showGoogleConnect}
+        onClose={() => setShowGoogleConnect(false)}
+        onConnected={() => {
+          setShowGoogleConnect(false);
+          toast(
+            isAr ? 'تم ربط حساب جوجل لهذا المتجر' : 'Google account connected for this store',
+            'success',
+          );
+        }}
+      />
     </div>
   );
 };

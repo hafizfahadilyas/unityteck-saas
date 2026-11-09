@@ -49,13 +49,15 @@ export interface GoogleConnectedState {
   lastSyncedAt: string | null;
 }
 
-// Scopes required for Site-Kit style integration
+// Scopes required for Site-Kit style integration (must match API GoogleService::SCOPES)
 export const GOOGLE_OAUTH_SCOPES = [
+  'openid',
   'https://www.googleapis.com/auth/userinfo.email',
   'https://www.googleapis.com/auth/userinfo.profile',
-  'https://www.googleapis.com/auth/webmasters.readonly',
   'https://www.googleapis.com/auth/analytics.readonly',
+  'https://www.googleapis.com/auth/webmasters',
   'https://www.googleapis.com/auth/tagmanager.readonly',
+  'https://www.googleapis.com/auth/adwords',
   'https://www.googleapis.com/auth/indexing',
 ].join(' ');
 
@@ -82,6 +84,91 @@ export function setStoredGoogleClientId(clientId: string): void {
   try {
     localStorage.setItem(GOOGLE_CLIENT_ID_STORAGE, clientId.trim());
   } catch {}
+}
+
+/** Clear Advanced custom Client ID so platform / env client is used. */
+export function clearStoredGoogleClientId(): void {
+  try {
+    localStorage.removeItem(GOOGLE_CLIENT_ID_STORAGE);
+  } catch {}
+}
+
+/** Map Google OAuth popup / API errors to short merchant-safe copy. */
+export function mapGoogleConnectError(raw: unknown, isAr: boolean): string {
+  const text = String(
+    raw instanceof Error ? raw.message : raw ?? '',
+  ).trim();
+  const s = text.toLowerCase();
+
+  if (!text) {
+    return isAr ? 'فشل ربط جوجل. حاول مرة أخرى.' : 'Google connect failed. Please try again.';
+  }
+
+  if (
+    s.includes('access_denied') ||
+    s.includes('return to safety') ||
+    s.includes('has not confirmed ownership') ||
+    s.includes('currently being tested')
+  ) {
+    return isAr
+      ? 'تطبيق جوجل في وضع الاختبار أو غير موثّق. من شاشة جوجل اختر المتابعة (غير آمن) بعد Advanced، وأضف بريدك في قائمة مستخدمي الاختبار في سحابة جوجل.'
+      : 'This Google app is in Testing / unverified. On Google’s screen open Advanced → Continue, and add your email as a Test user in Google Cloud.';
+  }
+
+  if (s.includes('popup') && (s.includes('block') || s.includes('closed'))) {
+    return isAr
+      ? 'نافذة جوجل محجوبة. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.'
+      : 'Google sign-in popup was blocked. Allow popups and try again.';
+  }
+
+  if (s.includes('redirect') && s.includes('uri')) {
+    return isAr
+      ? 'رابط إعادة التوجيه غير مسموح في سحابة جوجل. أضف عنوان هذا الموقع بالضبط في عناوين إعادة التوجيه المصرّح بها.'
+      : 'Redirect URL is not allowed in Google Cloud. Add this exact site origin to Authorized redirect URIs.';
+  }
+
+  if (
+    s.includes('client id') ||
+    s.includes('client secret') ||
+    s.includes('invalid_client') ||
+    s.includes('oauth client was not found') ||
+    s.includes('was deleted')
+  ) {
+    return isAr
+      ? 'معرّف عميل جوجل أو السر غير صحيح على الخادم. طابق معرّف العميل والسر في إعدادات الخادم، وامسح المعرّف المخصص إن اختلف.'
+      : 'Google Client ID or Secret on the server is wrong. Match GOOGLE_CLIENT_ID / SECRET, and clear a mismatched Advanced Client ID.';
+  }
+
+  if (s.includes('not found') || s.includes('404')) {
+    return isAr
+      ? 'تعذر إكمال ربط جوجل (العنصر غير موجود). تحقق من معرّف العميل وإعدادات السحابة ثم أعد تسجيل الدخول.'
+      : 'Google connect could not finish (item not found). Check the OAuth client in Google Cloud, then sign in again.';
+  }
+
+  if (s.includes('not configured') || s.includes('missing_server')) {
+    return isAr
+      ? 'ربط جوجل غير مُعدّ على الخادم. يلزم معرّف العميل وسر العميل في بيئة واجهة البرمجة.'
+      : 'Google OAuth is not configured on the server. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.';
+  }
+
+  if (s.includes('owner_email_mismatch') || s.includes('must connect with its own owner')) {
+    return isAr
+      ? 'هذا المتجر يُربط فقط ببريد مالكه. سجّل الدخول بحساب جوجل الخاص بهذا المتجر فقط.'
+      : 'This store connects only with its owner Google email. Sign in with that store’s own account.';
+  }
+
+  if (s.includes('code expired') || s.includes('invalid_grant') || s.includes('already used')) {
+    return isAr
+      ? 'انتهت صلاحية رمز تسجيل الدخول. اضغط تسجيل الدخول بحساب جوجل مرة أخرى.'
+      : 'The Google sign-in code expired. Click Sign in with Google again.';
+  }
+
+  // Keep short safe API messages as-is
+  if (text.length <= 220 && !text.includes('\n') && !/sqlstate|exception|stack/i.test(text)) {
+    return text;
+  }
+
+  return isAr ? 'فشل ربط جوجل. حاول مرة أخرى.' : 'Google connect failed. Please try again.';
 }
 
 export function getStoreGoogleState(storeId: string): GoogleConnectedState | null {
@@ -290,7 +377,8 @@ export async function initiateRealGoogleOAuth(options: {
           if (err) {
             window.clearInterval(pollInterval);
             popup.close();
-            options.onError(returned.searchParams.get('error_description') || err);
+            const desc = returned.searchParams.get('error_description') || err;
+            options.onError(err === 'access_denied' ? `access_denied: ${desc}` : desc);
             return;
           }
           if (code) {

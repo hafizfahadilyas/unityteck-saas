@@ -82,8 +82,8 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
 
   const whatsappUrl = `https://wa.me/${(config.whatsappNumber || MECCA_WHATSAPP).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
     isAr
-      ? 'مرحباً هدايا مكة، أود الاستفسار عن طلبات وتنسيقات الورود الخاصة!'
-      : 'Hello Hadaya Mecca, I would like to inquire about fresh flower arrangements and custom gifts!'
+      ? 'مرحباً، أود الاستفسار عن الطلبات والمنتجات!'
+      : 'Hello, I would like to inquire about orders and products!'
   )}`;
 
   return (
@@ -106,10 +106,10 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
           />
           <div>
             <h1 className="text-base font-bold text-[#FAF9F5] tracking-tight">
-              {isAr ? 'هدايا مكة — باقات الورود الفاخرة' : 'Hadaya Mecca — Luxury Blooms'}
+              {isAr ? 'متجرك — قيد التحديث' : 'Your Store — Under Update'}
             </h1>
             <p className="text-[11px] text-[#e6ca98] font-medium">
-              giftshop-sa.com · {isAr ? 'مكة المكرمة' : 'Makkah Al-Mukarramah'}
+              {isAr ? 'المملكة العربية السعودية' : 'Kingdom of Saudi Arabia'}
             </p>
           </div>
         </div>
@@ -151,15 +151,15 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
         {/* Main Headline */}
         <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black text-[#FAF9F5] leading-tight tracking-tight mb-5">
           {isAr
-            ? (config.titleAr || 'نجهز لكم تجربة إهداء ملكية تليق بأطهر بقاع الأرض')
-            : (config.titleEn || 'Crafting a Royal Floral Gifting Experience in Holy Makkah')}
+            ? (config.titleAr || 'نعمل على تحديث وتطوير متجرك')
+            : (config.titleEn || 'We are upgrading and enhancing your store')}
         </h2>
 
         {/* Subtitle Description */}
         <p className="text-base sm:text-lg text-[#FAF9F5]/80 max-w-2xl mx-auto leading-relaxed mb-10">
           {isAr
-            ? (config.subtitleAr || 'نعمل بكل حب على تجهيز تشكيلات الزهور الطبيعية الهولندية، شوكولاتة باتشي وبستاني الملكية، وكيك المناسبات لخدمتكم بأعلى معايير الفخامة في فنادق وأحياء مكة المكرمة.')
-            : (config.subtitleEn || 'We are arranging the finest natural Dutch blooms, Patchi & Bostani luxury chocolates, and celebratory cakes with 2-hour express delivery to Haram hotels.')}
+            ? (config.subtitleAr || 'نعمل على تحسين تجربة التسوق وتطوير المتجر لخدمتكم بأعلى معايير الجودة. سنعود إليكم قريباً!')
+            : (config.subtitleEn || 'We are improving the shopping experience and upgrading the store to serve you with the highest quality standards. We will be back soon!')}
         </p>
 
         {/* Live Countdown Timer */}

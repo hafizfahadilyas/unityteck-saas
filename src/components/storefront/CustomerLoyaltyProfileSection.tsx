@@ -22,6 +22,11 @@ import {
   saveCustomerGamifiedProfile,
   type CustomerGamifiedProfile,
 } from '../../services/ksaAutomationEngine';
+import {
+  loyaltyDailySpinApi,
+  loyaltyLocationPushBonusApi,
+} from '../../api/tenantApi';
+import { emitLoyaltyGift } from './LoyaltyGiftPointsPopup';
 
 export interface CustomerLoyaltyProfileSectionProps {
   storeId?: string;
@@ -152,16 +157,38 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
     }
   };
 
-  // Location & Notifications Bonus
+  // Location & Notifications Bonus → real loyalty ledger (one-time per store customer)
   const handleAllowLocationAndPush = async () => {
     try {
       if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
         await Notification.requestPermission();
       }
-    } catch {}
+    } catch {
+      /* permission optional */
+    }
 
-    const completeGrant = (lat?: number, lng?: number) => {
-      const bonus = profile.locationAllowed ? 0 : loyaltySettings.signupLocationBonusCoins;
+    const completeGrant = async (lat?: number, lng?: number) => {
+      let bonus = 0;
+      if (!profile.locationAllowed) {
+        try {
+          const res = await loyaltyLocationPushBonusApi(effectiveStoreId, effectiveCustomerId);
+          bonus = Number(res?.points || 0);
+          if (bonus > 0) {
+            emitLoyaltyGift({
+              points: bonus,
+              reason: isAr ? 'مكافأة تفعيل الموقع والإشعارات' : 'Location & push bonus',
+              balanceAfter: profile.coinsBalance + bonus,
+            });
+          }
+        } catch {
+          toast(
+            isAr
+              ? 'تم تفعيل الموقع محلياً. تعذر رصيد المكافأة على الخادم (ربما مُنحت مسبقاً).'
+              : 'Location enabled locally. Server bonus failed (may already be awarded).',
+            'info',
+          );
+        }
+      }
       const updated = saveCustomerGamifiedProfile(effectiveStoreId, {
         ...profile,
         locationAllowed: true,
@@ -173,49 +200,33 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
       setProfile(updated);
       toast(
         isAr
-          ? `تم تفعيل الموقع والإشعارات في ملفك الشخصي (+${bonus}عملة مكافأة)!`
-          : `Location & Notifications enabled (+${bonus} Bonus Coins)!`,
+          ? `تم تفعيل الموقع والإشعارات (+${bonus} نقطة ولاء في دفتر هذا المتجر)!`
+          : `Location & notifications enabled (+${bonus} loyalty points on this store’s ledger)!`,
         'success',
       );
     };
 
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => completeGrant(pos.coords.latitude, pos.coords.longitude),
-        () => completeGrant(),
+        (pos) => {
+          void completeGrant(pos.coords.latitude, pos.coords.longitude);
+        },
+        () => {
+          void completeGrant();
+        },
         { timeout: 3500 },
       );
     } else {
-      completeGrant();
+      await completeGrant();
     }
   };
 
-  // Daily Spin & Win Game (24h cooldown)
-  const handleSpinGame = () => {
-    if (
-      profile.lastGameSpinAt &&
-      Date.now() - profile.lastGameSpinAt < loyaltySettings.spinCooldownHours * 3600 * 1000
-    ) {
-      const hrs = Math.ceil(
-        (loyaltySettings.spinCooldownHours * 3600 * 1000 -
-          (Date.now() - profile.lastGameSpinAt)) /
-          3600000,
-      );
-      toast(
-        isAr
-          ? `لقد حصلت على عملات اليوم بالفعل! السحبة التالية متاحة بعد ~${hrs}ساعة.`
-          : `You already claimed today! Next spin available in ~${hrs}h.`,
-        'info',
-      );
-      return;
-    }
-
+  // Daily Spin & Win → real loyalty_point_transactions (server cooldown)
+  const handleSpinGame = async () => {
     setIsSpinning(true);
-    setTimeout(() => {
-      const won =
-        Math.floor(
-          Math.random() * (loyaltySettings.maxSpinCoins - loyaltySettings.minSpinCoins + 1),
-        ) + loyaltySettings.minSpinCoins;
+    try {
+      const result = await loyaltyDailySpinApi(effectiveStoreId, effectiveCustomerId);
+      const won = Number(result?.points || 0);
       const updated = saveCustomerGamifiedProfile(effectiveStoreId, {
         ...profile,
         coinsBalance: profile.coinsBalance + won,
@@ -223,14 +234,37 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
         lastGameSpinAt: Date.now(),
       });
       setProfile(updated);
-      setIsSpinning(false);
+      if (won > 0) {
+        emitLoyaltyGift({
+          points: won,
+          reason: isAr ? 'لعبة العملات اليومية' : 'Daily coin game',
+          balanceAfter: updated.coinsBalance,
+        });
+      }
       toast(
         isAr
-          ? `مبروك! ربحت +${won}عملة يمكنك استخدامها كخصم مباشر عند الدفع!`
-          : `Congratulations! You won +${won} Coins to use as instant discount at checkout!`,
+          ? `مبروك! ربحت +${won} نقطة ولاء في دفتر هذا المتجر!`
+          : `Congratulations! You won +${won} loyalty points on this store’s ledger!`,
         'success',
       );
-    }, 650);
+    } catch (err: any) {
+      const msg = String(err?.message || err?.body?.message || '');
+      if (msg.includes('cooldown') || err?.status === 429) {
+        toast(
+          isAr
+            ? 'لقد حصلت على عملات اليوم بالفعل! السحبة التالية بعد انتهاء المؤقت.'
+            : 'You already claimed today! Next spin after the cooldown ends.',
+          'info',
+        );
+      } else {
+        toast(
+          isAr ? 'تعذر تنفيذ اللعبة. حاول مرة أخرى.' : 'Spin failed. Please try again.',
+          'error',
+        );
+      }
+    } finally {
+      setIsSpinning(false);
+    }
   };
 
   return (
@@ -252,8 +286,8 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
             </h3>
             <p className="text-xs text-slate-500">
               {isAr
-                ? `اجمع العملات مع كل عملية شراء واستبدلها بخصم نقدي فوري في${activeStore.name}`
-                : `Earn coins with every order and redeem instant SAR discounts at ${activeStore.name}`}
+                ? 'اجمع العملات مع كل عملية شراء واستبدلها بخصم نقدي فوري في متجرنا'
+                : 'Earn coins with every order and redeem instant SAR discounts at our store'}
             </p>
           </div>
         </div>
@@ -286,7 +320,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-300" />
               <span className="font-black text-xs uppercase tracking-wider text-amber-200">
-                {activeStore.name} {isAr ? 'برنامج الولاء' : 'Loyalty Card'}
+                {isAr ? 'برنامج الولاء' : 'Loyalty Card'}
               </span>
             </div>
             <span className="px-3 py-1 rounded-full bg-white/15 backdrop-blur-xs text-[11px] font-bold border border-white/20 uppercase tracking-widest text-amber-300">
@@ -354,8 +388,8 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
             className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black cursor-pointer shrink-0 transition-colors shadow-xs"
           >
             {isAr
-              ? `تفعيل (+${loyaltySettings.signupLocationBonusCoins}عملة)`
-              : `Enable (+${loyaltySettings.signupLocationBonusCoins} Coins)`}
+              ? `تفعيل (+${loyaltySettings.signupLocationBonusCoins} نقطة)`
+              : `Enable (+${loyaltySettings.signupLocationBonusCoins} points)`}
           </button>
         </div>
       )}
@@ -410,7 +444,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
             </h4>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
               {isAr
-                ? `العب يومياً لربح ما بين${loyaltySettings.minSpinCoins}إلى${loyaltySettings.maxSpinCoins}عملة تُضاف فوراً لرصيدك للتسوق بها في متجر${activeStore.name}!`
+                ? `العب يومياً لربح ما بين ${loyaltySettings.minSpinCoins} إلى ${loyaltySettings.maxSpinCoins} عملة تُضاف فوراً لرصيدك للتسوق بها في متجرنا!`
                 : `Play every 24 hours to win between ${loyaltySettings.minSpinCoins} and ${loyaltySettings.maxSpinCoins} Coins to use as instant discount at checkout!`}
             </p>
           </div>

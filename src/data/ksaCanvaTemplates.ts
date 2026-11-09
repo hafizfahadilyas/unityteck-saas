@@ -72,6 +72,7 @@ export const CANVA_FONT_FAMILIES = [
   { id: 'Readex Pro', labelEn: 'Readex Pro', labelAr: 'ريدكس برو' },
   { id: 'Alexandria', labelEn: 'Alexandria', labelAr: 'الإسكندرية' },
   { id: 'Outfit', labelEn: 'Outfit Clean', labelAr: 'أوتفت حديث' },
+  { id: 'Poppins', labelEn: 'Poppins', labelAr: 'بوبينز' },
   { id: 'Plus Jakarta Sans', labelEn: 'Plus Jakarta Sans', labelAr: 'جاكرتا فاخر' },
   { id: 'Montserrat', labelEn: 'Montserrat Modern', labelAr: 'مونتسيرات' },
   { id: 'Staatliches', labelEn: 'Staatliches Display', labelAr: 'ستاتليش عريض' },

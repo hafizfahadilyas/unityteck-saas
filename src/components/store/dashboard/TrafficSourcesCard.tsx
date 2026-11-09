@@ -7,7 +7,7 @@ import {
   WhatsAppBrandIcon,
   InstagramBrandIcon,
   FacebookBrandIcon,
-  GoogleAdsIcon,
+  GoogleBrandIcon,
   XBrandIcon,
   YouTubeBrandIcon,
 } from '../../common/BrandIcons';
@@ -87,7 +87,7 @@ export const TrafficSourcesCard: React.FC<TrafficSourcesCardProps> = React.memo(
       case 'google':
         return (
           <div className={`${shell} bg-white border border-slate-200 dark:border-slate-700`}>
-            <GoogleAdsIcon className="w-3 h-3" />
+            <GoogleBrandIcon className="w-3 h-3" />
           </div>
         );
       case 'bing':
@@ -195,15 +195,15 @@ export const TrafficSourcesCard: React.FC<TrafficSourcesCardProps> = React.memo(
               })}
             </svg>
 
-            {/* Center Label (100% Match with PDF Page 1) */}
+            {/* Center Label — show 0 when no attributed sources (zero-mock; never orphan fake totals) */}
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
               <span className="text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-200 tracking-wider">
                 {isAr ? 'إجمالي الزيارات' : 'Total Visits'}
               </span>
               <span className="text-sm sm:text-base md:text-lg font-black text-slate-950 dark:text-white tabular-nums tracking-tight">
-                {totalVisits.toLocaleString()}
+                {(list.length === 0 ? 0 : totalVisits).toLocaleString()}
               </span>
-              {growthPercentage > 0 && (
+              {list.length > 0 && growthPercentage > 0 && (
                 <span className="text-[10px] sm:text-xs font-black text-emerald-700 dark:text-emerald-300 flex items-center gap-0.5">
                   <span>↑</span>
                   <span>{growthPercentage}%</span>

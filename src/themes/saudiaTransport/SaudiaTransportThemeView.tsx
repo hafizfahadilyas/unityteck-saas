@@ -859,12 +859,10 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             <button
               onClick={toggleLanguage}
               className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[#f6c344] font-bold text-[11px] border border-[#d5a027]/40 cursor-pointer transition-all"
+              aria-label={isAr ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic'}
             >
               <Globe className="w-3.5 h-3.5 text-[#f6c344]" />
-              <span>{isAr ? 'الإنجليزية' : 'العربية'}</span>
-              <span className="text-[9px] bg-[#d5a027] text-[#120224] px-1.5 py-0.2 rounded font-black">
-                {isAr ? 'إنجليزي' : 'AR'}
-              </span>
+              <span>{isAr ? 'إنجليزي' : 'العربية'}</span>
             </button>
           </div>
         </div>

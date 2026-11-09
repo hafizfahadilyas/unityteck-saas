@@ -232,6 +232,8 @@ export interface ProductTabsSettings {
   displayType: 'list' | 'slider';
   numberOfProducts: number;
   displayViewAll: boolean;
+  collectionFilter?: string;
+  columnsCount?: number;
 }
 
 export interface DetailedProductsSettings {
@@ -616,6 +618,9 @@ export interface ProductCardsSettings {
   showNotifyMe: boolean;
   showDiscountPercentage: boolean;
   showProductRating: boolean;
+  cardDesignPreset?: 'royal-luxury' | 'classic' | 'minimal';
+  showWhatsAppButton?: boolean;
+  showFeatureBadges?: boolean;
 }
 
 export interface CustomProductsSettings {
@@ -627,6 +632,8 @@ export interface CustomProductsSettings {
   productType: 'latest' | 'featured' | 'discounts';
   numberOfProducts: number;
   displayViewAll: boolean;
+  collectionFilter?: string;
+  columnsCount?: number;
 }
 
 export interface SpecialOfferCountdownSettings {
@@ -1454,6 +1461,9 @@ function buildRawDefaultThemeSettings(fallback: {
       showNotifyMe: true,
       showDiscountPercentage: true,
       showProductRating: true,
+      cardDesignPreset: 'classic',
+      showWhatsAppButton: false,
+      showFeatureBadges: true,
     },
     customProducts: {
       enabled: true,

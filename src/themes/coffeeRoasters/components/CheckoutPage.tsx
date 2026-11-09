@@ -18,28 +18,17 @@ import { readTrafficSource } from '../../../utils/trafficSource';
 import { trackStorefrontEvent } from '../../../utils/storefrontAnalytics';
 import { calculateShippingRates } from '../../../api/tenantApi';
 import { isApiEnabled } from '../../../api/client';
-
-const SAUDI_CITIES = [
-  { en: 'Riyadh', ar: 'الرياض' },
-  { en: 'Jeddah', ar: 'جدة' },
-  { en: 'Makkah', ar: 'مكة المكرمة' },
-  { en: 'Madinah', ar: 'المدينة المنورة' },
-  { en: 'Dammam', ar: 'الدمام' },
-  { en: 'Khobar', ar: 'الخبر' },
-  { en: 'Dhahran', ar: 'الظهران' },
-  { en: 'Al Ahsa', ar: 'الأحساء' },
-  { en: 'Tabuk', ar: 'تبوك' },
-  { en: 'Abha', ar: 'أبها' },
-  { en: 'Taif', ar: 'الطائف' },
-  { en: 'Buraidah', ar: 'بريدة' },
-  { en: 'Hail', ar: 'حائل' },
-  { en: 'Jazan', ar: 'جازان' },
-  { en: 'Yanbu', ar: 'ينبع' }
-];
+import { saudiCitiesAsEnAr, loadSaudiCityCatalog } from '../../../data/saudiCities';
+import { useSaudiCityOptions } from '../../../hooks/useSaudiCityOptions';
 
 export const CheckoutPage: React.FC = () => {
   const { cart, cartTotal, clearCart, navigateTo, language, setLastOrder, user, updateSignedInContact } = useCart();
   const { addOrder, activeStore, syncOrderFromApi } = useTenant();
+  const { catalog } = useSaudiCityOptions(activeStore?.id);
+  const saudiCities = useMemo(
+    () => saudiCitiesAsEnAr(activeStore?.id ? catalog : loadSaudiCityCatalog('')),
+    [activeStore?.id, catalog],
+  );
   const [orderError, setOrderError] = useState('');
 
   const [name, setName] = useState(user?.name || '');
@@ -369,7 +358,7 @@ export const CheckoutPage: React.FC = () => {
                       onStreetChange={setStreet}
                       geo={geo}
                       onGeoChange={setGeo}
-                      cities={SAUDI_CITIES}
+                      cities={saudiCities}
                     />
                     <CheckoutShippingMethods
                       isAr={language === 'AR'}

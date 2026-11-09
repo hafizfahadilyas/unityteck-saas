@@ -24,11 +24,15 @@ import {
   Copy,
   ShieldCheck,
   Check,
+  Globe,
+  Video,
+  Type,
 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
+import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
 import {
   cancelSocialPost,
   disconnectSocialAccount,
@@ -168,7 +172,10 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
 
   // Composer State
   const [composePlatform, setComposePlatform] = useState<'instagram' | 'facebook'>('instagram');
+  const [composeMediaType, setComposeMediaType] = useState<'image' | 'video' | 'text'>('image');
   const [composeImage, setComposeImage] = useState<string>('');
+  const [composeVideo, setComposeVideo] = useState<string>('');
+  const [composeMediaId, setComposeMediaId] = useState<string | undefined>(undefined);
   const [composeCaption, setComposeCaption] = useState<string>('');
   const [composeScheduledFor, setComposeScheduledFor] = useState<string>('');
 
@@ -289,7 +296,26 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
   };
 
   const handlePublishFromComposer = async (publishNow: boolean) => {
-    if (!composeImage) {
+    if (composeMediaType === 'text') {
+      if (composePlatform !== 'facebook') {
+        toast(
+          isAr
+            ? 'المنشور النصي متاح لفيسبوك فقط. إنستغرام يحتاج صورة أو فيديو.'
+            : 'Text-only posts are Facebook only. Instagram needs an image or video.',
+          'error',
+        );
+        return;
+      }
+      if (!composeCaption.trim()) {
+        toast(isAr ? 'أدخل النص العام أولاً' : 'Enter general text first', 'error');
+        return;
+      }
+    } else if (composeMediaType === 'video') {
+      if (!composeVideo) {
+        toast(isAr ? 'اختر فيديو للمنشور أولاً' : 'Select a video first', 'error');
+        return;
+      }
+    } else if (!composeImage) {
       toast(isAr ? 'اختر صورة للمنشور أولاً' : 'Select an image first', 'error');
       return;
     }
@@ -302,7 +328,10 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
     try {
       await scheduleSocialPost(activeStore.id, {
         platform: composePlatform,
-        image_url: composeImage,
+        media_type: composeMediaType,
+        media_id: composeMediaId,
+        image_url:
+          composeMediaType === 'text' ? null : composeMediaType === 'video' ? composeVideo : composeImage,
         caption: composeCaption,
         publish_now: publishNow,
         scheduled_for: publishNow ? undefined : new Date(composeScheduledFor).toISOString(),
@@ -319,6 +348,8 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
       );
       setComposeCaption('');
       setComposeScheduledFor('');
+      setComposeVideo('');
+      setComposeMediaId(undefined);
       setActiveTab(publishNow ? 'history' : 'scheduled');
       await load();
     } catch (err) {
@@ -344,6 +375,20 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
   const currentComposerAccount = accounts.find((a) => a.platform === composePlatform && a.is_connected);
   const scheduledPosts = posts.filter((p) => p.status === 'scheduled');
   const publishedPosts = posts.filter((p) => p.status === 'published');
+  const videoAssets = currentMedia.filter((m) => m.fileType === 'video');
+  const imageAssets = currentMedia.filter((m) => m.fileType !== 'video');
+  const previewHandle =
+    currentComposerAccount?.handle ||
+    currentComposerAccount?.account_name ||
+    (isAr ? '@متجرك' : '@yourstore');
+  const previewPageName =
+    currentComposerAccount?.account_name || activeStore.name || (isAr ? 'صفحة المتجر' : 'Store Page');
+  const canSubmitComposer =
+    composeMediaType === 'text'
+      ? composeCaption.trim().length > 0 && composePlatform === 'facebook'
+      : composeMediaType === 'video'
+        ? Boolean(composeVideo)
+        : Boolean(composeImage);
 
   const totalFollowers = accounts
     .filter((a) => a.is_connected)
@@ -355,7 +400,7 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
   const totalReach = posts.reduce((acc, p) => acc + (p.reach_count || 0), 0);
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto select-none font-sans">
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-7xl mx-auto select-none font-sans w-full min-w-0">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-3">
@@ -446,33 +491,29 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-1 overflow-x-auto">
-        {[
-          { id: 'accounts' as const, labelAr: 'الحسابات المتصلة', labelEn: 'Connected Accounts', icon: Users },
-          { id: 'compose' as const, labelAr: 'إنشاء ونشر منشور', labelEn: 'Compose & Publish', icon: Send },
-          { id: 'scheduled' as const, labelAr: `الجدولة (${scheduledPosts.length})`, labelEn: `Scheduled (${scheduledPosts.length})`, icon: CalendarClock },
-          { id: 'history' as const, labelAr: `سجل النشر (${publishedPosts.length})`, labelEn: `Published (${publishedPosts.length})`, icon: TrendingUp },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-3 text-xs font-black border-b-2 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
-                active
-                  ? 'border-emerald-600 text-emerald-700 dark:border-emerald-400 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30 rounded-t-xl'
-                  : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{isAr ? tab.labelAr : tab.labelEn}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Navigation Sub-Tabs — modern segmented toggles */}
+      <ModernSegmentedTabs
+        accent="emerald"
+        aria-label={isAr ? 'أقسام النشر الاجتماعي' : 'Social publisher sections'}
+        value={activeTab}
+        onChange={setActiveTab}
+        items={[
+          { id: 'accounts', label: isAr ? 'الحسابات المتصلة' : 'Connected Accounts', icon: Users },
+          { id: 'compose', label: isAr ? 'إنشاء ونشر منشور' : 'Compose & Publish', icon: Send },
+          {
+            id: 'scheduled',
+            label: isAr ? 'الجدولة' : 'Scheduled',
+            icon: CalendarClock,
+            count: scheduledPosts.length,
+          },
+          {
+            id: 'history',
+            label: isAr ? 'سجل النشر' : 'Published',
+            icon: TrendingUp,
+            count: publishedPosts.length,
+          },
+        ]}
+      />
 
       {/* TAB 1: CONNECTED ACCOUNTS */}
       {activeTab === 'accounts' && (
@@ -662,7 +703,12 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                       <button
                         key={p}
                         type="button"
-                        onClick={() => setComposePlatform(p)}
+                        onClick={() => {
+                          setComposePlatform(p);
+                          if (p === 'instagram' && composeMediaType === 'text') {
+                            setComposeMediaType('image');
+                          }
+                        }}
                         className={`flex-1 py-2.5 px-3 rounded-2xl text-xs font-black border flex items-center justify-center gap-2.5 cursor-pointer transition-all shadow-xs ${
                           active
                             ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/20'
@@ -677,64 +723,167 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                 </div>
               </div>
 
-              {/* Image Selector Strip */}
+              {/* Post type: Image / Video / General Text */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {isAr ? 'صورة المنشور (من الاستوديو أو المنتجات):' : 'Creative Image:'}
-                  </label>
-                  {onNavigateTab && (
-                    <button
-                      type="button"
-                      onClick={() => onNavigateTab('canva')}
-                      className="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>{isAr ? 'تصميم صورة جديدة في كانفا' : 'Design new in Canva'}</span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex gap-2.5 overflow-x-auto pb-2">
-                  {currentProducts.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setComposeImage(p.image || '')}
-                      className={`relative w-16 h-16 rounded-2xl border overflow-hidden shrink-0 cursor-pointer transition-all ${
-                        composeImage === p.image
-                          ? 'ring-2 ring-emerald-500 border-emerald-500 scale-105 shadow-md'
-                          : 'border-slate-200 dark:border-slate-700 opacity-70 hover:opacity-100'
-                      }`}
-                    >
-                      <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                  {currentMedia.slice(0, 6).map((m) => {
-                    const src = m.thumbnailUrl || m.webpUrl || m.originalUrl;
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+                  {isAr ? 'نوع المنشور:' : 'Post Type:'}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      { id: 'image' as const, icon: ImageIcon, ar: 'صورة', en: 'Image' },
+                      { id: 'video' as const, icon: Video, ar: 'فيديو', en: 'Video' },
+                      { id: 'text' as const, icon: Type, ar: 'نص عام', en: 'General Text' },
+                    ] as const
+                  ).map((opt) => {
+                    const active = composeMediaType === opt.id;
+                    const Icon = opt.icon;
                     return (
                       <button
-                        key={m.id}
+                        key={opt.id}
                         type="button"
-                        onClick={() => setComposeImage(src)}
-                        className={`relative w-16 h-16 rounded-2xl border overflow-hidden shrink-0 cursor-pointer transition-all ${
-                          composeImage === src
-                            ? 'ring-2 ring-emerald-500 border-emerald-500 scale-105 shadow-md'
-                            : 'border-slate-200 dark:border-slate-700 opacity-70 hover:opacity-100'
+                        onClick={() => {
+                          setComposeMediaType(opt.id);
+                          if (opt.id === 'text') setComposePlatform('facebook');
+                          setComposeMediaId(undefined);
+                        }}
+                        className={`py-2.5 px-2 rounded-2xl text-[11px] font-black border flex flex-col items-center justify-center gap-1 cursor-pointer transition-all ${
+                          active
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                            : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-emerald-500'
                         }`}
                       >
-                        <img src={src} alt={m.title} className="w-full h-full object-cover" />
+                        <Icon className="w-4 h-4" />
+                        <span>{isAr ? opt.ar : opt.en}</span>
                       </button>
                     );
                   })}
                 </div>
+                {composeMediaType === 'text' && (
+                  <p className="mt-1.5 text-[10px] text-slate-500 font-medium">
+                    {isAr
+                      ? 'النص العام ينشر على فيسبوك فقط بدون وسائط.'
+                      : 'General text publishes to Facebook only (no media).'}
+                  </p>
+                )}
               </div>
 
-              {/* Caption */}
+              {/* Media picker — image */}
+              {composeMediaType === 'image' && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {isAr ? 'صورة المنشور (من الاستوديو أو المنتجات):' : 'Creative Image:'}
+                    </label>
+                    {onNavigateTab && (
+                      <button
+                        type="button"
+                        onClick={() => onNavigateTab('canva')}
+                        className="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>{isAr ? 'تصميم صورة جديدة في كانفا' : 'Design new in Canva'}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2.5 overflow-x-auto pb-2">
+                    {currentProducts.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setComposeImage(p.image || '');
+                          setComposeMediaId(undefined);
+                        }}
+                        className={`relative w-16 h-16 rounded-2xl border overflow-hidden shrink-0 cursor-pointer transition-all ${
+                          composeImage === p.image
+                            ? 'ring-2 ring-emerald-500 border-emerald-500 scale-105 shadow-md'
+                            : 'border-slate-200 dark:border-slate-700 opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                    {imageAssets.slice(0, 8).map((m) => {
+                      const src = m.thumbnailUrl || m.webpUrl || m.originalUrl;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            setComposeImage(src);
+                            setComposeMediaId(m.id);
+                          }}
+                          className={`relative w-16 h-16 rounded-2xl border overflow-hidden shrink-0 cursor-pointer transition-all ${
+                            composeImage === src
+                              ? 'ring-2 ring-emerald-500 border-emerald-500 scale-105 shadow-md'
+                              : 'border-slate-200 dark:border-slate-700 opacity-70 hover:opacity-100'
+                          }`}
+                        >
+                          <img src={src} alt={m.title} className="w-full h-full object-cover" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Media picker — video */}
+              {composeMediaType === 'video' && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+                    {isAr ? 'فيديو المنشور (من مكتبة الوسائط):' : 'Creative Video (from Media Library):'}
+                  </label>
+                  {videoAssets.length === 0 ? (
+                    <div className="p-4 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-center text-[11px] text-slate-500">
+                      {isAr
+                        ? 'لا يوجد فيديو في مكتبة الوسائط. ارفع فيديو أولاً ثم عد هنا.'
+                        : 'No videos in Media Library yet. Upload a video first, then return here.'}
+                    </div>
+                  ) : (
+                    <div className="flex gap-2.5 overflow-x-auto pb-2">
+                      {videoAssets.map((m) => {
+                        const src = m.originalUrl || m.webpUrl || '';
+                        const thumb = m.posterUrl || m.thumbnailUrl || src;
+                        const active = composeVideo === src;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              setComposeVideo(src);
+                              setComposeMediaId(m.id);
+                            }}
+                            className={`relative w-24 h-16 rounded-2xl border overflow-hidden shrink-0 cursor-pointer transition-all ${
+                              active
+                                ? 'ring-2 ring-emerald-500 border-emerald-500 scale-105 shadow-md'
+                                : 'border-slate-200 dark:border-slate-700 opacity-70 hover:opacity-100'
+                            }`}
+                          >
+                            {thumb ? (
+                              <img src={thumb} alt={m.title || m.fileName} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-slate-900 flex items-center justify-center">
+                                <Video className="w-5 h-5 text-white" />
+                              </div>
+                            )}
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+                              <Video className="w-5 h-5 text-white drop-shadow" />
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* General Text / Caption */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {isAr ? 'الوصف والنص الترويجي:' : 'Caption & Copy:'}
+                    {isAr ? 'النص العام:' : 'General Text:'}
                   </label>
                   <span className="text-[10px] text-slate-500 font-mono">{composeCaption.length}/2200</span>
                 </div>
@@ -744,8 +893,8 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                   rows={4}
                   placeholder={
                     isAr
-                      ? 'اكتب تفاصيل العرض، كود الخصم، الهاشتاقات...'
-                      : 'Write your engaging social caption, promo codes, hashtags...'
+                      ? 'اكتب النص العام للمنشور، العرض، كود الخصم، والهاشتاقات...'
+                      : 'Write the general text for your post, offer, promo codes, hashtags...'
                   }
                   className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-emerald-500"
                 />
@@ -768,7 +917,7 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
               <div className="flex gap-2.5 pt-2">
                 <button
                   type="button"
-                  disabled={busy || !composeImage}
+                  disabled={busy || !canSubmitComposer}
                   onClick={() => void handlePublishFromComposer(true)}
                   className="flex-1 py-3 px-4 rounded-xl text-xs font-black text-white shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all hover:brightness-110 disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
@@ -778,7 +927,7 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                 </button>
                 <button
                   type="button"
-                  disabled={busy || !composeImage || !composeScheduledFor}
+                  disabled={busy || !canSubmitComposer || !composeScheduledFor}
                   onClick={() => void handlePublishFromComposer(false)}
                   className="flex-1 py-3 px-4 rounded-xl text-xs font-black border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white flex items-center justify-center gap-2 cursor-pointer transition-all hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 shadow-xs"
                 >
@@ -789,61 +938,152 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
             </div>
           </div>
 
-          {/* Right Column: Live Feed Mockup */}
+          {/* Right Column: Platform-specific Live Preview */}
           <div className="lg:col-span-5 space-y-3">
-            <h3 className="text-xs font-black text-slate-700 dark:text-slate-300">
-              {isAr ? 'المعاينة الحية للمنشور على الهاتف' : 'Mobile Live Feed Preview'}
+            <h3 className="text-xs font-black text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <span>{isAr ? 'المعاينة الحية للمنشور على الهاتف' : 'Mobile Live Feed Preview'}</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                {platformLabel(composePlatform, isAr)}
+              </span>
             </h3>
-            <div className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-hidden max-w-[360px] mx-auto">
-              {/* Mockup Header */}
-              <div className="p-3.5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+
+            {/* Instagram Preview */}
+            {composePlatform === 'instagram' && (
+              <div className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-xl overflow-hidden max-w-[360px] mx-auto">
+                <div className="p-3.5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 p-0.5">
+                      <div className="w-full h-full rounded-full bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-[10px] font-black text-slate-700 dark:text-white overflow-hidden">
+                        {currentComposerAccount?.avatar_url ? (
+                          <img src={currentComposerAccount.avatar_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          activeStore.name.slice(0, 2).toUpperCase()
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1">
+                        <span>{previewHandle}</span>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-sky-500" />
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        {isAr ? 'الرياض، المملكة العربية السعودية' : 'Riyadh, Saudi Arabia'}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-slate-400 text-xs font-bold">•••</span>
+                </div>
+
+                <div className="aspect-square w-full bg-slate-950 flex items-center justify-center overflow-hidden">
+                  {composeMediaType === 'video' && composeVideo ? (
+                    <video src={composeVideo} className="w-full h-full object-contain" controls playsInline muted />
+                  ) : composeMediaType === 'image' && composeImage ? (
+                    <img src={composeImage} alt="" className="w-full h-full object-contain" />
+                  ) : (
+                    <div className="text-slate-400 text-xs flex flex-col items-center gap-1 px-4 text-center">
+                      {composeMediaType === 'video' ? (
+                        <Video className="w-8 h-8 text-slate-500" />
+                      ) : (
+                        <ImageIcon className="w-8 h-8 text-slate-500" />
+                      )}
+                      <span>
+                        {composeMediaType === 'video'
+                          ? isAr
+                            ? 'اختر فيديو للمعاينة'
+                            : 'Select a video'
+                          : isAr
+                            ? 'اختر صورة للمعاينة'
+                            : 'Select an image'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3.5 space-y-2">
+                  <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
+                    <div className="flex items-center gap-3">
+                      <Heart className="w-4 h-4" />
+                      <MessageCircle className="w-4 h-4" />
+                      <Send className="w-4 h-4" />
+                    </div>
+                    <Bookmark className="w-4 h-4" />
+                  </div>
+                  <div className="text-xs text-slate-700 dark:text-slate-300 line-clamp-4">
+                    <strong className="text-slate-900 dark:text-white me-1.5">{previewHandle}</strong>
+                    {composeCaption || (
+                      <span className="text-slate-400">
+                        {isAr ? 'سيظهر النص العام هنا…' : 'General text will appear here…'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Facebook Preview */}
+            {composePlatform === 'facebook' && (
+              <div className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-hidden max-w-[360px] mx-auto p-3.5 space-y-2.5">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-emerald-500 p-0.5 shadow-xs">
-                    <img
-                      src={currentComposerAccount?.avatar_url || '/coffee-theme-refs/image15.png'}
-                      alt=""
-                      className="w-full h-full rounded-full object-cover bg-slate-100"
-                    />
+                  <div className="w-9 h-9 rounded-full bg-[#1877F2] flex items-center justify-center font-black text-xs text-white overflow-hidden">
+                    {currentComposerAccount?.avatar_url ? (
+                      <img src={currentComposerAccount.avatar_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      previewPageName.slice(0, 2).toUpperCase()
+                    )}
                   </div>
                   <div>
-                    <div className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1">
-                      <span>{currentComposerAccount?.handle || '@hibrew_ksa'}</span>
-                      <CheckCircle2 className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />
+                    <div className="font-black text-xs text-slate-900 dark:text-white flex items-center gap-1">
+                      <span>{previewPageName}</span>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#1877F2]" />
                     </div>
-                    <div className="text-[10px] text-slate-500">Riyadh, Saudi Arabia</div>
+                    <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                      {isAr ? 'الآن' : 'Just now'} • <Globe className="w-2.5 h-2.5" />
+                    </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Mockup Image */}
-              <div className="aspect-square w-full bg-slate-950 flex items-center justify-center overflow-hidden">
-                {composeImage ? (
-                  <img src={composeImage} alt="" className="w-full h-full object-contain" />
-                ) : (
-                  <div className="text-slate-400 text-xs flex flex-col items-center gap-1">
-                    <ImageIcon className="w-8 h-8 text-slate-500" />
-                    <span>{isAr ? 'اختر صورة للمعاينة' : 'Select an image'}</span>
+                <p className="text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap line-clamp-6">
+                  {composeCaption || (
+                    <span className="text-slate-400">
+                      {isAr ? 'سيظهر النص العام هنا…' : 'General text will appear here…'}
+                    </span>
+                  )}
+                </p>
+
+                {composeMediaType !== 'text' && (
+                  <div className="aspect-square bg-slate-950 rounded-xl overflow-hidden flex items-center justify-center">
+                    {composeMediaType === 'video' && composeVideo ? (
+                      <video src={composeVideo} className="w-full h-full object-contain" controls playsInline muted />
+                    ) : composeImage ? (
+                      <img src={composeImage} alt="" className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="text-slate-400 text-xs flex flex-col items-center gap-1">
+                        {composeMediaType === 'video' ? (
+                          <Video className="w-8 h-8 text-slate-500" />
+                        ) : (
+                          <ImageIcon className="w-8 h-8 text-slate-500" />
+                        )}
+                        <span>
+                          {composeMediaType === 'video'
+                            ? isAr
+                              ? 'اختر فيديو للمعاينة'
+                              : 'Select a video'
+                            : isAr
+                              ? 'اختر صورة للمعاينة'
+                              : 'Select an image'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
 
-              {/* Mockup Actions */}
-              <div className="p-3.5 space-y-2">
-                <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
-                  <div className="flex items-center gap-3">
-                    <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
-                    <MessageCircle className="w-4 h-4" />
-                    <Share2 className="w-4 h-4" />
-                  </div>
-                  <Bookmark className="w-4 h-4" />
-                </div>
-                <div className="text-xs font-black text-slate-900 dark:text-white">418 likes</div>
-                <div className="text-xs text-slate-700 dark:text-slate-300 line-clamp-3">
-                  <strong className="text-slate-900 dark:text-white me-1.5">{currentComposerAccount?.handle || '@hibrew_ksa'}:</strong>
-                  {composeCaption || (isAr ? 'عروض حصرية مميزة من متجرنا…' : 'Special exclusive offer from our store…')}
+                <div className="pt-2 flex items-center justify-between text-slate-500 border-t border-slate-100 dark:border-slate-800 text-[11px] font-bold">
+                  <span>{isAr ? 'إعجاب' : 'Like'}</span>
+                  <span>{isAr ? 'تعليق' : 'Comment'}</span>
+                  <span>{isAr ? 'مشاركة' : 'Share'}</span>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -888,8 +1128,16 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                     </span>
                   </div>
 
-                  <div className="aspect-video rounded-2xl overflow-hidden bg-slate-950">
-                    <img src={post.image_url} alt="" className="w-full h-full object-cover" />
+                  <div className="aspect-video rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center">
+                    {post.media_type === 'text' || !post.image_url ? (
+                      <div className="px-3 text-center text-[11px] text-slate-300 line-clamp-4">
+                        {post.caption || (isAr ? 'نص عام' : 'General text')}
+                      </div>
+                    ) : post.media_type === 'video' || /\.(mp4|mov|webm)(\?|$)/i.test(post.image_url) ? (
+                      <video src={post.image_url} className="w-full h-full object-cover" muted playsInline />
+                    ) : (
+                      <img src={post.image_url} alt="" className="w-full h-full object-cover" />
+                    )}
                   </div>
 
                   <p className="text-xs text-slate-700 dark:text-slate-300 line-clamp-2">{post.caption}</p>
@@ -947,25 +1195,43 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                 </div>
 
                 <div className="aspect-square rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center">
-                  <img src={post.image_url} alt="" className="w-full h-full object-contain" />
+                  {post.media_type === 'text' || !post.image_url ? (
+                    <div className="px-4 text-center text-xs text-slate-300 line-clamp-6">
+                      {post.caption || (isAr ? 'نص عام' : 'General text')}
+                    </div>
+                  ) : post.media_type === 'video' || /\.(mp4|mov|webm)(\?|$)/i.test(post.image_url) ? (
+                    <video src={post.image_url} className="w-full h-full object-contain" controls playsInline muted />
+                  ) : (
+                    <img src={post.image_url} alt="" className="w-full h-full object-contain" />
+                  )}
                 </div>
 
                 <p className="text-xs text-slate-700 dark:text-slate-300 line-clamp-2">{post.caption}</p>
 
-                {/* Metrics Box - 100% Readable High Contrast */}
+                {/* Real engagement only — never invent likes/reach */}
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
                   <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60">
                     <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{isAr ? 'الإعجابات' : 'Likes'}</div>
-                    <div className="text-sm font-black text-rose-600 dark:text-rose-400 font-mono">{post.likes_count ?? 342}</div>
+                    <div className="text-sm font-black text-rose-600 dark:text-rose-400 font-mono">
+                      {typeof post.likes_count === 'number' ? post.likes_count : 0}
+                    </div>
                   </div>
                   <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60">
                     <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{isAr ? 'التعليقات' : 'Comments'}</div>
-                    <div className="text-sm font-black text-sky-600 dark:text-sky-400 font-mono">{post.comments_count ?? 48}</div>
+                    <div className="text-sm font-black text-sky-600 dark:text-sky-400 font-mono">
+                      {typeof post.comments_count === 'number' ? post.comments_count : 0}
+                    </div>
                   </div>
                   <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60">
                     <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{isAr ? 'الوصول' : 'Reach'}</div>
                     <div className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">
-                      {post.reach_count ? `${(post.reach_count / 1000).toFixed(1)}K` : '5.8K'}
+                      {typeof post.reach_count === 'number' && post.reach_count > 0
+                        ? post.reach_count >= 1000
+                          ? `${(post.reach_count / 1000).toFixed(1)}K`
+                          : post.reach_count
+                        : isAr
+                          ? 'بانتظار البيانات'
+                          : 'Waiting'}
                     </div>
                   </div>
                 </div>

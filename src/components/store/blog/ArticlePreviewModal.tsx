@@ -3,6 +3,7 @@ import { X, Smartphone, Monitor, Calendar, User, Eye, MessageSquare, ArrowLeft, 
 import type { BlogArticleItem, BlogPostSettings, BlogSeoSettings } from '../../../types/blog';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { GlobalModal } from '../../common/GlobalModal';
+import { PRODUCT_DESCRIPTION_PROSE_CLASS, looksLikeHtml } from '../../common/RichTextEditor';
 
 interface ArticlePreviewModalProps {
   isOpen: boolean;
@@ -224,10 +225,23 @@ export const ArticlePreviewModal: React.FC<ArticlePreviewModalProps> = ({
                   </p>
                 )}
 
-                {/* Body Content */}
-                <div className="prose dark:prose-invert max-w-none text-sm text-slate-800 dark:text-slate-200 space-y-4 whitespace-pre-line leading-relaxed">
-                  {article.content || 'No content written yet.'}
-                </div>
+                {/* Body Content — supports rich HTML from the article editor */}
+                {article.content ? (
+                  looksLikeHtml(article.content) ? (
+                    <div
+                      className={`${PRODUCT_DESCRIPTION_PROSE_CLASS} max-w-none text-sm text-slate-800 dark:text-slate-200`}
+                      dangerouslySetInnerHTML={{ __html: article.content }}
+                    />
+                  ) : (
+                    <div className="prose dark:prose-invert max-w-none text-sm text-slate-800 dark:text-slate-200 whitespace-pre-line leading-relaxed">
+                      {article.content}
+                    </div>
+                  )
+                ) : (
+                  <p className="text-sm text-slate-400 italic">
+                    {isAr ? 'لا يوجد محتوى مكتوب بعد.' : 'No content written yet.'}
+                  </p>
+                )}
               </div>
             ) : null}
           </div>

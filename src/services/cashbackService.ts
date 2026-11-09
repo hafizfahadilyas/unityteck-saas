@@ -1,58 +1,100 @@
 /**
- * Cashback campaigns shared between the merchant dashboard (StoreCashback)
- * and the storefront checkout. Strictly isolated per store_id.
- * NOTE: persisted client-side until a dedicated backend endpoint is available.
+ * Client cashback types + API row mapper.
+ * Source of truth = Laravel `/cashback/campaigns` + `CashbackService` (store_id wallet only).
  */
+
 export interface CashbackCampaign {
   id: string;
   storeId: string;
   name: string;
+  imageUrl?: string | null;
   type: 'percentage' | 'fixed';
   value: number;
   minCartValue: number;
   maxCashbackPerOrder?: number;
   startDate: string;
   endDate: string;
-  status: 'active' | 'draft' | 'completed';
+  status: 'active' | 'draft' | 'completed' | 'paused';
+  productScope?: 'all' | 'include' | 'exclude';
+  productIds?: string[];
+  storeWalletOnly?: boolean;
+  creditExpiryDays?: number | null;
+  holdDays?: number;
 }
 
-const key = (storeId: string) => `unityteck_cashback_campaigns_${storeId}`;
-
-export function loadCashbackCampaigns(storeId: string): CashbackCampaign[] {
-  try {
-    const raw = localStorage.getItem(key(storeId));
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter((c) => c.storeId === storeId) : [];
-  } catch {
-    return [];
-  }
+/** Always empty — campaigns load from API only. */
+export function loadCashbackCampaigns(_storeId: string): CashbackCampaign[] {
+  return [];
 }
 
-export function saveCashbackCampaigns(storeId: string, list: CashbackCampaign[]): void {
-  try {
-    localStorage.setItem(key(storeId), JSON.stringify(list));
-    window.dispatchEvent(new Event('unityteck-cashback-updated'));
-  } catch {
-    /* storage unavailable */
-  }
+export function saveCashbackCampaigns(_storeId: string, _list: CashbackCampaign[]): void {
+  // no-op — use createCashbackCampaignApi
 }
 
-/** Highest eligible active campaign cashback for a given subtotal (0 if none). */
 export function computeCashback(
-  storeId: string,
-  subtotal: number,
-  now: Date = new Date(),
+  _storeId: string,
+  _subtotal: number,
+  _now: Date = new Date(),
 ): { amount: number; campaign: CashbackCampaign | null } {
-  let best = { amount: 0, campaign: null as CashbackCampaign | null };
-  for (const c of loadCashbackCampaigns(storeId)) {
-    if (c.status !== 'active') continue;
-    if (c.startDate && new Date(c.startDate) > now) continue;
-    if (c.endDate && new Date(c.endDate) < now) continue;
-    if (c.minCartValue && subtotal < c.minCartValue) continue;
-    let amt = c.type === 'percentage' ? (subtotal * c.value) / 100 : c.value;
-    if (c.maxCashbackPerOrder) amt = Math.min(amt, c.maxCashbackPerOrder);
-    amt = Math.round(amt * 100) / 100;
-    if (amt > best.amount) best = { amount: amt, campaign: c };
-  }
-  return best;
+  return { amount: 0, campaign: null };
+}
+
+function asNum(v: unknown, fallback = 0): number {
+  const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function asStr(v: unknown, fallback = ''): string {
+  return v == null ? fallback : String(v);
+}
+
+/**
+ * Map Laravel cashback_campaigns row → client CashbackCampaign (per store_id).
+ */
+export function mapApiCashbackRow(
+  row: Record<string, unknown> | null | undefined,
+  storeId: string,
+): CashbackCampaign {
+  const r = row && typeof row === 'object' ? row : {};
+  const scopeRaw = asStr(r.product_scope ?? r.productScope, 'all');
+  const scope: 'all' | 'include' | 'exclude' =
+    scopeRaw === 'include' || scopeRaw === 'exclude' ? scopeRaw : 'all';
+  const statusRaw = asStr(r.status, 'draft');
+  const status: CashbackCampaign['status'] =
+    statusRaw === 'active' ||
+    statusRaw === 'draft' ||
+    statusRaw === 'completed' ||
+    statusRaw === 'paused'
+      ? statusRaw
+      : 'draft';
+  const typeRaw = asStr(r.type, 'percentage');
+  const productIdsRaw = r.product_ids ?? r.productIds;
+  const productIds = Array.isArray(productIdsRaw)
+    ? productIdsRaw.map((id) => String(id)).filter(Boolean)
+    : [];
+
+  return {
+    id: asStr(r.id),
+    storeId: asStr(r.store_id ?? r.storeId, storeId),
+    name: asStr(r.name),
+    imageUrl: (r.image_url ?? r.imageUrl ?? null) as string | null,
+    type: typeRaw === 'fixed' ? 'fixed' : 'percentage',
+    value: asNum(r.value),
+    minCartValue: asNum(r.min_cart_value ?? r.minCartValue),
+    maxCashbackPerOrder:
+      r.max_cashback_per_order != null || r.maxCashbackPerOrder != null
+        ? asNum(r.max_cashback_per_order ?? r.maxCashbackPerOrder)
+        : undefined,
+    startDate: asStr(r.start_date ?? r.startDate),
+    endDate: asStr(r.end_date ?? r.endDate),
+    status,
+    productScope: scope,
+    productIds,
+    storeWalletOnly: true,
+    creditExpiryDays:
+      r.credit_expiry_days != null || r.creditExpiryDays != null
+        ? asNum(r.credit_expiry_days ?? r.creditExpiryDays)
+        : null,
+    holdDays: asNum(r.hold_days ?? r.holdDays, 7),
+  };
 }

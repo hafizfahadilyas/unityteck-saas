@@ -72,6 +72,10 @@ export const SocialOAuthDialogView: React.FC = () => {
   const storeId = params.get('storeId') || '';
   const storeName = params.get('storeName') || 'Store';
   const storeSlug = params.get('storeSlug') || storeId;
+  const isAr =
+    params.get('lang') === 'ar' ||
+    params.get('locale') === 'ar' ||
+  (typeof document !== 'undefined' && document.documentElement.lang === 'ar');
 
   const defaultHandle =
     platform === 'instagram'
@@ -86,16 +90,25 @@ export const SocialOAuthDialogView: React.FC = () => {
   const isTikTok = platform === 'tiktok';
   const comingSoon = !isMeta;
 
-  const platformTitle =
-    platform === 'instagram'
+  const platformTitle = isAr
+    ? platform === 'instagram'
+      ? 'إنستغرام للأعمال'
+      : platform === 'facebook'
+        ? 'صفحات فيسبوك للأعمال'
+        : platform === 'tiktok'
+          ? 'تيك توك للأعمال'
+          : platform === 'x'
+            ? 'بوابة مطوري إكس'
+            : 'إعلانات سناب شات'
+    : platform === 'instagram'
       ? 'Instagram Professional'
       : platform === 'facebook'
-      ? 'Facebook Pages for Business'
-      : platform === 'tiktok'
-      ? 'TikTok for Business'
-      : platform === 'x'
-      ? 'X (Twitter) Developer Portal'
-      : 'Snapchat Marketing';
+        ? 'Facebook Pages for Business'
+        : platform === 'tiktok'
+          ? 'TikTok for Business'
+          : platform === 'x'
+            ? 'X (Twitter) Developer Portal'
+            : 'Snapchat Marketing';
 
   const permissionsList = isMeta
     ? [
@@ -165,7 +178,11 @@ export const SocialOAuthDialogView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col justify-between font-sans antialiased select-none">
+    <div
+      className="min-h-screen bg-slate-100 text-slate-900 flex flex-col justify-between font-sans antialiased select-none"
+      dir={isAr ? 'rtl' : 'ltr'}
+      lang={isAr ? 'ar' : 'en'}
+    >
       {/* Browser URL Simulation Bar */}
       <div className="bg-slate-900 text-slate-300 px-4 py-2 text-xs flex items-center justify-between border-b border-slate-800">
         <div className="flex items-center gap-2 truncate">
@@ -179,7 +196,7 @@ export const SocialOAuthDialogView: React.FC = () => {
           </span>
         </div>
         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800 shrink-0">
-          SSL Verified 256-bit
+          {isAr ? 'شهادة أمان ٢٥٦ بت' : 'SSL Verified 256-bit'}
         </span>
       </div>
 
@@ -195,7 +212,9 @@ export const SocialOAuthDialogView: React.FC = () => {
               {platform === 'x' && <XLogo className="w-10 h-10 shadow-sm rounded-xl" />}
               <div>
                 <h1 className="text-base font-black text-slate-900">{platformTitle}</h1>
-                <p className="text-xs text-slate-500 font-medium">UnityTeck Store Connector</p>
+                <p className="text-xs text-slate-500 font-medium">
+                  {isAr ? 'موصل متجر يونيتيتك' : 'UnityTeck Store Connector'}
+                </p>
               </div>
             </div>
             <button
@@ -214,9 +233,11 @@ export const SocialOAuthDialogView: React.FC = () => {
                 <div className="w-14 h-14 mx-auto rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
                   <Lock className="w-7 h-7" />
                 </div>
-                <h3 className="text-base font-black text-slate-900">Coming Soon</h3>
+                <h3 className="text-base font-black text-slate-900">{isAr ? 'قريباً' : 'Coming Soon'}</h3>
                 <p className="text-xs text-slate-600 leading-relaxed px-2">
-                  {platformTitle} API is not wired yet. Live connect works for Instagram and Facebook only via Meta Graph token in Social Hub.
+                  {isAr
+                    ? `واجهة ${platformTitle} غير مفعّلة بعد. الربط الحقيقي متاح لإنستغرام وفيسبوك فقط عبر رمز ميتا في مركز النشر الاجتماعي.`
+                    : `${platformTitle} API is not wired yet. Live connect works for Instagram and Facebook only via Meta Graph token in Social Hub.`}
                 </p>
                 <p className="text-xs text-slate-500 font-mono">{accountHandle || accountName}</p>
                 <button
@@ -225,7 +246,7 @@ export const SocialOAuthDialogView: React.FC = () => {
                   className="w-full py-3 rounded-2xl text-xs font-black text-white cursor-pointer"
                   style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
                 >
-                  Close
+                  {isAr ? 'إغلاق' : 'Close'}
                 </button>
               </div>
             ) : (
@@ -233,7 +254,7 @@ export const SocialOAuthDialogView: React.FC = () => {
                 <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">
-                      Active Store
+                      {isAr ? 'المتجر النشط' : 'Active Store'}
                     </span>
                     <h3 className="text-sm font-black text-slate-900">{storeName}</h3>
                     <p className="text-xs font-mono text-emerald-800 font-bold mt-0.5">{storeId}</p>
@@ -246,10 +267,12 @@ export const SocialOAuthDialogView: React.FC = () => {
                 <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-2 text-xs text-amber-900">
                   <div className="flex items-center gap-1.5 font-black">
                     <Info className="w-4 h-4" />
-                    <span>Real Meta Graph token required</span>
+                    <span>{isAr ? 'رمز ميتا الحقيقي مطلوب' : 'Real Meta Graph token required'}</span>
                   </div>
                   <p className="leading-relaxed">
-                    Instant OAuth tokens are disabled. Close this window and paste your Page / Instagram Business token in Social Publishing Hub, then run Live Test.
+                    {isAr
+                      ? 'رموز الربط الفورية معطّلة. أغلق هذه النافذة والصق رمز صفحة فيسبوك أو إنستغراب للأعمال في مركز النشر الاجتماعي، ثم نفّذ اختبار الاتصال.'
+                      : 'Instant OAuth tokens are disabled. Close this window and paste your Page / Instagram Business token in Social Publishing Hub, then run Live Test.'}
                   </p>
                   <p className="font-mono text-[10px] text-emerald-800">
                     {platform === 'instagram'
@@ -263,8 +286,10 @@ export const SocialOAuthDialogView: React.FC = () => {
                     <div key={perm.code} className="p-3 flex items-start gap-2.5">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                       <div className="space-y-0.5">
-                        <div className="text-xs font-bold text-slate-900">{perm.titleEn}</div>
-                        <div className="text-[11px] text-slate-500 leading-snug">{perm.descEn}</div>
+                        <div className="text-xs font-bold text-slate-900">{isAr ? perm.titleAr : perm.titleEn}</div>
+                        <div className="text-[11px] text-slate-500 leading-snug">
+                          {isAr ? (perm as { descAr?: string }).descAr || perm.descEn : perm.descEn}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -276,7 +301,7 @@ export const SocialOAuthDialogView: React.FC = () => {
                   className="w-full py-3 rounded-2xl text-xs font-black text-white cursor-pointer"
                   style={{ background: 'linear-gradient(135deg, #1877F2, #0064e0)' }}
                 >
-                  Close & use Social Hub token form
+                  {isAr ? 'إغلاق واستخدام نموذج الرمز في المركز الاجتماعي' : 'Close & use Social Hub token form'}
                 </button>
               </>
             )}
@@ -286,7 +311,9 @@ export const SocialOAuthDialogView: React.FC = () => {
 
       {/* Footer */}
       <div className="p-3 text-center text-[11px] text-slate-500 border-t border-slate-200 bg-white">
-        Protected by UnityTeck OAuth 2.0 Security · End-to-end Encrypted · Zero Dummy Data
+        {isAr
+          ? 'محمي بتشفير يونيتيتك · بدون بيانات وهمية'
+          : 'Protected by UnityTeck OAuth 2.0 Security · End-to-end Encrypted · Zero Dummy Data'}
       </div>
     </div>
   );

@@ -62,7 +62,7 @@ Execute **in order**. One wave = one focused PR/slice. Ship only when that wave�
 
 | Step | Fix | Files (primary) | Acceptance |
 |------|-----|-----------------|------------|
-| 2.1 | Remove `orders × 15/20/22` visit invent | `CustomerJourneyFunnel.tsx`, `StoreChannelPerformance.tsx`, `StoreReports.tsx`, `ReportsOverview.tsx` | Missing visits → `0` + empty |
+| 2.1 | Remove `orders × 15/20/22` visit invent + orphan Total Visits | `CustomerJourneyFunnel.tsx`, `StoreChannelPerformance.tsx`, `StoreReports.tsx`, `ReportsOverview.tsx`, `StoreDashboard.tsx`, `AnalyticsReportController::dashboardHome` | Visits = `storefront_analytics_events` only; no sources → `0` + empty |
 | 2.2 | Remove hardcoded growth % (`↑ 12.8%`, etc.) | Reports\* components | No comparison → hide or “—” |
 | 2.3 | Remove fake device split / cities / campaign invent | `StoreAnalytics.tsx`, `ReportsCampaigns.tsx` | Empty states when GA/API missing |
 | 2.4 | Dashboard profit: no `revenue × 0.35` unless real COGS | `StoreDashboard.tsx` | Show revenue only or real margin field |
@@ -135,7 +135,7 @@ Execute **in order**. One wave = one focused PR/slice. Ship only when that wave�
 | Wave | Status |
 |------|--------|
 | 1 SEO / Google fake kill | **Done** (Instant connect killed, SEO seed off, PSI empty, KPI badges honest) |
-| 2 Analytics invent kill | **Done** (API invent kill 2026-11-07: campaigns/AI/behavior/searchQueries/channel ROAS; UTM columns + storefront events; public MySQL SEO shell) |
+| 2 Analytics invent kill | **Done** (+2026-11-09: orphan Total Visits 37 fixed — events-only visitors; traffic_sources from page_view; Visits Report fake ×0.72/75-25/bounce killed; seeded visitors_count→0) |
 | 3 Isolation leaks | **Done** (payment store-1, MasterThemes Flora, brands/invoice, identity defaults, theme default) |
 | 4 EN/AR dual | **Partial** (dual meta in `extra` done; indexing table and tracking/warranty fakes removed). SEO form still has leftover English in Arabic on some lower sections. Master Themes/Updates not fully passed. |
 | 5 Master fake tooling | **Done** (DB /health ping, Control Center no fake GTM/GA4, no invent ROAS 4.2) |

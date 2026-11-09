@@ -87,6 +87,29 @@ export const PaymentTransactionsModal: React.FC<PaymentTransactionsModalProps> =
     return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown';
   };
 
+  const titleCase = (v: string) => {
+    const s = String(v || '').trim();
+    if (!s) return '';
+    return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  };
+
+  const formatTxDate = (raw?: string) => {
+    if (!raw) return '';
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return String(raw);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
+  };
+
+  const moneyCell = (n: unknown) => {
+    const v = Number(n);
+    return Number.isFinite(v) ? v.toFixed(2) : '0.00';
+  };
+
   const handleExport = (format: 'csv' | 'xlsx') => {
     if (filtered.length === 0) {
       toast(isAr ? 'لا توجد عمليات للتصدير' : 'No transactions to export', 'error');
@@ -96,23 +119,29 @@ export const PaymentTransactionsModal: React.FC<PaymentTransactionsModalProps> =
       ? ['المرجع', 'التاريخ', 'البوابة', 'طريقة الدفع', 'المبلغ', 'الرسوم', 'الصافي', 'الحالة', 'رقم الطلب']
       : ['Reference', 'Date', 'Gateway', 'Method', 'Amount', 'Fee', 'Net', 'Status', 'Order ID'];
     const rows = filtered.map((tx) => [
-      tx.transactionReference || tx.id,
-      tx.createdAt ? new Date(tx.createdAt).toLocaleString(isAr ? 'ar-SA' : 'en-GB') : '',
-      tx.gatewayProvider || '',
-      tx.paymentMethod || '',
-      String(tx.amount ?? ''),
-      String(tx.feeAmount ?? ''),
-      String(tx.netAmount ?? ''),
+      String(tx.transactionReference || tx.id || ''),
+      formatTxDate(tx.createdAt),
+      titleCase(String(tx.gatewayProvider || '')),
+      String(tx.paymentMethod || ''),
+      moneyCell(tx.amount),
+      moneyCell(tx.feeAmount),
+      moneyCell(tx.netAmount),
       statusLabel(tx.status),
-      tx.orderId || '',
+      String(tx.orderId || ''),
     ]);
     const table = [headers, ...rows];
     const stamp = Date.now();
     if (format === 'xlsx') {
       downloadXlsx(
-        `payment_transactions_${stamp}.xlsx`,
+        `payment_transactions_${stamp}.xls`,
         isAr ? 'عمليات الدفع' : 'Payments',
         table,
+        {
+          rtl: isAr,
+          // Reference + Order ID stay text; Amount/Fee/Net are real numbers
+          textColumnIndexes: [0, 8],
+          numberColumnIndexes: [4, 5, 6],
+        },
       );
     } else {
       downloadCsv(`payment_transactions_${stamp}.csv`, table);

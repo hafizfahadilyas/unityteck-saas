@@ -32,7 +32,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { MECCA_CATEGORIES_SEED } from '../../StoreCategories';
-import { INITIAL_BRANDS, getStoreBrands, type BrandItem } from '../../StoreBrandsView';
+import { getStoreBrands, type BrandItem } from '../../StoreBrandsView';
 import { EIGHT_FEATURED_CATEGORIES } from '../../../../themes/meccaGifts/data/mockData';
 import {
   COFFEE_CIRCULAR_CATEGORIES,
@@ -160,7 +160,7 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
   }, [currentProducts]);
 
   // Available Store Brands List (Strictly isolated per active store)
-  const storeBrandsList = activeStore ? getStoreBrands(activeStore.id) : INITIAL_BRANDS;
+  const storeBrandsList = activeStore ? getStoreBrands(activeStore.id) : [];
   const availableBrands = [
     { id: 'all', nameAr: 'كافة العلامات التجارية', nameEn: 'All Brands' },
     ...storeBrandsList.map((b: BrandItem) => ({
@@ -778,18 +778,18 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
               const newNum = currentHeroSlides.length + 1;
               const newSlide: HeroSlideItem = {
                 id: `slide-${Date.now()}`,
-                title: isCoffee ? `Specialty Coffee Roast #${newNum}` : `Luxury Floral Collection #${newNum}`,
-                titleAr: isCoffee ? `محصول قهوة فاخر #${newNum}` : `تشكيلة ملكية فاخرة #${newNum}`,
-                subtitle: isCoffee ? 'Artisan single-origin beans roasted to perfection' : 'Imported fresh roses delivered chilled',
-                subtitleAr: isCoffee ? 'محاصيل بن فاخرة طازجة التحميص لخبراء التذوق' : 'زهور طبيعية وهدايا فاخرة لكل مناسبة',
-                primaryBtn: isCoffee ? 'Shop Beans' : 'Shop Now',
-                primaryBtnAr: isCoffee ? 'تسوق المحاصيل' : 'تسوق الآن',
+                title: `Product Collection #${newNum}`,
+                titleAr: `مجموعة المنتجات #${newNum}`,
+                subtitle: 'Discover featured products from your store',
+                subtitleAr: 'اكتشف المنتجات المميزة من متجرك',
+                primaryBtn: 'Shop Now',
+                primaryBtnAr: 'تسوق الآن',
                 primaryLink: '#catalog',
                 secondaryBtn: 'Learn More',
                 secondaryBtnAr: 'اعرف المزيد',
                 secondaryLink: '#about',
-                image: activeSlide?.image || 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1600&q=80',
-                category: isCoffee ? 'حبوب القهوة المختصة' : 'باقات فاخرة',
+                image: activeSlide?.image || '',
+                category: isAr ? 'منتجات المتجر' : 'Store Products',
               };
               const next = [...currentHeroSlides, newSlide];
               onUpdateSetting('slides', next);

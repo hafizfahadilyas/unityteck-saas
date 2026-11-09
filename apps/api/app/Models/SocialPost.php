@@ -16,6 +16,7 @@ class SocialPost extends Model
         'store_id',
         'platform',
         'media_id',
+        'media_type',
         'image_url',
         'caption',
         'scheduled_for',

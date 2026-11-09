@@ -33,14 +33,25 @@ class GoogleIntegrationController extends Controller
         }
 
         $redirectUri = $request->input('redirect_uri') ?: $this->googleService->getRedirectUri();
-        $authUrl = $this->googleService->getAuthUrl($storeId, $redirectUri);
         $clientId = $this->googleService->getClientId();
+        $hasSecret = $this->googleService->getClientSecret() !== '';
+        if ($clientId === '' || !$hasSecret) {
+            return response()->json([
+                'message' => 'Google OAuth is not configured on the server. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.',
+                'error' => 'missing_server_credentials',
+                'client_id' => $clientId,
+                'configured' => false,
+            ], 400);
+        }
+
+        $authUrl = $this->googleService->getAuthUrl($storeId, $redirectUri);
 
         return response()->json([
             'auth_url' => $authUrl,
             'client_id' => $clientId,
             'redirect_uri' => $redirectUri,
             'scopes' => GoogleService::SCOPES,
+            'configured' => true,
         ]);
     }
 
@@ -63,11 +74,18 @@ class GoogleIntegrationController extends Controller
         $expiresIn = 3600;
 
         if ($code) {
-            $tokenData = $this->googleService->exchangeCode($code, $redirectUri);
-            if ($tokenData && isset($tokenData['access_token'])) {
+            $exchange = $this->googleService->exchangeCode($code, $redirectUri);
+            $tokenData = ($exchange['success'] ?? false) ? ($exchange['token'] ?? null) : null;
+            if (is_array($tokenData) && isset($tokenData['access_token'])) {
                 $accessToken = $tokenData['access_token'];
                 $refreshToken = $tokenData['refresh_token'] ?? null;
                 $expiresIn = $tokenData['expires_in'] ?? 3600;
+            } else {
+                return response()->json([
+                    'message' => $exchange['message']
+                        ?? 'Could not obtain Google access token. Please verify authorization code.',
+                    'error' => $exchange['google_error'] ?? 'token_exchange_failed',
+                ], 400);
             }
         } elseif ($directAccessToken) {
             // Direct token from Google Identity Services
@@ -78,7 +96,8 @@ class GoogleIntegrationController extends Controller
 
         if (!$accessToken) {
             return response()->json([
-                'error' => 'Could not obtain Google access token. Please verify authorization code.',
+                'message' => 'Could not obtain Google access token. Please verify authorization code.',
+                'error' => 'missing_access_token',
             ], 400);
         }
 
@@ -316,7 +335,13 @@ class GoogleIntegrationController extends Controller
             'google_ads_account_name' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $integration = StoreGoogleIntegration::query()->forStore($storeId)->firstOrFail();
+        $integration = StoreGoogleIntegration::query()->forStore($storeId)->first();
+        if (!$integration || !$integration->is_connected) {
+            return response()->json([
+                'message' => 'Connect Google for this store first, then save properties.',
+                'error' => 'google_not_connected',
+            ], 400);
+        }
         $integration->fill($data)->save();
 
         // Sync with SeoConfig table

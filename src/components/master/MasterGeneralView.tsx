@@ -286,7 +286,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     };
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
@@ -497,7 +497,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     };
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto" style={{ color: 'var(--text)' }}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0" style={{ color: 'var(--text)' }}>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -751,7 +751,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     };
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto" style={{ color: 'var(--text)' }}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0" style={{ color: 'var(--text)' }}>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -1032,7 +1032,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     };
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto" style={{ color: 'var(--text)' }}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0" style={{ color: 'var(--text)' }}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-extrabold tracking-tight" style={{ color: 'var(--text)' }}>
@@ -1168,16 +1168,22 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     };
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto" style={{ color: 'var(--text)' }}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0" style={{ color: 'var(--text)' }}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-extrabold tracking-tight" style={{ color: 'var(--text)' }}>
-              {isAr ? 'السجل المركزي للعروض والكوبونات' : 'Central Promotions & Coupons Ledger'}
+              {tab === 'coupons'
+                ? (isAr ? 'السجل المركزي للكوبونات' : 'Central Coupons Ledger')
+                : (isAr ? 'السجل المركزي للعروض والكوبونات' : 'Central Promotions & Coupons Ledger')}
             </h1>
             <p className="text-xs" style={{ color: 'var(--muted)' }}>
-              {isAr
-                ? 'حملات الخصم على مستوى المنصة، وعروض العيد، واستردادات القسائم، وأكواد خصم التجار'
-                : 'Platform-wide discount campaigns, Eid deals, voucher redemptions, and merchant coupon codes'}
+              {tab === 'coupons'
+                ? (isAr
+                    ? 'أكواد وكوبونات الخصم لجميع المتاجر على مستوى المنصة'
+                    : 'Platform-wide merchant coupon discount codes across all stores')
+                : (isAr
+                    ? 'حملات الخصم على مستوى المنصة، وعروض العيد، واستردادات الكوبونات، وأكواد خصم التجار'
+                    : 'Platform-wide discount campaigns, Eid deals, coupon redemptions, and merchant coupon codes')}
             </p>
           </div>
           <button type="button" onClick={exportCoupons} disabled={filteredCoupons.length === 0} className={`${exportBtnClass} disabled:opacity-50`} style={exportBtnStyle}>
@@ -1352,7 +1358,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     };
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
@@ -1485,7 +1491,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     };
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
             {isAr ? 'البنية التحتية للمنصة والتكاملات السحابية' : 'Platform Infrastructure & Cloud Integrations'}
@@ -1563,7 +1569,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     };
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
@@ -1637,7 +1643,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     };
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
@@ -1757,7 +1763,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     };
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
@@ -1837,7 +1843,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
   // 9. SETTINGS
   if (tab === 'settings') {
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto" style={{ color: 'var(--text)' }}>
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0" style={{ color: 'var(--text)' }}>
         <div>
           <h1 className="text-xl font-extrabold" style={{ color: 'var(--text)' }}>
             {isAr ? 'الإعدادات المركزية للمنصة' : 'Central SaaS Master Settings'}
@@ -1968,7 +1974,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     });
 
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto text-slate-800 dark:text-slate-100">
+      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
             {isAr ? 'قاعدة المعرفة والمدونة للتجارة الإلكترونية' : 'Platform E-Commerce Knowledge Base & Blog'}
@@ -2047,7 +2053,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
 
   // 11. PAYMENTS
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto text-slate-800 dark:text-slate-100">
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
       <div>
         <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
           {isAr ? 'تكاملات بوابات الدفع والتسويات' : 'Payment Gateway Integrations & Settlements'}

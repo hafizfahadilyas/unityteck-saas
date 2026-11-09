@@ -31,6 +31,8 @@ export interface RichTextEditorProps {
   enableHeadings?: boolean;
   /** Enable insert image / video from media library. Default true. */
   enableMedia?: boolean;
+  /** Media library folder when inserting images/videos. Default products. */
+  mediaFolder?: string;
 }
 
 const BLOCK_OPTIONS = [
@@ -100,6 +102,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   showCodeToggle = true,
   enableHeadings = true,
   enableMedia = true,
+  mediaFolder = 'products',
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const [activeFormats, setActiveFormats] = useState({
@@ -632,13 +635,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           title={
             mediaInsertMode === 'video'
               ? isAr
-                ? 'اختر فيديو للوصف'
-                : 'Select video for description'
+                ? 'اختر فيديو للمحتوى'
+                : 'Select video for content'
               : isAr
-                ? 'اختر صورة للوصف'
-                : 'Select image for description'
+                ? 'اختر صورة للمحتوى'
+                : 'Select image for content'
           }
-          initialFolder="products"
+          initialFolder={mediaFolder}
         />
       )}
     </div>

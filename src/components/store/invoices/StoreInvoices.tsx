@@ -289,7 +289,7 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto select-none" dir={isAr ? 'rtl' : 'ltr'}>
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-7xl mx-auto select-none w-full min-w-0" dir={isAr ? 'rtl' : 'ltr'}>
       {/* Top Header & Action Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

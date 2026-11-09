@@ -8,6 +8,7 @@ import { sellingPrice } from '../../../utils/productPricing';
 import { seedExistingCommerce } from '../../../utils/existingProductCommerce';
 import { buildGeneratedVariants } from '../../../utils/productVariants';
 import { trackStorefrontEvent } from '../../../utils/storefrontAnalytics';
+import { useActiveSpecialOfferDiscount } from '../../../hooks/useActiveSpecialOfferDiscount';
 
 import { FlyingCartOverlay, FlyingCartItem } from '../components/FlyingCartOverlay';
 import { readStoreIdentity, type StoreIdentitySettings } from '../../settings/storeIdentity';
@@ -730,14 +731,32 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // ── Unified Coupon Engine (real store coupons from TenantContext) ──
   const [appliedCoupon, setAppliedCoupon] = useState<CouponItem | null>(null);
 
+  const specialOfferLines = useMemo(
+    () =>
+      cart.map((item) => ({
+        productId: String(item.productId || ''),
+        lineTotal: item.unitPrice * item.quantity,
+      })),
+    [cart],
+  );
+  const { discount: specialOfferDiscount } = useActiveSpecialOfferDiscount(
+    tenant?.activeStore?.id,
+    specialOfferLines,
+  );
+
   const couponDiscount = useMemo(() => {
-    if (!appliedCoupon || appliedCoupon.status !== 'active') return 0;
-    if (appliedCoupon.minOrderValue && cartTotal < appliedCoupon.minOrderValue) return 0;
-    if (appliedCoupon.discountType === 'percentage') {
-      return Math.round(cartTotal * (appliedCoupon.discountValue / 100));
+    let couponPart = 0;
+    if (appliedCoupon && appliedCoupon.status === 'active') {
+      if (!(appliedCoupon.minOrderValue && cartTotal < appliedCoupon.minOrderValue)) {
+        if (appliedCoupon.discountType === 'percentage') {
+          couponPart = Math.round(cartTotal * (appliedCoupon.discountValue / 100));
+        } else {
+          couponPart = Math.min(cartTotal, appliedCoupon.discountValue);
+        }
+      }
     }
-    return Math.min(cartTotal, appliedCoupon.discountValue);
-  }, [appliedCoupon, cartTotal]);
+    return Math.min(cartTotal, couponPart + specialOfferDiscount);
+  }, [appliedCoupon, cartTotal, specialOfferDiscount]);
 
   const applyCoupon = (rawCode: string): { success: boolean; message: string } => {
     const isAr = language === 'AR';

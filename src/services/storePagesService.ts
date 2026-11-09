@@ -424,12 +424,12 @@ function getStorageKey(storeId: string): string {
 
 export function replacePlaceholders(text: string, store?: Partial<Store>): string {
   if (!text) return '';
-  const storeName = store?.nameAr || store?.name || 'HiBrew KSA | متجر مكائن القهوة';
-  const phone = store?.contactPhone || store?.phone || '0501234567';
-  const email = store?.email || store?.ownerEmail || 'sa.support@hibrew.com';
-  const cr = store?.crNumber || '1010754462';
-  const vat = store?.taxNumber || '311123479500003';
-  const city = 'الرياض (المملكة العربية السعودية)';
+  const storeName = store?.nameAr || store?.name || 'متجرك';
+  const phone = store?.contactPhone || store?.phone || '';
+  const email = store?.email || store?.ownerEmail || '';
+  const cr = store?.crNumber || '';
+  const vat = store?.taxNumber || '';
+  const city = 'المملكة العربية السعودية';
 
   return text
     .replace(/{STORE_NAME}/g, storeName)
@@ -485,13 +485,68 @@ function rememberPages(storeId: string, pages: StoreCustomPage[]): StoreCustomPa
 function pageTypeForSlug(slug: string): string {
   const key = slug.toLowerCase();
   if (key === 'faq' || key.includes('faq')) return 'faq';
-  if (key === 'about') return 'about';
-  if (key === 'contact') return 'contact';
+  if (key === 'about' || key === 'about-us') return 'about';
+  if (key === 'contact' || key === 'contact-us') return 'contact';
   if (key === 'home') return 'home';
   return 'custom';
 }
 
+const BUILDER_PAGE_TYPES = new Set([
+  'home',
+  'shop',
+  'product',
+  'cart',
+  'checkout',
+  'thankyou',
+  '404',
+]);
+
+type GatewayPageRow = ThemePageRecord & {
+  titleEn?: string;
+  titleAr?: string;
+  content_en?: string;
+  content_ar?: string;
+  contentEn?: string;
+  contentAr?: string;
+  category?: StoreCustomPage['category'] | string;
+  is_system_default?: number | boolean;
+  isSystemDefault?: boolean;
+  is_published?: number | boolean;
+  isPublished?: boolean;
+  meta_description_en?: string;
+  meta_description_ar?: string;
+  metaDescriptionEn?: string;
+  metaDescriptionAr?: string;
+  updated_at?: string;
+};
+
+/** Policy / content docs only — exclude Page Builder system canvases. */
+function isPolicyContentRow(row: ThemePageRecord): boolean {
+  const flat = row as GatewayPageRow;
+  if (BUILDER_PAGE_TYPES.has(String(row.type || '').toLowerCase())) return false;
+  if (typeof flat.content_en === 'string' || typeof flat.content_ar === 'string') return true;
+  if (typeof flat.contentEn === 'string' || typeof flat.contentAr === 'string') return true;
+  if (flat.category === 'legal' || flat.category === 'information' || flat.category === 'support') {
+    return true;
+  }
+  const layout = (row.published_layout || row.draft_layout || {}) as Record<string, unknown>;
+  if (typeof layout.contentEn === 'string' || typeof layout.contentAr === 'string') return true;
+  if (layout.isSystemDefault === true) return true;
+  if (
+    layout.category === 'legal' ||
+    layout.category === 'information' ||
+    layout.category === 'support' ||
+    layout.category === 'custom'
+  ) {
+    return true;
+  }
+  if (MASTER_DEFAULT_PAGES.some((page) => page.slug === row.slug)) return true;
+  if (Array.isArray(layout.sections) || Array.isArray(layout.blocks)) return false;
+  return row.type === 'custom' || row.type === 'faq' || row.type === 'about' || row.type === 'contact';
+}
+
 function fromThemePage(row: ThemePageRecord): StoreCustomPage {
+  const flat = row as GatewayPageRow;
   const layout = (row.published_layout || row.draft_layout || {}) as {
     contentEn?: string;
     contentAr?: string;
@@ -499,20 +554,74 @@ function fromThemePage(row: ThemePageRecord): StoreCustomPage {
     isSystemDefault?: boolean;
   };
   const seo = (row.seo || {}) as { seo_description_en?: string; seo_description_ar?: string };
+  const category = (layout.category ||
+    flat.category ||
+    'custom') as StoreCustomPage['category'];
+  const published =
+    row.status === 'published' ||
+    flat.isPublished === true ||
+    flat.is_published === true ||
+    flat.is_published === 1;
   return {
     id: row.id,
     slug: row.slug,
-    titleEn: row.title_en || '',
-    titleAr: row.title_ar || '',
-    contentEn: layout.contentEn || '',
-    contentAr: layout.contentAr || '',
-    category: layout.category || 'custom',
-    isSystemDefault: Boolean(layout.isSystemDefault),
-    isPublished: row.status === 'published',
-    metaDescriptionEn: seo.seo_description_en,
-    metaDescriptionAr: seo.seo_description_ar,
-    updatedAt: new Date().toISOString().split('T')[0],
+    titleEn: row.title_en || flat.titleEn || '',
+    titleAr: row.title_ar || flat.titleAr || '',
+    contentEn: layout.contentEn || flat.contentEn || flat.content_en || '',
+    contentAr: layout.contentAr || flat.contentAr || flat.content_ar || '',
+    category,
+    isSystemDefault: Boolean(
+      layout.isSystemDefault || flat.isSystemDefault || flat.is_system_default,
+    ),
+    isPublished: Boolean(published),
+    metaDescriptionEn:
+      seo.seo_description_en || flat.metaDescriptionEn || flat.meta_description_en,
+    metaDescriptionAr:
+      seo.seo_description_ar || flat.metaDescriptionAr || flat.meta_description_ar,
+    updatedAt: (flat.updated_at || new Date().toISOString()).split('T')[0],
   };
+}
+
+async function upsertPolicyPage(
+  storeId: string,
+  page: StoreCustomPage,
+  remoteCache?: ThemePageRecord[],
+): Promise<StoreCustomPage> {
+  const payload = toThemePayload(page);
+  const remote = remoteCache ?? (await fetchThemePagesApi(storeId));
+  const existing = remote.find((row) => row.slug === page.slug);
+  if (existing) {
+    const updated = await updateThemePageApi(storeId, existing.id, payload);
+    if (page.isPublished && updated.status !== 'published') {
+      try {
+        await publishThemePageApi(storeId, existing.id);
+      } catch {
+        /* content already on published_layout from payload when allowed */
+      }
+    }
+    return fromThemePage(
+      page.isPublished
+        ? { ...updated, status: 'published', published_layout: payload.published_layout }
+        : updated,
+    );
+  }
+
+  const created = await createThemePageApi(storeId, payload);
+  if (remoteCache) remoteCache.push(created);
+  // Older API builds wipe custom drafts — re-apply content layout when empty.
+  const createdLayout = (created.draft_layout || {}) as { contentEn?: string };
+  if (!createdLayout.contentEn && page.contentEn) {
+    const patched = await updateThemePageApi(storeId, created.id, payload);
+    if (page.isPublished) {
+      try {
+        await publishThemePageApi(storeId, created.id);
+      } catch {
+        /* ignore closed-builder publish; payload already had published_layout */
+      }
+    }
+    return fromThemePage(patched);
+  }
+  return fromThemePage(created);
 }
 
 function toThemePayload(page: StoreCustomPage) {
@@ -568,16 +677,15 @@ export async function hydrateStorePages(storeId: string): Promise<StoreCustomPag
     return local;
   }
 
-  const remote = await fetchThemePagesApi(storeId);
+  const remote = (await fetchThemePagesApi(storeId)).filter(isPolicyContentRow);
   if (remote.length === 0) {
     const local = readStoredRows(storeId) ?? [];
     const importable = isUntouchedMasterSeed(local) ? [] : local;
     if (importable.length > 0) {
+      const imported: StoreCustomPage[] = [];
       for (const page of importable) {
-        const created = await createThemePageApi(storeId, toThemePayload(page));
-        if (page.isPublished) await publishThemePageApi(storeId, created.id);
+        imported.push(await upsertPolicyPage(storeId, page));
       }
-      const imported = (await fetchThemePagesApi(storeId)).map(fromThemePage);
       notifyPages(storeId);
       return rememberPages(storeId, imported);
     }
@@ -614,17 +722,15 @@ export function saveStorePage(storeId: string, page: StoreCustomPage): void {
   rememberPages(storeId, current);
   notifyPages(storeId);
   if (!isApiEnabled()) return;
-  const payload = toThemePayload(toSave);
-  const persist = toSave.id.startsWith('tpage-')
-    ? updateThemePageApi(storeId, toSave.id, payload)
-    : createThemePageApi(storeId, payload).then(async (created) => {
-        if (toSave.isPublished) await publishThemePageApi(storeId, created.id);
-        const next = (pageMemory.get(storeId) || []).map((item) =>
-          item.id === toSave.id ? { ...toSave, id: created.id } : item,
-        );
-        rememberPages(storeId, next);
-      });
-  void persist.catch(() => undefined);
+  void upsertPolicyPage(storeId, toSave)
+    .then((saved) => {
+      const next = (pageMemory.get(storeId) || []).map((item) =>
+        item.id === toSave.id || item.slug === toSave.slug ? saved : item,
+      );
+      if (!next.some((item) => item.id === saved.id || item.slug === saved.slug)) next.push(saved);
+      rememberPages(storeId, next);
+    })
+    .catch(() => undefined);
 }
 
 export function createStorePage(
@@ -657,7 +763,22 @@ export function deleteStorePage(storeId: string, pageId: string): boolean {
   return true;
 }
 
-export function resetStorePagesToDefault(storeId: string): void {
-  rememberPages(storeId, []);
+export async function resetStorePagesToDefault(storeId: string): Promise<StoreCustomPage[]> {
+  const defaults = MASTER_DEFAULT_PAGES.map((page) => ({ ...page }));
+  if (!isApiEnabled()) {
+    notifyPages(storeId);
+    return rememberPages(storeId, defaults);
+  }
+
+  const remoteCache = await fetchThemePagesApi(storeId);
+  const saved: StoreCustomPage[] = [];
+  for (const page of defaults) {
+    try {
+      saved.push(await upsertPolicyPage(storeId, page, remoteCache));
+    } catch {
+      saved.push(page);
+    }
+  }
   notifyPages(storeId);
+  return rememberPages(storeId, saved);
 }

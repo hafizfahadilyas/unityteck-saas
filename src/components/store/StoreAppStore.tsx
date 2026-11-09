@@ -93,7 +93,7 @@ export const StoreAppStore: React.FC<StoreAppStoreProps> = ({ onOpenStorefront }
 
   return (
     <div
-      className="p-4 sm:p-6 space-y-5 max-w-[1600px] mx-auto"
+      className="u-page p-4 sm:p-6 space-y-5 max-w-[1600px] mx-auto w-full min-w-0"
       style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

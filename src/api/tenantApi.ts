@@ -47,6 +47,10 @@ import type {
   BlogSeoSettings,
   ArticleCommerceToolsConfig,
 } from '../types/blog';
+import type { CashbackCampaign } from '../services/cashbackService';
+import { mapApiCashbackRow } from '../services/cashbackService';
+import type { SpecialOffer } from '../services/specialOfferService';
+import { mapApiSpecialOfferRow } from '../services/specialOfferService';
 
 type ListResponse<T> = { data: T[] };
 type ItemResponse<T> = { data: T };
@@ -766,7 +770,12 @@ export async function deleteOrder(
   opts?: { reason?: string },
 ): Promise<void> {
   const reason = opts?.reason?.trim();
-  await apiFetch(`/orders/${id}`, {
+  // Prefer JSON body; also append reason as query for hosts that strip DELETE bodies.
+  const path =
+    reason && reason.length > 0
+      ? `/orders/${encodeURIComponent(id)}?reason=${encodeURIComponent(reason)}`
+      : `/orders/${encodeURIComponent(id)}`;
+  await apiFetch(path, {
     method: 'DELETE',
     storeId,
     body: reason ? { reason } : undefined,
@@ -2280,6 +2289,16 @@ export async function verifyStorefrontPaymentApi(payload: {
 
 // ── Real Analytics Reports (Database Aggregated) ──
 
+export type DashboardHomeTrafficSource = {
+  id: string;
+  name: string;
+  name_ar: string;
+  percentage: number;
+  color: string;
+  icon_type: string;
+  visits: number;
+};
+
 export type DashboardHomeAnalytics = {
   store_id: string;
   visitors_count: number;
@@ -2290,6 +2309,8 @@ export type DashboardHomeAnalytics = {
     percentage: number;
     highlighted?: boolean;
   }>;
+  /** Real page_view attribution only — empty when no storefront events */
+  traffic_sources?: DashboardHomeTrafficSource[];
 };
 
 export async function fetchDashboardHomeAnalytics(storeId: string): Promise<DashboardHomeAnalytics> {
@@ -3194,7 +3215,27 @@ export interface LoyaltyOverviewData {
     pointsGrowth: string;
     customersStatus: string;
   };
-  earn_rules: Array<{ id: string; methodAr: string; methodEn: string; points: number; active: boolean }>;
+  earn_rules: Array<{
+    id: string;
+    method?: string;
+    methodAr: string;
+    methodEn: string;
+    points: number;
+    active: boolean;
+    config?: {
+      points_per_sar?: number;
+      qualifying_statuses?: string[];
+      product_ids?: string[];
+      mode?: 'double' | 'fixed';
+      fixed_points_per_unit?: number;
+      threshold_sar?: number;
+      bonus_points?: number;
+      points?: number;
+      require_verified?: boolean;
+      require_approval?: boolean;
+      within_days?: number;
+    };
+  }>;
   rewards: Array<{ id: string; nameAr: string; nameEn: string; points: number; rewardType: string; status: string }>;
   redemptions: any[];
   activities: Array<{ id: string; label: string; time: string; status: string }>;
@@ -3205,6 +3246,16 @@ export interface LoyaltyOverviewData {
     appNotifications: boolean;
     emailNotifications: boolean;
     pointsExpiration: boolean;
+  };
+  game_settings?: {
+    gameEnabled?: boolean;
+    storefrontDockEnabled?: boolean;
+    coinsPerSar?: number;
+    minSpinCoins?: number;
+    maxSpinCoins?: number;
+    spinCooldownHours?: number;
+    cardPaymentBonusCoins?: number;
+    signupLocationBonusCoins?: number;
   };
 }
 
@@ -3244,7 +3295,23 @@ export async function deleteLoyaltyRewardApi(
 export async function updateLoyaltyEarnRuleApi(
   storeId: string,
   id: string,
-  payload: { active?: boolean; points?: number }
+  payload: {
+    active?: boolean;
+    points?: number;
+    config?: {
+      points_per_sar?: number;
+      qualifying_statuses?: string[];
+      product_ids?: string[];
+      mode?: 'double' | 'fixed';
+      fixed_points_per_unit?: number;
+      threshold_sar?: number;
+      bonus_points?: number;
+      points?: number;
+      require_verified?: boolean;
+      require_approval?: boolean;
+      within_days?: number;
+    };
+  }
 ): Promise<any> {
   const res = await apiFetch<{ success: boolean; data: any; message: string }>(
     `/stores/${storeId}/loyalty/earn-rules/${id}`,
@@ -3271,6 +3338,81 @@ export async function updateLoyaltySettingsApi(
   );
   return res.data;
 }
+
+export async function loyaltyDailySpinApi(
+  storeId: string,
+  customerId: string
+): Promise<{ points: number; next_spin_at?: string | null }> {
+  const res = await apiFetch<{
+    success: boolean;
+    data: { points: number; next_spin_at?: string | null };
+  }>(`/stores/${storeId}/loyalty/spin`, {
+    method: 'POST',
+    body: { customer_id: customerId },
+    storeId,
+  });
+  return res.data;
+}
+
+export type StorefrontLoyaltyCredit = {
+  id: string;
+  points: number;
+  method?: string;
+  reason?: string;
+  source_event_id?: string;
+  created_at?: string;
+};
+
+export async function fetchStorefrontLoyaltyBalanceApi(
+  storeId: string,
+  customerId: string,
+): Promise<{ loyalty_points: number; recent_credits: StorefrontLoyaltyCredit[] }> {
+  const res = await apiFetch<{
+    success: boolean;
+    data: { loyalty_points: number; recent_credits: StorefrontLoyaltyCredit[] };
+  }>(`/storefront/${storeId}/loyalty/balance?customer_id=${encodeURIComponent(customerId)}`, {
+    storeId,
+    skipAuth: true,
+  });
+  return {
+    loyalty_points: Number(res.data?.loyalty_points ?? 0),
+    recent_credits: Array.isArray(res.data?.recent_credits) ? res.data.recent_credits : [],
+  };
+}
+
+export async function loyaltySavedCardBonusApi(
+  storeId: string,
+  customerId: string,
+  orderId?: string
+): Promise<{ points: number }> {
+  const res = await apiFetch<{ success: boolean; data: { points: number } }>(
+    `/stores/${storeId}/loyalty/bonuses/saved-card`,
+    {
+      method: 'POST',
+      body: { customer_id: customerId, order_id: orderId },
+      storeId,
+    }
+  );
+  return res.data;
+}
+
+export async function loyaltyLocationPushBonusApi(
+  storeId: string,
+  customerId: string
+): Promise<{ points: number }> {
+  const res = await apiFetch<{ success: boolean; data: { points: number } }>(
+    `/stores/${storeId}/loyalty/bonuses/location-push`,
+    {
+      method: 'POST',
+      body: { customer_id: customerId },
+      storeId,
+    }
+  );
+  return res.data;
+}
+
+/** @deprecated Prefer CashbackCampaign from cashbackService + mapApiCashbackRow */
+export type CashbackCampaignApi = CashbackCampaign;
 
 // ── Real Marketing Channels & Campaigns Performance APIs ──
 
@@ -3568,5 +3710,132 @@ export async function updateGiftingSettingsApi(
     body: payload,
   });
   return res.data;
+}
+
+/* ─── Cashback campaigns (store wallet only) ─── */
+
+export type CashbackCampaignPayload = {
+  name: string;
+  image_url?: string | null;
+  type: 'percentage' | 'fixed';
+  value: number;
+  min_cart_value?: number;
+  max_cashback_per_order?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  status?: CashbackCampaign['status'];
+  product_scope?: 'all' | 'include' | 'exclude';
+  product_ids?: string[];
+  credit_expiry_days?: number | null;
+  hold_days?: number;
+};
+
+export async function fetchCashbackCampaignsApi(storeId: string): Promise<CashbackCampaign[]> {
+  const res = await apiFetch<{ success: boolean; data: Record<string, unknown>[] }>(
+    `/stores/${storeId}/cashback/campaigns`,
+    { storeId },
+  );
+  return (res.data ?? []).map((row) => mapApiCashbackRow(row, storeId));
+}
+
+export async function createCashbackCampaignApi(
+  storeId: string,
+  payload: CashbackCampaignPayload | Record<string, unknown>,
+): Promise<CashbackCampaign> {
+  const res = await apiFetch<{ success: boolean; data: Record<string, unknown> }>(
+    `/stores/${storeId}/cashback/campaigns`,
+    { method: 'POST', storeId, body: payload },
+  );
+  return mapApiCashbackRow(res.data, storeId);
+}
+
+export async function updateCashbackCampaignApi(
+  storeId: string,
+  id: string,
+  payload: Partial<CashbackCampaignPayload>,
+): Promise<CashbackCampaign> {
+  const res = await apiFetch<{ success: boolean; data: Record<string, unknown> }>(
+    `/stores/${storeId}/cashback/campaigns/${id}`,
+    { method: 'PATCH', storeId, body: payload },
+  );
+  return mapApiCashbackRow(res.data, storeId);
+}
+
+export async function deleteCashbackCampaignApi(storeId: string, id: string): Promise<void> {
+  await apiFetch(`/stores/${storeId}/cashback/campaigns/${id}`, { method: 'DELETE', storeId });
+}
+
+export async function fetchStorefrontActiveCashbackApi(
+  storeId: string,
+): Promise<CashbackCampaign | null> {
+  const res = await apiFetch<{ success: boolean; data: Record<string, unknown> | null }>(
+    `/storefront/cashback/active?store_id=${encodeURIComponent(storeId)}`,
+    { storeId, skipAuth: true },
+  );
+  if (!res.data) return null;
+  return mapApiCashbackRow(res.data, storeId);
+}
+
+export type SpecialOfferPayload = {
+  title_ar?: string | null;
+  title_en?: string | null;
+  offer_type: SpecialOffer['offerType'];
+  discount_value: number;
+  min_order_value?: number | null;
+  max_discount?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  message?: string | null;
+  status?: SpecialOffer['status'];
+  product_scope?: 'all' | 'specific';
+  product_ids?: string[];
+  banner_bg_color?: string | null;
+  banner_image_url?: string | null;
+};
+
+export async function fetchSpecialOffersApi(storeId: string): Promise<SpecialOffer[]> {
+  const res = await apiFetch<{ success: boolean; data: Record<string, unknown>[] }>(
+    '/special-offers',
+    { storeId },
+  );
+  return (res.data ?? []).map((row) => mapApiSpecialOfferRow(row, storeId));
+}
+
+export async function createSpecialOfferApi(
+  storeId: string,
+  payload: SpecialOfferPayload,
+): Promise<SpecialOffer> {
+  const res = await apiFetch<{ success: boolean; data: Record<string, unknown> }>(
+    '/special-offers',
+    { method: 'POST', storeId, body: payload },
+  );
+  return mapApiSpecialOfferRow(res.data, storeId);
+}
+
+export async function updateSpecialOfferApi(
+  storeId: string,
+  id: string,
+  payload: Partial<SpecialOfferPayload>,
+): Promise<SpecialOffer> {
+  const res = await apiFetch<{ success: boolean; data: Record<string, unknown> }>(
+    `/special-offers/${id}`,
+    { method: 'PATCH', storeId, body: payload },
+  );
+  return mapApiSpecialOfferRow(res.data, storeId);
+}
+
+export async function deleteSpecialOfferApi(storeId: string, id: string): Promise<void> {
+  await apiFetch(`/special-offers/${id}`, { method: 'DELETE', storeId });
+}
+
+export async function fetchStorefrontActiveSpecialOfferApi(
+  storeId: string,
+): Promise<SpecialOffer | null> {
+  const res = await apiFetch<{ success: boolean; data: Record<string, unknown> | null }>(
+    `/storefront/special-offers/active?store_id=${encodeURIComponent(storeId)}`,
+    { storeId, skipAuth: true },
+  );
+  if (!res.data) return null;
+  return mapApiSpecialOfferRow(res.data, storeId);
 }
 

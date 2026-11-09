@@ -10,6 +10,7 @@ alwaysApply: true
 
 ## Absolute ban (no exceptions)
 - **NO** fake / mock / dummy / hardcoded commerce metrics, SEO clicks, GA4/GTM IDs, PSI scores, campaigns, growth %, invented visit multipliers (`orders×N`).
+- **NO** fake Total Visits / Unique Visitors / bounce / session duration / device split / traffic sources on SEO, Analytics, Reports, Activity, or dashboard cards. Visits = real `storefront_analytics_events` only. Seeded `stores.visitors_count` and localStorage bumps are **not** truth. Empty events → **0** + Waiting for Data / No traffic sources — never show orphan visit totals without sources.
 - **NO** Instant Google / fake OAuth tokens / auto-seed “connected” for any store.
 - **NO** `INITIAL_*` hydration on live API / production path.
 - Empty API/DB → genuine empty: **No records found** / Not Connected / Waiting for Data — never decorate with fake numbers.

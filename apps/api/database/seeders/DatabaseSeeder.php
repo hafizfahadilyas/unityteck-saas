@@ -278,7 +278,7 @@ class DatabaseSeeder extends Seeder
                 'id' => 'user-store-1',
                 'name' => 'متجر هدايا',
                 'password' => Hash::make(env('ADMIN_STORE_PASSWORD', 'MakkahStore@2026!Secure')),
-                'role' => 'manager',
+                'role' => 'admin',
             ]
         );
 
@@ -289,7 +289,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'id' => 'su-store-1-owner',
-                'role' => 'manager',
+                'role' => 'admin',
             ]
         );
 
@@ -1265,7 +1265,7 @@ class DatabaseSeeder extends Seeder
                 'products_count' => 15,
                 'orders_count' => 8,
                 'revenue' => 5420,
-                'visitors_count' => 2680,
+                'visitors_count' => 0,
             ]
         );
 
@@ -1316,7 +1316,7 @@ class DatabaseSeeder extends Seeder
                 'id' => 'user-store-coffee-1',
                 'name' => 'Rayan Al-Sulaiman',
                 'password' => Hash::make(env('ADMIN_STORE_PASSWORD', 'CoffeeStore@2026!Secure')),
-                'role' => 'manager',
+                'role' => 'admin',
             ]
         );
 
@@ -1327,7 +1327,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'id' => 'su-coffee-owner',
-                'role' => 'manager',
+                'role' => 'admin',
             ]
         );
 
@@ -1624,7 +1624,7 @@ class DatabaseSeeder extends Seeder
                 'products_count' => 12,
                 'orders_count' => 14,
                 'revenue' => 28450,
-                'visitors_count' => 80000,
+                'visitors_count' => 0,
             ]
         );
 
@@ -1648,7 +1648,7 @@ class DatabaseSeeder extends Seeder
                 'id' => 'user-store-bleco-1',
                 'name' => 'Al-Saeedi Manager',
                 'password' => Hash::make(env('ADMIN_STORE_PASSWORD', 'BlecoStore@2026!Secure')),
-                'role' => 'manager',
+                'role' => 'admin',
             ]
         );
 
@@ -1659,7 +1659,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'id' => 'su-bleco-owner',
-                'role' => 'manager',
+                'role' => 'admin',
             ]
         );
 

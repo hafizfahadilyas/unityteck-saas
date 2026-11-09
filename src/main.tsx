@@ -30,21 +30,26 @@ import './index.css';
 import { getClerkPublishableKey, isClerkConfigured } from './auth/clerkSession';
 import { clerkAllowedRedirectOrigins } from './auth/storefrontOrigins';
 
-const root = document.getElementById('root')!;
-const publishableKey = getClerkPublishableKey();
+function AppRoot() {
+  const publishableKey = getClerkPublishableKey();
+  const clerkOn = isClerkConfigured();
+  if (!clerkOn || !publishableKey) {
+    return <App />;
+  }
+  return (
+    <ClerkProvider
+      publishableKey={publishableKey}
+      afterSignOutUrl="/store/login"
+      allowedRedirectOrigins={clerkAllowedRedirectOrigins()}
+    >
+      <App />
+    </ClerkProvider>
+  );
+}
 
+const root = document.getElementById('root')!;
 createRoot(root).render(
   <StrictMode>
-    {isClerkConfigured() ? (
-      <ClerkProvider
-        publishableKey={publishableKey}
-        afterSignOutUrl="/store/login"
-        allowedRedirectOrigins={clerkAllowedRedirectOrigins()}
-      >
-        <App />
-      </ClerkProvider>
-    ) : (
-      <App />
-    )}
+    <AppRoot />
   </StrictMode>,
 );

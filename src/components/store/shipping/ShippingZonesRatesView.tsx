@@ -3,6 +3,7 @@ import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
 import { GlobalModal } from '../../common/GlobalModal';
+import { ModernSegmentedTabs } from '../../common/ModernSegmentedTabs';
 import type { ShippingZone } from '../../../types';
 import {
   Truck,
@@ -386,33 +387,21 @@ export const ShippingZonesRatesView: React.FC = () => {
         </div>
       </div>
 
-      {/* ── 2. Navigation Sub-tabs ── */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto pb-px">
-        {[
-          { key: 'zones', label: isAr ? 'المناطق والمدن' : 'Zones & Areas' },
-          { key: 'pricing', label: isAr ? 'قواعد الأسعار' : 'Pricing Rules' },
-          { key: 'free_shipping', label: isAr ? 'الشحن المجاني' : 'Free Shipping' },
-          { key: 'courier', label: isAr ? 'اختيار شركات الشحن' : 'Courier Selection' },
-          { key: 'weight', label: isAr ? 'الوزن الحجمي' : 'Dimensional Weight' },
-          { key: 'settings', label: isAr ? 'إعدادات إضافية' : 'Additional Settings' },
-        ].map((tab) => {
-          const isActive = activeSubTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveSubTab(tab.key as any)}
-              className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-all cursor-pointer ${
-                isActive
-                  ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* ── 2. Navigation Sub-tabs — modern segmented toggles ── */}
+      <ModernSegmentedTabs
+        accent="blue"
+        aria-label={isAr ? 'أقسام الشحن' : 'Shipping sections'}
+        value={activeSubTab}
+        onChange={(key) => setActiveSubTab(key as typeof activeSubTab)}
+        items={[
+          { id: 'zones', label: isAr ? 'المناطق والمدن' : 'Zones & Areas' },
+          { id: 'pricing', label: isAr ? 'قواعد الأسعار' : 'Pricing Rules' },
+          { id: 'free_shipping', label: isAr ? 'الشحن المجاني' : 'Free Shipping' },
+          { id: 'courier', label: isAr ? 'اختيار شركات الشحن' : 'Courier Selection' },
+          { id: 'weight', label: isAr ? 'الوزن الحجمي' : 'Dimensional Weight' },
+          { id: 'settings', label: isAr ? 'إعدادات إضافية' : 'Additional Settings' },
+        ]}
+      />
 
       {/* ── 3. Four Summary Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -195,26 +195,38 @@ export const ExclusivePerksBar: React.FC = () => {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleCustomOrderWhatsApp}
-            className="my-auto flex flex-col items-center justify-center py-1 sm:py-2 gap-1 group/phone cursor-pointer focus:outline-hidden"
-            title={isAr ? 'تواصل عبر واتساب لطلب تفصيل مخصص' : 'Chat via WhatsApp for custom order'}
-          >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow-md group-hover/phone:scale-110 transition-transform duration-300 relative">
-              <MessageCircle className="w-5 h-5 fill-white text-[#25D366]" />
-              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-300 rounded-full animate-ping opacity-75" />
+          {cleanPhone ? (
+            <button
+              type="button"
+              onClick={handleCustomOrderWhatsApp}
+              className="my-auto flex flex-col items-center justify-center py-1 sm:py-2 gap-1 group/phone cursor-pointer focus:outline-hidden"
+              title={isAr ? 'تواصل عبر واتساب لطلب تفصيل مخصص' : 'Chat via WhatsApp for custom order'}
+            >
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow-md group-hover/phone:scale-110 transition-transform duration-300 relative">
+                <MessageCircle className="w-5 h-5 fill-white text-[#25D366]" />
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-300 rounded-full animate-ping opacity-75" />
+              </div>
+              <span className="font-sans font-bold text-[11px] sm:text-xs text-[#2B1809] group-hover/phone:text-[#25D366] tracking-tight dir-ltr transition-colors">
+                {displayPhone}
+              </span>
+            </button>
+          ) : (
+            <div className="my-auto flex flex-col items-center justify-center py-1 sm:py-2 gap-1 opacity-60">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#D6C4B0] text-[#7A593D] flex items-center justify-center">
+                <MessageCircle className="w-5 h-5" />
+              </div>
+              <span className="font-sans font-bold text-[11px] sm:text-xs text-[#7A593D] tracking-tight">
+                {isAr ? 'رقم واتساب غير متوفر' : 'WhatsApp number unavailable'}
+              </span>
             </div>
-            <span className="font-sans font-bold text-[11px] sm:text-xs text-[#2B1809] group-hover/phone:text-[#25D366] tracking-tight dir-ltr transition-colors">
-              {displayPhone || (isAr ? 'واتساب غير مُعدّ' : 'WhatsApp not set')}
-            </span>
-          </button>
+          )}
 
           <div className="w-full space-y-1.5 mt-1 pt-1.5 border-0">
             <button
               type="button"
               onClick={handleCustomOrderWhatsApp}
-              className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-lg sm:rounded-xl bg-[#2B1809] hover:bg-black text-white text-[10px] sm:text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs"
+              disabled={!cleanPhone}
+              className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-lg sm:rounded-xl bg-[#2B1809] hover:bg-black text-white text-[10px] sm:text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#2B1809]"
             >
               <MessageCircle className="w-3.5 h-3.5 fill-[#25D366] text-[#25D366]" />
               <span>{isAr ? 'طلب تفصيل مخصص' : 'Custom Order'}</span>
@@ -222,7 +234,8 @@ export const ExclusivePerksBar: React.FC = () => {
             <button
               type="button"
               onClick={handleOpenWhatsApp}
-              className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-lg sm:rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-[10px] sm:text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs"
+              disabled={!cleanPhone}
+              className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-lg sm:rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-[10px] sm:text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#25D366]"
             >
               <MessageCircle className="w-3.5 h-3.5 fill-white text-[#25D366]" />
               <span>{isAr ? 'تواصل عبر واتساب' : 'WhatsApp Chat'}</span>

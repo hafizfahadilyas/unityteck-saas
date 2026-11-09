@@ -312,7 +312,7 @@ export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({
         }}
       >
         <span className="text-slate-800 font-bold block text-sm">
-          {isAr ? 'زهور مكة الفاخرة · أجود باقات الورد' : 'Makkah Fresh Luxury Flowers'}
+          {isAr ? 'اسم متجرك · وصف مختصر لنشاطك' : 'Your Store Name · Short business tagline'}
         </span>
         <span className="text-[10px] text-slate-400">
           Font: {value.fontFamily} · {value.weight}

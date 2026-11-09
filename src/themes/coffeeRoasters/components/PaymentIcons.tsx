@@ -68,8 +68,15 @@ export const MastercardIcon: React.FC<PaymentIconProps> = ({ className = "h-5 w-
   </div>
 );
 
-export const CodIcon: React.FC<PaymentIconProps> = ({ className = "h-5 w-auto" }) => (
-  <div className={`inline-flex items-center gap-1.5 bg-neutral-800 text-neutral-200 px-2 py-1 rounded text-xs ${className}`} title="Cash on Delivery الدفع عند الاستلام">
+export const CodIcon: React.FC<PaymentIconProps & { titleText?: string }> = ({
+  className = 'h-5 w-auto',
+  titleText,
+}) => (
+  <div
+    className={`inline-flex items-center gap-1.5 bg-neutral-800 text-neutral-200 px-2 py-1 rounded text-xs ${className}`}
+    title={titleText}
+    aria-label={titleText}
+  >
     <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
     </svg>

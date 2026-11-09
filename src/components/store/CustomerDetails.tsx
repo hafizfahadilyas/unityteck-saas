@@ -24,6 +24,7 @@ import {
 import { CustomerWalletAdjustModal } from './CustomerWalletAdjustModal';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
+import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
 import {
   ArrowLeft,
   ArrowRight,
@@ -60,11 +61,16 @@ import {
   Users,
   Heart,
   MessageSquare,
+  Trash2,
 } from 'lucide-react';
 import { CustomerAvatarUploadModal } from './CustomerAvatarUploadModal';
 import { getArabCustomerAvatar, getCustomerSeoAlt } from '../../utils/customerAvatars';
 import { handleImageError } from '../../utils/imageFallback';
 import { WhatsAppBrandIcon } from '../common/BrandIcons';
+import { CUSTOMER_GENDER_OPTIONS } from '../../data/saudiCities';
+import { useSaudiCityOptions } from '../../hooks/useSaudiCityOptions';
+import { SaudiCitySelect } from '../common/SaudiCitySelect';
+import { DateCalendarField } from '../common/DateCalendarField';
 
 interface CustomerDetailsProps {
   customer: Customer;
@@ -109,11 +115,39 @@ function mapLocalTx(row: WalletTransactionRecord): CustomerWalletTransaction {
   };
 }
 
+/** Normalize Saudi / international phone to digits for wa.me / tel: */
+function normalizeCustomerPhoneDigits(raw: string | undefined | null): string {
+  let digits = String(raw || '').replace(/[^0-9]/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (digits.startsWith('0') && digits.length === 10) digits = `966${digits.slice(1)}`;
+  if (digits.length === 9 && digits.startsWith('5')) digits = `966${digits}`;
+  return digits;
+}
+
+const BUILTIN_CUSTOMER_GROUPS: CustomerGroupDef[] = [
+  { id: 'Regular', name: 'Regular', icon: 'Users' },
+  { id: 'VIP', name: 'VIP', icon: 'Crown' },
+  { id: 'Wholesale', name: 'Wholesale', icon: 'Tags' },
+];
+
+function builtinGroupLabel(name: string, isAr: boolean): string {
+  if (name === 'VIP') return isAr ? 'عميل مميز' : 'VIP';
+  if (name === 'Wholesale') return isAr ? 'جملة' : 'Wholesale';
+  if (name === 'Regular') return isAr ? 'عادي' : 'Regular';
+  return name;
+}
+
 export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   customer: initialCustomer,
   onBack,
 }) => {
   const { activeStore, currentOrders, currentCoupons, updateCustomer } = useTenant();
+  const {
+    cities: saudiCities,
+    addCity: addSaudiCity,
+    removeCity: removeSaudiCity,
+  } = useSaudiCityOptions(activeStore.id);
   const { money, locale } = usePrefs();
   const { canWrite } = usePermissions();
   const { toast } = useToast();
@@ -427,6 +461,18 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     }
   }, [activeStore.id, customer.id, customer.group]);
 
+  const assignableGroups = useMemo(() => {
+    const seen = new Set<string>();
+    const out: CustomerGroupDef[] = [];
+    for (const g of [...BUILTIN_CUSTOMER_GROUPS, ...customGroups]) {
+      const key = g.name.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(g);
+    }
+    return out;
+  }, [customGroups]);
+
   const handleOpenGroupsModal = () => {
     setGroupsDraft(memberGroupNames.length ? [...memberGroupNames] : []);
     setShowGroupsModal(true);
@@ -442,13 +488,75 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     const unique = Array.from(new Set(groupsDraft.map((g) => g.trim()).filter(Boolean)));
     setCustomerGroupNames(activeStore.id, customer.id, unique);
     setMemberGroupNames(unique);
-    const primary = unique[0];
-    if (primary) {
-      updateCustomer(customer.id, { group: primary as Customer['group'] });
-      setCustomer((prev) => ({ ...prev, group: primary as Customer['group'] }));
-    }
+    const primary = unique[0] || 'Regular';
+    updateCustomer(customer.id, { group: primary as Customer['group'] });
+    setCustomer((prev) => ({ ...prev, group: primary as Customer['group'] }));
     setShowGroupsModal(false);
     toast(isAr ? 'تم تحديث مجموعات العميل' : 'Customer groups updated', 'success');
+  };
+
+  const storeDisplayName: string =
+    (isAr ? activeStore.nameAr : activeStore.nameEn)?.trim() ||
+    String(activeStore.name || '').trim() ||
+    (isAr ? 'المتجر' : 'Store');
+
+  const openWhatsApp = () => {
+    const digits = normalizeCustomerPhoneDigits(customer.phone);
+    if (digits.length < 9) {
+      toast(
+        isAr ? 'لا يوجد رقم جوال صالح لهذا العميل' : 'No valid phone number for this customer',
+        'warning',
+      );
+      return;
+    }
+    const greeting = isAr
+      ? `السلام عليكم ${customer.name}، تحية طيبة من متجر ${storeDisplayName}.`
+      : `Hello ${customer.name}, greetings from ${storeDisplayName}.`;
+    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(greeting)}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const openEmail = () => {
+    const to = (customer.email || '').trim();
+    if (!to) {
+      toast(
+        isAr ? 'لا يوجد بريد إلكتروني لهذا العميل' : 'No email address for this customer',
+        'warning',
+      );
+      return;
+    }
+    const subject = isAr
+      ? `رسالة من متجر ${storeDisplayName}`
+      : `Message from ${storeDisplayName}`;
+    const body = isAr
+      ? `مرحباً ${customer.name}،\n\n`
+      : `Hello ${customer.name},\n\n`;
+    window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
+  const callCustomer = () => {
+    const digits = normalizeCustomerPhoneDigits(customer.phone);
+    if (digits.length < 9) {
+      toast(
+        isAr ? 'لا يوجد رقم جوال صالح لهذا العميل' : 'No valid phone number for this customer',
+        'warning',
+      );
+      return;
+    }
+    window.location.href = `tel:+${digits}`;
+  };
+
+  const openAiChat = () => {
+    const cityLabel = customer.city?.trim() || (isAr ? 'غير محدد' : 'Not set');
+    const groupLabel = customer.group
+      ? builtinGroupLabel(String(customer.group), isAr)
+      : builtinGroupLabel('Regular', isAr);
+    const greetingText: string = isAr
+      ? `مرحباً! تم تحميل ملف ${customer.name}. العميل ضمن مجموعة "${groupLabel}" من ${cityLabel}. كيف أساعدك في التسويق أو الاحتفاظ بالعملاء؟`
+      : `Hello! I have loaded the full profile for ${customer.name}. They are a ${groupLabel} customer from ${cityLabel}. How can I assist you with tailored marketing or retention today?`;
+    setAiChatMessages([{ sender: 'ai', text: greetingText }]);
+    setAiInputText('');
+    setIsAiTyping(false);
+    setShowAiModal(true);
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
@@ -488,15 +596,15 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         /order/i.test(userText) ||
         userText.includes('طلب');
       let reply = isAr
-        ? `بناءً على ملف${customer.name}في${activeStore.name}، لديهم ميل مرتفع للشراء. إرسال كوبون واتساب مخصص للتوصيل المجاني قد يحقق معدل تحويل يقارب 32٪.`
-        : `Based on ${customer.name}'s profile in ${activeStore.name}, they have high purchase propensity. Sending a personalized WhatsApp coupon code for free delivery on floral bouquets has an estimated 32% conversion rate.`;
+        ? `بناءً على ملف ${customer.name} في متجرك، لديهم ميل مرتفع للشراء. إرسال كوبون واتساب مخصص للتوصيل المجاني قد يحقق معدل تحويل أفضل.`
+        : `Based on ${customer.name}'s profile in your store, they have high purchase propensity. Sending a personalized WhatsApp coupon for free delivery may improve conversion.`;
       if (wantsOffer) {
         reply = isAr
-          ? `أنصح بإنشاء كوبون خصم 15٪ للعميل المميز صالح لمدة 7 أيام.${customer.name}يتفاعل كثيراً عبر واتساب ويستجيب أفضل للعروض الموسمية.`
-          : `I recommend generating a 15% VIP discount coupon valid for 7 days. ${customer.name} frequently interacts on WhatsApp and responds best to seasonal floral promotions.`;
+          ? `أنصح بإنشاء كوبون خصم 15٪ للعميل المميز صالح لمدة 7 أيام. ${customer.name} يتفاعل كثيراً عبر واتساب ويستجيب أفضل للعروض الموسمية.`
+          : `I recommend generating a 15% VIP discount coupon valid for 7 days. ${customer.name} frequently interacts on WhatsApp and responds best to seasonal promotions.`;
       } else if (wantsOrder) {
         reply = isAr
-          ? `${customer.name}لديه حالياً${customerOrders.length}طلبات مؤكدة بإجمالي قيمة${money(customer.totalSpending || 0)}.`
+          ? `${customer.name} لديه حالياً ${customerOrders.length} طلبات مؤكدة بإجمالي قيمة ${money(customer.totalSpending || 0)}.`
           : `${customer.name} currently has ${customerOrders.length} confirmed orders with a total value of ${money(customer.totalSpending || 0)}.`;
       }
       setAiChatMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
@@ -504,9 +612,11 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     }, 900);
   };
 
-  const cleanPhoneForWa = (customer.phone || '').replace(/[^0-9]/g, '');
+  const cleanPhoneForWa = normalizeCustomerPhoneDigits(customer.phone);
   const hasPhone = cleanPhoneForWa.length >= 9;
   const hasEmail = Boolean(customer.email && customer.email.trim());
+  const actionBtnClass =
+    'inline-flex items-center justify-center gap-2 px-3.5 py-2.5 min-h-[2.5rem] rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-sm transition-all cursor-pointer grow basis-[calc(50%-0.35rem)] sm:grow-0 sm:basis-auto';
 
   const loyaltyPointsCount = walletLoyaltyPoints ?? customer.loyaltyPoints ?? 0;
   const cashbackAmount = walletBalance;
@@ -567,7 +677,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       )}
 
       {/* Top Header & Breadcrumbs */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col gap-3">
         <div>
           {/* Breadcrumbs */}
           <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-1.5">
@@ -598,64 +708,86 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </p>
         </div>
 
-        {/* Action Buttons Row */}
-        <div className="flex flex-wrap items-center gap-2">
-          {hasPhone && (
-            <a
-              href={`https://wa.me/${cleanPhoneForWa}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 shadow-sm transition-all"
-            >
-              <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
-              <span>{isAr ? 'مراسلة عبر واتساب' : 'Send via WhatsApp'}</span>
-            </a>
-          )}
+        {/* Action Buttons — equal height, wrap cleanly, always all 5 available */}
+        <div className="flex flex-wrap items-stretch gap-2 w-full min-w-0">
+          <button
+            type="button"
+            onClick={openWhatsApp}
+            className={`${actionBtnClass} hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400`}
+            title={
+              hasPhone
+                ? isAr
+                  ? 'فتح واتساب مع رسالة ترحيب'
+                  : 'Open WhatsApp with greeting'
+                : isAr
+                  ? 'أضف رقم الجوال أولاً'
+                  : 'Add a phone number first'
+            }
+          >
+            <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366] shrink-0" title="WhatsApp" />
+            <span className="truncate">{isAr ? 'مراسلة عبر واتساب' : 'Send via WhatsApp'}</span>
+          </button>
 
-          {hasEmail && (
-            <a
-              href={`mailto:${customer.email}`}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-sm transition-all"
-            >
-              <Mail className="w-4 h-4 text-teal-600" />
-              <span>{isAr ? 'إرسال بريد إلكتروني' : 'Send Email'}</span>
-            </a>
-          )}
+          <button
+            type="button"
+            onClick={openEmail}
+            className={actionBtnClass}
+            title={
+              hasEmail
+                ? isAr
+                  ? 'فتح تطبيق البريد'
+                  : 'Open email app'
+                : isAr
+                  ? 'أضف البريد الإلكتروني أولاً'
+                  : 'Add an email address first'
+            }
+          >
+            <Mail className="w-4 h-4 text-teal-600 shrink-0" />
+            <span className="truncate">{isAr ? 'إرسال بريد إلكتروني' : 'Send Email'}</span>
+          </button>
 
-          {hasPhone && (
-            <a
-              href={`tel:${customer.phone}`}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 shadow-sm transition-all"
-            >
-              <Phone className="w-4 h-4 text-slate-500" />
-              <span>{isAr ? 'اتصال بالعميل' : 'Call Customer'}</span>
-            </a>
-          )}
+          <button
+            type="button"
+            onClick={callCustomer}
+            className={`${actionBtnClass} hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400`}
+            title={
+              hasPhone
+                ? isAr
+                  ? 'الاتصال بالعميل'
+                  : 'Call customer'
+                : isAr
+                  ? 'أضف رقم الجوال أولاً'
+                  : 'Add a phone number first'
+            }
+          >
+            <Phone className="w-4 h-4 text-slate-500 shrink-0" />
+            <span className="truncate">{isAr ? 'اتصال بالعميل' : 'Call Customer'}</span>
+          </button>
 
           <button
             type="button"
             onClick={handleOpenGroupsModal}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 shadow-sm transition-all cursor-pointer"
+            className={actionBtnClass}
           >
-            <Users className="w-4 h-4 text-teal-600" />
-            <span>{isAr ? 'إضافة إلى المجموعات' : 'Add to Groups'}</span>
+            <Users className="w-4 h-4 text-teal-600 shrink-0" />
+            <span className="truncate">{isAr ? 'إضافة إلى المجموعات' : 'Add to Groups'}</span>
           </button>
 
-          {/* Chat with AI */}
           <button
-            onClick={() => setShowAiModal(true)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:border-purple-400 shadow-sm transition-all cursor-pointer"
+            type="button"
+            onClick={openAiChat}
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 min-h-[2.5rem] rounded-xl text-xs font-semibold bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:border-purple-400 shadow-sm transition-all cursor-pointer grow basis-[calc(50%-0.35rem)] sm:grow-0 sm:basis-auto"
           >
-            <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
-            <span>{isAr ? 'محادثة الذكاء الاصطناعي' : 'Chat with AI'}</span>
+            <Sparkles className="w-4 h-4 text-purple-600 animate-pulse shrink-0" />
+            <span className="truncate">{isAr ? 'محادثة الذكاء الاصطناعي' : 'Chat with AI'}</span>
           </button>
         </div>
       </div>
 
-      {/* Main Grid: Left 2/3 Content & Right 1/3 Sidebars */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+      {/* Main Grid: Left 2/3 Content & Right 1/3 Sidebars — lg for small laptops */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start w-full min-w-0">
         {/* Left Column (8 of 12) */}
-        <div className="xl:col-span-8 space-y-6">
+        <div className="lg:col-span-8 space-y-4 lg:space-y-6 min-w-0 w-full">
           {/* Customer Profile Hero Card */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -694,15 +826,32 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     </button>
                   </div>
 
-                  {/* Explicit Button under avatar */}
-                  <button
-                    type="button"
-                    onClick={() => setShowAvatarModal(true)}
-                    className="mt-2 text-[11px] font-bold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 inline-flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <Upload className="w-3 h-3" />
-                    <span>{isAr ? 'تغيير الصورة' : 'Change Photo'}</span>
-                  </button>
+                  {/* Explicit Upload / Remove under avatar */}
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowAvatarModal(true)}
+                      className="text-[11px] font-bold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 inline-flex items-center gap-1 cursor-pointer transition-colors px-2 py-1 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/30"
+                    >
+                      <Upload className="w-3 h-3" />
+                      <span>{isAr ? 'رفع / تغيير' : 'Upload / Change'}</span>
+                    </button>
+                    {customer.avatar ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateCustomer(customer.id, { avatar: '' });
+                          setCustomer((prev) => ({ ...prev, avatar: '' }));
+                          toast(isAr ? 'تم حذف صورة العميل' : 'Customer photo removed', 'success');
+                        }}
+                        className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200/70 dark:border-rose-900/50 cursor-pointer transition-colors"
+                        title={isAr ? 'حذف الصورة' : 'Remove photo'}
+                        aria-label={isAr ? 'حذف الصورة' : 'Remove photo'}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
 
                 {/* Identity Info */}
@@ -856,7 +1005,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </div>
 
           {/* 4 Benefit Metric Stat Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="u-equal-sections grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Loyalty Points */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 space-y-3 shadow-sm hover:border-teal-300 transition-all">
               <div className="flex items-center justify-between">
@@ -918,90 +1067,49 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             </div>
           </div>
 
-          {/* Dynamic Tabs Navigation */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-2 shadow-sm overflow-x-auto">
-            <div className="flex items-center gap-1.5 min-w-max">
-              <button
-                onClick={() => setActiveTab('orders')}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === 'orders'
-                    ? 'bg-teal-600 text-white shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <ShoppingCart className="w-4 h-4" />
-                <span>
-                  {isAr ? `سجل الطلبات (${customerOrders.length})` : `Order History (${customerOrders.length})`}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('loyalty')}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === 'loyalty'
-                    ? 'bg-teal-600 text-white shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Crown className="w-4 h-4" />
-                <span>
-                  {isAr
-                    ? `نقاط الولاء (${loyaltyPointsCount})`
-                    : `Loyalty Points (${loyaltyPointsCount})`}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('coupons')}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === 'coupons'
-                    ? 'bg-teal-600 text-white shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Tag className="w-4 h-4" />
-                <span>{isAr ? `الكوبونات (${availableCouponsCount})` : `Coupons (${availableCouponsCount})`}</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('offers')}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === 'offers'
-                    ? 'bg-teal-600 text-white shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Gift className="w-4 h-4" />
-                <span>
-                  {isAr ? `العروض (${offersCount})` : `Offers (${offersCount})`}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('wallet')}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === 'wallet'
-                    ? 'bg-teal-600 text-white shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Wallet className="w-4 h-4" />
-                <span>{isAr ? 'المحفظة والكاش باك' : 'Wallet & Cashback'}</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('activity')}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-                  activeTab === 'activity'
-                    ? 'bg-teal-600 text-white shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Activity className="w-4 h-4" />
-                <span>{isAr ? 'سجل النشاط' : 'Activity Logs'}</span>
-              </button>
-            </div>
-          </div>
+          {/* Dynamic Tabs — modern segmented toggles */}
+          <ModernSegmentedTabs
+            accent="blue"
+            aria-label={isAr ? 'أقسام ملف العميل' : 'Customer profile sections'}
+            value={activeTab}
+            onChange={setActiveTab}
+            items={[
+              {
+                id: 'orders',
+                icon: ShoppingCart,
+                label: isAr ? 'سجل الطلبات' : 'Order History',
+                count: customerOrders.length,
+              },
+              {
+                id: 'loyalty',
+                icon: Crown,
+                label: isAr ? 'نقاط الولاء' : 'Loyalty Points',
+                count: loyaltyPointsCount,
+              },
+              {
+                id: 'coupons',
+                icon: Tag,
+                label: isAr ? 'الكوبونات' : 'Coupons',
+                count: availableCouponsCount,
+              },
+              {
+                id: 'offers',
+                icon: Gift,
+                label: isAr ? 'العروض' : 'Offers',
+                count: offersCount,
+              },
+              {
+                id: 'wallet',
+                icon: Wallet,
+                label: isAr ? 'المحفظة والكاش باك' : 'Wallet & Cashback',
+              },
+              {
+                id: 'activity',
+                icon: Activity,
+                label: isAr ? 'سجل النشاط' : 'Activity Logs',
+              },
+            ]}
+          />
 
           {/* Tab 1: Order History */}
           {activeTab === 'orders' && (
@@ -1027,7 +1135,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   <select
                     value={orderFilter}
                     onChange={(e) => setOrderFilter(e.target.value as any)}
-                    className="appearance-none pl-3.5 pr-8 py-2 rounded-xl text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                    className="appearance-none pl-3.5 pr-8 py-2 rounded-xl text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   >
                     <option value="all">{isAr ? 'جميع الطلبات' : 'All Orders'}</option>
                     <option value="completed">{isAr ? 'المكتملة' : 'Completed'}</option>
@@ -1103,8 +1211,8 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     onClick={() =>
                       toast(
                         isAr
-                          ? `سيتم إنشاء طلب جديد للعميل${customer.name}في متجر${activeStore.name}`
-                          : `New order flow for ${customer.name} in ${activeStore.name}`,
+                          ? `سيتم إنشاء طلب جديد للعميل ${customer.name} في هذا المتجر`
+                          : `New order flow for ${customer.name} in this store`,
                         'info',
                       )
                     }
@@ -1155,7 +1263,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'الكوبونات وقسائم الشراء النشطة' : 'Active Coupons & Vouchers'}
+                    {isAr ? 'الكوبونات النشطة' : 'Active Coupons'}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {isAr ? 'كوبونات يمكن للعميل استخدامها عند الدفع.' : 'Coupons available for this customer in checkout.'}
@@ -1242,7 +1350,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowWalletAdjust(true)}
-                      className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-teal-600 text-white hover:bg-teal-700 cursor-pointer"
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
                     >
                       {isAr ? 'تعديل الرصيد' : 'Adjust Balance'}
                     </button>
@@ -1366,9 +1474,9 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         </div>
 
         {/* Right Column (4 of 12) Sidebars */}
-        <div className="xl:col-span-4 space-y-6">
+        <div className="lg:col-span-4 space-y-4 lg:space-y-6 min-w-0 w-full">
           {/* 1. Customer Information Card */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-sm space-y-4 w-full">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center">
@@ -1393,8 +1501,8 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
             <form onSubmit={handleSaveInfo} className="space-y-3.5">
               {/* Profile Photo Quick Row */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60">
+                <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 shrink-0">
                     {customer.avatar ? (
                       <img
@@ -1411,7 +1519,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                       </div>
                     )}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-900 dark:text-white">
                       {isAr ? 'الصورة الشخصية للعميل' : 'Customer Profile Photo'}
                     </p>
@@ -1420,19 +1528,36 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAvatarModal(true)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-teal-500 hover:text-teal-600 text-slate-700 dark:text-slate-200 shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
-                >
-                  <Camera className="w-3.5 h-3.5 text-teal-600" />
-                  <span>{isAr ? 'تغيير' : 'Change'}</span>
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowAvatarModal(true)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:border-teal-500 hover:text-teal-600 text-slate-700 dark:text-slate-200 shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-teal-600" />
+                    <span>{isAr ? 'رفع' : 'Upload'}</span>
+                  </button>
+                  {customer.avatar ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateCustomer(customer.id, { avatar: '' });
+                        setCustomer((prev) => ({ ...prev, avatar: '' }));
+                        toast(isAr ? 'تم حذف صورة العميل' : 'Customer photo removed', 'success');
+                      }}
+                      className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 cursor-pointer transition-colors"
+                      title={isAr ? 'حذف الصورة' : 'Remove photo'}
+                      aria-label={isAr ? 'حذف الصورة' : 'Remove photo'}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  ) : null}
+                </div>
               </div>
 
               {/* First Name & Last Name */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1 min-w-0">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     {isAr ? 'الاسم الأول' : 'First Name'} <span className="text-rose-500">*</span>
                   </label>
@@ -1441,11 +1566,11 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     disabled={!isEditingInfo}
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                    className="w-full min-h-[2.25rem] px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     required
                   />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-0">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     {isAr ? 'اسم العائلة' : 'Last Name'} <span className="text-rose-500">*</span>
                   </label>
@@ -1454,7 +1579,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     disabled={!isEditingInfo}
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                    className="w-full min-h-[2.25rem] px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     required
                   />
                 </div>
@@ -1470,7 +1595,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   disabled={!isEditingInfo}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                  className="w-full min-h-[2.25rem] px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
 
@@ -1479,8 +1604,8 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                   {isAr ? 'رقم الهاتف' : 'Phone Number'}
                 </label>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-center gap-1 px-2.5 min-h-[2.25rem] rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 shrink-0">
                     <span className="text-sm">🇸🇦</span>
                     <span>+966</span>
                   </div>
@@ -1489,7 +1614,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     disabled={!isEditingInfo}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20 font-mono"
+                    className="flex-1 min-w-0 min-h-[2.25rem] px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono"
                   />
                   {hasPhone && (
                     <a
@@ -1506,8 +1631,8 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               </div>
 
               {/* Gender & Country */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1 min-w-0">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     {isAr ? 'الجنس' : 'Gender'}
                   </label>
@@ -1515,14 +1640,16 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     disabled={!isEditingInfo}
                     value={gender}
                     onChange={(e) => setGender(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                    className="w-full min-h-[2.25rem] px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   >
-                    <option value="Male">{isAr ? 'ذكر' : 'Male'}</option>
-                    <option value="Female">{isAr ? 'أنثى' : 'Female'}</option>
-                    <option value="Other">{isAr ? 'أخرى' : 'Other'}</option>
+                    {CUSTOMER_GENDER_OPTIONS.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {isAr ? g.nameAr : g.nameEn}
+                      </option>
+                    ))}
                   </select>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-0">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     {isAr ? 'الدولة' : 'Country'}
                   </label>
@@ -1530,7 +1657,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     disabled={!isEditingInfo}
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                    className="w-full min-h-[2.25rem] px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   >
                     <option value="Saudi Arabia">{isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia'}</option>
                     <option value="United Arab Emirates">{isAr ? 'الإمارات العربية المتحدة' : 'United Arab Emirates'}</option>
@@ -1540,25 +1667,24 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               </div>
 
               {/* City & State */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1 min-w-0 relative z-10">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     {isAr ? 'المدينة' : 'City'}
                   </label>
-                  <select
+                  <SaudiCitySelect
                     disabled={!isEditingInfo}
                     value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                  >
-                    <option value="Jazan">{isAr ? 'جازان' : 'Jazan'}</option>
-                    <option value="Makkah">{isAr ? 'مكة المكرمة' : 'Makkah'}</option>
-                    <option value="Riyadh">{isAr ? 'الرياض' : 'Riyadh'}</option>
-                    <option value="Jeddah">{isAr ? 'جدة' : 'Jeddah'}</option>
-                    <option value="Dammam">{isAr ? 'الدمام' : 'Dammam'}</option>
-                  </select>
+                    onChange={setCity}
+                    cities={saudiCities}
+                    isAr={isAr}
+                    manageEnabled={isEditingInfo}
+                    onAddCity={(nameEn, nameAr) => addSaudiCity({ nameEn, nameAr })}
+                    onRemoveCity={removeSaudiCity}
+                    className="w-full min-h-[2.25rem] px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-0">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     {isAr ? 'المنطقة' : 'State'}
                   </label>
@@ -1566,7 +1692,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     disabled={!isEditingInfo}
                     value={state}
                     onChange={(e) => setState(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                    className="w-full min-h-[2.25rem] px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   >
                     <option value="Jazan">{isAr ? 'منطقة جازان' : 'Jazan'}</option>
                     <option value="Makkah Province">{isAr ? 'منطقة مكة المكرمة' : 'Makkah Province'}</option>
@@ -1576,22 +1702,17 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </div>
               </div>
 
-              {/* Date of Birth */}
+              {/* Date of Birth — calendar picker */}
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                   {isAr ? 'تاريخ الميلاد' : 'Date of Birth'}
                 </label>
-                <div className="relative">
-                  <Calendar className={`w-3.5 h-3.5 text-slate-400 absolute top-1/2 -translate-y-1/2 pointer-events-none ${isAr ? 'right-3' : 'left-3'}`} />
-                  <input
-                    type="text"
-                    disabled={!isEditingInfo}
-                    value={dob}
-                    onChange={(e) => setDob(e.target.value)}
-                    placeholder="YYYY/MM/DD"
-                    className={`w-full py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500/20 ${isAr ? 'pr-9 pl-3' : 'pl-9 pr-3'}`}
-                  />
-                </div>
+                <DateCalendarField
+                  disabled={!isEditingInfo}
+                  value={dob}
+                  onChange={setDob}
+                  isAr={isAr}
+                />
               </div>
 
               {/* Save Button when in Edit mode */}
@@ -1600,7 +1721,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   <button
                     type="submit"
                     disabled={isSavingInfo}
-                    className="flex-1 py-2 px-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs transition-colors shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-colors shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     {isSavingInfo ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1622,11 +1743,11 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </div>
 
           {/* Purchasing Behavior Indicators */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-sm space-y-3 w-full">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
               {isAr ? 'مؤشرات سلوك الشراء' : 'Purchasing Behavior Indicators'}
             </h3>
-            <dl className="grid grid-cols-1 gap-2.5 text-xs">
+            <dl className="grid grid-cols-1 gap-0 text-xs">
               {[
                 {
                   label: isAr ? 'إجمالي الطلبات' : 'Total Orders',
@@ -1658,7 +1779,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               ].map((row) => (
                 <div
                   key={row.label}
-                  className="flex items-center justify-between gap-3 py-1.5 border-b border-slate-100 dark:border-slate-800/60 last:border-0"
+                  className="flex items-center justify-between gap-3 py-2 border-b border-slate-100 dark:border-slate-800/60 last:border-0"
                 >
                   <dt className="text-slate-500 dark:text-slate-400">{row.label}</dt>
                   <dd className="font-semibold text-slate-800 dark:text-slate-200 text-end" dir="ltr">
@@ -1669,89 +1790,92 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             </dl>
           </div>
 
-          {/* Rewards */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-2">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              {isAr ? 'المكافآت' : 'Rewards'}
-            </h3>
-            {customerRewards.length === 0 ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {isAr
-                  ? 'لا توجد مكافآت متاحة لهذا العميل'
-                  : 'No Rewards Available for This Customer'}
-              </p>
-            ) : (
-              <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
-                {customerRewards.map((r) => (
-                  <li key={r.id}>{isAr ? r.titleAr || r.title : r.title || r.titleAr}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Customer Wallet */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-2">
-            <div className="flex items-center justify-between gap-2">
+          {/* Equal-height insight cards — fill width, no blank side gaps */}
+          <div className="u-equal-sections grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3 w-full">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm flex flex-col gap-2 min-h-[7.5rem]">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {isAr ? 'محفظة العميل' : 'Customer Wallet'}
+                {isAr ? 'المكافآت' : 'Rewards'}
               </h3>
-              {canAdjustWallet ? (
-                <button
-                  type="button"
-                  onClick={() => setShowWalletAdjust(true)}
-                  className="text-[11px] font-semibold text-teal-600 hover:text-teal-700 cursor-pointer"
-                >
-                  {isAr ? 'تعديل' : 'Adjust'}
-                </button>
-              ) : null}
+              {customerRewards.length === 0 ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex-1">
+                  {isAr
+                    ? 'لا توجد مكافآت متاحة لهذا العميل'
+                    : 'No Rewards Available for This Customer'}
+                </p>
+              ) : (
+                <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300 flex-1">
+                  {customerRewards.map((r) => (
+                    <li key={r.id}>{isAr ? r.titleAr || r.title : r.title || r.titleAr}</li>
+                  ))}
+                </ul>
+              )}
             </div>
-            <p className="text-lg font-bold text-emerald-600">{money(walletBalance)}</p>
-            {walletTransactions.length === 0 ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {isAr ? 'لا توجد معاملات مسجّلة' : 'No Transactions Recorded'}
-              </p>
-            ) : (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {isAr
-                  ? `${walletTransactions.length}معاملة في السجل`
-                  : `${walletTransactions.length} transaction(s) on record`}
-              </p>
-            )}
-          </div>
 
-          {/* Loyalty Points */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-2">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              {isAr ? 'نقاط الولاء' : 'Loyalty Points'}
-            </h3>
-            {loyaltyPointsCount <= 0 ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {isAr ? 'لا توجد نقاط ولاء متاحة' : 'No Loyalty Points Available'}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm flex flex-col gap-2 min-h-[7.5rem]">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {isAr ? 'محفظة العميل' : 'Customer Wallet'}
+                </h3>
+                {canAdjustWallet ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowWalletAdjust(true)}
+                    className="text-[11px] font-semibold text-teal-600 hover:text-teal-700 cursor-pointer"
+                  >
+                    {isAr ? 'تعديل' : 'Adjust'}
+                  </button>
+                ) : null}
+              </div>
+              <p className="text-lg font-bold text-emerald-600" dir="ltr">
+                {money(walletBalance)}
               </p>
-            ) : (
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{loyaltyPointsCount}</p>
-            )}
-          </div>
+              {walletTransactions.length === 0 ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex-1">
+                  {isAr ? 'لا توجد معاملات مسجّلة' : 'No Transactions Recorded'}
+                </p>
+              ) : (
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex-1">
+                  {isAr
+                    ? `${walletTransactions.length} معاملة في السجل`
+                    : `${walletTransactions.length} transaction(s) on record`}
+                </p>
+              )}
+            </div>
 
-          {/* Wishlist */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-2">
-            <div className="flex items-center gap-2">
-              <Heart className="w-4 h-4 text-rose-500" />
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm flex flex-col gap-2 min-h-[7.5rem]">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {isAr ? 'قائمة الأمنيات' : 'Wishlist'}
+                {isAr ? 'نقاط الولاء' : 'Loyalty Points'}
               </h3>
+              {loyaltyPointsCount <= 0 ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex-1">
+                  {isAr ? 'لا توجد نقاط ولاء متاحة' : 'No Loyalty Points Available'}
+                </p>
+              ) : (
+                <p className="text-2xl font-bold text-slate-900 dark:text-white flex-1">
+                  {loyaltyPointsCount}
+                </p>
+              )}
             </div>
-            {wishlistItems.length === 0 ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {isAr ? 'لا توجد عناصر في قائمة الأمنيات' : 'No Wishlist Items Available'}
-              </p>
-            ) : (
-              <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-300">
-                {wishlistItems.map((w) => (
-                  <li key={w.id}>{isAr ? w.nameAr || w.name : w.name || w.nameAr}</li>
-                ))}
-              </ul>
-            )}
+
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm flex flex-col gap-2 min-h-[7.5rem]">
+              <div className="flex items-center gap-2">
+                <Heart className="w-4 h-4 text-rose-500 shrink-0" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {isAr ? 'قائمة الأمنيات' : 'Wishlist'}
+                </h3>
+              </div>
+              {wishlistItems.length === 0 ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex-1">
+                  {isAr ? 'لا توجد عناصر في قائمة الأمنيات' : 'No Wishlist Items Available'}
+                </p>
+              ) : (
+                <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-300 flex-1">
+                  {wishlistItems.map((w) => (
+                    <li key={w.id}>{isAr ? w.nameAr || w.name : w.name || w.nameAr}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
 
           {/* Messaging Details — Email, SMS, WhatsApp consistent order */}
@@ -1854,7 +1978,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   />
                   <button
                     onClick={handleAddTag}
-                    className="p-1 rounded-lg bg-teal-600 text-white hover:bg-teal-700 cursor-pointer"
+                    className="p-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
                   >
                     <Check className="w-3.5 h-3.5" />
                   </button>
@@ -1993,35 +2117,36 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {assignableGroups.map((g) => (
+                <label
+                  key={g.id}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-teal-400 min-h-[2.5rem]"
+                >
+                  <input
+                    type="checkbox"
+                    checked={groupsDraft.includes(g.name)}
+                    onChange={() => toggleGroupDraft(g.name)}
+                    className="rounded border-slate-300 text-teal-600"
+                  />
+                  <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                    {builtinGroupLabel(g.name, isAr)}
+                  </span>
+                </label>
+              ))}
+            </div>
             {customGroups.length === 0 ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] text-slate-400">
                 {isAr
-                  ? 'لا توجد مجموعات بعد. أنشئ مجموعة من صفحة العملاء أولاً.'
-                  : 'No groups yet. Create a group from the Customers page first.'}
+                  ? 'يمكنك أيضاً إنشاء مجموعات مخصصة من صفحة العملاء.'
+                  : 'You can also create custom groups from the Customers page.'}
               </p>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {customGroups.map((g) => (
-                  <label
-                    key={g.id}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-teal-400"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={groupsDraft.includes(g.name)}
-                      onChange={() => toggleGroupDraft(g.name)}
-                      className="rounded border-slate-300 text-teal-600"
-                    />
-                    <span className="text-xs font-medium text-slate-800 dark:text-slate-200">{g.name}</span>
-                  </label>
-                ))}
-              </div>
-            )}
+            ) : null}
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={handleSaveGroups}
-                className="flex-1 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 cursor-pointer"
+                className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 cursor-pointer"
               >
                 {isAr ? 'حفظ' : 'Save'}
               </button>

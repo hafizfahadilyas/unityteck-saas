@@ -10,6 +10,7 @@ import {
   fetchCartInterceptSettingsApi,
   trackCartInterceptActionApi,
 } from '../../../api/tenantApi';
+import { useActiveSpecialOfferDiscount } from '../../../hooks/useActiveSpecialOfferDiscount';
 
 interface UserInfo {
   name: string;
@@ -371,7 +372,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [wishlist, setWishlist] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem(`mecca_gifts_wishlist_${activeStore?.id || 'store-1'}`);
+      const saved = localStorage.getItem(`mecca_gifts_wishlist_${activeStore?.id || '__no_store__'}`);
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -396,7 +397,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>(() => {
     try {
-      const saved = localStorage.getItem(`mecca_gifts_addresses_${activeStore?.id || 'store-1'}`);
+      const saved = localStorage.getItem(`mecca_gifts_addresses_${activeStore?.id || '__no_store__'}`);
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -404,7 +405,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
   const [savedOccasions, setSavedOccasions] = useState<OccasionReminder[]>(() => {
     try {
-      const saved = localStorage.getItem(`mecca_gifts_occasions_${activeStore?.id || 'store-1'}`);
+      const saved = localStorage.getItem(`mecca_gifts_occasions_${activeStore?.id || '__no_store__'}`);
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -413,19 +414,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   useEffect(() => {
     try {
-      localStorage.setItem(`mecca_gifts_wishlist_${activeStore?.id || 'store-1'}`, JSON.stringify(wishlist));
+      localStorage.setItem(`mecca_gifts_wishlist_${activeStore?.id || '__no_store__'}`, JSON.stringify(wishlist));
     } catch {}
   }, [wishlist, activeStore?.id]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(`mecca_gifts_addresses_${activeStore?.id || 'store-1'}`, JSON.stringify(savedAddresses));
+      localStorage.setItem(`mecca_gifts_addresses_${activeStore?.id || '__no_store__'}`, JSON.stringify(savedAddresses));
     } catch {}
   }, [savedAddresses, activeStore?.id]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(`mecca_gifts_occasions_${activeStore?.id || 'store-1'}`, JSON.stringify(savedOccasions));
+      localStorage.setItem(`mecca_gifts_occasions_${activeStore?.id || '__no_store__'}`, JSON.stringify(savedOccasions));
     } catch {}
   }, [savedOccasions, activeStore?.id]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -482,7 +483,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   useEffect(() => {
     let isMounted = true;
-    const targetStoreId = activeStore?.id || 'store-1';
+    const targetStoreId = activeStore?.id || '__no_store__';
     const loadConfig = async () => {
       try {
         const cfg = await fetchCartInterceptSettingsApi(targetStoreId);
@@ -527,7 +528,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem(`mecca_gifts_cart_${activeStore?.id || 'store-1'}`);
+        const saved = localStorage.getItem(`mecca_gifts_cart_${activeStore?.id || '__no_store__'}`);
         if (saved) return JSON.parse(saved);
       }
     } catch {}
@@ -537,7 +538,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
-        localStorage.setItem(`mecca_gifts_cart_${activeStore?.id || 'store-1'}`, JSON.stringify(cart));
+        localStorage.setItem(`mecca_gifts_cart_${activeStore?.id || '__no_store__'}`, JSON.stringify(cart));
       }
     } catch {}
   }, [cart, activeStore?.id]);
@@ -691,7 +692,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       unitPrice?: number;
     },
   ) => {
-    const storeId = activeStore?.id || 'store-1';
+    const storeId = activeStore?.id || '__no_store__';
     const isFlowersStore =
       storeId === 'store-1' ||
       activeStore?.category?.includes('ورد') ||
@@ -736,7 +737,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const handleCartInterceptPrimary = () => {
-    const storeId = activeStore?.id || 'store-1';
+    const storeId = activeStore?.id || '__no_store__';
     const dismissKey = `mecca_cart_intercept_dismissed_${storeId}`;
     try {
       localStorage.setItem(dismissKey, 'true');
@@ -797,7 +798,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const handleCartInterceptSecondary = () => {
-    const storeId = activeStore?.id || 'store-1';
+    const storeId = activeStore?.id || '__no_store__';
     const dismissKey = `mecca_cart_intercept_dismissed_${storeId}`;
     try {
       localStorage.setItem(dismissKey, 'true');
@@ -824,7 +825,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const handleCartInterceptClose = () => {
-    const storeId = activeStore?.id || 'store-1';
+    const storeId = activeStore?.id || '__no_store__';
     const dismissKey = `mecca_cart_intercept_dismissed_${storeId}`;
     try {
       localStorage.setItem(dismissKey, 'true');
@@ -908,15 +909,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [appliedCoupon, setAppliedCoupon] = useState<CouponItem | null>(null);
 
+  const specialOfferLines = useMemo(
+    () =>
+      cart.map((item) => {
+        const addonsTotal = (item.addons || []).reduce((aSum, a) => aSum + a.price, 0);
+        const unit = item.unitPrice ?? item.product.price;
+        return {
+          productId: item.productId || item.product.id,
+          lineTotal: (unit + addonsTotal) * item.quantity,
+        };
+      }),
+    [cart],
+  );
+  const { discount: specialOfferDiscount } = useActiveSpecialOfferDiscount(
+    activeStore?.id,
+    specialOfferLines,
+  );
+
   const appliedDiscount = useMemo(() => {
-    if (!appliedCoupon) return 0;
-    if (appliedCoupon.status !== 'active') return 0;
-    if (appliedCoupon.minOrderValue && cartSubtotal < appliedCoupon.minOrderValue) return 0;
-    if (appliedCoupon.discountType === 'percentage') {
-      return Math.round(cartSubtotal * (appliedCoupon.discountValue / 100));
+    let couponPart = 0;
+    if (appliedCoupon && appliedCoupon.status === 'active') {
+      if (!(appliedCoupon.minOrderValue && cartSubtotal < appliedCoupon.minOrderValue)) {
+        if (appliedCoupon.discountType === 'percentage') {
+          couponPart = Math.round(cartSubtotal * (appliedCoupon.discountValue / 100));
+        } else {
+          couponPart = Math.min(cartSubtotal, appliedCoupon.discountValue);
+        }
+      }
     }
-    return Math.min(cartSubtotal, appliedCoupon.discountValue);
-  }, [appliedCoupon, cartSubtotal]);
+    return Math.min(cartSubtotal, couponPart + specialOfferDiscount);
+  }, [appliedCoupon, cartSubtotal, specialOfferDiscount]);
 
   const applyCouponCode = (rawCode: string): { success: boolean; message: string; discount: number } => {
     if (!rawCode || !rawCode.trim()) {

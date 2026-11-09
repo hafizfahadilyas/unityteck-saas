@@ -690,7 +690,7 @@ export const StoreMediaLibrary: React.FC = () => {
 
   return (
     <div
-      className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto min-w-0"
+      className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto min-w-0 w-full"
       style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
     >
       {/* ── Hidden file input for Replace ── */}
@@ -726,8 +726,8 @@ export const StoreMediaLibrary: React.FC = () => {
           </div>
           <p className="text-xs sm:text-sm" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? `إدارة مركزية لجميع صور، بانرات، شعار، وفيديوهات متجر${activeStore.nameAr || activeStore.name}مع تحسين تلقائي للسرعة وحماية من الحذف.`
-              : `Centralized media management for ${activeStore.nameEn || activeStore.name} — WebP optimization, Google Drive import, used-by tracking, and zero-stale cache.`}
+              ? 'إدارة مركزية لجميع صور وبانرات وشعار وفيديوهات متجرك، مع تحسين تلقائي للسرعة وحماية من الحذف.'
+              : 'Centralized media management for your store — WebP optimization, Google Drive import, used-by tracking, and zero-stale cache.'}
           </p>
         </div>
 

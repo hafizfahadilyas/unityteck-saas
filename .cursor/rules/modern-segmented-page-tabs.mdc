@@ -1,0 +1,24 @@
+# Modern segmented page tabs (LOCKED)
+
+**Component:** `src/components/common/ModernSegmentedTabs.tsx`
+
+## Rule
+All Master / Store dashboard **page sub-navigation** (section switches, status filters, modal/page tab bars) MUST use **full modern toggle buttons** via `ModernSegmentedTabs`.
+
+## Forbidden
+- Plain text links with only underline / `border-b-2` as the active indicator
+- Flat text-only tab rows without a filled active button surface
+
+## Required look
+- Segmented track: `rounded-2xl` bordered surface (`var(--surface)` / `var(--border)`)
+- Active tab: solid filled button (`accent` prop → portal / blue / emerald / teal / indigo / rose) + white label + soft shadow
+- Inactive: muted text + hover fill — still a button, not bare text
+- Optional icon / count / badge supported by the shared component
+
+## Scope
+- Store Reports, SEO, Shipping, Social, WhatsApp, Coupons preview, Customers, Cart Offers, Backup, Google connect, Bulk import, Master Domains / Database, and **any new page tabs**
+- Do **not** invent a second tab style. Import and reuse `ModernSegmentedTabs`.
+- Invoice print templates / locked coffee storefront chrome / Visual Theme Builder inspector chrome are out of this rule unless they already use dashboard page tabs.
+
+## i18n
+AR chrome = Arabic only; EN = English only. Labels passed into tabs must already be locale-correct.

@@ -2,6 +2,14 @@
  * Design Studio chrome — same Holst / portal tokens as Master + Store dashboard.
  * Accent = --accent (#1d8b94). No purple one-offs.
  */
+/* Prevent editor chrome from forcing horizontal scroll in store main */
+.canva-studio-shell {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .canva-studio-light {
   --cs-bg: var(--surface, #ffffff);
   --cs-panel: var(--bg, #f8fafc);
@@ -281,6 +289,36 @@
   background: var(--cs-accent-soft) !important;
 }
 
+.canva-studio-light .cs-layer-row.cs-layer-dragging {
+  opacity: 0.55;
+  border-style: dashed !important;
+}
+
+.canva-studio-light .cs-layer-grip {
+  cursor: grab;
+}
+
+.canva-studio-light .cs-layer-row:active .cs-layer-grip {
+  cursor: grabbing;
+}
+
+.canva-studio-light .cs-layer-thumb {
+  background-color: var(--cs-panel, #f8fafc);
+}
+
+.canva-studio-light .cs-position-tabs .cs-active,
+.canva-studio-light .cs-layers-filter .cs-active-soft {
+  font-weight: 800;
+}
+
+.canva-studio-light .cs-spacing-popover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12) !important;
+}
+
+.canva-studio-light .cs-arrange-btn:hover {
+  border-color: var(--cs-accent) !important;
+}
+
 /* Force common Tailwind one-offs → Holst accent */
 .canva-studio-light .bg-violet-600,
 .canva-studio-light .bg-purple-600,
@@ -337,4 +375,32 @@
 
 .canva-studio-light .text-emerald-700 {
   color: var(--cs-accent) !important;
+}
+
+/* Mobile: flyout drawer overlay — artboard keeps space */
+@media (max-width: 1023.98px) {
+  .canva-studio-light .cs-flyout-drawer {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 4rem;
+    z-index: 45;
+    max-width: min(20rem, calc(100vw - 4.5rem));
+    box-shadow: 8px 0 32px rgba(15, 23, 42, 0.18);
+    transform: translate3d(-110%, 0, 0);
+    transition: transform 180ms ease;
+  }
+  [dir='rtl'] .canva-studio-light .cs-flyout-drawer {
+    inset-inline-start: auto;
+    inset-inline-end: 4rem;
+    transform: translate3d(110%, 0, 0);
+  }
+  .canva-studio-light .cs-flyout-drawer[data-open='true'] {
+    transform: translate3d(0, 0, 0) !important;
+  }
+  .canva-studio-light .cs-flyout-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(15, 23, 42, 0.35);
+  }
 }

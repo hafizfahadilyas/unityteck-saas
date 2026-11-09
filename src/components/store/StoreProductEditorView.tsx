@@ -1649,7 +1649,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   };
 
   return (
-    <div className="p-4 sm:p-6 pb-16 max-w-[1600px] mx-auto space-y-5">
+    <div className="u-page p-4 sm:p-6 pb-16 max-w-[1600px] mx-auto space-y-5 w-full min-w-0">
       {/* ── HEADER ROW (Pixel-Perfect Matching Mockup 07) ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -2073,7 +2073,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder={isAr ? 'مثال: مكينة قهوة منزلية' : 'e.g. Home espresso machine'}
+                    placeholder={isAr ? 'مثال: اسم المنتج' : 'e.g. Product name'}
                     className="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
@@ -2134,7 +2134,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     ))}
                     <option value="Nike">Nike</option>
                     <option value="Adidas">Adidas</option>
-                    <option value="HiBrew">HiBrew</option>
                   </select>
                 </div>
 

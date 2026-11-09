@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
+import { ModernSegmentedTabs } from '../../common/ModernSegmentedTabs';
 import {
   RotateCcw,
   CheckCircle2,
@@ -282,33 +283,21 @@ export const ReturnsExceptionsView: React.FC = () => {
         </div>
       </div>
 
-      {/* ── 2. Navigation Sub-tabs ── */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto pb-px">
-        {[
-          { key: 'overview', label: isAr ? 'نظرة عامة على المرتجعات' : 'Returns Overview' },
-          { key: 'failed', label: isAr ? 'محاولات التوصيل الفاشلة' : 'Failed Deliveries' },
-          { key: 'requests', label: isAr ? 'طلبات الإرجاع' : 'Return Requests' },
-          { key: 'exceptions', label: isAr ? 'الحالات الخاصة والاستثناءات' : 'Exception Cases' },
-          { key: 'reconciliation', label: isAr ? 'المطابقة والتسوية' : 'Reconciliation' },
-          { key: 'logs', label: isAr ? 'سجل العمليات' : 'Logs' },
-        ].map((tab) => {
-          const isActive = activeSubTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveSubTab(tab.key as any)}
-              className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-all ${
-                isActive
-                  ? 'border-rose-600 text-rose-600 dark:text-rose-400 dark:border-rose-400 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* ── 2. Navigation Sub-tabs — modern segmented toggles ── */}
+      <ModernSegmentedTabs
+        accent="rose"
+        aria-label={isAr ? 'أقسام المرتجعات' : 'Returns sections'}
+        value={activeSubTab}
+        onChange={(key) => setActiveSubTab(key as typeof activeSubTab)}
+        items={[
+          { id: 'overview', label: isAr ? 'نظرة عامة على المرتجعات' : 'Returns Overview' },
+          { id: 'failed', label: isAr ? 'محاولات التوصيل الفاشلة' : 'Failed Deliveries' },
+          { id: 'requests', label: isAr ? 'طلبات الإرجاع' : 'Return Requests' },
+          { id: 'exceptions', label: isAr ? 'الحالات الخاصة والاستثناءات' : 'Exception Cases' },
+          { id: 'reconciliation', label: isAr ? 'المطابقة والتسوية' : 'Reconciliation' },
+          { id: 'logs', label: isAr ? 'سجل العمليات' : 'Logs' },
+        ]}
+      />
 
       {/* ── 3. Five KPI Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">

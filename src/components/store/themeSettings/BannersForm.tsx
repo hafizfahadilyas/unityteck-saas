@@ -10,6 +10,7 @@ import {
   type BannerItem,
 } from '../../../themes/settings/themeSettingsStore';
 import { MediaUploadField } from '../../common/MediaUploadField';
+import { themeSettingsBadge } from '../../../utils/themeSettingsChrome';
 
 export const BannersForm: React.FC = () => {
   const { activeStore } = useTenant();
@@ -74,10 +75,10 @@ export const BannersForm: React.FC = () => {
           </span>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
-              Theme Settings · 11
+              {themeSettingsBadge(11, isAr)}
             </span>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              {isAr ? 'البانرات الترويجية' : 'Banners (Selia)'}
+              {isAr ? 'البانرات الترويجية' : 'Promotional banners'}
             </h2>
             <p className="text-xs text-muted mt-0.5">
               {isAr

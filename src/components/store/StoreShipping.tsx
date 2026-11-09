@@ -570,7 +570,7 @@ export const StoreShipping: React.FC = () => {
   }, [filteredSortedZones, page, pageSize]);
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100">
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
       {/* ── Main Module Navigation — 4 buttons per row ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
         {(

@@ -18,7 +18,7 @@ export const COMMERCE_TERMS = {
   shipping: { en: 'Shipping', ar: 'الشحن' },
   delivery: { en: 'Delivery', ar: 'التوصيل' },
   shippingCompany: { en: 'Shipping Company', ar: 'شركة الشحن' },
-  ownDelivery: { en: 'Local delivery within Makkah city', ar: 'توصيل محلي داخل مدينة مكة' },
+  ownDelivery: { en: 'Local delivery', ar: 'توصيل محلي' },
   deliveryDriver: { en: 'Delivery Driver', ar: 'مندوب التوصيل' },
   assignDriver: { en: 'Assign Driver', ar: 'تعيين مندوب التوصيل' },
   trackingNumber: { en: 'Tracking Number', ar: 'رقم التتبع' },
